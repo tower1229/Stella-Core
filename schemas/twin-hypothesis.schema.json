@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stella.local/schemas/twin-hypothesis.schema.json",
+  "title": "Stella Twin Hypothesis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "status", "statement", "scope", "predicts", "strength", "supportingRefs", "counterRefs", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": {"const": "stella.twin-hypothesis/v1"},
+    "id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["candidate", "active", "weakened", "retired"]},
+    "statement": {"type": "string", "minLength": 1},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "domains": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "contexts": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "roles": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "actors": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "predicts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["interpretation", "preference", "choice", "action", "expression", "state_transition"]}
+    },
+    "strength": {"type": "number", "minimum": 0, "maximum": 1},
+    "supportingRefs": {"type": "array", "items": {"type": "string"}},
+    "counterRefs": {"type": "array", "items": {"type": "string"}},
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "predictions": {"type": "integer", "minimum": 0},
+        "correct": {"type": "integer", "minimum": 0},
+        "incorrect": {"type": "integer", "minimum": 0},
+        "unresolved": {"type": "integer", "minimum": 0}
+      }
+    },
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"},
+    "lastTestedAt": {"type": "string", "format": "date-time"},
+    "supersedes": {"type": "array", "items": {"type": "string"}},
+    "derivedFrom": {"type": "array", "items": {"type": "string"}}
+  }
+}
