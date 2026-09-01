@@ -67,3 +67,23 @@ Do not block Alpha on a comprehensive ontology, full social graph, fine-tuning, 
 ## D-013 — Public/private repository boundary
 
 **Decision:** Stella-Core is safe to remain public. Private personal data stays in CangHai and must not be copied into public fixtures, examples, logs, or documentation.
+
+## D-014 — Active Framework IR is portable
+
+**Decision:** When Framework IR is compiled by a model or another non-bit-deterministic compiler and is activated for real Stella behavior, the exact active IR snapshot must have a portable CangHai representation.
+
+The source remains authoritative for what the owner authored; the active IR records what Stella actually executed.
+
+## D-015 — Pre-outcome prediction is immutable
+
+**Decision:** Once an important Praxis Episode seals a Twin prediction before the outcome is known, later outcome processing may score it but may not rewrite the original prediction.
+
+This is required for meaningful Twin Fidelity evaluation.
+
+## D-016 — Stable IDs are independent of paths
+
+**Decision:** Durable Twin, Framework IR, and Praxis identities must survive file moves. Alpha uses typed stable IDs/references; filesystem paths are storage locations, not identity.
+
+## D-017 — Alpha starts with one vertical domain
+
+**Decision:** The first full Praxis vertical slice is relationship/social praxis because it exercises all four systems and has strong existing cold-start assets. Other domains are added after the loop works.
