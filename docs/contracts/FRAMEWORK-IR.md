@@ -4,13 +4,13 @@
 
 Framework IR converts an owner-authored thinking framework into compact executable cognitive operators usable by the Stella Cortex.
 
-It is a derived artifact. The original CangHai framework source remains canonical.
+The original CangHai framework source remains canonical as the owner's authored thought. The **active compiled IR is a versioned execution snapshot** and must also have a portable representation in CangHai when it can durably influence Stella's behavior.
 
 ## 2. Separation of concerns
 
 ```text
 Framework Source   = what the owner actually believes/wrote
-Framework IR       = Stella's compiled operational interpretation
+Framework IR       = Stella's versioned compiled operational interpretation
 Praxis Note        = what Stella learned while applying it in reality
 ```
 
@@ -33,6 +33,7 @@ interface FrameworkIR {
   compiler: {
     version: string;
     model?: string;
+    promptHash?: string;
   };
 
   cognitiveJobs: string[];
@@ -56,6 +57,7 @@ interface FrameworkIR {
   exampleRefs?: string[];
 
   compiledAt: string;
+  activatedAt?: string;
 }
 
 interface FrameworkOperator {
@@ -91,24 +93,48 @@ failure_modes:
 
 This allows Stella to practice the framework rather than blindly quote it.
 
-## 6. Compilation
+## 6. Compilation and activation
 
-Compilation happens when the canonical source changes, not on every conversation turn.
+Compilation happens when the canonical source changes or when the compiler is intentionally upgraded, not on every conversation turn.
 
 Expected pipeline:
 
 ```text
 CangHai source
 → parse
-→ compile with versioned compiler
+→ compile with versioned compiler/model/prompt
 → validate IR
-→ register
-→ runtime selection
+→ persist compiled snapshot in CangHai
+→ activate exact IR version
+→ register for runtime selection
 ```
 
-The IR is rebuildable and therefore does not have to be a personal-data authority by itself, but CangHai must retain the canonical source required to recreate it.
+Why persist the IR even though it is derived:
 
-## 7. Praxis feedback
+- an LLM compiler may not be bit-for-bit deterministic;
+- a future compiler/model can interpret the same source differently;
+- Stella must be able to explain which operational interpretation affected a past decision;
+- moving to another runtime should not silently change the owner's effective praxis framework.
+
+The source remains the authority for “what the owner said.” The active IR is the authority for “what Stella executed at that time.”
+
+## 7. Suggested CangHai representation
+
+A future framework entity may look like:
+
+```text
+frameworks/<framework-id>/
+├── framework.md
+├── compiled/
+│   ├── <ir-version>.json
+│   └── ...
+└── praxis-notes/
+    └── ...
+```
+
+The exact path is not frozen by this document.
+
+## 8. Praxis feedback
 
 Experience-derived refinements are stored as separate Praxis notes/playbook learning.
 
