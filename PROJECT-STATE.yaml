@@ -1,0 +1,68 @@
+project: Stella Core
+version_target: "3.0 Alpha"
+status: architecture-baseline
+updated_at: "2026-09-01"
+
+mission:
+  single_goal: >-
+    Become the owner's increasingly accurate digital counterpart and
+    high-dimensional self, then improve real-world judgment and action.
+
+repositories:
+  core:
+    repo: tower1229/Stella-Core
+    role: public runtime, contracts, architecture, schemas, evaluation harness
+  personal_data:
+    repo: tower1229/CangHai
+    role: private portable personal data plane
+
+core_systems:
+  - Personal Twin
+  - Framework Compiler
+  - Reality / Social Intelligence
+  - Praxis Loop
+
+runtime_strategy:
+  host: OpenClaw
+  integration: single stella-cortex plugin
+  replace_agent_loop: false
+
+completed:
+  - vision baseline
+  - four-system architecture
+  - CangHai data-plane boundary
+  - OpenClaw integration strategy
+  - Praxis runtime protocol
+  - decision log
+  - Twin Hypothesis logical contract v1 draft
+  - Framework IR logical contract v1 draft
+  - Praxis Episode logical contract v1 draft
+
+frozen_decisions:
+  - one Cortex, not four persistent agents
+  - Praxis is the primary product loop
+  - Personal Twin is evaluated by pre-outcome prediction
+  - long-lived personal learning must have a portable CangHai representation
+  - owner framework source, compiled IR, and praxis learning are separate
+  - no personal fine-tuning required for Alpha
+  - Stella-Core must contain no private CangHai data
+
+next_phase:
+  id: ALPHA-01
+  title: Contract hardening and minimal vertical slice
+  goals:
+    - settle stable ids and reference syntax
+    - settle Praxis Episode update/immutability semantics
+    - settle Twin Hypothesis update algorithm interface
+    - settle Framework compiler/activation interface
+    - create machine-validatable schemas
+    - implement the minimal praxis vertical slice
+
+not_now:
+  - personal fine-tuning
+  - soft prompts or user vectors
+  - full social graph
+  - multi-agent swarm architecture
+  - A2A social twin network
+  - exhaustive CangHai migration
+  - complex autonomy scoring
