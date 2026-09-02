@@ -251,7 +251,15 @@ try {
     !completionRequests[0].body.includes(syntheticCangHaiRevision) ||
     completionRequests[1].body.includes("<stella_core_consciousness")
   ) {
-    throw new Error("real OpenClaw target injection or non-target bypass acceptance failed");
+    throw new Error(
+      `real OpenClaw target injection or non-target bypass acceptance failed: ${JSON.stringify({
+        completionRequestCount: completionRequests.length,
+        targetHasContext: completionRequests[0]?.body.includes("<stella_core_consciousness"),
+        targetHasRevision: completionRequests[0]?.body.includes(syntheticCangHaiRevision),
+        nonTargetHasContext: completionRequests[1]?.body.includes("<stella_core_consciousness"),
+        urls: providerRequests.map((request) => request.url),
+      })}`,
+    );
   }
 
   const installedRoot = path.join(
