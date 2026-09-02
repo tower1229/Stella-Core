@@ -33,6 +33,22 @@ Old sessions and transcripts are optional historical evidence, not a required de
 
 If a runtime-only record becomes necessary to reproduce Stella's learned behavior after a total server loss, that record has been misclassified and must gain a portable CangHai representation.
 
+### 2.1 Source baseline contract
+
+The CangHai repository default branch is transport/repository metadata, **not** semantic authority for an individual Stella instance.
+
+Every bootstrap, migration, compilation, or restore operation that reads owner-specific durable data must:
+
+1. receive an explicit CangHai source ref (branch, tag, or commit) from the instance/operator configuration;
+2. resolve that ref to an immutable commit SHA before deriving managed state;
+3. record the resolved commit as the source baseline for generated Stella-managed artifacts;
+4. pin content-derived inputs strongly enough to detect source drift before reusing a prior derivation (for example, source blob SHAs for Twin hypotheses or Framework IR);
+5. require explicit reconciliation when the selected baseline or pinned source content changes.
+
+A tool must never silently substitute the repository default branch when an instance source ref is missing. Missing source-baseline information is a fail-closed configuration error.
+
+The branch or tag name may describe an operator workflow, but the resolved commit SHA is the coherence boundary used for reproducibility and recovery.
+
 ## 3. What belongs in CangHai
 
 Examples:
@@ -147,6 +163,8 @@ Initial mapping:
 
 Migration should re-role assets before rewriting them. Do not destroy original provenance merely to satisfy a new directory taxonomy.
 
+The mapping is always relative to the explicitly selected source baseline from §2.1. A migration tool may inspect repository metadata for diagnostics, but it must not infer the personal-data baseline from the default branch.
+
 ## 8. Persistence cadence
 
 Durable personal learning should be written promptly to the local CangHai working tree, but Git commits may be batched.
@@ -169,9 +187,10 @@ A release must eventually pass a destructive recovery test:
 1. start from an empty server without old Stella/OpenClaw runtime state;
 2. install a compatible OpenClaw and Stella-Core;
 3. obtain CangHai and required external secrets;
-4. run Stella restore/bootstrap;
-5. rebuild all rebuildable runtime artifacts;
-6. verify identity/persona, active frameworks, Twin hypotheses, Praxis learning, and durable open state;
-7. run a fixed continuity evaluation against the previous deployment.
+4. select an explicit CangHai source ref and resolve it to one immutable recovery commit;
+5. run Stella restore/bootstrap against that exact revision;
+6. rebuild all rebuildable runtime artifacts;
+7. verify identity/persona, active frameworks, Twin hypotheses, Praxis learning, and durable open state;
+8. run a fixed continuity evaluation against the previous deployment.
 
 The test does not require old sessions to be restored.
