@@ -1,0 +1,30 @@
+{
+  "id": "stella-core",
+  "name": "Stella Core",
+  "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["canghaiRoot"],
+    "properties": {
+      "canghaiRoot": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Absolute path to the local CangHai checkout"
+      },
+      "manifestPath": {
+        "type": "string",
+        "default": "50_PersonalAgent/stella/manifest.yaml",
+        "description": "Path to the Stella consciousness manifest relative to CangHai root"
+      },
+      "agentId": {
+        "type": "string",
+        "default": "stella",
+        "description": "OpenClaw agent id that Stella Core should augment"
+      }
+    }
+  }
+}
