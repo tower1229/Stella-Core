@@ -3,8 +3,8 @@
   "version": "0.1.0-alpha.0",
   "description": "Stella 3.0 cognitive runtime plugin for OpenClaw",
   "type": "module",
-  "main": "./dist/plugin.js",
-  "types": "./dist/plugin.d.ts",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
   "files": [
     "dist",
     "openclaw.plugin.json",
@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/tests/**/*.test.js"
+    "test": "node --test dist/tests/*.test.js"
   },
   "dependencies": {
     "typebox": "1.3.16",
@@ -29,7 +29,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./dist/plugin.js"
+      "./dist/src/plugin.js"
     ],
     "compat": {
       "pluginApi": ">=2026.8.1",
