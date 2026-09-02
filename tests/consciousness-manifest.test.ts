@@ -242,3 +242,31 @@ test("rejects a manifest locator that resolves through an escaping symlink", asy
     await rm(outsidePath, { force: true });
   }
 });
+
+test("rejects a tracked symlink whose in-repository target is ignored", async () => {
+  const root = await createFixture();
+  try {
+    const soulPath = path.join(root, "50_PersonalAgent/openclaw/workspace/SOUL.md");
+    const ignoredPath = path.join(root, "ignored-private.md");
+    await writeFile(path.join(root, ".gitignore"), "ignored-private.md\n", "utf8");
+    await writeFile(ignoredPath, "ignored private content", "utf8");
+    await rm(soulPath);
+    await symlink("../../../ignored-private.md", soulPath);
+    const recoveryRevision = await initializeFixtureRepository(root);
+    await assert.rejects(
+      () =>
+        loadConsciousness(root, undefined, {
+          recoveryRevision,
+          coreVersion: "3.0.0-alpha.0",
+          openclawVersion: "2026.8.2",
+        }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_reference_invalid" &&
+        !error.message.includes("ignored private content"),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

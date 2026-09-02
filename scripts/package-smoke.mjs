@@ -30,6 +30,14 @@ try {
   );
   syntheticCangHaiRoot = await createFixture();
   const syntheticCangHaiRevision = await initializeFixtureRepository(syntheticCangHaiRoot);
+  const coreRevision = (await run("git", ["rev-parse", "HEAD"])).stdout.trim();
+  const coreSourceStatus = (await run("git", ["status", "--porcelain"])).stdout.trim();
+  const canghaiSourceStatus = (
+    await run("git", ["-C", syntheticCangHaiRoot, "status", "--porcelain"])
+  ).stdout.trim();
+  if (coreSourceStatus || canghaiSourceStatus) {
+    throw new Error("package acceptance requires clean Core and CangHai sources");
+  }
 
   const packResult = await run("npm", [
     "pack",
@@ -180,11 +188,6 @@ try {
     throw new Error("packed migration-required gate did not fail closed");
   }
 
-  const coreRevision = (await run("git", ["rev-parse", "HEAD"])).stdout.trim();
-  const coreSourceStatus = (await run("git", ["status", "--porcelain"])).stdout.trim();
-  const canghaiSourceStatus = (
-    await run("git", ["-C", syntheticCangHaiRoot, "status", "--porcelain"])
-  ).stdout.trim();
   const receipt = {
     package: `${installedPackage.name}@${installedPackage.version}`,
     packageIntegrity: packEntry.integrity,

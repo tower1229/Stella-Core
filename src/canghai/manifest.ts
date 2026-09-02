@@ -522,14 +522,22 @@ async function validateReference(
       throw new Error("reference resolves outside CangHai root");
     }
     if (requireTracked) {
-      const tracked = await execFileAsync("git", [
-        "-C",
-        root,
-        "ls-files",
-        "--",
+      const canonicalRepositoryPath = relativeCanonicalPath.split(path.sep).join(path.posix.sep);
+      for (const repositoryPath of new Set([
         resolved.relativePath,
-      ]);
-      if (!tracked.stdout.trim()) throw new Error("reference is not present in recovery commit");
+        canonicalRepositoryPath,
+      ])) {
+        const tracked = await execFileAsync("git", [
+          "-C",
+          root,
+          "ls-files",
+          "--",
+          repositoryPath,
+        ]);
+        if (!tracked.stdout.trim()) {
+          throw new Error("reference or symlink target is not present in recovery commit");
+        }
+      }
     }
     return { field, ref, absolutePath: canonicalPath };
   } catch (error) {
