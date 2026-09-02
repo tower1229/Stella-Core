@@ -143,3 +143,15 @@ This makes a CangHai commit the portable Stella recovery point.
 **Decision:** Writing durable cognition to the server-local CangHai working tree is not sufficient protection against total server loss. Durable consciousness changes must reach a remote durable CangHai copy according to an explicit synchronization policy.
 
 Critical behavioral state defaults to immediate synchronization. Ordinary learning may use bounded batching with an explicit RPO. The current RPO must be observable and testable.
+
+## D-025 — Cold-start migration is additive and non-destructive
+
+**Decision:** Stella 1.0 assets are referenced in place first. The 3.0 bootstrap layer adds a manifest, registries, compatibility adapters, and new managed-data roots without requiring wholesale relocation or rewriting of the existing `30_RAG` corpus, Bootstrap files, or skills.
+
+Physical reorganization is optional and happens only when it improves maintainability without losing provenance.
+
+## D-026 — Legacy corpus is evidence; new 3.0 learning gets managed storage
+
+**Decision:** Existing Stella 1.0 corpus remains cold-start evidence. New 3.0 Twin hypotheses, Praxis episodes/playbooks, and active non-deterministic Framework IR artifacts are written to dedicated managed personal-data locations rather than silently modifying legacy model-seed/RAG sources.
+
+This separates historical evidence from continuously learned Stella 3.0 consciousness.
