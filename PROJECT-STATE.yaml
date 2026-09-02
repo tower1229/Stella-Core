@@ -1,7 +1,7 @@
 project: Stella Core
 version_target: "3.0 Alpha"
-status: architecture-baseline
-updated_at: "2026-09-01"
+status: implementation-bootstrap
+updated_at: "2026-09-02"
 
 mission:
   single_goal: >-
@@ -11,10 +11,16 @@ mission:
 repositories:
   core:
     repo: tower1229/Stella-Core
-    role: public runtime, contracts, architecture, schemas, evaluation harness
+    role: public OpenClaw plugin runtime, contracts, architecture, schemas, evaluation harness
   personal_data:
     repo: tower1229/CangHai
-    role: private portable personal data plane
+    role: private portable durable consciousness and personal data plane
+
+recovery_invariant: >-
+  A fresh compatible OpenClaw + Stella Core installation must be able to
+  restore Stella core consciousness from one coherent CangHai revision and
+  required external secrets without importing old OpenClaw sessions or
+  machine-local runtime databases.
 
 core_systems:
   - Personal Twin
@@ -24,39 +30,60 @@ core_systems:
 
 runtime_strategy:
   host: OpenClaw
-  integration: single stella-cortex plugin
+  integration: single stella-core plugin
   replace_agent_loop: false
+  consciousness_manifest: 50_PersonalAgent/stella/manifest.yaml
 
 completed:
   - vision baseline
   - four-system architecture
-  - CangHai data-plane boundary
-  - OpenClaw integration strategy
   - Praxis runtime protocol
-  - decision log
-  - Twin Hypothesis logical contract v1 draft
-  - Framework IR logical contract v1 draft
-  - Praxis Episode logical contract v1 draft
+  - CangHai portable data-plane boundary
+  - consciousness portability invariant
+  - consciousness manifest contract and JSON schema
+  - clean-server restore contract and destructive restore acceptance design
+  - CangHai 1.0 to 3.0 additive cold-start mapping
+  - Framework IR logical contract and JSON schema
+  - Twin Hypothesis logical contract and JSON schema
+  - Praxis Episode logical contract and JSON schema
+  - private CangHai 3.0 bootstrap manifest/registries/runtime profile
+  - first active relationship/social Framework IR persisted in CangHai
+  - first bounded relationship/social Twin hypothesis seeds persisted in CangHai
+  - OpenClaw plugin package scaffold
+  - safe CangHai path reference resolver
+  - consciousness manifest loader and durable-reference existence validation
+  - fail-closed target-agent bootstrap hook skeleton
+  - initial unit-test sources for ref/manifest loading
 
 frozen_decisions:
   - one Cortex, not four persistent agents
   - Praxis is the primary product loop
   - Personal Twin is evaluated by pre-outcome prediction
-  - long-lived personal learning must have a portable CangHai representation
-  - owner framework source, compiled IR, and praxis learning are separate
+  - CangHai carries durable Stella consciousness; Stella Core runtime is replaceable
+  - old OpenClaw sessions are not required for consciousness recovery
+  - one CangHai Git revision is the restore coherence boundary
+  - critical durable cognition must synchronize remotely; normal learning has explicit bounded RPO
+  - owner framework source, compiled IR, and Praxis learning are separate
+  - legacy Stella 1.0 corpus remains cold-start evidence and is not destructively migrated for Alpha
+  - new 3.0 learning uses managed personal-data locations
   - no personal fine-tuning required for Alpha
   - Stella-Core must contain no private CangHai data
 
 next_phase:
-  id: ALPHA-01
-  title: Contract hardening and minimal vertical slice
+  id: ALPHA-02
+  title: First executable Praxis vertical slice
   goals:
-    - settle stable ids and reference syntax
-    - settle Praxis Episode update/immutability semantics
-    - settle Twin Hypothesis update algorithm interface
-    - settle Framework compiler/activation interface
-    - create machine-validatable schemas
-    - implement the minimal praxis vertical slice
+    - complete local/package build validation in an environment with dependencies
+    - implement Turn Router with ordinary/praxis/outcome lanes
+    - implement Situation Builder
+    - implement bounded Twin Context Builder against CangHai registries and legacy evidence
+    - implement Framework Registry/Selector using active IR
+    - implement Reality Need Check
+    - assemble and inject compact Praxis Context Packet
+    - persist a valid pre-outcome Praxis Episode to CangHai
+    - associate a later outcome with an open episode
+    - update at least one Twin hypothesis from prediction error
+    - synchronize durable learning according to CangHai durability policy
 
 not_now:
   - personal fine-tuning
@@ -64,5 +91,5 @@ not_now:
   - full social graph
   - multi-agent swarm architecture
   - A2A social twin network
-  - exhaustive CangHai migration
+  - exhaustive CangHai physical migration
   - complex autonomy scoring
