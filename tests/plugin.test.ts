@@ -92,6 +92,13 @@ test("target agent passes the gate and ordinary turn bypasses Cortex context", a
     );
     const gate = await requireHook(hooks, "before_agent_run")(event, context);
     assert.deepEqual(gate, { outcome: "pass" });
+    const replayedGate = await requireHook(hooks, "before_agent_run")(event, context);
+    assert.ok(
+      typeof replayedGate === "object" &&
+        replayedGate !== null &&
+        "outcome" in replayedGate &&
+        replayedGate.outcome === "block",
+    );
     assert.ok(typeof prompt === "object" && prompt !== null);
     assert.doesNotMatch(JSON.stringify(prompt), /stella_core_(?:consciousness|praxis_context)/);
   } finally {

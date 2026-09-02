@@ -119,8 +119,9 @@ class PreparedTurnStore {
     this.#turns.set(key, { ...turn, preparedAt: Date.now() });
   }
 
-  get(sessionKey: string): PreparedTurn | undefined {
+  take(sessionKey: string): PreparedTurn | undefined {
     const turn = this.#turns.get(sessionKey);
+    this.#turns.delete(sessionKey);
     if (!turn || Date.now() - turn.preparedAt > 60_000) return undefined;
     return turn;
   }
@@ -196,7 +197,7 @@ export default definePluginEntry({
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
 
-        const prepared = preparedTurns.get(preparedTurnKey(ctx.sessionKey));
+        const prepared = preparedTurns.take(preparedTurnKey(ctx.sessionKey));
         if (prepared?.outcome === "ready") return { outcome: "pass" } as const;
         const category = prepared?.category ?? "stella_turn_preparation_unavailable";
         return {
