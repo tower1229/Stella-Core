@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { loadConsciousness } from "../src/canghai/manifest.js";
@@ -175,5 +175,70 @@ test("rejects a declared source blob that does not match recovery content", asyn
     );
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects untracked recovery content even when HEAD matches", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    await writeFile(path.join(root, "untracked-personal-state.md"), "not in recovery commit", "utf8");
+    await assert.rejects(
+      () =>
+        loadConsciousness(root, undefined, {
+          recoveryRevision,
+          coreVersion: "3.0.0-alpha.0",
+          openclawVersion: "2026.8.2",
+        }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_recovery_revision_invalid",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects a repository path reference that resolves through an escaping symlink", async () => {
+  const root = await createFixture();
+  const outsidePath = `${root}-outside.md`;
+  try {
+    const soulPath = path.join(root, "50_PersonalAgent/openclaw/workspace/SOUL.md");
+    await writeFile(outsidePath, "outside private content", "utf8");
+    await rm(soulPath);
+    await symlink(outsidePath, soulPath);
+    await assert.rejects(
+      () => loadConsciousness(root),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_reference_invalid" &&
+        !error.message.includes("outside private content"),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outsidePath, { force: true });
+  }
+});
+
+test("rejects a manifest locator that resolves through an escaping symlink", async () => {
+  const root = await createFixture();
+  const outsidePath = `${root}-manifest.yaml`;
+  try {
+    const manifestPath = path.join(root, "50_PersonalAgent/stella/manifest.yaml");
+    await writeFile(outsidePath, await readFile(manifestPath, "utf8"), "utf8");
+    await rm(manifestPath);
+    await symlink(outsidePath, manifestPath);
+    await assert.rejects(
+      () => loadConsciousness(root),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_manifest_invalid",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outsidePath, { force: true });
   }
 });

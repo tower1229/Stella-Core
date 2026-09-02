@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { satisfies, valid } from "semver";
@@ -511,11 +511,27 @@ async function validateReference(
   root: string,
   field: string,
   ref: string,
+  requireTracked = false,
 ): Promise<ManifestReferenceCheck> {
   try {
     const resolved = resolveCangHaiRef(root, ref);
     await access(resolved.absolutePath);
-    return { field, ref, absolutePath: resolved.absolutePath };
+    const canonicalPath = await realpath(resolved.absolutePath);
+    const relativeCanonicalPath = path.relative(root, canonicalPath);
+    if (relativeCanonicalPath.startsWith("..") || path.isAbsolute(relativeCanonicalPath)) {
+      throw new Error("reference resolves outside CangHai root");
+    }
+    if (requireTracked) {
+      const tracked = await execFileAsync("git", [
+        "-C",
+        root,
+        "ls-files",
+        "--",
+        resolved.relativePath,
+      ]);
+      if (!tracked.stdout.trim()) throw new Error("reference is not present in recovery commit");
+    }
+    return { field, ref, absolutePath: canonicalPath };
   } catch (error) {
     throw new ConsciousnessLoadError(
       CONSCIOUSNESS_FAILURE_CATEGORY.referenceInvalid,
@@ -567,17 +583,55 @@ export async function loadConsciousness(
   manifestPath = DEFAULT_MANIFEST_PATH,
   options?: ConsciousnessLoadOptions,
 ): Promise<LoadedConsciousness> {
-  const root = path.resolve(canghaiRoot);
+  const root = await realpath(path.resolve(canghaiRoot));
   const absoluteManifestPath = path.resolve(root, manifestPath);
   const relativeManifestPath = path.relative(root, absoluteManifestPath);
 
   if (relativeManifestPath.startsWith("..") || path.isAbsolute(relativeManifestPath)) {
     throw new Error("Manifest path escapes CangHai root");
   }
+  let canonicalManifestPath: string;
+  try {
+    canonicalManifestPath = await realpath(absoluteManifestPath);
+  } catch (error) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.manifestInvalid,
+      "Consciousness manifest is unavailable",
+      { cause: error },
+    );
+  }
+  const relativeCanonicalManifestPath = path.relative(root, canonicalManifestPath);
+  if (
+    relativeCanonicalManifestPath.startsWith("..") ||
+    path.isAbsolute(relativeCanonicalManifestPath)
+  ) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.manifestInvalid,
+      "Consciousness manifest resolves outside CangHai root",
+    );
+  }
+  if (options) {
+    try {
+      const trackedManifest = await execFileAsync("git", [
+        "-C",
+        root,
+        "ls-files",
+        "--",
+        relativeManifestPath,
+      ]);
+      if (!trackedManifest.stdout.trim()) throw new Error("manifest is not tracked");
+    } catch (error) {
+      throw new ConsciousnessLoadError(
+        CONSCIOUSNESS_FAILURE_CATEGORY.manifestInvalid,
+        "Consciousness manifest is not present in the selected recovery commit",
+        { cause: error },
+      );
+    }
+  }
 
   let manifest: StellaConsciousnessManifest;
   try {
-    const manifestText = await readFile(absoluteManifestPath, "utf8");
+    const manifestText = await readFile(canonicalManifestPath, "utf8");
     await validateSchema("consciousness-manifest", parseYaml(manifestText) as unknown);
     manifest = parseConsciousnessManifest(manifestText);
   } catch (error) {
@@ -606,7 +660,7 @@ export async function loadConsciousness(
 
   const requiredReferences: ManifestReferenceCheck[] = [];
   for (const [field, ref] of collectReferenceFields(manifest)) {
-    requiredReferences.push(await validateReference(root, field, ref));
+    requiredReferences.push(await validateReference(root, field, ref, options !== undefined));
   }
 
   const checkByField = new Map(requiredReferences.map((check) => [check.field, check]));
@@ -631,7 +685,7 @@ export async function loadConsciousness(
   const twinRegistryText = await readFile(twinRegistryCheck.absolutePath, "utf8");
   const twinRefs = requireRegistryRefs(twinRegistryText, "hypotheses", "ref", "twin.hypotheses");
   for (const nested of twinRefs) {
-    const check = await validateReference(root, nested.field, nested.ref);
+    const check = await validateReference(root, nested.field, nested.ref, options !== undefined);
     const content = await readFile(check.absolutePath, "utf8");
     try {
       const record = parseTwinHypothesisRecord(content);
@@ -670,7 +724,9 @@ export async function loadConsciousness(
     "source_blob_sha",
   );
   for (const nested of frameworkSourceRefs) {
-    requiredReferences.push(await validateReference(root, nested.field, nested.ref));
+    requiredReferences.push(
+      await validateReference(root, nested.field, nested.ref, options !== undefined),
+    );
     if (nested.expectedBlob) {
       await validateBlobPin(root, nested.field, nested.ref, nested.expectedBlob);
     }
@@ -680,7 +736,7 @@ export async function loadConsciousness(
   const activeIrRegistryText = await readFile(activeIrRegistryCheck.absolutePath, "utf8");
   const activeIrRefs = requireRegistryRefs(activeIrRegistryText, "active", "ir_ref", "frameworks.active");
   for (const nested of activeIrRefs) {
-    const check = await validateReference(root, nested.field, nested.ref);
+    const check = await validateReference(root, nested.field, nested.ref, options !== undefined);
     const content = await readFile(check.absolutePath, "utf8");
     try {
       const record = parseYaml(content) as unknown;
@@ -719,7 +775,9 @@ export async function loadConsciousness(
     "source_blob_sha",
   );
   for (const nested of activeSourceRefs) {
-    requiredReferences.push(await validateReference(root, nested.field, nested.ref));
+    requiredReferences.push(
+      await validateReference(root, nested.field, nested.ref, options !== undefined),
+    );
     if (nested.expectedBlob) {
       await validateBlobPin(root, nested.field, nested.ref, nested.expectedBlob);
     }
@@ -727,7 +785,7 @@ export async function loadConsciousness(
 
   return {
     canghaiRoot: root,
-    manifestPath: absoluteManifestPath,
+    manifestPath: canonicalManifestPath,
     manifest,
     requiredReferences,
     bootstrapDocuments,
@@ -756,7 +814,6 @@ async function validateActivationGate(
       root,
       "status",
       "--porcelain",
-      "--untracked-files=no",
     ]);
     currentRevision = revisionResult.stdout.trim();
     sourceStatus = statusResult.stdout.trim();

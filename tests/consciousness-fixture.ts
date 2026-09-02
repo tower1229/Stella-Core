@@ -22,6 +22,7 @@ export async function createFixture(): Promise<string> {
   }
 
   await mkdir(path.join(root, "30_PersonalData/praxis/episodes"), { recursive: true });
+  await writeFile(path.join(root, "30_PersonalData/praxis/episodes/.gitkeep"), "", "utf8");
   await mkdir(path.join(root, "50_PersonalAgent/stella"), { recursive: true });
   await mkdir(path.join(root, "50_PersonalAgent/stella/twin"), { recursive: true });
   await mkdir(path.join(root, "50_PersonalAgent/stella/frameworks"), { recursive: true });
