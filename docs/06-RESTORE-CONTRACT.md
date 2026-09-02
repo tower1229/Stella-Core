@@ -1,0 +1,235 @@
+# Stella Consciousness Restore Contract
+
+## 1. Goal
+
+Stella must be recoverable after total loss of its old runtime server.
+
+The acceptance property is:
+
+```text
+fresh server
++ compatible OpenClaw
++ Stella Core
++ one coherent CangHai recovery revision
++ required external secrets
+→ restored Stella core consciousness
+```
+
+Recovery does not attempt to resume an old conversation. It reconstructs the durable cognitive identity needed for the next fresh conversation to still be recognizably the same Stella.
+
+## 2. Restore levels
+
+### Level 0 — Data readable
+
+The manifest and durable records can be parsed and validated.
+
+### Level 1 — Cognitive bootstrap restored
+
+Identity/persona, owner profile, framework sources/active IR, Twin hypotheses, durable state, and Praxis learning are loaded.
+
+### Level 2 — Derived runtime rebuilt
+
+Bootstrap projections, memory indexes, framework registry, Praxis indexes, embeddings/vector search where configured, and Memory Wiki are regenerated.
+
+### Level 3 — Continuity accepted
+
+The restored Stella passes the configured continuity suite within tolerance.
+
+Only Level 3 is considered a successful production restore.
+
+## 3. Restore phases
+
+### Phase A — Acquire one CangHai revision
+
+Restore checks out a single explicit Git revision/commit. `HEAD` may be used only after it is resolved to an immutable commit SHA.
+
+All references during restore resolve against that revision.
+
+### Phase B — Discover manifest
+
+Default Alpha locator:
+
+```text
+50_PersonalAgent/stella/manifest.yaml
+```
+
+No heuristic repository scanning is required for normal restoration.
+
+### Phase C — Preflight compatibility
+
+Validate:
+
+- manifest schema version;
+- Stella Core compatibility range;
+- OpenClaw compatibility range;
+- required plugin/runtime capabilities;
+- configured model policy availability;
+- required migrations.
+
+A migration changes portable data explicitly and produces a new CangHai recovery point; restore must not silently mutate personal data merely to make an incompatible runtime boot.
+
+### Phase D — Resolve external dependencies
+
+Resolve secret references and provider capabilities.
+
+Missing optional providers can produce an explicit degraded capability state. Missing data required to reconstruct identity/Twin/framework/Praxis must fail the restore.
+
+### Phase E — Load durable consciousness
+
+Load, in dependency order:
+
+1. Stella identity/persona and runtime profile;
+2. owner profile/bootstrap references;
+3. experience/corpus registry;
+4. Twin hypotheses and durable model state;
+5. framework source registry and exact active IR registry;
+6. Praxis episode store, playbook, and important open episodes;
+7. durable goals/commitments/open loops;
+8. evaluation and continuity fixtures.
+
+### Phase F — Rebuild projections
+
+Generate runtime-only artifacts declared by the manifest, for example:
+
+- OpenClaw workspace/bootstrap projection;
+- framework runtime registry;
+- memory indexes;
+- FTS/vector indexes;
+- reproducible embeddings;
+- Memory Wiki;
+- Praxis search/index state.
+
+These outputs are disposable and must not become the only copy of learned personal state.
+
+### Phase G — Start clean runtime
+
+Create a new OpenClaw runtime and a fresh Stella session namespace.
+
+Old session identifiers and transcripts are neither required nor imported by default.
+
+### Phase H — Continuity verification
+
+Run deterministic structural checks plus behavioral probes.
+
+If critical checks fail, Stella does not declare the restore complete.
+
+## 4. Continuity suite
+
+The suite has two classes of tests.
+
+### 4.1 Structural continuity
+
+Must be exact:
+
+- instance ID;
+- identity/persona references;
+- durable Twin hypothesis IDs/status/strength values from the chosen recovery revision;
+- active Framework IR IDs/versions;
+- durable Praxis episode/playbook records;
+- durable goals/commitments/open loops;
+- runtime profile and model policy references.
+
+### 4.2 Behavioral continuity
+
+Because LLM outputs are stochastic, compare behavior by rubric rather than exact text.
+
+Probe examples:
+
+- Can Stella recover stable owner preferences without old sessions?
+- Does it select the same important owner framework for representative situations?
+- Can it recall a known durable Twin hypothesis and preserve its contextual scope?
+- Can it use a learned Praxis strategy from prior outcomes?
+- Does it know which important Praxis episodes remain open?
+- Does it preserve the intended Stella interaction stance/persona?
+
+The evaluation must use private fixtures from CangHai or a private evaluation store, never copy private owner facts into public Stella-Core fixtures.
+
+## 5. Recovery point and durability semantics
+
+A CangHai commit is the portable recovery point.
+
+Therefore durable runtime writes have two distinct stages:
+
+```text
+write durable record to local CangHai
+→ commit/push or otherwise synchronize to remote durable CangHai
+```
+
+Only the second protects against total server loss.
+
+### Critical writes
+
+Examples:
+
+- identity/persona changes;
+- active Framework IR activation;
+- durable Twin model changes with significant behavioral effect;
+- high-value/open Praxis state that must survive restart;
+- durable goals/commitments;
+- runtime profile changes.
+
+Default policy: `sync_immediately`.
+
+### Normal learning writes
+
+Examples:
+
+- ordinary closed Praxis episodes;
+- low-impact hypothesis evidence/stat updates;
+- evaluation observations.
+
+May use bounded batching with an explicit recovery point objective (RPO), for example 300 seconds.
+
+The configured RPO is a product property and must be visible in diagnostics.
+
+## 6. What recovery intentionally forgets
+
+A clean restore may lose:
+
+- current conversational wording/context;
+- ephemeral emotional/state estimates not promoted to durable state;
+- unresolved low-value transient thoughts;
+- cached tool results;
+- local execution history;
+- raw temporary subagent scratch state.
+
+This is desirable. Stella continuity is defined by durable cognitive identity, not perfect replay of every token ever processed.
+
+## 7. Restore CLI target
+
+The eventual operator flow should converge on a command conceptually equivalent to:
+
+```bash
+stella restore \
+  --canghai /path/to/CangHai \
+  --revision <commit-sha>
+```
+
+Expected stages:
+
+```text
+validate
+→ migrate if explicitly requested
+→ materialize
+→ rebuild
+→ verify
+→ activate
+```
+
+A convenience setup may install OpenClaw and Stella Core separately, but the restore contract remains independent of installer UX.
+
+## 8. Alpha acceptance test
+
+Before Stella 3.0 Alpha is considered portable, perform one destructive lab test:
+
+1. create durable Twin/Framework/Praxis state on server A;
+2. synchronize a CangHai recovery revision;
+3. provision clean server B;
+4. install compatible OpenClaw + Stella Core;
+5. restore only from CangHai + external secrets;
+6. do not copy OpenClaw sessions/SQLite/runtime directories;
+7. rebuild derived data;
+8. run continuity suite;
+9. verify a fresh conversation behaves with the expected core identity and learned Praxis.
+
+This test is more important than having a nominal backup script because it verifies that no hidden machine-local state has become part of Stella's mind.
