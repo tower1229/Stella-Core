@@ -41,9 +41,13 @@ Only Level 3 is considered a successful production restore.
 
 ### Phase A — Acquire one CangHai revision
 
-Restore checks out a single explicit Git revision/commit. `HEAD` may be used only after it is resolved to an immutable commit SHA.
+Restore starts from an explicitly supplied CangHai source ref and resolves it to a single immutable Git commit. A branch or tag may be supplied for operator convenience, but all subsequent restore references resolve against the resulting commit SHA.
 
-All references during restore resolve against that revision.
+The repository default branch must never be selected implicitly as the instance's personal-data baseline. If no source ref is configured or supplied, restore fails closed rather than substituting the repository default branch.
+
+`HEAD` may be accepted only when it is an explicit operator input and is immediately resolved to an immutable commit SHA; it is not a semantic alias for “latest valid Stella data.”
+
+If the manifest records a source baseline, the selected recovery revision and all required source-content pins must be reconciled against it before activation.
 
 ### Phase B — Discover manifest
 
@@ -64,7 +68,8 @@ Validate:
 - OpenClaw compatibility range;
 - required plugin/runtime capabilities;
 - configured model policy availability;
-- required migrations.
+- required migrations;
+- source-baseline identity and content pins required by the manifest/registries.
 
 A migration changes portable data explicitly and produces a new CangHai recovery point; restore must not silently mutate personal data merely to make an incompatible runtime boot.
 
@@ -121,6 +126,8 @@ The suite has two classes of tests.
 
 Must be exact:
 
+- selected CangHai source baseline / immutable recovery commit;
+- pinned content identities for derived durable artifacts where required;
 - instance ID;
 - identity/persona references;
 - durable Twin hypothesis IDs/status/strength values from the chosen recovery revision;
@@ -202,13 +209,16 @@ The eventual operator flow should converge on a command conceptually equivalent 
 ```bash
 stella restore \
   --canghai /path/to/CangHai \
-  --revision <commit-sha>
+  --revision <branch|tag|commit>
 ```
+
+The supplied revision is resolved once to an immutable commit before validation/materialization begins. Omitting `--revision` must not cause an implicit fallback to the repository default branch.
 
 Expected stages:
 
 ```text
-validate
+resolve revision
+→ validate
 → migrate if explicitly requested
 → materialize
 → rebuild
@@ -226,7 +236,7 @@ Before Stella 3.0 Alpha is considered portable, perform one destructive lab test
 2. synchronize a CangHai recovery revision;
 3. provision clean server B;
 4. install compatible OpenClaw + Stella Core;
-5. restore only from CangHai + external secrets;
+5. restore only from CangHai + external secrets using an explicit revision;
 6. do not copy OpenClaw sessions/SQLite/runtime directories;
 7. rebuild derived data;
 8. run continuity suite;
