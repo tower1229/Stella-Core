@@ -87,3 +87,37 @@ This is required for meaningful Twin Fidelity evaluation.
 ## D-017 — Alpha starts with one vertical domain
 
 **Decision:** The first full Praxis vertical slice is relationship/social praxis because it exercises all four systems and has strong existing cold-start assets. Other domains are added after the loop works.
+
+## D-018 — Stella-Core is disposable runtime; CangHai carries durable consciousness
+
+**Decision:** Stella-Core implements cognition, but does not own the instance's durable personal consciousness. CangHai must contain the portable owner-specific data and configuration required to reconstruct the same learned Stella on another compatible runtime host.
+
+The system-level recovery equation is:
+
+```text
+compatible OpenClaw
++ Stella-Core
++ CangHai data/config
++ required external secrets
+→ restored Stella core consciousness
+```
+
+A total loss of the old OpenClaw/Stella runtime server must not destroy durable owner-specific learning.
+
+## D-019 — Session recovery is not required for consciousness recovery
+
+**Decision:** Old sessions, raw session continuity, compaction state, prompt caches, and machine-local OpenClaw databases are not required for Stella recovery.
+
+If a fact, hypothesis, relationship model, open Praxis episode, learned strategy, goal, commitment, or other state is important enough that Stella should still know or act on it after a clean redeploy, it must be persisted independently of the session layer.
+
+## D-020 — Durable cognitive state includes configuration
+
+**Decision:** CangHai persists not only personal content but also the owner-specific Stella configuration that determines cognitive behavior: identity/persona, active framework selection/representation, portable runtime profile, and other non-secret configuration needed for reconstruction.
+
+Secrets should be referenced through external secret mechanisms rather than embedded in ordinary CangHai configuration when possible.
+
+## D-021 — Recovery is an acceptance property
+
+**Decision:** Portability is not considered complete merely because data is nominally stored in CangHai. Stella must eventually pass a destructive restore test from a fresh server using Stella-Core + compatible OpenClaw + CangHai, without importing old sessions.
+
+Continuity should be evaluated by whether the restored instance retains the same durable identity, frameworks, Twin understanding, learned Praxis, and important open state within defined tolerances.
