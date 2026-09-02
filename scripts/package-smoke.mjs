@@ -500,11 +500,15 @@ try {
   }
 
   const activeHooks = registerHooks(syntheticCangHaiRoot, syntheticCangHaiRevision);
+  const beforeModelResolve = activeHooks.get("before_model_resolve");
   const beforeAgentRun = activeHooks.get("before_agent_run");
   const beforePromptBuild = activeHooks.get("before_prompt_build");
-  if (!beforeAgentRun || !beforePromptBuild) throw new Error("packed plugin hooks were not registered");
+  if (!beforeModelResolve || !beforeAgentRun || !beforePromptBuild) {
+    throw new Error("packed plugin hooks were not registered");
+  }
   const ordinaryEvent = { prompt: "TypeScript 的 satisfies 是什么？", messages: [] };
   const ordinaryContext = { agentId: "stella", runId: "packed-ordinary-run" };
+  await beforeModelResolve(ordinaryEvent, ordinaryContext);
   const targetGate = await beforeAgentRun(ordinaryEvent, ordinaryContext);
   const ordinaryTargetPrompt = await beforePromptBuild(
     ordinaryEvent,
@@ -512,6 +516,7 @@ try {
   );
   const praxisEvent = { prompt: "她没回我消息，我要不要再发一条？", messages: [] };
   const praxisContext = { agentId: "stella", runId: "packed-praxis-run" };
+  await beforeModelResolve(praxisEvent, praxisContext);
   const praxisGate = await beforeAgentRun(praxisEvent, praxisContext);
   const praxisTargetPrompt = await beforePromptBuild(
     praxisEvent,
@@ -541,6 +546,10 @@ try {
   );
   const blockedRevision = await initializeFixtureRepository(blockedCangHaiRoot);
   const blockedHooks = registerHooks(blockedCangHaiRoot, blockedRevision);
+  await blockedHooks.get("before_model_resolve")(
+    { prompt: "Stella Core migration gate smoke", messages: [] },
+    { agentId: "stella", runId: "packed-blocked-run" },
+  );
   const blockedGate = await blockedHooks.get("before_agent_run")(
     { prompt: "Stella Core migration gate smoke", messages: [] },
     { agentId: "stella", runId: "packed-blocked-run" },

@@ -12,7 +12,7 @@ import {
   listFrameworkOperatorCandidates,
   renderPraxisContextPacket,
 } from "./praxis/packet.js";
-import { createSemanticRouter } from "./routing/semantic-router.js";
+import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
 import { routeTurn } from "./routing/router.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
@@ -99,17 +99,28 @@ class ConsciousnessLoader {
   }
 }
 
-type PreparedTurn = {
+type ReadyTurn = {
+  outcome: "ready";
   prompt: string;
   prependSystemContext: string;
   appendContext?: string;
   preparedAt: number;
 };
 
+type BlockedTurn = {
+  outcome: "blocked";
+  prompt: string;
+  category: string;
+  message: string;
+  preparedAt: number;
+};
+
+type PreparedTurn = ReadyTurn | BlockedTurn;
+
 class PreparedTurnStore {
   readonly #turns = new Map<string, PreparedTurn>();
 
-  put(runId: string, turn: Omit<PreparedTurn, "preparedAt">): void {
+  put(runId: string, turn: Omit<ReadyTurn, "preparedAt"> | Omit<BlockedTurn, "preparedAt">): void {
     if (this.#turns.size >= 128) {
       const oldest = [...this.#turns.entries()].sort(
         (left, right) => left[1].preparedAt - right[1].preparedAt,
@@ -142,27 +153,11 @@ export default definePluginEntry({
     );
 
     api.on(
-      "before_prompt_build",
+      "before_model_resolve",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
-        if (!ctx.runId) throw new Error("Stella prepared turn requires a Host run id");
-        const prepared = preparedTurns.get(ctx.runId, event.prompt);
-        if (!prepared) throw new Error("Stella prepared turn is unavailable");
-        return {
-          prependSystemContext: prepared.prependSystemContext,
-          ...(prepared.appendContext ? { appendContext: prepared.appendContext } : {}),
-        };
-      },
-      { priority: 100, timeoutMs: 15_000 },
-    );
-
-    api.on(
-      "before_agent_run",
-      async (event, ctx) => {
-        if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
-
+        if (!ctx.runId) throw new Error("Stella turn preparation requires a Host run id");
         try {
-          if (!ctx.runId) throw new Error("Stella admission requires a Host run id");
           const loaded = await consciousness.load();
           const route = await routeTurn(
             event.prompt,
@@ -176,22 +171,63 @@ export default definePluginEntry({
                 ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))
                 : renderConsciousnessContext(loaded);
           preparedTurns.put(ctx.runId, {
+            outcome: "ready",
             prompt: event.prompt,
             prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
             ...(appendContext ? { appendContext } : {}),
           });
-          return { outcome: "pass" } as const;
         } catch (error) {
-          if (!(error instanceof ConsciousnessLoadError)) throw error;
-          const category = error.category;
-          return {
-            outcome: "block",
-            reason: `Stella turn admission failed (${category})`,
-            message:
-              "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。",
-            category,
-          } as const;
+          const consciousnessFailure = error instanceof ConsciousnessLoadError;
+          const semanticFailure = error instanceof SemanticRoutingError;
+          preparedTurns.put(ctx.runId, {
+            outcome: "blocked",
+            prompt: event.prompt,
+            category: consciousnessFailure
+              ? error.category
+              : semanticFailure
+                ? error.category
+                : "stella_turn_preparation_failed",
+            message: consciousnessFailure
+              ? "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。"
+              : semanticFailure
+                ? "Stella Core 无法可靠完成本轮语义路由，因此已停止本轮请求。请检查模型配置或稍后重试。"
+                : "Stella Core 无法可靠准备本轮请求，因此已停止执行。",
+          });
         }
+      },
+      { priority: 1_000, timeoutMs: 15_000 },
+    );
+
+    api.on(
+      "before_prompt_build",
+      async (event, ctx) => {
+        if (ctx.agentId !== config.agentId) return;
+        if (!ctx.runId) throw new Error("Stella prepared turn requires a Host run id");
+        const prepared = preparedTurns.get(ctx.runId, event.prompt);
+        if (!prepared || prepared.outcome !== "ready") {
+          throw new Error("Stella prepared turn is unavailable");
+        }
+        return {
+          prependSystemContext: prepared.prependSystemContext,
+          ...(prepared.appendContext ? { appendContext: prepared.appendContext } : {}),
+        };
+      },
+      { priority: 100, timeoutMs: 15_000 },
+    );
+
+    api.on(
+      "before_agent_run",
+      async (event, ctx) => {
+        if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
+        const prepared = ctx.runId ? preparedTurns.get(ctx.runId, event.prompt) : undefined;
+        if (prepared?.outcome === "ready") return { outcome: "pass" } as const;
+        const category = prepared?.category ?? "stella_turn_preparation_unavailable";
+        return {
+          outcome: "block",
+          reason: `Stella turn admission failed (${category})`,
+          message: prepared?.message ?? "Stella Core 未能可靠准备本轮请求，因此已停止执行。",
+          category,
+        } as const;
       },
       { priority: 1_000, timeoutMs: 15_000 },
     );
