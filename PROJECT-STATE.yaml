@@ -43,6 +43,7 @@ completed:
   - consciousness manifest contract and JSON schema
   - clean-server restore contract and destructive restore acceptance design
   - CangHai 1.0 to 3.0 additive cold-start mapping
+  - explicit CangHai source-baseline pinning contract for bootstrap, migration, and restore
   - Framework IR logical contract and JSON schema
   - Twin Hypothesis logical contract and JSON schema
   - Praxis Episode logical contract and JSON schema
@@ -62,6 +63,8 @@ frozen_decisions:
   - CangHai carries durable Stella consciousness; Stella Core runtime is replaceable
   - old OpenClaw sessions are not required for consciousness recovery
   - one CangHai Git revision is the restore coherence boundary
+  - CangHai bootstrap, migration, and restore must start from an explicit source ref resolved to an immutable commit; repository default branch must never be inferred as the personal-data baseline
+  - content-derived managed artifacts must pin source identity strongly enough to detect source drift before reuse
   - critical durable cognition must synchronize remotely; normal learning has explicit bounded RPO
   - owner framework source, compiled IR, and Praxis learning are separate
   - legacy Stella 1.0 corpus remains cold-start evidence and is not destructively migrated for Alpha
