@@ -68,6 +68,12 @@ interface StellaConsciousnessManifest {
     corpusRegistryRef: string;
   };
 
+  extensions?: {
+    skillRegistryRef?: string;
+    capabilityPolicyRef?: string;
+    customToolRegistryRef?: string;
+  };
+
   durableState?: {
     goalsRef?: string;
     commitmentsRef?: string;
@@ -112,7 +118,8 @@ A datum belongs behind the manifest when losing it during a clean redeploy would
 - understands or predicts the owner;
 - applies the owner's frameworks;
 - uses learned personalized praxis;
-- continues important durable goals, commitments, relationship models, or open real-world episodes.
+- continues important durable goals, commitments, relationship models, or open real-world episodes;
+- behaves because of owner-specific skills, capability policies, or custom tool configuration that are not already part of the portable Stella Core release.
 
 This includes learned model state even when it was inferred automatically rather than manually confirmed.
 
@@ -142,13 +149,26 @@ Examples include:
 - future personalized adapters/checkpoints;
 - learned policy parameters that cannot be deterministically regenerated.
 
-## 7. Secrets
+## 7. Portable behavior assets
+
+Owner-specific skills and capability policy need a portable reference when they are not shipped as part of Stella Core itself.
+
+This distinction is deliberate:
+
+```text
+Stella-Core built-in behavior = code/release artifact
+owner-specific behavior       = CangHai portable asset
+```
+
+During the Stella 1.0 → 3.0 transition, existing CangHai skills may be restored through the `extensions` registry even if some later move into generic Stella Core modules.
+
+## 8. Secrets
 
 The manifest records only logical secret references.
 
 Secret values remain in an external secret system or are re-provisioned during restore. Absence of an optional secret may degrade capabilities but must not corrupt personal cognitive data.
 
-## 8. Git revision as coherence boundary
+## 9. Git revision as coherence boundary
 
 A committed CangHai Git revision is a coherent portable recovery point.
 
@@ -156,7 +176,7 @@ Restore resolves the manifest and all referenced durable data from one chosen re
 
 Runtime writes that are intended to survive total server loss therefore need eventual remote synchronization, not merely a local filesystem write.
 
-## 9. Validation
+## 10. Validation
 
 Before activation, restoration validates:
 
@@ -164,6 +184,7 @@ Before activation, restoration validates:
 2. every required reference exists;
 3. referenced records pass their own schemas where applicable;
 4. active Framework IR references are resolvable;
-5. compatibility constraints are satisfied or an explicit migration is available;
-6. required external secrets/capabilities are either available or explicitly marked degraded;
-7. the continuity suite can run.
+5. portable behavior assets are resolvable when declared;
+6. compatibility constraints are satisfied or an explicit migration is available;
+7. required external secrets/capabilities are either available or explicitly marked degraded;
+8. the continuity suite can run.
