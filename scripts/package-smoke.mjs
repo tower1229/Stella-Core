@@ -452,7 +452,16 @@ try {
     !blockedRoutingTurn.includes("Stella Core 无法可靠完成本轮语义路由") ||
     completionCountAfterRoutingFailure !== completionCountBeforeRoutingFailure + 1
   ) {
-    throw new Error("semantic routing failure did not fail closed before the answer model");
+    throw new Error(
+      `semantic routing failure did not fail closed before the answer model: ${JSON.stringify({
+        completionCountBeforeRoutingFailure,
+        completionCountAfterRoutingFailure,
+        exposedBlockMessage: blockedRoutingTurn.includes(
+          "Stella Core 无法可靠完成本轮语义路由",
+        ),
+        blockedRoutingTurn: blockedRoutingTurn.slice(0, 2_000),
+      })}`,
+    );
   }
 
   const installedRoot = path.join(
