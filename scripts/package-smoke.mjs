@@ -172,6 +172,9 @@ try {
       );
       return;
     }
+    const responseContent = body.includes("<stella_core_praxis_context")
+      ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
+      : "smoke-ok";
     response.end(
       JSON.stringify({
         id: "chatcmpl-stella-core-smoke",
@@ -181,7 +184,7 @@ try {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: "smoke-ok" },
+            message: { role: "assistant", content: responseContent },
             finish_reason: "stop",
           },
         ],
@@ -305,37 +308,57 @@ try {
     gatewayProcess = undefined;
   }
   await startGateway();
-  for (const agentId of ["stella", "ordinary"]) {
-    await run(
+  const exactHostTurns = [
+    {
+      agentId: "stella",
+      message: "TypeScript 的 satisfies 是什么？",
+    },
+    {
+      agentId: "stella",
+      message: "她两天没回我消息，我觉得她可能在疏远我。我想知道要不要再发一条，又不想给她压力。",
+    },
+    {
+      agentId: "ordinary",
+      message: "Stella Core non-target smoke",
+    },
+  ];
+  const exactHostResults = [];
+  for (const turn of exactHostTurns) {
+    exactHostResults.push(await run(
       openclawBin,
       [
         "agent",
         "--agent",
-        agentId,
+        turn.agentId,
         "--message",
-        "Stella Core exact-host smoke",
+        turn.message,
         "--json",
         "--timeout",
         "30",
       ],
       { cwd: consumerRoot, env: isolatedEnv },
-    );
+    ));
   }
   const completionRequests = providerRequests.filter((request) =>
     request.url?.endsWith("/chat/completions"),
   );
   if (
-    completionRequests.length !== 2 ||
-    !completionRequests[0].body.includes("<stella_core_consciousness") ||
-    !completionRequests[0].body.includes(syntheticCangHaiRevision) ||
-    completionRequests[1].body.includes("<stella_core_consciousness")
+    completionRequests.length !== 3 ||
+    completionRequests[0].body.includes("<stella_core_praxis_context") ||
+    !completionRequests[1].body.includes("<stella_core_praxis_context") ||
+    !completionRequests[1].body.includes("#operator:reversible_test") ||
+    completionRequests[2].body.includes("<stella_core_praxis_context") ||
+    !exactHostResults[1]?.stdout.includes("低压消息") ||
+    !exactHostResults[1]?.stdout.includes("不替你发送")
   ) {
     throw new Error(
       `real OpenClaw target injection or non-target bypass acceptance failed: ${JSON.stringify({
         completionRequestCount: completionRequests.length,
-        targetHasContext: completionRequests[0]?.body.includes("<stella_core_consciousness"),
-        targetHasRevision: completionRequests[0]?.body.includes(syntheticCangHaiRevision),
-        nonTargetHasContext: completionRequests[1]?.body.includes("<stella_core_consciousness"),
+        ordinaryTargetBypassed: !completionRequests[0]?.body.includes("<stella_core_praxis_context"),
+        praxisTargetInjected: completionRequests[1]?.body.includes("<stella_core_praxis_context"),
+        praxisOperatorTrace: completionRequests[1]?.body.includes("#operator:reversible_test"),
+        nonTargetBypassed: !completionRequests[2]?.body.includes("<stella_core_praxis_context"),
+        praxisAnswer: exactHostResults[1]?.stdout,
         urls: providerRequests.map((request) => request.url),
       })}`,
     );
@@ -358,7 +381,10 @@ try {
     const hooks = new Map();
     installedPlugin.default.register({
       pluginConfig: { canghaiRoot, recoveryRevision, agentId: "stella" },
-      runtime: { version: exactOpenClawVersion },
+      runtime: {
+        version: exactOpenClawVersion,
+        llm: { complete: async () => { throw new Error("unexpected model fallback"); } },
+      },
       on(name, handler) {
         hooks.set(name, handler);
       },
@@ -371,13 +397,25 @@ try {
   const beforePromptBuild = activeHooks.get("before_prompt_build");
   if (!beforeAgentRun || !beforePromptBuild) throw new Error("packed plugin hooks were not registered");
   const targetGate = await beforeAgentRun({}, { agentId: "stella" });
-  const targetPrompt = await beforePromptBuild({}, { agentId: "stella" });
+  const ordinaryTargetPrompt = await beforePromptBuild(
+    { prompt: "TypeScript 的 satisfies 是什么？", messages: [] },
+    { agentId: "stella" },
+  );
+  const praxisTargetPrompt = await beforePromptBuild(
+    { prompt: "她没回我消息，我要不要再发一条？", messages: [] },
+    { agentId: "stella" },
+  );
   const nonTargetGate = await beforeAgentRun({}, { agentId: "ordinary" });
-  const nonTargetPrompt = await beforePromptBuild({}, { agentId: "ordinary" });
+  const nonTargetPrompt = await beforePromptBuild(
+    { prompt: "她没回我消息，我要不要再发一条？", messages: [] },
+    { agentId: "ordinary" },
+  );
   if (
     targetGate?.outcome !== "pass" ||
-    typeof targetPrompt?.appendContext !== "string" ||
-    !targetPrompt.appendContext.includes(syntheticCangHaiRevision) ||
+    ordinaryTargetPrompt?.appendContext !== undefined ||
+    typeof praxisTargetPrompt?.appendContext !== "string" ||
+    !praxisTargetPrompt.appendContext.includes("<stella_core_praxis_context") ||
+    !praxisTargetPrompt.appendContext.includes("#operator:reversible_test") ||
     nonTargetGate?.outcome !== "pass" ||
     nonTargetPrompt !== undefined
   ) {
@@ -449,7 +487,11 @@ try {
     canghaiSourceClean: canghaiSourceStatus.length === 0,
     isolatedState: true,
     runtimeLoaded: true,
-    targetAgentInjected: true,
+    ordinaryTargetBypassed: true,
+    praxisTargetInjected: true,
+    praxisOperatorTrace: true,
+    praxisConcreteNextAction: true,
+    praxisOwnerBoundary: true,
     nonTargetAgentBypassed: true,
     migrationRequiredBlocked: true,
     exactHostAgentTurns: true,

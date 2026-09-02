@@ -20,6 +20,11 @@ export async function createFixture(): Promise<string> {
     await mkdir(path.dirname(absolute), { recursive: true });
     await writeFile(absolute, "fixture: true\n", "utf8");
   }
+  await writeFile(
+    path.join(root, "30_PersonalData/praxis/playbook/registry.yaml"),
+    "schema_version: stella.praxis-playbook-registry/v1alpha\nitems: []\n",
+    "utf8",
+  );
 
   await mkdir(path.join(root, "30_PersonalData/praxis/episodes"), { recursive: true });
   await writeFile(path.join(root, "30_PersonalData/praxis/episodes/.gitkeep"), "", "utf8");
@@ -48,7 +53,7 @@ schema_version: stella.twin-hypothesis/v1
 id: twin_fixture
 status: active
 scope:
-  domains: [testing]
+  domains: [relationship, testing]
 predicts: [action]
 strength: 0.75
 supporting_refs: []
@@ -84,12 +89,17 @@ source:
   contentHash: "11111111"
 compiler:
   version: fixture/v1
-cognitiveJobs: [test]
+cognitiveJobs: [relationship, uncertainty]
+domainHints: [relationship]
 detection:
-  positiveSignals: [test]
+  positiveSignals: [消息, 回复, 压力]
 operators:
   - id: reversible_test
-    purpose: Test a reversible action
+    purpose: Design one low-pressure reversible action
+  - id: observation_test
+    purpose: Separate the observation from an identity-level interpretation
+  - id: unrelated_test
+    purpose: Optimize a generic unrelated workflow
 failureModes: []
 compiledAt: "2026-09-02T00:00:00Z"
 `,

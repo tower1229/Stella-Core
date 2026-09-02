@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
 import plugin from "../src/plugin.js";
 import {
@@ -11,7 +12,13 @@ import {
 type HookContext = { agentId?: string };
 type HookHandler = (event: unknown, context: HookContext) => unknown | Promise<unknown>;
 
-function registerPlugin(root: string, recoveryRevision: string): Map<string, HookHandler> {
+function registerPlugin(
+  root: string,
+  recoveryRevision: string,
+  complete: (params: unknown) => Promise<{ text: string }> = async () => {
+    throw new Error("unexpected model fallback");
+  },
+): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
     pluginConfig: {
@@ -19,7 +26,7 @@ function registerPlugin(root: string, recoveryRevision: string): Map<string, Hoo
       recoveryRevision,
       agentId: "stella",
     },
-    runtime: { version: "2026.8.2" },
+    runtime: { version: "2026.8.2", llm: { complete } },
     on(name: string, handler: HookHandler) {
       hooks.set(name, handler);
     },
@@ -34,7 +41,7 @@ function requireHook(hooks: Map<string, HookHandler>, name: string): HookHandler
   return hook;
 }
 
-test("target agent passes the gate and receives bounded consciousness context", async () => {
+test("target agent passes the gate and ordinary turn bypasses Cortex context", async () => {
   const root = await createFixture();
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
@@ -42,10 +49,12 @@ test("target agent passes the gate and receives bounded consciousness context", 
     const gate = await requireHook(hooks, "before_agent_run")({}, { agentId: "stella" });
     assert.deepEqual(gate, { outcome: "pass" });
 
-    const prompt = await requireHook(hooks, "before_prompt_build")({}, { agentId: "stella" });
+    const prompt = await requireHook(hooks, "before_prompt_build")(
+      { prompt: "TypeScript 的 satisfies 是什么？", messages: [] },
+      { agentId: "stella" },
+    );
     assert.ok(typeof prompt === "object" && prompt !== null);
-    assert.match(JSON.stringify(prompt), new RegExp(recoveryRevision));
-    assert.ok(JSON.stringify(prompt).length <= 33_000);
+    assert.doesNotMatch(JSON.stringify(prompt), /stella_core_(?:consciousness|praxis_context)/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -56,9 +65,66 @@ test("non-target agent bypasses consciousness loading and injection", async () =
   try {
     const hooks = registerPlugin(root, "1".repeat(40));
     const gate = await requireHook(hooks, "before_agent_run")({}, { agentId: "ordinary" });
-    const prompt = await requireHook(hooks, "before_prompt_build")({}, { agentId: "ordinary" });
+    const prompt = await requireHook(hooks, "before_prompt_build")(
+      { prompt: "她没回我，我要不要再发一条？", messages: [] },
+      { agentId: "ordinary" },
+    );
     assert.deepEqual(gate, { outcome: "pass" });
     assert.equal(prompt, undefined);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("relationship decision receives a bounded traceable Praxis packet", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    const hooks = registerPlugin(root, recoveryRevision);
+    const prompt = await requireHook(hooks, "before_prompt_build")(
+      {
+        prompt: "她两天没回我消息，我觉得她可能在疏远我。我想知道要不要再发一条，又不想给她压力。",
+        messages: [],
+      },
+      { agentId: "stella" },
+    );
+
+    const rendered = JSON.stringify(prompt);
+    assert.match(rendered, /stella_core_praxis_context/);
+    assert.match(rendered, /#operator:reversible_test/);
+    assert.match(rendered, /path:30_PersonalData\/twin\/hypotheses\/twin_fixture\.md/);
+    assert.doesNotMatch(rendered, /stella_core_consciousness/);
+    assert.ok(rendered.length <= 13_000);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("ambiguous target turn uses the public model fallback", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    let fallbackCalls = 0;
+    const hooks = registerPlugin(root, recoveryRevision, async () => {
+      fallbackCalls += 1;
+      return {
+        text: JSON.stringify({
+          mode: "twin",
+          domains: ["personal"],
+          needsTwin: true,
+          needsFramework: false,
+          needsReality: false,
+          needsExternalResearch: false,
+        }),
+      };
+    });
+    const prompt = await requireHook(hooks, "before_prompt_build")(
+      { prompt: "这件事让我有点在意。", messages: [] },
+      { agentId: "stella" },
+    );
+
+    assert.equal(fallbackCalls, 1);
+    assert.match(JSON.stringify(prompt), /stella_core_consciousness/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -75,6 +141,29 @@ test("target agent receives the stable migration failure category", async () => 
     const gate = await requireHook(hooks, "before_agent_run")({}, { agentId: "stella" });
     assert.ok(typeof gate === "object" && gate !== null && "category" in gate);
     assert.equal(gate.category, "stella_migration_required");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("consciousness failure output does not expose private source lines", async () => {
+  const root = await createFixture();
+  try {
+    await writeFile(
+      path.join(root, "30_PersonalData/praxis/playbook/registry.yaml"),
+      "items:\n private-secret-source-line",
+      "utf8",
+    );
+    const recoveryRevision = await initializeFixtureRepository(root);
+    const hooks = registerPlugin(root, recoveryRevision);
+    const gate = await requireHook(hooks, "before_agent_run")(
+      { prompt: "我要不要回复她？", messages: [] },
+      { agentId: "stella" },
+    );
+
+    assert.ok(typeof gate === "object" && gate !== null && "category" in gate);
+    assert.equal(gate.category, "stella_record_invalid");
+    assert.doesNotMatch(JSON.stringify(gate), /private-secret-source-line/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

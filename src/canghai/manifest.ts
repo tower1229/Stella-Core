@@ -1,13 +1,15 @@
 import { execFile } from "node:child_process";
-import { access, readFile, realpath } from "node:fs/promises";
+import { access, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { satisfies, valid } from "semver";
 import { parse as parseYaml } from "yaml";
 import { resolveCangHaiRef } from "./ref.js";
 import { parseTwinHypothesisRecord, validateSchema } from "./schema.js";
+import { isRecord } from "../shared/type-guards.js";
 
 export const DEFAULT_MANIFEST_PATH = "50_PersonalAgent/stella/manifest.yaml";
+export const MAX_CANGHAI_DOCUMENT_BYTES = 256_000;
 const execFileAsync = promisify(execFile);
 
 export const CONSCIOUSNESS_FAILURE_CATEGORY = {
@@ -138,8 +140,26 @@ export type LoadedConsciousness = {
   manifest: StellaConsciousnessManifest;
   requiredReferences: ManifestReferenceCheck[];
   bootstrapDocuments: ConsciousnessBootstrapDocument[];
+  praxisPlaybookItems: PraxisPlaybookItem[];
   recoveryRevision?: string;
 };
+
+export type PraxisPlaybookItem = {
+  ref: string;
+  domains: string[];
+  content: string;
+};
+
+async function readBoundedDocument(filePath: string): Promise<string> {
+  const details = await stat(filePath);
+  if (!details.isFile()) throw new Error("CangHai document reference must resolve to a file");
+  if (details.size > MAX_CANGHAI_DOCUMENT_BYTES) {
+    throw new Error(
+      `CangHai document exceeds the hard limit of ${MAX_CANGHAI_DOCUMENT_BYTES} bytes`,
+    );
+  }
+  return readFile(filePath, "utf8");
+}
 
 export type ConsciousnessBootstrapDocument = {
   category: "identity" | "twin" | "framework";
@@ -147,10 +167,6 @@ export type ConsciousnessBootstrapDocument = {
   ref: string;
   content: string;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function requireRecord(parent: Record<string, unknown>, key: string): Record<string, unknown> {
   const value = parent[key];
@@ -557,7 +573,7 @@ async function readBootstrapDocument(
     category,
     field: check.field,
     ref: check.ref,
-    content: await readFile(check.absolutePath, "utf8"),
+    content: await readBoundedDocument(check.absolutePath),
   };
 }
 
@@ -639,7 +655,7 @@ export async function loadConsciousness(
 
   let manifest: StellaConsciousnessManifest;
   try {
-    const manifestText = await readFile(canonicalManifestPath, "utf8");
+    const manifestText = await readBoundedDocument(canonicalManifestPath);
     await validateSchema("consciousness-manifest", parseYaml(manifestText) as unknown);
     manifest = parseConsciousnessManifest(manifestText);
   } catch (error) {
@@ -690,12 +706,13 @@ export async function loadConsciousness(
   }
 
   const twinRegistryCheck = requireCheck("twin.hypothesisRegistryRef");
-  const twinRegistryText = await readFile(twinRegistryCheck.absolutePath, "utf8");
+  const twinRegistryText = await readBoundedDocument(twinRegistryCheck.absolutePath);
   const twinRefs = requireRegistryRefs(twinRegistryText, "hypotheses", "ref", "twin.hypotheses");
   for (const nested of twinRefs) {
     const check = await validateReference(root, nested.field, nested.ref, options !== undefined);
-    const content = await readFile(check.absolutePath, "utf8");
+    let content: string;
     try {
+      content = await readBoundedDocument(check.absolutePath);
       const record = parseTwinHypothesisRecord(content);
       await validateSchema("twin-hypothesis", record);
       if (isRecord(record.sourceSnapshot)) {
@@ -723,7 +740,7 @@ export async function loadConsciousness(
   }
 
   const frameworkSourceRegistryCheck = requireCheck("frameworks.sourceRegistryRef");
-  const frameworkSourceRegistryText = await readFile(frameworkSourceRegistryCheck.absolutePath, "utf8");
+  const frameworkSourceRegistryText = await readBoundedDocument(frameworkSourceRegistryCheck.absolutePath);
   const frameworkSourceRefs = requireRegistryRefs(
     frameworkSourceRegistryText,
     "sources",
@@ -741,12 +758,13 @@ export async function loadConsciousness(
   }
 
   const activeIrRegistryCheck = requireCheck("frameworks.activeIrRegistryRef");
-  const activeIrRegistryText = await readFile(activeIrRegistryCheck.absolutePath, "utf8");
+  const activeIrRegistryText = await readBoundedDocument(activeIrRegistryCheck.absolutePath);
   const activeIrRefs = requireRegistryRefs(activeIrRegistryText, "active", "ir_ref", "frameworks.active");
   for (const nested of activeIrRefs) {
     const check = await validateReference(root, nested.field, nested.ref, options !== undefined);
-    const content = await readFile(check.absolutePath, "utf8");
+    let content: string;
     try {
+      content = await readBoundedDocument(check.absolutePath);
       const record = parseYaml(content) as unknown;
       await validateSchema("framework-ir", record);
       if (isRecord(record) && isRecord(record.source)) {
@@ -791,12 +809,48 @@ export async function loadConsciousness(
     }
   }
 
+  const praxisPlaybookItems: PraxisPlaybookItem[] = [];
+  const playbookRegistryCheck = checkByField.get("praxis.playbookRegistryRef");
+  if (playbookRegistryCheck) {
+    try {
+      const playbook = parseYaml(
+        await readBoundedDocument(playbookRegistryCheck.absolutePath),
+      ) as unknown;
+      if (!isRecord(playbook) || !Array.isArray(playbook.items)) {
+        throw new Error("Praxis playbook registry field items must be an array");
+      }
+      for (const [index, item] of playbook.items.entries()) {
+        if (!isRecord(item)) {
+          throw new Error(`Praxis playbook registry item ${index} must be an object`);
+        }
+        const ref = requireString(item, "ref", `praxis.playbook.items[${index}].ref`);
+        const domains = optionalStringArray(item, "domains") ?? [];
+        const check = await validateReference(
+          root,
+          `praxis.playbook.items[${index}].ref`,
+          ref,
+          options !== undefined,
+        );
+        const content = await readBoundedDocument(check.absolutePath);
+        requiredReferences.push(check);
+        praxisPlaybookItems.push({ ref, domains, content });
+      }
+    } catch (error) {
+      throw new ConsciousnessLoadError(
+        CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid,
+        `Praxis playbook registry is invalid: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
   return {
     canghaiRoot: root,
     manifestPath: canonicalManifestPath,
     manifest,
     requiredReferences,
     bootstrapDocuments,
+    praxisPlaybookItems,
     ...(options ? { recoveryRevision: options.recoveryRevision } : {}),
   };
 }

@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { loadConsciousness } from "../src/canghai/manifest.js";
+import {
+  loadConsciousness,
+  MAX_CANGHAI_DOCUMENT_BYTES,
+} from "../src/canghai/manifest.js";
 import {
   createFixture,
   initializeFixtureRepository,
@@ -51,6 +54,27 @@ test("fails when a nested Twin record is missing", async () => {
         error instanceof Error &&
         "category" in error &&
         error.category === "stella_reference_invalid",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects a CangHai record above the per-document hard limit", async () => {
+  const root = await createFixture();
+  try {
+    await writeFile(
+      path.join(root, "30_PersonalData/twin/hypotheses/twin_fixture.md"),
+      "x".repeat(MAX_CANGHAI_DOCUMENT_BYTES + 1),
+      "utf8",
+    );
+    await assert.rejects(
+      () => loadConsciousness(root),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_record_invalid" &&
+        error.message.includes("hard limit"),
     );
   } finally {
     await rm(root, { recursive: true, force: true });
