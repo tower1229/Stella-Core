@@ -247,6 +247,7 @@ try {
     );
   }
   const gatewayPort = await reserveLoopbackPort();
+  const gatewayToken = "stella-core-package-smoke-gateway-token";
   await run(
     openclawBin,
     ["config", "set", "gateway.mode", "local"],
@@ -257,9 +258,19 @@ try {
     ["config", "set", "gateway.port", String(gatewayPort), "--strict-json"],
     { cwd: consumerRoot, env: isolatedEnv },
   );
+  await run(
+    openclawBin,
+    ["config", "set", "gateway.auth.mode", "token"],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
+  await run(
+    openclawBin,
+    ["config", "set", "gateway.auth.token", gatewayToken],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
   gatewayProcess = spawn(
     openclawBin,
-    ["gateway", "run", "--port", String(gatewayPort), "--auth", "none"],
+    ["gateway", "run", "--port", String(gatewayPort)],
     { cwd: consumerRoot, env: isolatedEnv, stdio: ["ignore", "pipe", "pipe"] },
   );
   let gatewayOutput = "";
