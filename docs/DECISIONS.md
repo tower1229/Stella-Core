@@ -121,3 +121,25 @@ Secrets should be referenced through external secret mechanisms rather than embe
 **Decision:** Portability is not considered complete merely because data is nominally stored in CangHai. Stella must eventually pass a destructive restore test from a fresh server using Stella-Core + compatible OpenClaw + CangHai, without importing old sessions.
 
 Continuity should be evaluated by whether the restored instance retains the same durable identity, frameworks, Twin understanding, learned Praxis, and important open state within defined tolerances.
+
+## D-022 — Consciousness manifest has a deterministic bootstrap location
+
+**Decision:** Alpha discovers one Stella instance through:
+
+```text
+50_PersonalAgent/stella/manifest.yaml
+```
+
+Restore must not depend on heuristic repository search. The manifest path is only a bootstrap locator; durable record identities remain path-independent.
+
+## D-023 — One CangHai Git revision is the recovery coherence boundary
+
+**Decision:** A restore resolves the manifest and all durable references from one explicit CangHai Git commit. It must not silently combine owner state from multiple revisions.
+
+This makes a CangHai commit the portable Stella recovery point.
+
+## D-024 — Remote synchronization defines crash durability
+
+**Decision:** Writing durable cognition to the server-local CangHai working tree is not sufficient protection against total server loss. Durable consciousness changes must reach a remote durable CangHai copy according to an explicit synchronization policy.
+
+Critical behavioral state defaults to immediate synchronization. Ordinary learning may use bounded batching with an explicit RPO. The current RPO must be observable and testable.
