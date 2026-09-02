@@ -29,6 +29,20 @@
     "strength": {"type": "number", "minimum": 0, "maximum": 1},
     "supportingRefs": {"type": "array", "items": {"type": "string"}},
     "counterRefs": {"type": "array", "items": {"type": "string"}},
+    "sourceBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "branch": {"type": "string", "minLength": 1},
+        "commit": {"type": "string", "pattern": "^[0-9a-fA-F]{40}$"}
+      }
+    },
+    "sourceSnapshot": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-fA-F]{40}$"}
+    },
     "stats": {
       "type": "object",
       "additionalProperties": false,

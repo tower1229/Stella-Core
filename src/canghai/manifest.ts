@@ -1,12 +1,56 @@
+import { execFile } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
+import { satisfies, valid } from "semver";
 import { parse as parseYaml } from "yaml";
 import { resolveCangHaiRef } from "./ref.js";
+import { parseTwinHypothesisRecord, validateSchema } from "./schema.js";
 
 export const DEFAULT_MANIFEST_PATH = "50_PersonalAgent/stella/manifest.yaml";
+const execFileAsync = promisify(execFile);
+
+export const CONSCIOUSNESS_FAILURE_CATEGORY = {
+  activationDegraded: "stella_activation_degraded",
+  coreIncompatible: "stella_core_incompatible",
+  hostIncompatible: "stella_host_incompatible",
+  manifestInvalid: "stella_manifest_invalid",
+  migrationRequired: "stella_migration_required",
+  recordInvalid: "stella_record_invalid",
+  recoveryRevisionInvalid: "stella_recovery_revision_invalid",
+  referenceInvalid: "stella_reference_invalid",
+} as const;
+
+export type ConsciousnessFailureCategory =
+  (typeof CONSCIOUSNESS_FAILURE_CATEGORY)[keyof typeof CONSCIOUSNESS_FAILURE_CATEGORY];
+
+export class ConsciousnessLoadError extends Error {
+  constructor(
+    readonly category: ConsciousnessFailureCategory,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "ConsciousnessLoadError";
+  }
+}
+
+export type ConsciousnessLoadOptions = {
+  recoveryRevision: string;
+  coreVersion: string;
+  openclawVersion: string;
+};
 
 export type StellaConsciousnessManifest = {
   schemaVersion: "stella.consciousness-manifest/v1";
+  sourceBaseline: {
+    repository: string;
+    branch?: string;
+    ref?: string;
+    commit: string;
+    capturedAt?: string;
+    validationPolicy?: "exact_commit" | "exact_commit_and_pinned_source_blobs";
+  };
   instance: {
     id: string;
     ownerRef: string;
@@ -22,6 +66,7 @@ export type StellaConsciousnessManifest = {
     identityRef?: string;
     userProfileRef?: string;
     runtimeProfileRef: string;
+    projectionOnlyRefs?: string[];
   };
   twin: {
     hypothesisRegistryRef: string;
@@ -66,6 +111,19 @@ export type StellaConsciousnessManifest = {
     normalWritePolicy?: "sync_immediately" | "bounded_batch";
     maxNormalRpoSeconds?: number;
   };
+  runtimeState: {
+    activationStatus: "active" | "migration_required" | "degraded";
+    observedOpenClawConfigVersion?: string;
+    observedOpenClawConfigBlobSha?: string;
+    requiredOpenClawVersion?: string;
+    runtimeProfileRef?: string;
+  };
+  authority?: {
+    currentExplicitUserStatementPrecedence?: boolean;
+    derivedRuntimeMayWriteAuthority?: boolean;
+    sourceUsagePolicyRequiredBeforeDerivation?: boolean;
+  };
+  notes?: string[];
 };
 
 export type ManifestReferenceCheck = {
@@ -79,6 +137,15 @@ export type LoadedConsciousness = {
   manifestPath: string;
   manifest: StellaConsciousnessManifest;
   requiredReferences: ManifestReferenceCheck[];
+  bootstrapDocuments: ConsciousnessBootstrapDocument[];
+  recoveryRevision?: string;
+};
+
+export type ConsciousnessBootstrapDocument = {
+  category: "identity" | "twin" | "framework";
+  field: string;
+  ref: string;
+  content: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -128,6 +195,42 @@ function optionalStringArray(parent: Record<string, unknown>, key: string): stri
   return value as string[];
 }
 
+function optionalBoolean(parent: Record<string, unknown>, key: string): boolean | undefined {
+  const value = parent[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    throw new Error(`Manifest field ${key} must be a boolean when present`);
+  }
+  return value;
+}
+
+function optionalStringEnum<T extends string>(
+  parent: Record<string, unknown>,
+  key: string,
+  values: readonly T[],
+  fieldPath = key,
+): T | undefined {
+  const value = parent[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !values.includes(value as T)) {
+    throw new Error(`Manifest field ${fieldPath} has an unsupported value`);
+  }
+  return value as T;
+}
+
+function requireStringEnum<T extends string>(
+  parent: Record<string, unknown>,
+  key: string,
+  values: readonly T[],
+  fieldPath = key,
+): T {
+  const value = optionalStringEnum(parent, key, values, fieldPath);
+  if (value === undefined) {
+    throw new Error(`Manifest field ${fieldPath} is required`);
+  }
+  return value;
+}
+
 export function parseConsciousnessManifest(input: string): StellaConsciousnessManifest {
   const parsed = parseYaml(input) as unknown;
   if (!isRecord(parsed)) {
@@ -139,6 +242,7 @@ export function parseConsciousnessManifest(input: string): StellaConsciousnessMa
     throw new Error(`Unsupported consciousness manifest schema: ${schemaVersion}`);
   }
 
+  const sourceBaseline = requireRecord(parsed, "sourceBaseline");
   const instance = requireRecord(parsed, "instance");
   const compatibility = requireRecord(parsed, "compatibility");
   const identity = requireRecord(parsed, "identity");
@@ -158,9 +262,38 @@ export function parseConsciousnessManifest(input: string): StellaConsciousnessMa
   const evaluation = optionalRecord(parsed, "evaluation");
   const secrets = optionalRecord(parsed, "secrets");
   const durability = optionalRecord(parsed, "durability");
+  const runtimeState = requireRecord(parsed, "runtimeState");
+  const authority = optionalRecord(parsed, "authority");
+  const sourceValidationPolicy = optionalStringEnum(
+    sourceBaseline,
+    "validationPolicy",
+    ["exact_commit", "exact_commit_and_pinned_source_blobs"] as const,
+    "sourceBaseline.validationPolicy",
+  );
+  const runtimeActivationStatus = requireStringEnum(
+    runtimeState,
+    "activationStatus",
+    ["active", "migration_required", "degraded"] as const,
+    "runtimeState.activationStatus",
+  );
+  const notes = optionalStringArray(parsed, "notes");
 
   const manifest: StellaConsciousnessManifest = {
     schemaVersion: "stella.consciousness-manifest/v1",
+    sourceBaseline: {
+      repository: requireString(sourceBaseline, "repository", "sourceBaseline.repository"),
+      commit: requireString(sourceBaseline, "commit", "sourceBaseline.commit"),
+      ...(optionalString(sourceBaseline, "branch", "sourceBaseline.branch")
+        ? { branch: optionalString(sourceBaseline, "branch", "sourceBaseline.branch") }
+        : {}),
+      ...(optionalString(sourceBaseline, "ref", "sourceBaseline.ref")
+        ? { ref: optionalString(sourceBaseline, "ref", "sourceBaseline.ref") }
+        : {}),
+      ...(optionalString(sourceBaseline, "capturedAt", "sourceBaseline.capturedAt")
+        ? { capturedAt: optionalString(sourceBaseline, "capturedAt", "sourceBaseline.capturedAt") }
+        : {}),
+      ...(sourceValidationPolicy ? { validationPolicy: sourceValidationPolicy } : {}),
+    },
     instance: {
       id: requireString(instance, "id", "instance.id"),
       ownerRef: requireString(instance, "ownerRef", "instance.ownerRef"),
@@ -183,6 +316,9 @@ export function parseConsciousnessManifest(input: string): StellaConsciousnessMa
         : {}),
       ...(optionalString(identity, "userProfileRef", "identity.userProfileRef")
         ? { userProfileRef: optionalString(identity, "userProfileRef", "identity.userProfileRef") }
+        : {}),
+      ...(optionalStringArray(identity, "projectionOnlyRefs")
+        ? { projectionOnlyRefs: optionalStringArray(identity, "projectionOnlyRefs") }
         : {}),
     },
     twin: {
@@ -272,6 +408,37 @@ export function parseConsciousnessManifest(input: string): StellaConsciousnessMa
           },
         }
       : {}),
+    runtimeState: {
+      activationStatus: runtimeActivationStatus,
+            ...(optionalString(runtimeState, "observedOpenClawConfigVersion", "runtimeState.observedOpenClawConfigVersion")
+              ? { observedOpenClawConfigVersion: optionalString(runtimeState, "observedOpenClawConfigVersion", "runtimeState.observedOpenClawConfigVersion") }
+              : {}),
+            ...(optionalString(runtimeState, "observedOpenClawConfigBlobSha", "runtimeState.observedOpenClawConfigBlobSha")
+              ? { observedOpenClawConfigBlobSha: optionalString(runtimeState, "observedOpenClawConfigBlobSha", "runtimeState.observedOpenClawConfigBlobSha") }
+              : {}),
+            ...(optionalString(runtimeState, "requiredOpenClawVersion", "runtimeState.requiredOpenClawVersion")
+              ? { requiredOpenClawVersion: optionalString(runtimeState, "requiredOpenClawVersion", "runtimeState.requiredOpenClawVersion") }
+              : {}),
+            ...(optionalString(runtimeState, "runtimeProfileRef", "runtimeState.runtimeProfileRef")
+              ? { runtimeProfileRef: optionalString(runtimeState, "runtimeProfileRef", "runtimeState.runtimeProfileRef") }
+              : {}),
+    },
+    ...(authority
+      ? {
+          authority: {
+            ...(optionalBoolean(authority, "currentExplicitUserStatementPrecedence") !== undefined
+              ? { currentExplicitUserStatementPrecedence: optionalBoolean(authority, "currentExplicitUserStatementPrecedence") }
+              : {}),
+            ...(optionalBoolean(authority, "derivedRuntimeMayWriteAuthority") !== undefined
+              ? { derivedRuntimeMayWriteAuthority: optionalBoolean(authority, "derivedRuntimeMayWriteAuthority") }
+              : {}),
+            ...(optionalBoolean(authority, "sourceUsagePolicyRequiredBeforeDerivation") !== undefined
+              ? { sourceUsagePolicyRequiredBeforeDerivation: optionalBoolean(authority, "sourceUsagePolicyRequiredBeforeDerivation") }
+              : {}),
+          },
+        }
+      : {}),
+    ...(notes ? { notes } : {}),
   };
 
   return manifest;
@@ -285,6 +452,10 @@ function collectReferenceFields(manifest: StellaConsciousnessManifest): Array<[s
     ["identity.identityRef", manifest.identity.identityRef],
     ["identity.userProfileRef", manifest.identity.userProfileRef],
     ["identity.runtimeProfileRef", manifest.identity.runtimeProfileRef],
+    ...(manifest.identity.projectionOnlyRefs ?? []).map((ref, index) => [
+      `identity.projectionOnlyRefs[${index}]`,
+      ref,
+    ] as [string, string]),
     ["twin.hypothesisRegistryRef", manifest.twin.hypothesisRegistryRef],
     ["twin.contextualSelfRegistryRef", manifest.twin.contextualSelfRegistryRef],
     ["twin.durableStateRef", manifest.twin.durableStateRef],
@@ -303,14 +474,68 @@ function collectReferenceFields(manifest: StellaConsciousnessManifest): Array<[s
     ["evaluation.continuitySuiteRef", manifest.evaluation?.continuitySuiteRef],
     ["evaluation.twinEvaluationRef", manifest.evaluation?.twinEvaluationRef],
     ["evaluation.praxisEvaluationRef", manifest.evaluation?.praxisEvaluationRef],
+    ["runtimeState.runtimeProfileRef", manifest.runtimeState.runtimeProfileRef],
   ];
 
   return refs.filter((entry): entry is [string, string] => typeof entry[1] === "string");
 }
 
+function requireRegistryRefs(
+  input: string,
+  collectionKey: string,
+  refKey: string,
+  fieldPrefix: string,
+): Array<{ field: string; ref: string }> {
+  const parsed = parseYaml(input) as unknown;
+  if (!isRecord(parsed) || !Array.isArray(parsed[collectionKey])) {
+    throw new Error(`Registry field ${collectionKey} must be an array`);
+  }
+
+  return parsed[collectionKey].map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new Error(`Registry field ${collectionKey}[${index}] must be an object`);
+    }
+    return {
+      field: `${fieldPrefix}[${index}].${refKey}`,
+      ref: requireString(entry, refKey, `${fieldPrefix}[${index}].${refKey}`),
+    };
+  });
+}
+
+async function validateReference(
+  root: string,
+  field: string,
+  ref: string,
+): Promise<ManifestReferenceCheck> {
+  try {
+    const resolved = resolveCangHaiRef(root, ref);
+    await access(resolved.absolutePath);
+    return { field, ref, absolutePath: resolved.absolutePath };
+  } catch (error) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.referenceInvalid,
+      `Required CangHai reference ${field} is unavailable or invalid`,
+      { cause: error },
+    );
+  }
+}
+
+async function readBootstrapDocument(
+  check: ManifestReferenceCheck,
+  category: ConsciousnessBootstrapDocument["category"],
+): Promise<ConsciousnessBootstrapDocument> {
+  return {
+    category,
+    field: check.field,
+    ref: check.ref,
+    content: await readFile(check.absolutePath, "utf8"),
+  };
+}
+
 export async function loadConsciousness(
   canghaiRoot: string,
   manifestPath = DEFAULT_MANIFEST_PATH,
+  options?: ConsciousnessLoadOptions,
 ): Promise<LoadedConsciousness> {
   const root = path.resolve(canghaiRoot);
   const absoluteManifestPath = path.resolve(root, manifestPath);
@@ -320,14 +545,113 @@ export async function loadConsciousness(
     throw new Error("Manifest path escapes CangHai root");
   }
 
-  const manifestText = await readFile(absoluteManifestPath, "utf8");
-  const manifest = parseConsciousnessManifest(manifestText);
+  let manifest: StellaConsciousnessManifest;
+  try {
+    const manifestText = await readFile(absoluteManifestPath, "utf8");
+    await validateSchema("consciousness-manifest", parseYaml(manifestText) as unknown);
+    manifest = parseConsciousnessManifest(manifestText);
+  } catch (error) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.manifestInvalid,
+      `Consciousness manifest is invalid: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+
+  if (options) {
+    await validateActivationGate(root, manifest, options);
+  }
 
   const requiredReferences: ManifestReferenceCheck[] = [];
   for (const [field, ref] of collectReferenceFields(manifest)) {
-    const resolved = resolveCangHaiRef(root, ref);
-    await access(resolved.absolutePath);
-    requiredReferences.push({ field, ref, absolutePath: resolved.absolutePath });
+    requiredReferences.push(await validateReference(root, field, ref));
+  }
+
+  const checkByField = new Map(requiredReferences.map((check) => [check.field, check]));
+  const requireCheck = (field: string): ManifestReferenceCheck => {
+    const check = checkByField.get(field);
+    if (!check) throw new Error(`Validated manifest reference is missing: ${field}`);
+    return check;
+  };
+
+  const bootstrapDocuments: ConsciousnessBootstrapDocument[] = [];
+  for (const field of [
+    "identity.soulRef",
+    "identity.identityRef",
+    "identity.userProfileRef",
+    "identity.runtimeProfileRef",
+  ]) {
+    const check = checkByField.get(field);
+    if (check) bootstrapDocuments.push(await readBootstrapDocument(check, "identity"));
+  }
+
+  const twinRegistryCheck = requireCheck("twin.hypothesisRegistryRef");
+  const twinRegistryText = await readFile(twinRegistryCheck.absolutePath, "utf8");
+  const twinRefs = requireRegistryRefs(twinRegistryText, "hypotheses", "ref", "twin.hypotheses");
+  for (const nested of twinRefs) {
+    const check = await validateReference(root, nested.field, nested.ref);
+    const content = await readFile(check.absolutePath, "utf8");
+    try {
+      await validateSchema("twin-hypothesis", parseTwinHypothesisRecord(content));
+    } catch (error) {
+      throw new ConsciousnessLoadError(
+        CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid,
+        `Twin hypothesis ${nested.field} is invalid: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+    requiredReferences.push(check);
+    bootstrapDocuments.push({
+      category: "twin",
+      field: check.field,
+      ref: check.ref,
+      content,
+    });
+  }
+
+  const frameworkSourceRegistryCheck = requireCheck("frameworks.sourceRegistryRef");
+  const frameworkSourceRegistryText = await readFile(frameworkSourceRegistryCheck.absolutePath, "utf8");
+  const frameworkSourceRefs = requireRegistryRefs(
+    frameworkSourceRegistryText,
+    "sources",
+    "source_ref",
+    "frameworks.sources",
+  );
+  for (const nested of frameworkSourceRefs) {
+    requiredReferences.push(await validateReference(root, nested.field, nested.ref));
+  }
+
+  const activeIrRegistryCheck = requireCheck("frameworks.activeIrRegistryRef");
+  const activeIrRegistryText = await readFile(activeIrRegistryCheck.absolutePath, "utf8");
+  const activeIrRefs = requireRegistryRefs(activeIrRegistryText, "active", "ir_ref", "frameworks.active");
+  for (const nested of activeIrRefs) {
+    const check = await validateReference(root, nested.field, nested.ref);
+    const content = await readFile(check.absolutePath, "utf8");
+    try {
+      await validateSchema("framework-ir", parseYaml(content) as unknown);
+    } catch (error) {
+      throw new ConsciousnessLoadError(
+        CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid,
+        `Framework IR ${nested.field} is invalid: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+    requiredReferences.push(check);
+    bootstrapDocuments.push({
+      category: "framework",
+      field: check.field,
+      ref: check.ref,
+      content,
+    });
+  }
+  const activeSourceRefs = requireRegistryRefs(
+    activeIrRegistryText,
+    "active",
+    "source_ref",
+    "frameworks.active",
+  );
+  for (const nested of activeSourceRefs) {
+    requiredReferences.push(await validateReference(root, nested.field, nested.ref));
   }
 
   return {
@@ -335,5 +659,102 @@ export async function loadConsciousness(
     manifestPath: absoluteManifestPath,
     manifest,
     requiredReferences,
+    bootstrapDocuments,
+    ...(options ? { recoveryRevision: options.recoveryRevision } : {}),
   };
+}
+
+async function validateActivationGate(
+  root: string,
+  manifest: StellaConsciousnessManifest,
+  options: ConsciousnessLoadOptions,
+): Promise<void> {
+  if (!/^[0-9a-f]{40}$/i.test(options.recoveryRevision)) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,
+      "Configured CangHai recovery revision must be a full 40-character Git commit SHA",
+    );
+  }
+
+  let currentRevision: string;
+  let sourceStatus: string;
+  try {
+    const revisionResult = await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"]);
+    const statusResult = await execFileAsync("git", [
+      "-C",
+      root,
+      "status",
+      "--porcelain",
+      "--untracked-files=no",
+    ]);
+    currentRevision = revisionResult.stdout.trim();
+    sourceStatus = statusResult.stdout.trim();
+  } catch (error) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,
+      "CangHai recovery source is not a readable Git checkout",
+      { cause: error },
+    );
+  }
+
+  if (currentRevision !== options.recoveryRevision || sourceStatus.length > 0) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,
+      `CangHai checkout must be clean at configured recovery revision ${options.recoveryRevision}`,
+    );
+  }
+
+  if (manifest.runtimeState.activationStatus === "migration_required") {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.migrationRequired,
+      "CangHai consciousness requires migration before activation",
+    );
+  }
+  if (manifest.runtimeState.activationStatus === "degraded") {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.activationDegraded,
+      "CangHai consciousness is degraded and cannot be activated",
+    );
+  }
+  if (manifest.runtimeState.activationStatus !== "active") {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.manifestInvalid,
+      "Manifest runtimeState.activationStatus must be active before activation",
+    );
+  }
+
+  requireCompatibleVersion(
+    options.coreVersion,
+    manifest.compatibility.stellaCore,
+    CONSCIOUSNESS_FAILURE_CATEGORY.coreIncompatible,
+    "Stella Core",
+  );
+  requireCompatibleVersion(
+    options.openclawVersion,
+    manifest.compatibility.openclaw,
+    CONSCIOUSNESS_FAILURE_CATEGORY.hostIncompatible,
+    "OpenClaw",
+  );
+  if (manifest.runtimeState.requiredOpenClawVersion) {
+    requireCompatibleVersion(
+      options.openclawVersion,
+      manifest.runtimeState.requiredOpenClawVersion,
+      CONSCIOUSNESS_FAILURE_CATEGORY.hostIncompatible,
+      "OpenClaw runtime state",
+    );
+  }
+}
+
+function requireCompatibleVersion(
+  version: string,
+  range: string,
+  category: ConsciousnessFailureCategory,
+  component: string,
+): void {
+  if (!valid(version) || !satisfies(version, range, { includePrerelease: true })) {
+    throw new ConsciousnessLoadError(
+      category,
+      `${component} version ${version} does not satisfy ${range}`,
+    );
+  }
 }

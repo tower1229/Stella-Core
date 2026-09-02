@@ -8,7 +8,7 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["canghaiRoot"],
+    "required": ["canghaiRoot", "recoveryRevision"],
     "properties": {
       "canghaiRoot": {
         "type": "string",
@@ -19,6 +19,11 @@
         "type": "string",
         "default": "50_PersonalAgent/stella/manifest.yaml",
         "description": "Path to the Stella consciousness manifest relative to CangHai root"
+      },
+      "recoveryRevision": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{40}$",
+        "description": "Exact clean CangHai Git commit selected as the recovery revision"
       },
       "agentId": {
         "type": "string",
