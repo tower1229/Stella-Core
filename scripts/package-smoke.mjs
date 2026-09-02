@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -14,6 +14,7 @@ const npmEnv = { ...process.env, NPM_CONFIG_CACHE: path.join(tempRoot, "npm-cach
 let syntheticCangHaiRoot;
 let blockedCangHaiRoot;
 let providerServer;
+let gatewayProcess;
 
 async function run(command, args, options = {}) {
   return execFileAsync(command, args, {
@@ -21,6 +22,15 @@ async function run(command, args, options = {}) {
     env: options.env ?? npmEnv,
     maxBuffer: 10 * 1024 * 1024,
   });
+}
+
+async function reserveLoopbackPort() {
+  const probe = createServer();
+  await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const address = probe.address();
+  if (!address || typeof address === "string") throw new Error("failed to reserve loopback port");
+  await new Promise((resolve) => probe.close(resolve));
+  return address.port;
 }
 
 try {
@@ -236,12 +246,49 @@ try {
       { cwd: consumerRoot, env: isolatedEnv },
     );
   }
+  const gatewayPort = await reserveLoopbackPort();
+  await run(
+    openclawBin,
+    ["config", "set", "gateway.mode", "local"],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
+  await run(
+    openclawBin,
+    ["config", "set", "gateway.port", String(gatewayPort), "--strict-json"],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
+  gatewayProcess = spawn(
+    openclawBin,
+    ["gateway", "run", "--port", String(gatewayPort), "--auth", "none"],
+    { cwd: consumerRoot, env: isolatedEnv, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  let gatewayOutput = "";
+  gatewayProcess.stdout.on("data", (chunk) => {
+    gatewayOutput = `${gatewayOutput}${chunk}`.slice(-20_000);
+  });
+  gatewayProcess.stderr.on("data", (chunk) => {
+    gatewayOutput = `${gatewayOutput}${chunk}`.slice(-20_000);
+  });
+  let gatewayReady = false;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try {
+      await run(
+        openclawBin,
+        ["gateway", "health", "--port", String(gatewayPort), "--json"],
+        { cwd: consumerRoot, env: isolatedEnv },
+      );
+      gatewayReady = true;
+      break;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  if (!gatewayReady) throw new Error(`isolated OpenClaw Gateway did not start: ${gatewayOutput}`);
   for (const agentId of ["stella", "ordinary"]) {
     await run(
       openclawBin,
       [
         "agent",
-        "--local",
         "--agent",
         agentId,
         "--message",
@@ -347,7 +394,6 @@ try {
       openclawBin,
       [
         "agent",
-        "--local",
         "--agent",
         "stella",
         "--message",
@@ -392,6 +438,10 @@ try {
   }
   process.stdout.write(`${JSON.stringify(receipt)}\n`);
 } finally {
+  if (gatewayProcess && gatewayProcess.exitCode === null) {
+    gatewayProcess.kill("SIGTERM");
+    await new Promise((resolve) => gatewayProcess.once("exit", resolve));
+  }
   if (providerServer) {
     await new Promise((resolve) => providerServer.close(resolve));
   }
