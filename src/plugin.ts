@@ -12,7 +12,7 @@ import {
   listFrameworkOperatorCandidates,
   renderPraxisContextPacket,
 } from "./praxis/packet.js";
-import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
+import { createSemanticRouter } from "./routing/semantic-router.js";
 import { routeTurn } from "./routing/router.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
@@ -58,13 +58,6 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
         : "stella",
     recoveryRevision: config.recoveryRevision,
   };
-}
-
-function errorCategory(error: unknown): string {
-  if (error instanceof ConsciousnessLoadError || error instanceof SemanticRoutingError) {
-    return error.category;
-  }
-  return "stella_consciousness_unavailable";
 }
 
 class ConsciousnessLoader {
@@ -189,14 +182,13 @@ export default definePluginEntry({
           });
           return { outcome: "pass" } as const;
         } catch (error) {
-          const category = errorCategory(error);
-          const semanticFailure = category === "stella_semantic_routing_failed";
+          if (!(error instanceof ConsciousnessLoadError)) throw error;
+          const category = error.category;
           return {
             outcome: "block",
             reason: `Stella turn admission failed (${category})`,
-            message: semanticFailure
-              ? "Stella Core 无法可靠完成本轮语义路由，因此已停止本轮请求。请检查模型配置或稍后重试。"
-              : "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。",
+            message:
+              "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。",
             category,
           } as const;
         }

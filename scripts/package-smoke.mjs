@@ -449,7 +449,7 @@ try {
     request.url?.endsWith("/chat/completions"),
   ).length;
   if (
-    !blockedRoutingTurn.includes("Stella Core 无法可靠完成本轮语义路由") ||
+    !blockedRoutingTurn.includes("Your message could not be sent") ||
     completionCountAfterRoutingFailure !== completionCountBeforeRoutingFailure + 1
   ) {
     throw new Error(
@@ -457,7 +457,7 @@ try {
         completionCountBeforeRoutingFailure,
         completionCountAfterRoutingFailure,
         exposedBlockMessage: blockedRoutingTurn.includes(
-          "Stella Core 无法可靠完成本轮语义路由",
+          "Your message could not be sent",
         ),
         blockedRoutingTurn: blockedRoutingTurn.slice(0, 2_000),
       })}`,

@@ -185,15 +185,17 @@ test("semantic routing failure is explicit and does not masquerade as ordinary",
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
     const hooks = registerPlugin(root, recoveryRevision, async () => ({ text: "not-json" }));
-    const gate = await requireHook(hooks, "before_agent_run")(
-      { prompt: "含义需要判断的日常表达", messages: [] },
-      { agentId: "stella", runId: "failed-route-run" },
+    await assert.rejects(
+      async () =>
+        requireHook(hooks, "before_agent_run")(
+          { prompt: "含义需要判断的日常表达", messages: [] },
+          { agentId: "stella", runId: "failed-route-run" },
+        ),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_semantic_routing_failed",
     );
-    assert.ok(
-      typeof gate === "object" && gate !== null && "category" in gate && "outcome" in gate,
-    );
-    assert.equal(gate.category, "stella_semantic_routing_failed");
-    assert.equal(gate.outcome, "block");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
