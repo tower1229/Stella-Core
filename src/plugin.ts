@@ -12,7 +12,7 @@ import {
   listFrameworkOperatorCandidates,
   renderPraxisContextPacket,
 } from "./praxis/packet.js";
-import { createSemanticRouter } from "./routing/semantic-router.js";
+import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
 import { routeTurn } from "./routing/router.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
@@ -61,9 +61,10 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
 }
 
 function errorCategory(error: unknown): string {
-  return error instanceof ConsciousnessLoadError
-    ? error.category
-    : "stella_consciousness_unavailable";
+  if (error instanceof ConsciousnessLoadError || error instanceof SemanticRoutingError) {
+    return error.category;
+  }
+  return "stella_consciousness_unavailable";
 }
 
 class ConsciousnessLoader {
@@ -105,6 +106,33 @@ class ConsciousnessLoader {
   }
 }
 
+type PreparedTurn = {
+  prompt: string;
+  prependSystemContext: string;
+  appendContext?: string;
+  preparedAt: number;
+};
+
+class PreparedTurnStore {
+  readonly #turns = new Map<string, PreparedTurn>();
+
+  put(runId: string, turn: Omit<PreparedTurn, "preparedAt">): void {
+    if (this.#turns.size >= 128) {
+      const oldest = [...this.#turns.entries()].sort(
+        (left, right) => left[1].preparedAt - right[1].preparedAt,
+      )[0]?.[0];
+      if (oldest) this.#turns.delete(oldest);
+    }
+    this.#turns.set(runId, { ...turn, preparedAt: Date.now() });
+  }
+
+  get(runId: string, prompt: string): PreparedTurn | undefined {
+    const turn = this.#turns.get(runId);
+    if (!turn || turn.prompt !== prompt || Date.now() - turn.preparedAt > 60_000) return undefined;
+    return turn;
+  }
+}
+
 export default definePluginEntry({
   id: "stella-core",
   name: "Stella Core",
@@ -114,6 +142,7 @@ export default definePluginEntry({
   register(api) {
     const config = parsePluginConfig(api.pluginConfig);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
+    const preparedTurns = new PreparedTurnStore();
     const classifySemantically = createSemanticRouter(
       (params) => api.runtime.llm.complete(params),
       config.agentId,
@@ -123,25 +152,12 @@ export default definePluginEntry({
       "before_prompt_build",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
-
-        const loaded = await consciousness.load();
-        const route = await routeTurn(
-          event.prompt,
-          listFrameworkOperatorCandidates(loaded),
-          classifySemantically,
-        );
-        if (route.mode === "ordinary" || route.mode === "outcome") {
-          return {
-            prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
-          };
-        }
-        const appendContext =
-          route.mode === "praxis" || route.mode === "deep_praxis"
-            ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))
-            : renderConsciousnessContext(loaded);
+        if (!ctx.runId) throw new Error("Stella prepared turn requires a Host run id");
+        const prepared = preparedTurns.get(ctx.runId, event.prompt);
+        if (!prepared) throw new Error("Stella prepared turn is unavailable");
         return {
-          prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
-          ...(appendContext ? { appendContext } : {}),
+          prependSystemContext: prepared.prependSystemContext,
+          ...(prepared.appendContext ? { appendContext: prepared.appendContext } : {}),
         };
       },
       { priority: 100, timeoutMs: 15_000 },
@@ -149,19 +165,38 @@ export default definePluginEntry({
 
     api.on(
       "before_agent_run",
-      async (_event, ctx) => {
+      async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
 
         try {
-          await consciousness.load();
+          if (!ctx.runId) throw new Error("Stella admission requires a Host run id");
+          const loaded = await consciousness.load();
+          const route = await routeTurn(
+            event.prompt,
+            listFrameworkOperatorCandidates(loaded),
+            classifySemantically,
+          );
+          const appendContext =
+            route.mode === "ordinary" || route.mode === "outcome"
+              ? undefined
+              : route.mode === "praxis" || route.mode === "deep_praxis"
+                ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))
+                : renderConsciousnessContext(loaded);
+          preparedTurns.put(ctx.runId, {
+            prompt: event.prompt,
+            prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
+            ...(appendContext ? { appendContext } : {}),
+          });
           return { outcome: "pass" } as const;
         } catch (error) {
           const category = errorCategory(error);
+          const semanticFailure = category === "stella_semantic_routing_failed";
           return {
             outcome: "block",
-            reason: `Stella consciousness load failed (${category})`,
-            message:
-              "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。",
+            reason: `Stella turn admission failed (${category})`,
+            message: semanticFailure
+              ? "Stella Core 无法可靠完成本轮语义路由，因此已停止本轮请求。请检查模型配置或稍后重试。"
+              : "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。",
             category,
           } as const;
         }

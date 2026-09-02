@@ -143,6 +143,17 @@ try {
     [
       "config",
       "set",
+      "plugins.entries.stella-core.llm.allowAgentIdOverride",
+      "true",
+      "--strict-json",
+    ],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
+  await run(
+    openclawBin,
+    [
+      "config",
+      "set",
       "plugins.entries.stella-core.hooks.allowConversationAccess",
       "true",
       "--strict-json",
@@ -445,14 +456,19 @@ try {
   const beforeAgentRun = activeHooks.get("before_agent_run");
   const beforePromptBuild = activeHooks.get("before_prompt_build");
   if (!beforeAgentRun || !beforePromptBuild) throw new Error("packed plugin hooks were not registered");
-  const targetGate = await beforeAgentRun({}, { agentId: "stella" });
+  const ordinaryEvent = { prompt: "TypeScript 的 satisfies 是什么？", messages: [] };
+  const ordinaryContext = { agentId: "stella", runId: "packed-ordinary-run" };
+  const targetGate = await beforeAgentRun(ordinaryEvent, ordinaryContext);
   const ordinaryTargetPrompt = await beforePromptBuild(
-    { prompt: "TypeScript 的 satisfies 是什么？", messages: [] },
-    { agentId: "stella" },
+    ordinaryEvent,
+    ordinaryContext,
   );
+  const praxisEvent = { prompt: "她没回我消息，我要不要再发一条？", messages: [] };
+  const praxisContext = { agentId: "stella", runId: "packed-praxis-run" };
+  const praxisGate = await beforeAgentRun(praxisEvent, praxisContext);
   const praxisTargetPrompt = await beforePromptBuild(
-    { prompt: "她没回我消息，我要不要再发一条？", messages: [] },
-    { agentId: "stella" },
+    praxisEvent,
+    praxisContext,
   );
   const nonTargetGate = await beforeAgentRun({}, { agentId: "ordinary" });
   const nonTargetPrompt = await beforePromptBuild(
@@ -461,6 +477,7 @@ try {
   );
   if (
     targetGate?.outcome !== "pass" ||
+    praxisGate?.outcome !== "pass" ||
     ordinaryTargetPrompt?.appendContext !== undefined ||
     typeof praxisTargetPrompt?.appendContext !== "string" ||
     !praxisTargetPrompt.appendContext.includes("<stella_core_praxis_context") ||
@@ -477,7 +494,10 @@ try {
   );
   const blockedRevision = await initializeFixtureRepository(blockedCangHaiRoot);
   const blockedHooks = registerHooks(blockedCangHaiRoot, blockedRevision);
-  const blockedGate = await blockedHooks.get("before_agent_run")({}, { agentId: "stella" });
+  const blockedGate = await blockedHooks.get("before_agent_run")(
+    { prompt: "Stella Core migration gate smoke", messages: [] },
+    { agentId: "stella", runId: "packed-blocked-run" },
+  );
   if (blockedGate?.category !== "stella_migration_required") {
     throw new Error("packed migration-required gate did not fail closed");
   }

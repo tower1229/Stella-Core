@@ -9,7 +9,7 @@ import {
   updateFixtureManifest,
 } from "./consciousness-fixture.js";
 
-type HookContext = { agentId?: string };
+type HookContext = { agentId?: string; runId?: string };
 type HookHandler = (event: unknown, context: HookContext) => unknown | Promise<unknown>;
 
 function registerPlugin(
@@ -84,12 +84,14 @@ test("target agent passes the gate and ordinary turn bypasses Cortex context", a
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
     const hooks = registerPlugin(root, recoveryRevision);
-    const gate = await requireHook(hooks, "before_agent_run")({}, { agentId: "stella" });
+    const event = { prompt: "TypeScript 的 satisfies 是什么？", messages: [] };
+    const context = { agentId: "stella", runId: "ordinary-run" };
+    const gate = await requireHook(hooks, "before_agent_run")(event, context);
     assert.deepEqual(gate, { outcome: "pass" });
 
     const prompt = await requireHook(hooks, "before_prompt_build")(
-      { prompt: "TypeScript 的 satisfies 是什么？", messages: [] },
-      { agentId: "stella" },
+      event,
+      context,
     );
     assert.ok(typeof prompt === "object" && prompt !== null);
     assert.doesNotMatch(JSON.stringify(prompt), /stella_core_(?:consciousness|praxis_context)/);
@@ -119,12 +121,17 @@ test("relationship decision receives a bounded traceable Praxis packet", async (
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
     const hooks = registerPlugin(root, recoveryRevision, praxisRouteCompletion);
+    const event = {
+      prompt: "她两天没回我消息，我觉得她可能在疏远我。我想知道要不要再发一条，又不想给她压力。",
+      messages: [],
+    };
+    const context = { agentId: "stella", runId: "praxis-run" };
+    assert.deepEqual(await requireHook(hooks, "before_agent_run")(event, context), {
+      outcome: "pass",
+    });
     const prompt = await requireHook(hooks, "before_prompt_build")(
-      {
-        prompt: "她两天没回我消息，我觉得她可能在疏远我。我想知道要不要再发一条，又不想给她压力。",
-        messages: [],
-      },
-      { agentId: "stella" },
+      event,
+      context,
     );
 
     const rendered = JSON.stringify(prompt);
@@ -156,9 +163,14 @@ test("ambiguous target turn uses the public semantic router", async () => {
         }),
       };
     });
+    const event = { prompt: "这件事让我有点在意。", messages: [] };
+    const context = { agentId: "stella", runId: "twin-run" };
+    assert.deepEqual(await requireHook(hooks, "before_agent_run")(event, context), {
+      outcome: "pass",
+    });
     const prompt = await requireHook(hooks, "before_prompt_build")(
-      { prompt: "这件事让我有点在意。", messages: [] },
-      { agentId: "stella" },
+      event,
+      context,
     );
 
     assert.equal(routingCalls, 1);
@@ -173,17 +185,15 @@ test("semantic routing failure is explicit and does not masquerade as ordinary",
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
     const hooks = registerPlugin(root, recoveryRevision, async () => ({ text: "not-json" }));
-    await assert.rejects(
-      async () =>
-        requireHook(hooks, "before_prompt_build")(
-          { prompt: "含义需要判断的日常表达", messages: [] },
-          { agentId: "stella" },
-        ),
-      (error: unknown) =>
-        error instanceof Error &&
-        "category" in error &&
-        error.category === "stella_semantic_routing_failed",
+    const gate = await requireHook(hooks, "before_agent_run")(
+      { prompt: "含义需要判断的日常表达", messages: [] },
+      { agentId: "stella", runId: "failed-route-run" },
     );
+    assert.ok(
+      typeof gate === "object" && gate !== null && "category" in gate && "outcome" in gate,
+    );
+    assert.equal(gate.category, "stella_semantic_routing_failed");
+    assert.equal(gate.outcome, "block");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -197,7 +207,10 @@ test("target agent receives the stable migration failure category", async () => 
     );
     const recoveryRevision = await initializeFixtureRepository(root);
     const hooks = registerPlugin(root, recoveryRevision);
-    const gate = await requireHook(hooks, "before_agent_run")({}, { agentId: "stella" });
+    const gate = await requireHook(hooks, "before_agent_run")(
+      { prompt: "migration fixture", messages: [] },
+      { agentId: "stella", runId: "migration-run" },
+    );
     assert.ok(typeof gate === "object" && gate !== null && "category" in gate);
     assert.equal(gate.category, "stella_migration_required");
   } finally {
@@ -217,7 +230,7 @@ test("consciousness failure output does not expose private source lines", async 
     const hooks = registerPlugin(root, recoveryRevision);
     const gate = await requireHook(hooks, "before_agent_run")(
       { prompt: "我要不要回复她？", messages: [] },
-      { agentId: "stella" },
+      { agentId: "stella", runId: "invalid-record-run" },
     );
 
     assert.ok(typeof gate === "object" && gate !== null && "category" in gate);
