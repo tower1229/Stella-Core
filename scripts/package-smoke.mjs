@@ -128,6 +128,17 @@ try {
     ],
     { cwd: consumerRoot, env: isolatedEnv },
   );
+  await run(
+    openclawBin,
+    [
+      "config",
+      "set",
+      "plugins.entries.stella-core.hooks.allowConversationAccess",
+      "true",
+      "--strict-json",
+    ],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
   const inspectResult = await run(
     openclawBin,
     ["plugins", "inspect", "stella-core", "--runtime", "--json"],
