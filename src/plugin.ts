@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
@@ -126,6 +127,12 @@ class PreparedTurnStore {
   }
 }
 
+function preparedTurnKey(sessionKey: string | undefined, prompt: string): string {
+  if (!sessionKey) throw new Error("Stella prepared turn requires a Host session key");
+  const promptHash = createHash("sha256").update(prompt).digest("hex");
+  return `${sessionKey}:${promptHash}`;
+}
+
 export default definePluginEntry({
   id: "stella-core",
   name: "Stella Core",
@@ -145,8 +152,10 @@ export default definePluginEntry({
       "before_prompt_build",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
-        if (!ctx.runId) throw new Error("Stella prepared turn requires a Host run id");
-        const prepared = preparedTurns.get(ctx.runId, event.prompt);
+        const prepared = preparedTurns.get(
+          preparedTurnKey(ctx.sessionKey, event.prompt),
+          event.prompt,
+        );
         if (!prepared) throw new Error("Stella prepared turn is unavailable");
         return {
           prependSystemContext: prepared.prependSystemContext,
@@ -162,7 +171,7 @@ export default definePluginEntry({
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
 
         try {
-          if (!ctx.runId) throw new Error("Stella admission requires a Host run id");
+          const turnKey = preparedTurnKey(ctx.sessionKey, event.prompt);
           const loaded = await consciousness.load();
           const route = await routeTurn(
             event.prompt,
@@ -175,7 +184,7 @@ export default definePluginEntry({
               : route.mode === "praxis" || route.mode === "deep_praxis"
                 ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))
                 : renderConsciousnessContext(loaded);
-          preparedTurns.put(ctx.runId, {
+          preparedTurns.put(turnKey, {
             prompt: event.prompt,
             prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
             ...(appendContext ? { appendContext } : {}),

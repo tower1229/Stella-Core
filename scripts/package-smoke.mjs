@@ -504,14 +504,22 @@ try {
   const beforePromptBuild = activeHooks.get("before_prompt_build");
   if (!beforeAgentRun || !beforePromptBuild) throw new Error("packed plugin hooks were not registered");
   const ordinaryEvent = { prompt: "TypeScript 的 satisfies 是什么？", messages: [] };
-  const ordinaryContext = { agentId: "stella", runId: "packed-ordinary-run" };
+  const ordinaryContext = {
+    agentId: "stella",
+    runId: "packed-ordinary-run",
+    sessionKey: "agent:stella:packed",
+  };
   const targetGate = await beforeAgentRun(ordinaryEvent, ordinaryContext);
   const ordinaryTargetPrompt = await beforePromptBuild(
     ordinaryEvent,
     ordinaryContext,
   );
   const praxisEvent = { prompt: "她没回我消息，我要不要再发一条？", messages: [] };
-  const praxisContext = { agentId: "stella", runId: "packed-praxis-run" };
+  const praxisContext = {
+    agentId: "stella",
+    runId: "packed-praxis-run",
+    sessionKey: "agent:stella:packed",
+  };
   const praxisGate = await beforeAgentRun(praxisEvent, praxisContext);
   const praxisTargetPrompt = await beforePromptBuild(
     praxisEvent,
@@ -543,7 +551,11 @@ try {
   const blockedHooks = registerHooks(blockedCangHaiRoot, blockedRevision);
   const blockedGate = await blockedHooks.get("before_agent_run")(
     { prompt: "Stella Core migration gate smoke", messages: [] },
-    { agentId: "stella", runId: "packed-blocked-run" },
+    {
+      agentId: "stella",
+      runId: "packed-blocked-run",
+      sessionKey: "agent:stella:packed-blocked",
+    },
   );
   if (blockedGate?.category !== "stella_migration_required") {
     throw new Error("packed migration-required gate did not fail closed");
