@@ -272,16 +272,15 @@ try {
   let gatewayReady = false;
   for (let attempt = 0; attempt < 40; attempt += 1) {
     try {
-      await run(
-        openclawBin,
-        ["gateway", "health", "--port", String(gatewayPort), "--json"],
-        { cwd: consumerRoot, env: isolatedEnv },
-      );
-      gatewayReady = true;
-      break;
+      const response = await fetch(`http://127.0.0.1:${gatewayPort}/healthz`);
+      if (response.ok) {
+        gatewayReady = true;
+        break;
+      }
     } catch {
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      // Gateway startup is asynchronous; retry the public liveness seam.
     }
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
   if (!gatewayReady) throw new Error(`isolated OpenClaw Gateway did not start: ${gatewayOutput}`);
   for (const agentId of ["stella", "ordinary"]) {
