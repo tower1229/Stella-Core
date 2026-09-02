@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createServer } from "node:http";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -12,6 +13,7 @@ const tempRoot = await mkdtemp(path.join(os.tmpdir(), "stella-core-package-smoke
 const npmEnv = { ...process.env, NPM_CONFIG_CACHE: path.join(tempRoot, "npm-cache") };
 let syntheticCangHaiRoot;
 let blockedCangHaiRoot;
+let providerServer;
 
 async function run(command, args, options = {}) {
   return execFileAsync(command, args, {
@@ -92,6 +94,9 @@ try {
 
   const openclawBin = path.join(consumerRoot, "node_modules", ".bin", "openclaw");
   const isolatedEnv = { ...npmEnv, OPENCLAW_STATE_DIR: stateRoot };
+  for (const key of Object.keys(isolatedEnv)) {
+    if (/(?:API_KEY|TOKEN|SECRET|PASSWORD)$/i.test(key)) delete isolatedEnv[key];
+  }
   const versionResult = await run(openclawBin, ["--version"], {
     cwd: consumerRoot,
     env: isolatedEnv,
@@ -132,6 +137,121 @@ try {
   const inspectedText = JSON.stringify(inspected);
   if (!inspectedText.includes("stella-core")) {
     throw new Error(`OpenClaw did not load packed Stella Core: ${inspectedText}`);
+  }
+
+  const providerRequests = [];
+  providerServer = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    providerRequests.push({ url: request.url, body });
+    response.setHeader("content-type", "application/json");
+    if (request.url?.endsWith("/models")) {
+      response.end(
+        JSON.stringify({ object: "list", data: [{ id: "smoke-model", object: "model" }] }),
+      );
+      return;
+    }
+    response.end(
+      JSON.stringify({
+        id: "chatcmpl-stella-core-smoke",
+        object: "chat.completion",
+        created: Math.floor(Date.now() / 1_000),
+        model: "smoke-model",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "smoke-ok" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+    );
+  });
+  await new Promise((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
+  const providerAddress = providerServer.address();
+  if (!providerAddress || typeof providerAddress === "string") {
+    throw new Error("local smoke provider did not expose a TCP port");
+  }
+  await run(
+    openclawBin,
+    [
+      "config",
+      "set",
+      "models.providers.stella-smoke",
+      JSON.stringify({
+        baseUrl: `http://127.0.0.1:${providerAddress.port}/v1`,
+        apiKey: "local-smoke-only",
+        api: "openai-completions",
+        request: { allowPrivateNetwork: true },
+        models: [
+          {
+            id: "smoke-model",
+            name: "Stella Core Smoke Model",
+            reasoning: false,
+            input: ["text"],
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            contextWindow: 131_072,
+            maxTokens: 1_024,
+          },
+        ],
+      }),
+      "--strict-json",
+    ],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
+  await run(
+    openclawBin,
+    ["config", "set", "memory.search.enabled", "false", "--strict-json"],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
+  await run(openclawBin, ["plugins", "enable", "stella-core", "--accept-capabilities"], {
+    cwd: consumerRoot,
+    env: isolatedEnv,
+  });
+  for (const agentId of ["stella", "ordinary"]) {
+    await run(
+      openclawBin,
+      [
+        "agents",
+        "add",
+        agentId,
+        "--non-interactive",
+        "--workspace",
+        path.join(stateRoot, `workspace-${agentId}`),
+        "--model",
+        "stella-smoke/smoke-model",
+      ],
+      { cwd: consumerRoot, env: isolatedEnv },
+    );
+  }
+  for (const agentId of ["stella", "ordinary"]) {
+    await run(
+      openclawBin,
+      [
+        "agent",
+        "--local",
+        "--agent",
+        agentId,
+        "--message",
+        "Stella Core exact-host smoke",
+        "--json",
+        "--timeout",
+        "30",
+      ],
+      { cwd: consumerRoot, env: isolatedEnv },
+    );
+  }
+  const completionRequests = providerRequests.filter((request) =>
+    request.url?.endsWith("/chat/completions"),
+  );
+  if (
+    completionRequests.length !== 2 ||
+    !completionRequests[0].body.includes("<stella_core_consciousness") ||
+    !completionRequests[0].body.includes(syntheticCangHaiRevision) ||
+    completionRequests[1].body.includes("<stella_core_consciousness")
+  ) {
+    throw new Error("real OpenClaw target injection or non-target bypass acceptance failed");
   }
 
   const installedRoot = path.join(
@@ -187,6 +307,47 @@ try {
   if (blockedGate?.category !== "stella_migration_required") {
     throw new Error("packed migration-required gate did not fail closed");
   }
+  await run(
+    openclawBin,
+    [
+      "config",
+      "set",
+      "plugins.entries.stella-core.config",
+      JSON.stringify({
+        canghaiRoot: blockedCangHaiRoot,
+        recoveryRevision: blockedRevision,
+        agentId: "stella",
+      }),
+      "--strict-json",
+    ],
+    { cwd: consumerRoot, env: isolatedEnv },
+  );
+  let blockedHostTurn = "";
+  try {
+    await run(
+      openclawBin,
+      [
+        "agent",
+        "--local",
+        "--agent",
+        "stella",
+        "--message",
+        "Stella Core migration gate smoke",
+        "--json",
+        "--timeout",
+        "30",
+      ],
+      { cwd: consumerRoot, env: isolatedEnv },
+    );
+  } catch (error) {
+    blockedHostTurn = `${error.stdout ?? ""}\n${error.stderr ?? ""}`;
+  }
+  if (!blockedHostTurn.includes("stella_migration_required")) {
+    throw new Error("real OpenClaw turn did not expose the migration-required block category");
+  }
+  if (providerRequests.filter((request) => request.url?.endsWith("/chat/completions")).length !== 2) {
+    throw new Error("migration-required turn reached the model provider");
+  }
 
   const receipt = {
     package: `${installedPackage.name}@${installedPackage.version}`,
@@ -202,6 +363,7 @@ try {
     targetAgentInjected: true,
     nonTargetAgentBypassed: true,
     migrationRequiredBlocked: true,
+    exactHostAgentTurns: true,
     privateFixtureIncluded: false,
   };
   if (process.env.STELLA_ACCEPTANCE_RECEIPT_PATH) {
@@ -211,6 +373,9 @@ try {
   }
   process.stdout.write(`${JSON.stringify(receipt)}\n`);
 } finally {
+  if (providerServer) {
+    await new Promise((resolve) => providerServer.close(resolve));
+  }
   await rm(tempRoot, { recursive: true, force: true });
   if (syntheticCangHaiRoot) {
     await rm(syntheticCangHaiRoot, { recursive: true, force: true });
