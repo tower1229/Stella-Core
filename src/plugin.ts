@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
@@ -102,7 +101,6 @@ class ConsciousnessLoader {
 
 type PreparedTurn = {
   outcome: "ready" | "blocked";
-  prompt: string;
   category?: string;
   message?: string;
   preparedAt: number;
@@ -121,17 +119,16 @@ class PreparedTurnStore {
     this.#turns.set(key, { ...turn, preparedAt: Date.now() });
   }
 
-  get(runId: string, prompt: string): PreparedTurn | undefined {
-    const turn = this.#turns.get(runId);
-    if (!turn || turn.prompt !== prompt || Date.now() - turn.preparedAt > 60_000) return undefined;
+  get(sessionKey: string): PreparedTurn | undefined {
+    const turn = this.#turns.get(sessionKey);
+    if (!turn || Date.now() - turn.preparedAt > 60_000) return undefined;
     return turn;
   }
 }
 
-function preparedTurnKey(sessionKey: string | undefined, prompt: string): string {
+function preparedTurnKey(sessionKey: string | undefined): string {
   if (!sessionKey) throw new Error("Stella prepared turn requires a Host session key");
-  const promptHash = createHash("sha256").update(prompt).digest("hex");
-  return `${sessionKey}:${promptHash}`;
+  return sessionKey;
 }
 
 export default definePluginEntry({
@@ -153,7 +150,7 @@ export default definePluginEntry({
       "before_prompt_build",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
-        const turnKey = preparedTurnKey(ctx.sessionKey, event.prompt);
+        const turnKey = preparedTurnKey(ctx.sessionKey);
         try {
           const loaded = await consciousness.load();
           const route = await routeTurn(
@@ -167,7 +164,7 @@ export default definePluginEntry({
               : route.mode === "praxis" || route.mode === "deep_praxis"
                 ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))
                 : renderConsciousnessContext(loaded);
-          preparedTurns.put(turnKey, { outcome: "ready", prompt: event.prompt });
+          preparedTurns.put(turnKey, { outcome: "ready" });
           return {
             prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
             ...(appendContext ? { appendContext } : {}),
@@ -177,7 +174,6 @@ export default definePluginEntry({
           const semanticFailure = error instanceof SemanticRoutingError;
           preparedTurns.put(turnKey, {
             outcome: "blocked",
-            prompt: event.prompt,
             category: consciousnessFailure
               ? error.category
               : semanticFailure
@@ -200,10 +196,7 @@ export default definePluginEntry({
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
 
-        const prepared = preparedTurns.get(
-          preparedTurnKey(ctx.sessionKey, event.prompt),
-          event.prompt,
-        );
+        const prepared = preparedTurns.get(preparedTurnKey(ctx.sessionKey));
         if (prepared?.outcome === "ready") return { outcome: "pass" } as const;
         const category = prepared?.category ?? "stella_turn_preparation_unavailable";
         return {
