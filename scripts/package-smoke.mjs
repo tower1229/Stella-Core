@@ -472,7 +472,10 @@ try {
   if (!blockedHostTurn.includes("Stella Core 无法加载或验证 CangHai 核心意识数据")) {
     throw new Error("real OpenClaw turn did not expose the migration-required block message");
   }
-  if (providerRequests.filter((request) => request.url?.endsWith("/chat/completions")).length !== 2) {
+  if (
+    providerRequests.filter((request) => request.url?.endsWith("/chat/completions")).length !==
+    completionRequests.length
+  ) {
     throw new Error("migration-required turn reached the model provider");
   }
 
