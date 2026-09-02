@@ -9,7 +9,12 @@ import {
   updateFixtureManifest,
 } from "./consciousness-fixture.js";
 
-type HookContext = { agentId?: string; runId?: string; sessionKey?: string };
+type HookContext = {
+  agentId?: string;
+  runId?: string;
+  sessionKey?: string;
+  trace?: { traceId: string };
+};
 type HookHandler = (event: unknown, context: HookContext) => unknown | Promise<unknown>;
 
 function registerPlugin(
@@ -48,6 +53,7 @@ const fixtureOperatorRefs = [
   "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
   "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:observation_test",
 ];
+const fixtureTwinRefs = ["path:30_PersonalData/twin/hypotheses/twin_fixture.md"];
 
 async function praxisRouteCompletion(): Promise<{ text: string }> {
   return {
@@ -61,6 +67,8 @@ async function praxisRouteCompletion(): Promise<{ text: string }> {
       needsReality: true,
       needsExternalResearch: false,
       candidateFrameworks: fixtureOperatorRefs,
+      candidateTwinRefs: fixtureTwinRefs,
+      candidatePraxisRefs: [],
       situation: {
         actors: ["self", "other"],
         observations: ["她两天没回我消息"],
@@ -166,6 +174,7 @@ test("ambiguous target turn uses the public semantic router", async () => {
           needsFramework: false,
           needsReality: false,
           needsExternalResearch: false,
+          candidateTwinRefs: fixtureTwinRefs,
         }),
       };
     });
@@ -181,6 +190,112 @@ test("ambiguous target turn uses the public semantic router", async () => {
 
     assert.equal(routingCalls, 1);
     assert.match(JSON.stringify(prompt), /stella_core_consciousness/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("same-session prepared turns are admitted in preparation order", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    let calls = 0;
+    const hooks = registerPlugin(root, recoveryRevision, async () => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          text: JSON.stringify({
+            mode: "ordinary",
+            domains: ["general"],
+            needsTwin: false,
+            needsFramework: false,
+            needsReality: false,
+            needsExternalResearch: false,
+          }),
+        };
+      }
+      return { text: "not-json" };
+    });
+    const firstContext = {
+      agentId: "stella",
+      sessionKey: "agent:stella:shared",
+      trace: { traceId: "1".repeat(32) },
+    };
+    const secondContext = {
+      agentId: "stella",
+      sessionKey: "agent:stella:shared",
+      trace: { traceId: "2".repeat(32) },
+    };
+    const first = { prompt: "first", messages: [] };
+    const second = { prompt: "second", messages: [] };
+
+    await requireHook(hooks, "before_prompt_build")(first, firstContext);
+    await requireHook(hooks, "before_prompt_build")(second, secondContext);
+
+    assert.deepEqual(await requireHook(hooks, "before_agent_run")(first, firstContext), {
+      outcome: "pass",
+    });
+    const secondGate = await requireHook(hooks, "before_agent_run")(second, secondContext);
+    assert.ok(
+      typeof secondGate === "object" && secondGate !== null &&
+        "outcome" in secondGate && secondGate.outcome === "block",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("same-session concurrent preparation is correlated to the exact trace", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    let releaseFirst: (() => void) | undefined;
+    const firstMayFinish = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const hooks = registerPlugin(root, recoveryRevision, async (params) => {
+      const prompt = JSON.stringify(params);
+      if (prompt.includes("first concurrent turn")) {
+        await firstMayFinish;
+        return {
+          text: JSON.stringify({
+            mode: "ordinary",
+            domains: ["general"],
+            needsTwin: false,
+            needsFramework: false,
+            needsReality: false,
+            needsExternalResearch: false,
+          }),
+        };
+      }
+      return { text: "not-json" };
+    });
+    const first = { prompt: "first concurrent turn", messages: [] };
+    const second = { prompt: "second concurrent turn", messages: [] };
+    const firstContext = {
+      agentId: "stella",
+      sessionKey: "agent:stella:concurrent",
+      trace: { traceId: "a".repeat(32) },
+    };
+    const secondContext = {
+      agentId: "stella",
+      sessionKey: "agent:stella:concurrent",
+      trace: { traceId: "b".repeat(32) },
+    };
+
+    const firstPreparation = requireHook(hooks, "before_prompt_build")(first, firstContext);
+    await requireHook(hooks, "before_prompt_build")(second, secondContext);
+    releaseFirst?.();
+    await firstPreparation;
+
+    assert.deepEqual(await requireHook(hooks, "before_agent_run")(first, firstContext), {
+      outcome: "pass",
+    });
+    const secondGate = await requireHook(hooks, "before_agent_run")(second, secondContext);
+    assert.ok(
+      typeof secondGate === "object" && secondGate !== null &&
+        "category" in secondGate && secondGate.category === "stella_semantic_routing_failed",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

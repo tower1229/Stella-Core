@@ -195,6 +195,8 @@ try {
     needsReality: true,
     needsExternalResearch: false,
     candidateFrameworks: fixtureOperatorRefs,
+    candidateTwinRefs: ["path:30_PersonalData/twin/hypotheses/twin_fixture.md"],
+    candidatePraxisRefs: [],
     situation: {
       actors: ["self", "other"],
       observations: ["她两天没回我消息"],

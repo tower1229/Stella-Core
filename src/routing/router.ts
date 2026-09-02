@@ -10,7 +10,12 @@ export type CortexMode = (typeof CORTEX_MODES)[number];
 export type Stakes = "low" | "medium" | "high";
 export type Reversibility = "high" | "medium" | "low";
 
-export type FrameworkCandidate = { ref: string; purpose: string };
+export type SemanticCandidate = { ref: string; purpose: string };
+export type SemanticRoutingCandidates = {
+  frameworks: SemanticCandidate[];
+  twin: SemanticCandidate[];
+  personalPraxis: SemanticCandidate[];
+};
 export type RouteSituation = {
   actors: string[];
   observations: string[];
@@ -31,19 +36,13 @@ export type CortexRoute = {
   needsReality: boolean;
   needsExternalResearch: boolean;
   candidateFrameworks?: string[];
+  candidateTwinRefs?: string[];
+  candidatePraxisRefs?: string[];
   openEpisodeRef?: string;
   situation?: RouteSituation;
 };
 
 export type SemanticRouteClassifier = (
   prompt: string,
-  frameworkCandidates: FrameworkCandidate[],
+  candidates: SemanticRoutingCandidates,
 ) => Promise<CortexRoute>;
-
-export async function routeTurn(
-  prompt: string,
-  frameworkCandidates: FrameworkCandidate[],
-  classifySemantically: SemanticRouteClassifier,
-): Promise<CortexRoute> {
-  return classifySemantically(prompt, frameworkCandidates);
-}

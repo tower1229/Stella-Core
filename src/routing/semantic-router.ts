@@ -3,9 +3,9 @@ import {
   CORTEX_MODES,
   type CortexMode,
   type CortexRoute,
-  type FrameworkCandidate,
   type RouteSituation,
   type SemanticRouteClassifier,
+  type SemanticRoutingCandidates,
 } from "./router.js";
 
 export type RoutingCompletion = (params: {
@@ -41,7 +41,13 @@ function stringList(record: Record<string, unknown>, key: string, maxItems: numb
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
     throw new Error(`Model route field ${key} must be a string array`);
   }
-  return value.filter((item) => item.length > 0).slice(0, maxItems);
+  if (value.length > maxItems) {
+    throw new Error(`Model route field ${key} must contain at most ${maxItems} items`);
+  }
+  if (value.some((item) => item.length === 0)) {
+    throw new Error(`Model route field ${key} must not contain empty strings`);
+  }
+  return value;
 }
 
 function routeRiskFields(record: Record<string, unknown>) {
@@ -69,7 +75,23 @@ function parseSituation(record: Record<string, unknown>): RouteSituation {
   };
 }
 
-function parseModelRoute(text: string, availableCandidates: FrameworkCandidate[]): CortexRoute {
+function selectedRefs(
+  record: Record<string, unknown>,
+  key: string,
+  maxItems: number,
+  available: Set<string>,
+): string[] {
+  const refs = stringList(record, key, maxItems);
+  if (new Set(refs).size !== refs.length) {
+    throw new Error(`Model route field ${key} must not contain duplicate refs`);
+  }
+  if (refs.some((ref) => !available.has(ref))) {
+    throw new Error(`Model route selected an unavailable ${key} candidate`);
+  }
+  return refs;
+}
+
+function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): CortexRoute {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -97,6 +119,9 @@ function parseModelRoute(text: string, availableCandidates: FrameworkCandidate[]
   if (parsed.mode === "deep_praxis" && !needsExternalResearch) {
     throw new Error("Model deep_praxis route must require external research");
   }
+  if (parsed.mode === "deep_praxis") {
+    throw new Error("Deep Praxis is unavailable because external research is not implemented");
+  }
   if (
     parsed.mode === "twin" &&
     (!needsTwin || needsFramework || needsReality || needsExternalResearch)
@@ -110,14 +135,18 @@ function parseModelRoute(text: string, availableCandidates: FrameworkCandidate[]
     throw new Error("Model non-Cortex route requested unsupported context");
   }
 
-  const allowedRefs = new Set(availableCandidates.map(({ ref }) => ref));
-  const candidateFrameworks = isPraxis ? stringList(parsed, "candidateFrameworks", 2) : [];
-  if (isPraxis && candidateFrameworks.length === 0) {
-    throw new Error("Model Praxis route requires at least one Framework operator");
-  }
-  if (candidateFrameworks.some((ref) => !allowedRefs.has(ref))) {
-    throw new Error("Model Praxis route selected an unavailable Framework operator");
-  }
+  const frameworkRefs = new Set(candidates.frameworks.map(({ ref }) => ref));
+  const twinRefs = new Set(candidates.twin.map(({ ref }) => ref));
+  const praxisRefs = new Set(candidates.personalPraxis.map(({ ref }) => ref));
+  const candidateFrameworks = isPraxis
+    ? selectedRefs(parsed, "candidateFrameworks", 2, frameworkRefs)
+    : [];
+  const candidateTwinRefs = needsTwin
+    ? selectedRefs(parsed, "candidateTwinRefs", 3, twinRefs)
+    : [];
+  const candidatePraxisRefs = isPraxis
+    ? selectedRefs(parsed, "candidatePraxisRefs", 2, praxisRefs)
+    : [];
 
   return {
     mode: parsed.mode,
@@ -127,7 +156,10 @@ function parseModelRoute(text: string, availableCandidates: FrameworkCandidate[]
     needsFramework,
     needsReality,
     needsExternalResearch,
-    ...(isPraxis ? { candidateFrameworks, situation: parseSituation(parsed) } : {}),
+    ...(needsTwin ? { candidateTwinRefs } : {}),
+    ...(isPraxis
+      ? { candidateFrameworks, candidatePraxisRefs, situation: parseSituation(parsed) }
+      : {}),
   };
 }
 
@@ -135,7 +167,7 @@ export function createSemanticRouter(
   complete: RoutingCompletion,
   agentId: string,
 ): SemanticRouteClassifier {
-  return async (prompt, frameworkCandidates) => {
+  return async (prompt, candidates) => {
     try {
       const result = await complete({
         agentId,
@@ -144,15 +176,16 @@ export function createSemanticRouter(
         purpose: "stella-core-semantic-routing",
         systemPrompt: [
           "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
-          "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, and situation.",
+          "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, and situation.",
           "Use praxis for a personal real-world choice, twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
-          "Praxis modes must request Twin, Framework, and Reality, select one or two exact operator refs from the supplied candidates, and include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints.",
+          "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, and include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints.",
+          "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
           "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
-          `Available Framework operators: ${JSON.stringify(frameworkCandidates)}`,
+          `Available semantic candidates: ${JSON.stringify(candidates)}`,
         ].join(" "),
         messages: [{ role: "user", content: prompt }],
       });
-      return parseModelRoute(result.text, frameworkCandidates);
+      return parseModelRoute(result.text, candidates);
     } catch (error) {
       if (error instanceof SemanticRoutingError) throw error;
       throw new SemanticRoutingError("Stella semantic routing failed", { cause: error });

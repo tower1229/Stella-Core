@@ -25,6 +25,8 @@ const relationshipRoute: CortexRoute = {
     "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
     "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:observation_test",
   ],
+  candidateTwinRefs: ["path:30_PersonalData/twin/hypotheses/twin_fixture.md"],
+  candidatePraxisRefs: [],
   situation: {
     actors: ["self", "other"],
     observations: ["她两天没回我消息"],
@@ -84,13 +86,36 @@ test("Reality Need Check distinguishes available personal Praxis memory", async 
       "utf8",
     );
     const loaded = await loadConsciousness(root);
-    const packet = buildPraxisContextPacket("我要不要回复她的消息？", relationshipRoute, loaded);
+    const packet = buildPraxisContextPacket(
+      "我要不要回复她的消息？",
+      {
+        ...relationshipRoute,
+        candidatePraxisRefs: ["path:30_PersonalData/praxis/playbook/synthetic-item.md"],
+      },
+      loaded,
+    );
 
     assert.deepEqual(packet.reality.modes, ["base_model", "personal_praxis"]);
     assert.deepEqual(packet.reality.personalPraxisRefs, [
       "path:30_PersonalData/praxis/playbook/synthetic-item.md",
     ]);
     assert.match(packet.reality.personalPractices?.[0] ?? "", /reciprocal initiative/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("zero selected Framework operators remains a valid bounded Praxis packet", async () => {
+  const root = await createFixture();
+  try {
+    const loaded = await loadConsciousness(root);
+    const packet = buildPraxisContextPacket(
+      "先试哪个可逆选项？",
+      { ...relationshipRoute, candidateFrameworks: [] },
+      loaded,
+    );
+    assert.deepEqual(packet.framework?.operatorRefs, []);
+    assert.deepEqual(packet.framework?.operators, []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

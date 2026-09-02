@@ -1,7 +1,11 @@
 import { parse as parseYaml } from "yaml";
 import type { LoadedConsciousness } from "../canghai/manifest.js";
 import { parseTwinHypothesisRecord } from "../canghai/schema.js";
-import type { CortexRoute, FrameworkCandidate } from "../routing/router.js";
+import type {
+  CortexRoute,
+  SemanticCandidate,
+  SemanticRoutingCandidates,
+} from "../routing/router.js";
 import { isRecord } from "../shared/type-guards.js";
 import { buildSituationFrame, type SituationFrame } from "../situation/frame.js";
 
@@ -11,6 +15,7 @@ const MAX_TWIN_PATTERN_CHARS = 500;
 const MAX_OPERATOR_PURPOSE_CHARS = 300;
 const MAX_LIST_ITEMS = 4;
 const MAX_FRAMEWORK_OPERATORS = 2;
+const MAX_ROUTING_CANDIDATES_PER_KIND = 24;
 
 type RealityMode = "base_model" | "personal_praxis" | "external_research";
 
@@ -73,20 +78,20 @@ function boundSituation(frame: SituationFrame): SituationFrame {
 }
 
 function selectTwinContext(route: CortexRoute, loaded: LoadedConsciousness) {
+  const selectedRefs = new Set(route.candidateTwinRefs ?? []);
   const matches = loaded.bootstrapDocuments
     .filter((document) => document.category === "twin")
     .flatMap((document) => {
       const record = parseTwinHypothesisRecord(document.content);
-      const scope = isRecord(record.scope) ? record.scope : undefined;
-      const domains = Array.isArray(scope?.domains)
-        ? scope.domains.filter((value): value is string => typeof value === "string")
-        : [];
-      const relevant = domains.length === 0 || domains.some((domain) => route.domains.includes(domain));
-      return relevant && typeof record.statement === "string"
+      return selectedRefs.has(document.ref) && typeof record.statement === "string"
         ? [{ ref: document.ref, statement: record.statement }]
         : [];
     })
     .slice(0, 3);
+
+  if (matches.length !== selectedRefs.size) {
+    throw new Error("Praxis route did not resolve its selected Twin hypotheses");
+  }
 
   if (matches.length === 0) return undefined;
   return {
@@ -113,10 +118,19 @@ function parseFrameworkRecord(content: string): FrameworkRecord | undefined {
   return { id: parsed.id, operators, failureModes };
 }
 
-export function listFrameworkOperatorCandidates(
+function withinCandidateCapacity(kind: string, candidates: SemanticCandidate[]): SemanticCandidate[] {
+  if (candidates.length > MAX_ROUTING_CANDIDATES_PER_KIND) {
+    throw new Error(
+      `${kind} candidate count exceeds the hard limit of ${MAX_ROUTING_CANDIDATES_PER_KIND}`,
+    );
+  }
+  return candidates;
+}
+
+export function listSemanticRoutingCandidates(
   loaded: LoadedConsciousness,
-): FrameworkCandidate[] {
-  return loaded.bootstrapDocuments
+): SemanticRoutingCandidates {
+  const frameworks = loaded.bootstrapDocuments
     .filter((document) => document.category === "framework")
     .flatMap((document) => {
       const record = parseFrameworkRecord(document.content);
@@ -125,8 +139,24 @@ export function listFrameworkOperatorCandidates(
         ref: `${document.ref}#operator:${operator.id}`,
         purpose: boundedText(operator.purpose, 160),
       }));
-    })
-    .slice(0, 24);
+    });
+  const twin = loaded.bootstrapDocuments
+    .filter((document) => document.category === "twin")
+    .flatMap((document) => {
+      const record = parseTwinHypothesisRecord(document.content);
+      return typeof record.statement === "string"
+        ? [{ ref: document.ref, purpose: boundedText(record.statement, 160) }]
+        : [];
+    });
+  const personalPraxis = loaded.praxisPlaybookItems.map((item) => ({
+    ref: item.ref,
+    purpose: boundedText(item.content.trim(), 160),
+  }));
+  return {
+    frameworks: withinCandidateCapacity("Framework", frameworks),
+    twin: withinCandidateCapacity("Twin", twin),
+    personalPraxis: withinCandidateCapacity("personal Praxis", personalPraxis),
+  };
 }
 
 function selectFrameworkContext(
@@ -145,7 +175,7 @@ function selectFrameworkContext(
       });
     })
     .slice(0, MAX_FRAMEWORK_OPERATORS);
-  if (selected.length === 0 || selected.length !== selectedRefs.size) {
+  if (selected.length !== selectedRefs.size) {
     throw new Error("Praxis route did not resolve its selected Framework operators");
   }
 
@@ -170,16 +200,17 @@ function buildRealityContext(
   loaded: LoadedConsciousness,
 ) {
   const modes: RealityMode[] = ["base_model"];
+  const selectedPraxisRefs = new Set(route.candidatePraxisRefs ?? []);
   const personalPraxis = route.needsReality
-    ? loaded.praxisPlaybookItems
-        .filter(
-          (item) =>
-            item.domains.length === 0 || item.domains.some((domain) => route.domains.includes(domain)),
-        )
-        .slice(0, 2)
+    ? loaded.praxisPlaybookItems.filter((item) => selectedPraxisRefs.has(item.ref))
     : [];
+  if (personalPraxis.length !== selectedPraxisRefs.size) {
+    throw new Error("Praxis route did not resolve its selected personal Praxis records");
+  }
   if (personalPraxis.length > 0) modes.push("personal_praxis");
-  if (route.needsExternalResearch) modes.push("external_research");
+  if (route.needsExternalResearch) {
+    throw new Error("External research is unavailable for Praxis packet construction");
+  }
 
   const personalFields =
     personalPraxis.length > 0

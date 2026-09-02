@@ -9,11 +9,11 @@ import {
 import { renderConsciousnessContext } from "./canghai/context.js";
 import {
   buildPraxisContextPacket,
-  listFrameworkOperatorCandidates,
+  listSemanticRoutingCandidates,
   renderPraxisContextPacket,
 } from "./praxis/packet.js";
 import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
-import { routeTurn } from "./routing/router.js";
+import type { CortexRoute } from "./routing/router.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 const STELLA_CORE_SYSTEM_CONTEXT =
@@ -119,17 +119,35 @@ class PreparedTurnStore {
     this.#turns.set(key, { ...turn, preparedAt: Date.now() });
   }
 
-  take(sessionKey: string): PreparedTurn | undefined {
-    const turn = this.#turns.get(sessionKey);
-    this.#turns.delete(sessionKey);
+  take(key: string): PreparedTurn | undefined {
+    const turn = this.#turns.get(key);
+    this.#turns.delete(key);
     if (!turn || Date.now() - turn.preparedAt > 60_000) return undefined;
     return turn;
   }
 }
 
-function preparedTurnKey(sessionKey: string | undefined): string {
+function renderTwinContext(loaded: LoadedConsciousness, route: CortexRoute): string {
+  const selectedTwinRefs = new Set(route.candidateTwinRefs ?? []);
+  return renderConsciousnessContext({
+    ...loaded,
+    bootstrapDocuments: loaded.bootstrapDocuments.filter(
+      (document) =>
+        document.category === "identity" ||
+        (document.category === "twin" && selectedTwinRefs.has(document.ref)),
+    ),
+  });
+}
+
+function preparedTurnKey(
+  sessionKey: string | undefined,
+  traceId: string | undefined,
+  runId: string | undefined,
+): string {
   if (!sessionKey) throw new Error("Stella prepared turn requires a Host session key");
-  return sessionKey;
+  const turnId = traceId ?? runId;
+  if (!turnId) throw new Error("Stella prepared turn requires a Host trace or run id");
+  return `${sessionKey}:${turnId}`;
 }
 
 export default definePluginEntry({
@@ -151,20 +169,19 @@ export default definePluginEntry({
       "before_prompt_build",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
-        const turnKey = preparedTurnKey(ctx.sessionKey);
+        const turnKey = preparedTurnKey(ctx.sessionKey, ctx.trace?.traceId, ctx.runId);
         try {
           const loaded = await consciousness.load();
-          const route = await routeTurn(
+          const route = await classifySemantically(
             event.prompt,
-            listFrameworkOperatorCandidates(loaded),
-            classifySemantically,
+            listSemanticRoutingCandidates(loaded),
           );
           const appendContext =
             route.mode === "ordinary" || route.mode === "outcome"
               ? undefined
               : route.mode === "praxis" || route.mode === "deep_praxis"
                 ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))
-                : renderConsciousnessContext(loaded);
+                : renderTwinContext(loaded, route);
           preparedTurns.put(turnKey, { outcome: "ready" });
           return {
             prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
@@ -197,7 +214,9 @@ export default definePluginEntry({
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
 
-        const prepared = preparedTurns.take(preparedTurnKey(ctx.sessionKey));
+        const prepared = preparedTurns.take(
+          preparedTurnKey(ctx.sessionKey, ctx.trace?.traceId, ctx.runId),
+        );
         if (prepared?.outcome === "ready") return { outcome: "pass" } as const;
         const category = prepared?.category ?? "stella_turn_preparation_unavailable";
         return {
