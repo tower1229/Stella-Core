@@ -161,6 +161,37 @@ try {
   }
 
   const providerRequests = [];
+  const fixtureOperatorRefs = [
+    "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
+    "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:observation_test",
+  ];
+  const ordinaryRoute = {
+    mode: "ordinary",
+    domains: ["general"],
+    needsTwin: false,
+    needsFramework: false,
+    needsReality: false,
+    needsExternalResearch: false,
+  };
+  const praxisRoute = {
+    mode: "praxis",
+    domains: ["relationship"],
+    stakes: "medium",
+    reversibility: "high",
+    needsTwin: true,
+    needsFramework: true,
+    needsReality: true,
+    needsExternalResearch: false,
+    candidateFrameworks: fixtureOperatorRefs,
+    situation: {
+      actors: ["self", "other"],
+      observations: ["她两天没回我消息"],
+      interpretations: ["我觉得她可能在疏远我"],
+      unknowns: ["她没有回复的原因"],
+      userGoals: ["判断是否再发一条消息"],
+      constraints: ["不想给她压力"],
+    },
+  };
   providerServer = createServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk;
@@ -172,9 +203,12 @@ try {
       );
       return;
     }
-    const responseContent = body.includes("<stella_core_praxis_context")
-      ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
-      : "smoke-ok";
+    const isSemanticRouting = body.includes("Semantically classify one user turn");
+    const responseContent = isSemanticRouting
+      ? JSON.stringify(body.includes("她两天没回我消息") ? praxisRoute : ordinaryRoute)
+      : body.includes("<stella_core_praxis_context")
+        ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
+        : "smoke-ok";
     response.end(
       JSON.stringify({
         id: "chatcmpl-stella-core-smoke",
@@ -342,22 +376,31 @@ try {
   const completionRequests = providerRequests.filter((request) =>
     request.url?.endsWith("/chat/completions"),
   );
+  const routingRequests = completionRequests.filter((request) =>
+    request.body.includes("Semantically classify one user turn"),
+  );
+  const answerRequests = completionRequests.filter((request) =>
+    !request.body.includes("Semantically classify one user turn"),
+  );
   if (
-    completionRequests.length !== 3 ||
-    completionRequests[0].body.includes("<stella_core_praxis_context") ||
-    !completionRequests[1].body.includes("<stella_core_praxis_context") ||
-    !completionRequests[1].body.includes("#operator:reversible_test") ||
-    completionRequests[2].body.includes("<stella_core_praxis_context") ||
+    routingRequests.length !== 2 ||
+    answerRequests.length !== 3 ||
+    answerRequests[0].body.includes("<stella_core_praxis_context") ||
+    !answerRequests[1].body.includes("<stella_core_praxis_context") ||
+    !answerRequests[1].body.includes("#operator:reversible_test") ||
+    answerRequests[2].body.includes("<stella_core_praxis_context") ||
     !exactHostResults[1]?.stdout.includes("低压消息") ||
     !exactHostResults[1]?.stdout.includes("不替你发送")
   ) {
     throw new Error(
       `real OpenClaw target injection or non-target bypass acceptance failed: ${JSON.stringify({
         completionRequestCount: completionRequests.length,
-        ordinaryTargetBypassed: !completionRequests[0]?.body.includes("<stella_core_praxis_context"),
-        praxisTargetInjected: completionRequests[1]?.body.includes("<stella_core_praxis_context"),
-        praxisOperatorTrace: completionRequests[1]?.body.includes("#operator:reversible_test"),
-        nonTargetBypassed: !completionRequests[2]?.body.includes("<stella_core_praxis_context"),
+        semanticRoutingRequestCount: routingRequests.length,
+        answerRequestCount: answerRequests.length,
+        ordinaryTargetBypassed: !answerRequests[0]?.body.includes("<stella_core_praxis_context"),
+        praxisTargetInjected: answerRequests[1]?.body.includes("<stella_core_praxis_context"),
+        praxisOperatorTrace: answerRequests[1]?.body.includes("#operator:reversible_test"),
+        nonTargetBypassed: !answerRequests[2]?.body.includes("<stella_core_praxis_context"),
         praxisAnswer: exactHostResults[1]?.stdout,
         urls: providerRequests.map((request) => request.url),
       })}`,
@@ -383,7 +426,13 @@ try {
       pluginConfig: { canghaiRoot, recoveryRevision, agentId: "stella" },
       runtime: {
         version: exactOpenClawVersion,
-        llm: { complete: async () => { throw new Error("unexpected model fallback"); } },
+        llm: {
+          complete: async ({ messages }) => ({
+            text: JSON.stringify(messages[0]?.content.includes("她没回我消息")
+              ? praxisRoute
+              : ordinaryRoute),
+          }),
+        },
       },
       on(name, handler) {
         hooks.set(name, handler);
@@ -490,6 +539,7 @@ try {
     canghaiSourceClean: canghaiSourceStatus.length === 0,
     isolatedState: true,
     runtimeLoaded: true,
+    semanticRouting: true,
     ordinaryTargetBypassed: true,
     praxisTargetInjected: true,
     praxisOperatorTrace: true,

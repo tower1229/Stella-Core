@@ -7,8 +7,12 @@ import {
   type LoadedConsciousness,
 } from "./canghai/manifest.js";
 import { renderConsciousnessContext } from "./canghai/context.js";
-import { buildPraxisContextPacket, renderPraxisContextPacket } from "./praxis/packet.js";
-import { createModelRouteFallback } from "./routing/model-fallback.js";
+import {
+  buildPraxisContextPacket,
+  listFrameworkOperatorCandidates,
+  renderPraxisContextPacket,
+} from "./praxis/packet.js";
+import { createSemanticRouter } from "./routing/semantic-router.js";
 import { routeTurn } from "./routing/router.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
@@ -110,7 +114,7 @@ export default definePluginEntry({
   register(api) {
     const config = parsePluginConfig(api.pluginConfig);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
-    const modelRouteFallback = createModelRouteFallback(
+    const classifySemantically = createSemanticRouter(
       (params) => api.runtime.llm.complete(params),
       config.agentId,
     );
@@ -120,13 +124,17 @@ export default definePluginEntry({
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
 
-        const route = await routeTurn(event.prompt, modelRouteFallback);
+        const loaded = await consciousness.load();
+        const route = await routeTurn(
+          event.prompt,
+          listFrameworkOperatorCandidates(loaded),
+          classifySemantically,
+        );
         if (route.mode === "ordinary" || route.mode === "outcome") {
           return {
             prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
           };
         }
-        const loaded = await consciousness.load();
         const appendContext =
           route.mode === "praxis" || route.mode === "deep_praxis"
             ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))

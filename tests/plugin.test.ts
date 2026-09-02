@@ -16,7 +16,16 @@ function registerPlugin(
   root: string,
   recoveryRevision: string,
   complete: (params: unknown) => Promise<{ text: string }> = async () => {
-    throw new Error("unexpected model fallback");
+    return {
+      text: JSON.stringify({
+        mode: "ordinary",
+        domains: ["general"],
+        needsTwin: false,
+        needsFramework: false,
+        needsReality: false,
+        needsExternalResearch: false,
+      }),
+    };
   },
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
@@ -33,6 +42,35 @@ function registerPlugin(
   };
   plugin.register(api as never);
   return hooks;
+}
+
+const fixtureOperatorRefs = [
+  "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
+  "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:observation_test",
+];
+
+async function praxisRouteCompletion(): Promise<{ text: string }> {
+  return {
+    text: JSON.stringify({
+      mode: "praxis",
+      domains: ["relationship"],
+      stakes: "medium",
+      reversibility: "high",
+      needsTwin: true,
+      needsFramework: true,
+      needsReality: true,
+      needsExternalResearch: false,
+      candidateFrameworks: fixtureOperatorRefs,
+      situation: {
+        actors: ["self", "other"],
+        observations: ["她两天没回我消息"],
+        interpretations: ["我觉得她可能在疏远我"],
+        unknowns: ["她没有回复的原因"],
+        userGoals: ["判断是否再发一条消息"],
+        constraints: ["不想给她压力"],
+      },
+    }),
+  };
 }
 
 function requireHook(hooks: Map<string, HookHandler>, name: string): HookHandler {
@@ -80,7 +118,7 @@ test("relationship decision receives a bounded traceable Praxis packet", async (
   const root = await createFixture();
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
-    const hooks = registerPlugin(root, recoveryRevision);
+    const hooks = registerPlugin(root, recoveryRevision, praxisRouteCompletion);
     const prompt = await requireHook(hooks, "before_prompt_build")(
       {
         prompt: "她两天没回我消息，我觉得她可能在疏远我。我想知道要不要再发一条，又不想给她压力。",
@@ -100,13 +138,13 @@ test("relationship decision receives a bounded traceable Praxis packet", async (
   }
 });
 
-test("ambiguous target turn uses the public model fallback", async () => {
+test("ambiguous target turn uses the public semantic router", async () => {
   const root = await createFixture();
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
-    let fallbackCalls = 0;
+    let routingCalls = 0;
     const hooks = registerPlugin(root, recoveryRevision, async () => {
-      fallbackCalls += 1;
+      routingCalls += 1;
       return {
         text: JSON.stringify({
           mode: "twin",
@@ -123,8 +161,29 @@ test("ambiguous target turn uses the public model fallback", async () => {
       { agentId: "stella" },
     );
 
-    assert.equal(fallbackCalls, 1);
+    assert.equal(routingCalls, 1);
     assert.match(JSON.stringify(prompt), /stella_core_consciousness/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("semantic routing failure is explicit and does not masquerade as ordinary", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    const hooks = registerPlugin(root, recoveryRevision, async () => ({ text: "not-json" }));
+    await assert.rejects(
+      async () =>
+        requireHook(hooks, "before_prompt_build")(
+          { prompt: "含义需要判断的日常表达", messages: [] },
+          { agentId: "stella" },
+        ),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_semantic_routing_failed",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

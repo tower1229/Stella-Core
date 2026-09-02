@@ -15,6 +15,14 @@ test("Situation Frame keeps observations separate from interpretations and unkno
       needsFramework: true,
       needsReality: true,
       needsExternalResearch: false,
+      situation: {
+        actors: ["self", "other"],
+        observations: ["她两天没回我消息"],
+        interpretations: ["我觉得她可能在疏远我"],
+        unknowns: ["也不知道她是不是在忙", "我要不要再发一条"],
+        userGoals: ["我想确认关系"],
+        constraints: ["同时不想给她压力"],
+      },
     },
   );
 
@@ -40,6 +48,14 @@ test("one clause can preserve overlapping goal, unknown, and interpretation sema
     needsFramework: true,
     needsReality: true,
     needsExternalResearch: false,
+    situation: {
+      actors: ["self", "other"],
+      observations: [],
+      interpretations: ["我觉得她是不是在回避我"],
+      unknowns: ["我觉得她是不是在回避我", "我想知道要不要再发一条"],
+      userGoals: ["我想知道要不要再发一条"],
+      constraints: [],
+    },
   });
 
   assert.deepEqual(frame.interpretations, ["我觉得她是不是在回避我"]);

@@ -1,7 +1,7 @@
 import { parse as parseYaml } from "yaml";
 import type { LoadedConsciousness } from "../canghai/manifest.js";
 import { parseTwinHypothesisRecord } from "../canghai/schema.js";
-import type { CortexRoute } from "../routing/router.js";
+import type { CortexRoute, FrameworkCandidate } from "../routing/router.js";
 import { isRecord } from "../shared/type-guards.js";
 import { buildSituationFrame, type SituationFrame } from "../situation/frame.js";
 
@@ -43,12 +43,9 @@ export type PraxisContextPacket = {
   openEpisodeRef?: string;
 };
 
-type FrameworkOperator = { id: string; purpose: string; selectionText: string };
+type FrameworkOperator = { id: string; purpose: string };
 type FrameworkRecord = {
   id: string;
-  cognitiveJobs: string[];
-  domainHints: string[];
-  positiveSignals: string[];
   operators: FrameworkOperator[];
   failureModes: string[];
 };
@@ -101,29 +98,10 @@ function selectTwinContext(route: CortexRoute, loaded: LoadedConsciousness) {
 function parseFrameworkRecord(content: string): FrameworkRecord | undefined {
   const parsed = parseYaml(content) as unknown;
   if (!isRecord(parsed) || typeof parsed.id !== "string") return undefined;
-  const detection = isRecord(parsed.detection) ? parsed.detection : {};
-  const cognitiveJobs = Array.isArray(parsed.cognitiveJobs)
-    ? parsed.cognitiveJobs.filter((value): value is string => typeof value === "string")
-    : [];
-  const domainHints = Array.isArray(parsed.domainHints)
-    ? parsed.domainHints.filter((value): value is string => typeof value === "string")
-    : [];
-  const positiveSignals = Array.isArray(detection.positiveSignals)
-    ? detection.positiveSignals.filter((value): value is string => typeof value === "string")
-    : [];
   const operators = Array.isArray(parsed.operators)
     ? parsed.operators.flatMap((value) =>
         isRecord(value) && typeof value.id === "string" && typeof value.purpose === "string"
-          ? [{
-              id: value.id,
-              purpose: value.purpose,
-              selectionText: [
-                value.purpose,
-                ...(Array.isArray(value.questions) ? value.questions : []),
-                ...(Array.isArray(value.transforms) ? value.transforms : []),
-                ...(Array.isArray(value.outputHints) ? value.outputHints : []),
-              ].filter((item): item is string => typeof item === "string").join(" ").toLowerCase(),
-            }]
+          ? [{ id: value.id, purpose: value.purpose }]
           : [],
       )
     : [];
@@ -132,64 +110,44 @@ function parseFrameworkRecord(content: string): FrameworkRecord | undefined {
         isRecord(value) && typeof value.description === "string" ? [value.description] : [],
       )
     : [];
-  return { id: parsed.id, cognitiveJobs, domainHints, positiveSignals, operators, failureModes };
+  return { id: parsed.id, operators, failureModes };
 }
 
-function operatorSituationScore(operator: FrameworkOperator, situation: SituationFrame): number {
-  let score = 0;
-  if (
-    situation.interpretations.length > 0 &&
-    /(?:observation|interpretation|identity|certainty|explanation|evidence)/u.test(operator.selectionText)
-  ) {
-    score += 3;
-  }
-  if (
-    situation.unknowns.length > 0 &&
-    /(?:uncertainty|condition|competing|alternative|evidence|change)/u.test(operator.selectionText)
-  ) {
-    score += 2;
-  }
-  if (
-    situation.decision?.reversibility === "high" &&
-    /(?:reversible|experience|action|test|experiment)/u.test(operator.selectionText)
-  ) {
-    score += 2;
-  }
-  return score;
-}
-
-function selectFrameworkContext(
-  prompt: string,
-  route: CortexRoute,
+export function listFrameworkOperatorCandidates(
   loaded: LoadedConsciousness,
-  situation: SituationFrame,
-) {
-  const ranked = loaded.bootstrapDocuments
+): FrameworkCandidate[] {
+  return loaded.bootstrapDocuments
     .filter((document) => document.category === "framework")
     .flatMap((document) => {
       const record = parseFrameworkRecord(document.content);
       if (!record) return [];
-      const domainScore = [...record.cognitiveJobs, ...record.domainHints]
-        .filter((job) => route.domains.includes(job)).length;
-      const signalScore = record.positiveSignals.filter((signal) => prompt.includes(signal)).length;
-      return domainScore + signalScore > 0
-        ? [{ documentRef: document.ref, record, score: domainScore * 2 + signalScore }]
-        : [];
+      return record.operators.map((operator) => ({
+        ref: `${document.ref}#operator:${operator.id}`,
+        purpose: boundedText(operator.purpose, 160),
+      }));
     })
-    .sort((left, right) => right.score - left.score);
+    .slice(0, 24);
+}
 
-  const selected = ranked
-    .flatMap(({ documentRef, record, score }) =>
-      record.operators.flatMap((operator) => {
-        const relevance = operatorSituationScore(operator, situation);
-        return relevance > 0
-          ? [{ documentRef, record, operator, score: score + relevance }]
-          : [];
-      }),
-    )
-    .sort((left, right) => right.score - left.score)
+function selectFrameworkContext(
+  route: CortexRoute,
+  loaded: LoadedConsciousness,
+) {
+  const selectedRefs = new Set(route.candidateFrameworks ?? []);
+  const selected = loaded.bootstrapDocuments
+    .filter((document) => document.category === "framework")
+    .flatMap((document) => {
+      const record = parseFrameworkRecord(document.content);
+      if (!record) return [];
+      return record.operators.flatMap((operator) => {
+        const ref = `${document.ref}#operator:${operator.id}`;
+        return selectedRefs.has(ref) ? [{ documentRef: document.ref, record, operator }] : [];
+      });
+    })
     .slice(0, MAX_FRAMEWORK_OPERATORS);
-  if (selected.length === 0) return undefined;
+  if (selected.length === 0 || selected.length !== selectedRefs.size) {
+    throw new Error("Praxis route did not resolve its selected Framework operators");
+  }
 
   return {
     frameworkRefs: [...new Set(selected.map(({ documentRef }) => documentRef))],
@@ -264,7 +222,7 @@ export function buildPraxisContextPacket(
   const situation = boundSituation(buildSituationFrame(prompt, route));
   const twin = route.needsTwin ? selectTwinContext(route, loaded) : undefined;
   const framework = route.needsFramework
-    ? selectFrameworkContext(prompt, route, loaded, situation)
+    ? selectFrameworkContext(route, loaded)
     : undefined;
 
   return {
