@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stella-core.dev/schemas/consciousness-manifest.schema.json",
+  "title": "Stella Consciousness Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "instance",
+    "compatibility",
+    "identity",
+    "twin",
+    "frameworks",
+    "praxis",
+    "experience",
+    "derived"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "stella.consciousness-manifest/v1"
+    },
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ownerRef"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "ownerRef": {"type": "string", "minLength": 1},
+        "displayName": {"type": "string", "minLength": 1}
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stellaCore", "openclaw"],
+      "properties": {
+        "stellaCore": {"type": "string", "minLength": 1},
+        "openclaw": {"type": "string", "minLength": 1},
+        "modelPolicyRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["soulRef", "runtimeProfileRef"],
+      "properties": {
+        "soulRef": {"type": "string", "minLength": 1},
+        "identityRef": {"type": "string", "minLength": 1},
+        "userProfileRef": {"type": "string", "minLength": 1},
+        "runtimeProfileRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "twin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hypothesisRegistryRef"],
+      "properties": {
+        "hypothesisRegistryRef": {"type": "string", "minLength": 1},
+        "contextualSelfRegistryRef": {"type": "string", "minLength": 1},
+        "durableStateRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "frameworks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceRegistryRef", "activeIrRegistryRef"],
+      "properties": {
+        "sourceRegistryRef": {"type": "string", "minLength": 1},
+        "activeIrRegistryRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "praxis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["episodeRootRef"],
+      "properties": {
+        "episodeRootRef": {"type": "string", "minLength": 1},
+        "playbookRegistryRef": {"type": "string", "minLength": 1},
+        "openEpisodeRegistryRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "experience": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["corpusRegistryRef"],
+      "properties": {
+        "corpusRegistryRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "durableState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "goalsRef": {"type": "string", "minLength": 1},
+        "commitmentsRef": {"type": "string", "minLength": 1},
+        "openLoopsRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "continuitySuiteRef": {"type": "string", "minLength": 1},
+        "twinEvaluationRef": {"type": "string", "minLength": 1},
+        "praxisEvaluationRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "derived": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rebuild"],
+      "properties": {
+        "rebuild": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "bootstrap_projection",
+              "memory_index",
+              "vector_index",
+              "embeddings",
+              "memory_wiki",
+              "framework_registry",
+              "praxis_index"
+            ]
+          }
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "durability": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "criticalWritePolicy": {
+          "enum": ["sync_immediately", "bounded_batch"]
+        },
+        "normalWritePolicy": {
+          "enum": ["sync_immediately", "bounded_batch"]
+        },
+        "maxNormalRpoSeconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
