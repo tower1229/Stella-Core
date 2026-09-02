@@ -47,7 +47,9 @@ The repository default branch must never be selected implicitly as the instance'
 
 `HEAD` may be accepted only when it is an explicit operator input and is immediately resolved to an immutable commit SHA; it is not a semantic alias for “latest valid Stella data.”
 
-If the manifest records a source baseline, the selected recovery revision and all required source-content pins must be reconciled against it before activation.
+The materialized checkout must be clean and its `HEAD` must equal that resolved 40-character SHA. A dirty tracked file can make the bytes read by Stella differ from the named recovery point, so activation fails closed even when the changed file appears unrelated.
+
+`sourceBaseline` is derivation provenance for the initial bootstrap and managed artifacts. It is not the current recovery revision and later valid learning revisions are not required to equal it. The selected recovery revision still validates every source-content pin required by the manifest and referenced registries.
 
 ### Phase B — Discover manifest
 
@@ -69,6 +71,7 @@ Validate:
 - required plugin/runtime capabilities;
 - configured model policy availability;
 - required migrations;
+- `runtimeState.activationStatus` is exactly `active` (`migration_required` and `degraded` both block activation);
 - source-baseline identity and content pins required by the manifest/registries.
 
 A migration changes portable data explicitly and produces a new CangHai recovery point; restore must not silently mutate personal data merely to make an incompatible runtime boot.
@@ -235,7 +238,7 @@ Before Stella 3.0 Alpha is considered portable, perform one destructive lab test
 1. create durable Twin/Framework/Praxis state on server A;
 2. synchronize a CangHai recovery revision;
 3. provision clean server B;
-4. install compatible OpenClaw + Stella Core;
+4. install packed Stella Core into the exact Alpha acceptance Host, OpenClaw 2026.8.2;
 5. restore only from CangHai + external secrets using an explicit revision;
 6. do not copy OpenClaw sessions/SQLite/runtime directories;
 7. rebuild derived data;

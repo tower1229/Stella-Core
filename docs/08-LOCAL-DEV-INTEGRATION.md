@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run Stella 3.0 locally against OpenClaw 2026.8.1 using:
+Run Stella 3.0 locally against the exact Alpha acceptance Host, OpenClaw 2026.8.2, using:
 
 - a local Stella-Core checkout loaded as a linked OpenClaw plugin;
 - an isolated OpenClaw development state directory;
@@ -14,7 +14,7 @@ The first acceptance target is a read-only consciousness bootstrap. The second t
 ## Development topology
 
 ```text
-OpenClaw 2026.8.1 (isolated dev state)
+OpenClaw 2026.8.2 (isolated dev state)
         |
         v
 Stella-Core local checkout --linked plugin
@@ -109,6 +109,7 @@ Configure Stella-Core:
 openclaw config set plugins.entries.stella-core.config.canghaiRoot "$HOME/dev/CangHai-Stella-Dev"
 openclaw config set plugins.entries.stella-core.config.manifestPath "50_PersonalAgent/stella/manifest.yaml"
 openclaw config set plugins.entries.stella-core.config.agentId "stella"
+openclaw config set plugins.entries.stella-core.config.recoveryRevision "$(git -C "$HOME/dev/CangHai-Stella-Dev" rev-parse HEAD)"
 openclaw config set plugins.entries.stella-core.hooks.allowConversationAccess true
 openclaw config set plugins.entries.stella-core.enabled true
 openclaw config validate
@@ -127,9 +128,9 @@ openclaw gateway status --deep --require-rpc
 Before implementing any durable write path, prove:
 
 1. OpenClaw starts with Stella-Core enabled.
-2. `before_agent_run` does not block when the local CangHai checkout is valid.
+2. `before_agent_run` does not block only when the local CangHai checkout is clean at the configured recovery SHA, compatible, and `runtimeState.activationStatus: active`.
 3. `before_prompt_build` injects the Stella bootstrap context only for the configured Stella agent.
-4. Breaking/removing the manifest causes Stella to fail closed.
+4. `migration_required`, `degraded`, incompatible versions, dirty/mismatched recovery revisions, invalid records, and breaking/removing the manifest cause Stella to fail closed with a stable category.
 5. Restoring the manifest makes Stella usable again without restoring any old OpenClaw session.
 6. Ordinary questions remain ordinary; loading Stella Core alone must not force every turn into Praxis analysis.
 
@@ -217,7 +218,7 @@ The new runtime can recover the identity, active Framework IR, Twin state, and l
 ## Immediate implementation sequence
 
 ```text
-P0  Local build/test against installed OpenClaw 2026.8.1
+P0  Local build/test and packed clean-install against exact OpenClaw 2026.8.2
 P1  Linked plugin + isolated OpenClaw state
 P2  Read-only consciousness bootstrap smoke test
 P3  Correct bootstrap-baseline vs recovery-revision semantics in validator/contracts

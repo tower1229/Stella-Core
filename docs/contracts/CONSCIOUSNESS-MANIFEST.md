@@ -28,6 +28,15 @@ A future schema version may add alternate discovery, but Alpha restoration must 
 interface StellaConsciousnessManifest {
   schemaVersion: "stella.consciousness-manifest/v1";
 
+  sourceBaseline: {
+    repository: string;
+    branch?: string;
+    ref?: string;
+    commit: string;
+    capturedAt?: string;
+    validationPolicy?: "exact_commit" | "exact_commit_and_pinned_source_blobs";
+  };
+
   instance: {
     id: string;
     ownerRef: string;
@@ -40,11 +49,20 @@ interface StellaConsciousnessManifest {
     modelPolicyRef?: string;
   };
 
+  runtimeState: {
+    activationStatus: "active" | "migration_required" | "degraded";
+    observedOpenClawConfigVersion?: string;
+    observedOpenClawConfigBlobSha?: string;
+    requiredOpenClawVersion?: string;
+    runtimeProfileRef?: string;
+  };
+
   identity: {
     soulRef: string;
     identityRef?: string;
     userProfileRef?: string;
     runtimeProfileRef: string;
+    projectionOnlyRefs?: string[];
   };
 
   twin: {
@@ -84,6 +102,12 @@ interface StellaConsciousnessManifest {
     continuitySuiteRef?: string;
     twinEvaluationRef?: string;
     praxisEvaluationRef?: string;
+  };
+
+  authority?: {
+    currentExplicitUserStatementPrecedence?: boolean;
+    derivedRuntimeMayWriteAuthority?: boolean;
+    sourceUsagePolicyRequiredBeforeDerivation?: boolean;
   };
 
   derived: {
@@ -172,6 +196,8 @@ Secret values remain in an external secret system or are re-provisioned during r
 
 A committed CangHai Git revision is a coherent portable recovery point.
 
+The configured recovery revision is distinct from `sourceBaseline`. The former names the exact clean checkout activated for this run; the latter records derivation provenance and may legitimately remain older after durable learning creates later recovery revisions.
+
 Restore resolves the manifest and all referenced durable data from one chosen repository revision. It must not silently mix files from different revisions.
 
 Runtime writes that are intended to survive total server loss therefore need eventual remote synchronization, not merely a local filesystem write.
@@ -188,3 +214,5 @@ Before activation, restoration validates:
 6. compatibility constraints are satisfied or an explicit migration is available;
 7. required external secrets/capabilities are either available or explicitly marked degraded;
 8. the continuity suite can run.
+
+For read-only Alpha activation, validation is fail closed: the checkout must be clean at the explicitly configured 40-character recovery SHA, the Core and Host versions must satisfy their declared ranges, and `runtimeState.activationStatus` must be `active`. `migration_required` and `degraded` are not runnable target-agent states.

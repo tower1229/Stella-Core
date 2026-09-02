@@ -1,6 +1,6 @@
 project: Stella Core
 version_target: "3.0 Alpha"
-status: local-integration-bootstrap
+status: exact-host-read-only-gate
 updated_at: "2026-09-02"
 
 mission:
@@ -30,7 +30,8 @@ core_systems:
 
 runtime_strategy:
   host: OpenClaw
-  target_host_version: "2026.8.1"
+  target_host_version: "2026.8.2"
+  minimum_claimed_host_version: "2026.8.1"
   integration: single stella-core plugin
   replace_agent_loop: false
   consciousness_manifest: 50_PersonalAgent/stella/manifest.yaml
@@ -63,6 +64,10 @@ completed:
   - fail-closed target-agent bootstrap hook skeleton
   - initial unit-test sources for ref/manifest loading
   - isolated local OpenClaw 8.1 integration runbook
+  - manifest, Twin Hypothesis, and Framework IR runtime schema validation
+  - explicit clean CangHai recovery revision and active-state fail-closed gate
+  - bounded target-agent context injection with non-target-agent bypass
+  - OpenClaw 2026.8.2 packed clean-install smoke and CI verification chain
 
 frozen_decisions:
   - one Cortex, not four persistent agents
@@ -84,9 +89,10 @@ frozen_decisions:
 
 next_phase:
   id: ALPHA-02
-  title: Local OpenClaw 8.1 Praxis vertical slice
+  title: Local OpenClaw 2026.8.2 Praxis vertical slice
   immediate_order:
-    - run npm install/check/build/test for Stella-Core on the user's local machine
+    - migrate and review the private CangHai runtime state from migration_required to active
+    - run the exact OpenClaw 2026.8.2 acceptance against that explicit clean CangHai revision
     - run OpenClaw through an isolated OPENCLAW_STATE_DIR
     - link the local Stella-Core checkout as an OpenClaw plugin
     - configure canghaiRoot to a local CangHai checkout based on dev-stella-3-rebuild

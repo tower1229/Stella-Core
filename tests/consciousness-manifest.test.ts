@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { loadConsciousness } from "../src/canghai/manifest.js";
@@ -142,6 +142,36 @@ test("rejects a checkout that does not match the explicit recovery revision", as
         error instanceof Error &&
         "category" in error &&
         error.category === "stella_recovery_revision_invalid",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects a declared source blob that does not match recovery content", async () => {
+  const root = await createFixture();
+  try {
+    const registryPath = path.join(
+      root,
+      "50_PersonalAgent/stella/frameworks/source-registry.yaml",
+    );
+    const registry = await readFile(registryPath, "utf8");
+    await writeFile(
+      registryPath,
+      registry.replace(
+        "source_ref: path:30_RAG/frameworks/fixture.md",
+        `source_ref: path:30_RAG/frameworks/fixture.md\n    source_blob_sha: ${"f".repeat(40)}`,
+      ),
+      "utf8",
+    );
+    await initializeFixtureRepository(root);
+    await assert.rejects(
+      () => loadConsciousness(root),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_record_invalid" &&
+        !error.message.includes("Framework source"),
     );
   } finally {
     await rm(root, { recursive: true, force: true });

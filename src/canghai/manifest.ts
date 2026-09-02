@@ -485,7 +485,8 @@ function requireRegistryRefs(
   collectionKey: string,
   refKey: string,
   fieldPrefix: string,
-): Array<{ field: string; ref: string }> {
+  blobKey?: string,
+): Array<{ field: string; ref: string; expectedBlob?: string }> {
   const parsed = parseYaml(input) as unknown;
   if (!isRecord(parsed) || !Array.isArray(parsed[collectionKey])) {
     throw new Error(`Registry field ${collectionKey} must be an array`);
@@ -495,9 +496,13 @@ function requireRegistryRefs(
     if (!isRecord(entry)) {
       throw new Error(`Registry field ${collectionKey}[${index}] must be an object`);
     }
+    const expectedBlob = blobKey
+      ? optionalString(entry, blobKey, `${fieldPrefix}[${index}].${blobKey}`)
+      : undefined;
     return {
       field: `${fieldPrefix}[${index}].${refKey}`,
       ref: requireString(entry, refKey, `${fieldPrefix}[${index}].${refKey}`),
+      ...(expectedBlob ? { expectedBlob } : {}),
     };
   });
 }
@@ -532,6 +537,31 @@ async function readBootstrapDocument(
   };
 }
 
+async function validateBlobPin(
+  root: string,
+  field: string,
+  ref: string,
+  expectedBlob: string,
+): Promise<void> {
+  if (!/^[0-9a-f]{40}$/i.test(expectedBlob)) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid,
+      `Declared source blob for ${field} must be a full Git blob SHA`,
+    );
+  }
+  const resolved = resolveCangHaiRef(root, ref);
+  try {
+    const result = await execFileAsync("git", ["-C", root, "hash-object", resolved.relativePath]);
+    if (result.stdout.trim() !== expectedBlob) throw new Error("blob mismatch");
+  } catch (error) {
+    throw new ConsciousnessLoadError(
+      CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid,
+      `Declared source blob for ${field} does not match the selected recovery content`,
+      { cause: error },
+    );
+  }
+}
+
 export async function loadConsciousness(
   canghaiRoot: string,
   manifestPath = DEFAULT_MANIFEST_PATH,
@@ -560,6 +590,18 @@ export async function loadConsciousness(
 
   if (options) {
     await validateActivationGate(root, manifest, options);
+  }
+
+  if (
+    manifest.runtimeState.observedOpenClawConfigBlobSha &&
+    manifest.compatibility.modelPolicyRef
+  ) {
+    await validateBlobPin(
+      root,
+      "runtimeState.observedOpenClawConfigBlobSha",
+      manifest.compatibility.modelPolicyRef,
+      manifest.runtimeState.observedOpenClawConfigBlobSha,
+    );
   }
 
   const requiredReferences: ManifestReferenceCheck[] = [];
@@ -592,7 +634,16 @@ export async function loadConsciousness(
     const check = await validateReference(root, nested.field, nested.ref);
     const content = await readFile(check.absolutePath, "utf8");
     try {
-      await validateSchema("twin-hypothesis", parseTwinHypothesisRecord(content));
+      const record = parseTwinHypothesisRecord(content);
+      await validateSchema("twin-hypothesis", record);
+      if (isRecord(record.sourceSnapshot)) {
+        for (const [sourceRef, expectedBlob] of Object.entries(record.sourceSnapshot)) {
+          if (typeof expectedBlob !== "string") {
+            throw new Error("Twin source snapshot values must be Git blob SHAs");
+          }
+          await validateBlobPin(root, `${nested.field}.sourceSnapshot`, sourceRef, expectedBlob);
+        }
+      }
     } catch (error) {
       throw new ConsciousnessLoadError(
         CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid,
@@ -616,9 +667,13 @@ export async function loadConsciousness(
     "sources",
     "source_ref",
     "frameworks.sources",
+    "source_blob_sha",
   );
   for (const nested of frameworkSourceRefs) {
     requiredReferences.push(await validateReference(root, nested.field, nested.ref));
+    if (nested.expectedBlob) {
+      await validateBlobPin(root, nested.field, nested.ref, nested.expectedBlob);
+    }
   }
 
   const activeIrRegistryCheck = requireCheck("frameworks.activeIrRegistryRef");
@@ -628,7 +683,19 @@ export async function loadConsciousness(
     const check = await validateReference(root, nested.field, nested.ref);
     const content = await readFile(check.absolutePath, "utf8");
     try {
-      await validateSchema("framework-ir", parseYaml(content) as unknown);
+      const record = parseYaml(content) as unknown;
+      await validateSchema("framework-ir", record);
+      if (isRecord(record) && isRecord(record.source)) {
+        const sourceRef = requireString(record.source, "ref", `${nested.field}.source.ref`);
+        const contentHash = requireString(
+          record.source,
+          "contentHash",
+          `${nested.field}.source.contentHash`,
+        );
+        if (/^[0-9a-f]{40}$/i.test(contentHash)) {
+          await validateBlobPin(root, `${nested.field}.source.contentHash`, sourceRef, contentHash);
+        }
+      }
     } catch (error) {
       throw new ConsciousnessLoadError(
         CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid,
@@ -649,9 +716,13 @@ export async function loadConsciousness(
     "active",
     "source_ref",
     "frameworks.active",
+    "source_blob_sha",
   );
   for (const nested of activeSourceRefs) {
     requiredReferences.push(await validateReference(root, nested.field, nested.ref));
+    if (nested.expectedBlob) {
+      await validateBlobPin(root, nested.field, nested.ref, nested.expectedBlob);
+    }
   }
 
   return {

@@ -37,7 +37,7 @@ Old OpenClaw sessions and machine-local databases are not part of this recovery 
 - `docs/01-ARCHITECTURE.md` — four-system Cortex architecture and consciousness portability invariant.
 - `docs/02-PRAXIS-RUNTIME.md` — end-to-end Praxis runtime protocol.
 - `docs/03-CANGHAI-DATA-PLANE.md` — portable personal-data boundary and migration direction.
-- `docs/04-OPENCLAW-INTEGRATION.md` — OpenClaw 2026.8.1 integration strategy.
+- `docs/04-OPENCLAW-INTEGRATION.md` — OpenClaw integration strategy; Alpha acceptance is pinned to 2026.8.2 while 2026.8.1 remains the unproven minimum compatibility claim.
 - `docs/05-ALPHA-PLAN.md` / `docs/05-ALPHA-VERTICAL-SLICE.md` — first implementable end-to-end milestone.
 - `docs/06-RESTORE-CONTRACT.md` — clean-server consciousness restore protocol and continuity acceptance test.
 - `docs/07-CANGHAI-COLD-START.md` — additive Stella 1.0 → 3.0 consciousness mapping without destructive RAG migration.

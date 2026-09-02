@@ -41,7 +41,11 @@ try {
       throw new Error(`packed plugin is missing ${required}`);
     }
   }
-  if (packageFiles.some((file) => file.startsWith("tests/") || file.includes("CangHai"))) {
+  if (
+    packageFiles.some(
+      (file) => file.startsWith("tests/") || file.startsWith("dist/tests/") || file.includes("CangHai"),
+    )
+  ) {
     throw new Error("packed plugin contains test or private CangHai paths");
   }
 

@@ -17,7 +17,10 @@ function escapeAttribute(value: string): string {
 }
 
 function protectClosingTag(content: string): string {
-  return content.replaceAll("</stella_core_document>", "&lt;/stella_core_document&gt;");
+  return content.replace(
+    /<\/stella_core_(document|consciousness)>/g,
+    (_match, tag: string) => `&lt;/stella_core_${tag}&gt;`,
+  );
 }
 
 function positiveInteger(value: number, name: string): number {
@@ -69,7 +72,7 @@ export function renderConsciousnessContext(
   );
   const header = [
     '<stella_core_consciousness mode="read_only" authority="canghai">',
-    `instance_id: ${loaded.manifest.instance.id}`,
+    `instance_id: ${JSON.stringify(loaded.manifest.instance.id)}`,
     `manifest_schema: ${loaded.manifest.schemaVersion}`,
     `validated_refs: ${loaded.requiredReferences.length}`,
     `loaded_documents: ${loaded.bootstrapDocuments.length}`,

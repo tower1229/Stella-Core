@@ -12,10 +12,10 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/compile.mjs build",
     "check": "tsc -p tsconfig.json --noEmit",
     "check:schemas": "node scripts/check-schemas.mjs",
-    "test": "node --test dist/tests/*.test.js",
+    "test": "node scripts/compile.mjs test && node --test .test-dist/tests/*.test.js",
     "test:package": "node scripts/package-smoke.mjs",
     "verify": "npm run check && npm run check:schemas && npm run build && npm test && npm run test:package"
   },
