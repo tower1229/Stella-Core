@@ -16,7 +16,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "check:schemas": "node scripts/check-schemas.mjs",
     "test": "node scripts/compile.mjs test && node --test .test-dist/tests/*.test.js",
-    "test:package": "node scripts/compile.mjs test && node scripts/package-smoke.mjs",
+    "test:package": "node scripts/compile.mjs test && node scripts/compile.mjs build && node scripts/package-smoke.mjs",
     "verify": "npm run check && npm run check:schemas && npm run build && npm test && npm run test:package"
   },
   "dependencies": {

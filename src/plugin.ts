@@ -193,7 +193,7 @@ export default definePluginEntry({
           } as const;
         }
       },
-      { priority: 1_000, timeoutMs: 60_000 },
+      { priority: 1_000, timeoutMs: 15_000 },
     );
   },
 });
