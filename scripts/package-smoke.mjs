@@ -268,32 +268,43 @@ try {
     ["config", "set", "gateway.auth.token", gatewayToken],
     { cwd: consumerRoot, env: isolatedEnv },
   );
-  gatewayProcess = spawn(
-    openclawBin,
-    ["gateway", "run", "--port", String(gatewayPort)],
-    { cwd: consumerRoot, env: isolatedEnv, stdio: ["ignore", "pipe", "pipe"] },
-  );
   let gatewayOutput = "";
-  gatewayProcess.stdout.on("data", (chunk) => {
-    gatewayOutput = `${gatewayOutput}${chunk}`.slice(-20_000);
-  });
-  gatewayProcess.stderr.on("data", (chunk) => {
-    gatewayOutput = `${gatewayOutput}${chunk}`.slice(-20_000);
-  });
-  let gatewayReady = false;
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${gatewayPort}/healthz`);
-      if (response.ok) {
-        gatewayReady = true;
-        break;
+  async function startGateway() {
+    gatewayOutput = "";
+    gatewayProcess = spawn(
+      openclawBin,
+      ["gateway", "run", "--port", String(gatewayPort)],
+      { cwd: consumerRoot, env: isolatedEnv, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    gatewayProcess.stdout.on("data", (chunk) => {
+      gatewayOutput = `${gatewayOutput}${chunk}`.slice(-20_000);
+    });
+    gatewayProcess.stderr.on("data", (chunk) => {
+      gatewayOutput = `${gatewayOutput}${chunk}`.slice(-20_000);
+    });
+    let gatewayReady = false;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      try {
+        const response = await fetch(`http://127.0.0.1:${gatewayPort}/healthz`);
+        if (response.ok) {
+          gatewayReady = true;
+          break;
+        }
+      } catch {
+        // Gateway startup is asynchronous; retry the public liveness seam.
       }
-    } catch {
-      // Gateway startup is asynchronous; retry the public liveness seam.
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    if (!gatewayReady) throw new Error(`isolated OpenClaw Gateway did not start: ${gatewayOutput}`);
   }
-  if (!gatewayReady) throw new Error(`isolated OpenClaw Gateway did not start: ${gatewayOutput}`);
+  async function stopGateway() {
+    if (gatewayProcess && gatewayProcess.exitCode === null) {
+      gatewayProcess.kill("SIGTERM");
+      await new Promise((resolve) => gatewayProcess.once("exit", resolve));
+    }
+    gatewayProcess = undefined;
+  }
+  await startGateway();
   for (const agentId of ["stella", "ordinary"]) {
     await run(
       openclawBin,
@@ -398,6 +409,8 @@ try {
     ],
     { cwd: consumerRoot, env: isolatedEnv },
   );
+  await stopGateway();
+  await startGateway();
   let blockedHostTurn = "";
   try {
     await run(
