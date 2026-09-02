@@ -460,6 +460,7 @@ try {
           "Your message could not be sent",
         ),
         blockedRoutingTurn: blockedRoutingTurn.slice(0, 2_000),
+        gatewayOutput: gatewayOutput.slice(-5_000),
       })}`,
     );
   }
