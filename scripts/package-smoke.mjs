@@ -172,6 +172,7 @@ try {
   }
 
   const providerRequests = [];
+  let forceInvalidSemanticRoute = false;
   const fixtureOperatorRefs = [
     "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
     "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:observation_test",
@@ -216,7 +217,9 @@ try {
     }
     const isSemanticRouting = body.includes("Semantically classify one user turn");
     const responseContent = isSemanticRouting
-      ? JSON.stringify(body.includes("她两天没回我消息") ? praxisRoute : ordinaryRoute)
+      ? forceInvalidSemanticRoute
+        ? "not-json"
+        : JSON.stringify(body.includes("她两天没回我消息") ? praxisRoute : ordinaryRoute)
       : body.includes("<stella_core_praxis_context")
         ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
         : "smoke-ok";
@@ -418,6 +421,40 @@ try {
     );
   }
 
+  const completionCountBeforeRoutingFailure = completionRequests.length;
+  forceInvalidSemanticRoute = true;
+  let blockedRoutingTurn = "";
+  try {
+    const result = await run(
+      openclawBin,
+      [
+        "agent",
+        "--agent",
+        "stella",
+        "--message",
+        "Synthetic semantic routing failure smoke",
+        "--json",
+        "--timeout",
+        "30",
+      ],
+      { cwd: consumerRoot, env: isolatedEnv },
+    );
+    blockedRoutingTurn = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  } catch (error) {
+    blockedRoutingTurn = `${error.stdout ?? ""}\n${error.stderr ?? ""}`;
+  } finally {
+    forceInvalidSemanticRoute = false;
+  }
+  const completionCountAfterRoutingFailure = providerRequests.filter((request) =>
+    request.url?.endsWith("/chat/completions"),
+  ).length;
+  if (
+    !blockedRoutingTurn.includes("Stella Core 无法可靠完成本轮语义路由") ||
+    completionCountAfterRoutingFailure !== completionCountBeforeRoutingFailure + 1
+  ) {
+    throw new Error("semantic routing failure did not fail closed before the answer model");
+  }
+
   const installedRoot = path.join(
     consumerRoot,
     "node_modules",
@@ -543,7 +580,7 @@ try {
   }
   if (
     providerRequests.filter((request) => request.url?.endsWith("/chat/completions")).length !==
-    completionRequests.length
+    completionCountAfterRoutingFailure
   ) {
     throw new Error("migration-required turn reached the model provider");
   }
@@ -560,6 +597,7 @@ try {
     isolatedState: true,
     runtimeLoaded: true,
     semanticRouting: true,
+    semanticRoutingFailureBlocked: true,
     ordinaryTargetBypassed: true,
     praxisTargetInjected: true,
     praxisOperatorTrace: true,
