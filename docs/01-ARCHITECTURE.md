@@ -50,7 +50,44 @@ OpenClaw remains responsible for the generic agent loop, sessions, transcripts, 
 
 Stella Cortex owns the personal cognitive behavior layered on top.
 
-## 3. Data planes
+## 3. Consciousness portability invariant
+
+Stella Core is a replaceable runtime implementation. CangHai is the portable carrier of Stella's durable personal consciousness.
+
+The required recovery property is:
+
+```text
+fresh server
++ compatible OpenClaw
++ Stella Core
++ CangHai personal data and Stella configuration
+→ rebuild indexes / projections / runtime caches
+→ restore Stella's core consciousness
+```
+
+Recovery does **not** require old OpenClaw sessions, transcripts, SQLite runtime databases, prompt caches, or other machine-local execution state.
+
+“Core consciousness” means the durable information that changes how a fresh Stella instance understands the owner, reasons from the owner's frameworks, predicts behavior, and applies learned praxis. It includes at least:
+
+- identity/persona and stable interaction configuration;
+- owner-authored frameworks and the exact active operational representation when needed for reproducibility;
+- durable Twin hypotheses and model state;
+- durable relationship/interaction models;
+- Praxis episodes, outcomes, learned strategies, and open high-value episodes that should survive a restart;
+- durable goals, commitments, or state that materially affects future behavior;
+- Stella-specific runtime profile/configuration required to reconstruct the same cognitive behavior.
+
+Transient working context is not part of core consciousness. Examples include:
+
+- active chat sessions and raw conversational continuity that has not been promoted to durable personal data;
+- prompt assembly state;
+- temporary inferred mood/state estimates;
+- FTS/vector indexes and reproducible embeddings;
+- execution traces and temporary subagent results.
+
+The architecture must be tested against destructive runtime loss: deleting the Stella/OpenClaw runtime host must not destroy any durable learning that is necessary to reconstruct Stella's identity and learned behavior.
+
+## 4. Data planes
 
 ### Stella-Core
 
@@ -60,7 +97,7 @@ It must contain no copied private personal corpus.
 
 ### CangHai
 
-Portable Personal Data Plane.
+Portable Personal Data Plane and durable consciousness store.
 
 Anything that has durable influence over how Stella understands, predicts, advises, or acts for the owner must have a portable representation in CangHai.
 
@@ -72,6 +109,8 @@ Examples:
 - important relationship models;
 - Praxis episodes and outcomes;
 - learned personalized strategies;
+- durable goals/open loops that must survive runtime loss;
+- Stella instance configuration and portable runtime profile;
 - evaluation history and model checkpoints when portability requires them.
 
 ### OpenClaw runtime state
@@ -89,7 +128,7 @@ Rebuildable execution state:
 
 These do not automatically belong in CangHai.
 
-## 4. Four cognitive systems
+## 5. Four cognitive systems
 
 ### Personal Twin
 
@@ -140,7 +179,7 @@ Situation
 → learning
 ```
 
-## 5. Why one Cortex instead of four agents
+## 6. Why one Cortex instead of four agents
 
 Persistent independent agents would each develop partial views of the owner and create coordination drift.
 
