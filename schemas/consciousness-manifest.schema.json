@@ -16,9 +16,7 @@
     "derived"
   ],
   "properties": {
-    "schemaVersion": {
-      "const": "stella.consciousness-manifest/v1"
-    },
+    "schemaVersion": {"const": "stella.consciousness-manifest/v1"},
     "instance": {
       "type": "object",
       "additionalProperties": false,
@@ -87,6 +85,15 @@
         "corpusRegistryRef": {"type": "string", "minLength": 1}
       }
     },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skillRegistryRef": {"type": "string", "minLength": 1},
+        "capabilityPolicyRef": {"type": "string", "minLength": 1},
+        "customToolRegistryRef": {"type": "string", "minLength": 1}
+      }
+    },
     "durableState": {
       "type": "object",
       "additionalProperties": false,
@@ -142,16 +149,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "criticalWritePolicy": {
-          "enum": ["sync_immediately", "bounded_batch"]
-        },
-        "normalWritePolicy": {
-          "enum": ["sync_immediately", "bounded_batch"]
-        },
-        "maxNormalRpoSeconds": {
-          "type": "integer",
-          "minimum": 0
-        }
+        "criticalWritePolicy": {"enum": ["sync_immediately", "bounded_batch"]},
+        "normalWritePolicy": {"enum": ["sync_immediately", "bounded_batch"]},
+        "maxNormalRpoSeconds": {"type": "integer", "minimum": 0}
       }
     }
   }
