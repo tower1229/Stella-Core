@@ -19,33 +19,48 @@ This repository contains **runtime code, schemas, architecture, and evaluation l
 
 Long-lived personal data belongs in the private CangHai repository. Runtime caches, indexes, embeddings, and other rebuildable OpenClaw state do not need to be committed here or to CangHai unless they become portable personal learning assets.
 
+A Stella instance must be reconstructable after total runtime-server loss from:
+
+```text
+compatible OpenClaw
++ Stella Core
++ one coherent CangHai recovery revision
++ required external secrets
+→ restored Stella core consciousness
+```
+
+Old OpenClaw sessions and machine-local databases are not part of this recovery requirement.
+
 ## Design baseline
 
 - `docs/00-VISION.md` — Stella 3.0 mission and product definition.
-- `docs/01-ARCHITECTURE.md` — four-system Cortex architecture.
+- `docs/01-ARCHITECTURE.md` — four-system Cortex architecture and consciousness portability invariant.
 - `docs/02-PRAXIS-RUNTIME.md` — end-to-end Praxis runtime protocol.
 - `docs/03-CANGHAI-DATA-PLANE.md` — portable personal-data boundary and migration direction.
 - `docs/04-OPENCLAW-INTEGRATION.md` — OpenClaw 2026.8.1 integration strategy.
-- `docs/05-ALPHA-VERTICAL-SLICE.md` — first implementable end-to-end milestone.
+- `docs/05-ALPHA-PLAN.md` / `docs/05-ALPHA-VERTICAL-SLICE.md` — first implementable end-to-end milestone.
+- `docs/06-RESTORE-CONTRACT.md` — clean-server consciousness restore protocol and continuity acceptance test.
 - `docs/DECISIONS.md` — current architectural decisions and superseded constraints.
 
 ## Foundational contracts
 
-The first implementation is downstream of three contracts:
+The first implementation is downstream of four contracts:
 
 - `docs/contracts/FRAMEWORK-IR.md`
 - `docs/contracts/TWIN-HYPOTHESIS.md`
 - `docs/contracts/PRAXIS-EPISODE.md`
+- `docs/contracts/CONSCIOUSNESS-MANIFEST.md`
 
 Machine-validation schemas live in `schemas/`:
 
 - `framework-ir.schema.json`
 - `twin-hypothesis.schema.json`
 - `praxis-episode.schema.json`
+- `consciousness-manifest.schema.json`
 
 ## Status
 
-Architecture baseline and Alpha contracts are initialized. The next implementation milestone is the first vertical slice:
+Architecture baseline, Alpha contracts, and the consciousness-restore boundary are initialized. The implementation milestone remains the first Praxis vertical slice, with portability treated as an acceptance property rather than an afterthought:
 
 ```text
 real private-life problem
@@ -57,4 +72,5 @@ real private-life problem
 → Praxis Episode
 → later outcome
 → one measurable model update
+→ synchronize durable learning to CangHai
 ```
