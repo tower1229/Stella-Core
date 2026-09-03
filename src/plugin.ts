@@ -311,8 +311,10 @@ export default definePluginEntry({
             candidates,
           );
           let appendContext =
-            route.mode === "ordinary" || route.mode === "outcome"
-              ? undefined
+            route.mode === "ordinary"
+              ? STELLA_CORE_SYSTEM_CONTEXT
+              : route.mode === "outcome"
+                ? undefined
               : route.mode === "praxis" || route.mode === "deep_praxis"
                 ? renderPraxisContextPacket(
                     buildPraxisContextPacket(event.prompt, route, loadedForTurn),
