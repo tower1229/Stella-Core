@@ -49,6 +49,14 @@ export type PraxisEvaluationReport = {
   failedCount: number;
   failedCaseIds: string[];
   categoryCounts: Record<string, number>;
+  execution?: PraxisEvaluationExecution;
+};
+
+export type PraxisEvaluationExecution = {
+  coreRevision: string;
+  canghaiRevision: string;
+  hostVersion: string;
+  artifactSha256: string;
 };
 
 export type PraxisCaseExecutor = (
@@ -126,6 +134,7 @@ function observationPassed(observation: PraxisEvaluationObservation): boolean {
 export async function runPraxisEvaluation(
   cases: PraxisEvaluationCase[],
   execute: PraxisCaseExecutor,
+  execution?: PraxisEvaluationExecution,
 ): Promise<PraxisEvaluationReport> {
   const boundary = validateSuite(cases);
   const categoryCounts: Record<string, number> = {};
@@ -157,5 +166,6 @@ export async function runPraxisEvaluation(
     failedCount: failedCaseIds.length,
     failedCaseIds,
     categoryCounts: sortedCategoryCounts,
+    ...(execution ? { execution } : {}),
   };
 }

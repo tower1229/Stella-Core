@@ -1,4 +1,5 @@
 import { execFile, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -124,6 +125,7 @@ try {
   for (const required of [
     "dist/src/plugin.js",
     "dist/src/acceptance/alpha-candidate.js",
+    "dist/src/acceptance/model-praxis-evaluator.js",
     "dist/src/acceptance/recovery-drill.js",
     "openclaw.plugin.json",
     "schemas/consciousness-manifest.schema.json",
@@ -142,6 +144,9 @@ try {
   }
 
   const archivePath = path.join(tempRoot, packEntry.filename);
+  const artifactSha256 = createHash("sha256")
+    .update(await readFile(archivePath))
+    .digest("hex");
   const consumerRoot = path.join(tempRoot, "consumer");
   const stateRoot = path.join(tempRoot, "openclaw-state");
   await mkdir(consumerRoot, { recursive: true });
@@ -730,11 +735,25 @@ try {
   }
 
   const receipt = {
+    schemaVersion: "stella.exact-host-recovery-receipt/v1",
     package: `${installedPackage.name}@${installedPackage.version}`,
     packageIntegrity: packEntry.integrity,
     coreRevision,
     canghaiRevision: syntheticCangHaiRevision,
     canghaiFixture: "synthetic",
+    hostVersion: exactOpenClawVersion,
+    artifactSha256,
+    cleanRuntimeState: true,
+    importedLegacyRuntime: false,
+    dataReadable: recoveryReport.levels.dataReadable,
+    cognitiveBootstrapRestored: recoveryReport.levels.cognitiveBootstrapRestored,
+    derivedRuntimeRebuilt: recoveryReport.levels.derivedRuntimeRebuilt,
+    continuityAccepted: recoveryReport.levels.continuityAccepted,
+    identityRestored: recoveryReport.restored.identity,
+    frameworkRestored: recoveryReport.restored.framework,
+    twinRestored: recoveryReport.restored.twin,
+    praxisLearningRestored: recoveryReport.restored.praxisLearning,
+    importantOpenStateRestored: recoveryReport.restored.importantOpenState,
     openclawVersion: exactOpenClawVersion,
     sourceClean: coreSourceStatus.length === 0,
     canghaiSourceClean: canghaiSourceStatus.length === 0,

@@ -83,6 +83,12 @@ test("restores Level 3 continuity from one exact CangHai revision", async () => 
       importantOpenState: true,
     });
     assert.equal(report.recoveryRevision, revision);
+    assert.deepEqual(report.structuralEvidence.openEpisodeRefs, [
+      "path:30_PersonalData/praxis/episodes/praxis-open/episode.json",
+    ]);
+    assert.deepEqual(report.structuralEvidence.praxisLearningRefs, [
+      "path:30_PersonalData/praxis/episodes/praxis-learned/episode.json#learning:praxis:0",
+    ]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

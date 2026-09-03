@@ -61,7 +61,9 @@ Machine-validation schemas live in `schemas/`:
 
 The public 32-case relationship/social Alpha suite lives at
 `evaluation/praxis-social.synthetic.json`. Run it through a Host/evaluator adapter with
-`npm run evaluate:praxis -- --suite <suite.json> --adapter <adapter.mjs> --output <report.json>`.
+`npm run evaluate:praxis -- --suite <suite.json> --adapter <adapter.mjs> --recovery-receipt <receipt.json> --output <report.json>`.
+The adapter exports `answerCase(case)` for the exact Stella Host and `judge(prompt)` for an LLM
+structured semantic judge; the runner rejects lexical scoring and incomplete rubric output.
 Private cases stay in CangHai or another private evaluation store; mixed reports retain explicit
 public/private case counts without copying prompts into the report.
 
@@ -92,8 +94,10 @@ Create a non-published candidate only after the clean-runtime recovery and evalu
 npm run candidate -- \
   --canghai-root /path/to/CangHai \
   --canghai-revision <40-character-sha> \
+  --artifact /path/to/exact-host-tested.tgz \
   --evaluation-report /path/to/evaluation-report.json \
-  --acceptance-evidence /path/to/acceptance-evidence.json \
+  --recovery-receipt /path/to/private-exact-host-receipt.json \
+  --durability-evidence /path/to/durability-diagnostics.json \
   --output-dir /path/outside/Stella-Core
 ```
 
@@ -101,6 +105,8 @@ The output directory receives an npm tarball and `alpha-candidate-receipt.json`.
 the clean Core/CangHai revisions, exact OpenClaw 2026.8.2, artifact SHA-256, Level 3 recovery,
 durability/RPO evidence, evaluation counts, and an explicit no-tag/no-Release/no-npm/no-production
 state. The command fails if its output directory is inside the Core source tree.
+Synthetic-only recovery or evaluation cannot produce `candidate: true`; at least one private case
+and a private exact-host recovery receipt bound to the same tarball are required.
 
 The executable Cortex vertical slice is:
 

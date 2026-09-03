@@ -258,4 +258,7 @@ This test is more important than having a nominal backup script because it verif
 synthetic and `privateFixtureIncluded: false`; it is not a substitute for the private CangHai drill.
 The private drill and its evaluation report can be bound to a non-published tarball with
 `npm run candidate`. Candidate generation checks both Git checkouts are clean at the recorded SHAs
-and hashes the tarball itself. It does not create a tag, GitHub Release, npm publication, or deployment.
+and hashes the tarball itself. It rejects synthetic-only recovery, requires at least one private
+evaluation case, and cross-checks that recovery, evaluation, durability, Core, CangHai, Host, and
+artifact hashes all describe the same run. It does not create a tag, GitHub Release, npm publication,
+or deployment.

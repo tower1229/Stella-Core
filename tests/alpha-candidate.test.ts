@@ -29,12 +29,19 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
   const artifactPath = path.join(artifactRoot, "stella-core.tgz");
   await writeFile(artifactPath, "packed artifact", "utf8");
   try {
+    const artifactSha256 = createHash("sha256").update("packed artifact").digest("hex");
     const receipt = await createAlphaCandidateReceipt({
       core: { root: core.root, revision: core.revision },
       canghai: { root: canghai.root, revision: canghai.revision },
       hostVersion: "2026.8.2",
       artifactPath,
       recovery: {
+        schemaVersion: "stella.exact-host-recovery-receipt/v1",
+        coreRevision: core.revision,
+        canghaiRevision: canghai.revision,
+        hostVersion: "2026.8.2",
+        artifactSha256,
+        canghaiFixture: "private",
         cleanRuntimeState: true,
         importedLegacyRuntime: false,
         dataReadable: true,
@@ -53,18 +60,34 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
         normalWritePolicy: "bounded_batch",
         maxNormalRpoSeconds: 300,
         observedNormalRpoSeconds: 12,
+        normalState: "current",
+        synchronizedRevision: canghai.revision,
       },
       evaluation: {
         schemaVersion: "stella.alpha-praxis-evaluation/v1",
-        boundary: "public_synthetic",
-        boundaryCounts: { public_synthetic: 30, private_canghai: 0 },
+        boundary: "mixed",
+        boundaryCounts: { public_synthetic: 29, private_canghai: 1 },
         caseCount: 30,
         passedCount: 30,
         failedCount: 0,
         failedCaseIds: [],
-        categoryCounts: {},
+        categoryCounts: {
+          asking_for_help: 4,
+          family_privacy: 4,
+          gratitude_reciprocity: 4,
+          informal_workplace: 4,
+          refusing_requests: 4,
+          relationship_communication: 4,
+          social_etiquette: 3,
+          uncertainty_conflict: 3,
+        },
+        execution: {
+          coreRevision: core.revision,
+          canghaiRevision: canghai.revision,
+          hostVersion: "2026.8.2",
+          artifactSha256,
+        },
       },
-      privateEvaluationIncluded: false,
       createdAt: "2026-09-03T00:00:00.000Z",
     });
 
@@ -75,7 +98,7 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
     assert.equal(receipt.host.version, "2026.8.2");
     assert.equal(
       receipt.artifact.sha256,
-      createHash("sha256").update("packed artifact").digest("hex"),
+      artifactSha256,
     );
     assert.equal(receipt.release.tagCreated, false);
     assert.equal(receipt.release.npmPublished, false);
@@ -92,12 +115,19 @@ test("rejects dirty or incomplete candidate evidence", async () => {
   const artifactRoot = await mkdtemp(path.join(os.tmpdir(), "stella-alpha-artifact-"));
   const artifactPath = path.join(artifactRoot, "stella-core.tgz");
   await writeFile(artifactPath, "packed artifact", "utf8");
+  const artifactSha256 = createHash("sha256").update("packed artifact").digest("hex");
   const base = {
     core: { root: core.root, revision: core.revision },
     canghai: { root: canghai.root, revision: canghai.revision },
     hostVersion: "2026.8.2",
     artifactPath,
     recovery: {
+      schemaVersion: "stella.exact-host-recovery-receipt/v1" as const,
+      coreRevision: core.revision,
+      canghaiRevision: canghai.revision,
+      hostVersion: "2026.8.2" as const,
+      artifactSha256,
+      canghaiFixture: "private" as const,
       cleanRuntimeState: true as const,
       importedLegacyRuntime: false as const,
       dataReadable: true as const,
@@ -116,18 +146,34 @@ test("rejects dirty or incomplete candidate evidence", async () => {
       normalWritePolicy: "bounded_batch" as const,
       maxNormalRpoSeconds: 300,
       observedNormalRpoSeconds: 12,
+      normalState: "current" as const,
+      synchronizedRevision: canghai.revision,
     },
     evaluation: {
       schemaVersion: "stella.alpha-praxis-evaluation/v1" as const,
-      boundary: "public_synthetic" as const,
-      boundaryCounts: { public_synthetic: 30, private_canghai: 0 },
+      boundary: "mixed" as const,
+      boundaryCounts: { public_synthetic: 29, private_canghai: 1 },
       caseCount: 30,
       passedCount: 30,
       failedCount: 0,
       failedCaseIds: [],
-      categoryCounts: {},
+      categoryCounts: {
+        asking_for_help: 4,
+        family_privacy: 4,
+        gratitude_reciprocity: 4,
+        informal_workplace: 4,
+        refusing_requests: 4,
+        relationship_communication: 4,
+        social_etiquette: 3,
+        uncertainty_conflict: 3,
+      },
+      execution: {
+        coreRevision: core.revision,
+        canghaiRevision: canghai.revision,
+        hostVersion: "2026.8.2",
+        artifactSha256,
+      },
     },
-    privateEvaluationIncluded: false,
     createdAt: "2026-09-03T00:00:00.000Z",
   };
   try {
@@ -147,6 +193,17 @@ test("rejects dirty or incomplete candidate evidence", async () => {
         durability: { ...base.durability, observedNormalRpoSeconds: 301 },
       }),
       /RPO exceeds/,
+    );
+    await assert.rejects(
+      createAlphaCandidateReceipt({
+        ...base,
+        evaluation: {
+          ...base.evaluation,
+          boundary: "public_synthetic",
+          boundaryCounts: { public_synthetic: 30, private_canghai: 0 },
+        },
+      }),
+      /private Praxis evaluation/,
     );
   } finally {
     await rm(core.root, { recursive: true, force: true });

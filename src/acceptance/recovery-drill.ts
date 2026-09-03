@@ -45,6 +45,16 @@ export type RecoveryDrillReport = {
     praxisLearning: true;
     importantOpenState: true;
   };
+  structuralEvidence: {
+    instanceId: string;
+    identityRefs: string[];
+    twinRefs: string[];
+    frameworkRefs: string[];
+    praxisLearningRefs: string[];
+    openEpisodeRefs: string[];
+    durableStateRefs: string[];
+    continuitySuiteRef?: string;
+  };
   rebuildEvidence: DerivedRebuildEvidence[];
   continuityEvidence: string[];
 };
@@ -56,6 +66,12 @@ function requireBootstrapCategory(
   if (!loaded.bootstrapDocuments.some((document) => document.category === category)) {
     throw new Error(`Recovery Level 1 is missing ${category} bootstrap state`);
   }
+}
+
+function referenceRefs(loaded: LoadedConsciousness, fieldPrefix: string): string[] {
+  return loaded.requiredReferences
+    .filter(({ field }) => field === fieldPrefix || field.startsWith(`${fieldPrefix}.`))
+    .map(({ ref }) => ref);
 }
 
 export async function runRecoveryDrill(
@@ -81,6 +97,19 @@ export async function runRecoveryDrill(
   if (memory.openEpisodes.length === 0) {
     throw new Error("Recovery Level 1 is missing important open Praxis state");
   }
+  if (!loaded.manifest.compatibility.modelPolicyRef) {
+    throw new Error("Recovery Level 1 is missing the runtime model policy reference");
+  }
+  const identityRefs = loaded.bootstrapDocuments
+    .filter(({ category }) => category === "identity")
+    .map(({ ref }) => ref);
+  const twinRefs = loaded.bootstrapDocuments
+    .filter(({ category }) => category === "twin")
+    .map(({ ref }) => ref);
+  const frameworkRefs = loaded.bootstrapDocuments
+    .filter(({ category }) => category === "framework")
+    .map(({ ref }) => ref);
+  const durableStateRefs = referenceRefs(loaded, "durableState");
 
   const rebuildEvidence: DerivedRebuildEvidence[] = [];
   for (const target of loaded.manifest.derived.rebuild) {
@@ -115,6 +144,18 @@ export async function runRecoveryDrill(
       twin: true,
       praxisLearning: true,
       importantOpenState: true,
+    },
+    structuralEvidence: {
+      instanceId: loaded.manifest.instance.id,
+      identityRefs,
+      twinRefs,
+      frameworkRefs,
+      praxisLearningRefs: memory.learningItems.map(({ ref }) => ref),
+      openEpisodeRefs: memory.openEpisodes.map(({ ref }) => ref),
+      durableStateRefs,
+      ...(loaded.manifest.evaluation?.continuitySuiteRef
+        ? { continuitySuiteRef: loaded.manifest.evaluation.continuitySuiteRef }
+        : {}),
     },
     rebuildEvidence,
     continuityEvidence: continuity.evidence,

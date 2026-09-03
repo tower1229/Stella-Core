@@ -1,36 +1,27 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { createAlphaCandidateReceipt } from "../dist/src/acceptance/alpha-candidate.js";
+import { parseRequiredArguments } from "./lib/cli-args.mjs";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-function parseArguments(values) {
-  const result = {};
-  for (let index = 0; index < values.length; index += 2) {
-    const key = values[index];
-    const value = values[index + 1];
-    if (!key?.startsWith("--") || !value) {
-      throw new Error(
-        "Usage: --canghai-root <path> --canghai-revision <sha> --evaluation-report <json> --acceptance-evidence <json> --output-dir <path>",
-      );
-    }
-    result[key.slice(2)] = value;
-  }
-  for (const key of [
+const options = parseRequiredArguments(
+  process.argv.slice(2),
+  [
     "canghai-root",
     "canghai-revision",
+    "artifact",
     "evaluation-report",
-    "acceptance-evidence",
+    "recovery-receipt",
+    "durability-evidence",
     "output-dir",
-  ]) {
-    if (!result[key]) throw new Error(`Missing --${key}`);
-  }
-  return result;
-}
+  ],
+  "Usage: --canghai-root <path> --canghai-revision <sha> --artifact <tgz> --evaluation-report <json> --recovery-receipt <json> --durability-evidence <json> --output-dir <path>",
+);
 
 function assertOutputOutsideSource(outputDirectory) {
   const relative = path.relative(projectRoot, outputDirectory);
@@ -39,25 +30,19 @@ function assertOutputOutsideSource(outputDirectory) {
   }
 }
 
-const options = parseArguments(process.argv.slice(2));
 const outputDirectory = path.resolve(options["output-dir"]);
 assertOutputOutsideSource(outputDirectory);
 await mkdir(outputDirectory, { recursive: true });
 
-const [{ stdout: coreRevision }, evaluation, evidence] = await Promise.all([
+const [{ stdout: coreRevision }, evaluation, recovery, durability] = await Promise.all([
   execFileAsync("git", ["-C", projectRoot, "rev-parse", "HEAD"]),
   readFile(path.resolve(options["evaluation-report"]), "utf8").then(JSON.parse),
-  readFile(path.resolve(options["acceptance-evidence"]), "utf8").then(JSON.parse),
+  readFile(path.resolve(options["recovery-receipt"]), "utf8").then(JSON.parse),
+  readFile(path.resolve(options["durability-evidence"]), "utf8").then(JSON.parse),
 ]);
-const { stdout: packOutput } = await execFileAsync(
-  "npm",
-  ["pack", "--json", "--pack-destination", outputDirectory],
-  { cwd: projectRoot, maxBuffer: 10 * 1024 * 1024 },
-);
-const packEntries = JSON.parse(packOutput);
-const artifactName = packEntries[0]?.filename;
-if (typeof artifactName !== "string") throw new Error("npm pack did not return an artifact");
-const artifactPath = path.join(outputDirectory, artifactName);
+const sourceArtifactPath = path.resolve(options.artifact);
+const artifactPath = path.join(outputDirectory, path.basename(sourceArtifactPath));
+if (sourceArtifactPath !== artifactPath) await copyFile(sourceArtifactPath, artifactPath);
 
 const receipt = await createAlphaCandidateReceipt({
   core: { root: projectRoot, revision: coreRevision.trim() },
@@ -67,10 +52,9 @@ const receipt = await createAlphaCandidateReceipt({
   },
   hostVersion: "2026.8.2",
   artifactPath,
-  recovery: evidence.recovery,
-  durability: evidence.durability,
+  recovery,
+  durability,
   evaluation,
-  privateEvaluationIncluded: evidence.privateEvaluationIncluded === true,
 });
 const receiptPath = path.join(outputDirectory, "alpha-candidate-receipt.json");
 const stagingPath = `${receiptPath}.${process.pid}.staging`;

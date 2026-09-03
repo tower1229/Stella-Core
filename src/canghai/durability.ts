@@ -57,6 +57,8 @@ export class GitCangHaiDurability {
   #criticalSynchronized = false;
   #lastErrorCategory?: CangHaiDurabilityDiagnostics["lastErrorCategory"];
   #normalFlushScheduled = false;
+  #initialized = false;
+  #initializing?: Promise<void>;
   #operation = Promise.resolve();
 
   constructor(options: CangHaiDurabilityOptions) {
@@ -95,7 +97,8 @@ export class GitCangHaiDurability {
 
   async syncCritical(paths: string[], message: string): Promise<CangHaiDurabilityDiagnostics> {
     return this.#enqueue(async () => {
-      await this.#commit(paths, message);
+      await this.#ensureInitialized();
+      await this.#commit(paths, message, "critical");
       try {
         await this.#push();
         this.#criticalSynchronized = true;
@@ -112,7 +115,8 @@ export class GitCangHaiDurability {
 
   async recordNormal(paths: string[], message: string): Promise<CangHaiDurabilityDiagnostics> {
     return this.#enqueue(async () => {
-      await this.#commit(paths, message);
+      await this.#ensureInitialized();
+      await this.#commit(paths, message, "normal");
       if (this.#normalWritePolicy === "sync_immediately") {
         try {
           await this.#push();
@@ -132,6 +136,7 @@ export class GitCangHaiDurability {
 
   async flushNormal(): Promise<CangHaiDurabilityDiagnostics> {
     return this.#enqueue(async () => {
+      await this.#ensureInitialized();
       if (this.#pendingNormalSince === undefined) return this.#diagnostics();
       try {
         await this.#push();
@@ -147,7 +152,10 @@ export class GitCangHaiDurability {
   }
 
   async diagnostics(): Promise<CangHaiDurabilityDiagnostics> {
-    return this.#enqueue(() => this.#diagnostics());
+    return this.#enqueue(async () => {
+      await this.#ensureInitialized();
+      return this.#diagnostics();
+    });
   }
 
   #enqueue<T>(operation: () => Promise<T>): Promise<T> {
@@ -163,14 +171,27 @@ export class GitCangHaiDurability {
     }
   }
 
-  async #commit(repositoryPaths: string[], message: string): Promise<void> {
+  async #commit(
+    repositoryPaths: string[],
+    message: string,
+    kind: "critical" | "normal",
+  ): Promise<void> {
     if (!message.trim()) throw new Error("Durability commit message must not be empty");
     const paths = [...new Set(repositoryPaths.map(validateRepositoryPath))];
     if (paths.length === 0) throw new Error("Durability commit requires at least one path");
     await this.#assertBranch();
     await execFileAsync("git", ["-C", this.#root, "add", "--", ...paths]);
     try {
-      await execFileAsync("git", ["-C", this.#root, "commit", "--quiet", "-m", message, "--", ...paths]);
+      await execFileAsync("git", [
+        "-C",
+        this.#root,
+        "commit",
+        "--quiet",
+        "-m",
+        `[stella:${kind}] ${message}`,
+        "--",
+        ...paths,
+      ]);
       const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
       this.#onRevision?.(stdout.trim());
     } catch (error) {
@@ -189,9 +210,10 @@ export class GitCangHaiDurability {
     ]);
     const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
     this.#synchronizedRevision = stdout.trim();
+    this.#criticalSynchronized = true;
   }
 
-  #scheduleNormalFlush(): void {
+  #scheduleNormalFlush(delayMs = this.#maxNormalRpoSeconds * 1_000): void {
     if (this.#normalFlushScheduled) return;
     this.#normalFlushScheduled = true;
     this.#schedule(() => {
@@ -199,7 +221,94 @@ export class GitCangHaiDurability {
       void this.flushNormal().catch(() => {
         // The failure remains visible through diagnostics and is retried by the next explicit flush.
       });
-    }, this.#maxNormalRpoSeconds * 1_000);
+    }, Math.max(0, delayMs));
+  }
+
+  async #ensureInitialized(): Promise<void> {
+    if (this.#initialized) return;
+    if (!this.#initializing) {
+      this.#initializing = this.#initialize().finally(() => {
+        this.#initializing = undefined;
+      });
+    }
+    await this.#initializing;
+  }
+
+  async #initialize(): Promise<void> {
+    await this.#assertBranch();
+    const [{ stdout: localOutput }, { stdout: remoteOutput }] = await Promise.all([
+      execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]),
+      execFileAsync("git", [
+        "-C",
+        this.#root,
+        "ls-remote",
+        "--exit-code",
+        this.#remote,
+        `refs/heads/${this.#branch}`,
+      ]),
+    ]);
+    const localRevision = localOutput.trim();
+    const remoteRevision = remoteOutput.trim().split(/\s+/)[0];
+    if (!/^[0-9a-f]{40}$/i.test(remoteRevision ?? "")) {
+      throw new Error("Managed durability could not resolve the configured remote branch");
+    }
+    this.#synchronizedRevision = remoteRevision;
+    if (localRevision === remoteRevision) {
+      this.#criticalSynchronized = true;
+      this.#initialized = true;
+      return;
+    }
+    try {
+      await execFileAsync("git", ["-C", this.#root, "merge-base", "--is-ancestor", remoteRevision!, "HEAD"]);
+    } catch (error) {
+      throw new Error("Managed durability remote is not an ancestor of local CangHai HEAD", {
+        cause: error,
+      });
+    }
+    const { stdout: logOutput } = await execFileAsync("git", [
+      "-C",
+      this.#root,
+      "log",
+      "--reverse",
+      "--format=%ct%x00%s",
+      `${remoteRevision}..HEAD`,
+    ]);
+    const records = logOutput.trim().split("\n").filter(Boolean).map((line) => {
+      const [timestamp, subject = ""] = line.split("\0");
+      return { timestamp: Number(timestamp) * 1_000, subject };
+    });
+    if (records.length === 0 || records.some(({ timestamp }) => !Number.isFinite(timestamp))) {
+      throw new Error("Managed durability could not reconstruct unsynchronized Git history");
+    }
+    const hasCriticalOrUnknown = records.some(
+      ({ subject }) => !subject.startsWith("[stella:normal] "),
+    );
+    if (hasCriticalOrUnknown) {
+      try {
+        await this.#push();
+        this.#pendingNormalSince = undefined;
+      } catch (error) {
+        this.#lastErrorCategory = "stella_critical_sync_failed";
+        throw new Error("Recovered critical CangHai synchronization failed", { cause: error });
+      }
+      this.#initialized = true;
+      return;
+    }
+    this.#pendingNormalSince = records[0]!.timestamp;
+    const ageMs = Math.max(0, this.#now() - this.#pendingNormalSince);
+    const remainingMs = this.#maxNormalRpoSeconds * 1_000 - ageMs;
+    if (remainingMs <= 0) {
+      try {
+        await this.#push();
+        this.#pendingNormalSince = undefined;
+      } catch (error) {
+        this.#lastErrorCategory = "stella_normal_sync_failed";
+        throw new Error("Recovered normal CangHai synchronization failed", { cause: error });
+      }
+    } else {
+      this.#scheduleNormalFlush(remainingMs);
+    }
+    this.#initialized = true;
   }
 
   async #diagnostics(): Promise<CangHaiDurabilityDiagnostics> {

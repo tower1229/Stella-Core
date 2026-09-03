@@ -5,30 +5,41 @@ import {
   parsePraxisEvaluationSuite,
   runPraxisEvaluation,
 } from "../dist/src/acceptance/praxis-evaluation.js";
+import { createModelPraxisEvaluator } from "../dist/src/acceptance/model-praxis-evaluator.js";
+import { parseRequiredArguments } from "./lib/cli-args.mjs";
 
-function parseArguments(values) {
-  const result = {};
-  for (let index = 0; index < values.length; index += 2) {
-    const key = values[index];
-    const value = values[index + 1];
-    if (!key?.startsWith("--") || !value) {
-      throw new Error("Usage: --suite <json> --adapter <module> --output <json>");
-    }
-    result[key.slice(2)] = value;
-  }
-  for (const key of ["suite", "adapter", "output"]) {
-    if (!result[key]) throw new Error(`Missing --${key}`);
-  }
-  return result;
-}
-
-const options = parseArguments(process.argv.slice(2));
+const options = parseRequiredArguments(
+  process.argv.slice(2),
+  ["suite", "adapter", "recovery-receipt", "output"],
+  "Usage: --suite <json> --adapter <module> --recovery-receipt <json> --output <json>",
+);
 const suite = parsePraxisEvaluationSuite(await readFile(path.resolve(options.suite), "utf8"));
 const adapter = await import(pathToFileURL(path.resolve(options.adapter)).href);
-if (typeof adapter.executePraxisCase !== "function") {
-  throw new Error("Praxis evaluation adapter must export executePraxisCase(case)");
+const recoveryReceipt = JSON.parse(
+  await readFile(path.resolve(options["recovery-receipt"]), "utf8"),
+);
+if (
+  recoveryReceipt.schemaVersion !== "stella.exact-host-recovery-receipt/v1" ||
+  typeof recoveryReceipt.coreRevision !== "string" ||
+  typeof recoveryReceipt.canghaiRevision !== "string" ||
+  typeof recoveryReceipt.hostVersion !== "string" ||
+  typeof recoveryReceipt.artifactSha256 !== "string"
+) {
+  throw new Error("Praxis evaluation requires a valid exact-host recovery receipt");
 }
-const report = await runPraxisEvaluation(suite.cases, adapter.executePraxisCase);
+if (typeof adapter.answerCase !== "function" || typeof adapter.judge !== "function") {
+  throw new Error("Praxis evaluation adapter must export answerCase(case) and judge(prompt)");
+}
+const report = await runPraxisEvaluation(
+  suite.cases,
+  createModelPraxisEvaluator({ answerCase: adapter.answerCase, judge: adapter.judge }),
+  {
+    coreRevision: recoveryReceipt.coreRevision,
+    canghaiRevision: recoveryReceipt.canghaiRevision,
+    hostVersion: recoveryReceipt.hostVersion,
+    artifactSha256: recoveryReceipt.artifactSha256,
+  },
+);
 const outputPath = path.resolve(options.output);
 await mkdir(path.dirname(outputPath), { recursive: true });
 const stagingPath = `${outputPath}.${process.pid}.staging`;

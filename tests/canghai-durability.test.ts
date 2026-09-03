@@ -56,7 +56,7 @@ test("critical writes commit and push before reporting success", async () => {
 test("normal writes expose pending RPO and flush to the configured remote", async () => {
   const { root, remote, branch } = await fixture();
   let scheduled: (() => void) | undefined;
-  let now = Date.parse("2026-09-03T00:00:00Z");
+  let now = Date.now();
   try {
     await writeFile(path.join(root, "normal.txt"), "ordinary learning\n", "utf8");
     const durability = new GitCangHaiDurability({
@@ -120,6 +120,48 @@ test("managed durability rejects policies that cannot meet the Alpha contract", 
       }),
       /positive maxNormalRpoSeconds/,
     );
+  } finally {
+    await rm(path.dirname(root), { recursive: true, force: true });
+  }
+});
+
+test("a restarted coordinator reconstructs pending normal RPO from Git history", async () => {
+  const { root, branch } = await fixture();
+  let now = Date.now();
+  try {
+    await writeFile(path.join(root, "normal.txt"), "ordinary learning\n", "utf8");
+    const first = new GitCangHaiDurability({
+      root,
+      remote: "origin",
+      branch,
+      criticalWritePolicy: "sync_immediately",
+      normalWritePolicy: "bounded_batch",
+      maxNormalRpoSeconds: 300,
+      now: () => now,
+      schedule() {},
+    });
+    await first.recordNormal(["normal.txt"], "stella: normal learning");
+
+    now += 120_000;
+    let restartDelay: number | undefined;
+    const restarted = new GitCangHaiDurability({
+      root,
+      remote: "origin",
+      branch,
+      criticalWritePolicy: "sync_immediately",
+      normalWritePolicy: "bounded_batch",
+      maxNormalRpoSeconds: 300,
+      now: () => now,
+      schedule(_callback, delayMs) {
+        restartDelay = delayMs;
+      },
+    });
+    const diagnostics = await restarted.diagnostics();
+
+    assert.equal(diagnostics.normalState, "pending");
+    assert.ok(diagnostics.observedNormalRpoSeconds >= 120);
+    assert.ok(diagnostics.observedNormalRpoSeconds < 121);
+    assert.ok(restartDelay !== undefined && restartDelay > 179_000 && restartDelay <= 180_000);
   } finally {
     await rm(path.dirname(root), { recursive: true, force: true });
   }
