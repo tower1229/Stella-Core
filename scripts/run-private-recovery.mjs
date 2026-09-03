@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -83,7 +83,7 @@ try {
     artifactPath,
     `openclaw@${hostVersion}`,
   ], { cwd: consumerRoot });
-  const openclawBin = path.join(consumerRoot, "node_modules/.bin/openclaw");
+  const openclawBin = await realpath(path.join(consumerRoot, "node_modules/.bin/openclaw"));
   const hostEnv = { OPENCLAW_STATE_DIR: runtimeStateRoot };
   const { stdout: versionOutput } = await execFileAsync(openclawBin, ["--version"], {
     cwd: consumerRoot,
