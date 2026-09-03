@@ -8,34 +8,20 @@ import {
   PRAXIS_EVALUATION_CATEGORIES,
   type PraxisEvaluationReport,
 } from "./praxis-evaluation.js";
+import {
+  ALPHA_HOST_VERSION,
+  parseExactHostRecoveryReceipt,
+  type ExactHostRecoveryReceipt,
+} from "./exact-host-evidence.js";
 
 const execFileAsync = promisify(execFile);
-const ALPHA_HOST_VERSION = "2026.8.2";
 
 type SourceInput = {
   root: string;
   revision: string;
 };
 
-export type AlphaRecoveryEvidence = {
-  schemaVersion: "stella.exact-host-recovery-receipt/v1";
-  coreRevision: string;
-  canghaiRevision: string;
-  hostVersion: "2026.8.2";
-  artifactSha256: string;
-  canghaiFixture: "private";
-  cleanRuntimeState: boolean;
-  importedLegacyRuntime: boolean;
-  dataReadable: boolean;
-  cognitiveBootstrapRestored: boolean;
-  derivedRuntimeRebuilt: boolean;
-  continuityAccepted: boolean;
-  identityRestored: boolean;
-  frameworkRestored: boolean;
-  twinRestored: boolean;
-  praxisLearningRestored: boolean;
-  importantOpenStateRestored: boolean;
-};
+export type AlphaRecoveryEvidence = ExactHostRecoveryReceipt;
 
 export type AlphaDurabilityEvidence = {
   criticalWritePolicy: "sync_immediately" | "bounded_batch";
@@ -104,30 +90,6 @@ async function hashArtifact(artifactPath: string): Promise<{ sha256: string; byt
   return { sha256: hash.digest("hex"), bytes: details.size };
 }
 
-function validateRecovery(recovery: AlphaRecoveryEvidence): void {
-  const required = [
-    recovery.cleanRuntimeState,
-    recovery.dataReadable,
-    recovery.cognitiveBootstrapRestored,
-    recovery.derivedRuntimeRebuilt,
-    recovery.continuityAccepted,
-    recovery.identityRestored,
-    recovery.frameworkRestored,
-    recovery.twinRestored,
-    recovery.praxisLearningRestored,
-    recovery.importantOpenStateRestored,
-  ];
-  if (recovery.importedLegacyRuntime || required.some((value) => value !== true)) {
-    throw new Error("Alpha recovery evidence does not satisfy clean Level 3 continuity");
-  }
-  if (recovery.schemaVersion !== "stella.exact-host-recovery-receipt/v1") {
-    throw new Error("Alpha recovery receipt schema is invalid");
-  }
-  if (recovery.canghaiFixture !== "private") {
-    throw new Error("Alpha candidate requires a private CangHai recovery drill");
-  }
-}
-
 function validateDurability(durability: AlphaDurabilityEvidence): void {
   if (durability.criticalWritePolicy !== "sync_immediately" || !durability.criticalSynchronized) {
     throw new Error("Alpha critical writes must be synchronized immediately");
@@ -179,7 +141,7 @@ export async function createAlphaCandidateReceipt(
   if (input.hostVersion !== ALPHA_HOST_VERSION) {
     throw new Error(`Alpha candidate requires OpenClaw ${ALPHA_HOST_VERSION}`);
   }
-  validateRecovery(input.recovery);
+  const recovery = parseExactHostRecoveryReceipt(input.recovery);
   validateDurability(input.durability);
   validateEvaluation(input.evaluation);
   const containsPrivateEvaluation = input.evaluation.boundaryCounts.private_canghai > 0;
@@ -195,10 +157,10 @@ export async function createAlphaCandidateReceipt(
     hashArtifact(input.artifactPath),
   ]);
   if (
-    input.recovery.coreRevision !== coreRevision ||
-    input.recovery.canghaiRevision !== canghaiRevision ||
-    input.recovery.hostVersion !== input.hostVersion ||
-    input.recovery.artifactSha256 !== artifact.sha256
+    recovery.coreRevision !== coreRevision ||
+    recovery.canghaiRevision !== canghaiRevision ||
+    recovery.hostVersion !== input.hostVersion ||
+    recovery.artifactSha256 !== artifact.sha256
   ) {
     throw new Error("Alpha recovery receipt is not bound to these sources, Host, and artifact");
   }
@@ -222,7 +184,7 @@ export async function createAlphaCandidateReceipt(
     canghai: { revision: canghaiRevision, sourceClean: true },
     host: { product: "OpenClaw", version: ALPHA_HOST_VERSION, cleanRuntimeState: true },
     artifact: { path: path.resolve(input.artifactPath), ...artifact },
-    recovery: input.recovery,
+    recovery,
     durability: input.durability,
     evaluation: { ...input.evaluation, privateEvaluationIncluded: true },
     release: {

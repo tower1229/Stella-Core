@@ -82,5 +82,25 @@ export function parseExactHostRecoveryReceipt(value: unknown): ExactHostRecovery
   ) {
     throw new Error("Invalid exact-host recovery receipt");
   }
-  return value as ExactHostRecoveryReceipt;
+  return {
+    schemaVersion: "stella.exact-host-recovery-receipt/v1",
+    coreRevision: value.coreRevision as string,
+    canghaiRevision: value.canghaiRevision as string,
+    hostVersion: ALPHA_HOST_VERSION,
+    artifactSha256: value.artifactSha256 as string,
+    canghaiFixture: "private",
+    cleanRuntimeState: true,
+    importedLegacyRuntime: false,
+    dataReadable: true,
+    cognitiveBootstrapRestored: true,
+    derivedRuntimeRebuilt: true,
+    continuityAccepted: true,
+    identityRestored: true,
+    frameworkRestored: true,
+    twinRestored: true,
+    praxisLearningRestored: true,
+    importantOpenStateRestored: true,
+    exactHostAgentTurns: value.exactHostAgentTurns as number,
+    privateFixtureIncluded: true,
+  };
 }

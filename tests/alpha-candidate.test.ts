@@ -53,6 +53,8 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
         twinRestored: true,
         praxisLearningRestored: true,
         importantOpenStateRestored: true,
+        exactHostAgentTurns: 3,
+        privateFixtureIncluded: true,
       },
       durability: {
         criticalWritePolicy: "sync_immediately",
@@ -139,6 +141,8 @@ test("rejects dirty or incomplete candidate evidence", async () => {
       twinRestored: true as const,
       praxisLearningRestored: true as const,
       importantOpenStateRestored: true as const,
+      exactHostAgentTurns: 3,
+      privateFixtureIncluded: true as const,
     },
     durability: {
       criticalWritePolicy: "sync_immediately" as const,
@@ -180,6 +184,13 @@ test("rejects dirty or incomplete candidate evidence", async () => {
     await writeFile(path.join(core.root, "dirty.txt"), "dirty\n", "utf8");
     await assert.rejects(createAlphaCandidateReceipt(base), /Core source must be clean/);
     await rm(path.join(core.root, "dirty.txt"));
+    await assert.rejects(
+      createAlphaCandidateReceipt({
+        ...base,
+        recovery: { ...base.recovery, exactHostAgentTurns: 0 },
+      }),
+      /Invalid exact-host recovery receipt/,
+    );
     await assert.rejects(
       createAlphaCandidateReceipt({
         ...base,

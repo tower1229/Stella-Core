@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { createAlphaCandidateReceipt } from "../dist/src/acceptance/alpha-candidate.js";
+import { parseExactHostRecoveryReceipt } from "../dist/src/acceptance/exact-host-evidence.js";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -37,7 +38,9 @@ await mkdir(outputDirectory, { recursive: true });
 const [{ stdout: coreRevision }, evaluation, recovery, durability] = await Promise.all([
   execFileAsync("git", ["-C", projectRoot, "rev-parse", "HEAD"]),
   readFile(path.resolve(options["evaluation-report"]), "utf8").then(JSON.parse),
-  readFile(path.resolve(options["recovery-receipt"]), "utf8").then(JSON.parse),
+  readFile(path.resolve(options["recovery-receipt"]), "utf8")
+    .then(JSON.parse)
+    .then(parseExactHostRecoveryReceipt),
   readFile(path.resolve(options["durability-evidence"]), "utf8").then(JSON.parse),
 ]);
 const sourceArtifactPath = path.resolve(options.artifact);
