@@ -198,6 +198,39 @@ function unwrapJsonFence(text: string): string {
   return trimmed.slice(firstLineEnd + 1, -3).trim();
 }
 
+async function selectRelevantOpenEpisode(
+  prompt: string,
+  candidates: SemanticRoutingCandidates,
+  complete: RoutingCompletion,
+): Promise<string | undefined> {
+  const available = candidates.openEpisodes ?? [];
+  if (available.length === 0) return undefined;
+  const result = await complete({
+    maxTokens: 500,
+    temperature: 0,
+    purpose: "stella-core-open-episode-selection",
+    systemPrompt: [
+      "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode. Do not answer the owner.",
+      "A message reporting a new outcome is not an open-state recall and must return null.",
+      "Return only strict JSON: {\"openEpisodeRef\":<exact supplied ref or null>}.",
+      `Available open Episode candidates: ${JSON.stringify(available)}`,
+    ].join(" "),
+    messages: [{ role: "user", content: prompt }],
+  });
+  const parsed = JSON.parse(unwrapJsonFence(result.text)) as unknown;
+  if (!isRecord(parsed) || !("openEpisodeRef" in parsed)) {
+    throw new Error("Open Episode selector returned an invalid result");
+  }
+  if (parsed.openEpisodeRef === null) return undefined;
+  if (
+    typeof parsed.openEpisodeRef !== "string" ||
+    !available.some(({ ref }) => ref === parsed.openEpisodeRef)
+  ) {
+    throw new Error("Open Episode selector returned an unavailable ref");
+  }
+  return parsed.openEpisodeRef;
+}
+
 function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): CortexRoute {
   let parsed: unknown;
   try {
@@ -288,7 +321,9 @@ export function createSemanticRouter(
 ): SemanticRouteClassifier {
   return async (prompt, candidates) => {
     let result: { text: string };
+    let selectedOpenEpisodeRef: string | undefined;
     try {
+      selectedOpenEpisodeRef = await selectRelevantOpenEpisode(prompt, candidates, complete);
       result = await complete({
         maxTokens: 2_000,
         temperature: 0,
@@ -302,6 +337,9 @@ export function createSemanticRouter(
           "For praxis, stakes and reversibility must each be exactly low, medium, or high.",
           "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
           "For praxis, when exactly one supplied open Episode is semantically relevant to the request, openEpisodeRef is mandatory and must contain its exact ref; otherwise omit openEpisodeRef.",
+          ...(selectedOpenEpisodeRef
+            ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis and openEpisodeRef must exactly match it.`]
+            : ["The dedicated semantic selector did not choose an open Episode. Omit openEpisodeRef."]),
           "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
           "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
           "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
@@ -314,7 +352,15 @@ export function createSemanticRouter(
       throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
     }
     try {
-      return parseModelRoute(result.text, candidates);
+      const route = parseModelRoute(result.text, candidates);
+      if (
+        selectedOpenEpisodeRef
+          ? route.mode !== "praxis" || route.openEpisodeRef !== selectedOpenEpisodeRef
+          : route.openEpisodeRef !== undefined
+      ) {
+        throw new Error("Model route disagreed with the open Episode selector");
+      }
+      return route;
     } catch (error) {
       if (error instanceof SemanticRoutingError) throw error;
       throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");

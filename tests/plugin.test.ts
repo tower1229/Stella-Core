@@ -73,6 +73,14 @@ test("plugin stages prediction before finalization, learns from a tool outcome, 
     let episodeRef = "";
     let learningRef = "";
     const hooks = registerPlugin(root, recoveryRevision, async (params) => {
+      if (
+        typeof params === "object" &&
+        params !== null &&
+        "purpose" in params &&
+        params.purpose === "stella-core-open-episode-selection"
+      ) {
+        return { text: JSON.stringify({ openEpisodeRef: null }) };
+      }
       routeNumber += 1;
       const systemPrompt = JSON.stringify(params);
       if (routeNumber === 1) return praxisRouteCompletion();

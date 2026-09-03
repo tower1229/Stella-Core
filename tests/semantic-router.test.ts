@@ -5,6 +5,9 @@ import { createSemanticRouter } from "../src/routing/semantic-router.js";
 test("semantic router preserves structured Praxis meaning and candidate selection", async () => {
   const router = createSemanticRouter(
     async (params) => {
+      if (params.purpose === "stella-core-open-episode-selection") {
+        return { text: JSON.stringify({ openEpisodeRef: "path:open-episode.json" }) };
+      }
       assert.equal("agentId" in params, false);
       assert.equal(params.maxTokens, 2_000);
       const { systemPrompt } = params;
@@ -114,7 +117,10 @@ test("semantic router accepts a valid Praxis route with zero Framework operators
 
 test("semantic router associates an outcome with exactly one available open Episode", async () => {
   const episodeRef = "path:30_PersonalData/praxis/episodes/praxis-1/episode.json";
-  const router = createSemanticRouter(async ({ systemPrompt }) => {
+  const router = createSemanticRouter(async ({ purpose, systemPrompt }) => {
+    if (purpose === "stella-core-open-episode-selection") {
+      return { text: JSON.stringify({ openEpisodeRef: null }) };
+    }
     assert.match(systemPrompt, /praxis-1\/episode\.json/);
     return {
       text: JSON.stringify({
