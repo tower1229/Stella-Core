@@ -23,7 +23,7 @@ test("builds a local exact-Host turn for a clean runtime without a Gateway", () 
       "continuity probe",
       "--json",
       "--timeout",
-      "60",
+      "120",
     ],
   );
 });

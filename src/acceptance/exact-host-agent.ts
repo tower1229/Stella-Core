@@ -23,7 +23,7 @@ export function buildExactHostAgentArguments({
     message,
     "--json",
     "--timeout",
-    "60",
+    "120",
   ];
 }
 

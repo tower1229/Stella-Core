@@ -422,7 +422,7 @@ export default definePluginEntry({
           return;
         }
       },
-      { priority: 100, timeoutMs: 15_000 },
+      { priority: 100, timeoutMs: 60_000 },
     );
 
     api.on(
@@ -450,7 +450,7 @@ export default definePluginEntry({
         }
         await associateRouteOutcome(episodeStore, route);
       },
-      { priority: 100, timeoutMs: 15_000 },
+      { priority: 100, timeoutMs: 60_000 },
     );
 
     api.on(
