@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 import {
   loadConsciousness,
   MAX_CANGHAI_DOCUMENT_BYTES,
@@ -11,6 +13,8 @@ import {
   initializeFixtureRepository,
   updateFixtureManifest,
 } from "./consciousness-fixture.js";
+
+const execFileAsync = promisify(execFile);
 
 test("loads and validates a minimal recoverable consciousness manifest", async () => {
   const root = await createFixture();
@@ -214,6 +218,39 @@ test("rejects untracked recovery content even when HEAD matches", async () => {
           coreVersion: "3.0.0-alpha.0",
           openclawVersion: "2026.8.2",
         }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "category" in error &&
+        error.category === "stella_recovery_revision_invalid",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("local_write rejects a rename from outside the managed Episode root", async () => {
+  const root = await createFixture();
+  try {
+    const sourceDirectory = path.join(root, "abc30_PersonalData/praxis/episodes");
+    await mkdir(sourceDirectory, { recursive: true });
+    await writeFile(path.join(sourceDirectory, "outside.md"), "outside managed root", "utf8");
+    const recoveryRevision = await initializeFixtureRepository(root);
+    await execFileAsync("git", ["-C", root, "switch", "-c", "local/stella-alpha"]);
+    await execFileAsync("git", [
+      "-C",
+      root,
+      "mv",
+      "abc30_PersonalData/praxis/episodes/outside.md",
+      "30_PersonalData/praxis/episodes/outside.md",
+    ]);
+
+    await assert.rejects(
+      loadConsciousness(root, undefined, {
+        recoveryRevision,
+        coreVersion: "3.0.0-alpha.0",
+        openclawVersion: "2026.8.2",
+        dataMode: "local_write",
+      }),
       (error: unknown) =>
         error instanceof Error &&
         "category" in error &&

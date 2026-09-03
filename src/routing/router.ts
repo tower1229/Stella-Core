@@ -15,6 +15,7 @@ export type SemanticRoutingCandidates = {
   frameworks: SemanticCandidate[];
   twin: SemanticCandidate[];
   personalPraxis: SemanticCandidate[];
+  openEpisodes?: SemanticCandidate[];
 };
 export type RouteSituation = {
   actors: string[];
@@ -40,6 +41,21 @@ export type CortexRoute = {
   candidatePraxisRefs?: string[];
   openEpisodeRef?: string;
   situation?: RouteSituation;
+  twinPrediction?: {
+    possibleActions: Record<string, number>;
+    likelyInterpretations: string[];
+    keyFactors: string[];
+  };
+  outcome?: {
+    openEpisodeRef: string;
+    actualAction: string;
+    source: "user_report" | "tool_observation" | "system_event" | "inferred";
+    observations: string[];
+    result: string;
+    predictionAssessment: "supported" | "countered" | "unresolved";
+    praxisLearning: string;
+    observedAt: string;
+  };
 };
 
 export type SemanticRouteClassifier = (

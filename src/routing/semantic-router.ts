@@ -50,6 +50,80 @@ function stringList(record: Record<string, unknown>, key: string, maxItems: numb
   return value;
 }
 
+function requiredString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Model route field ${key} must be a non-empty string`);
+  }
+  return value;
+}
+
+function parseTwinPrediction(record: Record<string, unknown>) {
+  const value = record.twinPrediction;
+  if (!isRecord(value) || !isRecord(value.possibleActions)) {
+    throw new Error("Model Praxis route requires a Twin prediction");
+  }
+  const actionEntries = Object.entries(value.possibleActions);
+  if (
+    actionEntries.length === 0 ||
+    actionEntries.length > 4 ||
+    actionEntries.some(
+      ([action, probability]) =>
+        !action || typeof probability !== "number" || probability < 0 || probability > 1,
+    )
+  ) {
+    throw new Error("Model Twin prediction possibleActions is invalid");
+  }
+  return {
+    possibleActions: Object.fromEntries(actionEntries) as Record<string, number>,
+    likelyInterpretations: stringList(value, "likelyInterpretations", 4),
+    keyFactors: stringList(value, "keyFactors", 4),
+  };
+}
+
+function parseOutcome(
+  record: Record<string, unknown>,
+  availableOpenEpisodes: Set<string>,
+) {
+  const value = record.outcome;
+  if (!isRecord(value)) throw new Error("Model outcome route requires outcome details");
+  const openEpisodeRef = requiredString(value, "openEpisodeRef");
+  if (!availableOpenEpisodes.has(openEpisodeRef)) {
+    throw new Error("Model outcome route selected an unavailable open Episode");
+  }
+  const source = requiredString(value, "source");
+  if (
+    source !== "user_report" &&
+    source !== "tool_observation" &&
+    source !== "system_event" &&
+    source !== "inferred"
+  ) {
+    throw new Error("Model outcome source is unsupported");
+  }
+  const predictionAssessment = requiredString(value, "predictionAssessment");
+  if (
+    predictionAssessment !== "supported" &&
+    predictionAssessment !== "countered" &&
+    predictionAssessment !== "unresolved"
+  ) {
+    throw new Error("Model outcome prediction assessment is unsupported");
+  }
+  const observedAt = requiredString(value, "observedAt");
+  if (Number.isNaN(Date.parse(observedAt))) {
+    throw new Error("Model outcome observedAt must be an ISO date-time");
+  }
+  return {
+    openEpisodeRef,
+    actualAction: requiredString(value, "actualAction"),
+    source,
+    observations: stringList(value, "observations", 4),
+    result: requiredString(value, "result"),
+    predictionAssessment,
+    praxisLearning: requiredString(value, "praxisLearning"),
+    observedAt,
+  } as const;
+}
+
 function routeRiskFields(record: Record<string, unknown>) {
   const stakes = record.stakes;
   const reversibility = record.reversibility;
@@ -138,6 +212,7 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
   const frameworkRefs = new Set(candidates.frameworks.map(({ ref }) => ref));
   const twinRefs = new Set(candidates.twin.map(({ ref }) => ref));
   const praxisRefs = new Set(candidates.personalPraxis.map(({ ref }) => ref));
+  const openEpisodeRefs = new Set((candidates.openEpisodes ?? []).map(({ ref }) => ref));
   const candidateFrameworks = isPraxis
     ? selectedRefs(parsed, "candidateFrameworks", 2, frameworkRefs)
     : [];
@@ -158,7 +233,15 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
     needsExternalResearch,
     ...(needsTwin ? { candidateTwinRefs } : {}),
     ...(isPraxis
-      ? { candidateFrameworks, candidatePraxisRefs, situation: parseSituation(parsed) }
+      ? {
+          candidateFrameworks,
+          candidatePraxisRefs,
+          situation: parseSituation(parsed),
+          twinPrediction: parseTwinPrediction(parsed),
+        }
+      : {}),
+    ...(parsed.mode === "outcome"
+      ? { outcome: parseOutcome(parsed, openEpisodeRefs) }
       : {}),
   };
 }
@@ -176,9 +259,10 @@ export function createSemanticRouter(
         purpose: "stella-core-semantic-routing",
         systemPrompt: [
           "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
-          "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, and situation.",
+          "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, situation, twinPrediction, and outcome when applicable.",
           "Use praxis for a personal real-world choice, twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
-          "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, and include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints.",
+          "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
+          "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
           "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
           "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
           `Available semantic candidates: ${JSON.stringify(candidates)}`,

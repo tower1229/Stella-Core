@@ -8,6 +8,7 @@ import type {
 } from "../routing/router.js";
 import { isRecord } from "../shared/type-guards.js";
 import { buildSituationFrame, type SituationFrame } from "../situation/frame.js";
+import type { OpenEpisodeCandidate, StellaDataMode } from "./episode-store.js";
 
 export const DEFAULT_MAX_PRAXIS_PACKET_CHARS = 12_000;
 const MAX_SITUATION_TEXT_CHARS = 250;
@@ -129,6 +130,7 @@ function withinCandidateCapacity(kind: string, candidates: SemanticCandidate[]):
 
 export function listSemanticRoutingCandidates(
   loaded: LoadedConsciousness,
+  openEpisodes: OpenEpisodeCandidate[] = [],
 ): SemanticRoutingCandidates {
   const frameworks = loaded.bootstrapDocuments
     .filter((document) => document.category === "framework")
@@ -156,6 +158,18 @@ export function listSemanticRoutingCandidates(
     frameworks: withinCandidateCapacity("Framework", frameworks),
     twin: withinCandidateCapacity("Twin", twin),
     personalPraxis: withinCandidateCapacity("personal Praxis", personalPraxis),
+    openEpisodes: withinCandidateCapacity(
+      "open Praxis Episode",
+      openEpisodes.map((episode) => ({
+        ref: episode.ref,
+        purpose: boundedText(JSON.stringify({
+          domains: episode.domains,
+          summary: episode.summary,
+          prediction: episode.prediction,
+          recommendation: episode.recommendation,
+        }), 1_000),
+      })),
+    ),
   };
 }
 
@@ -269,6 +283,7 @@ export function buildPraxisContextPacket(
 export function renderPraxisContextPacket(
   packet: PraxisContextPacket,
   maxChars = DEFAULT_MAX_PRAXIS_PACKET_CHARS,
+  dataMode: StellaDataMode = "read_only",
 ): string {
   if (!Number.isInteger(maxChars) || maxChars <= 0) {
     throw new Error("maxChars must be a positive integer");
@@ -278,7 +293,7 @@ export function renderPraxisContextPacket(
     "<\\/stella_core_praxis_context>",
   );
   const rendered = [
-    '<stella_core_praxis_context mode="shadow_read_only">',
+    `<stella_core_praxis_context mode="${dataMode}">`,
     "owner_boundary: advise or prepare only; never send, commit, or act externally",
     "concrete_next_action: required when the owner asks what to do",
     packetJson,

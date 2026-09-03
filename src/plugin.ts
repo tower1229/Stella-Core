@@ -9,9 +9,16 @@ import {
 import { renderConsciousnessContext } from "./canghai/context.js";
 import {
   buildPraxisContextPacket,
+  DEFAULT_MAX_PRAXIS_PACKET_CHARS,
   listSemanticRoutingCandidates,
   renderPraxisContextPacket,
 } from "./praxis/packet.js";
+import {
+  CangHaiPraxisEpisodeStore,
+  STELLA_DATA_MODES,
+  type StagedEpisode,
+  type StellaDataMode,
+} from "./praxis/episode-store.js";
 import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
 import type { CortexRoute } from "./routing/router.js";
 
@@ -24,7 +31,12 @@ type StellaCoreConfig = {
   manifestPath: string;
   agentId: string;
   recoveryRevision: string;
+  dataMode: StellaDataMode;
 };
+
+function isDataMode(value: unknown): value is StellaDataMode {
+  return STELLA_DATA_MODES.some((mode) => mode === value);
+}
 
 function parsePluginConfig(raw: unknown): StellaCoreConfig {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
@@ -45,6 +57,14 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
   ) {
     throw new Error("Stella Core config.recoveryRevision must be a full Git commit SHA");
   }
+  if (!isDataMode(config.dataMode)) {
+    throw new Error(
+      "Stella Core config.dataMode must be read_only, local_write, or managed_durable_write",
+    );
+  }
+  if (config.dataMode === "managed_durable_write") {
+    throw new Error("Stella Core managed_durable_write is not enabled");
+  }
 
   return {
     canghaiRoot: config.canghaiRoot,
@@ -57,6 +77,7 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
         ? config.agentId
         : "stella",
     recoveryRevision: config.recoveryRevision,
+    dataMode: config.dataMode,
   };
 }
 
@@ -84,6 +105,7 @@ class ConsciousnessLoader {
           recoveryRevision: this.config.recoveryRevision,
           coreVersion: STELLA_CORE_COMPATIBILITY_VERSION,
           openclawVersion: this.openclawVersion,
+          dataMode: this.config.dataMode,
         },
       )
         .then((loaded) => {
@@ -150,6 +172,61 @@ function preparedTurnKey(
   return `${sessionKey}:${turnId}`;
 }
 
+function renderToolObservation(toolName: string, result: unknown, error: string | undefined): string {
+  try {
+    return JSON.stringify({
+      source: "tool_observation",
+      toolName,
+      result: JSON.stringify(result).slice(0, 4_000),
+      error: error?.slice(0, 1_000),
+    });
+  } catch (cause) {
+    throw new Error("Stella tool observation is not serializable", { cause });
+  }
+}
+
+async function associateRouteOutcome(
+  store: CangHaiPraxisEpisodeStore,
+  route: CortexRoute,
+): Promise<void> {
+  if (!route.outcome) throw new Error("Outcome route is missing outcome details");
+  await store.associateOutcome({
+    episodeRef: route.outcome.openEpisodeRef,
+    actualAction: route.outcome.actualAction,
+    source: route.outcome.source,
+    observations: route.outcome.observations,
+    result: route.outcome.result,
+    observedAt: route.outcome.observedAt,
+    predictionAssessment: route.outcome.predictionAssessment,
+    praxisLearning: route.outcome.praxisLearning,
+  });
+}
+
+function lastAssistantText(messages: unknown[]): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (typeof message !== "object" || message === null || Array.isArray(message)) continue;
+    const record = message as Record<string, unknown>;
+    if (record.role !== "assistant") continue;
+    if (typeof record.content === "string" && record.content.trim()) return record.content;
+    if (!Array.isArray(record.content)) continue;
+    const text = record.content
+      .flatMap((part) =>
+        typeof part === "object" &&
+        part !== null &&
+        !Array.isArray(part) &&
+        (part as Record<string, unknown>).type === "text" &&
+        typeof (part as Record<string, unknown>).text === "string"
+          ? [(part as Record<string, unknown>).text as string]
+          : [],
+      )
+      .join("\n")
+      .trim();
+    if (text) return text;
+  }
+  return undefined;
+}
+
 export default definePluginEntry({
   id: "stella-core",
   name: "Stella Core",
@@ -164,6 +241,7 @@ export default definePluginEntry({
       (params) => api.runtime.llm.complete(params),
       config.agentId,
     );
+    const episodeByRun = new Map<string, StagedEpisode>();
 
     api.on(
       "before_prompt_build",
@@ -172,16 +250,96 @@ export default definePluginEntry({
         const turnKey = preparedTurnKey(ctx.sessionKey, ctx.trace?.traceId, ctx.runId);
         try {
           const loaded = await consciousness.load();
+          const episodeStore = new CangHaiPraxisEpisodeStore({
+            loaded,
+            dataMode: config.dataMode,
+          });
+          const memory = await episodeStore.listMemory();
+          const loadedForTurn: LoadedConsciousness = {
+            ...loaded,
+            praxisPlaybookItems: [...loaded.praxisPlaybookItems, ...memory.learningItems],
+          };
+          const candidates = listSemanticRoutingCandidates(
+            loadedForTurn,
+            memory.openEpisodes,
+          );
           const route = await classifySemantically(
             event.prompt,
-            listSemanticRoutingCandidates(loaded),
+            candidates,
           );
-          const appendContext =
+          let appendContext =
             route.mode === "ordinary" || route.mode === "outcome"
               ? undefined
               : route.mode === "praxis" || route.mode === "deep_praxis"
-                ? renderPraxisContextPacket(buildPraxisContextPacket(event.prompt, route, loaded))
-                : renderTwinContext(loaded, route);
+                ? renderPraxisContextPacket(
+                    buildPraxisContextPacket(event.prompt, route, loadedForTurn),
+                    DEFAULT_MAX_PRAXIS_PACKET_CHARS,
+                    config.dataMode,
+                  )
+                : renderTwinContext(loadedForTurn, route);
+          if (route.mode === "outcome") {
+            await associateRouteOutcome(episodeStore, route);
+          } else if (
+            (route.mode === "praxis" || route.mode === "deep_praxis") &&
+            config.dataMode !== "read_only"
+          ) {
+            if (!route.twinPrediction || !route.situation) {
+              throw new Error("Praxis route is missing its pre-outcome prediction");
+            }
+            if (!ctx.runId) throw new Error("Writable Praxis turn requires a Host run id");
+            const packet = buildPraxisContextPacket(event.prompt, route, loadedForTurn);
+            const staged = await episodeStore.stagePrediction({
+              provenance: {
+                agentId: ctx.agentId,
+                sessionId: ctx.sessionId,
+                runId: ctx.runId,
+              },
+              situation: {
+                summary: event.prompt.slice(0, 2_000),
+                domains: route.domains,
+                actors: packet.situation.actors,
+                observations: packet.situation.observations,
+                interpretations: packet.situation.interpretations,
+                unknowns: packet.situation.unknowns,
+                goals: packet.situation.userGoals,
+                stakes: route.stakes,
+                reversibility: route.reversibility,
+              },
+              twin: {
+                hypothesisRefs: packet.twin?.hypothesisRefs,
+                prediction: route.twinPrediction,
+              },
+              ...(packet.framework
+                ? {
+                    framework: {
+                      frameworkRefs: packet.framework.frameworkRefs,
+                      operatorRefs: packet.framework.operatorRefs,
+                    },
+                  }
+                : {}),
+              reality: {
+                modes: packet.reality.modes,
+                ...(packet.reality.norms ? { norms: packet.reality.norms } : {}),
+                ...(packet.reality.hiddenVariables
+                  ? { hiddenVariables: packet.reality.hiddenVariables }
+                  : {}),
+                ...(packet.reality.socialCosts
+                  ? { socialCosts: packet.reality.socialCosts }
+                  : {}),
+                ...(packet.reality.uncertainties
+                  ? { uncertainties: packet.reality.uncertainties }
+                  : {}),
+                ...(packet.reality.externalRefs
+                  ? { externalRefs: packet.reality.externalRefs }
+                  : {}),
+                ...(packet.reality.personalPraxisRefs
+                  ? { similarEpisodeRefs: packet.reality.personalPraxisRefs }
+                  : {}),
+              },
+            });
+            episodeByRun.set(ctx.runId, staged);
+            appendContext = `${appendContext ?? ""}\npre_outcome_episode_ref: ${staged.ref}`.trim();
+          }
           preparedTurns.put(turnKey, { outcome: "ready" });
           return {
             prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
@@ -210,6 +368,37 @@ export default definePluginEntry({
     );
 
     api.on(
+      "after_tool_call",
+      async (event, ctx) => {
+        if (ctx.agentId !== config.agentId) return;
+        const loaded = await consciousness.load();
+        const episodeStore = new CangHaiPraxisEpisodeStore({
+          loaded,
+          dataMode: config.dataMode,
+        });
+        const memory = await episodeStore.listMemory();
+        if (memory.openEpisodes.length === 0) return;
+        const candidates = listSemanticRoutingCandidates(
+          {
+            ...loaded,
+            praxisPlaybookItems: [...loaded.praxisPlaybookItems, ...memory.learningItems],
+          },
+          memory.openEpisodes,
+        );
+        const route = await classifySemantically(
+          renderToolObservation(event.toolName, event.result, event.error),
+          candidates,
+        );
+        if (route.mode !== "outcome") return;
+        if (!route.outcome || route.outcome.source !== "tool_observation") {
+          throw new Error("Tool outcome route must retain tool_observation provenance");
+        }
+        await associateRouteOutcome(episodeStore, route);
+      },
+      { priority: 100, timeoutMs: 15_000 },
+    );
+
+    api.on(
       "before_agent_run",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
@@ -228,5 +417,24 @@ export default definePluginEntry({
       },
       { priority: 1_000, timeoutMs: 15_000 },
     );
+
+    api.on("agent_end", async (event, ctx) => {
+      const runId = event.runId ?? ctx.runId;
+      if (!runId) return;
+      const staged = episodeByRun.get(runId);
+      episodeByRun.delete(runId);
+      if (!staged) return;
+      const loaded = await consciousness.load();
+      const episodeStore = new CangHaiPraxisEpisodeStore({
+        loaded,
+        dataMode: config.dataMode,
+      });
+      const recommendation = event.success ? lastAssistantText(event.messages) : undefined;
+      if (!recommendation) {
+        await episodeStore.discardStagedPrediction(staged);
+        return;
+      }
+      await episodeStore.publishRecommendation(staged, recommendation.slice(0, 8_000), []);
+    });
   },
 });

@@ -3,11 +3,16 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020, type ErrorObject, type ValidateFunction } from "ajv/dist/2020.js";
 import { parse as parseYaml } from "yaml";
 
-type SchemaName = "consciousness-manifest" | "framework-ir" | "twin-hypothesis";
+type SchemaName =
+  | "consciousness-manifest"
+  | "framework-ir"
+  | "praxis-episode"
+  | "twin-hypothesis";
 
 const schemaFileByName: Record<SchemaName, string> = {
   "consciousness-manifest": "consciousness-manifest.schema.json",
   "framework-ir": "framework-ir.schema.json",
+  "praxis-episode": "praxis-episode.schema.json",
   "twin-hypothesis": "twin-hypothesis.schema.json",
 };
 

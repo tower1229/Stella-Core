@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
-import { rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 import plugin from "../src/plugin.js";
 import {
   createFixture,
   initializeFixtureRepository,
   updateFixtureManifest,
 } from "./consciousness-fixture.js";
+
+const execFileAsync = promisify(execFile);
 
 type HookContext = {
   agentId?: string;
@@ -32,6 +36,7 @@ function registerPlugin(
       }),
     };
   },
+  dataMode: "read_only" | "local_write" | "managed_durable_write" = "read_only",
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
@@ -39,6 +44,7 @@ function registerPlugin(
       canghaiRoot: root,
       recoveryRevision,
       agentId: "stella",
+      dataMode,
     },
     runtime: { version: "2026.8.2", llm: { complete } },
     on(name: string, handler: HookHandler) {
@@ -48,6 +54,167 @@ function registerPlugin(
   plugin.register(api as never);
   return hooks;
 }
+
+test("plugin stages prediction before finalization, learns from a tool outcome, and retrieves it", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    await execFileAsync("git", ["-C", root, "switch", "-c", "local/stella-alpha"]);
+    let routeNumber = 0;
+    let episodeRef = "";
+    let learningRef = "";
+    const hooks = registerPlugin(root, recoveryRevision, async (params) => {
+      routeNumber += 1;
+      const systemPrompt = JSON.stringify(params);
+      if (routeNumber === 1) return praxisRouteCompletion();
+      if (routeNumber === 2) {
+        const match = systemPrompt.match(
+          /path:30_PersonalData\/praxis\/episodes\/praxis-[a-zA-Z0-9_-]+\/episode\.json/,
+        );
+        assert.ok(match, "outcome routing should receive an open Episode candidate");
+        assert.match(systemPrompt, /send-one-message/);
+        episodeRef = match[0];
+        return {
+          text: JSON.stringify({
+            mode: "outcome",
+            domains: ["relationship"],
+            needsTwin: false,
+            needsFramework: false,
+            needsReality: false,
+            needsExternalResearch: false,
+            outcome: {
+              openEpisodeRef: episodeRef,
+              actualAction: "等待对方主动联系",
+              source: "tool_observation",
+              observations: ["一周后对方主动恢复联系"],
+              result: "等待避免了额外压力",
+              predictionAssessment: "countered",
+              praxisLearning: "高不确定关系情境中，等待对方主动有时更符合低压目标。",
+              observedAt: "2026-09-03T02:00:00.000Z",
+            },
+          }),
+        };
+      }
+      const match = systemPrompt.match(
+        /path:30_PersonalData\/praxis\/episodes\/praxis-[a-zA-Z0-9_-]+\/episode\.json#learning:praxis:0/,
+      );
+      assert.ok(match, "next Praxis routing should receive the learned item candidate");
+      learningRef = match[0];
+      const response = await praxisRouteCompletion();
+      const parsed = JSON.parse(response.text) as Record<string, unknown>;
+      parsed.candidatePraxisRefs = [learningRef];
+      return { text: JSON.stringify(parsed) };
+    }, "local_write");
+
+    const firstContext = {
+      agentId: "stella",
+      runId: "praxis-write-run",
+      sessionKey: "agent:stella:learning",
+      sessionId: "session-learning",
+    };
+    const firstEvent = {
+      prompt: "她两天没回我，我要不要再发一条？",
+      messages: [],
+    };
+    await requireHook(hooks, "before_prompt_build")(firstEvent, firstContext);
+    const episodeRoot = path.join(root, "30_PersonalData/praxis/episodes");
+    assert.equal((await readdir(episodeRoot)).some((entry) => entry.startsWith("praxis-")), false);
+    const createdDirectory = (await readdir(path.join(episodeRoot, ".staging")))[0];
+    assert.ok(createdDirectory, "prediction must be durably staged before finalization");
+    const stagedPredictionPath = path.join(episodeRoot, ".staging", createdDirectory, "prediction.json");
+    const predictionPath = path.join(episodeRoot, createdDirectory, "prediction.json");
+    const originalPrediction = await readFile(stagedPredictionPath);
+
+    await requireHook(hooks, "agent_end")(
+      {
+        runId: firstContext.runId,
+        success: true,
+        messages: [{ role: "assistant", content: "发一条低压消息，然后等待。" }],
+      },
+      firstContext,
+    );
+
+    const outcomeContext = {
+      agentId: "stella",
+      runId: "outcome-write-run",
+      sessionKey: "agent:stella:learning",
+      sessionId: "session-learning",
+    };
+    const circularResult: { self?: unknown } = {};
+    circularResult.self = circularResult;
+    await assert.rejects(
+      async () => {
+        await requireHook(hooks, "after_tool_call")(
+          {
+            toolName: "relationship-observation",
+            params: {},
+            result: circularResult,
+            runId: outcomeContext.runId,
+          },
+          outcomeContext,
+        );
+      },
+      /not serializable/,
+    );
+    await requireHook(hooks, "after_tool_call")(
+      {
+        toolName: "relationship-observation",
+        params: {},
+        result: { observation: "后来我没继续发，她一周后主动联系我了。" },
+        runId: outcomeContext.runId,
+      },
+      outcomeContext,
+    );
+    assert.deepEqual(await readFile(predictionPath), originalPrediction);
+
+    const nextContext = {
+      agentId: "stella",
+      runId: "next-praxis-run",
+      sessionKey: "agent:stella:learning",
+      sessionId: "session-learning",
+    };
+    const nextPrompt = await requireHook(hooks, "before_prompt_build")(
+      { prompt: "这次也是类似情况，我该怎么做？", messages: [] },
+      nextContext,
+    );
+    assert.match(JSON.stringify(nextPrompt), /等待对方主动有时更符合低压目标/);
+    assert.match(JSON.stringify(nextPrompt), new RegExp(learningRef.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("failed agent run discards its staged prediction without exposing an Episode", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    await execFileAsync("git", ["-C", root, "switch", "-c", "local/stella-alpha"]);
+    const hooks = registerPlugin(root, recoveryRevision, praxisRouteCompletion, "local_write");
+    const context = {
+      agentId: "stella",
+      runId: "failed-praxis-run",
+      sessionKey: "agent:stella:failed",
+      sessionId: "session-failed",
+    };
+    await requireHook(hooks, "before_prompt_build")(
+      { prompt: "她没回复，我该怎么办？", messages: [] },
+      context,
+    );
+    await requireHook(hooks, "agent_end")(
+      { runId: context.runId, messages: [], success: false, error: "model failed" },
+      context,
+    );
+
+    const episodeRoot = path.join(root, "30_PersonalData/praxis/episodes");
+    assert.deepEqual(
+      (await readdir(episodeRoot)).filter((entry) => entry.startsWith("praxis-")),
+      [],
+    );
+    assert.deepEqual(await readdir(path.join(episodeRoot, ".staging")), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 const fixtureOperatorRefs = [
   "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
@@ -69,6 +236,11 @@ async function praxisRouteCompletion(): Promise<{ text: string }> {
       candidateFrameworks: fixtureOperatorRefs,
       candidateTwinRefs: fixtureTwinRefs,
       candidatePraxisRefs: [],
+      twinPrediction: {
+        possibleActions: { "send-one-message": 0.65, wait: 0.35 },
+        likelyInterpretations: ["用户会优先选择可逆行动"],
+        keyFactors: ["不想给对方压力"],
+      },
       situation: {
         actors: ["self", "other"],
         observations: ["她两天没回我消息"],
@@ -86,6 +258,26 @@ function requireHook(hooks: Map<string, HookHandler>, name: string): HookHandler
   assert.ok(hook, `expected ${name} hook`);
   return hook;
 }
+
+test("plugin requires an explicit supported data mode and rejects managed writes", () => {
+  const api = {
+    pluginConfig: {
+      canghaiRoot: "/tmp/canghai",
+      recoveryRevision: "1".repeat(40),
+      agentId: "stella",
+    },
+    runtime: { version: "2026.8.2", llm: { complete: async () => ({ text: "{}" }) } },
+    on() {},
+  };
+  assert.throws(() => plugin.register(api as never), /config\.dataMode/);
+  assert.throws(
+    () => plugin.register({
+      ...api,
+      pluginConfig: { ...api.pluginConfig, dataMode: "managed_durable_write" },
+    } as never),
+    /not enabled/,
+  );
+});
 
 test("target agent passes the gate and ordinary turn bypasses Cortex context", async () => {
   const root = await createFixture();

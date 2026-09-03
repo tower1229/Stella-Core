@@ -4,9 +4,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { satisfies, valid } from "semver";
 import { parse as parseYaml } from "yaml";
-import { resolveCangHaiRef } from "./ref.js";
+import { parseCangHaiRef, resolveCangHaiRef } from "./ref.js";
 import { parseTwinHypothesisRecord, validateSchema } from "./schema.js";
 import { isRecord } from "../shared/type-guards.js";
+import type { StellaDataMode } from "../praxis/episode-store.js";
 
 export const DEFAULT_MANIFEST_PATH = "50_PersonalAgent/stella/manifest.yaml";
 export const MAX_CANGHAI_DOCUMENT_BYTES = 256_000;
@@ -41,6 +42,7 @@ export type ConsciousnessLoadOptions = {
   recoveryRevision: string;
   coreVersion: string;
   openclawVersion: string;
+  dataMode?: StellaDataMode;
 };
 
 export type StellaConsciousnessManifest = {
@@ -869,16 +871,21 @@ async function validateActivationGate(
 
   let currentRevision: string;
   let sourceStatus: string;
+  let currentBranch: string | undefined;
   try {
     const revisionResult = await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"]);
     const statusResult = await execFileAsync("git", [
       "-C",
       root,
       "status",
-      "--porcelain",
+      "--porcelain=v1",
+      "-z",
+      "--untracked-files=all",
     ]);
+    const branchResult = await execFileAsync("git", ["-C", root, "branch", "--show-current"]);
     currentRevision = revisionResult.stdout.trim();
-    sourceStatus = statusResult.stdout.trim();
+    sourceStatus = statusResult.stdout;
+    currentBranch = branchResult.stdout.trim();
   } catch (error) {
     throw new ConsciousnessLoadError(
       CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,
@@ -887,7 +894,43 @@ async function validateActivationGate(
     );
   }
 
-  if (currentRevision !== options.recoveryRevision || sourceStatus.length > 0) {
+  const localWriteRoot = parseCangHaiRef(manifest.praxis.episodeRootRef).relativePath;
+  const statusEntries = sourceStatus.split("\0").filter(Boolean);
+  const dirtyPaths: string[] = [];
+  for (let index = 0; index < statusEntries.length; index += 1) {
+    const entry = statusEntries[index];
+    if (!entry || entry.length < 4 || entry[2] !== " ") {
+      throw new ConsciousnessLoadError(
+        CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,
+        "CangHai checkout returned an invalid Git status record",
+      );
+    }
+    const status = entry.slice(0, 2);
+    dirtyPaths.push(entry.slice(3));
+    if (/[RC]/.test(status)) {
+      const sourcePath = statusEntries[index + 1];
+      if (!sourcePath) {
+        throw new ConsciousnessLoadError(
+          CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,
+          "CangHai checkout returned an incomplete Git rename record",
+        );
+      }
+      dirtyPaths.push(sourcePath);
+      index += 1;
+    }
+  }
+  const hasOnlyManagedLocalWrites =
+    options.dataMode === "local_write" &&
+    currentBranch === "local/stella-alpha" &&
+    dirtyPaths.every(
+      (dirtyPath) =>
+        dirtyPath === localWriteRoot || dirtyPath.startsWith(`${localWriteRoot}/`),
+    );
+
+  if (
+    currentRevision !== options.recoveryRevision ||
+    (sourceStatus.length > 0 && !hasOnlyManagedLocalWrites)
+  ) {
     throw new ConsciousnessLoadError(
       CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,
       `CangHai checkout must be clean at configured recovery revision ${options.recoveryRevision}`,

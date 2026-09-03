@@ -8,7 +8,7 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["canghaiRoot", "recoveryRevision"],
+    "required": ["canghaiRoot", "recoveryRevision", "dataMode"],
     "properties": {
       "canghaiRoot": {
         "type": "string",
@@ -29,6 +29,11 @@
         "type": "string",
         "default": "stella",
         "description": "OpenClaw agent id that Stella Core should augment"
+      },
+      "dataMode": {
+        "type": "string",
+        "enum": ["read_only", "local_write", "managed_durable_write"],
+        "description": "Explicit CangHai data mode; managed_durable_write remains fail-closed in Alpha"
       }
     }
   }

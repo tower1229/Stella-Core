@@ -45,6 +45,12 @@ interface PraxisEpisode {
   createdAt: string;
   updatedAt: string;
 
+  sourceBaseline?: {
+    repository: string;
+    commit: string;
+  };
+  sourceSnapshot?: Record<string, string>;
+
   provenance: {
     agentId?: string;
     sessionId?: string;
@@ -116,6 +122,9 @@ interface PraxisEpisode {
   };
 
   learning?: {
+    algorithmVersion?: "stella.praxis-learning/v1";
+    predictionAssessment?: "supported" | "countered" | "unresolved";
+    evidenceRefs?: string[];
     twin?: string[];
     reality?: string[];
     praxis?: string[];
@@ -216,3 +225,5 @@ domains: [relationship]
 ```
 
 Machine-managed sections should be deterministic enough to update without rewriting unrelated human notes.
+
+Stella Core generated records include `sourceBaseline` and `sourceSnapshot` so derivation inputs can be checked for drift. They remain optional in schema v1 to preserve compatibility with Episode records created before managed local writes were introduced.

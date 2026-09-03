@@ -110,6 +110,7 @@ openclaw config set plugins.entries.stella-core.config.canghaiRoot "$HOME/dev/Ca
 openclaw config set plugins.entries.stella-core.config.manifestPath "50_PersonalAgent/stella/manifest.yaml"
 openclaw config set plugins.entries.stella-core.config.agentId "stella"
 openclaw config set plugins.entries.stella-core.config.recoveryRevision "$(git -C "$HOME/dev/CangHai-Stella-Dev" rev-parse HEAD)"
+openclaw config set plugins.entries.stella-core.config.dataMode read_only
 openclaw config set plugins.entries.stella-core.hooks.allowConversationAccess true
 openclaw config set plugins.entries.stella-core.enabled true
 openclaw config validate

@@ -132,6 +132,7 @@ try {
       JSON.stringify({
         canghaiRoot: syntheticCangHaiRoot,
         recoveryRevision: syntheticCangHaiRevision,
+        dataMode: "read_only",
         agentId: "stella",
       }),
       "--strict-json",
@@ -197,6 +198,11 @@ try {
     candidateFrameworks: fixtureOperatorRefs,
     candidateTwinRefs: ["path:30_PersonalData/twin/hypotheses/twin_fixture.md"],
     candidatePraxisRefs: [],
+    twinPrediction: {
+      possibleActions: { "send-one-message": 0.65, wait: 0.35 },
+      likelyInterpretations: ["用户会优先选择可逆行动"],
+      keyFactors: ["不想给对方压力"],
+    },
     situation: {
       actors: ["self", "other"],
       observations: ["她两天没回我消息"],
@@ -483,7 +489,7 @@ try {
   function registerHooks(canghaiRoot, recoveryRevision) {
     const hooks = new Map();
     installedPlugin.default.register({
-      pluginConfig: { canghaiRoot, recoveryRevision, agentId: "stella" },
+      pluginConfig: { canghaiRoot, recoveryRevision, agentId: "stella", dataMode: "read_only" },
       runtime: {
         version: exactOpenClawVersion,
         llm: {
@@ -574,6 +580,7 @@ try {
       JSON.stringify({
         canghaiRoot: blockedCangHaiRoot,
         recoveryRevision: blockedRevision,
+        dataMode: "read_only",
         agentId: "stella",
       }),
       "--strict-json",

@@ -19,6 +19,11 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
           candidateFrameworks: ["path:framework.yaml#operator:reversible_test"],
           candidateTwinRefs: ["path:twin.md"],
           candidatePraxisRefs: ["path:praxis.md"],
+          twinPrediction: {
+            possibleActions: { "send-one-message": 0.7, wait: 0.3 },
+            likelyInterpretations: ["The user will prefer a reversible action"],
+            keyFactors: ["Avoid pressure"],
+          },
           situation: {
             actors: ["self", "other"],
             observations: ["Interaction cadence changed"],
@@ -45,6 +50,7 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
     "path:framework.yaml#operator:reversible_test",
   ]);
   assert.deepEqual(route.situation?.unknowns, ["Other person's reason"]);
+  assert.equal(route.twinPrediction?.possibleActions["send-one-message"], 0.7);
 });
 
 test("semantic router accepts a valid Praxis route with zero Framework operators", async () => {
@@ -61,6 +67,11 @@ test("semantic router accepts a valid Praxis route with zero Framework operators
       candidateFrameworks: [],
       candidateTwinRefs: [],
       candidatePraxisRefs: [],
+      twinPrediction: {
+        possibleActions: { "try-option-a": 0.6, "try-option-b": 0.4 },
+        likelyInterpretations: [],
+        keyFactors: ["Reversibility"],
+      },
       situation: {
         actors: ["self"],
         observations: ["Two options are available"],
@@ -78,6 +89,44 @@ test("semantic router accepts a valid Praxis route with zero Framework operators
     personalPraxis: [],
   });
   assert.deepEqual(route.candidateFrameworks, []);
+});
+
+test("semantic router associates an outcome with exactly one available open Episode", async () => {
+  const episodeRef = "path:30_PersonalData/praxis/episodes/praxis-1/episode.json";
+  const router = createSemanticRouter(async ({ systemPrompt }) => {
+    assert.match(systemPrompt, /praxis-1\/episode\.json/);
+    return {
+      text: JSON.stringify({
+        mode: "outcome",
+        domains: ["relationship"],
+        needsTwin: false,
+        needsFramework: false,
+        needsReality: false,
+        needsExternalResearch: false,
+        outcome: {
+          openEpisodeRef: episodeRef,
+          actualAction: "waited",
+          source: "user_report",
+          observations: ["the other person replied later"],
+          result: "waiting avoided pressure",
+          predictionAssessment: "countered",
+          praxisLearning: "waiting can better preserve a low-pressure goal",
+          observedAt: "2026-09-03T02:00:00.000Z",
+        },
+      }),
+    };
+  }, "stella");
+
+  const route = await router("后来她主动联系我了。", {
+    frameworks: [],
+    twin: [],
+    personalPraxis: [],
+    openEpisodes: [{ ref: episodeRef, purpose: "对方未回复后的低压选择" }],
+  });
+
+  assert.equal(route.mode, "outcome");
+  assert.equal(route.outcome?.openEpisodeRef, episodeRef);
+  assert.equal(route.outcome?.predictionAssessment, "countered");
 });
 
 test("deep Praxis fails explicitly while external research is unavailable", async () => {
