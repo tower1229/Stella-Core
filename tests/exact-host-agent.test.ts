@@ -53,6 +53,16 @@ test("accepts the OpenClaw agent JSON envelope", () => {
   );
 });
 
+test("accepts the local OpenClaw agent result envelope", () => {
+  assert.equal(
+    parseExactHostAgentOutput(
+      JSON.stringify({ payloads: [{ text: "Praxis restored", mediaUrl: null }], meta: {} }),
+      "praxis",
+    ),
+    "Praxis restored",
+  );
+});
+
 test("rejects a failed or empty exact-Host turn", () => {
   assert.throws(
     () => parseExactHostAgentOutput('{"ok":false,"status":"error","final":""}', "identity"),

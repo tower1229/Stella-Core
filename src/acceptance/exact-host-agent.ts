@@ -43,13 +43,13 @@ export function parseExactHostAgentOutput(stdout: string, probeId: string): stri
   if (record.ok === true && record.status === "ok" && typeof record.final === "string") {
     if (record.final.trim()) return record.final;
   }
-  if (
-    record.status === "ok" &&
-    typeof record.result === "object" &&
-    record.result !== null &&
-    !Array.isArray(record.result)
-  ) {
-    const payloads = (record.result as Record<string, unknown>).payloads;
+  if (record.ok !== false && record.status !== "error") {
+    const result = typeof record.result === "object" &&
+        record.result !== null &&
+        !Array.isArray(record.result)
+      ? record.result as Record<string, unknown>
+      : record;
+    const payloads = result.payloads;
     if (Array.isArray(payloads)) {
       const text = payloads
         .flatMap((payload) => {
