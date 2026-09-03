@@ -300,21 +300,26 @@ try {
       return;
     }
     const isSemanticRouting = body.includes("Semantically classify one user turn");
-    const responseContent = isSemanticRouting
-      ? forceInvalidSemanticRoute
-        ? "not-json"
-        : JSON.stringify(
-            body.includes("请恢复我的核心身份")
-              ? twinRoute
-              : body.includes("她两天没回我消息")
-                ? praxisRoute
-                : ordinaryRoute,
-          )
-      : body.includes("<stella_core_praxis_context")
-        ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
-        : body.includes("<stella_core_consciousness")
-          ? "identity-restored"
-        : "smoke-ok";
+    const isOpenEpisodeSelection = body.includes(
+      "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode",
+    );
+    const responseContent = isOpenEpisodeSelection
+      ? JSON.stringify({ openEpisodeRef: null })
+      : isSemanticRouting
+        ? forceInvalidSemanticRoute
+          ? "not-json"
+          : JSON.stringify(
+              body.includes("请恢复我的核心身份")
+                ? twinRoute
+                : body.includes("她两天没回我消息")
+                  ? praxisRoute
+                  : ordinaryRoute,
+            )
+        : body.includes("<stella_core_praxis_context")
+          ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
+          : body.includes("<stella_core_consciousness")
+            ? "identity-restored"
+            : "smoke-ok";
     response.end(
       JSON.stringify({
         id: "chatcmpl-stella-core-smoke",
@@ -489,11 +494,20 @@ try {
   const routingRequests = completionRequests.filter((request) =>
     request.body.includes("Semantically classify one user turn"),
   );
+  const openEpisodeSelectionRequests = completionRequests.filter((request) =>
+    request.body.includes(
+      "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode",
+    ),
+  );
   const answerRequests = completionRequests.filter((request) =>
-    !request.body.includes("Semantically classify one user turn"),
+    !request.body.includes("Semantically classify one user turn") &&
+    !request.body.includes(
+      "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode",
+    ),
   );
   if (
     routingRequests.length !== 3 ||
+    openEpisodeSelectionRequests.length !== 3 ||
     answerRequests.length !== 4 ||
     answerRequests[0].body.includes("<stella_core_praxis_context") ||
     !answerRequests[1].body.includes("<stella_core_praxis_context") ||
@@ -512,6 +526,7 @@ try {
       `real OpenClaw target injection or non-target bypass acceptance failed: ${JSON.stringify({
         completionRequestCount: completionRequests.length,
         semanticRoutingRequestCount: routingRequests.length,
+        openEpisodeSelectionRequestCount: openEpisodeSelectionRequests.length,
         answerRequestCount: answerRequests.length,
         ordinaryTargetBypassed: !answerRequests[0]?.body.includes("<stella_core_praxis_context"),
         praxisTargetInjected: answerRequests[1]?.body.includes("<stella_core_praxis_context"),
@@ -555,7 +570,7 @@ try {
   ).length;
   if (
     !blockedRoutingTurn.includes("Your message could not be sent") ||
-    completionCountAfterRoutingFailure !== completionCountBeforeRoutingFailure + 1
+    completionCountAfterRoutingFailure !== completionCountBeforeRoutingFailure + 2
   ) {
     throw new Error(
       `semantic routing failure did not fail closed before the answer model: ${JSON.stringify({
