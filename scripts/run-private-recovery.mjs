@@ -11,10 +11,15 @@ import {
   buildExactHostAgentArguments,
   parseExactHostAgentOutput,
 } from "../dist/src/acceptance/exact-host-agent.js";
+import {
+  ALPHA_HOST_VERSION,
+  assertStellaHostConfig,
+  parseExactHostVersion,
+} from "../dist/src/acceptance/exact-host-evidence.js";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const hostVersion = "2026.8.2";
+const hostVersion = ALPHA_HOST_VERSION;
 
 const options = parseRequiredArguments(
   process.argv.slice(2),
@@ -84,10 +89,7 @@ try {
     cwd: consumerRoot,
     env: { ...process.env, ...hostEnv },
   });
-  const versionMatch = /^OpenClaw ([^ ]+)/u.exec(versionOutput.trim());
-  if (versionMatch?.[1] !== hostVersion) {
-    throw new Error(`Private recovery requires exact OpenClaw ${hostVersion}`);
-  }
+  parseExactHostVersion(versionOutput);
   await execFileAsync(openclawBin, [
     "plugins",
     "install",
@@ -113,6 +115,17 @@ try {
     hostVersion,
     openclawBin,
     runtimeStateRoot,
+  });
+  const { stdout: hostConfigOutput } = await execFileAsync(openclawBin, [
+    "config",
+    "get",
+    "plugins.entries.stella-core.config",
+    "--json",
+  ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+  assertStellaHostConfig(JSON.parse(hostConfigOutput), {
+    canghaiRoot,
+    canghaiRevision: options["canghai-revision"],
+    agentId: "stella",
   });
   if (
     typeof harness?.rebuild !== "function" ||

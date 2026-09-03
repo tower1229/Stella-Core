@@ -40,10 +40,16 @@ export function parseExactHostAgentOutput(stdout: string, probeId: string): stri
     throw new Error(`Exact Host probe ${probeId} did not complete successfully`);
   }
   const record = parsed as Record<string, unknown>;
+  if (
+    (record.ok !== undefined && record.ok !== true) ||
+    (record.status !== undefined && record.status !== "ok")
+  ) {
+    throw new Error(`Exact Host probe ${probeId} did not complete successfully`);
+  }
   if (record.ok === true && record.status === "ok" && typeof record.final === "string") {
     if (record.final.trim()) return record.final;
   }
-  if (record.ok !== false && record.status !== "error") {
+  {
     const result = typeof record.result === "object" &&
         record.result !== null &&
         !Array.isArray(record.result)

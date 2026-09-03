@@ -16,6 +16,11 @@ import {
   buildExactHostAgentArguments,
   parseExactHostAgentOutput,
 } from "../dist/src/acceptance/exact-host-agent.js";
+import {
+  assertStellaHostConfig,
+  parseExactHostRecoveryReceipt,
+  parseExactHostVersion,
+} from "../dist/src/acceptance/exact-host-evidence.js";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -37,18 +42,9 @@ if (privateSuite?.boundary !== "private_canghai") {
 }
 const cases = [...suite.cases, ...(privateSuite?.cases ?? [])];
 const adapter = await import(pathToFileURL(path.resolve(options.adapter)).href);
-const recoveryReceipt = JSON.parse(
+const recoveryReceipt = parseExactHostRecoveryReceipt(JSON.parse(
   await readFile(path.resolve(options["recovery-receipt"]), "utf8"),
-);
-if (
-  recoveryReceipt.schemaVersion !== "stella.exact-host-recovery-receipt/v1" ||
-  typeof recoveryReceipt.coreRevision !== "string" ||
-  typeof recoveryReceipt.canghaiRevision !== "string" ||
-  typeof recoveryReceipt.hostVersion !== "string" ||
-  typeof recoveryReceipt.artifactSha256 !== "string"
-) {
-  throw new Error("Praxis evaluation requires a valid exact-host recovery receipt");
-}
+));
 const execution = {
   coreRevision: recoveryReceipt.coreRevision,
   canghaiRevision: recoveryReceipt.canghaiRevision,
@@ -113,6 +109,11 @@ async function runPrivateExactHostEvaluation() {
     ], { cwd: consumerRoot });
     const openclawBin = path.join(consumerRoot, "node_modules/.bin/openclaw");
     const hostEnv = { OPENCLAW_STATE_DIR: runtimeStateRoot };
+    const { stdout: versionOutput } = await execFileAsync(openclawBin, ["--version"], {
+      cwd: consumerRoot,
+      env: { ...process.env, ...hostEnv },
+    });
+    parseExactHostVersion(versionOutput);
     await execFileAsync(openclawBin, [
       "plugins",
       "install",
@@ -139,6 +140,17 @@ async function runPrivateExactHostEvaluation() {
     ) {
       throw new Error("Private evaluation harness must provide answerAgentId and judgeAgentId");
     }
+    const { stdout: hostConfigOutput } = await execFileAsync(openclawBin, [
+      "config",
+      "get",
+      "plugins.entries.stella-core.config",
+      "--json",
+    ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+    assertStellaHostConfig(JSON.parse(hostConfigOutput), {
+      canghaiRoot,
+      canghaiRevision: execution.canghaiRevision,
+      agentId: harness.answerAgentId,
+    });
     let judgeIndex = 0;
     const runTurn = async (agentId, sessionKey, message) => {
       const result = await execFileAsync(

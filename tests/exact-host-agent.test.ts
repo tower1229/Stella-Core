@@ -68,4 +68,20 @@ test("rejects a failed or empty exact-Host turn", () => {
     () => parseExactHostAgentOutput('{"ok":false,"status":"error","final":""}', "identity"),
     /did not complete successfully/,
   );
+  for (const status of ["timeout", "failed", "cancelled"]) {
+    assert.throws(
+      () => parseExactHostAgentOutput(
+        JSON.stringify({ status, payloads: [{ text: "partial output" }] }),
+        "identity",
+      ),
+      /did not complete successfully/,
+    );
+  }
+  assert.throws(
+    () => parseExactHostAgentOutput(
+      JSON.stringify({ ok: "false", payloads: [{ text: "partial output" }] }),
+      "identity",
+    ),
+    /did not complete successfully/,
+  );
 });
