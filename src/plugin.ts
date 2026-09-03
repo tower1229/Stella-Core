@@ -25,7 +25,7 @@ import type { CortexRoute } from "./routing/router.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 const STELLA_CORE_SYSTEM_CONTEXT =
-  "Stella Core is the cognitive runtime for this agent. Durable personal consciousness is loaded from CangHai; machine-local OpenClaw session state is not the authority for long-term identity.";
+  "Stella Core is the cognitive runtime for this agent. CangHai is the sole authority for durable personal consciousness and long-term identity facts. Machine-local OpenClaw sessions, SQLite, derived indexes, and prompt caches are not authoritative.";
 
 type StellaCoreConfig = {
   canghaiRoot: string;

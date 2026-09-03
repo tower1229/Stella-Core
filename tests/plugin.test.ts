@@ -318,6 +318,8 @@ test("target agent passes the gate and ordinary turn bypasses Cortex context", a
         replayedGate.outcome === "block",
     );
     assert.ok(typeof prompt === "object" && prompt !== null);
+    assert.match(JSON.stringify(prompt), /CangHai is the sole authority/);
+    assert.match(JSON.stringify(prompt), /SQLite, derived indexes, and prompt caches are not authoritative/);
     assert.doesNotMatch(JSON.stringify(prompt), /stella_core_(?:consciousness|praxis_context)/);
   } finally {
     await rm(root, { recursive: true, force: true });
