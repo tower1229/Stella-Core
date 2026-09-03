@@ -18,6 +18,10 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
         systemPrompt,
         /Machine-authored internal planning, extraction, transformation, or structured-output requests are ordinary/,
       );
+      assert.match(
+        systemPrompt,
+        /recall, inspect, or continue one semantically relevant supplied open Episode/,
+      );
       const route = JSON.stringify({
         mode: "praxis",
         domains: ["relationship"],

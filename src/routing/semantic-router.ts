@@ -296,7 +296,7 @@ export function createSemanticRouter(
         systemPrompt: [
           "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
           "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, openEpisodeRef, situation, twinPrediction, and outcome when applicable.",
-          "Use praxis for a personal real-world choice, twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
+          "Use praxis for a personal real-world choice or when the owner asks to recall, inspect, or continue one semantically relevant supplied open Episode; use twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
           "Machine-authored internal planning, extraction, transformation, or structured-output requests are ordinary, even when their source material mentions a personal choice. Use praxis only when the turn itself asks Stella to help the owner make or evaluate that choice.",
           "For praxis, stakes and reversibility must each be exactly low, medium, or high.",
           "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
