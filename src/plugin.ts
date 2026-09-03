@@ -317,7 +317,12 @@ export default definePluginEntry({
                 ? undefined
               : route.mode === "praxis" || route.mode === "deep_praxis"
                 ? renderPraxisContextPacket(
-                    buildPraxisContextPacket(event.prompt, route, loadedForTurn),
+                    buildPraxisContextPacket(
+                      event.prompt,
+                      route,
+                      loadedForTurn,
+                      memory.openEpisodes,
+                    ),
                     DEFAULT_MAX_PRAXIS_PACKET_CHARS,
                     config.dataMode,
                   )
@@ -332,7 +337,12 @@ export default definePluginEntry({
               throw new Error("Praxis route is missing its pre-outcome prediction");
             }
             if (!ctx.runId) throw new Error("Writable Praxis turn requires a Host run id");
-            const packet = buildPraxisContextPacket(event.prompt, route, loadedForTurn);
+            const packet = buildPraxisContextPacket(
+              event.prompt,
+              route,
+              loadedForTurn,
+              memory.openEpisodes,
+            );
             const staged = await episodeStore.stagePrediction({
               provenance: {
                 agentId: ctx.agentId,

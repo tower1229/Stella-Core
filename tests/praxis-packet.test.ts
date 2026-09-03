@@ -105,6 +105,39 @@ test("Reality Need Check distinguishes available personal Praxis memory", async 
   }
 });
 
+test("includes the selected open Episode stage and bounded recovery context", async () => {
+  const root = await createFixture();
+  try {
+    const loaded = await loadConsciousness(root);
+    const ref = "path:30_PersonalData/praxis/episodes/praxis-open/episode.json";
+    const packet = buildPraxisContextPacket(
+      "这个重要事项现在到哪一步了？",
+      { ...relationshipRoute, openEpisodeRef: ref },
+      loaded,
+      [{
+        ref,
+        status: "acted",
+        summary: "A bounded open state",
+        domains: ["relationship"],
+        prediction: { possibleActions: { wait: 0.7, ask: 0.3 } },
+        recommendation: "Observe before the next reversible step",
+        recoveryPriority: "important",
+      }],
+    );
+
+    assert.deepEqual(packet.openEpisode, {
+      ref,
+      status: "acted",
+      summary: "A bounded open state",
+      domains: ["relationship"],
+      prediction: { possibleActions: { wait: 0.7, ask: 0.3 } },
+      recommendation: "Observe before the next reversible step",
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("zero selected Framework operators remains a valid bounded Praxis packet", async () => {
   const root = await createFixture();
   try {

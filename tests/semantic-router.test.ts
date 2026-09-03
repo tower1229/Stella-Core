@@ -30,6 +30,7 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
         candidateFrameworks: ["path:framework.yaml#operator:reversible_test"],
         candidateTwinRefs: ["path:twin.md"],
         candidatePraxisRefs: ["path:praxis.md"],
+        openEpisodeRef: "path:open-episode.json",
         twinPrediction: {
           possibleActions: { "send-one-message": 0.7, wait: 0.3 },
           likelyInterpretations: ["The user will prefer a reversible action"],
@@ -56,6 +57,7 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
     ],
     twin: [{ ref: "path:twin.md", purpose: "Prefers reversible experiments" }],
     personalPraxis: [{ ref: "path:praxis.md", purpose: "Use a low-pressure message" }],
+    openEpisodes: [{ ref: "path:open-episode.json", purpose: "An acted item awaiting observation" }],
   });
   assert.equal(route.mode, "praxis");
   assert.deepEqual(route.candidateFrameworks, [
@@ -63,6 +65,7 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
   ]);
   assert.deepEqual(route.situation?.unknowns, ["Other person's reason"]);
   assert.equal(route.twinPrediction?.possibleActions["send-one-message"], 0.7);
+  assert.equal(route.openEpisodeRef, "path:open-episode.json");
 });
 
 test("semantic router accepts a valid Praxis route with zero Framework operators", async () => {

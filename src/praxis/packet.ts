@@ -46,7 +46,14 @@ export type PraxisContextPacket = {
     personalPraxisRefs?: string[];
     personalPractices?: string[];
   };
-  openEpisodeRef?: string;
+  openEpisode?: {
+    ref: string;
+    status: OpenEpisodeCandidate["status"];
+    summary: string;
+    domains: string[];
+    prediction: OpenEpisodeCandidate["prediction"];
+    recommendation?: string;
+  };
 };
 
 type FrameworkOperator = { id: string; purpose: string };
@@ -163,6 +170,8 @@ export function listSemanticRoutingCandidates(
       openEpisodes.map((episode) => ({
         ref: episode.ref,
         purpose: boundedText(JSON.stringify({
+          status: episode.status,
+          recoveryPriority: episode.recoveryPriority,
           domains: episode.domains,
           summary: episode.summary,
           prediction: episode.prediction,
@@ -259,6 +268,7 @@ export function buildPraxisContextPacket(
   prompt: string,
   route: CortexRoute,
   loaded: LoadedConsciousness,
+  openEpisodes: OpenEpisodeCandidate[] = [],
 ): PraxisContextPacket {
   if (route.mode !== "praxis" && route.mode !== "deep_praxis") {
     throw new Error(`Cannot build a Praxis packet for route mode ${route.mode}`);
@@ -269,6 +279,12 @@ export function buildPraxisContextPacket(
   const framework = route.needsFramework
     ? selectFrameworkContext(route, loaded)
     : undefined;
+  const selectedOpenEpisode = route.openEpisodeRef
+    ? openEpisodes.find(({ ref }) => ref === route.openEpisodeRef)
+    : undefined;
+  if (route.openEpisodeRef && !selectedOpenEpisode) {
+    throw new Error("Praxis route did not resolve its selected open Episode");
+  }
 
   return {
     mode: route.mode,
@@ -276,7 +292,25 @@ export function buildPraxisContextPacket(
     ...(twin ? { twin } : {}),
     ...(framework ? { framework } : {}),
     reality: buildRealityContext(route, situation, loaded),
-    ...(route.openEpisodeRef ? { openEpisodeRef: route.openEpisodeRef } : {}),
+    ...(selectedOpenEpisode
+      ? {
+          openEpisode: {
+            ref: selectedOpenEpisode.ref,
+            status: selectedOpenEpisode.status,
+            summary: boundedText(selectedOpenEpisode.summary, MAX_TWIN_PATTERN_CHARS),
+            domains: boundedStrings(selectedOpenEpisode.domains, 80),
+            prediction: selectedOpenEpisode.prediction,
+            ...(selectedOpenEpisode.recommendation
+              ? {
+                  recommendation: boundedText(
+                    selectedOpenEpisode.recommendation,
+                    MAX_TWIN_PATTERN_CHARS,
+                  ),
+                }
+              : {}),
+          },
+        }
+      : {}),
   };
 }
 

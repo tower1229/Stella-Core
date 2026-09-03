@@ -121,6 +121,7 @@ type PraxisEpisode = {
 
 export type OpenEpisodeCandidate = {
   ref: string;
+  status: "open" | "acted" | "observing";
   summary: string;
   domains: string[];
   prediction: Prediction;
@@ -391,6 +392,7 @@ export class CangHaiPraxisEpisodeStore {
       ) {
         openEpisodes.push({
           ref,
+          status: episode.status,
           summary: episode.situation.summary,
           domains: episode.situation.domains,
           prediction: episode.twin.prediction,
