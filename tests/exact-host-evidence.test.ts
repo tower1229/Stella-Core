@@ -46,6 +46,14 @@ test("requires the packed plugin to activate when the OpenClaw Gateway starts", 
     id: "stella-core",
     activation: { onAgentHarnesses: ["openclaw"] },
   }), /not activated/);
+  assert.throws(() => assertStellaPluginManifest({
+    id: "stella-core",
+    activation: { onStartup: true },
+  }), /not activated/);
+  assert.throws(() => assertStellaPluginManifest({
+    id: "stella-core",
+    activation: { onStartup: true, onAgentHarnesses: ["other"] },
+  }), /not activated/);
 });
 
 test("requires explicit prompt injection permission and a sufficient semantic hook budget", () => {

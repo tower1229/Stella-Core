@@ -217,8 +217,9 @@ async function selectRelevantOpenEpisode(
   const available = candidates.openEpisodes ?? [];
   if (available.length === 0) return undefined;
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    let result: { text: string };
     try {
-      const result = await complete({
+      result = await complete({
         maxTokens: 500,
         temperature: 0,
         purpose: "stella-core-open-episode-selection",
@@ -230,6 +231,13 @@ async function selectRelevantOpenEpisode(
         ].join(" "),
         messages: [{ role: "user", content: prompt }],
       });
+    } catch {
+      if (attempt === 1) {
+        throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
+      }
+      continue;
+    }
+    try {
       const parsed = JSON.parse(unwrapJsonFence(result.text)) as unknown;
       if (!isRecord(parsed) || !("openEpisodeRef" in parsed)) {
         throw new Error("Open Episode selector returned an invalid result");
@@ -243,10 +251,12 @@ async function selectRelevantOpenEpisode(
       }
       return parsed.openEpisodeRef;
     } catch {
-      if (attempt === 1) throw new Error("Open Episode selector failed after retry");
+      if (attempt === 1) {
+        throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
+      }
     }
   }
-  throw new Error("Open Episode selector failed after retry");
+  throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
 }
 
 function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): CortexRoute {
@@ -367,6 +377,7 @@ export function createSemanticRouter(
         messages: [{ role: "user", content: prompt }],
       }, complete);
     } catch (error) {
+      if (error instanceof SemanticRoutingError) throw error;
       throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
     }
     try {

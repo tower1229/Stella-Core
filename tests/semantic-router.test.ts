@@ -215,6 +215,24 @@ test("semantic routing completion failures do not expose provider error details"
   );
 });
 
+test("open Episode selector reports invalid model output separately from provider failure", async () => {
+  const router = createSemanticRouter(async () => ({ text: "not-json" }));
+
+  await assert.rejects(
+    router("继续之前那件还没收尾的事", {
+      frameworks: [],
+      twin: [],
+      personalPraxis: [],
+      openEpisodes: [{ ref: "path:open-episode.json", purpose: "待继续的选择" }],
+    }),
+    (error: unknown) =>
+      error instanceof Error &&
+      "diagnostic" in error &&
+      error.diagnostic === "invalid_model_route" &&
+      error.cause === undefined,
+  );
+});
+
 test("semantic routing retries one transient completion failure without degrading", async () => {
   let attempts = 0;
   const router = createSemanticRouter(async () => {
