@@ -309,7 +309,20 @@ test("target agent passes the gate and ordinary turn bypasses Cortex context", a
   const root = await createFixture();
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
-    const hooks = registerPlugin(root, recoveryRevision);
+    const completionRequests: unknown[] = [];
+    const hooks = registerPlugin(root, recoveryRevision, async (params) => {
+      completionRequests.push(params);
+      return {
+        text: JSON.stringify({
+          mode: "ordinary",
+          domains: ["general"],
+          needsTwin: false,
+          needsFramework: false,
+          needsReality: false,
+          needsExternalResearch: false,
+        }),
+      };
+    });
     const event = { prompt: "TypeScript 的 satisfies 是什么？", messages: [] };
     const context = { agentId: "stella", runId: "ordinary-run", sessionKey: "agent:stella:test" };
     const prompt = await requireHook(hooks, "before_prompt_build")(
@@ -331,6 +344,13 @@ test("target agent passes the gate and ordinary turn bypasses Cortex context", a
     assert.match(JSON.stringify(prompt), /CangHai is the sole authority/);
     assert.match(JSON.stringify(prompt), /SQLite, derived indexes, and prompt caches are not authoritative/);
     assert.doesNotMatch(JSON.stringify(prompt), /stella_core_(?:consciousness|praxis_context)/);
+    assert.equal(completionRequests.length, 1);
+    assert.ok(
+      typeof completionRequests[0] === "object" &&
+        completionRequests[0] !== null &&
+        "agentId" in completionRequests[0] &&
+        completionRequests[0].agentId === "stella",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -3,9 +3,14 @@ import test from "node:test";
 import {
   buildExactHostAgentArguments,
   parseExactHostAgentOutput,
+  parseExactHostAgentTurn,
 } from "../src/acceptance/exact-host-agent.js";
 
-test("builds a local exact-Host turn for a clean runtime without a Gateway", () => {
+const runtimeMeta = {
+  systemPromptReport: { currentTurn: { runtimeContextChars: 321 } },
+};
+
+test("builds an exact-Host turn through the Gateway", () => {
   assert.deepEqual(
     buildExactHostAgentArguments({
       agentId: "stella",
@@ -14,7 +19,6 @@ test("builds a local exact-Host turn for a clean runtime without a Gateway", () 
     }),
     [
       "agent",
-      "--local",
       "--agent",
       "stella",
       "--session-key",
@@ -31,7 +35,12 @@ test("builds a local exact-Host turn for a clean runtime without a Gateway", () 
 test("accepts the final JSON envelope after Host diagnostics", () => {
   assert.equal(
     parseExactHostAgentOutput(
-      '[host] diagnostic\n{"ok":true,"status":"ok","final":"restored"}\n',
+      `[host] diagnostic\n${JSON.stringify({
+        ok: true,
+        status: "ok",
+        final: "restored",
+        meta: runtimeMeta,
+      })}\n`,
       "identity",
     ),
     "restored",
@@ -45,7 +54,10 @@ test("accepts the OpenClaw agent JSON envelope", () => {
         runId: "run-1",
         status: "ok",
         summary: "completed",
-        result: { payloads: [{ text: "identity restored", mediaUrl: null }] },
+        result: {
+          payloads: [{ text: "identity restored", mediaUrl: null }],
+          meta: runtimeMeta,
+        },
       }),
       "identity",
     ),
@@ -56,10 +68,29 @@ test("accepts the OpenClaw agent JSON envelope", () => {
 test("accepts the local OpenClaw agent result envelope", () => {
   assert.equal(
     parseExactHostAgentOutput(
-      JSON.stringify({ payloads: [{ text: "Praxis restored", mediaUrl: null }], meta: {} }),
+      JSON.stringify({ payloads: [{ text: "Praxis restored", mediaUrl: null }], meta: runtimeMeta }),
       "praxis",
     ),
     "Praxis restored",
+  );
+});
+
+test("reports the Host-observed runtime context and rejects omitted evidence", () => {
+  assert.deepEqual(
+    parseExactHostAgentTurn(JSON.stringify({
+      status: "ok",
+      payloads: [{ text: "restored" }],
+      meta: runtimeMeta,
+    }), "identity"),
+    { text: "restored", runtimeContextChars: 321 },
+  );
+  assert.throws(
+    () => parseExactHostAgentOutput(JSON.stringify({
+      status: "ok",
+      payloads: [{ text: "restored" }],
+      meta: {},
+    }), "identity"),
+    /omitted runtime-context evidence/,
   );
 });
 

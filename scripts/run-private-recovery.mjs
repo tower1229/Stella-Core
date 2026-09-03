@@ -9,8 +9,9 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
 import {
   buildExactHostAgentArguments,
-  parseExactHostAgentOutput,
+  parseExactHostAgentTurn,
 } from "../dist/src/acceptance/exact-host-agent.js";
+import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 import {
   ALPHA_HOST_VERSION,
   assertStellaHostConfig,
@@ -184,60 +185,72 @@ try {
     `${pathToFileURL(path.join(installedRoot, "dist/src/acceptance/recovery-drill.js")).href}?private=${Date.now()}`,
   );
   const observedTurns = [];
-
-  const report = await installedRecovery.runRecoveryDrill({
-    canghaiRoot,
-    recoveryRevision: options["canghai-revision"],
-    coreVersion: installedPlugin.STELLA_CORE_COMPATIBILITY_VERSION,
-    hostVersion,
-    rebuild: harness.rebuild,
-    verifyContinuity: async (input) => {
-      for (const probe of harness.probes) {
-        const result = await execFileAsync(
-          openclawBin,
-          buildExactHostAgentArguments({
-            agentId: "stella",
-            message: probe.message,
-            sessionKey: `agent:stella:private-recovery-${probe.id}`,
-          }),
-          { cwd: consumerRoot, env: { ...process.env, ...hostEnv } },
-        );
-        if (!result.stdout.trim()) throw new Error(`Exact Host probe ${probe.id} returned no result`);
-        observedTurns.push({
-          id: probe.id,
-          output: parseExactHostAgentOutput(result.stdout, probe.id),
-        });
-      }
-      return harness.verifyContinuity(input, { observedTurns });
-    },
+  const gateway = await startExactHostGateway({
+    cwd: consumerRoot,
+    env: hostEnv,
+    openclawBin,
   });
 
-  const receipt = {
-    schemaVersion: "stella.exact-host-recovery-receipt/v1",
-    coreRevision,
-    canghaiRevision: options["canghai-revision"],
-    hostVersion,
-    artifactSha256,
-    canghaiFixture: "private",
-    cleanRuntimeState: true,
-    importedLegacyRuntime: false,
-    dataReadable: report.levels.dataReadable,
-    cognitiveBootstrapRestored: report.levels.cognitiveBootstrapRestored,
-    derivedRuntimeRebuilt: report.levels.derivedRuntimeRebuilt,
-    continuityAccepted: report.levels.continuityAccepted,
-    identityRestored: report.restored.identity,
-    frameworkRestored: report.restored.framework,
-    twinRestored: report.restored.twin,
-    praxisLearningRestored: report.restored.praxisLearning,
-    importantOpenStateRestored: report.restored.importantOpenState,
-    exactHostAgentTurns: observedTurns.length,
-    privateFixtureIncluded: true,
-  };
-  const stagingPath = `${outputPath}.${process.pid}.staging`;
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(stagingPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
-  await rename(stagingPath, outputPath);
-  process.stdout.write(`${JSON.stringify({ output: outputPath, ...receipt })}\n`);
+  try {
+    const report = await installedRecovery.runRecoveryDrill({
+      canghaiRoot,
+      recoveryRevision: options["canghai-revision"],
+      coreVersion: installedPlugin.STELLA_CORE_COMPATIBILITY_VERSION,
+      hostVersion,
+      rebuild: harness.rebuild,
+      verifyContinuity: async (input) => {
+        for (const probe of harness.probes) {
+          const result = await execFileAsync(
+            openclawBin,
+            buildExactHostAgentArguments({
+              agentId: "stella",
+              message: probe.message,
+              sessionKey: `agent:stella:private-recovery-${probe.id}`,
+            }),
+            { cwd: consumerRoot, env: gateway.env },
+          );
+          if (!result.stdout.trim()) {
+            throw new Error(`Exact Host probe ${probe.id} returned no result`);
+          }
+          const turn = parseExactHostAgentTurn(result.stdout, probe.id);
+          observedTurns.push({
+            id: probe.id,
+            output: turn.text,
+          });
+        }
+        return harness.verifyContinuity(input, { observedTurns });
+      },
+    });
+
+    const receipt = {
+      schemaVersion: "stella.exact-host-recovery-receipt/v1",
+      coreRevision,
+      canghaiRevision: options["canghai-revision"],
+      hostVersion,
+      artifactSha256,
+      canghaiFixture: "private",
+      cleanRuntimeState: true,
+      importedLegacyRuntime: false,
+      dataReadable: report.levels.dataReadable,
+      cognitiveBootstrapRestored: report.levels.cognitiveBootstrapRestored,
+      derivedRuntimeRebuilt: report.levels.derivedRuntimeRebuilt,
+      continuityAccepted: report.levels.continuityAccepted,
+      identityRestored: report.restored.identity,
+      frameworkRestored: report.restored.framework,
+      twinRestored: report.restored.twin,
+      praxisLearningRestored: report.restored.praxisLearning,
+      importantOpenStateRestored: report.restored.importantOpenState,
+      exactHostAgentTurns: observedTurns.length,
+      privateFixtureIncluded: true,
+    };
+    const stagingPath = `${outputPath}.${process.pid}.staging`;
+    await mkdir(path.dirname(outputPath), { recursive: true });
+    await writeFile(stagingPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await rename(stagingPath, outputPath);
+    process.stdout.write(`${JSON.stringify({ output: outputPath, ...receipt })}\n`);
+  } finally {
+    await gateway.stop();
+  }
 } finally {
   await rm(isolatedRoot, { recursive: true, force: true });
 }

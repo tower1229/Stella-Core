@@ -68,10 +68,9 @@ export function assertStellaPluginManifest(value: unknown): void {
     !isRecord(value) ||
     value.id !== "stella-core" ||
     !isRecord(value.activation) ||
-    !Array.isArray(value.activation.onAgentHarnesses) ||
-    !value.activation.onAgentHarnesses.includes("openclaw")
+    value.activation.onStartup !== true
   ) {
-    throw new Error("Packed Stella plugin is not activated for the OpenClaw agent harness");
+    throw new Error("Packed Stella plugin is not activated when the OpenClaw Gateway starts");
   }
 }
 

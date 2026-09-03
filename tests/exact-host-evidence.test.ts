@@ -37,14 +37,14 @@ test("accepts only the pinned OpenClaw version", () => {
   assert.throws(() => parseExactHostVersion("OpenClaw 2026.8.1\n"), /requires OpenClaw/);
 });
 
-test("requires the packed plugin to activate in the OpenClaw agent harness", () => {
+test("requires the packed plugin to activate when the OpenClaw Gateway starts", () => {
   assert.doesNotThrow(() => assertStellaPluginManifest({
     id: "stella-core",
     activation: { onStartup: true, onAgentHarnesses: ["openclaw"] },
   }));
   assert.throws(() => assertStellaPluginManifest({
     id: "stella-core",
-    activation: { onStartup: true },
+    activation: { onAgentHarnesses: ["openclaw"] },
   }), /not activated/);
 });
 

@@ -261,7 +261,7 @@ export default definePluginEntry({
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
     const preparedTurns = new PreparedTurnStore();
     const classifySemantically = createSemanticRouter(
-      (params) => api.runtime.llm.complete(params),
+      (params) => api.runtime.llm.complete({ ...params, agentId: config.agentId }),
     );
     const episodeByRun = new Map<string, StagedEpisode>();
     let durability: GitCangHaiDurability | undefined;

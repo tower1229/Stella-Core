@@ -14,7 +14,6 @@ export function buildExactHostAgentArguments({
   if (!sessionKey.trim()) throw new Error("Exact Host session key must be non-empty");
   return [
     "agent",
-    "--local",
     "--agent",
     agentId,
     "--session-key",
@@ -27,7 +26,12 @@ export function buildExactHostAgentArguments({
   ];
 }
 
-export function parseExactHostAgentOutput(stdout: string, probeId: string): string {
+export type ExactHostAgentTurn = {
+  text: string;
+  runtimeContextChars: number;
+};
+
+export function parseExactHostAgentTurn(stdout: string, probeId: string): ExactHostAgentTurn {
   const start = stdout.lastIndexOf("\n{");
   const candidate = (start >= 0 ? stdout.slice(start + 1) : stdout).trim();
   let parsed: unknown;
@@ -46,15 +50,32 @@ export function parseExactHostAgentOutput(stdout: string, probeId: string): stri
   ) {
     throw new Error(`Exact Host probe ${probeId} did not complete successfully`);
   }
+  const result = typeof record.result === "object" &&
+      record.result !== null &&
+      !Array.isArray(record.result)
+    ? record.result as Record<string, unknown>
+    : record;
+  const meta = typeof result.meta === "object" && result.meta !== null && !Array.isArray(result.meta)
+    ? result.meta as Record<string, unknown>
+    : undefined;
+  const systemPromptReport = typeof meta?.systemPromptReport === "object" &&
+      meta.systemPromptReport !== null &&
+      !Array.isArray(meta.systemPromptReport)
+    ? meta.systemPromptReport as Record<string, unknown>
+    : undefined;
+  const currentTurn = typeof systemPromptReport?.currentTurn === "object" &&
+      systemPromptReport.currentTurn !== null &&
+      !Array.isArray(systemPromptReport.currentTurn)
+    ? systemPromptReport.currentTurn as Record<string, unknown>
+    : undefined;
+  const runtimeContextChars = currentTurn?.runtimeContextChars;
+  if (!Number.isInteger(runtimeContextChars) || (runtimeContextChars as number) < 0) {
+    throw new Error(`Exact Host probe ${probeId} omitted runtime-context evidence`);
+  }
   if (record.ok === true && record.status === "ok" && typeof record.final === "string") {
-    if (record.final.trim()) return record.final;
+    if (record.final.trim()) return { text: record.final, runtimeContextChars: runtimeContextChars as number };
   }
   {
-    const result = typeof record.result === "object" &&
-        record.result !== null &&
-        !Array.isArray(record.result)
-      ? record.result as Record<string, unknown>
-      : record;
     const payloads = result.payloads;
     if (Array.isArray(payloads)) {
       const text = payloads
@@ -65,8 +86,12 @@ export function parseExactHostAgentOutput(stdout: string, probeId: string): stri
         })
         .join("\n")
         .trim();
-      if (text) return text;
+      if (text) return { text, runtimeContextChars: runtimeContextChars as number };
     }
   }
   throw new Error(`Exact Host probe ${probeId} did not complete successfully`);
+}
+
+export function parseExactHostAgentOutput(stdout: string, probeId: string): string {
+  return parseExactHostAgentTurn(stdout, probeId).text;
 }

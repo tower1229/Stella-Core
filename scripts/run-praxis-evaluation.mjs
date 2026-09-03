@@ -14,8 +14,9 @@ import {
 import { createModelPraxisEvaluator } from "../dist/src/acceptance/model-praxis-evaluator.js";
 import {
   buildExactHostAgentArguments,
-  parseExactHostAgentOutput,
+  parseExactHostAgentTurn,
 } from "../dist/src/acceptance/exact-host-agent.js";
+import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 import {
   assertStellaHostConfig,
   assertStellaHostHooks,
@@ -178,33 +179,43 @@ async function runPrivateExactHostEvaluation() {
       "--json",
     ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
     assertStellaPluginRuntime(JSON.parse(pluginRuntimeOutput));
+    const gateway = await startExactHostGateway({
+      cwd: consumerRoot,
+      env: hostEnv,
+      openclawBin,
+    });
     let judgeIndex = 0;
     const runTurn = async (agentId, sessionKey, message) => {
       const result = await execFileAsync(
         openclawBin,
         buildExactHostAgentArguments({ agentId, message, sessionKey }),
-        { cwd: consumerRoot, env: { ...process.env, ...hostEnv }, maxBuffer: 4 * 1024 * 1024 },
+        { cwd: consumerRoot, env: gateway.env, maxBuffer: 4 * 1024 * 1024 },
       );
-      return parseExactHostAgentOutput(result.stdout, sessionKey);
+      const turn = parseExactHostAgentTurn(result.stdout, sessionKey);
+      return turn.text;
     };
-    return runPraxisEvaluation(
-      cases,
-      createModelPraxisEvaluator({
-        answerCase: (evaluationCase) => runTurn(
-          harness.answerAgentId,
-          `agent:${harness.answerAgentId}:alpha-eval-${evaluationCase.id}`,
-          evaluationCase.prompt,
-        ),
-        judge: async (prompt) => ({
-          text: await runTurn(
-            harness.judgeAgentId,
-            `agent:${harness.judgeAgentId}:alpha-judge-${++judgeIndex}`,
-            prompt,
+    try {
+      return await runPraxisEvaluation(
+        cases,
+        createModelPraxisEvaluator({
+          answerCase: (evaluationCase) => runTurn(
+            harness.answerAgentId,
+            `agent:${harness.answerAgentId}:alpha-eval-${evaluationCase.id}`,
+            evaluationCase.prompt,
           ),
+          judge: async (prompt) => ({
+            text: await runTurn(
+              harness.judgeAgentId,
+              `agent:${harness.judgeAgentId}:alpha-judge-${++judgeIndex}`,
+              prompt,
+            ),
+          }),
         }),
-      }),
-      execution,
-    );
+        execution,
+      );
+    } finally {
+      await gateway.stop();
+    }
   } finally {
     await rm(isolatedRoot, { recursive: true, force: true });
   }
