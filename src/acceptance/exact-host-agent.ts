@@ -40,13 +40,27 @@ export function parseExactHostAgentOutput(stdout: string, probeId: string): stri
     throw new Error(`Exact Host probe ${probeId} did not complete successfully`);
   }
   const record = parsed as Record<string, unknown>;
-  if (
-    record.ok !== true ||
-    record.status !== "ok" ||
-    typeof record.final !== "string" ||
-    !record.final.trim()
-  ) {
-    throw new Error(`Exact Host probe ${probeId} did not complete successfully`);
+  if (record.ok === true && record.status === "ok" && typeof record.final === "string") {
+    if (record.final.trim()) return record.final;
   }
-  return record.final;
+  if (
+    record.status === "ok" &&
+    typeof record.result === "object" &&
+    record.result !== null &&
+    !Array.isArray(record.result)
+  ) {
+    const payloads = (record.result as Record<string, unknown>).payloads;
+    if (Array.isArray(payloads)) {
+      const text = payloads
+        .flatMap((payload) => {
+          if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return [];
+          const value = (payload as Record<string, unknown>).text;
+          return typeof value === "string" && value.trim() ? [value] : [];
+        })
+        .join("\n")
+        .trim();
+      if (text) return text;
+    }
+  }
+  throw new Error(`Exact Host probe ${probeId} did not complete successfully`);
 }

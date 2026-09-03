@@ -38,6 +38,21 @@ test("accepts the final JSON envelope after Host diagnostics", () => {
   );
 });
 
+test("accepts the OpenClaw agent JSON envelope", () => {
+  assert.equal(
+    parseExactHostAgentOutput(
+      JSON.stringify({
+        runId: "run-1",
+        status: "ok",
+        summary: "completed",
+        result: { payloads: [{ text: "identity restored", mediaUrl: null }] },
+      }),
+      "identity",
+    ),
+    "identity restored",
+  );
+});
+
 test("rejects a failed or empty exact-Host turn", () => {
   assert.throws(
     () => parseExactHostAgentOutput('{"ok":false,"status":"error","final":""}', "identity"),
