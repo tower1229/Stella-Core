@@ -94,7 +94,11 @@ async function collectDurableStateEvidence(
   if (checks.length === 0) return { status: "not_declared" };
 
   const records = await Promise.all(checks.map(async ({ field, ref }) => {
-    const relativePath = parseCangHaiRef(ref).relativePath;
+    const parsedRef = parseCangHaiRef(ref);
+    if (parsedRef.fragment) {
+      throw new Error(`Recovery Level 1 durable state ${field} must reference a complete file`);
+    }
+    const relativePath = parsedRef.relativePath;
     const { stdout } = await execFileAsync("git", [
       "-C",
       loaded.canghaiRoot,
@@ -102,7 +106,14 @@ async function collectDurableStateEvidence(
       `${recoveryRevision}:${relativePath}`,
     ]);
     const blobSha = stdout.trim();
-    if (!/^[0-9a-f]{40}$/i.test(blobSha)) {
+    const { stdout: objectType } = await execFileAsync("git", [
+      "-C",
+      loaded.canghaiRoot,
+      "cat-file",
+      "-t",
+      blobSha,
+    ]);
+    if (!/^[0-9a-f]{40}$/i.test(blobSha) || objectType.trim() !== "blob") {
       throw new Error(`Recovery Level 1 could not identify durable state ${field}`);
     }
     return { field, ref, blobSha };

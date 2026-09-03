@@ -245,8 +245,9 @@ the drill; Level 3 is never inferred from schema/build success.
 `npm run recover:private` is the executable private drill entrypoint. It binds a clean Core checkout,
 clean exact CangHai revision, tested tarball hash, a fresh tarball plus OpenClaw 2026.8.2 install, and an empty isolated
 runtime directory before invoking a private adapter. The adapter owns environment-specific Host
-configuration but must return rebuild evidence, a behavioral continuity result, an exact-Host agent
-turn count, and confirmation that no legacy runtime was imported. The public repository stores only
+configuration but must return rebuild evidence, private probe messages, and a verifier for the Host
+results observed by the runner. The runner—not the adapter—executes and counts the exact-Host agent
+turns. The public repository stores only
 this protocol; the adapter and private prompts remain outside Stella Core.
 
 ## 8. Alpha acceptance test

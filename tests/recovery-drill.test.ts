@@ -138,6 +138,31 @@ test("does not treat an ordinary open episode as important recovery state", asyn
   }
 });
 
+test("rejects a durable-state directory instead of reporting a tree SHA as a blob", async () => {
+  const root = await createFixture();
+  try {
+    await addPraxisContinuityState(root);
+    await updateFixtureManifest(root, (manifest) => manifest.replace(
+      "path:50_PersonalAgent/stella/durable/goals.yaml",
+      "path:50_PersonalAgent/stella/durable",
+    ));
+    const revision = await initializeFixtureRepository(root);
+    await assert.rejects(
+      runRecoveryDrill({
+        canghaiRoot: root,
+        recoveryRevision: revision,
+        coreVersion: "3.0.0-alpha.0",
+        hostVersion: "2026.8.2",
+        rebuild: async (target) => ({ target, evidence: `rebuilt:${target}` }),
+        verifyContinuity: async () => ({ accepted: true, evidence: ["probe"] }),
+      }),
+      /could not identify durable state/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("recovery fails closed when a declared rebuild or continuity probe fails", async () => {
   const root = await createFixture();
   try {

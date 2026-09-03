@@ -6,7 +6,6 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL, fileURLToPath } from "node:url";
-import { runRecoveryDrill } from "../dist/src/acceptance/recovery-drill.js";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -47,7 +46,6 @@ const outputRelative = path.relative(projectRoot, outputPath);
 if (!outputRelative.startsWith("..") || path.isAbsolute(outputRelative)) {
   throw new Error("Private recovery receipt must be written outside Stella Core");
 }
-const packageMetadata = JSON.parse(await readFile(path.join(projectRoot, "package.json"), "utf8"));
 const { stdout: coreRevisionOutput } = await execFileAsync("git", ["-C", projectRoot, "rev-parse", "HEAD"]);
 const coreRevision = coreRevisionOutput.trim();
 await Promise.all([
@@ -115,28 +113,66 @@ try {
   if (
     typeof harness?.rebuild !== "function" ||
     typeof harness?.verifyContinuity !== "function" ||
-    typeof harness?.getExecutionEvidence !== "function"
+    !Array.isArray(harness?.probes) ||
+    harness.probes.length === 0 ||
+    harness.probes.length > 10
   ) {
-    throw new Error("Recovery harness must provide rebuild, verifyContinuity, and getExecutionEvidence");
+    throw new Error("Recovery harness must provide rebuild, verifyContinuity, and 1 to 10 probes");
+  }
+  const probeIds = new Set();
+  for (const probe of harness.probes) {
+    if (
+      typeof probe?.id !== "string" ||
+      !/^[a-z0-9-]{1,64}$/u.test(probe.id) ||
+      probeIds.has(probe.id) ||
+      typeof probe.message !== "string" ||
+      !probe.message.trim()
+    ) {
+      throw new Error("Recovery probes require unique safe IDs and non-empty messages");
+    }
+    probeIds.add(probe.id);
   }
 
-  const report = await runRecoveryDrill({
+  const installedRoot = path.join(
+    consumerRoot,
+    "node_modules",
+    "@tower1229",
+    "stella-core",
+  );
+  const installedPlugin = await import(
+    `${pathToFileURL(path.join(installedRoot, "dist/src/plugin.js")).href}?private=${Date.now()}`,
+  );
+  const installedRecovery = await import(
+    `${pathToFileURL(path.join(installedRoot, "dist/src/acceptance/recovery-drill.js")).href}?private=${Date.now()}`,
+  );
+  const observedTurns = [];
+
+  const report = await installedRecovery.runRecoveryDrill({
     canghaiRoot,
     recoveryRevision: options["canghai-revision"],
-    coreVersion: packageMetadata.version,
+    coreVersion: installedPlugin.STELLA_CORE_COMPATIBILITY_VERSION,
     hostVersion,
     rebuild: harness.rebuild,
-    verifyContinuity: harness.verifyContinuity,
+    verifyContinuity: async (input) => {
+      for (const probe of harness.probes) {
+        const result = await execFileAsync(openclawBin, [
+          "agent",
+          "--agent",
+          "stella",
+          "--session-key",
+          `agent:stella:private-recovery-${probe.id}`,
+          "--message",
+          probe.message,
+          "--json",
+          "--timeout",
+          "30",
+        ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+        if (!result.stdout.trim()) throw new Error(`Exact Host probe ${probe.id} returned no result`);
+        observedTurns.push({ id: probe.id, output: result.stdout });
+      }
+      return harness.verifyContinuity(input, { observedTurns });
+    },
   });
-  const execution = await harness.getExecutionEvidence();
-  if (
-    !Number.isInteger(execution?.exactHostAgentTurns) ||
-    execution.exactHostAgentTurns < 1 ||
-    execution.importedLegacyRuntime !== false ||
-    execution.privateFixtureIncluded !== true
-  ) {
-    throw new Error("Recovery adapter did not prove a fresh exact-Host agent turn");
-  }
 
   const receipt = {
     schemaVersion: "stella.exact-host-recovery-receipt/v1",
@@ -156,8 +192,8 @@ try {
     twinRestored: report.restored.twin,
     praxisLearningRestored: report.restored.praxisLearning,
     importantOpenStateRestored: report.restored.importantOpenState,
-    exactHostAgentTurns: execution.exactHostAgentTurns,
-    privateFixtureIncluded: execution.privateFixtureIncluded,
+    exactHostAgentTurns: observedTurns.length,
+    privateFixtureIncluded: true,
   };
   const stagingPath = `${outputPath}.${process.pid}.staging`;
   await mkdir(path.dirname(outputPath), { recursive: true });

@@ -100,10 +100,10 @@ npm run recover:private -- \
 ```
 
 The private adapter must export `createRecoveryHarness(context)`. Its harness supplies one Host
-rebuild function per manifest target, a behavioral continuity probe, and
-`getExecutionEvidence()`. The runner independently requires clean exact source revisions, hashes the
+rebuild function per manifest target, 1–10 private probe messages, and a behavioral continuity
+verifier for the runner-observed Host results. The runner independently requires clean exact source revisions, hashes the
 artifact, installs it alongside OpenClaw 2026.8.2, creates an empty isolated runtime directory,
-rejects legacy runtime import, and requires at least one exact-Host agent turn. Receipt output is mode `0600` and
+rejects legacy runtime import, and executes every exact-Host agent turn itself. Receipt output is mode `0600` and
 contains aggregate evidence only.
 
 ```bash
