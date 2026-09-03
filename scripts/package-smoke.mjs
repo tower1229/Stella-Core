@@ -624,12 +624,20 @@ try {
       runtime: {
         version: exactOpenClawVersion,
         llm: {
-          complete: async ({ messages }) => ({
-            text: JSON.stringify(messages[0]?.content.includes("她没回我消息")
-              ? praxisRoute
-              : ordinaryRoute),
-          }),
+          complete: async ({ messages, purpose }) => purpose === "stella-core-open-episode-selection"
+            ? { text: JSON.stringify({ openEpisodeRef: null }) }
+            : {
+                text: JSON.stringify(messages[0]?.content.includes("她没回我消息")
+                  ? praxisRoute
+                  : ordinaryRoute),
+              },
         },
+      },
+      logger: {
+        debug() {},
+        info() {},
+        warn() {},
+        error() {},
       },
       on(name, handler) {
         hooks.set(name, handler);
