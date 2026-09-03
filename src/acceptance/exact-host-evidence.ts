@@ -63,6 +63,18 @@ export function assertStellaHostHooks(value: unknown): void {
   }
 }
 
+export function assertStellaPluginManifest(value: unknown): void {
+  if (
+    !isRecord(value) ||
+    value.id !== "stella-core" ||
+    !isRecord(value.activation) ||
+    !Array.isArray(value.activation.onAgentHarnesses) ||
+    !value.activation.onAgentHarnesses.includes("openclaw")
+  ) {
+    throw new Error("Packed Stella plugin is not activated for the OpenClaw agent harness");
+  }
+}
+
 export function assertStellaPluginRuntime(value: unknown): void {
   if (!isRecord(value) || !isRecord(value.plugin)) {
     throw new Error("Exact Host did not return Stella plugin runtime evidence");

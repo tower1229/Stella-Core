@@ -19,6 +19,7 @@ import {
 import {
   assertStellaHostConfig,
   assertStellaHostHooks,
+  assertStellaPluginManifest,
   assertStellaPluginRuntime,
   parseExactHostRecoveryReceipt,
   parseExactHostVersion,
@@ -123,6 +124,15 @@ async function runPrivateExactHostEvaluation() {
       "--force",
       "--accept-capabilities",
     ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+    const installedRoot = path.join(
+      consumerRoot,
+      "node_modules",
+      "@tower1229",
+      "stella-core",
+    );
+    assertStellaPluginManifest(JSON.parse(
+      await readFile(path.join(installedRoot, "openclaw.plugin.json"), "utf8"),
+    ));
     const harness = await adapter.createEvaluationHarness({
       artifactPath,
       canghaiRoot,

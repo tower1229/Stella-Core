@@ -15,6 +15,7 @@ import {
   ALPHA_HOST_VERSION,
   assertStellaHostConfig,
   assertStellaHostHooks,
+  assertStellaPluginManifest,
   assertStellaPluginRuntime,
   parseExactHostVersion,
 } from "../dist/src/acceptance/exact-host-evidence.js";
@@ -99,6 +100,15 @@ try {
     "--force",
     "--accept-capabilities",
   ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+  const installedRoot = path.join(
+    consumerRoot,
+    "node_modules",
+    "@tower1229",
+    "stella-core",
+  );
+  assertStellaPluginManifest(JSON.parse(
+    await readFile(path.join(installedRoot, "openclaw.plugin.json"), "utf8"),
+  ));
   if ((await readdir(runtimeStateRoot)).length === 0) {
     throw new Error("Exact Host did not initialize the isolated runtime");
   }
@@ -167,12 +177,6 @@ try {
     probeIds.add(probe.id);
   }
 
-  const installedRoot = path.join(
-    consumerRoot,
-    "node_modules",
-    "@tower1229",
-    "stella-core",
-  );
   const installedPlugin = await import(
     `${pathToFileURL(path.join(installedRoot, "dist/src/plugin.js")).href}?private=${Date.now()}`,
   );

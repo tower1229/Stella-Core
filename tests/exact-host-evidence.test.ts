@@ -4,6 +4,7 @@ import {
   ALPHA_HOST_VERSION,
   assertStellaHostConfig,
   assertStellaHostHooks,
+  assertStellaPluginManifest,
   assertStellaPluginRuntime,
   parseExactHostRecoveryReceipt,
   parseExactHostVersion,
@@ -34,6 +35,17 @@ const receipt = {
 test("accepts only the pinned OpenClaw version", () => {
   assert.equal(parseExactHostVersion("OpenClaw 2026.8.2 (build)\n"), ALPHA_HOST_VERSION);
   assert.throws(() => parseExactHostVersion("OpenClaw 2026.8.1\n"), /requires OpenClaw/);
+});
+
+test("requires the packed plugin to activate in the OpenClaw agent harness", () => {
+  assert.doesNotThrow(() => assertStellaPluginManifest({
+    id: "stella-core",
+    activation: { onStartup: true, onAgentHarnesses: ["openclaw"] },
+  }));
+  assert.throws(() => assertStellaPluginManifest({
+    id: "stella-core",
+    activation: { onStartup: true },
+  }), /not activated/);
 });
 
 test("requires explicit prompt injection permission and a sufficient semantic hook budget", () => {

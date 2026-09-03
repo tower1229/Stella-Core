@@ -3,7 +3,8 @@
   "name": "Stella Core",
   "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
   "activation": {
-    "onStartup": true
+    "onStartup": true,
+    "onAgentHarnesses": ["openclaw"]
   },
   "configSchema": {
     "type": "object",
