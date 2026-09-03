@@ -22,6 +22,8 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
         systemPrompt,
         /recall, inspect, or continue one semantically relevant supplied open Episode/,
       );
+      assert.match(systemPrompt, /Praxis takes precedence over twin and ordinary/);
+      assert.match(systemPrompt, /openEpisodeRef is mandatory/);
       const route = JSON.stringify({
         mode: "praxis",
         domains: ["relationship"],
