@@ -231,6 +231,12 @@ resolve revision
 
 A convenience setup may install OpenClaw and Stella Core separately, but the restore contract remains independent of installer UX.
 
+The implemented library seam is `runRecoveryDrill(...)`. It loads only the explicitly selected clean
+CangHai revision, requires identity/Twin/Framework bootstrap records plus durable Praxis learning and
+important open state, executes every `derived.rebuild` target through an injected Host builder, and
+then runs an injected behavioral continuity probe. Missing rebuild evidence or a failed probe stops
+the drill; Level 3 is never inferred from schema/build success.
+
 ## 8. Alpha acceptance test
 
 Before Stella 3.0 Alpha is considered portable, perform one destructive lab test:
@@ -246,3 +252,10 @@ Before Stella 3.0 Alpha is considered portable, perform one destructive lab test
 9. verify a fresh conversation behaves with the expected core identity and learned Praxis.
 
 This test is more important than having a nominal backup script because it verifies that no hidden machine-local state has become part of Stella's mind.
+
+`npm run test:package` performs the public synthetic form of this test in an isolated OpenClaw
+2026.8.2 state with a freshly installed npm tarball. Its receipt identifies the CangHai input as
+synthetic and `privateFixtureIncluded: false`; it is not a substitute for the private CangHai drill.
+The private drill and its evaluation report can be bound to a non-published tarball with
+`npm run candidate`. Candidate generation checks both Git checkouts are clean at the recorded SHAs
+and hashes the tarball itself. It does not create a tag, GitHub Release, npm publication, or deployment.

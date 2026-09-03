@@ -1,7 +1,7 @@
 project: Stella Core
 version_target: "3.0 Alpha"
-status: exact-host-read-only-gate
-updated_at: "2026-09-02"
+status: alpha-candidate-gate-implemented
+updated_at: "2026-09-03"
 
 mission:
   single_goal: >-
@@ -68,6 +68,10 @@ completed:
   - explicit clean CangHai recovery revision and active-state fail-closed gate
   - bounded target-agent context injection with non-target-agent bypass
   - OpenClaw 2026.8.2 packed clean-install smoke and CI verification chain
+  - managed Git durability with critical immediate sync and observable normal bounded RPO
+  - Level 0-3 recovery drill orchestration with explicit derived rebuild and continuity evidence
+  - 32-case public synthetic relationship/social Praxis evaluation suite and boundary-safe runner
+  - fail-closed Alpha candidate artifact receipt bound to clean source revisions and artifact hash
 
 frozen_decisions:
   - one Cortex, not four persistent agents

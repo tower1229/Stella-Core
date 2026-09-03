@@ -161,6 +161,12 @@ Judge at least:
 6. fit with the owner rather than generic advice;
 7. retrospective endorsement when outcome data exists.
 
+The repository ships 32 public synthetic cases across all eight categories. The evaluation runner
+accepts a behavioral adapter rather than implementing semantic grading with keywords or regexes.
+Each observation must provide evidence for all seven dimensions. Public and private inputs may be
+combined for one 30–50 case run, but every case retains its boundary and the report contains only
+aggregate public/private counts plus failed case IDs—not prompts or private evidence text.
+
 ## 9. Exit criteria
 
 Alpha is successful when all are true:

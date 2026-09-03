@@ -33,7 +33,17 @@
       "dataMode": {
         "type": "string",
         "enum": ["read_only", "local_write", "managed_durable_write"],
-        "description": "Explicit CangHai data mode; managed_durable_write remains fail-closed in Alpha"
+        "description": "Explicit CangHai data mode"
+      },
+      "durabilityRemote": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Explicit Git remote used only by managed_durable_write"
+      },
+      "durabilityBranch": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Explicit Git branch used only by managed_durable_write"
       }
     }
   }

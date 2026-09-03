@@ -7,6 +7,7 @@ import {
   type LoadedConsciousness,
 } from "./canghai/manifest.js";
 import { renderConsciousnessContext } from "./canghai/context.js";
+import { GitCangHaiDurability } from "./canghai/durability.js";
 import {
   buildPraxisContextPacket,
   DEFAULT_MAX_PRAXIS_PACKET_CHARS,
@@ -32,6 +33,8 @@ type StellaCoreConfig = {
   agentId: string;
   recoveryRevision: string;
   dataMode: StellaDataMode;
+  durabilityRemote?: string;
+  durabilityBranch?: string;
 };
 
 function isDataMode(value: unknown): value is StellaDataMode {
@@ -62,8 +65,17 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
       "Stella Core config.dataMode must be read_only, local_write, or managed_durable_write",
     );
   }
-  if (config.dataMode === "managed_durable_write") {
-    throw new Error("Stella Core managed_durable_write is not enabled");
+  if (
+    config.dataMode === "managed_durable_write" &&
+    (typeof config.durabilityRemote !== "string" || !config.durabilityRemote.trim())
+  ) {
+    throw new Error("managed_durable_write requires config.durabilityRemote");
+  }
+  if (
+    config.dataMode === "managed_durable_write" &&
+    (typeof config.durabilityBranch !== "string" || !config.durabilityBranch.trim())
+  ) {
+    throw new Error("managed_durable_write requires config.durabilityBranch");
   }
 
   return {
@@ -78,6 +90,12 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
         : "stella",
     recoveryRevision: config.recoveryRevision,
     dataMode: config.dataMode,
+    ...(typeof config.durabilityRemote === "string"
+      ? { durabilityRemote: config.durabilityRemote }
+      : {}),
+    ...(typeof config.durabilityBranch === "string"
+      ? { durabilityBranch: config.durabilityBranch }
+      : {}),
   };
 }
 
@@ -90,6 +108,11 @@ class ConsciousnessLoader {
     private readonly openclawVersion: string,
     private readonly ttlMs = 1_000,
   ) {}
+
+  setRecoveryRevision(recoveryRevision: string): void {
+    this.config.recoveryRevision = recoveryRevision;
+    this.#cached = undefined;
+  }
 
   async load(): Promise<LoadedConsciousness> {
     const now = Date.now();
@@ -241,6 +264,30 @@ export default definePluginEntry({
       (params) => api.runtime.llm.complete(params),
     );
     const episodeByRun = new Map<string, StagedEpisode>();
+    let durability: GitCangHaiDurability | undefined;
+
+    const createEpisodeStore = (loaded: LoadedConsciousness): CangHaiPraxisEpisodeStore => {
+      if (config.dataMode === "managed_durable_write" && !durability) {
+        const policy = loaded.manifest.durability;
+        if (!policy?.criticalWritePolicy || !policy.normalWritePolicy) {
+          throw new Error("managed_durable_write requires manifest durability policies");
+        }
+        durability = new GitCangHaiDurability({
+          root: loaded.canghaiRoot,
+          remote: config.durabilityRemote!,
+          branch: config.durabilityBranch!,
+          criticalWritePolicy: policy.criticalWritePolicy,
+          normalWritePolicy: policy.normalWritePolicy,
+          maxNormalRpoSeconds: policy.maxNormalRpoSeconds ?? 0,
+          onRevision: (revision) => consciousness.setRecoveryRevision(revision),
+        });
+      }
+      return new CangHaiPraxisEpisodeStore({
+        loaded,
+        dataMode: config.dataMode,
+        ...(durability ? { durability } : {}),
+      });
+    };
 
     api.on(
       "before_prompt_build",
@@ -249,10 +296,7 @@ export default definePluginEntry({
         const turnKey = preparedTurnKey(ctx.sessionKey, ctx.trace?.traceId, ctx.runId);
         try {
           const loaded = await consciousness.load();
-          const episodeStore = new CangHaiPraxisEpisodeStore({
-            loaded,
-            dataMode: config.dataMode,
-          });
+          const episodeStore = createEpisodeStore(loaded);
           const memory = await episodeStore.listMemory();
           const loadedForTurn: LoadedConsciousness = {
             ...loaded,
@@ -374,10 +418,7 @@ export default definePluginEntry({
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
         const loaded = await consciousness.load();
-        const episodeStore = new CangHaiPraxisEpisodeStore({
-          loaded,
-          dataMode: config.dataMode,
-        });
+        const episodeStore = createEpisodeStore(loaded);
         const memory = await episodeStore.listMemory();
         if (memory.openEpisodes.length === 0) return;
         const candidates = listSemanticRoutingCandidates(
@@ -427,10 +468,7 @@ export default definePluginEntry({
       episodeByRun.delete(runId);
       if (!staged) return;
       const loaded = await consciousness.load();
-      const episodeStore = new CangHaiPraxisEpisodeStore({
-        loaded,
-        dataMode: config.dataMode,
-      });
+      const episodeStore = createEpisodeStore(loaded);
       const recommendation = event.success ? lastAssistantText(event.messages) : undefined;
       if (!recommendation) {
         await episodeStore.discardStagedPrediction(staged);

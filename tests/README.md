@@ -1,6 +1,7 @@
 # Tests
 
-Runtime unit/integration tests will be added with implementation.
+Runtime unit/integration tests exercise the public CangHai, OpenClaw hook, durability, recovery,
+evaluation, and candidate-receipt seams.
 
 Important boundaries to test from the start:
 

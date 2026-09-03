@@ -268,7 +268,7 @@ function requireHook(hooks: Map<string, HookHandler>, name: string): HookHandler
   return hook;
 }
 
-test("plugin requires an explicit supported data mode and rejects managed writes", () => {
+test("plugin requires explicit data mode and managed durability transport", () => {
   const api = {
     pluginConfig: {
       canghaiRoot: "/tmp/canghai",
@@ -284,8 +284,17 @@ test("plugin requires an explicit supported data mode and rejects managed writes
       ...api,
       pluginConfig: { ...api.pluginConfig, dataMode: "managed_durable_write" },
     } as never),
-    /not enabled/,
+    /durabilityRemote/,
   );
+  assert.doesNotThrow(() => plugin.register({
+    ...api,
+    pluginConfig: {
+      ...api.pluginConfig,
+      dataMode: "managed_durable_write",
+      durabilityRemote: "origin",
+      durabilityBranch: "stella-alpha",
+    },
+  } as never));
 });
 
 test("target agent passes the gate and ordinary turn bypasses Cortex context", async () => {

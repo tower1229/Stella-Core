@@ -167,18 +167,25 @@ The mapping is always relative to the explicitly selected source baseline from �
 
 ## 8. Persistence cadence
 
-Durable personal learning should be written promptly to the local CangHai working tree, but Git commits may be batched.
+Durable personal learning is classified before it is published.
 
 Suggested distinction:
 
 ```text
-filesystem write = local durability
-Git commit/push   = versioned off-host recoverability
+critical write = validate → atomic local publish → scoped Git commit → immediate push
+normal write   = validate → atomic local publish → scoped Git commit → bounded-RPO push
 ```
 
-For example, daily or N-event commits can avoid producing a noisy Git history while preserving immediate local durability.
+Open/high-value Praxis state is critical because losing it changes future behavior. Ordinary closed
+Praxis learning is normal and may be batched only for the remote push; it is committed locally first.
+The runtime configuration names the remote and branch explicitly. It never infers the repository
+default branch.
 
-For the recovery invariant to hold against full server loss, durable changes must eventually reach an off-host CangHai remote; local unpushed files are not sufficient.
+Diagnostics expose the local and last synchronized revisions, critical synchronization result,
+pending-normal timestamp and age, configured maximum RPO, current/pending/breached state, and a
+stable failure category. A failed critical push is an explicit write failure. A failed scheduled
+normal push remains visible and requires a successful retry; local-only data is not reported as an
+off-host recovery point.
 
 ## 9. Recovery acceptance test
 

@@ -216,6 +216,13 @@ Acceptance condition:
 
 The new runtime can recover the identity, active Framework IR, Twin state, and learned Praxis outcome without the old session database.
 
+After local-only development, `managed_durable_write` is a separate, explicit phase. It additionally
+requires `durabilityRemote` and `durabilityBranch` in plugin configuration and a manifest durability
+policy. Critical open/high-value state returns success only after commit and push. Normal closed
+learning commits immediately, schedules a push within `maxNormalRpoSeconds`, and exposes pending or
+breached RPO diagnostics. Do not point this mode at a real remote unless that external write has been
+authorized.
+
 ## Immediate implementation sequence
 
 ```text

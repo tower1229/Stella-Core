@@ -9,6 +9,7 @@ import { validateSchema } from "../src/canghai/schema.js";
 import {
   CangHaiPraxisEpisodeStore,
   type EpisodePredictionInput,
+  type PraxisDurabilityPort,
 } from "../src/praxis/episode-store.js";
 import { createFixture, initializeFixtureRepository } from "./consciousness-fixture.js";
 
@@ -202,24 +203,84 @@ test("local_write closes one Episode without rewriting its prediction and expose
   }
 });
 
+test("managed writes synchronize open state critically and closed learning normally", async () => {
+  const root = await createFixture();
+  const calls: Array<{ kind: "critical" | "normal"; paths: string[] }> = [];
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    const loaded = await loadConsciousness(root, undefined, {
+      recoveryRevision,
+      coreVersion: "3.0.0-alpha.0",
+      openclawVersion: "2026.8.2",
+      dataMode: "managed_durable_write",
+    });
+    const durability: PraxisDurabilityPort = {
+      async syncCritical(paths) {
+        calls.push({ kind: "critical", paths });
+      },
+      async recordNormal(paths) {
+        calls.push({ kind: "normal", paths });
+      },
+    };
+    const store = new CangHaiPraxisEpisodeStore({
+      loaded,
+      dataMode: "managed_durable_write",
+      durability,
+      createId: () => "praxis-managed",
+      now: () => "2026-09-03T00:00:00.000Z",
+    });
+
+    const staged = await store.stagePrediction(prediction);
+    await store.publishRecommendation(staged, "先做一个可逆动作。", []);
+    await store.associateOutcome({
+      episodeRef: staged.ref,
+      actualAction: "等待",
+      source: "user_report",
+      observations: ["对方后来主动联系"],
+      result: "避免了额外压力",
+      observedAt: "2026-09-04T00:00:00.000Z",
+      predictionAssessment: "countered",
+      praxisLearning: "不确定时先等待也可能更符合低压目标。",
+    });
+
+    assert.deepEqual(calls, [
+      {
+        kind: "critical",
+        paths: ["30_PersonalData/praxis/episodes/praxis-managed"],
+      },
+      {
+        kind: "normal",
+        paths: ["30_PersonalData/praxis/episodes/praxis-managed"],
+      },
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("write modes fail closed and never publish a partial Episode", async () => {
-  for (const dataMode of ["read_only", "managed_durable_write"] as const) {
-    const root = await createFixture();
-    try {
-      const recoveryRevision = await initializeFixtureRepository(root);
-      const loaded = await loadConsciousness(root, undefined, {
-        recoveryRevision,
-        coreVersion: "3.0.0-alpha.0",
-        openclawVersion: "2026.8.2",
-        dataMode,
-      });
-      const store = new CangHaiPraxisEpisodeStore({ loaded, dataMode });
-      await assert.rejects(store.stagePrediction(prediction), /data mode|not enabled/i);
-      const entries = await readdir(path.join(root, "30_PersonalData/praxis/episodes"));
-      assert.deepEqual(entries, [".gitkeep"]);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    const loaded = await loadConsciousness(root, undefined, {
+      recoveryRevision,
+      coreVersion: "3.0.0-alpha.0",
+      openclawVersion: "2026.8.2",
+      dataMode: "read_only",
+    });
+    const store = new CangHaiPraxisEpisodeStore({ loaded, dataMode: "read_only" });
+    await assert.rejects(store.stagePrediction(prediction), /data mode/i);
+    assert.throws(
+      () => new CangHaiPraxisEpisodeStore({
+        loaded,
+        dataMode: "managed_durable_write",
+      }),
+      /durability coordinator/,
+    );
+    const entries = await readdir(path.join(root, "30_PersonalData/praxis/episodes"));
+    assert.deepEqual(entries, [".gitkeep"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

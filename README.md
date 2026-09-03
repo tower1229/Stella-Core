@@ -59,6 +59,12 @@ Machine-validation schemas live in `schemas/`:
 - `praxis-episode.schema.json`
 - `consciousness-manifest.schema.json`
 
+The public 32-case relationship/social Alpha suite lives at
+`evaluation/praxis-social.synthetic.json`. Run it through a Host/evaluator adapter with
+`npm run evaluate:praxis -- --suite <suite.json> --adapter <adapter.mjs> --output <report.json>`.
+Private cases stay in CangHai or another private evaluation store; mixed reports retain explicit
+public/private case counts without copying prompts into the report.
+
 ## Current cold-start state
 
 The private CangHai repository now has an additive Stella 3.0 bootstrap layer with:
@@ -72,9 +78,31 @@ The private CangHai repository now has an additive Stella 3.0 bootstrap layer wi
 
 Legacy Stella 1.0 data remains in place and is treated as cold-start evidence.
 
-## Status
+## Alpha recovery and candidate gates
 
-Architecture baseline, Alpha contracts, consciousness restore, and cold-start mapping are initialized. The next implementation milestone is no longer another ontology pass; it is the first executable Cortex vertical slice:
+Stella Core exposes a fail-closed Level 0–3 recovery drill, managed Git durability, a repeatable
+Praxis evaluation runner, and an Alpha candidate receipt builder. `managed_durable_write` requires
+an explicit Git remote/branch and a manifest policy with critical `sync_immediately`; normal writes
+are committed locally and pushed within the configured bounded RPO. The coordinator exposes pending
+age, RPO breach, synchronized revision, and stable failure categories.
+
+Create a non-published candidate only after the clean-runtime recovery and evaluation evidence exist:
+
+```bash
+npm run candidate -- \
+  --canghai-root /path/to/CangHai \
+  --canghai-revision <40-character-sha> \
+  --evaluation-report /path/to/evaluation-report.json \
+  --acceptance-evidence /path/to/acceptance-evidence.json \
+  --output-dir /path/outside/Stella-Core
+```
+
+The output directory receives an npm tarball and `alpha-candidate-receipt.json`. The receipt binds
+the clean Core/CangHai revisions, exact OpenClaw 2026.8.2, artifact SHA-256, Level 3 recovery,
+durability/RPO evidence, evaluation counts, and an explicit no-tag/no-Release/no-npm/no-production
+state. The command fails if its output directory is inside the Core source tree.
+
+The executable Cortex vertical slice is:
 
 ```text
 real private-life problem

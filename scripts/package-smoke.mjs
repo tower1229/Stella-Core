@@ -41,6 +41,64 @@ try {
     fixtureModuleUrl
   );
   syntheticCangHaiRoot = await createFixture();
+  const continuityPrediction = { possibleActions: { wait: 0.7, ask: 0.3 } };
+  for (const record of [
+    {
+      id: "praxis-smoke-open",
+      status: "acted",
+      summary: "Synthetic important open state",
+      decision: { recommendation: "wait once" },
+    },
+    {
+      id: "praxis-smoke-learned",
+      status: "closed",
+      summary: "Synthetic closed learning",
+      learning: {
+        algorithmVersion: "stella.praxis-learning/v1",
+        predictionAssessment: "supported",
+        evidenceRefs: [
+          "path:30_PersonalData/praxis/episodes/praxis-smoke-learned/episode.json",
+        ],
+        praxis: ["Synthetic sealed Praxis learning: verify assumptions before escalating."],
+      },
+    },
+  ]) {
+    const episodeDirectory = path.join(
+      syntheticCangHaiRoot,
+      "30_PersonalData/praxis/episodes",
+      record.id,
+    );
+    await mkdir(episodeDirectory, { recursive: true });
+    await writeFile(
+      path.join(episodeDirectory, "prediction.json"),
+      `${JSON.stringify(continuityPrediction, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      path.join(episodeDirectory, "episode.json"),
+      `${JSON.stringify({
+        schemaVersion: "stella.praxis-episode/v1",
+        id: record.id,
+        status: record.status,
+        createdAt: "2026-09-01T00:00:00.000Z",
+        updatedAt: "2026-09-02T00:00:00.000Z",
+        provenance: {},
+        situation: {
+          summary: record.summary,
+          domains: ["relationship"],
+          observations: [],
+        },
+        twin: { prediction: continuityPrediction },
+        ...(record.decision ? { decision: record.decision } : {}),
+        ...(record.learning ? { learning: record.learning } : {}),
+      }, null, 2)}\n`,
+      "utf8",
+    );
+  }
+  await updateFixtureManifest(syntheticCangHaiRoot, (manifest) => manifest.replace(
+    "derived:\n  rebuild: [bootstrap_projection, memory_index]",
+    "derived:\n  rebuild: [bootstrap_projection, framework_registry, praxis_index]",
+  ));
   const syntheticCangHaiRevision = await initializeFixtureRepository(syntheticCangHaiRoot);
   const coreRevision = (await run("git", ["rev-parse", "HEAD"])).stdout.trim();
   const coreSourceStatus = (await run("git", ["status", "--porcelain"])).stdout.trim();
@@ -65,8 +123,11 @@ try {
   const packageFiles = packEntry.files.map((entry) => entry.path);
   for (const required of [
     "dist/src/plugin.js",
+    "dist/src/acceptance/alpha-candidate.js",
+    "dist/src/acceptance/recovery-drill.js",
     "openclaw.plugin.json",
     "schemas/consciousness-manifest.schema.json",
+    "evaluation/praxis-social.synthetic.json",
   ]) {
     if (!packageFiles.includes(required)) {
       throw new Error(`packed plugin is missing ${required}`);
@@ -212,6 +273,15 @@ try {
       constraints: ["不想给她压力"],
     },
   };
+  const twinRoute = {
+    mode: "twin",
+    domains: ["identity"],
+    needsTwin: true,
+    needsFramework: false,
+    needsReality: false,
+    needsExternalResearch: false,
+    candidateTwinRefs: ["path:30_PersonalData/twin/hypotheses/twin_fixture.md"],
+  };
   providerServer = createServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk;
@@ -227,9 +297,17 @@ try {
     const responseContent = isSemanticRouting
       ? forceInvalidSemanticRoute
         ? "not-json"
-        : JSON.stringify(body.includes("她两天没回我消息") ? praxisRoute : ordinaryRoute)
+        : JSON.stringify(
+            body.includes("请恢复我的核心身份")
+              ? twinRoute
+              : body.includes("她两天没回我消息")
+                ? praxisRoute
+                : ordinaryRoute,
+          )
       : body.includes("<stella_core_praxis_context")
         ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
+        : body.includes("<stella_core_consciousness")
+          ? "identity-restored"
         : "smoke-ok";
     response.end(
       JSON.stringify({
@@ -374,6 +452,10 @@ try {
       message: "她两天没回我消息，我觉得她可能在疏远我。我想知道要不要再发一条，又不想给她压力。",
     },
     {
+      agentId: "stella",
+      message: "请恢复我的核心身份，并说明一个稳定倾向。",
+    },
+    {
       agentId: "ordinary",
       message: "Stella Core non-target smoke",
     },
@@ -405,14 +487,20 @@ try {
     !request.body.includes("Semantically classify one user turn"),
   );
   if (
-    routingRequests.length !== 2 ||
-    answerRequests.length !== 3 ||
+    routingRequests.length !== 3 ||
+    answerRequests.length !== 4 ||
     answerRequests[0].body.includes("<stella_core_praxis_context") ||
     !answerRequests[1].body.includes("<stella_core_praxis_context") ||
     !answerRequests[1].body.includes("#operator:reversible_test") ||
-    answerRequests[2].body.includes("<stella_core_praxis_context") ||
+    !answerRequests[2].body.includes("<stella_core_consciousness") ||
+    !answerRequests[2].body.includes("Evidence-driven and direct") ||
+    !answerRequests[2].body.includes("Prefers reversible experiments") ||
+    answerRequests[3].body.includes("<stella_core_praxis_context") ||
+    !routingRequests[1].body.includes("Synthetic important open state") ||
+    !routingRequests[1].body.includes("Synthetic sealed Praxis learning") ||
     !exactHostResults[1]?.stdout.includes("低压消息") ||
-    !exactHostResults[1]?.stdout.includes("不替你发送")
+    !exactHostResults[1]?.stdout.includes("不替你发送") ||
+    !exactHostResults[2]?.stdout.includes("identity-restored")
   ) {
     throw new Error(
       `real OpenClaw target injection or non-target bypass acceptance failed: ${JSON.stringify({
@@ -422,7 +510,10 @@ try {
         ordinaryTargetBypassed: !answerRequests[0]?.body.includes("<stella_core_praxis_context"),
         praxisTargetInjected: answerRequests[1]?.body.includes("<stella_core_praxis_context"),
         praxisOperatorTrace: answerRequests[1]?.body.includes("#operator:reversible_test"),
-        nonTargetBypassed: !answerRequests[2]?.body.includes("<stella_core_praxis_context"),
+        identityContextRestored: answerRequests[2]?.body.includes("<stella_core_consciousness"),
+        praxisLearningRestored: routingRequests[1]?.body.includes("Synthetic sealed Praxis learning"),
+        importantOpenStateRestored: routingRequests[1]?.body.includes("Synthetic important open state"),
+        nonTargetBypassed: !answerRequests[3]?.body.includes("<stella_core_praxis_context"),
         praxisAnswer: exactHostResults[1]?.stdout,
         urls: providerRequests.map((request) => request.url),
       })}`,
@@ -485,6 +576,25 @@ try {
   const installedPlugin = await import(
     `${pathToFileURL(path.join(installedRoot, "dist", "src", "plugin.js")).href}?smoke=${Date.now()}`
   );
+  const installedRecovery = await import(
+    `${pathToFileURL(path.join(installedRoot, "dist", "src", "acceptance", "recovery-drill.js")).href}?smoke=${Date.now()}`
+  );
+  const recoveryReport = await installedRecovery.runRecoveryDrill({
+    canghaiRoot: syntheticCangHaiRoot,
+    recoveryRevision: syntheticCangHaiRevision,
+    coreVersion: installedPlugin.STELLA_CORE_COMPATIBILITY_VERSION,
+    hostVersion: exactOpenClawVersion,
+    rebuild: async (target) => ({ target, evidence: `clean-host:${target}` }),
+    verifyContinuity: async () => ({
+      accepted:
+        answerRequests[2].body.includes("Evidence-driven and direct") &&
+        answerRequests[2].body.includes("Prefers reversible experiments") &&
+        answerRequests[1].body.includes("#operator:reversible_test") &&
+        routingRequests[1].body.includes("Synthetic sealed Praxis learning") &&
+        routingRequests[1].body.includes("Synthetic important open state"),
+      evidence: ["exact OpenClaw target turns used restored identity, Twin, Framework, learning, and open state"],
+    }),
+  });
 
   function registerHooks(canghaiRoot, recoveryRevision) {
     const hooks = new Map();
@@ -640,6 +750,8 @@ try {
     nonTargetAgentBypassed: true,
     migrationRequiredBlocked: true,
     exactHostAgentTurns: true,
+    recoveryLevels: recoveryReport.levels,
+    restored: recoveryReport.restored,
     privateFixtureIncluded: false,
   };
   if (process.env.STELLA_ACCEPTANCE_RECEIPT_PATH) {

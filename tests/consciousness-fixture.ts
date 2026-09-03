@@ -135,6 +135,10 @@ praxis:
   playbookRegistryRef: path:30_PersonalData/praxis/playbook/registry.yaml
 experience:
   corpusRegistryRef: path:50_PersonalAgent/corpus-registry.yaml
+durability:
+  criticalWritePolicy: sync_immediately
+  normalWritePolicy: bounded_batch
+  maxNormalRpoSeconds: 300
 derived:
   rebuild: [bootstrap_projection, memory_index]
 `,

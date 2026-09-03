@@ -9,7 +9,8 @@
     "dist",
     "openclaw.plugin.json",
     "schemas",
-    "README.md"
+    "README.md",
+    "evaluation/praxis-social.synthetic.json"
   ],
   "scripts": {
     "build": "node scripts/compile.mjs build",
@@ -17,6 +18,8 @@
     "check:schemas": "node scripts/check-schemas.mjs",
     "test": "node scripts/compile.mjs test && node --test .test-dist/tests/*.test.js",
     "test:package": "node scripts/compile.mjs test && node scripts/compile.mjs build && node scripts/package-smoke.mjs",
+    "evaluate:praxis": "npm run build --silent && node scripts/run-praxis-evaluation.mjs",
+    "candidate": "npm run build --silent && node scripts/create-alpha-candidate.mjs",
     "verify": "npm run check && npm run check:schemas && npm run build && npm test && npm run test:package"
   },
   "dependencies": {

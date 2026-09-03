@@ -136,11 +136,17 @@ export type PraxisMemory = {
   learningItems: PraxisPlaybookItem[];
 };
 
+export type PraxisDurabilityPort = {
+  syncCritical: (paths: string[], message: string) => Promise<unknown>;
+  recordNormal: (paths: string[], message: string) => Promise<unknown>;
+};
+
 type StoreOptions = {
   loaded: LoadedConsciousness;
   dataMode: StellaDataMode;
   now?: () => string;
   createId?: () => string;
+  durability?: PraxisDurabilityPort;
 };
 
 async function writeNewFile(filePath: string, content: string): Promise<void> {
@@ -196,6 +202,7 @@ export class CangHaiPraxisEpisodeStore {
   readonly #recoveryRevision?: string;
   readonly #now: () => string;
   readonly #createId: () => string;
+  readonly #durability?: PraxisDurabilityPort;
 
   constructor(options: StoreOptions) {
     this.#root = options.loaded.canghaiRoot;
@@ -219,6 +226,10 @@ export class CangHaiPraxisEpisodeStore {
     this.#recoveryRevision = options.loaded.recoveryRevision;
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#createId = options.createId ?? (() => `praxis-${randomUUID()}`);
+    this.#durability = options.durability;
+    if (this.#dataMode === "managed_durable_write" && !this.#durability) {
+      throw new Error("managed_durable_write requires a durability coordinator");
+    }
   }
 
   async stagePrediction(input: EpisodePredictionInput): Promise<StagedEpisode> {
@@ -300,6 +311,12 @@ export class CangHaiPraxisEpisodeStore {
       await rm(stagingDirectory, { recursive: true, force: true });
       throw error;
     }
+    if (this.#dataMode === "managed_durable_write") {
+      await this.#durability!.syncCritical(
+        [path.posix.join(this.#episodeRootRelative, staged.id)],
+        `stella: preserve open Praxis state ${staged.id}`,
+      );
+    }
     return staged;
   }
 
@@ -341,6 +358,12 @@ export class CangHaiPraxisEpisodeStore {
     };
     await validateSchema("praxis-episode", updated);
     await writeAtomicFile(episodePath, serialize(updated));
+    if (this.#dataMode === "managed_durable_write") {
+      await this.#durability!.recordNormal(
+        [path.posix.dirname(parseCangHaiRef(input.episodeRef).relativePath)],
+        `stella: record Praxis learning ${episode.id}`,
+      );
+    }
   }
 
   async listMemory(): Promise<PraxisMemory> {
@@ -388,9 +411,7 @@ export class CangHaiPraxisEpisodeStore {
     if (this.#dataMode === "read_only") {
       throw new Error("Stella data mode read_only forbids CangHai writes");
     }
-    if (this.#dataMode === "managed_durable_write") {
-      throw new Error("Stella data mode managed_durable_write is not enabled");
-    }
+    if (this.#dataMode === "managed_durable_write") return;
     const { stdout } = await execFileAsync("git", [
       "-C",
       this.#root,
