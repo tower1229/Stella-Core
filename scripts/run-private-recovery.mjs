@@ -14,6 +14,7 @@ import {
 import {
   ALPHA_HOST_VERSION,
   assertStellaHostConfig,
+  assertStellaPluginRuntime,
   parseExactHostVersion,
 } from "../dist/src/acceptance/exact-host-evidence.js";
 
@@ -127,6 +128,14 @@ try {
     canghaiRevision: options["canghai-revision"],
     agentId: "stella",
   });
+  const { stdout: pluginRuntimeOutput } = await execFileAsync(openclawBin, [
+    "plugins",
+    "inspect",
+    "stella-core",
+    "--runtime",
+    "--json",
+  ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+  assertStellaPluginRuntime(JSON.parse(pluginRuntimeOutput));
   if (
     typeof harness?.rebuild !== "function" ||
     typeof harness?.verifyContinuity !== "function" ||

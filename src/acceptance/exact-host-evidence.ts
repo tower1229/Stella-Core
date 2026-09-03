@@ -50,6 +50,26 @@ export function assertStellaHostConfig(
   }
 }
 
+export function assertStellaPluginRuntime(value: unknown): void {
+  if (!isRecord(value) || !isRecord(value.plugin)) {
+    throw new Error("Exact Host did not return Stella plugin runtime evidence");
+  }
+  const plugin = value.plugin;
+  const typedHooks = Array.isArray(value.typedHooks) ? value.typedHooks : [];
+  const hookNames = new Set(typedHooks.flatMap((hook) =>
+    isRecord(hook) && typeof hook.name === "string" ? [hook.name] : []
+  ));
+  if (
+    plugin.id !== "stella-core" ||
+    plugin.status !== "loaded" ||
+    plugin.activated !== true ||
+    !hookNames.has("before_prompt_build") ||
+    !hookNames.has("before_agent_run")
+  ) {
+    throw new Error("Exact Host Stella plugin runtime is not active with required hooks");
+  }
+}
+
 export function parseExactHostRecoveryReceipt(value: unknown): ExactHostRecoveryReceipt {
   if (!isRecord(value)) throw new Error("Invalid exact-host recovery receipt");
   const requiredTrue = [

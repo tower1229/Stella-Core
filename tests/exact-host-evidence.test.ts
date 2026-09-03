@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ALPHA_HOST_VERSION,
   assertStellaHostConfig,
+  assertStellaPluginRuntime,
   parseExactHostRecoveryReceipt,
   parseExactHostVersion,
 } from "../src/acceptance/exact-host-evidence.js";
@@ -48,6 +49,18 @@ test("validates the effective Stella Host source binding", () => {
     agentId: expected.agentId,
     dataMode: "read_only",
   }, expected), /not bound/);
+});
+
+test("requires the packed Stella runtime and admission hooks to be active", () => {
+  const runtime = {
+    plugin: { id: "stella-core", status: "loaded", activated: true },
+    typedHooks: [{ name: "before_prompt_build" }, { name: "before_agent_run" }],
+  };
+  assert.doesNotThrow(() => assertStellaPluginRuntime(runtime));
+  assert.throws(
+    () => assertStellaPluginRuntime({ ...runtime, typedHooks: [{ name: "before_prompt_build" }] }),
+    /not active/,
+  );
 });
 
 test("fails closed for incomplete or non-exact recovery receipts", () => {

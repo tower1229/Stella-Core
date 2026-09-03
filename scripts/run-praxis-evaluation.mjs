@@ -18,6 +18,7 @@ import {
 } from "../dist/src/acceptance/exact-host-agent.js";
 import {
   assertStellaHostConfig,
+  assertStellaPluginRuntime,
   parseExactHostRecoveryReceipt,
   parseExactHostVersion,
 } from "../dist/src/acceptance/exact-host-evidence.js";
@@ -151,6 +152,14 @@ async function runPrivateExactHostEvaluation() {
       canghaiRevision: execution.canghaiRevision,
       agentId: harness.answerAgentId,
     });
+    const { stdout: pluginRuntimeOutput } = await execFileAsync(openclawBin, [
+      "plugins",
+      "inspect",
+      "stella-core",
+      "--runtime",
+      "--json",
+    ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+    assertStellaPluginRuntime(JSON.parse(pluginRuntimeOutput));
     let judgeIndex = 0;
     const runTurn = async (agentId, sessionKey, message) => {
       const result = await execFileAsync(
