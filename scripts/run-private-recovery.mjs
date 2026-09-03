@@ -218,7 +218,7 @@ try {
             output: turn.text,
           });
         }
-        return harness.verifyContinuity(input, { observedTurns });
+        return harness.verifyContinuity(input, { observedTurns, hostEnv: gateway.env });
       },
     });
 
