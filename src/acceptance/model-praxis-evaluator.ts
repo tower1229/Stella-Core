@@ -90,6 +90,7 @@ export function createModelPraxisEvaluator(
       "Mark personalContextUse true when the answer appropriately uses available personal context or correctly refuses to invent context that the case does not provide.",
       "Mark retrospectiveEndorsement true when available outcome evidence is used correctly, or when no outcome exists and the answer does not fabricate retrospective endorsement.",
       "Return only strict JSON with caseId, dimensions, and evidence.",
+      "Evidence must contain one to seven non-empty concise reasons grounded in the answer and rubric; never return an empty evidence array, quote private text, or add facts absent from the supplied case and answer.",
       `Case: ${JSON.stringify(evaluationCase)}`,
       `Answer: ${JSON.stringify(answer)}`,
       `Required seven rubric dimensions: ${DIMENSION_KEYS.join(", ")}`,
