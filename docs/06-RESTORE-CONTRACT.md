@@ -154,6 +154,11 @@ Probe examples:
 
 The evaluation must use private fixtures from CangHai or a private evaluation store, never copy private owner facts into public Stella-Core fixtures.
 
+Important open Praxis state must carry `recoveryPriority: important`; an arbitrary open episode
+does not satisfy Level 1. Declared durable-state references are recorded with their Git blob SHA at
+the selected recovery revision. When none are declared, the report says `not_declared` rather than
+claiming that durable state was restored.
+
 ## 5. Recovery point and durability semantics
 
 A CangHai commit is the portable recovery point.
@@ -236,6 +241,13 @@ CangHai revision, requires identity/Twin/Framework bootstrap records plus durabl
 important open state, executes every `derived.rebuild` target through an injected Host builder, and
 then runs an injected behavioral continuity probe. Missing rebuild evidence or a failed probe stops
 the drill; Level 3 is never inferred from schema/build success.
+
+`npm run recover:private` is the executable private drill entrypoint. It binds a clean Core checkout,
+clean exact CangHai revision, tested tarball hash, a fresh tarball plus OpenClaw 2026.8.2 install, and an empty isolated
+runtime directory before invoking a private adapter. The adapter owns environment-specific Host
+configuration but must return rebuild evidence, a behavioral continuity result, an exact-Host agent
+turn count, and confirmation that no legacy runtime was imported. The public repository stores only
+this protocol; the adapter and private prompts remain outside Stella Core.
 
 ## 8. Alpha acceptance test
 

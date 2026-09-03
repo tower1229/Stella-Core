@@ -1,4 +1,7 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { loadConsciousness, type LoadedConsciousness } from "../canghai/manifest.js";
+import { parseCangHaiRef } from "../canghai/ref.js";
 import {
   CangHaiPraxisEpisodeStore,
   type PraxisMemory,
@@ -52,12 +55,19 @@ export type RecoveryDrillReport = {
     frameworkRefs: string[];
     praxisLearningRefs: string[];
     openEpisodeRefs: string[];
-    durableStateRefs: string[];
+    durableState:
+      | { status: "not_declared" }
+      | {
+        status: "restored";
+        records: Array<{ field: string; ref: string; blobSha: string }>;
+      };
     continuitySuiteRef?: string;
   };
   rebuildEvidence: DerivedRebuildEvidence[];
   continuityEvidence: string[];
 };
+
+const execFileAsync = promisify(execFile);
 
 function requireBootstrapCategory(
   loaded: LoadedConsciousness,
@@ -72,6 +82,32 @@ function referenceRefs(loaded: LoadedConsciousness, fieldPrefix: string): string
   return loaded.requiredReferences
     .filter(({ field }) => field === fieldPrefix || field.startsWith(`${fieldPrefix}.`))
     .map(({ ref }) => ref);
+}
+
+async function collectDurableStateEvidence(
+  loaded: LoadedConsciousness,
+  recoveryRevision: string,
+): Promise<RecoveryDrillReport["structuralEvidence"]["durableState"]> {
+  const checks = loaded.requiredReferences.filter(
+    ({ field }) => field === "durableState" || field.startsWith("durableState."),
+  );
+  if (checks.length === 0) return { status: "not_declared" };
+
+  const records = await Promise.all(checks.map(async ({ field, ref }) => {
+    const relativePath = parseCangHaiRef(ref).relativePath;
+    const { stdout } = await execFileAsync("git", [
+      "-C",
+      loaded.canghaiRoot,
+      "rev-parse",
+      `${recoveryRevision}:${relativePath}`,
+    ]);
+    const blobSha = stdout.trim();
+    if (!/^[0-9a-f]{40}$/i.test(blobSha)) {
+      throw new Error(`Recovery Level 1 could not identify durable state ${field}`);
+    }
+    return { field, ref, blobSha };
+  }));
+  return { status: "restored", records };
 }
 
 export async function runRecoveryDrill(
@@ -94,7 +130,10 @@ export async function runRecoveryDrill(
   if (memory.learningItems.length === 0) {
     throw new Error("Recovery Level 1 is missing durable Praxis learning");
   }
-  if (memory.openEpisodes.length === 0) {
+  const importantOpenEpisodes = memory.openEpisodes.filter(
+    ({ recoveryPriority }) => recoveryPriority === "important",
+  );
+  if (importantOpenEpisodes.length === 0) {
     throw new Error("Recovery Level 1 is missing important open Praxis state");
   }
   if (!loaded.manifest.compatibility.modelPolicyRef) {
@@ -109,7 +148,7 @@ export async function runRecoveryDrill(
   const frameworkRefs = loaded.bootstrapDocuments
     .filter(({ category }) => category === "framework")
     .map(({ ref }) => ref);
-  const durableStateRefs = referenceRefs(loaded, "durableState");
+  const durableState = await collectDurableStateEvidence(loaded, options.recoveryRevision);
 
   const rebuildEvidence: DerivedRebuildEvidence[] = [];
   for (const target of loaded.manifest.derived.rebuild) {
@@ -151,8 +190,8 @@ export async function runRecoveryDrill(
       twinRefs,
       frameworkRefs,
       praxisLearningRefs: memory.learningItems.map(({ ref }) => ref),
-      openEpisodeRefs: memory.openEpisodes.map(({ ref }) => ref),
-      durableStateRefs,
+      openEpisodeRefs: importantOpenEpisodes.map(({ ref }) => ref),
+      durableState,
       ...(loaded.manifest.evaluation?.continuitySuiteRef
         ? { continuitySuiteRef: loaded.manifest.evaluation.continuitySuiteRef }
         : {}),

@@ -89,6 +89,7 @@ type PraxisEpisode = {
   status: "open" | "acted" | "observing" | "closed" | "abandoned" | "expired";
   createdAt: string;
   updatedAt: string;
+  recoveryPriority?: "normal" | "important";
   sourceBaseline?: { repository: string; commit: string };
   sourceSnapshot?: Record<string, string>;
   provenance: EpisodePredictionInput["provenance"];
@@ -124,6 +125,7 @@ export type OpenEpisodeCandidate = {
   domains: string[];
   prediction: Prediction;
   recommendation?: string;
+  recoveryPriority?: "normal" | "important";
 };
 
 export type StagedEpisode = {
@@ -249,6 +251,7 @@ export class CangHaiPraxisEpisodeStore {
       status: "open",
       createdAt: now,
       updatedAt: now,
+      recoveryPriority: "important",
       sourceBaseline: {
         repository: this.#repository,
         commit: this.#recoveryRevision,
@@ -393,6 +396,9 @@ export class CangHaiPraxisEpisodeStore {
           prediction: episode.twin.prediction,
           ...(episode.decision?.recommendation
             ? { recommendation: episode.decision.recommendation }
+            : {}),
+          ...(episode.recoveryPriority
+            ? { recoveryPriority: episode.recoveryPriority }
             : {}),
         });
       }

@@ -91,6 +91,22 @@ age, RPO breach, synchronized revision, and stable failure categories.
 Create a non-published candidate only after the clean-runtime recovery and evaluation evidence exist:
 
 ```bash
+npm run recover:private -- \
+  --canghai-root /path/to/CangHai \
+  --canghai-revision <40-character-sha> \
+  --artifact /path/to/exact-artifact.tgz \
+  --adapter /path/to/private-host-adapter.mjs \
+  --output /path/outside/Stella-Core/private-exact-host-receipt.json
+```
+
+The private adapter must export `createRecoveryHarness(context)`. Its harness supplies one Host
+rebuild function per manifest target, a behavioral continuity probe, and
+`getExecutionEvidence()`. The runner independently requires clean exact source revisions, hashes the
+artifact, installs it alongside OpenClaw 2026.8.2, creates an empty isolated runtime directory,
+rejects legacy runtime import, and requires at least one exact-Host agent turn. Receipt output is mode `0600` and
+contains aggregate evidence only.
+
+```bash
 npm run candidate -- \
   --canghai-root /path/to/CangHai \
   --canghai-revision <40-character-sha> \

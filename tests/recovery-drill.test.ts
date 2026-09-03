@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { runRecoveryDrill } from "../src/acceptance/recovery-drill.js";
@@ -18,6 +18,7 @@ async function addPraxisContinuityState(root: string): Promise<void> {
     status: "acted",
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
+    recoveryPriority: "important",
     provenance: {},
     situation: { summary: "important open state", domains: ["relationship"], observations: [] },
     twin: { prediction },
@@ -40,6 +41,13 @@ async function addPraxisContinuityState(root: string): Promise<void> {
       praxis: ["verify assumptions before escalating"],
     },
   }, null, 2)}\n`);
+  const durableStatePath = path.join(root, "50_PersonalAgent/stella/durable/goals.yaml");
+  await mkdir(path.dirname(durableStatePath), { recursive: true });
+  await writeFile(durableStatePath, "goals:\n  - preserve continuity\n", "utf8");
+  await updateFixtureManifest(root, (manifest) => manifest.replace(
+    "durability:\n  criticalWritePolicy:",
+    "durableState:\n  goalsRef: path:50_PersonalAgent/stella/durable/goals.yaml\ndurability:\n  criticalWritePolicy:",
+  ));
 }
 
 test("restores Level 3 continuity from one exact CangHai revision", async () => {
@@ -89,6 +97,42 @@ test("restores Level 3 continuity from one exact CangHai revision", async () => 
     assert.deepEqual(report.structuralEvidence.praxisLearningRefs, [
       "path:30_PersonalData/praxis/episodes/praxis-learned/episode.json#learning:praxis:0",
     ]);
+    assert.equal(report.structuralEvidence.durableState.status, "restored");
+    if (report.structuralEvidence.durableState.status === "restored") {
+      assert.deepEqual(
+        report.structuralEvidence.durableState.records.map(({ field, ref }) => ({ field, ref })),
+        [{
+          field: "durableState.goalsRef",
+          ref: "path:50_PersonalAgent/stella/durable/goals.yaml",
+        }],
+      );
+      assert.match(report.structuralEvidence.durableState.records[0]!.blobSha, /^[0-9a-f]{40}$/);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("does not treat an ordinary open episode as important recovery state", async () => {
+  const root = await createFixture();
+  try {
+    await addPraxisContinuityState(root);
+    const episodePath = path.join(root, "30_PersonalData/praxis/episodes/praxis-open/episode.json");
+    const episode = JSON.parse(await readFile(episodePath, "utf8"));
+    episode.recoveryPriority = "normal";
+    await writeFile(episodePath, `${JSON.stringify(episode, null, 2)}\n`);
+    const revision = await initializeFixtureRepository(root);
+    await assert.rejects(
+      runRecoveryDrill({
+        canghaiRoot: root,
+        recoveryRevision: revision,
+        coreVersion: "3.0.0-alpha.0",
+        hostVersion: "2026.8.2",
+        rebuild: async (target) => ({ target, evidence: `rebuilt:${target}` }),
+        verifyContinuity: async () => ({ accepted: true, evidence: ["probe"] }),
+      }),
+      /important open Praxis state/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

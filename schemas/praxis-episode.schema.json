@@ -11,6 +11,7 @@
     "status": {"enum": ["open", "acted", "observing", "closed", "abandoned", "expired"]},
     "createdAt": {"type": "string", "format": "date-time"},
     "updatedAt": {"type": "string", "format": "date-time"},
+    "recoveryPriority": {"enum": ["normal", "important"]},
     "sourceBaseline": {
       "type": "object",
       "additionalProperties": false,

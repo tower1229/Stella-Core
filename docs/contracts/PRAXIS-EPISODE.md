@@ -34,6 +34,10 @@ abandoned / expired
 
 An episode can remain open with an unknown outcome without blocking later work.
 
+Open episodes count as required recovery state only when `recoveryPriority` is explicitly
+`important`. The field is optional for compatibility; an unmarked episode is not allowed to
+silently satisfy the clean-runtime recovery gate.
+
 ## 3. Required semantics
 
 ```ts
@@ -44,6 +48,7 @@ interface PraxisEpisode {
 
   createdAt: string;
   updatedAt: string;
+  recoveryPriority?: "normal" | "important";
 
   sourceBaseline?: {
     repository: string;
