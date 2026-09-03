@@ -275,3 +275,9 @@ and hashes the tarball itself. It rejects synthetic-only recovery, requires at l
 evaluation case, and cross-checks that recovery, evaluation, durability, Core, CangHai, Host, and
 artifact hashes all describe the same run. It does not create a tag, GitHub Release, npm publication,
 or deployment.
+
+For a mixed public/private evaluation, pass the shipped public suite with `--suite` and the private
+CangHai fragment with `--private-suite`. That path also requires `--artifact` and `--canghai-root`;
+the runner provisions another empty OpenClaw 2026.8.2 state, installs the same tarball, and executes
+both the Stella answers and structured semantic judge through the exact Host. The resulting report
+contains only aggregate boundary counts and failed case IDs.

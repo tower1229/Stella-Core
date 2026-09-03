@@ -71,6 +71,8 @@ export function createModelPraxisEvaluator(
     const prompt = [
       "Evaluate one Stella Praxis answer semantically across all seven rubric dimensions.",
       "Do not use keyword, regex, string containment, or lexical scoring.",
+      "Mark personalContextUse true when the answer appropriately uses available personal context or correctly refuses to invent context that the case does not provide.",
+      "Mark retrospectiveEndorsement true when available outcome evidence is used correctly, or when no outcome exists and the answer does not fabricate retrospective endorsement.",
       "Return only strict JSON with caseId, dimensions, and evidence.",
       `Case: ${JSON.stringify(evaluationCase)}`,
       `Answer: ${JSON.stringify(answer)}`,

@@ -7,6 +7,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
+import {
+  buildExactHostAgentArguments,
+  parseExactHostAgentOutput,
+} from "../dist/src/acceptance/exact-host-agent.js";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -155,20 +159,20 @@ try {
     rebuild: harness.rebuild,
     verifyContinuity: async (input) => {
       for (const probe of harness.probes) {
-        const result = await execFileAsync(openclawBin, [
-          "agent",
-          "--agent",
-          "stella",
-          "--session-key",
-          `agent:stella:private-recovery-${probe.id}`,
-          "--message",
-          probe.message,
-          "--json",
-          "--timeout",
-          "30",
-        ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
+        const result = await execFileAsync(
+          openclawBin,
+          buildExactHostAgentArguments({
+            agentId: "stella",
+            message: probe.message,
+            sessionKey: `agent:stella:private-recovery-${probe.id}`,
+          }),
+          { cwd: consumerRoot, env: { ...process.env, ...hostEnv } },
+        );
         if (!result.stdout.trim()) throw new Error(`Exact Host probe ${probe.id} returned no result`);
-        observedTurns.push({ id: probe.id, output: result.stdout });
+        observedTurns.push({
+          id: probe.id,
+          output: parseExactHostAgentOutput(result.stdout, probe.id),
+        });
       }
       return harness.verifyContinuity(input, { observedTurns });
     },

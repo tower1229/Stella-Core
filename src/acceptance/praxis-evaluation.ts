@@ -63,7 +63,7 @@ export type PraxisCaseExecutor = (
   evaluationCase: PraxisEvaluationCase,
 ) => Promise<PraxisEvaluationObservation>;
 
-export function parsePraxisEvaluationSuite(input: string): PraxisEvaluationSuite {
+function parseSuite(input: string, complete: boolean): PraxisEvaluationSuite {
   const parsed = JSON.parse(input) as unknown;
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("Praxis evaluation suite must be a JSON object");
@@ -97,12 +97,28 @@ export function parsePraxisEvaluationSuite(input: string): PraxisEvaluationSuite
       prompt: evaluationCase.prompt,
     };
   });
-  validateSuite(cases);
+  if (complete) validateSuite(cases);
   return {
     schemaVersion: "stella.alpha-praxis-suite/v1",
     boundary: record.boundary,
     cases,
   };
+}
+
+export function parsePraxisEvaluationSuite(input: string): PraxisEvaluationSuite {
+  return parseSuite(input, true);
+}
+
+export function parsePraxisEvaluationSuiteFragment(input: string): PraxisEvaluationSuite {
+  const suite = parseSuite(input, false);
+  if (suite.cases.length === 0) {
+    throw new Error("Praxis evaluation suite fragment must contain at least one case");
+  }
+  const ids = new Set(suite.cases.map(({ id }) => id));
+  if (ids.size !== suite.cases.length) {
+    throw new Error("Praxis evaluation case ids must be unique");
+  }
+  return suite;
 }
 
 function validateSuite(cases: PraxisEvaluationCase[]): PraxisEvaluationBoundary | "mixed" {

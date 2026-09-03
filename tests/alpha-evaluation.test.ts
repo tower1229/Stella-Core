@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   parsePraxisEvaluationSuite,
+  parsePraxisEvaluationSuiteFragment,
   runPraxisEvaluation,
   type PraxisEvaluationCase,
   type PraxisEvaluationObservation,
@@ -103,6 +104,16 @@ test("keeps public and private cases explicitly separated in a mixed run", async
 
   assert.equal(report.boundary, "mixed");
   assert.deepEqual(report.boundaryCounts, { public_synthetic: 29, private_canghai: 1 });
+});
+
+test("accepts a bounded private fragment only when it is combined before evaluation", () => {
+  const fragment = JSON.stringify({
+    schemaVersion: "stella.alpha-praxis-suite/v1",
+    boundary: "private_canghai",
+    cases: [{ id: "private-01", category: "relationship_communication", prompt: "private" }],
+  });
+  assert.equal(parsePraxisEvaluationSuiteFragment(fragment).cases.length, 1);
+  assert.throws(() => parsePraxisEvaluationSuite(fragment), /30 to 50/);
 });
 
 test("fails a case when any required rubric dimension lacks evidence", async () => {
