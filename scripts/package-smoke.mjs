@@ -657,7 +657,10 @@ try {
   if (
     targetGate?.outcome !== "pass" ||
     praxisGate?.outcome !== "pass" ||
-    ordinaryTargetPrompt?.appendContext !== undefined ||
+    typeof ordinaryTargetPrompt?.appendContext !== "string" ||
+    !ordinaryTargetPrompt.appendContext.includes("CangHai is the sole authority") ||
+    ordinaryTargetPrompt.appendContext.includes("<stella_core_consciousness") ||
+    ordinaryTargetPrompt.appendContext.includes("<stella_core_praxis_context") ||
     typeof praxisTargetPrompt?.appendContext !== "string" ||
     !praxisTargetPrompt.appendContext.includes("<stella_core_praxis_context") ||
     !praxisTargetPrompt.appendContext.includes("#operator:reversible_test") ||
