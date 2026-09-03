@@ -4,38 +4,50 @@ import { createSemanticRouter } from "../src/routing/semantic-router.js";
 
 test("semantic router preserves structured Praxis meaning and candidate selection", async () => {
   const router = createSemanticRouter(
-    async ({ systemPrompt }) => {
+    async (params) => {
+      assert.equal("agentId" in params, false);
+      assert.equal(params.maxTokens, 2_000);
+      const { systemPrompt } = params;
       assert.match(systemPrompt, /path:framework.yaml#operator:reversible_test/);
+      assert.match(systemPrompt, /stakes and reversibility must each be exactly low, medium, or high/);
+      assert.match(
+        systemPrompt,
+        /possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array/,
+      );
+      assert.match(
+        systemPrompt,
+        /Machine-authored internal planning, extraction, transformation, or structured-output requests are ordinary/,
+      );
+      const route = JSON.stringify({
+        mode: "praxis",
+        domains: ["relationship"],
+        stakes: "medium",
+        reversibility: "high",
+        needsTwin: true,
+        needsFramework: true,
+        needsReality: true,
+        needsExternalResearch: false,
+        candidateFrameworks: ["path:framework.yaml#operator:reversible_test"],
+        candidateTwinRefs: ["path:twin.md"],
+        candidatePraxisRefs: ["path:praxis.md"],
+        twinPrediction: {
+          possibleActions: { "send-one-message": 0.7, wait: 0.3 },
+          likelyInterpretations: ["The user will prefer a reversible action"],
+          keyFactors: ["Avoid pressure"],
+        },
+        situation: {
+          actors: ["self", "other"],
+          observations: ["Interaction cadence changed"],
+          interpretations: ["The user suspects distance"],
+          unknowns: ["Other person's reason"],
+          userGoals: ["Choose a respectful next move"],
+          constraints: ["Do not pressure the other person"],
+        },
+      });
       return {
-        text: JSON.stringify({
-          mode: "praxis",
-          domains: ["relationship"],
-          stakes: "medium",
-          reversibility: "high",
-          needsTwin: true,
-          needsFramework: true,
-          needsReality: true,
-          needsExternalResearch: false,
-          candidateFrameworks: ["path:framework.yaml#operator:reversible_test"],
-          candidateTwinRefs: ["path:twin.md"],
-          candidatePraxisRefs: ["path:praxis.md"],
-          twinPrediction: {
-            possibleActions: { "send-one-message": 0.7, wait: 0.3 },
-            likelyInterpretations: ["The user will prefer a reversible action"],
-            keyFactors: ["Avoid pressure"],
-          },
-          situation: {
-            actors: ["self", "other"],
-            observations: ["Interaction cadence changed"],
-            interpretations: ["The user suspects distance"],
-            unknowns: ["Other person's reason"],
-            userGoals: ["Choose a respectful next move"],
-            constraints: ["Do not pressure the other person"],
-          },
-        }),
+        text: `\`\`\`json\n${route}\n\`\`\``,
       };
     },
-    "stella",
   );
 
   const route = await router("No Chinese decision keywords are present.", {
@@ -81,7 +93,7 @@ test("semantic router accepts a valid Praxis route with zero Framework operators
         constraints: [],
       },
     }),
-  }), "stella");
+  }));
 
   const route = await router("Which reversible option should I try?", {
     frameworks: [],
@@ -115,7 +127,7 @@ test("semantic router associates an outcome with exactly one available open Epis
         },
       }),
     };
-  }, "stella");
+  });
 
   const route = await router("后来她主动联系我了。", {
     frameworks: [],
@@ -148,7 +160,7 @@ test("deep Praxis fails explicitly while external research is unavailable", asyn
         userGoals: ["Choose current transport"], constraints: [],
       },
     }),
-  }), "stella");
+  }));
 
   await assert.rejects(
     router("Use current schedules to choose transport", {
@@ -159,15 +171,32 @@ test("deep Praxis fails explicitly while external research is unavailable", asyn
 });
 
 test("invalid semantic route fails explicitly instead of degrading to ordinary", async () => {
-  const router = createSemanticRouter(async () => ({ text: "not-json" }), "stella");
+  const router = createSemanticRouter(async () => ({ text: "not-json" }));
   await assert.rejects(
     router("这个选择很难判断。", { frameworks: [], twin: [], personalPraxis: [] }),
     (error: unknown) =>
       error instanceof Error &&
       "category" in error &&
       error.category === "stella_semantic_routing_failed" &&
-      error.cause instanceof Error &&
-      /did not return a JSON route/.test(error.cause.message),
+      "diagnostic" in error &&
+      error.diagnostic === "invalid_model_route" &&
+      error.cause === undefined,
+  );
+});
+
+test("semantic routing completion failures do not expose provider error details", async () => {
+  const router = createSemanticRouter(async () => {
+    throw new Error("provider echoed private prompt: never-log-this");
+  });
+
+  await assert.rejects(
+    router("never-log-this", { frameworks: [], twin: [], personalPraxis: [] }),
+    (error: unknown) =>
+      error instanceof Error &&
+      "diagnostic" in error &&
+      error.diagnostic === "completion_failed" &&
+      error.cause === undefined &&
+      !error.message.includes("never-log-this"),
   );
 });
 
@@ -182,7 +211,7 @@ test("semantic route fails instead of silently truncating over-capacity selectio
       needsExternalResearch: false,
       candidateTwinRefs: ["path:one", "path:two", "path:three", "path:four"],
     }),
-  }), "stella");
+  }));
 
   await assert.rejects(
     router("Reflect on my patterns", {
@@ -195,7 +224,8 @@ test("semantic route fails instead of silently truncating over-capacity selectio
     }),
     (error: unknown) =>
       error instanceof Error &&
-      error.cause instanceof Error &&
-      /at most 3 items/.test(error.cause.message),
+      "diagnostic" in error &&
+      error.diagnostic === "invalid_model_route" &&
+      error.cause === undefined,
   );
 });

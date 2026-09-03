@@ -37,6 +37,7 @@ function registerPlugin(
     };
   },
   dataMode: "read_only" | "local_write" | "managed_durable_write" = "read_only",
+  errors: string[] = [],
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
@@ -47,6 +48,14 @@ function registerPlugin(
       dataMode,
     },
     runtime: { version: "2026.8.2", llm: { complete } },
+    logger: {
+      debug() {},
+      info() {},
+      warn() {},
+      error(message: string) {
+        errors.push(message);
+      },
+    },
     on(name: string, handler: HookHandler) {
       hooks.set(name, handler);
     },
@@ -497,7 +506,14 @@ test("semantic routing failure is explicit and does not masquerade as ordinary",
   const root = await createFixture();
   try {
     const recoveryRevision = await initializeFixtureRepository(root);
-    const hooks = registerPlugin(root, recoveryRevision, async () => ({ text: "not-json" }));
+    const errors: string[] = [];
+    const hooks = registerPlugin(
+      root,
+      recoveryRevision,
+      async () => ({ text: "not-json" }),
+      "read_only",
+      errors,
+    );
     const event = { prompt: "含义需要判断的日常表达", messages: [] };
     const context = {
       agentId: "stella",
@@ -514,6 +530,39 @@ test("semantic routing failure is explicit and does not masquerade as ordinary",
     );
     assert.equal(gate.category, "stella_semantic_routing_failed");
     assert.equal(gate.outcome, "block");
+    assert.deepEqual(errors, [
+      "Stella semantic routing failed: invalid_model_route",
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("semantic routing logs do not expose provider errors or private prompt text", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    const errors: string[] = [];
+    const hooks = registerPlugin(
+      root,
+      recoveryRevision,
+      async () => {
+        throw new Error("provider echoed private prompt: never-log-this");
+      },
+      "read_only",
+      errors,
+    );
+    const event = { prompt: "never-log-this", messages: [] };
+    const context = {
+      agentId: "stella",
+      runId: "private-provider-error-run",
+      sessionKey: "agent:stella:test",
+    };
+
+    await requireHook(hooks, "before_prompt_build")(event, context);
+
+    assert.deepEqual(errors, ["Stella semantic routing failed: completion_failed"]);
+    assert.doesNotMatch(errors.join("\n"), /never-log-this|provider echoed private prompt/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

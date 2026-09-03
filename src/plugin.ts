@@ -239,7 +239,6 @@ export default definePluginEntry({
     const preparedTurns = new PreparedTurnStore();
     const classifySemantically = createSemanticRouter(
       (params) => api.runtime.llm.complete(params),
-      config.agentId,
     );
     const episodeByRun = new Map<string, StagedEpisode>();
 
@@ -348,6 +347,9 @@ export default definePluginEntry({
         } catch (error) {
           const consciousnessFailure = error instanceof ConsciousnessLoadError;
           const semanticFailure = error instanceof SemanticRoutingError;
+          if (semanticFailure) {
+            api.logger.error(`Stella semantic routing failed: ${error.diagnostic}`);
+          }
           preparedTurns.put(turnKey, {
             outcome: "blocked",
             category: consciousnessFailure

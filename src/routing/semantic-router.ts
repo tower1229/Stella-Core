@@ -9,7 +9,6 @@ import {
 } from "./router.js";
 
 export type RoutingCompletion = (params: {
-  agentId: string;
   maxTokens: number;
   temperature: number;
   purpose: string;
@@ -20,8 +19,11 @@ export type RoutingCompletion = (params: {
 export class SemanticRoutingError extends Error {
   readonly category = "stella_semantic_routing_failed";
 
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+  constructor(
+    message: string,
+    readonly diagnostic: "completion_failed" | "invalid_model_route",
+  ) {
+    super(message);
     this.name = "SemanticRoutingError";
   }
 }
@@ -60,8 +62,15 @@ function requiredString(record: Record<string, unknown>, key: string): string {
 
 function parseTwinPrediction(record: Record<string, unknown>) {
   const value = record.twinPrediction;
-  if (!isRecord(value) || !isRecord(value.possibleActions)) {
-    throw new Error("Model Praxis route requires a Twin prediction");
+  if (!isRecord(value)) {
+    throw new Error(
+      `Model Praxis route requires a Twin prediction; route keys: ${Object.keys(record).sort().join(",")}`,
+    );
+  }
+  if (!isRecord(value.possibleActions)) {
+    throw new Error(
+      `Model Twin prediction requires possibleActions; prediction keys: ${Object.keys(value).sort().join(",")}`,
+    );
   }
   const actionEntries = Object.entries(value.possibleActions);
   if (
@@ -165,10 +174,20 @@ function selectedRefs(
   return refs;
 }
 
+function unwrapJsonFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```") || !trimmed.endsWith("```")) return trimmed;
+  const firstLineEnd = trimmed.indexOf("\n");
+  if (firstLineEnd < 0) return trimmed;
+  const language = trimmed.slice(3, firstLineEnd).trim();
+  if (language && language !== "json") return trimmed;
+  return trimmed.slice(firstLineEnd + 1, -3).trim();
+}
+
 function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): CortexRoute {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(unwrapJsonFence(text));
   } catch (error) {
     throw new Error("Model router did not return a JSON route", { cause: error });
   }
@@ -248,20 +267,22 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
 
 export function createSemanticRouter(
   complete: RoutingCompletion,
-  agentId: string,
 ): SemanticRouteClassifier {
   return async (prompt, candidates) => {
+    let result: { text: string };
     try {
-      const result = await complete({
-        agentId,
-        maxTokens: 900,
+      result = await complete({
+        maxTokens: 2_000,
         temperature: 0,
         purpose: "stella-core-semantic-routing",
         systemPrompt: [
           "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
           "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, situation, twinPrediction, and outcome when applicable.",
           "Use praxis for a personal real-world choice, twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
+          "Machine-authored internal planning, extraction, transformation, or structured-output requests are ordinary, even when their source material mentions a personal choice. Use praxis only when the turn itself asks Stella to help the owner make or evaluate that choice.",
+          "For praxis, stakes and reversibility must each be exactly low, medium, or high.",
           "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
+          "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
           "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
           "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
           "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
@@ -269,10 +290,14 @@ export function createSemanticRouter(
         ].join(" "),
         messages: [{ role: "user", content: prompt }],
       });
+    } catch (error) {
+      throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
+    }
+    try {
       return parseModelRoute(result.text, candidates);
     } catch (error) {
       if (error instanceof SemanticRoutingError) throw error;
-      throw new SemanticRoutingError("Stella semantic routing failed", { cause: error });
+      throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
     }
   };
 }
