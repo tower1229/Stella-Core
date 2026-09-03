@@ -198,6 +198,17 @@ function unwrapJsonFence(text: string): string {
   return trimmed.slice(firstLineEnd + 1, -3).trim();
 }
 
+async function completeWithOneRetry(
+  params: Parameters<RoutingCompletion>[0],
+  complete: RoutingCompletion,
+): Promise<{ text: string }> {
+  try {
+    return await complete(params);
+  } catch {
+    return complete(params);
+  }
+}
+
 async function selectRelevantOpenEpisode(
   prompt: string,
   candidates: SemanticRoutingCandidates,
@@ -205,30 +216,37 @@ async function selectRelevantOpenEpisode(
 ): Promise<string | undefined> {
   const available = candidates.openEpisodes ?? [];
   if (available.length === 0) return undefined;
-  const result = await complete({
-    maxTokens: 500,
-    temperature: 0,
-    purpose: "stella-core-open-episode-selection",
-    systemPrompt: [
-      "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode. Do not answer the owner.",
-      "A message reporting a new outcome is not an open-state recall and must return null.",
-      "Return only strict JSON: {\"openEpisodeRef\":<exact supplied ref or null>}.",
-      `Available open Episode candidates: ${JSON.stringify(available)}`,
-    ].join(" "),
-    messages: [{ role: "user", content: prompt }],
-  });
-  const parsed = JSON.parse(unwrapJsonFence(result.text)) as unknown;
-  if (!isRecord(parsed) || !("openEpisodeRef" in parsed)) {
-    throw new Error("Open Episode selector returned an invalid result");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await complete({
+        maxTokens: 500,
+        temperature: 0,
+        purpose: "stella-core-open-episode-selection",
+        systemPrompt: [
+          "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode. Do not answer the owner.",
+          "A message reporting a new outcome is not an open-state recall and must return null.",
+          "Return only strict JSON: {\"openEpisodeRef\":<exact supplied ref or null>}.",
+          `Available open Episode candidates: ${JSON.stringify(available)}`,
+        ].join(" "),
+        messages: [{ role: "user", content: prompt }],
+      });
+      const parsed = JSON.parse(unwrapJsonFence(result.text)) as unknown;
+      if (!isRecord(parsed) || !("openEpisodeRef" in parsed)) {
+        throw new Error("Open Episode selector returned an invalid result");
+      }
+      if (parsed.openEpisodeRef === null) return undefined;
+      if (
+        typeof parsed.openEpisodeRef !== "string" ||
+        !available.some(({ ref }) => ref === parsed.openEpisodeRef)
+      ) {
+        throw new Error("Open Episode selector returned an unavailable ref");
+      }
+      return parsed.openEpisodeRef;
+    } catch {
+      if (attempt === 1) throw new Error("Open Episode selector failed after retry");
+    }
   }
-  if (parsed.openEpisodeRef === null) return undefined;
-  if (
-    typeof parsed.openEpisodeRef !== "string" ||
-    !available.some(({ ref }) => ref === parsed.openEpisodeRef)
-  ) {
-    throw new Error("Open Episode selector returned an unavailable ref");
-  }
-  return parsed.openEpisodeRef;
+  throw new Error("Open Episode selector failed after retry");
 }
 
 function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): CortexRoute {
@@ -324,7 +342,7 @@ export function createSemanticRouter(
     let selectedOpenEpisodeRef: string | undefined;
     try {
       selectedOpenEpisodeRef = await selectRelevantOpenEpisode(prompt, candidates, complete);
-      result = await complete({
+      result = await completeWithOneRetry({
         maxTokens: 2_000,
         temperature: 0,
         purpose: "stella-core-semantic-routing",
@@ -347,7 +365,7 @@ export function createSemanticRouter(
           `Available semantic candidates: ${JSON.stringify(candidates)}`,
         ].join(" "),
         messages: [{ role: "user", content: prompt }],
-      });
+      }, complete);
     } catch (error) {
       throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
     }

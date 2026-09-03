@@ -215,6 +215,31 @@ test("semantic routing completion failures do not expose provider error details"
   );
 });
 
+test("semantic routing retries one transient completion failure without degrading", async () => {
+  let attempts = 0;
+  const router = createSemanticRouter(async () => {
+    attempts += 1;
+    if (attempts === 1) throw new Error("transient provider failure");
+    return {
+      text: JSON.stringify({
+        mode: "ordinary",
+        domains: ["general"],
+        needsTwin: false,
+        needsFramework: false,
+        needsReality: false,
+        needsExternalResearch: false,
+      }),
+    };
+  });
+
+  const route = await router("Explain a TypeScript operator", {
+    frameworks: [], twin: [], personalPraxis: [],
+  });
+
+  assert.equal(attempts, 2);
+  assert.equal(route.mode, "ordinary");
+});
+
 test("semantic route fails instead of silently truncating over-capacity selections", async () => {
   const router = createSemanticRouter(async () => ({
     text: JSON.stringify({
