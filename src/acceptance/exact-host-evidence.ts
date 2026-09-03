@@ -50,6 +50,19 @@ export function assertStellaHostConfig(
   }
 }
 
+export function assertStellaHostHooks(value: unknown): void {
+  if (
+    !isRecord(value) ||
+    value.allowConversationAccess !== true ||
+    value.allowPromptInjection !== true ||
+    !isRecord(value.timeouts) ||
+    typeof value.timeouts.before_prompt_build !== "number" ||
+    value.timeouts.before_prompt_build < 60_000
+  ) {
+    throw new Error("Exact Host Stella prompt hook permissions or timeout are insufficient");
+  }
+}
+
 export function assertStellaPluginRuntime(value: unknown): void {
   if (!isRecord(value) || !isRecord(value.plugin)) {
     throw new Error("Exact Host did not return Stella plugin runtime evidence");

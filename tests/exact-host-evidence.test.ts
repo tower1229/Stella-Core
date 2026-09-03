@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ALPHA_HOST_VERSION,
   assertStellaHostConfig,
+  assertStellaHostHooks,
   assertStellaPluginRuntime,
   parseExactHostRecoveryReceipt,
   parseExactHostVersion,
@@ -33,6 +34,24 @@ const receipt = {
 test("accepts only the pinned OpenClaw version", () => {
   assert.equal(parseExactHostVersion("OpenClaw 2026.8.2 (build)\n"), ALPHA_HOST_VERSION);
   assert.throws(() => parseExactHostVersion("OpenClaw 2026.8.1\n"), /requires OpenClaw/);
+});
+
+test("requires explicit prompt injection permission and a sufficient semantic hook budget", () => {
+  assert.doesNotThrow(() => assertStellaHostHooks({
+    allowConversationAccess: true,
+    allowPromptInjection: true,
+    timeouts: { before_prompt_build: 90_000 },
+  }));
+  assert.throws(() => assertStellaHostHooks({
+    allowConversationAccess: true,
+    allowPromptInjection: false,
+    timeouts: { before_prompt_build: 90_000 },
+  }), /insufficient/);
+  assert.throws(() => assertStellaHostHooks({
+    allowConversationAccess: true,
+    allowPromptInjection: true,
+    timeouts: { before_prompt_build: 15_000 },
+  }), /insufficient/);
 });
 
 test("validates the effective Stella Host source binding", () => {
