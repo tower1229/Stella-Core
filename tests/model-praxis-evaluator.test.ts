@@ -15,7 +15,7 @@ test("uses an answer Host and structured model judge instead of lexical scoring"
     answerCase: async () => "先区分事实与解释，再发一次可拒绝的低压确认。",
     judge: async (prompt) => {
       judgePrompt = prompt;
-      return { text: JSON.stringify({
+      return { text: `\`\`\`json\n${JSON.stringify({
         caseId: "relationship-01",
         dimensions: {
           situationUnderstanding: true,
@@ -27,7 +27,7 @@ test("uses an answer Host and structured model judge instead of lexical scoring"
           retrospectiveEndorsement: true,
         },
         evidence: ["区分了事实与解释，并给出低压行动"],
-      }) };
+      })}\n\`\`\`` };
     },
   });
 

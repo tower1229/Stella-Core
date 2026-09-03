@@ -20,10 +20,26 @@ type ModelPraxisEvaluatorOptions = {
   judge: (prompt: string) => Promise<{ text: string }>;
 };
 
+function unwrapJsonFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```") || !trimmed.endsWith("```")) return trimmed;
+  const lines = trimmed.split(/\r?\n/u);
+  const opening = lines.shift();
+  const closing = lines.pop();
+  if (
+    (opening !== "```json" && opening !== "```") ||
+    closing !== "```" ||
+    lines.some((line) => line.includes("```"))
+  ) {
+    return trimmed;
+  }
+  return lines.join("\n");
+}
+
 function parseObservation(text: string, expectedCaseId: string): PraxisEvaluationObservation {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(unwrapJsonFence(text));
   } catch (error) {
     throw new Error("Praxis model judge returned invalid JSON", { cause: error });
   }
