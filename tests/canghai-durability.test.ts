@@ -142,7 +142,11 @@ test("a restarted coordinator reconstructs pending normal RPO from Git history",
     });
     await first.recordNormal(["normal.txt"], "stella: normal learning");
 
-    now += 120_000;
+    const { stdout: committedAtSeconds } = await execFileAsync(
+      "git",
+      ["-C", root, "show", "-s", "--format=%ct", "HEAD"],
+    );
+    now = Number(committedAtSeconds.trim()) * 1_000 + 120_000;
     let restartDelay: number | undefined;
     const restarted = new GitCangHaiDurability({
       root,
