@@ -32,8 +32,10 @@ export class SemanticRoutingError extends Error {
 function routeValidationCode(error: unknown): string {
   if (error instanceof SyntaxError) return "invalid_json";
   const message = error instanceof Error ? error.message : "";
+  if (message.includes("did not return a JSON route")) return "invalid_json";
   const field = message.match(/^Model route field ([a-zA-Z]+) /u)?.[1];
   if (field) return `field_${field}`;
+  if (message.includes("at least one domain")) return "field_domains";
   if (message.includes("disagreed with the open Episode selector")) return "episode_consistency";
   if (message.includes("open Episode selector")) return "episode_selector";
   if (message.includes("outcome source")) return "outcome_source";
@@ -44,6 +46,7 @@ function routeValidationCode(error: unknown): string {
   if (message.includes("Praxis route")) return "praxis_shape";
   if (message.includes("non-Cortex route")) return "context_policy";
   if (message.includes("route mode")) return "mode";
+  if (message.includes("unsupported mode")) return "mode";
   return "route_shape";
 }
 

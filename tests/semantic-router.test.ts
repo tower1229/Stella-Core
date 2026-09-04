@@ -198,6 +198,8 @@ test("invalid semantic route fails explicitly instead of degrading to ordinary",
       error.category === "stella_semantic_routing_failed" &&
       "diagnostic" in error &&
       error.diagnostic === "invalid_model_route" &&
+      "validationCode" in error &&
+      error.validationCode === "invalid_json" &&
       error.cause === undefined,
   );
 });

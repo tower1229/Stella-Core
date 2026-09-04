@@ -200,8 +200,11 @@ async function runPrivateExactHostEvaluation() {
         const turn = parseExactHostAgentTurn(result.stdout, sessionKey);
         return turn.text;
       } catch {
+        const diagnosticTurn = /^[a-zA-Z0-9:_-]{1,160}$/u.test(sessionKey)
+          ? sessionKey
+          : "unknown";
         throw new Error(
-          `Private Exact Host evaluation turn failed; diagnostics=${gateway.diagnostics() || "none"}`,
+          `Private Exact Host evaluation turn failed; turn=${diagnosticTurn}; diagnostics=${gateway.diagnostics() || "none"}`,
         );
       }
     };
