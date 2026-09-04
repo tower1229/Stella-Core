@@ -127,7 +127,27 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
               : output.trim()
                 ? "host_error"
                 : "process_error";
-    throw new Error(`Exact Host private Praxis turn failed: ${label} (${category})`);
+    let envelope = "unparsed";
+    const jsonStart = Math.max(output.lastIndexOf("\n{"), output.startsWith("{") ? 0 : -1);
+    if (jsonStart >= 0) {
+      try {
+        const parsed = JSON.parse(output.slice(jsonStart === 0 ? 0 : jsonStart + 1).trim());
+        const safeToken = (value) => typeof value === "string" && /^[a-zA-Z0-9_.:-]{1,80}$/u.test(value)
+          ? value
+          : undefined;
+        const status = safeToken(parsed.status);
+        const code = safeToken(parsed.error?.code) ?? safeToken(parsed.error?.category) ??
+          safeToken(parsed.result?.error?.code) ?? safeToken(parsed.result?.error?.category);
+        envelope = [
+          `keys=${Object.keys(parsed).sort().join(",")}`,
+          ...(status ? [`status=${status}`] : []),
+          ...(code ? [`code=${code}`] : []),
+        ].join(";");
+      } catch {
+        envelope = "invalid-json";
+      }
+    }
+    throw new Error(`Exact Host private Praxis turn failed: ${label} (${category};${envelope})`);
   }
 }
 
