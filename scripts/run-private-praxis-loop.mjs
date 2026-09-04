@@ -119,15 +119,23 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
       ? "provider_authentication"
       : /(?:model[^\n]{0,80}(?:not found|unavailable)|\b404\b)/iu.test(output)
         ? "model_unavailable"
-        : /(?:message could not be sent|stella turn admission|stella_core)/iu.test(output)
+        : /(?:unknown agent|agent[^\n]{0,80}(?:not found|not configured|does not exist))/iu.test(output)
+          ? "agent_unavailable"
+          : /(?:message could not be sent|stella turn admission|stella[_ ]core|canghai|recovery revision)/iu.test(output)
           ? "stella_preparation"
-          : /(?:timed out|timeout)/iu.test(output)
-            ? "timeout"
-            : /(?:econnrefused|gateway)/iu.test(output)
-              ? "gateway"
-              : output.trim()
-                ? "host_error"
-                : "process_error";
+            : /(?:provider|model)/iu.test(output)
+              ? "provider_execution"
+              : /(?:eperm|eacces|permission denied)/iu.test(output)
+                ? "filesystem_permission"
+                : /(?:invalid config|configuration|schema)/iu.test(output)
+                  ? "host_configuration"
+                  : /(?:timed out|timeout)/iu.test(output)
+                    ? "timeout"
+                    : /(?:econnrefused|gateway)/iu.test(output)
+                      ? "gateway"
+                      : output.trim()
+                        ? "host_error"
+                        : "process_error";
     let envelope = "unparsed";
     const jsonStart = Math.max(stdout.lastIndexOf("\n{"), stdout.trimStart().startsWith("{") ? 0 : -1);
     if (jsonStart >= 0) {
