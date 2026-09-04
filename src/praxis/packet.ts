@@ -329,7 +329,13 @@ export function renderPraxisContextPacket(
   const rendered = [
     `<stella_core_praxis_context mode="${dataMode}">`,
     "owner_boundary: advise or prepare only; never send, commit, or act externally",
+    "situation_understanding: distinguish observations, interpretations, and unknowns",
+    "personal_context: use relevant supplied personal context; never invent missing context",
+    "framework_application: apply the selected operators to the recommendation, not merely name them",
+    "hidden_variables: surface the few uncertainties that could materially change the advice",
     "concrete_next_action: required when the owner asks what to do",
+    "owner_fit: adapt the recommendation to the supplied goals, constraints, and reversible risk",
+    "retrospective_boundary: use outcome evidence when supplied; otherwise do not imply an outcome or endorsement",
     packetJson,
     "</stella_core_praxis_context>",
   ].join("\n");

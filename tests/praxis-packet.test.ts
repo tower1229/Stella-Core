@@ -66,7 +66,10 @@ test("builds a bounded traceable Praxis packet from validated CangHai registries
     const rendered = renderPraxisContextPacket(packet);
     assert.ok(rendered.length <= DEFAULT_MAX_PRAXIS_PACKET_CHARS);
     assert.match(rendered, /owner_boundary/);
+    assert.match(rendered, /framework_application/);
+    assert.match(rendered, /hidden_variables/);
     assert.match(rendered, /concrete_next_action/);
+    assert.match(rendered, /retrospective_boundary/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
