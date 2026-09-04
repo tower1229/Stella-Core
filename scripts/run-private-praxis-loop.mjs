@@ -113,7 +113,8 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
     );
     return parseExactHostAgentTurn(result.stdout, label).text;
   } catch (error) {
-    const output = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}`;
+    const stdout = `${error?.stdout ?? ""}`;
+    const output = `${stdout}\n${error?.stderr ?? ""}`;
     const category = /(?:api key|unauthorized|authentication|\b401\b|\b403\b)/iu.test(output)
       ? "provider_authentication"
       : /(?:model[^\n]{0,80}(?:not found|unavailable)|\b404\b)/iu.test(output)
@@ -128,10 +129,10 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
                 ? "host_error"
                 : "process_error";
     let envelope = "unparsed";
-    const jsonStart = Math.max(output.lastIndexOf("\n{"), output.startsWith("{") ? 0 : -1);
+    const jsonStart = Math.max(stdout.lastIndexOf("\n{"), stdout.trimStart().startsWith("{") ? 0 : -1);
     if (jsonStart >= 0) {
       try {
-        const parsed = JSON.parse(output.slice(jsonStart === 0 ? 0 : jsonStart + 1).trim());
+        const parsed = JSON.parse(stdout.slice(jsonStart === 0 ? 0 : jsonStart + 1).trim());
         const safeToken = (value) => typeof value === "string" && /^[a-zA-Z0-9_.:-]{1,80}$/u.test(value)
           ? value
           : undefined;
