@@ -664,8 +664,11 @@ try {
 
   const activeHooks = registerHooks(syntheticCangHaiRoot, syntheticCangHaiRevision);
   const beforeAgentRun = activeHooks.get("before_agent_run");
+  const beforeAgentFinalize = activeHooks.get("before_agent_finalize");
   const beforePromptBuild = activeHooks.get("before_prompt_build");
-  if (!beforeAgentRun || !beforePromptBuild) throw new Error("packed plugin hooks were not registered");
+  if (!beforeAgentRun || !beforeAgentFinalize || !beforePromptBuild) {
+    throw new Error("packed plugin hooks were not registered");
+  }
   const ordinaryEvent = { prompt: "TypeScript 的 satisfies 是什么？", messages: [] };
   const ordinaryContext = {
     agentId: "stella",

@@ -60,17 +60,29 @@ test("requires explicit prompt injection permission and a sufficient semantic ho
   assert.doesNotThrow(() => assertStellaHostHooks({
     allowConversationAccess: true,
     allowPromptInjection: true,
-    timeouts: { before_prompt_build: 90_000, agent_end: 90_000 },
+    timeouts: {
+      before_prompt_build: 90_000,
+      before_agent_finalize: 90_000,
+      agent_end: 90_000,
+    },
   }));
   assert.throws(() => assertStellaHostHooks({
     allowConversationAccess: true,
     allowPromptInjection: false,
-    timeouts: { before_prompt_build: 90_000, agent_end: 90_000 },
+    timeouts: {
+      before_prompt_build: 90_000,
+      before_agent_finalize: 90_000,
+      agent_end: 90_000,
+    },
   }), /insufficient/);
   assert.throws(() => assertStellaHostHooks({
     allowConversationAccess: true,
     allowPromptInjection: true,
-    timeouts: { before_prompt_build: 15_000, agent_end: 15_000 },
+    timeouts: {
+      before_prompt_build: 15_000,
+      before_agent_finalize: 15_000,
+      agent_end: 15_000,
+    },
   }), /insufficient/);
 });
 
@@ -93,7 +105,11 @@ test("validates the effective Stella Host source binding", () => {
 test("requires the packed Stella runtime and admission hooks to be active", () => {
   const runtime = {
     plugin: { id: "stella-core", status: "loaded", activated: true },
-    typedHooks: [{ name: "before_prompt_build" }, { name: "before_agent_run" }],
+    typedHooks: [
+      { name: "before_prompt_build" },
+      { name: "before_agent_finalize" },
+      { name: "before_agent_run" },
+    ],
   };
   assert.doesNotThrow(() => assertStellaPluginRuntime(runtime));
   assert.throws(

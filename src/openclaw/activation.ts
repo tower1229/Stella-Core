@@ -23,7 +23,11 @@ export type StellaActivationAssessment = {
     hooks: {
       allowConversationAccess: true;
       allowPromptInjection: true;
-      timeouts: { before_prompt_build: 60_000; agent_end: 90_000 };
+      timeouts: {
+        before_prompt_build: 60_000;
+        before_agent_finalize: 90_000;
+        agent_end: 90_000;
+      };
     };
     llm: { allowAgentIdOverride: true };
   };
@@ -75,6 +79,7 @@ export function assessStellaActivation(
       allowPromptInjection: true as const,
       timeouts: {
         before_prompt_build: 60_000 as const,
+        before_agent_finalize: 90_000 as const,
         agent_end: 90_000 as const,
       },
     },

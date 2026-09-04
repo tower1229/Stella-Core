@@ -58,6 +58,8 @@ export function assertStellaHostHooks(value: unknown): void {
     !isRecord(value.timeouts) ||
     typeof value.timeouts.before_prompt_build !== "number" ||
     value.timeouts.before_prompt_build < 60_000 ||
+    typeof value.timeouts.before_agent_finalize !== "number" ||
+    value.timeouts.before_agent_finalize < 60_000 ||
     typeof value.timeouts.agent_end !== "number" ||
     value.timeouts.agent_end < 60_000
   ) {
@@ -92,6 +94,7 @@ export function assertStellaPluginRuntime(value: unknown): void {
     plugin.status !== "loaded" ||
     plugin.activated !== true ||
     !hookNames.has("before_prompt_build") ||
+    !hookNames.has("before_agent_finalize") ||
     !hookNames.has("before_agent_run")
   ) {
     throw new Error("Exact Host Stella plugin runtime is not active with required hooks");

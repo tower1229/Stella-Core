@@ -480,6 +480,23 @@ export default definePluginEntry({
       { priority: 1_000, timeoutMs: 15_000 },
     );
 
+    api.on(
+      "before_agent_finalize",
+      async (event, ctx) => {
+        const runId = event.runId ?? ctx.runId;
+        if (!runId) return;
+        const staged = episodeByRun.get(runId);
+        if (!staged) return;
+        const recommendation = event.lastAssistantMessage ?? lastAssistantText(event.messages ?? []);
+        if (!recommendation) return;
+        const loaded = await consciousness.load();
+        const episodeStore = createEpisodeStore(loaded);
+        await episodeStore.publishRecommendation(staged, recommendation.slice(0, 8_000), []);
+        episodeByRun.delete(runId);
+      },
+      { priority: 100, timeoutMs: 90_000 },
+    );
+
     api.on("agent_end", async (event, ctx) => {
       const runId = event.runId ?? ctx.runId;
       if (!runId) return;
