@@ -14,6 +14,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
@@ -78,6 +79,30 @@ async function listEpisodeIds(canghaiRoot) {
   return new Set(entries
     .filter((entry) => entry.isDirectory() && /^praxis-[a-zA-Z0-9_-]+$/u.test(entry.name))
     .map((entry) => entry.name));
+}
+
+async function waitForSingleCreatedEpisodeId(canghaiRoot, baselineIds, label) {
+  const deadline = Date.now() + 90_000;
+  do {
+    const currentIds = await listEpisodeIds(canghaiRoot);
+    const createdIds = [...currentIds].filter((id) => !baselineIds.has(id));
+    if (createdIds.length === 1) return createdIds[0];
+    if (createdIds.length > 1) {
+      throw new Error(`${label} turn published more than one new Praxis Episode`);
+    }
+    await delay(250);
+  } while (Date.now() < deadline);
+  throw new Error(`${label} turn did not publish a new Praxis Episode before timeout`);
+}
+
+async function waitForEpisode(canghaiRoot, id, predicate, label) {
+  const deadline = Date.now() + 90_000;
+  do {
+    const episode = await readEpisode(canghaiRoot, id);
+    if (predicate(episode)) return episode;
+    await delay(250);
+  } while (Date.now() < deadline);
+  throw new Error(`${label} Episode state was not persisted before timeout`);
 }
 
 async function readEpisode(canghaiRoot, id) {
@@ -288,12 +313,11 @@ try {
       sessionKey: `agent:${targetAgentId}:private-praxis-problem`,
       label: "problem",
     });
-    const afterRecommendationIds = await listEpisodeIds(canghaiRoot);
-    const createdIds = [...afterRecommendationIds].filter((id) => !initialEpisodeIds.has(id));
-    if (createdIds.length !== 1) {
-      throw new Error("Problem turn must publish exactly one new Praxis Episode");
-    }
-    const episodeId = createdIds[0];
+    const episodeId = await waitForSingleCreatedEpisodeId(
+      canghaiRoot,
+      initialEpisodeIds,
+      "Problem",
+    );
     const recommended = await readEpisode(canghaiRoot, episodeId);
     if (
       recommended.episode.status !== "recommended" ||
@@ -322,7 +346,12 @@ try {
       sessionKey: `agent:${targetAgentId}:private-praxis-outcome`,
       label: "outcome",
     });
-    const closed = await readEpisode(canghaiRoot, episodeId);
+    const closed = await waitForEpisode(
+      canghaiRoot,
+      episodeId,
+      ({ episode }) => episode.status === "closed",
+      "Outcome",
+    );
     if (
       closed.predictionHash !== recommended.predictionHash ||
       closed.episode.status !== "closed" ||
@@ -360,6 +389,7 @@ try {
     if (typeof similarProblemMessage !== "string" || !similarProblemMessage.trim()) {
       throw new Error("Private Praxis harness returned an invalid similar-problem turn");
     }
+    const afterOutcomeIds = await listEpisodeIds(canghaiRoot);
     const similarAnswer = await runPrivateTurn({
       openclawBin,
       consumerRoot,
@@ -368,14 +398,12 @@ try {
       sessionKey: `agent:${targetAgentId}:private-praxis-similar`,
       label: "similar-problem",
     });
-    const finalEpisodeIds = await listEpisodeIds(canghaiRoot);
-    const followupIds = [...finalEpisodeIds].filter(
-      (id) => !initialEpisodeIds.has(id) && id !== episodeId,
+    const followupId = await waitForSingleCreatedEpisodeId(
+      canghaiRoot,
+      afterOutcomeIds,
+      "Similar problem",
     );
-    if (followupIds.length !== 1) {
-      throw new Error("Similar problem turn must publish exactly one follow-up Episode");
-    }
-    const followup = await readEpisode(canghaiRoot, followupIds[0]);
+    const followup = await readEpisode(canghaiRoot, followupId);
     const learningRef = `${episodeRef}#learning:praxis:0`;
     if (
       followup.episode.status !== "recommended" ||

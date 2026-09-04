@@ -57,7 +57,9 @@ export function assertStellaHostHooks(value: unknown): void {
     value.allowPromptInjection !== true ||
     !isRecord(value.timeouts) ||
     typeof value.timeouts.before_prompt_build !== "number" ||
-    value.timeouts.before_prompt_build < 60_000
+    value.timeouts.before_prompt_build < 60_000 ||
+    typeof value.timeouts.agent_end !== "number" ||
+    value.timeouts.agent_end < 60_000
   ) {
     throw new Error("Exact Host Stella prompt hook permissions or timeout are insufficient");
   }
