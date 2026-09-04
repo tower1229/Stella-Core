@@ -172,6 +172,20 @@ write durable record to local CangHai
 
 Only the second protects against total server loss.
 
+For managed writes the executable transaction order is:
+
+```text
+write validated files
+→ commit CangHai
+→ compare-and-set the persistent OpenClaw recovery pointer
+→ push/flush CangHai
+→ refresh the in-process loader
+```
+
+The pointer update is awaited. If it fails, the new CangHai commit is preserved for activation-time
+reconciliation, the operation reports `stella_recovery_pointer_sync_failed`, and no success is
+reported. A stale pointer is never overwritten.
+
 ### Critical writes
 
 Examples:
@@ -269,11 +283,14 @@ This test is more important than having a nominal backup script because it verif
 `npm run test:package` performs the public synthetic form of this test in an isolated OpenClaw
 2026.8.2 state with a freshly installed npm tarball. Its receipt identifies the CangHai input as
 synthetic and `privateFixtureIncluded: false`; it is not a substitute for the private CangHai drill.
-The private drill and its evaluation report can be bound to a non-published tarball with
-`npm run candidate`. Candidate generation checks both Git checkouts are clean at the recorded SHAs
+The private drill, write-loop receipt, and evaluation report can be bound to a non-published tarball
+with `npm run candidate`. Candidate generation checks both Git checkouts are clean at the recorded SHAs
 and hashes the tarball itself. It rejects synthetic-only recovery, requires at least one private
 evaluation case, and cross-checks that recovery, evaluation, durability, Core, CangHai, Host, and
-artifact hashes all describe the same run. It does not create a tag, GitHub Release, npm publication,
+artifact hashes all describe the same run. Candidate v2 also requires a three-turn private
+`managed_durable_write` receipt proving sealed prediction, recommendation, actual/outcome/learning,
+remote synchronization, Gateway restart, and use of the new learning. It does not create a tag,
+GitHub Release, npm publication,
 or deployment.
 
 For a mixed public/private evaluation, pass the shipped public suite with `--suite` and the private

@@ -155,3 +155,18 @@ Physical reorganization is optional and happens only when it improves maintainab
 **Decision:** Existing Stella 1.0 corpus remains cold-start evidence. New 3.0 Twin hypotheses, Praxis episodes/playbooks, and active non-deterministic Framework IR artifacts are written to dedicated managed personal-data locations rather than silently modifying legacy model-seed/RAG sources.
 
 This separates historical evidence from continuously learned Stella 3.0 consciousness.
+
+## D-027 — Recommendation and actual action are distinct durable states
+
+**Decision:** Publishing advice moves a Praxis Episode from `open` to `recommended`. Only evidence
+that the owner, a tool, or the system actually acted may produce `acted`. Outcome association may
+atomically close either a recommended or acted Episode, but closure always requires actual action,
+outcome, and learning while preserving the original prediction snapshot.
+
+## D-028 — Managed commits advance the persistent recovery pointer before synchronization
+
+**Decision:** A managed CangHai write is not successful merely because the process-local loader saw
+the new revision. After the CangHai commit, Stella compare-and-sets the persistent OpenClaw recovery
+pointer, then pushes/flushes and refreshes the loader. Pointer failure preserves the commit for
+explicit reconciliation and fails with a stable category; it never rolls back user learning or
+silently overwrites a concurrent configuration change.

@@ -53,6 +53,84 @@ test("critical writes commit and push before reporting success", async () => {
   }
 });
 
+test("critical writes await recovery pointer persistence before pushing", async () => {
+  const { root, remote, branch } = await fixture();
+  let releasePointer: (() => void) | undefined;
+  let pointerRevision: string | undefined;
+  try {
+    await writeFile(path.join(root, "critical.txt"), "identity update\n", "utf8");
+    const durability = new GitCangHaiDurability({
+      root,
+      remote: "origin",
+      branch,
+      criticalWritePolicy: "sync_immediately",
+      normalWritePolicy: "bounded_batch",
+      maxNormalRpoSeconds: 300,
+      onRevision: async (revision) => {
+        pointerRevision = revision;
+        await new Promise<void>((resolve) => {
+          releasePointer = resolve;
+        });
+      },
+    });
+
+    const syncing = durability.syncCritical(["critical.txt"], "stella: critical update");
+    while (!releasePointer) await new Promise((resolve) => setImmediate(resolve));
+    const { stdout: localHead } = await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"]);
+    const { stdout: remoteHeadBefore } = await execFileAsync("git", [
+      "--git-dir", remote, "rev-parse", "refs/heads/stella-alpha",
+    ]);
+    assert.equal(pointerRevision, localHead.trim());
+    assert.notEqual(remoteHeadBefore.trim(), localHead.trim());
+
+    releasePointer();
+    await syncing;
+    const { stdout: remoteHeadAfter } = await execFileAsync("git", [
+      "--git-dir", remote, "rev-parse", "refs/heads/stella-alpha",
+    ]);
+    assert.equal(remoteHeadAfter.trim(), localHead.trim());
+  } finally {
+    await rm(path.dirname(root), { recursive: true, force: true });
+  }
+});
+
+test("pointer persistence failure keeps the CangHai commit and does not push it", async () => {
+  const { root, remote, branch } = await fixture();
+  const pointerFailure = Object.assign(new Error("pointer CAS failed"), {
+    category: "stella_recovery_pointer_sync_failed",
+  });
+  try {
+    const { stdout: initialRemoteHead } = await execFileAsync("git", [
+      "--git-dir", remote, "rev-parse", "refs/heads/stella-alpha",
+    ]);
+    await writeFile(path.join(root, "critical.txt"), "identity update\n", "utf8");
+    const durability = new GitCangHaiDurability({
+      root,
+      remote: "origin",
+      branch,
+      criticalWritePolicy: "sync_immediately",
+      normalWritePolicy: "bounded_batch",
+      maxNormalRpoSeconds: 300,
+      onRevision: async () => {
+        throw pointerFailure;
+      },
+    });
+
+    await assert.rejects(
+      durability.syncCritical(["critical.txt"], "stella: critical update"),
+      (error) => error === pointerFailure,
+    );
+    const { stdout: localHead } = await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"]);
+    const { stdout: remoteHead } = await execFileAsync("git", [
+      "--git-dir", remote, "rev-parse", "refs/heads/stella-alpha",
+    ]);
+    assert.notEqual(localHead.trim(), initialRemoteHead.trim());
+    assert.equal(remoteHead.trim(), initialRemoteHead.trim());
+  } finally {
+    await rm(path.dirname(root), { recursive: true, force: true });
+  }
+});
+
 test("normal writes expose pending RPO and flush to the configured remote", async () => {
   const { root, remote, branch } = await fixture();
   let scheduled: (() => void) | undefined;

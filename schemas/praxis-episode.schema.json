@@ -8,7 +8,7 @@
   "properties": {
     "schemaVersion": {"const": "stella.praxis-episode/v1"},
     "id": {"type": "string", "minLength": 1},
-    "status": {"enum": ["open", "acted", "observing", "closed", "abandoned", "expired"]},
+    "status": {"enum": ["open", "recommended", "acted", "observing", "closed", "abandoned", "expired"]},
     "createdAt": {"type": "string", "format": "date-time"},
     "updatedAt": {"type": "string", "format": "date-time"},
     "recoveryPriority": {"enum": ["normal", "important"]},
@@ -95,6 +95,7 @@
     "decision": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["recommendation", "rationale"],
       "properties": {
         "options": {"type": "array", "items": {"type": "string"}},
         "recommendation": {"type": "string"},
@@ -105,6 +106,7 @@
     "actual": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["action", "occurredAt", "source"],
       "properties": {
         "action": {"type": "string"},
         "occurredAt": {"type": "string", "format": "date-time"},
@@ -114,6 +116,7 @@
     "outcome": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["observations", "result", "observedAt"],
       "properties": {
         "observations": {"type": "array", "items": {"type": "string"}},
         "result": {"type": "string"},
@@ -133,6 +136,7 @@
     "learning": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["algorithmVersion", "predictionAssessment", "evidenceRefs", "praxis"],
       "properties": {
         "algorithmVersion": {"const": "stella.praxis-learning/v1"},
         "predictionAssessment": {"enum": ["supported", "countered", "unresolved"]},
@@ -148,5 +152,43 @@
         "frameworkPractice": {"type": "array", "items": {"type": "string"}}
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "open"}}, "required": ["status"]},
+      "then": {"properties": {"decision": false, "actual": false, "outcome": false, "learning": false}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "recommended"}}, "required": ["status"]},
+      "then": {
+        "required": ["decision"],
+        "properties": {"decision": true, "actual": false, "outcome": false, "learning": false}
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "acted"}}, "required": ["status"]},
+      "then": {
+        "required": ["decision", "actual"],
+        "properties": {"decision": true, "actual": true, "outcome": false, "learning": false}
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "closed"}}, "required": ["status"]},
+      "then": {
+        "required": ["decision", "actual", "outcome", "learning"],
+        "properties": {"decision": true, "actual": true, "outcome": true, "learning": true}
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "observing"}}, "required": ["status"]},
+      "then": {
+        "required": ["decision", "actual"],
+        "properties": {"decision": true, "actual": true, "outcome": false, "learning": false}
+      }
+    },
+    {
+      "if": {"properties": {"status": {"enum": ["abandoned", "expired"]}}, "required": ["status"]},
+      "then": {"properties": {"actual": false, "outcome": false, "learning": false}}
+    }
+  ]
 }

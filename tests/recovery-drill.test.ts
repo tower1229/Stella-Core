@@ -15,14 +15,14 @@ async function addPraxisContinuityState(root: string): Promise<void> {
   await writeFile(path.join(openRoot, "episode.json"), `${JSON.stringify({
     schemaVersion: "stella.praxis-episode/v1",
     id: "praxis-open",
-    status: "acted",
+    status: "recommended",
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     recoveryPriority: "important",
     provenance: {},
     situation: { summary: "important open state", domains: ["relationship"], observations: [] },
     twin: { prediction },
-    decision: { recommendation: "wait once" },
+    decision: { recommendation: "wait once", rationale: ["preserve space"] },
   }, null, 2)}\n`);
   await writeFile(path.join(learnedRoot, "prediction.json"), `${JSON.stringify(prediction)}\n`);
   await writeFile(path.join(learnedRoot, "episode.json"), `${JSON.stringify({
@@ -34,6 +34,17 @@ async function addPraxisContinuityState(root: string): Promise<void> {
     provenance: {},
     situation: { summary: "closed learning", domains: ["relationship"], observations: [] },
     twin: { prediction },
+    decision: { recommendation: "wait once", rationale: ["preserve space"] },
+    actual: {
+      action: "waited",
+      occurredAt: "2026-09-01T00:00:00Z",
+      source: "user_report",
+    },
+    outcome: {
+      observations: ["contact resumed"],
+      result: "pressure avoided",
+      observedAt: "2026-09-01T00:00:00Z",
+    },
     learning: {
       algorithmVersion: "stella.praxis-learning/v1",
       predictionAssessment: "supported",

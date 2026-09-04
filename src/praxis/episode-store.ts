@@ -83,10 +83,26 @@ export type EpisodeOutcomeInput = {
   praxisLearning: string;
 };
 
+export type EpisodeActionInput = {
+  episodeRef: string;
+  actualAction: string;
+  source: EpisodeOutcomeInput["source"];
+  occurredAt: string;
+};
+
+export type EpisodeTerminalStatus = "abandoned" | "expired";
+
 type PraxisEpisode = {
   schemaVersion: "stella.praxis-episode/v1";
   id: string;
-  status: "open" | "acted" | "observing" | "closed" | "abandoned" | "expired";
+  status:
+    | "open"
+    | "recommended"
+    | "acted"
+    | "observing"
+    | "closed"
+    | "abandoned"
+    | "expired";
   createdAt: string;
   updatedAt: string;
   recoveryPriority?: "normal" | "important";
@@ -121,7 +137,7 @@ type PraxisEpisode = {
 
 export type OpenEpisodeCandidate = {
   ref: string;
-  status: "open" | "acted" | "observing";
+  status: "open" | "recommended" | "acted" | "observing";
   summary: string;
   domains: string[];
   prediction: Prediction;
@@ -303,7 +319,7 @@ export class CangHaiPraxisEpisodeStore {
     if (episode.status !== "open") throw new Error("Only an open Episode accepts a recommendation");
     const updated: PraxisEpisode = {
       ...episode,
-      status: "acted",
+      status: "recommended",
       updatedAt: this.#now(),
       decision: { recommendation, rationale },
     };
@@ -328,6 +344,76 @@ export class CangHaiPraxisEpisodeStore {
     await rm(this.#resolveStagingDirectory(staged), { recursive: true, force: true });
   }
 
+  async recordActualAction(input: EpisodeActionInput): Promise<void> {
+    await this.#assertWritable();
+    const { episodePath, predictionPath } = this.#resolveEpisodeRef(input.episodeRef);
+    const { episode, predictionSealed } = await this.#readVerifiedEpisode(
+      episodePath,
+      predictionPath,
+    );
+    if (!predictionSealed) {
+      throw new Error("Action recording requires a sealed pre-outcome prediction");
+    }
+    if (episode.status !== "recommended") {
+      throw new Error("Only a recommended Praxis Episode accepts an actual action");
+    }
+    const updated: PraxisEpisode = {
+      ...episode,
+      status: "acted",
+      updatedAt: this.#now(),
+      actual: {
+        action: input.actualAction,
+        occurredAt: input.occurredAt,
+        source: input.source,
+      },
+    };
+    await this.#persistLifecycleChange(
+      episodePath,
+      updated,
+      input.episodeRef,
+      "critical",
+      `stella: preserve acted Praxis state ${episode.id}`,
+    );
+  }
+
+  async markObserving(episodeRef: string): Promise<void> {
+    await this.#assertWritable();
+    const { episodePath, predictionPath } = this.#resolveEpisodeRef(episodeRef);
+    const { episode, predictionSealed } = await this.#readVerifiedEpisode(
+      episodePath,
+      predictionPath,
+    );
+    if (!predictionSealed) {
+      throw new Error("Observation requires a sealed pre-outcome prediction");
+    }
+    if (episode.status !== "acted") {
+      throw new Error("Only an acted Praxis Episode can enter observation");
+    }
+    await this.#persistLifecycleChange(
+      episodePath,
+      { ...episode, status: "observing", updatedAt: this.#now() },
+      episodeRef,
+      "critical",
+      `stella: preserve observing Praxis state ${episode.id}`,
+    );
+  }
+
+  async terminateEpisode(episodeRef: string, status: EpisodeTerminalStatus): Promise<void> {
+    await this.#assertWritable();
+    const { episodePath, predictionPath } = this.#resolveEpisodeRef(episodeRef);
+    const { episode } = await this.#readVerifiedEpisode(episodePath, predictionPath);
+    if (episode.status !== "open" && episode.status !== "recommended") {
+      throw new Error("Only an open or recommended Praxis Episode can be abandoned or expired");
+    }
+    await this.#persistLifecycleChange(
+      episodePath,
+      { ...episode, status, updatedAt: this.#now() },
+      episodeRef,
+      "normal",
+      `stella: ${status} Praxis state ${episode.id}`,
+    );
+  }
+
   async associateOutcome(input: EpisodeOutcomeInput): Promise<void> {
     await this.#assertWritable();
     const { episodePath, predictionPath } = this.#resolveEpisodeRef(input.episodeRef);
@@ -338,7 +424,13 @@ export class CangHaiPraxisEpisodeStore {
     if (!predictionSealed) {
       throw new Error("Outcome association requires a sealed pre-outcome prediction");
     }
-    if (episode.status === "closed") throw new Error("Praxis Episode is already closed");
+    if (
+      episode.status !== "recommended" &&
+      episode.status !== "acted" &&
+      episode.status !== "observing"
+    ) {
+      throw new Error("Only a recommended, acted, or observing Praxis Episode accepts an outcome");
+    }
     const updated: PraxisEpisode = {
       ...episode,
       status: "closed",
@@ -428,6 +520,24 @@ export class CangHaiPraxisEpisodeStore {
     ]);
     if (stdout.trim() !== LOCAL_WRITE_BRANCH) {
       throw new Error(`local_write requires CangHai branch ${LOCAL_WRITE_BRANCH}`);
+    }
+  }
+
+  async #persistLifecycleChange(
+    episodePath: string,
+    episode: PraxisEpisode,
+    episodeRef: string,
+    durability: "critical" | "normal",
+    message: string,
+  ): Promise<void> {
+    await validateSchema("praxis-episode", episode);
+    await writeAtomicFile(episodePath, serialize(episode));
+    if (this.#dataMode !== "managed_durable_write") return;
+    const paths = [path.posix.dirname(parseCangHaiRef(episodeRef).relativePath)];
+    if (durability === "critical") {
+      await this.#durability!.syncCritical(paths, message);
+    } else {
+      await this.#durability!.recordNormal(paths, message);
     }
   }
 

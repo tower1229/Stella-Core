@@ -17,7 +17,7 @@ export type CangHaiDurabilityOptions = {
   maxNormalRpoSeconds: number;
   now?: () => number;
   schedule?: Schedule;
-  onRevision?: (revision: string) => void;
+  onRevision?: (revision: string) => void | Promise<void>;
 };
 
 export type CangHaiDurabilityDiagnostics = {
@@ -51,7 +51,7 @@ export class GitCangHaiDurability {
   readonly #maxNormalRpoSeconds: number;
   readonly #now: () => number;
   readonly #schedule: Schedule;
-  readonly #onRevision?: (revision: string) => void;
+  readonly #onRevision?: (revision: string) => void | Promise<void>;
   #pendingNormalSince?: number;
   #synchronizedRevision?: string;
   #criticalSynchronized = false;
@@ -192,11 +192,11 @@ export class GitCangHaiDurability {
         "--",
         ...paths,
       ]);
-      const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
-      this.#onRevision?.(stdout.trim());
     } catch (error) {
       throw new Error("CangHai durability commit failed", { cause: error });
     }
+    const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
+    await this.#onRevision?.(stdout.trim());
   }
 
   async #push(): Promise<void> {

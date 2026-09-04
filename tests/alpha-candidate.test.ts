@@ -56,6 +56,27 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
         exactHostAgentTurns: 3,
         privateFixtureIncluded: true,
       },
+      praxisLoop: {
+        schemaVersion: "stella.exact-host-praxis-receipt/v1",
+        coreRevision: core.revision,
+        initialCanghaiRevision: "4".repeat(40),
+        finalCanghaiRevision: canghai.revision,
+        hostVersion: "2026.8.2",
+        artifactSha256,
+        dataMode: "managed_durable_write",
+        predictionSealedBeforeOutcome: true,
+        recommendationPersisted: true,
+        actualRecorded: true,
+        outcomeClosed: true,
+        learningPersisted: true,
+        learningRetrievedAfterRestart: true,
+        finalRevisionRemoteSynchronized: true,
+        sourceClean: true,
+        exactHostAgentTurns: 3,
+        episodeRefHash: "5".repeat(64),
+        learningRefHash: "6".repeat(64),
+        privateFixtureIncluded: true,
+      },
       durability: {
         criticalWritePolicy: "sync_immediately",
         criticalSynchronized: true,
@@ -93,7 +114,7 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
       createdAt: "2026-09-03T00:00:00.000Z",
     });
 
-    assert.equal(receipt.schemaVersion, "stella.alpha-candidate-receipt/v1");
+    assert.equal(receipt.schemaVersion, "stella.alpha-candidate-receipt/v2");
     assert.equal(receipt.candidate, true);
     assert.equal(receipt.core.sourceClean, true);
     assert.equal(receipt.canghai.sourceClean, true);
@@ -142,6 +163,27 @@ test("rejects dirty or incomplete candidate evidence", async () => {
       praxisLearningRestored: true as const,
       importantOpenStateRestored: true as const,
       exactHostAgentTurns: 3,
+      privateFixtureIncluded: true as const,
+    },
+    praxisLoop: {
+      schemaVersion: "stella.exact-host-praxis-receipt/v1" as const,
+      coreRevision: core.revision,
+      initialCanghaiRevision: "4".repeat(40),
+      finalCanghaiRevision: canghai.revision,
+      hostVersion: "2026.8.2" as const,
+      artifactSha256,
+      dataMode: "managed_durable_write" as const,
+      predictionSealedBeforeOutcome: true as const,
+      recommendationPersisted: true as const,
+      actualRecorded: true as const,
+      outcomeClosed: true as const,
+      learningPersisted: true as const,
+      learningRetrievedAfterRestart: true as const,
+      finalRevisionRemoteSynchronized: true as const,
+      sourceClean: true as const,
+      exactHostAgentTurns: 3,
+      episodeRefHash: "5".repeat(64),
+      learningRefHash: "6".repeat(64),
       privateFixtureIncluded: true as const,
     },
     durability: {

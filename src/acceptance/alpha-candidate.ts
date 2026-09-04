@@ -13,6 +13,10 @@ import {
   parseExactHostRecoveryReceipt,
   type ExactHostRecoveryReceipt,
 } from "./exact-host-evidence.js";
+import {
+  parseExactHostPraxisReceipt,
+  type ExactHostPraxisReceipt,
+} from "./exact-host-praxis.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -39,13 +43,14 @@ export type AlphaCandidateInput = {
   hostVersion: string;
   artifactPath: string;
   recovery: AlphaRecoveryEvidence;
+  praxisLoop: ExactHostPraxisReceipt;
   durability: AlphaDurabilityEvidence;
   evaluation: PraxisEvaluationReport;
   createdAt?: string;
 };
 
 export type AlphaCandidateReceipt = {
-  schemaVersion: "stella.alpha-candidate-receipt/v1";
+  schemaVersion: "stella.alpha-candidate-receipt/v2";
   candidate: true;
   createdAt: string;
   core: { revision: string; sourceClean: true };
@@ -53,6 +58,7 @@ export type AlphaCandidateReceipt = {
   host: { product: "OpenClaw"; version: "2026.8.2"; cleanRuntimeState: true };
   artifact: { path: string; sha256: string; bytes: number };
   recovery: AlphaRecoveryEvidence;
+  praxisLoop: ExactHostPraxisReceipt;
   durability: AlphaDurabilityEvidence;
   evaluation: PraxisEvaluationReport & { privateEvaluationIncluded: boolean };
   release: {
@@ -142,6 +148,7 @@ export async function createAlphaCandidateReceipt(
     throw new Error(`Alpha candidate requires OpenClaw ${ALPHA_HOST_VERSION}`);
   }
   const recovery = parseExactHostRecoveryReceipt(input.recovery);
+  const praxisLoop = parseExactHostPraxisReceipt(input.praxisLoop);
   validateDurability(input.durability);
   validateEvaluation(input.evaluation);
   const containsPrivateEvaluation = input.evaluation.boundaryCounts.private_canghai > 0;
@@ -165,6 +172,14 @@ export async function createAlphaCandidateReceipt(
     throw new Error("Alpha recovery receipt is not bound to these sources, Host, and artifact");
   }
   if (
+    praxisLoop.coreRevision !== coreRevision ||
+    praxisLoop.finalCanghaiRevision !== canghaiRevision ||
+    praxisLoop.hostVersion !== input.hostVersion ||
+    praxisLoop.artifactSha256 !== artifact.sha256
+  ) {
+    throw new Error("Alpha Praxis receipt is not bound to these sources, Host, and artifact");
+  }
+  if (
     input.evaluation.execution!.coreRevision !== coreRevision ||
     input.evaluation.execution!.canghaiRevision !== canghaiRevision ||
     input.evaluation.execution!.hostVersion !== input.hostVersion ||
@@ -177,7 +192,7 @@ export async function createAlphaCandidateReceipt(
   }
 
   return {
-    schemaVersion: "stella.alpha-candidate-receipt/v1",
+    schemaVersion: "stella.alpha-candidate-receipt/v2",
     candidate: true,
     createdAt,
     core: { revision: coreRevision, sourceClean: true },
@@ -185,6 +200,7 @@ export async function createAlphaCandidateReceipt(
     host: { product: "OpenClaw", version: ALPHA_HOST_VERSION, cleanRuntimeState: true },
     artifact: { path: path.resolve(input.artifactPath), ...artifact },
     recovery,
+    praxisLoop,
     durability: input.durability,
     evaluation: { ...input.evaluation, privateEvaluationIncluded: true },
     release: {

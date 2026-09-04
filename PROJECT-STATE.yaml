@@ -1,7 +1,7 @@
 project: Stella Core
 version_target: "3.0 Alpha"
-status: alpha-candidate-gate-implemented
-updated_at: "2026-09-03"
+status: alpha-write-loop-gate-implemented
+updated_at: "2026-09-04"
 
 mission:
   single_goal: >-
@@ -40,7 +40,7 @@ runtime_strategy:
     linked_plugin_checkout: true
     canghai_base_branch: dev-stella-3-rebuild
     canghai_local_work_branch: local/stella-alpha
-    initial_data_mode: read_only
+    initial_data_mode: managed_durable_write
 
 completed:
   - vision baseline
@@ -72,6 +72,11 @@ completed:
   - Level 0-3 recovery drill orchestration with explicit derived rebuild and continuity evidence
   - 32-case public synthetic relationship/social Praxis evaluation suite and boundary-safe runner
   - fail-closed Alpha candidate artifact receipt bound to clean source revisions and artifact hash
+  - explicit recommended/acted Praxis lifecycle with sealed pre-outcome prediction
+  - persistent compare-and-set recovery pointer transaction for every managed commit
+  - transactional local activation check/apply entrypoint for OpenClaw 2026.8.2
+  - private three-turn managed-write, remote-sync, restart, and learning-reuse receipt contract
+  - Alpha candidate receipt v2 requiring write-loop, recovery, private evaluation, and durability evidence
 
 frozen_decisions:
   - one Cortex, not four persistent agents
@@ -87,32 +92,23 @@ frozen_decisions:
   - owner framework source, compiled IR, and Praxis learning are separate
   - legacy Stella 1.0 corpus remains cold-start evidence and is not destructively migrated for Alpha
   - new 3.0 learning uses managed personal-data locations
-  - local Alpha begins read-only, then enables local-only writes before durable remote synchronization
+  - recommendation does not imply action; acted requires external actual-action evidence
+  - recovery pointer persistence occurs after commit and before remote synchronization
+  - local development may use read_only or local_write, but Alpha delivery requires managed_durable_write
   - no personal fine-tuning required for Alpha
   - Stella-Core must contain no private CangHai data
 
 next_phase:
-  id: ALPHA-02
-  title: Local OpenClaw 2026.8.2 Praxis vertical slice
+  id: ALPHA-03
+  title: Final exact-Host evidence and Issue closure
   immediate_order:
-    - migrate and review the private CangHai runtime state from migration_required to active
-    - run the exact OpenClaw 2026.8.2 acceptance against that explicit clean CangHai revision
-    - run OpenClaw through an isolated OPENCLAW_STATE_DIR
-    - link the local Stella-Core checkout as an OpenClaw plugin
-    - configure canghaiRoot to a local CangHai checkout based on dev-stella-3-rebuild
-    - verify read-only consciousness bootstrap and fail-closed behavior
-    - correct bootstrap-baseline vs current-recovery-revision validation semantics before write-enabled acceptance
-    - implement Turn Router with ordinary/praxis/outcome lanes
-    - implement Situation Builder
-    - implement bounded Twin Context Builder against CangHai registries and legacy evidence
-    - implement Framework Registry/Selector using active IR
-    - implement Reality Need Check
-    - assemble and inject compact Praxis Context Packet
-    - add explicit read_only/local_write/managed_durable_write data modes
-    - persist a valid pre-outcome Praxis Episode to local CangHai
-    - associate a later outcome with an open episode
-    - update at least one Twin hypothesis from prediction error
-    - run a clean-runtime recovery drill from the resulting CangHai Git revision
+    - commit and pack one clean Core revision
+    - migrate private acted-without-actual Episodes to recommended and activate the portable runtime profile
+    - run the three-turn private managed-write loop and explicitly flush normal learning
+    - recover a fresh OpenClaw 2026.8.2 Host from the final synchronized CangHai revision
+    - rerun private evaluation on the same artifact and final CangHai revision
+    - generate Alpha candidate receipt v2 and verify current-SHA CI
+    - update and close Issue 5 only when every bound gate passes
 
 not_now:
   - personal fine-tuning

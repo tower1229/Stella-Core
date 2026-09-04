@@ -24,9 +24,10 @@ It allows Stella to learn from reality instead of merely accumulating descriptio
 
 ```text
 open
-→ acted
-→ observing
-→ closed
+→ recommended → acted → closed
+                  ↘ observing → closed
+
+open / recommended → abandoned | expired
 
 Alternative terminal states:
 abandoned / expired
@@ -44,7 +45,7 @@ silently satisfy the clean-runtime recovery gate.
 interface PraxisEpisode {
   schemaVersion: string;
   id: string;
-  status: "open" | "acted" | "observing" | "closed" | "abandoned" | "expired";
+  status: "open" | "recommended" | "acted" | "observing" | "closed" | "abandoned" | "expired";
 
   createdAt: string;
   updatedAt: string;
@@ -155,7 +156,11 @@ Twin prediction when a meaningful choice exists
 framework operator refs when used
 ```
 
-Outcome and learning are appended later.
+Publishing a recommendation moves the Episode to `recommended`; it does not claim the owner acted.
+`acted` requires an `actual` record supplied by the user, a tool, or a system event. Closing from
+either `recommended` or `acted` atomically records actual action, outcome, and learning. A closed
+Episode without all three is invalid. Outcome and learning are appended later without modifying the
+sealed prediction snapshot.
 
 ## 5. Prediction before outcome
 

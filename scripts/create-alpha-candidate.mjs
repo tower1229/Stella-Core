@@ -18,10 +18,11 @@ const options = parseRequiredArguments(
     "artifact",
     "evaluation-report",
     "recovery-receipt",
+    "praxis-receipt",
     "durability-evidence",
     "output-dir",
   ],
-  "Usage: --canghai-root <path> --canghai-revision <sha> --artifact <tgz> --evaluation-report <json> --recovery-receipt <json> --durability-evidence <json> --output-dir <path>",
+  "Usage: --canghai-root <path> --canghai-revision <sha> --artifact <tgz> --evaluation-report <json> --recovery-receipt <json> --praxis-receipt <json> --durability-evidence <json> --output-dir <path>",
 );
 
 function assertOutputOutsideSource(outputDirectory) {
@@ -35,12 +36,13 @@ const outputDirectory = path.resolve(options["output-dir"]);
 assertOutputOutsideSource(outputDirectory);
 await mkdir(outputDirectory, { recursive: true });
 
-const [{ stdout: coreRevision }, evaluation, recovery, durability] = await Promise.all([
+const [{ stdout: coreRevision }, evaluation, recovery, praxisLoop, durability] = await Promise.all([
   execFileAsync("git", ["-C", projectRoot, "rev-parse", "HEAD"]),
   readFile(path.resolve(options["evaluation-report"]), "utf8").then(JSON.parse),
   readFile(path.resolve(options["recovery-receipt"]), "utf8")
     .then(JSON.parse)
     .then(parseExactHostRecoveryReceipt),
+  readFile(path.resolve(options["praxis-receipt"]), "utf8").then(JSON.parse),
   readFile(path.resolve(options["durability-evidence"]), "utf8").then(JSON.parse),
 ]);
 const sourceArtifactPath = path.resolve(options.artifact);
@@ -56,6 +58,7 @@ const receipt = await createAlphaCandidateReceipt({
   hostVersion: "2026.8.2",
   artifactPath,
   recovery,
+  praxisLoop,
   durability,
   evaluation,
 });

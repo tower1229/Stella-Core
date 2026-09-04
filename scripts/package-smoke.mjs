@@ -46,9 +46,9 @@ try {
   for (const record of [
     {
       id: "praxis-smoke-open",
-      status: "acted",
+      status: "recommended",
       summary: "Synthetic important open state",
-      decision: { recommendation: "wait once" },
+      decision: { recommendation: "wait once", rationale: ["preserve space"] },
     },
     {
       id: "praxis-smoke-learned",
@@ -92,7 +92,22 @@ try {
         },
         twin: { prediction: continuityPrediction },
         ...(record.decision ? { decision: record.decision } : {}),
-        ...(record.learning ? { learning: record.learning } : {}),
+        ...(record.learning
+          ? {
+              decision: { recommendation: "verify once", rationale: ["reduce uncertainty"] },
+              actual: {
+                action: "verified once",
+                occurredAt: "2026-09-02T00:00:00.000Z",
+                source: "user_report",
+              },
+              outcome: {
+                observations: ["assumption checked"],
+                result: "uncertainty reduced",
+                observedAt: "2026-09-02T00:00:00.000Z",
+              },
+              learning: record.learning,
+            }
+          : {}),
       }, null, 2)}\n`,
       "utf8",
     );
@@ -241,6 +256,7 @@ try {
 
   const providerRequests = [];
   let forceInvalidSemanticRoute = false;
+  const semanticRouteResponses = [];
   const fixtureOperatorRefs = [
     "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
     "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:observation_test",
@@ -308,13 +324,7 @@ try {
       : isSemanticRouting
         ? forceInvalidSemanticRoute
           ? "not-json"
-          : JSON.stringify(
-              body.includes("请恢复我的核心身份")
-                ? twinRoute
-                : body.includes("她两天没回我消息")
-                  ? praxisRoute
-                  : ordinaryRoute,
-            )
+          : JSON.stringify(semanticRouteResponses.shift() ?? ordinaryRoute)
         : body.includes("<stella_core_praxis_context")
           ? "建议你只发一次低压消息，并明确让对方按自己的节奏回复；先准备草稿，不替你发送。"
           : body.includes("<stella_core_consciousness")
@@ -473,6 +483,15 @@ try {
   ];
   const exactHostResults = [];
   for (const turn of exactHostTurns) {
+    if (turn.agentId === "stella") {
+      semanticRouteResponses.push(
+        exactHostResults.length === 0
+          ? ordinaryRoute
+          : exactHostResults.length === 1
+            ? praxisRoute
+            : twinRoute,
+      );
+    }
     exactHostResults.push(await run(
       openclawBin,
       [
@@ -619,6 +638,7 @@ try {
 
   function registerHooks(canghaiRoot, recoveryRevision) {
     const hooks = new Map();
+    const structuredRoutes = [ordinaryRoute, praxisRoute];
     installedPlugin.default.register({
       pluginConfig: { canghaiRoot, recoveryRevision, agentId: "stella", dataMode: "read_only" },
       runtime: {
@@ -626,11 +646,7 @@ try {
         llm: {
           complete: async ({ messages, purpose }) => purpose === "stella-core-open-episode-selection"
             ? { text: JSON.stringify({ openEpisodeRef: null }) }
-            : {
-                text: JSON.stringify(messages[0]?.content.includes("她没回我消息")
-                  ? praxisRoute
-                  : ordinaryRoute),
-              },
+            : { text: JSON.stringify(structuredRoutes.shift() ?? ordinaryRoute) },
         },
       },
       logger: {

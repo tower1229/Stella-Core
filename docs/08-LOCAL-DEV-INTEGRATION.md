@@ -9,7 +9,8 @@ Run Stella 3.0 locally against the exact Alpha acceptance Host, OpenClaw 2026.8.
 - a local CangHai checkout based on the reviewed Stella 3.0 rebuild branch;
 - no dependency on production OpenClaw sessions or machine-local runtime state.
 
-The first acceptance target is a read-only consciousness bootstrap. The second target is a local-write Praxis vertical slice.
+The historical first targets were read-only bootstrap and local-write Praxis. The Alpha delivery
+target is now `managed_durable_write` with a persistent recovery pointer and remote synchronization.
 
 ## Development topology
 
@@ -103,18 +104,14 @@ openclaw plugins install --link "$PWD"
 
 If OpenClaw requests explicit trust confirmation for the local source, review the source and accept it; non-interactive setup may require the corresponding force/trust flag.
 
-Configure Stella-Core:
+For current Alpha activation, use the repository-owned check/apply command rather than mutating
+individual fields by hand:
 
 ```bash
-openclaw config set plugins.entries.stella-core.config.canghaiRoot "$HOME/dev/CangHai-Stella-Dev"
-openclaw config set plugins.entries.stella-core.config.manifestPath "50_PersonalAgent/stella/manifest.yaml"
-openclaw config set plugins.entries.stella-core.config.agentId "stella"
-openclaw config set plugins.entries.stella-core.config.recoveryRevision "$(git -C "$HOME/dev/CangHai-Stella-Dev" rev-parse HEAD)"
-openclaw config set plugins.entries.stella-core.config.dataMode read_only
-openclaw config set plugins.entries.stella-core.hooks.allowConversationAccess true
-openclaw config set plugins.entries.stella-core.enabled true
-openclaw config validate
-openclaw gateway restart
+npm run stella:activate -- --canghai-root "$HOME/dev/CangHai-Stella-Dev" \
+  --agent-id main --data-mode managed_durable_write --check
+npm run stella:activate -- --canghai-root "$HOME/dev/CangHai-Stella-Dev" \
+  --agent-id main --data-mode managed_durable_write --apply
 ```
 
 Verify the runtime plugin surface:
@@ -177,7 +174,7 @@ local_write
 managed_durable_write
 ```
 
-Local Alpha uses `local_write`:
+Local-only development may use `local_write`:
 
 - may create/update managed Stella 3.0 files in the local CangHai checkout;
 - must not git push;
@@ -216,12 +213,13 @@ Acceptance condition:
 
 The new runtime can recover the identity, active Framework IR, Twin state, and learned Praxis outcome without the old session database.
 
-After local-only development, `managed_durable_write` is a separate, explicit phase. It additionally
+Alpha delivery uses `managed_durable_write`. It additionally
 requires `durabilityRemote` and `durabilityBranch` in plugin configuration and a manifest durability
 policy. Critical open/high-value state returns success only after commit and push. Normal closed
 learning commits immediately, schedules a push within `maxNormalRpoSeconds`, and exposes pending or
-breached RPO diagnostics. Do not point this mode at a real remote unless that external write has been
-authorized.
+breached RPO diagnostics. Every commit advances the persistent recovery pointer before push; CAS
+conflicts fail explicitly. Do not point this mode at a real remote unless that external write has
+been authorized.
 
 ## Immediate implementation sequence
 

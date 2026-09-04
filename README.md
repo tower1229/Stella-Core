@@ -83,10 +83,24 @@ Legacy Stella 1.0 data remains in place and is treated as cold-start evidence.
 ## Alpha recovery and candidate gates
 
 Stella Core exposes a fail-closed Level 0–3 recovery drill, managed Git durability, a repeatable
-Praxis evaluation runner, and an Alpha candidate receipt builder. `managed_durable_write` requires
+Praxis evaluation runner, an exact-Host write-loop runner, and an Alpha candidate receipt builder.
+`managed_durable_write` requires
 an explicit Git remote/branch and a manifest policy with critical `sync_immediately`; normal writes
 are committed locally and pushed within the configured bounded RPO. The coordinator exposes pending
-age, RPO breach, synchronized revision, and stable failure categories.
+age, RPO breach, synchronized revision, and stable failure categories. Every managed commit first
+advances the persistent OpenClaw recovery pointer with compare-and-set, then pushes and refreshes the
+in-process loader. A pointer conflict leaves the CangHai commit intact and fails explicitly.
+
+Use the unified activation entrypoint for a non-mutating diagnosis or an explicit transactional
+apply. It requires clean Core/CangHai sources, the exact branch and full CangHai SHA, validates the
+Host/plugin/manifest contract, and backs up and rolls back OpenClaw configuration on apply failure:
+
+```bash
+npm run stella:activate -- --canghai-root /path/to/CangHai --agent-id main \
+  --data-mode managed_durable_write --check
+npm run stella:activate -- --canghai-root /path/to/CangHai --agent-id main \
+  --data-mode managed_durable_write --apply
+```
 
 Create a non-published candidate only after the clean-runtime recovery and evaluation evidence exist:
 
@@ -106,6 +120,19 @@ artifact, installs it alongside OpenClaw 2026.8.2, creates an empty isolated run
 rejects legacy runtime import, and executes every exact-Host agent turn itself. Receipt output is mode `0600` and
 contains aggregate evidence only.
 
+Before recovery/evaluation, run the private three-turn managed-write loop against the same packed
+artifact. The private adapter exports `createPraxisLoopHarness(context)` and keeps all case text and
+semantic judging private; the public receipt contains only revisions, hashes, booleans, and counts.
+
+```bash
+npm run praxis:private -- \
+  --canghai-root /path/to/CangHai \
+  --canghai-revision <initial-40-character-sha> \
+  --artifact /path/to/exact-artifact.tgz \
+  --adapter /path/to/private-host-adapter.mjs \
+  --output /path/outside/Stella-Core/praxis-loop-receipt.json
+```
+
 ```bash
 npm run candidate -- \
   --canghai-root /path/to/CangHai \
@@ -113,14 +140,16 @@ npm run candidate -- \
   --artifact /path/to/exact-host-tested.tgz \
   --evaluation-report /path/to/evaluation-report.json \
   --recovery-receipt /path/to/private-exact-host-receipt.json \
+  --praxis-receipt /path/to/praxis-loop-receipt.json \
   --durability-evidence /path/to/durability-diagnostics.json \
   --output-dir /path/outside/Stella-Core
 ```
 
-The output directory receives an npm tarball and `alpha-candidate-receipt.json`. The receipt binds
+The output directory receives `alpha-candidate-receipt.json`. Candidate receipt v2 binds
 the clean Core/CangHai revisions, exact OpenClaw 2026.8.2, artifact SHA-256, Level 3 recovery,
-durability/RPO evidence, evaluation counts, and an explicit no-tag/no-Release/no-npm/no-production
-state. The command fails if its output directory is inside the Core source tree.
+the three-turn managed-write loop, durability/RPO evidence, evaluation counts, and an explicit
+no-tag/no-Release/no-npm/no-production state. The command fails if its output directory is inside
+the Core source tree. Historical candidate v1 receipts cannot satisfy this gate.
 Synthetic-only recovery or evaluation cannot produce `candidate: true`; at least one private case
 and a private exact-host recovery receipt bound to the same tarball are required.
 

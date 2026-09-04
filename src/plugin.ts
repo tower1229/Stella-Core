@@ -20,6 +20,7 @@ import {
   type StagedEpisode,
   type StellaDataMode,
 } from "./praxis/episode-store.js";
+import { createOpenClawRecoveryPointerWriter } from "./openclaw/recovery-pointer.js";
 import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
 import type { CortexRoute } from "./routing/router.js";
 
@@ -264,6 +265,7 @@ export default definePluginEntry({
       (params) => api.runtime.llm.complete({ ...params, agentId: config.agentId }),
     );
     const episodeByRun = new Map<string, StagedEpisode>();
+    const recoveryPointer = createOpenClawRecoveryPointerWriter();
     let durability: GitCangHaiDurability | undefined;
 
     const createEpisodeStore = (loaded: LoadedConsciousness): CangHaiPraxisEpisodeStore => {
@@ -279,7 +281,12 @@ export default definePluginEntry({
           criticalWritePolicy: policy.criticalWritePolicy,
           normalWritePolicy: policy.normalWritePolicy,
           maxNormalRpoSeconds: policy.maxNormalRpoSeconds ?? 0,
-          onRevision: (revision) => consciousness.setRecoveryRevision(revision),
+          onRevision: async (revision) => {
+            const previousRevision = config.recoveryRevision;
+            await recoveryPointer.advance(previousRevision, revision);
+            config.recoveryRevision = revision;
+            consciousness.setRecoveryRevision(revision);
+          },
         });
       }
       return new CangHaiPraxisEpisodeStore({

@@ -135,7 +135,29 @@ test("local_write closes one Episode without rewriting its prediction and expose
     );
     const openEpisode = JSON.parse(await readFile(episodePath, "utf8")) as unknown;
     await validateSchema("praxis-episode", openEpisode);
+    assert.equal((openEpisode as { status?: string }).status, "recommended");
     assert.equal(created.ref, "path:30_PersonalData/praxis/episodes/praxis-private-case-1/episode.json");
+
+    await store.recordActualAction({
+      episodeRef: created.ref,
+      actualAction: "没有继续发消息，等待对方主动联系",
+      source: "user_report",
+      occurredAt: "2026-09-03T01:30:00.000Z",
+    });
+    const actedEpisode = JSON.parse(await readFile(episodePath, "utf8")) as {
+      status?: string;
+      actual?: { action?: string };
+    };
+    await validateSchema("praxis-episode", actedEpisode);
+    assert.equal(actedEpisode.status, "acted");
+    assert.match(actedEpisode.actual?.action ?? "", /等待/);
+
+    await store.markObserving(created.ref);
+    const observingEpisode = JSON.parse(await readFile(episodePath, "utf8")) as {
+      status?: string;
+    };
+    await validateSchema("praxis-episode", observingEpisode);
+    assert.equal(observingEpisode.status, "observing");
 
     await store.associateOutcome({
       episodeRef: created.ref,
@@ -232,6 +254,12 @@ test("managed writes synchronize open state critically and closed learning norma
 
     const staged = await store.stagePrediction(prediction);
     await store.publishRecommendation(staged, "先做一个可逆动作。", []);
+    await store.recordActualAction({
+      episodeRef: staged.ref,
+      actualAction: "等待",
+      source: "user_report",
+      occurredAt: "2026-09-03T12:00:00.000Z",
+    });
     await store.associateOutcome({
       episodeRef: staged.ref,
       actualAction: "等待",
@@ -249,10 +277,62 @@ test("managed writes synchronize open state critically and closed learning norma
         paths: ["30_PersonalData/praxis/episodes/praxis-managed"],
       },
       {
+        kind: "critical",
+        paths: ["30_PersonalData/praxis/episodes/praxis-managed"],
+      },
+      {
         kind: "normal",
         paths: ["30_PersonalData/praxis/episodes/praxis-managed"],
       },
     ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("recommended episodes can terminate but cannot jump to acted or closed afterward", async () => {
+  const root = await createFixture();
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    await execFileAsync("git", ["-C", root, "switch", "-c", "local/stella-alpha"]);
+    const loaded = await loadConsciousness(root, undefined, {
+      recoveryRevision,
+      coreVersion: "3.0.0-alpha.0",
+      openclawVersion: "2026.8.2",
+      dataMode: "local_write",
+    });
+    const store = new CangHaiPraxisEpisodeStore({
+      loaded,
+      dataMode: "local_write",
+      createId: () => "praxis-terminal",
+    });
+    const staged = await store.stagePrediction(prediction);
+    await store.publishRecommendation(staged, "等待。", []);
+    await store.terminateEpisode(staged.ref, "abandoned");
+    const episodePath = path.join(
+      root,
+      "30_PersonalData/praxis/episodes/praxis-terminal/episode.json",
+    );
+    const terminal = JSON.parse(await readFile(episodePath, "utf8")) as { status?: string };
+    await validateSchema("praxis-episode", terminal);
+    assert.equal(terminal.status, "abandoned");
+    await assert.rejects(store.markObserving(staged.ref), /Only an acted/);
+    await assert.rejects(store.recordActualAction({
+      episodeRef: staged.ref,
+      actualAction: "late action",
+      source: "user_report",
+      occurredAt: "2026-09-03T00:00:00.000Z",
+    }), /Only a recommended/);
+    await assert.rejects(store.associateOutcome({
+      episodeRef: staged.ref,
+      actualAction: "late action",
+      source: "user_report",
+      observations: [],
+      result: "late result",
+      observedAt: "2026-09-03T00:00:00.000Z",
+      predictionAssessment: "unresolved",
+      praxisLearning: "must not be written",
+    }), /Only a recommended, acted, or observing/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
