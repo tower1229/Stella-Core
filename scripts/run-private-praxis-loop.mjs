@@ -27,6 +27,7 @@ import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const episodeRootRelative = "30_PersonalData/praxis/episodes";
+const targetAgentId = "main";
 const options = parseRequiredArguments(
   process.argv.slice(2),
   ["canghai-root", "canghai-revision", "artifact", "adapter", "output"],
@@ -93,7 +94,7 @@ async function readEpisode(canghaiRoot, id) {
 
 function validateHarness(harness) {
   if (
-    harness?.agentId !== "main" ||
+    harness?.agentId !== targetAgentId ||
     typeof harness.problemMessage !== "string" ||
     !harness.problemMessage.trim() ||
     typeof harness.createOutcomeMessage !== "function" ||
@@ -108,7 +109,7 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
   try {
     const result = await execFileAsync(
       openclawBin,
-      buildExactHostAgentArguments({ agentId: "main", message, sessionKey }),
+      buildExactHostAgentArguments({ agentId: targetAgentId, message, sessionKey }),
       { cwd: consumerRoot, env, maxBuffer: 8 * 1024 * 1024 },
     );
     return parseExactHostAgentTurn(result.stdout, label).text;
@@ -252,7 +253,7 @@ try {
     hostVersion: ALPHA_HOST_VERSION,
     openclawBin,
     runtimeStateRoot,
-    agentId: "main",
+    agentId: targetAgentId,
     dataMode: "managed_durable_write",
     durabilityRemote: remote,
     durabilityBranch: branch,
@@ -284,7 +285,7 @@ try {
       consumerRoot,
       env: gateway.env,
       message: harness.problemMessage,
-      sessionKey: "agent:stella:private-praxis-problem",
+      sessionKey: `agent:${targetAgentId}:private-praxis-problem`,
       label: "problem",
     });
     const afterRecommendationIds = await listEpisodeIds(canghaiRoot);
@@ -318,7 +319,7 @@ try {
       consumerRoot,
       env: gateway.env,
       message: outcomeMessage,
-      sessionKey: "agent:stella:private-praxis-outcome",
+      sessionKey: `agent:${targetAgentId}:private-praxis-outcome`,
       label: "outcome",
     });
     const closed = await readEpisode(canghaiRoot, episodeId);
@@ -364,7 +365,7 @@ try {
       consumerRoot,
       env: gateway.env,
       message: similarProblemMessage,
-      sessionKey: "agent:stella:private-praxis-similar",
+      sessionKey: `agent:${targetAgentId}:private-praxis-similar`,
       label: "similar-problem",
     });
     const finalEpisodeIds = await listEpisodeIds(canghaiRoot);
