@@ -199,7 +199,7 @@ test("invalid semantic route fails explicitly instead of degrading to ordinary",
       "diagnostic" in error &&
       error.diagnostic === "invalid_model_route" &&
       "validationCode" in error &&
-      error.validationCode === "invalid_json" &&
+      error.validationCode === "invalid_json_missing" &&
       error.cause === undefined,
   );
 });

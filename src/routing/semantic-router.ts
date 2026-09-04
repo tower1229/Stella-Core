@@ -32,6 +32,8 @@ export class SemanticRoutingError extends Error {
 function routeValidationCode(error: unknown): string {
   if (error instanceof SyntaxError) return "invalid_json";
   const message = error instanceof Error ? error.message : "";
+  const jsonCode = message.match(/did not return a JSON route \((invalid_json_[a-z]+)\)/u)?.[1];
+  if (jsonCode) return jsonCode;
   if (message.includes("did not return a JSON route")) return "invalid_json";
   const field = message.match(/^Model route field ([a-zA-Z]+) /u)?.[1];
   if (field) return `field_${field}`;
@@ -48,6 +50,16 @@ function routeValidationCode(error: unknown): string {
   if (message.includes("route mode")) return "mode";
   if (message.includes("unsupported mode")) return "mode";
   return "route_shape";
+}
+
+function invalidJsonEnvelopeCode(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return "invalid_json_missing";
+  if (trimmed.includes("```")) return "invalid_json_fenced";
+  if (trimmed.startsWith("{") && !trimmed.endsWith("}")) return "invalid_json_truncated";
+  if (trimmed.startsWith("{")) return "invalid_json_syntax";
+  if (trimmed.includes("{") && trimmed.includes("}")) return "invalid_json_wrapped";
+  return "invalid_json_missing";
 }
 
 function isCortexMode(value: string): value is CortexMode {
@@ -305,7 +317,10 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
   try {
     parsed = JSON.parse(unwrapJsonFence(text));
   } catch (error) {
-    throw new Error("Model router did not return a JSON route", { cause: error });
+    throw new Error(
+      `Model router did not return a JSON route (${invalidJsonEnvelopeCode(text)})`,
+      { cause: error },
+    );
   }
   if (!isRecord(parsed) || typeof parsed.mode !== "string") {
     throw new Error("Model router did not return a JSON route");
