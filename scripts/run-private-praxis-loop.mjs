@@ -96,10 +96,8 @@ function validateHarness(harness) {
     harness?.agentId !== "main" ||
     typeof harness.problemMessage !== "string" ||
     !harness.problemMessage.trim() ||
-    typeof harness.outcomeMessage !== "string" ||
-    !harness.outcomeMessage.trim() ||
-    typeof harness.similarProblemMessage !== "string" ||
-    !harness.similarProblemMessage.trim() ||
+    typeof harness.createOutcomeMessage !== "function" ||
+    typeof harness.createSimilarProblemMessage !== "function" ||
     typeof harness.verifyLearningUse !== "function"
   ) {
     throw new Error("Praxis loop harness must provide three private turns and verifyLearningUse");
@@ -194,6 +192,7 @@ try {
     hostVersion: ALPHA_HOST_VERSION,
     openclawBin,
     runtimeStateRoot,
+    agentId: "main",
     dataMode: "managed_durable_write",
     durabilityRemote: remote,
     durabilityBranch: branch,
@@ -246,11 +245,19 @@ try {
       throw new Error("Problem turn did not persist a valid recommended Episode");
     }
 
+    const episodeRef = `path:${episodeRootRelative}/${episodeId}/episode.json`;
+    const outcomeMessage = await harness.createOutcomeMessage({
+      episodeRef,
+      recommendation: recommended.episode.decision.recommendation,
+    });
+    if (typeof outcomeMessage !== "string" || !outcomeMessage.trim()) {
+      throw new Error("Private Praxis harness returned an invalid outcome turn");
+    }
     outcomeAnswer = await runPrivateTurn({
       openclawBin,
       consumerRoot,
       env: gateway.env,
-      message: harness.outcomeMessage,
+      message: outcomeMessage,
       sessionKey: "agent:stella:private-praxis-outcome",
       label: "outcome",
     });
@@ -285,11 +292,18 @@ try {
     await durability.flushNormal();
 
     gateway = await startExactHostGateway({ cwd: consumerRoot, env: hostEnv, openclawBin });
+    const similarProblemMessage = await harness.createSimilarProblemMessage({
+      episodeRef,
+      learning: closed.episode.learning,
+    });
+    if (typeof similarProblemMessage !== "string" || !similarProblemMessage.trim()) {
+      throw new Error("Private Praxis harness returned an invalid similar-problem turn");
+    }
     const similarAnswer = await runPrivateTurn({
       openclawBin,
       consumerRoot,
       env: gateway.env,
-      message: harness.similarProblemMessage,
+      message: similarProblemMessage,
       sessionKey: "agent:stella:private-praxis-similar",
       label: "similar-problem",
     });
@@ -301,11 +315,11 @@ try {
       throw new Error("Similar problem turn must publish exactly one follow-up Episode");
     }
     const followup = await readEpisode(canghaiRoot, followupIds[0]);
-    const episodeRef = `path:${episodeRootRelative}/${episodeId}/episode.json`;
+    const learningRef = `${episodeRef}#learning:praxis:0`;
     if (
       followup.episode.status !== "recommended" ||
-      followup.episode.sourceSnapshot?.[episodeRef] === undefined ||
-      !followup.episode.reality?.similarEpisodeRefs?.includes(episodeRef)
+      followup.episode.sourceSnapshot?.[learningRef] === undefined ||
+      !followup.episode.reality?.similarEpisodeRefs?.includes(learningRef)
     ) {
       throw new Error("Similar problem did not select the newly persisted Praxis learning");
     }
@@ -369,7 +383,7 @@ try {
       sourceClean: true,
       exactHostAgentTurns: 3,
       episodeRefHash: sha256(episodeRef),
-      learningRefHash: sha256(`${episodeRef}#learning:praxis:0`),
+      learningRefHash: sha256(learningRef),
       privateFixtureIncluded: true,
     };
     const installedPraxisReceipt = await import(
