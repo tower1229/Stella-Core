@@ -235,6 +235,13 @@ async function selectRelevantOpenEpisode(
 ): Promise<string | undefined> {
   const available = candidates.openEpisodes ?? [];
   if (available.length === 0) return undefined;
+  const systemPrompt = [
+    "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode. Do not answer the owner.",
+    "A message reporting a new outcome is not an open-state recall and must return null.",
+    "Return only strict JSON: {\"openEpisodeRef\":<exact supplied ref or null>}.",
+    `Available open Episode candidates: ${JSON.stringify(available)}`,
+  ].join(" ");
+  let repairInstruction = "";
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let result: { text: string };
     try {
@@ -242,12 +249,7 @@ async function selectRelevantOpenEpisode(
         maxTokens: 500,
         temperature: 0,
         purpose: "stella-core-open-episode-selection",
-        systemPrompt: [
-          "Judge whether this owner turn asks to recall, inspect, or continue exactly one supplied open Praxis Episode. Do not answer the owner.",
-          "A message reporting a new outcome is not an open-state recall and must return null.",
-          "Return only strict JSON: {\"openEpisodeRef\":<exact supplied ref or null>}.",
-          `Available open Episode candidates: ${JSON.stringify(available)}`,
-        ].join(" "),
+        systemPrompt: attempt === 0 ? systemPrompt : `${systemPrompt} ${repairInstruction}`,
         messages: [{ role: "user", content: prompt }],
       });
     } catch {
@@ -269,13 +271,30 @@ async function selectRelevantOpenEpisode(
         throw new Error("Open Episode selector returned an unavailable ref");
       }
       return parsed.openEpisodeRef;
-    } catch {
+    } catch (error) {
       if (attempt === 1) {
-        throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
+        throw new SemanticRoutingError(
+          "Stella semantic routing failed",
+          "invalid_model_route",
+          "episode_selector",
+        );
       }
+      const validationReason = error instanceof Error
+        ? error.message.slice(0, 200)
+        : "unknown validation failure";
+      repairInstruction = [
+        "The previous selector response failed strict validation.",
+        `Validation error: ${validationReason}`,
+        `Previous response: ${result.text.slice(0, 1_000)}`,
+        "Return only the corrected JSON object with the required openEpisodeRef field.",
+      ].join(" ");
     }
   }
-  throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
+  throw new SemanticRoutingError(
+    "Stella semantic routing failed",
+    "invalid_model_route",
+    "episode_selector",
+  );
 }
 
 function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): CortexRoute {

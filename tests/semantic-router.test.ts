@@ -201,6 +201,38 @@ test("invalid semantic route fails explicitly instead of degrading to ordinary",
   );
 });
 
+test("open Episode selector repairs one invalid structured response with feedback", async () => {
+  let attempts = 0;
+  const router = createSemanticRouter(async ({ purpose, systemPrompt }) => {
+    if (purpose === "stella-core-open-episode-selection") {
+      attempts += 1;
+      if (attempts === 1) return { text: "not-json" };
+      assert.match(systemPrompt, /previous selector response failed strict validation/i);
+      assert.match(systemPrompt, /Previous response: not-json/);
+      return { text: JSON.stringify({ openEpisodeRef: null }) };
+    }
+    return {
+      text: JSON.stringify({
+        mode: "ordinary",
+        domains: ["general"],
+        needsTwin: false,
+        needsFramework: false,
+        needsReality: false,
+        needsExternalResearch: false,
+      }),
+    };
+  });
+
+  const route = await router("这是一个与未完成事项无关的新问题", {
+    frameworks: [],
+    twin: [],
+    personalPraxis: [],
+    openEpisodes: [{ ref: "path:open-episode.json", purpose: "待继续的选择" }],
+  });
+  assert.equal(route.mode, "ordinary");
+  assert.equal(attempts, 2);
+});
+
 test("semantic routing completion failures do not expose provider error details", async () => {
   const router = createSemanticRouter(async () => {
     throw new Error("provider echoed private prompt: never-log-this");
@@ -231,6 +263,8 @@ test("open Episode selector reports invalid model output separately from provide
       error instanceof Error &&
       "diagnostic" in error &&
       error.diagnostic === "invalid_model_route" &&
+      "validationCode" in error &&
+      error.validationCode === "episode_selector" &&
       error.cause === undefined,
   );
 });
