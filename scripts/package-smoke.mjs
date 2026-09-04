@@ -589,7 +589,7 @@ try {
   ).length;
   if (
     !blockedRoutingTurn.includes("Your message could not be sent") ||
-    completionCountAfterRoutingFailure !== completionCountBeforeRoutingFailure + 2
+    completionCountAfterRoutingFailure !== completionCountBeforeRoutingFailure + 3
   ) {
     throw new Error(
       `semantic routing failure did not fail closed before the answer model: ${JSON.stringify({

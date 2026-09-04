@@ -348,51 +348,62 @@ export function createSemanticRouter(
   complete: RoutingCompletion,
 ): SemanticRouteClassifier {
   return async (prompt, candidates) => {
-    let result: { text: string };
     let selectedOpenEpisodeRef: string | undefined;
     try {
       selectedOpenEpisodeRef = await selectRelevantOpenEpisode(prompt, candidates, complete);
-      result = await completeWithOneRetry({
-        maxTokens: 2_000,
-        temperature: 0,
-        purpose: "stella-core-semantic-routing",
-        systemPrompt: [
-          "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
-          "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, openEpisodeRef, situation, twinPrediction, and outcome when applicable.",
-          "Use praxis for a personal real-world choice or when the owner asks to recall, inspect, or continue one semantically relevant supplied open Episode; use twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
-          "Praxis takes precedence over twin and ordinary whenever a supplied open Episode can answer the owner's request. A direct owner request to inspect current open personal state is Praxis, not machine-authored extraction.",
-          "Machine-authored internal planning, extraction, transformation, or structured-output requests are ordinary, even when their source material mentions a personal choice. Use praxis only when the turn itself asks Stella to help the owner make or evaluate that choice.",
-          "For praxis, stakes and reversibility must each be exactly low, medium, or high.",
-          "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
-          "For praxis, when exactly one supplied open Episode is semantically relevant to the request, openEpisodeRef is mandatory and must contain its exact ref; otherwise omit openEpisodeRef.",
-          ...(selectedOpenEpisodeRef
-            ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis and openEpisodeRef must exactly match it.`]
-            : ["The dedicated semantic selector did not choose an open Episode. Omit openEpisodeRef."]),
-          "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
-          "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
-          "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
-          "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
-          `Available semantic candidates: ${JSON.stringify(candidates)}`,
-        ].join(" "),
-        messages: [{ role: "user", content: prompt }],
-      }, complete);
     } catch (error) {
       if (error instanceof SemanticRoutingError) throw error;
       throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
     }
-    try {
-      const route = parseModelRoute(result.text, candidates);
-      if (
-        selectedOpenEpisodeRef
-          ? route.mode !== "praxis" || route.openEpisodeRef !== selectedOpenEpisodeRef
-          : route.openEpisodeRef !== undefined
-      ) {
-        throw new Error("Model route disagreed with the open Episode selector");
+    const systemPrompt = [
+      "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
+      "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, openEpisodeRef, situation, twinPrediction, and outcome when applicable.",
+      "Use praxis for a personal real-world choice or when the owner asks to recall, inspect, or continue one semantically relevant supplied open Episode; use twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
+      "Praxis takes precedence over twin and ordinary whenever a supplied open Episode can answer the owner's request. A direct owner request to inspect current open personal state is Praxis, not machine-authored extraction.",
+      "Machine-authored internal planning, extraction, transformation, or structured-output requests are ordinary, even when their source material mentions a personal choice. Use praxis only when the turn itself asks Stella to help the owner make or evaluate that choice.",
+      "For praxis, stakes and reversibility must each be exactly low, medium, or high.",
+      "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
+      "For praxis, when exactly one supplied open Episode is semantically relevant to the request, openEpisodeRef is mandatory and must contain its exact ref; otherwise omit openEpisodeRef.",
+      ...(selectedOpenEpisodeRef
+        ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis and openEpisodeRef must exactly match it.`]
+        : ["The dedicated semantic selector did not choose an open Episode. Omit openEpisodeRef."]),
+      "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
+      "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
+      "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
+      "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
+      `Available semantic candidates: ${JSON.stringify(candidates)}`,
+    ].join(" ");
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let result: { text: string };
+      try {
+        result = await completeWithOneRetry({
+          maxTokens: 2_000,
+          temperature: 0,
+          purpose: "stella-core-semantic-routing",
+          systemPrompt: attempt === 0
+            ? systemPrompt
+            : `${systemPrompt} The previous response failed strict route validation. Return one corrected JSON object that satisfies every field and exact-reference constraint.`,
+          messages: [{ role: "user", content: prompt }],
+        }, complete);
+      } catch {
+        throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
       }
-      return route;
-    } catch (error) {
-      if (error instanceof SemanticRoutingError) throw error;
-      throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
+      try {
+        const route = parseModelRoute(result.text, candidates);
+        if (
+          selectedOpenEpisodeRef
+            ? route.mode !== "praxis" || route.openEpisodeRef !== selectedOpenEpisodeRef
+            : route.openEpisodeRef !== undefined
+        ) {
+          throw new Error("Model route disagreed with the open Episode selector");
+        }
+        return route;
+      } catch {
+        if (attempt === 1) {
+          throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
+        }
+      }
     }
+    throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
   };
 }

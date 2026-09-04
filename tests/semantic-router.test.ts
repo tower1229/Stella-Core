@@ -258,6 +258,31 @@ test("semantic routing retries one transient completion failure without degradin
   assert.equal(route.mode, "ordinary");
 });
 
+test("semantic routing retries one invalid structured route without degrading", async () => {
+  let attempts = 0;
+  const router = createSemanticRouter(async () => {
+    attempts += 1;
+    if (attempts === 1) return { text: "not-json" };
+    return {
+      text: JSON.stringify({
+        mode: "ordinary",
+        domains: ["general"],
+        needsTwin: false,
+        needsFramework: false,
+        needsReality: false,
+        needsExternalResearch: false,
+      }),
+    };
+  });
+
+  const route = await router("Explain a TypeScript operator", {
+    frameworks: [], twin: [], personalPraxis: [],
+  });
+
+  assert.equal(attempts, 2);
+  assert.equal(route.mode, "ordinary");
+});
+
 test("semantic route fails instead of silently truncating over-capacity selections", async () => {
   const router = createSemanticRouter(async () => ({
     text: JSON.stringify({
