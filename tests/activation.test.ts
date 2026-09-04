@@ -57,6 +57,38 @@ test("includes the manifest default persisted by OpenClaw", () => {
   );
 });
 
+test("accepts OpenClaw config key reordering", () => {
+  const desired = assessStellaActivation(request, {
+    coreClean: true,
+    canghaiClean: true,
+    canghaiBranch: "local/stella-alpha",
+    canghaiRevision: revision,
+    openclawVersion: "2026.8.2",
+    configValid: true,
+    manifestValid: true,
+    pluginRuntimeValid: true,
+    pluginEntry: {},
+  }).desiredEntry;
+  const result = assessStellaActivation(request, {
+    coreClean: true,
+    canghaiClean: true,
+    canghaiBranch: "local/stella-alpha",
+    canghaiRevision: revision,
+    openclawVersion: "2026.8.2",
+    configValid: true,
+    manifestValid: true,
+    pluginRuntimeValid: true,
+    pluginEntry: {
+      enabled: desired.enabled,
+      hooks: desired.hooks,
+      llm: desired.llm,
+      config: desired.config,
+    },
+  });
+  assert.equal(result.ready, true);
+  assert.deepEqual(result.issues, []);
+});
+
 test("reports source, revision, Host, and policy drift without secrets", () => {
   const result = assessStellaActivation(request, {
     coreClean: false,

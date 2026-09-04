@@ -1,4 +1,5 @@
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import type { StellaDataMode } from "../praxis/episode-store.js";
 import { isRecord } from "../shared/type-guards.js";
 import { ALPHA_HOST_VERSION } from "../acceptance/exact-host-evidence.js";
@@ -33,10 +34,6 @@ export type StellaActivationAssessment = {
     llm: { allowAgentIdOverride: true };
   };
 };
-
-function sameValue(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
 
 export function assessStellaActivation(
   request: StellaActivationRequest,
@@ -100,7 +97,7 @@ export function assessStellaActivation(
   if (!observed.configValid) issues.push("openclaw_config_invalid");
   if (!observed.manifestValid) issues.push("canghai_manifest_invalid");
   if (!observed.pluginRuntimeValid) issues.push("stella_plugin_runtime_invalid");
-  if (!isRecord(observed.pluginEntry) || !sameValue(observed.pluginEntry, desiredEntry)) {
+  if (!isRecord(observed.pluginEntry) || !isDeepStrictEqual(observed.pluginEntry, desiredEntry)) {
     issues.push("stella_plugin_config_drift");
   }
   return { ready: issues.length === 0, issues, desiredEntry };
