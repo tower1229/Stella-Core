@@ -142,16 +142,17 @@ test("plugin stages prediction before finalization, learns from a tool outcome, 
     const predictionPath = path.join(episodeRoot, createdDirectory, "prediction.json");
     const originalPrediction = await readFile(stagedPredictionPath);
 
+    const finalizeContext = { ...firstContext, runId: "host-finalize-run" };
     await requireHook(hooks, "before_agent_finalize")(
       {
-        runId: firstContext.runId,
+        runId: finalizeContext.runId,
         sessionId: firstContext.sessionId,
         sessionKey: firstContext.sessionKey,
         stopHookActive: false,
         lastAssistantMessage: "发一条低压消息，然后等待。",
         messages: [{ role: "assistant", content: "发一条低压消息，然后等待。" }],
       },
-      firstContext,
+      finalizeContext,
     );
 
     const outcomeContext = {

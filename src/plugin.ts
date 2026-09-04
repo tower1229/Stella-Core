@@ -265,6 +265,7 @@ export default definePluginEntry({
       (params) => api.runtime.llm.complete({ ...params, agentId: config.agentId }),
     );
     const episodeByRun = new Map<string, StagedEpisode>();
+    const episodeRunsBySession = new Map<string, Set<string>>();
     const recoveryPointer = createOpenClawRecoveryPointerWriter();
     let durability: GitCangHaiDurability | undefined;
 
@@ -294,6 +295,48 @@ export default definePluginEntry({
         dataMode: config.dataMode,
         ...(durability ? { durability } : {}),
       });
+    };
+
+    const sessionCorrelationKey = (sessionKey?: string, sessionId?: string): string | undefined =>
+      sessionKey && sessionId ? `${config.agentId}\u0000${sessionKey}\u0000${sessionId}` : undefined;
+
+    const rememberStagedEpisode = (
+      runId: string,
+      sessionKey: string | undefined,
+      sessionId: string | undefined,
+      staged: StagedEpisode,
+    ): void => {
+      episodeByRun.set(runId, staged);
+      const sessionKeyId = sessionCorrelationKey(sessionKey, sessionId);
+      if (!sessionKeyId) return;
+      const runIds = episodeRunsBySession.get(sessionKeyId) ?? new Set<string>();
+      runIds.add(runId);
+      episodeRunsBySession.set(sessionKeyId, runIds);
+    };
+
+    const resolveStagedEpisode = (
+      eventRunId: string | undefined,
+      contextRunId: string | undefined,
+      sessionKey: string | undefined,
+      sessionId: string | undefined,
+    ): { runId: string; staged: StagedEpisode } | undefined => {
+      const sessionKeyId = sessionCorrelationKey(sessionKey, sessionId);
+      const exactRunId = [eventRunId, contextRunId].find((runId) =>
+        runId ? episodeByRun.has(runId) : false
+      );
+      const sessionRunIds = sessionKeyId ? episodeRunsBySession.get(sessionKeyId) : undefined;
+      const runId = exactRunId ?? (sessionRunIds?.size === 1 ? [...sessionRunIds][0] : undefined);
+      if (!runId) return undefined;
+      const staged = episodeByRun.get(runId);
+      return staged ? { runId, staged } : undefined;
+    };
+
+    const forgetStagedEpisode = (runId: string): void => {
+      episodeByRun.delete(runId);
+      for (const [sessionKeyId, sessionRunIds] of episodeRunsBySession) {
+        sessionRunIds.delete(runId);
+        if (sessionRunIds.size === 0) episodeRunsBySession.delete(sessionKeyId);
+      }
     };
 
     api.on(
@@ -399,7 +442,7 @@ export default definePluginEntry({
                   : {}),
               },
             });
-            episodeByRun.set(ctx.runId, staged);
+            rememberStagedEpisode(ctx.runId, ctx.sessionKey, ctx.sessionId, staged);
             appendContext = `${appendContext ?? ""}\npre_outcome_episode_ref: ${staged.ref}`.trim();
           }
           preparedTurns.put(turnKey, { outcome: "ready" });
@@ -483,34 +526,49 @@ export default definePluginEntry({
     api.on(
       "before_agent_finalize",
       async (event, ctx) => {
-        const runId = event.runId ?? ctx.runId;
-        if (!runId) return;
-        const staged = episodeByRun.get(runId);
-        if (!staged) return;
+        const pending = resolveStagedEpisode(
+          event.runId,
+          ctx.runId,
+          event.sessionKey ?? ctx.sessionKey,
+          event.sessionId ?? ctx.sessionId,
+        );
+        if (!pending) return;
         const recommendation = event.lastAssistantMessage ?? lastAssistantText(event.messages ?? []);
         if (!recommendation) return;
         const loaded = await consciousness.load();
         const episodeStore = createEpisodeStore(loaded);
-        await episodeStore.publishRecommendation(staged, recommendation.slice(0, 8_000), []);
-        episodeByRun.delete(runId);
+        await episodeStore.publishRecommendation(
+          pending.staged,
+          recommendation.slice(0, 8_000),
+          [],
+        );
+        forgetStagedEpisode(pending.runId);
       },
       { priority: 100, timeoutMs: 90_000 },
     );
 
     api.on("agent_end", async (event, ctx) => {
-      const runId = event.runId ?? ctx.runId;
-      if (!runId) return;
-      const staged = episodeByRun.get(runId);
-      episodeByRun.delete(runId);
-      if (!staged) return;
+      const pending = resolveStagedEpisode(
+        event.runId,
+        ctx.runId,
+        ctx.sessionKey,
+        ctx.sessionId,
+      );
+      if (!pending) return;
       const loaded = await consciousness.load();
       const episodeStore = createEpisodeStore(loaded);
       const recommendation = event.success ? lastAssistantText(event.messages) : undefined;
       if (!recommendation) {
-        await episodeStore.discardStagedPrediction(staged);
+        await episodeStore.discardStagedPrediction(pending.staged);
+        forgetStagedEpisode(pending.runId);
         return;
       }
-      await episodeStore.publishRecommendation(staged, recommendation.slice(0, 8_000), []);
+      await episodeStore.publishRecommendation(
+        pending.staged,
+        recommendation.slice(0, 8_000),
+        [],
+      );
+      forgetStagedEpisode(pending.runId);
     });
   },
 });
