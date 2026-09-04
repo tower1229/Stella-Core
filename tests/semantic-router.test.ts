@@ -262,9 +262,11 @@ test("semantic routing retries one transient completion failure without degradin
 
 test("semantic routing retries one invalid structured route without degrading", async () => {
   let attempts = 0;
-  const router = createSemanticRouter(async () => {
+  const router = createSemanticRouter(async ({ systemPrompt }) => {
     attempts += 1;
     if (attempts === 1) return { text: "not-json" };
+    assert.match(systemPrompt, /Previous response: not-json/);
+    assert.match(systemPrompt, /Validation error:/);
     return {
       text: JSON.stringify({
         mode: "ordinary",

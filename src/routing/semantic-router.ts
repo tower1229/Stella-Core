@@ -374,6 +374,7 @@ export function createSemanticRouter(
       "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
       `Available semantic candidates: ${JSON.stringify(candidates)}`,
     ].join(" ");
+    let repairInstruction = "";
     for (let attempt = 0; attempt < 2; attempt += 1) {
       let result: { text: string };
       try {
@@ -383,7 +384,7 @@ export function createSemanticRouter(
           purpose: "stella-core-semantic-routing",
           systemPrompt: attempt === 0
             ? systemPrompt
-            : `${systemPrompt} The previous response failed strict route validation. Return one corrected JSON object that satisfies every field and exact-reference constraint.`,
+            : `${systemPrompt} ${repairInstruction}`,
           messages: [{ role: "user", content: prompt }],
         }, complete);
       } catch {
@@ -399,10 +400,19 @@ export function createSemanticRouter(
           throw new Error("Model route disagreed with the open Episode selector");
         }
         return route;
-      } catch {
+      } catch (error) {
         if (attempt === 1) {
           throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
         }
+        const validationReason = error instanceof Error
+          ? error.message.slice(0, 300)
+          : "unknown validation failure";
+        repairInstruction = [
+          "The previous response failed strict route validation.",
+          `Validation error: ${validationReason}`,
+          `Previous response: ${result.text.slice(0, 4_000)}`,
+          "Return one corrected JSON object that satisfies every field and exact-reference constraint. Do not repeat the explanation.",
+        ].join(" ");
       }
     }
     throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
