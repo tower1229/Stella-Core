@@ -127,6 +127,7 @@ function validateEvaluation(evaluation: PraxisEvaluationReport): void {
     evaluation.failedCount !== 0 ||
     evaluation.passedCount !== evaluation.caseCount ||
     evaluation.failedCaseIds.length !== 0 ||
+    Object.keys(evaluation.failedDimensions).length !== 0 ||
     boundaryTotal !== evaluation.caseCount ||
     categoryTotal !== evaluation.caseCount ||
     PRAXIS_EVALUATION_CATEGORIES.some(

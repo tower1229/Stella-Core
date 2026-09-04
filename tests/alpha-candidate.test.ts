@@ -94,6 +94,7 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
         passedCount: 30,
         failedCount: 0,
         failedCaseIds: [],
+        failedDimensions: {},
         categoryCounts: {
           asking_for_help: 4,
           family_privacy: 4,
@@ -203,6 +204,7 @@ test("rejects dirty or incomplete candidate evidence", async () => {
       passedCount: 30,
       failedCount: 0,
       failedCaseIds: [],
+      failedDimensions: {},
       categoryCounts: {
         asking_for_help: 4,
         family_privacy: 4,

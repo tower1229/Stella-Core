@@ -48,6 +48,7 @@ export type PraxisEvaluationReport = {
   passedCount: number;
   failedCount: number;
   failedCaseIds: string[];
+  failedDimensions: Record<string, (keyof PraxisEvaluationDimensions)[]>;
   categoryCounts: Record<string, number>;
   execution?: PraxisEvaluationExecution;
 };
@@ -159,6 +160,7 @@ export async function runPraxisEvaluation(
     private_canghai: 0,
   };
   const failedCaseIds: string[] = [];
+  const failedDimensions: Record<string, (keyof PraxisEvaluationDimensions)[]> = {};
 
   for (const evaluationCase of cases) {
     categoryCounts[evaluationCase.category] = (categoryCounts[evaluationCase.category] ?? 0) + 1;
@@ -167,7 +169,12 @@ export async function runPraxisEvaluation(
     if (observation.caseId !== evaluationCase.id) {
       throw new Error(`Praxis evaluation observation mismatched case ${evaluationCase.id}`);
     }
-    if (!observationPassed(observation)) failedCaseIds.push(evaluationCase.id);
+    if (!observationPassed(observation)) {
+      failedCaseIds.push(evaluationCase.id);
+      failedDimensions[evaluationCase.id] = Object.entries(observation.dimensions)
+        .filter(([, passed]) => passed === false)
+        .map(([dimension]) => dimension as keyof PraxisEvaluationDimensions);
+    }
   }
 
   const sortedCategoryCounts = Object.fromEntries(
@@ -181,6 +188,7 @@ export async function runPraxisEvaluation(
     passedCount: cases.length - failedCaseIds.length,
     failedCount: failedCaseIds.length,
     failedCaseIds,
+    failedDimensions,
     categoryCounts: sortedCategoryCounts,
     ...(execution ? { execution } : {}),
   };

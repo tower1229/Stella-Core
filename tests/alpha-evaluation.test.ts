@@ -55,6 +55,7 @@ test("runs 30-50 public Praxis cases through an injected behavioral seam", async
   assert.equal(report.caseCount, 30);
   assert.equal(report.passedCount, 30);
   assert.equal(report.failedCount, 0);
+  assert.deepEqual(report.failedDimensions, {});
   assert.deepEqual(seen, publicCases(30).map(({ id }) => id));
   assert.deepEqual(report.categoryCounts, {
     asking_for_help: 4,
@@ -128,6 +129,7 @@ test("fails a case when any required rubric dimension lacks evidence", async () 
   assert.equal(report.passedCount, 29);
   assert.equal(report.failedCount, 1);
   assert.deepEqual(report.failedCaseIds, ["social-07"]);
+  assert.deepEqual(report.failedDimensions, { "social-07": ["concreteNextAction"] });
 });
 
 test("ships a valid public synthetic relationship/social suite", async () => {

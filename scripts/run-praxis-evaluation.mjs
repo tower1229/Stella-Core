@@ -251,3 +251,4 @@ const stagingPath = `${outputPath}.${process.pid}.staging`;
 await writeFile(stagingPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 await rename(stagingPath, outputPath);
 process.stdout.write(`${JSON.stringify({ output: outputPath, ...report })}\n`);
+if (report.failedCount > 0) process.exitCode = 1;
