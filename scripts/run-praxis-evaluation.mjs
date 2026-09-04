@@ -29,6 +29,7 @@ import { parseRequiredArguments } from "./lib/cli-args.mjs";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const targetAgentId = "main";
 
 const options = parseRequiredArguments(
   process.argv.slice(2),
@@ -135,6 +136,7 @@ async function runPrivateExactHostEvaluation() {
       await readFile(path.join(installedRoot, "openclaw.plugin.json"), "utf8"),
     ));
     const harness = await adapter.createEvaluationHarness({
+      agentId: targetAgentId,
       artifactPath,
       canghaiRoot,
       canghaiRevision: execution.canghaiRevision,
@@ -152,6 +154,9 @@ async function runPrivateExactHostEvaluation() {
       !harness.judgeAgentId.trim()
     ) {
       throw new Error("Private evaluation harness must provide answerAgentId and judgeAgentId");
+    }
+    if (harness.answerAgentId !== targetAgentId) {
+      throw new Error("Private evaluation harness must use the Alpha target agent");
     }
     const { stdout: hostConfigOutput } = await execFileAsync(openclawBin, [
       "config",

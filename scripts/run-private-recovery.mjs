@@ -23,6 +23,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const targetAgentId = "main";
 const hostVersion = ALPHA_HOST_VERSION;
 
 const options = parseRequiredArguments(
@@ -118,6 +119,7 @@ try {
     throw new Error("Recovery adapter must export createRecoveryHarness(context)");
   }
   const harness = await adapter.createRecoveryHarness({
+    agentId: targetAgentId,
     artifactPath,
     artifactSha256,
     canghaiRoot,
@@ -138,7 +140,7 @@ try {
   assertStellaHostConfig(JSON.parse(hostConfigOutput), {
     canghaiRoot,
     canghaiRevision: options["canghai-revision"],
-    agentId: "stella",
+    agentId: targetAgentId,
   });
   const { stdout: hostHooksOutput } = await execFileAsync(openclawBin, [
     "config",
@@ -203,9 +205,9 @@ try {
           const result = await execFileAsync(
             openclawBin,
             buildExactHostAgentArguments({
-              agentId: "stella",
+              agentId: targetAgentId,
               message: probe.message,
-              sessionKey: `agent:stella:private-recovery-${probe.id}`,
+              sessionKey: `agent:${targetAgentId}:private-recovery-${probe.id}`,
             }),
             { cwd: consumerRoot, env: gateway.env },
           );
