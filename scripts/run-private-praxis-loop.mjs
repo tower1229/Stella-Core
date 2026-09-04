@@ -147,10 +147,19 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
         const status = safeToken(parsed.status);
         const code = safeToken(parsed.error?.code) ?? safeToken(parsed.error?.category) ??
           safeToken(parsed.result?.error?.code) ?? safeToken(parsed.result?.error?.category);
+        const safeError = typeof parsed.error === "string"
+          ? parsed.error
+            .replaceAll(message, "<private-message>")
+            .replace(/https?:\/\/\S+/giu, "<url>")
+            .replace(/\/(?:Users|private|var|tmp)\/\S+/gu, "<path>")
+            .replace(/[a-zA-Z0-9_=-]{32,}/gu, "<token>")
+            .slice(0, 300)
+          : undefined;
         envelope = [
           `keys=${Object.keys(parsed).sort().join(",")}`,
           ...(status ? [`status=${status}`] : []),
           ...(code ? [`code=${code}`] : []),
+          ...(safeError ? [`error=${safeError}`] : []),
         ].join(";");
       } catch {
         envelope = "invalid-json";
