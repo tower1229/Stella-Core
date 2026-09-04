@@ -264,7 +264,10 @@ export default definePluginEntry({
     const classifySemantically = createSemanticRouter(
       (params) => api.runtime.llm.complete({ ...params, agentId: config.agentId }),
     );
-    const episodeByRun = new Map<string, StagedEpisode>();
+    const episodeByRun = new Map<string, {
+      staged: StagedEpisode;
+      store: CangHaiPraxisEpisodeStore;
+    }>();
     const episodeRunsBySession = new Map<string, Set<string>>();
     const recoveryPointer = createOpenClawRecoveryPointerWriter();
     let durability: GitCangHaiDurability | undefined;
@@ -305,8 +308,9 @@ export default definePluginEntry({
       sessionKey: string | undefined,
       sessionId: string | undefined,
       staged: StagedEpisode,
+      store: CangHaiPraxisEpisodeStore,
     ): void => {
-      episodeByRun.set(runId, staged);
+      episodeByRun.set(runId, { staged, store });
       const sessionKeyId = sessionCorrelationKey(sessionKey, sessionId);
       if (!sessionKeyId) return;
       const runIds = episodeRunsBySession.get(sessionKeyId) ?? new Set<string>();
@@ -319,7 +323,11 @@ export default definePluginEntry({
       contextRunId: string | undefined,
       sessionKey: string | undefined,
       sessionId: string | undefined,
-    ): { runId: string; staged: StagedEpisode } | undefined => {
+    ): {
+      runId: string;
+      staged: StagedEpisode;
+      store: CangHaiPraxisEpisodeStore;
+    } | undefined => {
       const sessionKeyId = sessionCorrelationKey(sessionKey, sessionId);
       const exactRunId = [eventRunId, contextRunId].find((runId) =>
         runId ? episodeByRun.has(runId) : false
@@ -327,8 +335,8 @@ export default definePluginEntry({
       const sessionRunIds = sessionKeyId ? episodeRunsBySession.get(sessionKeyId) : undefined;
       const runId = exactRunId ?? (sessionRunIds?.size === 1 ? [...sessionRunIds][0] : undefined);
       if (!runId) return undefined;
-      const staged = episodeByRun.get(runId);
-      return staged ? { runId, staged } : undefined;
+      const pending = episodeByRun.get(runId);
+      return pending ? { runId, ...pending } : undefined;
     };
 
     const forgetStagedEpisode = (runId: string): void => {
@@ -442,7 +450,7 @@ export default definePluginEntry({
                   : {}),
               },
             });
-            rememberStagedEpisode(ctx.runId, ctx.sessionKey, ctx.sessionId, staged);
+            rememberStagedEpisode(ctx.runId, ctx.sessionKey, ctx.sessionId, staged, episodeStore);
             api.logger.info(
               `Stella Praxis staged correlation run=${Boolean(ctx.runId)} sessionKey=${Boolean(ctx.sessionKey)} sessionId=${Boolean(ctx.sessionId)}`,
             );
@@ -541,9 +549,7 @@ export default definePluginEntry({
         if (!pending) return;
         const recommendation = event.lastAssistantMessage ?? lastAssistantText(event.messages ?? []);
         if (!recommendation) return;
-        const loaded = await consciousness.load();
-        const episodeStore = createEpisodeStore(loaded);
-        await episodeStore.publishRecommendation(
+        await pending.store.publishRecommendation(
           pending.staged,
           recommendation.slice(0, 8_000),
           [],
@@ -561,15 +567,13 @@ export default definePluginEntry({
         ctx.sessionId,
       );
       if (!pending) return;
-      const loaded = await consciousness.load();
-      const episodeStore = createEpisodeStore(loaded);
       const recommendation = event.success ? lastAssistantText(event.messages) : undefined;
       if (!recommendation) {
-        await episodeStore.discardStagedPrediction(pending.staged);
+        await pending.store.discardStagedPrediction(pending.staged);
         forgetStagedEpisode(pending.runId);
         return;
       }
-      await episodeStore.publishRecommendation(
+      await pending.store.publishRecommendation(
         pending.staged,
         recommendation.slice(0, 8_000),
         [],
