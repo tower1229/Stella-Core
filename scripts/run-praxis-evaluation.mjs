@@ -186,13 +186,19 @@ async function runPrivateExactHostEvaluation() {
     });
     let judgeIndex = 0;
     const runTurn = async (agentId, sessionKey, message) => {
-      const result = await execFileAsync(
-        openclawBin,
-        buildExactHostAgentArguments({ agentId, message, sessionKey }),
-        { cwd: consumerRoot, env: gateway.env, maxBuffer: 4 * 1024 * 1024 },
-      );
-      const turn = parseExactHostAgentTurn(result.stdout, sessionKey);
-      return turn.text;
+      try {
+        const result = await execFileAsync(
+          openclawBin,
+          buildExactHostAgentArguments({ agentId, message, sessionKey }),
+          { cwd: consumerRoot, env: gateway.env, maxBuffer: 4 * 1024 * 1024 },
+        );
+        const turn = parseExactHostAgentTurn(result.stdout, sessionKey);
+        return turn.text;
+      } catch {
+        throw new Error(
+          `Private Exact Host evaluation turn failed; diagnostics=${gateway.diagnostics() || "none"}`,
+        );
+      }
     };
     try {
       return await runPraxisEvaluation(

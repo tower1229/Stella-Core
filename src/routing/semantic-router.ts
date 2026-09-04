@@ -22,10 +22,29 @@ export class SemanticRoutingError extends Error {
   constructor(
     message: string,
     readonly diagnostic: "completion_failed" | "invalid_model_route",
+    readonly validationCode?: string,
   ) {
     super(message);
     this.name = "SemanticRoutingError";
   }
+}
+
+function routeValidationCode(error: unknown): string {
+  if (error instanceof SyntaxError) return "invalid_json";
+  const message = error instanceof Error ? error.message : "";
+  const field = message.match(/^Model route field ([a-zA-Z]+) /u)?.[1];
+  if (field) return `field_${field}`;
+  if (message.includes("disagreed with the open Episode selector")) return "episode_consistency";
+  if (message.includes("open Episode selector")) return "episode_selector";
+  if (message.includes("outcome source")) return "outcome_source";
+  if (message.includes("outcome prediction assessment")) return "outcome_prediction_assessment";
+  if (message.includes("outcome observedAt")) return "outcome_observed_at";
+  if (message.includes("outcome")) return "outcome_shape";
+  if (message.includes("Twin prediction")) return "twin_prediction";
+  if (message.includes("Praxis route")) return "praxis_shape";
+  if (message.includes("non-Cortex route")) return "context_policy";
+  if (message.includes("route mode")) return "mode";
+  return "route_shape";
 }
 
 function isCortexMode(value: string): value is CortexMode {
@@ -375,6 +394,7 @@ export function createSemanticRouter(
       `Available semantic candidates: ${JSON.stringify(candidates)}`,
     ].join(" ");
     let repairInstruction = "";
+    let validationCode = "route_shape";
     for (let attempt = 0; attempt < 2; attempt += 1) {
       let result: { text: string };
       try {
@@ -401,8 +421,13 @@ export function createSemanticRouter(
         }
         return route;
       } catch (error) {
+        validationCode = routeValidationCode(error);
         if (attempt === 1) {
-          throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
+          throw new SemanticRoutingError(
+            "Stella semantic routing failed",
+            "invalid_model_route",
+            validationCode,
+          );
         }
         const validationReason = error instanceof Error
           ? error.message.slice(0, 300)
@@ -415,6 +440,10 @@ export function createSemanticRouter(
         ].join(" ");
       }
     }
-    throw new SemanticRoutingError("Stella semantic routing failed", "invalid_model_route");
+    throw new SemanticRoutingError(
+      "Stella semantic routing failed",
+      "invalid_model_route",
+      validationCode,
+    );
   };
 }

@@ -576,7 +576,7 @@ test("semantic routing failure is explicit and does not masquerade as ordinary",
     assert.equal(gate.category, "stella_semantic_routing_failed");
     assert.equal(gate.outcome, "block");
     assert.deepEqual(errors, [
-      "Stella semantic routing failed: invalid_model_route",
+      "Stella semantic routing failed: invalid_model_route:route_shape",
     ]);
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -465,7 +465,9 @@ export default definePluginEntry({
           const consciousnessFailure = error instanceof ConsciousnessLoadError;
           const semanticFailure = error instanceof SemanticRoutingError;
           if (semanticFailure) {
-            api.logger.error(`Stella semantic routing failed: ${error.diagnostic}`);
+            api.logger.error(
+              `Stella semantic routing failed: ${error.diagnostic}${error.validationCode ? `:${error.validationCode}` : ""}`,
+            );
           }
           preparedTurns.put(turnKey, {
             outcome: "blocked",
