@@ -112,8 +112,22 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
       { cwd: consumerRoot, env, maxBuffer: 8 * 1024 * 1024 },
     );
     return parseExactHostAgentTurn(result.stdout, label).text;
-  } catch {
-    throw new Error(`Exact Host private Praxis turn failed: ${label}`);
+  } catch (error) {
+    const output = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}`;
+    const category = /(?:api key|unauthorized|authentication|\b401\b|\b403\b)/iu.test(output)
+      ? "provider_authentication"
+      : /(?:model[^\n]{0,80}(?:not found|unavailable)|\b404\b)/iu.test(output)
+        ? "model_unavailable"
+        : /(?:message could not be sent|stella turn admission|stella_core)/iu.test(output)
+          ? "stella_preparation"
+          : /(?:timed out|timeout)/iu.test(output)
+            ? "timeout"
+            : /(?:econnrefused|gateway)/iu.test(output)
+              ? "gateway"
+              : output.trim()
+                ? "host_error"
+                : "process_error";
+    throw new Error(`Exact Host private Praxis turn failed: ${label} (${category})`);
   }
 }
 
