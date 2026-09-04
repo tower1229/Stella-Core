@@ -29,6 +29,8 @@ export class SemanticRoutingError extends Error {
   }
 }
 
+const MAX_STRUCTURED_ROUTE_ATTEMPTS = 3;
+
 function routeValidationCode(error: unknown): string {
   if (error instanceof SyntaxError) return "invalid_json";
   const message = error instanceof Error ? error.message : "";
@@ -433,7 +435,7 @@ export function createSemanticRouter(
     ].join(" ");
     let repairInstruction = "";
     let validationCode = "route_shape";
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < MAX_STRUCTURED_ROUTE_ATTEMPTS; attempt += 1) {
       let result: { text: string };
       try {
         result = await completeWithOneRetry({
@@ -460,7 +462,7 @@ export function createSemanticRouter(
         return route;
       } catch (error) {
         validationCode = routeValidationCode(error);
-        if (attempt === 1) {
+        if (attempt === MAX_STRUCTURED_ROUTE_ATTEMPTS - 1) {
           throw new SemanticRoutingError(
             "Stella semantic routing failed",
             "invalid_model_route",

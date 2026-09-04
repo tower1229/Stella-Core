@@ -189,7 +189,11 @@ test("deep Praxis fails explicitly while external research is unavailable", asyn
 });
 
 test("invalid semantic route fails explicitly instead of degrading to ordinary", async () => {
-  const router = createSemanticRouter(async () => ({ text: "not-json" }));
+  let attempts = 0;
+  const router = createSemanticRouter(async () => {
+    attempts += 1;
+    return { text: "not-json" };
+  });
   await assert.rejects(
     router("这个选择很难判断。", { frameworks: [], twin: [], personalPraxis: [] }),
     (error: unknown) =>
@@ -202,6 +206,7 @@ test("invalid semantic route fails explicitly instead of degrading to ordinary",
       error.validationCode === "invalid_json_missing" &&
       error.cause === undefined,
   );
+  assert.equal(attempts, 3);
 });
 
 test("open Episode selector repairs one invalid structured response with feedback", async () => {
