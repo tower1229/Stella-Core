@@ -122,6 +122,8 @@ test("semantic router associates an outcome with exactly one available open Epis
       return { text: JSON.stringify({ openEpisodeRef: null }) };
     }
     assert.match(systemPrompt, /praxis-1\/episode\.json/);
+    assert.match(systemPrompt, /source must be exactly user_report/);
+    assert.match(systemPrompt, /needsTwin, needsFramework, needsReality, and needsExternalResearch must all be false/);
     return {
       text: JSON.stringify({
         mode: "outcome",
