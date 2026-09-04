@@ -87,7 +87,8 @@ export function createModelPraxisEvaluator(
     const prompt = [
       "Evaluate one Stella Praxis answer semantically across all seven rubric dimensions.",
       "Do not use keyword, regex, string containment, or lexical scoring.",
-      "Mark personalContextUse true when the answer appropriately uses available personal context or correctly refuses to invent context that the case does not provide.",
+      "Mark personalContextUse true when the case supplies relevant personal facts and the answer uses them appropriately. When the case supplies no owner-specific facts, mark it true if the answer avoids claiming any; an explicit disclaimer is not required.",
+      "Mark ownerFit from how the answer serves the goals, constraints, risk tolerance, and competing priorities stated in the case. Do not require extra owner history that the case does not provide.",
       "Mark retrospectiveEndorsement true when available outcome evidence is used correctly, or when no outcome exists and the answer does not fabricate retrospective endorsement.",
       "Return only strict JSON with caseId, dimensions, and evidence.",
       "Evidence must contain one to seven non-empty concise reasons grounded in the answer and rubric; never return an empty evidence array, quote private text, or add facts absent from the supplied case and answer.",
