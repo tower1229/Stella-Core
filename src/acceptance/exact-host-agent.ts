@@ -4,6 +4,11 @@ export type ExactHostAgentArgumentsInput = {
   sessionKey: string;
 };
 
+export type ExactHostAgentCommand = {
+  executable: string;
+  args: string[];
+};
+
 export function buildExactHostAgentArguments({
   agentId,
   message,
@@ -24,6 +29,17 @@ export function buildExactHostAgentArguments({
     "--timeout",
     "120",
   ];
+}
+
+export function buildExactHostAgentCommand(
+  openclawBin: string,
+  input: ExactHostAgentArgumentsInput,
+): ExactHostAgentCommand {
+  if (!openclawBin.trim()) throw new Error("OpenClaw module path must be non-empty");
+  return {
+    executable: process.execPath,
+    args: [openclawBin, ...buildExactHostAgentArguments(input)],
+  };
 }
 
 export type ExactHostAgentTurn = {

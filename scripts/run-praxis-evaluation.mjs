@@ -13,7 +13,7 @@ import {
 } from "../dist/src/acceptance/praxis-evaluation.js";
 import { createModelPraxisEvaluator } from "../dist/src/acceptance/model-praxis-evaluator.js";
 import {
-  buildExactHostAgentArguments,
+  buildExactHostAgentCommand,
   parseExactHostAgentTurn,
 } from "../dist/src/acceptance/exact-host-agent.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
@@ -197,9 +197,14 @@ async function runPrivateExactHostEvaluation() {
     let judgeIndex = 0;
     const runTurn = async (agentId, sessionKey, message) => {
       try {
+        const command = buildExactHostAgentCommand(openclawBin, {
+          agentId,
+          message,
+          sessionKey,
+        });
         const result = await execFileAsync(
-          openclawBin,
-          buildExactHostAgentArguments({ agentId, message, sessionKey }),
+          command.executable,
+          command.args,
           { cwd: consumerRoot, env: gateway.env, maxBuffer: 4 * 1024 * 1024 },
         );
         const turn = parseExactHostAgentTurn(result.stdout, sessionKey);

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildExactHostAgentArguments,
+  buildExactHostAgentCommand,
   parseExactHostAgentOutput,
   parseExactHostAgentTurn,
 } from "../src/acceptance/exact-host-agent.js";
@@ -29,6 +30,27 @@ test("builds an exact-Host turn through the Gateway", () => {
       "--timeout",
       "120",
     ],
+  );
+});
+
+test("launches the OpenClaw module through the current Node executable", () => {
+  assert.deepEqual(
+    buildExactHostAgentCommand("C:/consumer/node_modules/openclaw/openclaw.mjs", {
+      agentId: "stella",
+      message: "continuity probe",
+      sessionKey: "agent:stella:private-recovery-identity",
+    }),
+    {
+      executable: process.execPath,
+      args: [
+        "C:/consumer/node_modules/openclaw/openclaw.mjs",
+        ...buildExactHostAgentArguments({
+          agentId: "stella",
+          message: "continuity probe",
+          sessionKey: "agent:stella:private-recovery-identity",
+        }),
+      ],
+    },
   );
 });
 

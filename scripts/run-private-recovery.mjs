@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
 import {
-  buildExactHostAgentArguments,
+  buildExactHostAgentCommand,
   parseExactHostAgentTurn,
 } from "../dist/src/acceptance/exact-host-agent.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
@@ -207,13 +207,14 @@ try {
       rebuild: harness.rebuild,
       verifyContinuity: async (input) => {
         for (const probe of harness.probes) {
+          const command = buildExactHostAgentCommand(openclawBin, {
+            agentId: targetAgentId,
+            message: probe.message,
+            sessionKey: `agent:${targetAgentId}:private-recovery-${probe.id}`,
+          });
           const result = await execFileAsync(
-            openclawBin,
-            buildExactHostAgentArguments({
-              agentId: targetAgentId,
-              message: probe.message,
-              sessionKey: `agent:${targetAgentId}:private-recovery-${probe.id}`,
-            }),
+            command.executable,
+            command.args,
             { cwd: consumerRoot, env: gateway.env },
           );
           if (!result.stdout.trim()) {

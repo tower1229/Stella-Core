@@ -19,7 +19,7 @@ import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
 import {
-  buildExactHostAgentArguments,
+  buildExactHostAgentCommand,
   parseExactHostAgentTurn,
 } from "../dist/src/acceptance/exact-host-agent.js";
 import { ALPHA_HOST_VERSION } from "../dist/src/acceptance/exact-host-evidence.js";
@@ -132,9 +132,14 @@ function validateHarness(harness) {
 
 async function runPrivateTurn({ openclawBin, consumerRoot, env, message, sessionKey, label }) {
   try {
+    const command = buildExactHostAgentCommand(openclawBin, {
+      agentId: targetAgentId,
+      message,
+      sessionKey,
+    });
     const result = await execFileAsync(
-      openclawBin,
-      buildExactHostAgentArguments({ agentId: targetAgentId, message, sessionKey }),
+      command.executable,
+      command.args,
       { cwd: consumerRoot, env, maxBuffer: 8 * 1024 * 1024 },
     );
     return parseExactHostAgentTurn(result.stdout, label).text;
