@@ -147,8 +147,13 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
         const status = safeToken(parsed.status);
         const code = safeToken(parsed.error?.code) ?? safeToken(parsed.error?.category) ??
           safeToken(parsed.result?.error?.code) ?? safeToken(parsed.result?.error?.category);
-        const safeError = typeof parsed.error === "string"
+        const errorMessage = typeof parsed.error === "string"
           ? parsed.error
+          : typeof parsed.error?.message === "string"
+            ? parsed.error.message
+            : undefined;
+        const safeError = errorMessage
+          ? errorMessage
             .replaceAll(message, "<private-message>")
             .replace(/https?:\/\/\S+/giu, "<url>")
             .replace(/\/(?:Users|private|var|tmp)\/\S+/gu, "<path>")
@@ -159,6 +164,9 @@ async function runPrivateTurn({ openclawBin, consumerRoot, env, message, session
           `keys=${Object.keys(parsed).sort().join(",")}`,
           ...(status ? [`status=${status}`] : []),
           ...(code ? [`code=${code}`] : []),
+          ...(parsed.error && typeof parsed.error === "object"
+            ? [`errorKeys=${Object.keys(parsed.error).sort().join(",")}`]
+            : []),
           ...(safeError ? [`error=${safeError}`] : []),
         ].join(";");
       } catch {
