@@ -365,7 +365,7 @@ export function createSemanticRouter(
       "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
       "For praxis, when exactly one supplied open Episode is semantically relevant to the request, openEpisodeRef is mandatory and must contain its exact ref; otherwise omit openEpisodeRef.",
       ...(selectedOpenEpisodeRef
-        ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis and openEpisodeRef must exactly match it.`]
+        ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis with top-level openEpisodeRef exactly matching it, or outcome with outcome.openEpisodeRef exactly matching it.`]
         : ["The dedicated semantic selector did not choose an open Episode. Omit openEpisodeRef."]),
       "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
       "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
@@ -391,11 +391,11 @@ export function createSemanticRouter(
       }
       try {
         const route = parseModelRoute(result.text, candidates);
-        if (
-          selectedOpenEpisodeRef
-            ? route.mode !== "praxis" || route.openEpisodeRef !== selectedOpenEpisodeRef
-            : route.openEpisodeRef !== undefined
-        ) {
+        const selectedEpisodeMatches = selectedOpenEpisodeRef
+          ? (route.mode === "praxis" && route.openEpisodeRef === selectedOpenEpisodeRef) ||
+            (route.mode === "outcome" && route.outcome?.openEpisodeRef === selectedOpenEpisodeRef)
+          : route.openEpisodeRef === undefined;
+        if (!selectedEpisodeMatches) {
           throw new Error("Model route disagreed with the open Episode selector");
         }
         return route;

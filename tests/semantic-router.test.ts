@@ -119,7 +119,7 @@ test("semantic router associates an outcome with exactly one available open Epis
   const episodeRef = "path:30_PersonalData/praxis/episodes/praxis-1/episode.json";
   const router = createSemanticRouter(async ({ purpose, systemPrompt }) => {
     if (purpose === "stella-core-open-episode-selection") {
-      return { text: JSON.stringify({ openEpisodeRef: null }) };
+      return { text: JSON.stringify({ openEpisodeRef: episodeRef }) };
     }
     assert.match(systemPrompt, /praxis-1\/episode\.json/);
     assert.match(systemPrompt, /source must be exactly user_report/);
