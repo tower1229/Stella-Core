@@ -80,7 +80,10 @@ try {
     path.join(consumerRoot, "package.json"),
     `${JSON.stringify({ name: "stella-private-recovery", private: true })}\n`,
   );
-  await execFileAsync("npm", [
+  if (!process.env.npm_execpath) {
+    throw new Error("npm CLI path is unavailable; run private recovery through npm");
+  }
+  await execFileAsync(process.execPath, [process.env.npm_execpath,
     "install",
     "--ignore-scripts",
     "--no-audit",
@@ -88,14 +91,16 @@ try {
     artifactPath,
     `openclaw@${hostVersion}`,
   ], { cwd: consumerRoot });
-  const openclawBin = await realpath(path.join(consumerRoot, "node_modules/.bin/openclaw"));
+  const openclawBin = await realpath(path.join(consumerRoot, "node_modules/openclaw/openclaw.mjs"));
+  const runOpenClaw = (args, commandOptions) =>
+    execFileAsync(process.execPath, [openclawBin, ...args], commandOptions);
   const hostEnv = { OPENCLAW_STATE_DIR: runtimeStateRoot };
-  const { stdout: versionOutput } = await execFileAsync(openclawBin, ["--version"], {
+  const { stdout: versionOutput } = await runOpenClaw(["--version"], {
     cwd: consumerRoot,
     env: { ...process.env, ...hostEnv },
   });
   parseExactHostVersion(versionOutput);
-  await execFileAsync(openclawBin, [
+  await runOpenClaw([
     "plugins",
     "install",
     artifactPath,
@@ -131,7 +136,7 @@ try {
     openclawBin,
     runtimeStateRoot,
   });
-  const { stdout: hostConfigOutput } = await execFileAsync(openclawBin, [
+  const { stdout: hostConfigOutput } = await runOpenClaw([
     "config",
     "get",
     "plugins.entries.stella-core.config",
@@ -142,14 +147,14 @@ try {
     canghaiRevision: options["canghai-revision"],
     agentId: targetAgentId,
   });
-  const { stdout: hostHooksOutput } = await execFileAsync(openclawBin, [
+  const { stdout: hostHooksOutput } = await runOpenClaw([
     "config",
     "get",
     "plugins.entries.stella-core.hooks",
     "--json",
   ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
   assertStellaHostHooks(JSON.parse(hostHooksOutput));
-  const { stdout: pluginRuntimeOutput } = await execFileAsync(openclawBin, [
+  const { stdout: pluginRuntimeOutput } = await runOpenClaw([
     "plugins",
     "inspect",
     "stella-core",

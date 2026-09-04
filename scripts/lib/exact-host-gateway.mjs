@@ -40,7 +40,8 @@ export async function startExactHostGateway({ cwd, env, openclawBin }) {
     OPENCLAW_GATEWAY_PORT: String(port),
     OPENCLAW_GATEWAY_TOKEN: token,
   };
-  const child = spawn(openclawBin, [
+  const child = spawn(process.execPath, [
+    openclawBin,
     "gateway",
     "run",
     "--allow-unconfigured",
@@ -66,10 +67,16 @@ export async function startExactHostGateway({ cwd, env, openclawBin }) {
 
   try {
     let lastError;
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
       if (child.exitCode !== null || child.signalCode !== null) break;
       try {
-        await execFileAsync(openclawBin, ["health", "--json", "--timeout", "1000"], {
+        await execFileAsync(process.execPath, [
+          openclawBin,
+          "health",
+          "--json",
+          "--timeout",
+          "1000",
+        ], {
           cwd,
           env: gatewayEnv,
         });

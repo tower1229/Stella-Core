@@ -238,7 +238,10 @@ try {
     path.join(consumerRoot, "package.json"),
     `${JSON.stringify({ name: "stella-private-praxis", private: true })}\n`,
   );
-  await execFileAsync("npm", [
+  if (!process.env.npm_execpath) {
+    throw new Error("npm CLI path is unavailable; run the private Praxis loop through npm");
+  }
+  await execFileAsync(process.execPath, [process.env.npm_execpath,
     "install",
     "--ignore-scripts",
     "--no-audit",
@@ -246,17 +249,19 @@ try {
     artifactPath,
     `openclaw@${ALPHA_HOST_VERSION}`,
   ], { cwd: consumerRoot });
-  const openclawBin = await realpath(path.join(consumerRoot, "node_modules/.bin/openclaw"));
+  const openclawBin = await realpath(path.join(consumerRoot, "node_modules/openclaw/openclaw.mjs"));
+  const runOpenClaw = (args, commandOptions) =>
+    execFileAsync(process.execPath, [openclawBin, ...args], commandOptions);
   const hostEnv = { OPENCLAW_STATE_DIR: runtimeStateRoot };
   const commandEnv = { ...process.env, ...hostEnv };
-  const version = (await execFileAsync(openclawBin, ["--version"], {
+  const version = (await runOpenClaw(["--version"], {
     cwd: consumerRoot,
     env: commandEnv,
   })).stdout.trim();
   if (!version.includes(ALPHA_HOST_VERSION)) {
     throw new Error(`Private Praxis loop requires OpenClaw ${ALPHA_HOST_VERSION}`);
   }
-  await execFileAsync(openclawBin, [
+  await runOpenClaw([
     "plugins",
     "install",
     artifactPath,

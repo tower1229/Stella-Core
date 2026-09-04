@@ -18,6 +18,16 @@ let providerServer;
 let gatewayProcess;
 
 async function run(command, args, options = {}) {
+  if (command === "npm") {
+    if (!process.env.npm_execpath) {
+      throw new Error("npm CLI path is unavailable; run package acceptance through npm");
+    }
+    args = [process.env.npm_execpath, ...args];
+    command = process.execPath;
+  } else if (path.basename(command) === "openclaw.mjs") {
+    args = [command, ...args];
+    command = process.execPath;
+  }
   return execFileAsync(command, args, {
     cwd: options.cwd ?? projectRoot,
     env: options.env ?? npmEnv,
@@ -184,7 +194,7 @@ try {
     { cwd: consumerRoot },
   );
 
-  const openclawBin = path.join(consumerRoot, "node_modules", ".bin", "openclaw");
+  const openclawBin = path.join(consumerRoot, "node_modules", "openclaw", "openclaw.mjs");
   const isolatedEnv = { ...npmEnv, OPENCLAW_STATE_DIR: stateRoot };
   for (const key of Object.keys(isolatedEnv)) {
     if (/(?:API_KEY|TOKEN|SECRET|PASSWORD)$/i.test(key)) delete isolatedEnv[key];
@@ -430,8 +440,8 @@ try {
   async function startGateway() {
     gatewayOutput = "";
     gatewayProcess = spawn(
-      openclawBin,
-      ["gateway", "run", "--port", String(gatewayPort)],
+      process.execPath,
+      [openclawBin, "gateway", "run", "--port", String(gatewayPort)],
       { cwd: consumerRoot, env: isolatedEnv, stdio: ["ignore", "pipe", "pipe"] },
     );
     gatewayProcess.stdout.on("data", (chunk) => {
@@ -441,7 +451,7 @@ try {
       gatewayOutput = `${gatewayOutput}${chunk}`.slice(-20_000);
     });
     let gatewayReady = false;
-    for (let attempt = 0; attempt < 40; attempt += 1) {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
       try {
         const response = await fetch(`http://127.0.0.1:${gatewayPort}/healthz`);
         if (response.ok) {

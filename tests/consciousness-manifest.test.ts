@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { promisify } from "node:util";
 import {
   loadConsciousness,
@@ -15,6 +15,28 @@ import {
 } from "./consciousness-fixture.js";
 
 const execFileAsync = promisify(execFile);
+
+async function createSymlinkOrSkip(
+  context: TestContext,
+  target: string,
+  linkPath: string,
+): Promise<boolean> {
+  try {
+    await symlink(target, linkPath);
+    return true;
+  } catch (error) {
+    if (
+      process.platform === "win32" &&
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "EPERM"
+    ) {
+      context.skip("Windows file symlink privilege is unavailable");
+      return false;
+    }
+    throw error;
+  }
+}
 
 test("loads and validates a minimal recoverable consciousness manifest", async () => {
   const root = await createFixture();
@@ -261,14 +283,14 @@ test("local_write rejects a rename from outside the managed Episode root", async
   }
 });
 
-test("rejects a repository path reference that resolves through an escaping symlink", async () => {
+test("rejects a repository path reference that resolves through an escaping symlink", async (context) => {
   const root = await createFixture();
   const outsidePath = `${root}-outside.md`;
   try {
     const soulPath = path.join(root, "50_PersonalAgent/openclaw/workspace/SOUL.md");
     await writeFile(outsidePath, "outside private content", "utf8");
     await rm(soulPath);
-    await symlink(outsidePath, soulPath);
+    if (!(await createSymlinkOrSkip(context, outsidePath, soulPath))) return;
     await assert.rejects(
       () => loadConsciousness(root),
       (error: unknown) =>
@@ -283,14 +305,14 @@ test("rejects a repository path reference that resolves through an escaping syml
   }
 });
 
-test("rejects a manifest locator that resolves through an escaping symlink", async () => {
+test("rejects a manifest locator that resolves through an escaping symlink", async (context) => {
   const root = await createFixture();
   const outsidePath = `${root}-manifest.yaml`;
   try {
     const manifestPath = path.join(root, "50_PersonalAgent/stella/manifest.yaml");
     await writeFile(outsidePath, await readFile(manifestPath, "utf8"), "utf8");
     await rm(manifestPath);
-    await symlink(outsidePath, manifestPath);
+    if (!(await createSymlinkOrSkip(context, outsidePath, manifestPath))) return;
     await assert.rejects(
       () => loadConsciousness(root),
       (error: unknown) =>
@@ -304,7 +326,7 @@ test("rejects a manifest locator that resolves through an escaping symlink", asy
   }
 });
 
-test("rejects a tracked symlink whose in-repository target is ignored", async () => {
+test("rejects a tracked symlink whose in-repository target is ignored", async (context) => {
   const root = await createFixture();
   try {
     const soulPath = path.join(root, "50_PersonalAgent/openclaw/workspace/SOUL.md");
@@ -312,7 +334,7 @@ test("rejects a tracked symlink whose in-repository target is ignored", async ()
     await writeFile(path.join(root, ".gitignore"), "ignored-private.md\n", "utf8");
     await writeFile(ignoredPath, "ignored private content", "utf8");
     await rm(soulPath);
-    await symlink("../../../ignored-private.md", soulPath);
+    if (!(await createSymlinkOrSkip(context, "../../../ignored-private.md", soulPath))) return;
     const recoveryRevision = await initializeFixtureRepository(root);
     await assert.rejects(
       () =>

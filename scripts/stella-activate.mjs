@@ -34,6 +34,10 @@ function parseArguments(values) {
 }
 
 async function run(command, args, options = {}) {
+  if (command === "openclaw") {
+    args = [path.join(projectRoot, "node_modules", "openclaw", "openclaw.mjs"), ...args];
+    command = process.execPath;
+  }
   return execFileAsync(command, args, {
     cwd: options.cwd ?? projectRoot,
     env: process.env,

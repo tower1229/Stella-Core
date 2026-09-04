@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 import { parseCangHaiRef, resolveCangHaiRef } from "../src/canghai/ref.js";
 
@@ -17,6 +18,7 @@ test("rejects repository traversal", () => {
 });
 
 test("resolves inside the CangHai root", () => {
-  const resolved = resolveCangHaiRef("/tmp/canghai", "path:50_PersonalAgent/stella/manifest.yaml");
-  assert.equal(resolved.absolutePath, "/tmp/canghai/50_PersonalAgent/stella/manifest.yaml");
+  const root = path.resolve("tmp", "canghai");
+  const resolved = resolveCangHaiRef(root, "path:50_PersonalAgent/stella/manifest.yaml");
+  assert.equal(resolved.absolutePath, path.join(root, "50_PersonalAgent/stella/manifest.yaml"));
 });

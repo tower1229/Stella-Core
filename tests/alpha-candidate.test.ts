@@ -127,9 +127,9 @@ test("creates a fail-closed Alpha candidate receipt bound to clean sources and a
     assert.equal(receipt.release.tagCreated, false);
     assert.equal(receipt.release.npmPublished, false);
   } finally {
-    await rm(core.root, { recursive: true, force: true });
-    await rm(canghai.root, { recursive: true, force: true });
-    await rm(artifactRoot, { recursive: true, force: true });
+    await rm(core.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await rm(canghai.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await rm(artifactRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -261,8 +261,8 @@ test("rejects dirty or incomplete candidate evidence", async () => {
       /private Praxis evaluation/,
     );
   } finally {
-    await rm(core.root, { recursive: true, force: true });
-    await rm(canghai.root, { recursive: true, force: true });
-    await rm(artifactRoot, { recursive: true, force: true });
+    await rm(core.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await rm(canghai.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await rm(artifactRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
