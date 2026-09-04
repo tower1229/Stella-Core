@@ -39,6 +39,24 @@ test("reports a ready exact managed-write activation", () => {
   assert.deepEqual(result.issues, []);
 });
 
+test("includes the manifest default persisted by OpenClaw", () => {
+  const desired = assessStellaActivation(request, {
+    coreClean: true,
+    canghaiClean: true,
+    canghaiBranch: "local/stella-alpha",
+    canghaiRevision: revision,
+    openclawVersion: "2026.8.2",
+    configValid: true,
+    manifestValid: true,
+    pluginRuntimeValid: true,
+    pluginEntry: {},
+  }).desiredEntry;
+  assert.equal(
+    desired.config.manifestPath,
+    "50_PersonalAgent/stella/manifest.yaml",
+  );
+});
+
 test("reports source, revision, Host, and policy drift without secrets", () => {
   const result = assessStellaActivation(request, {
     coreClean: false,

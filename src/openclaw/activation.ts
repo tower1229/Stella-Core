@@ -4,6 +4,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { ALPHA_HOST_VERSION } from "../acceptance/exact-host-evidence.js";
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/iu;
+const DEFAULT_MANIFEST_PATH = "50_PersonalAgent/stella/manifest.yaml";
 
 export type StellaActivationRequest = {
   canghaiRoot: string;
@@ -19,7 +20,7 @@ export type StellaActivationAssessment = {
   issues: string[];
   desiredEntry: {
     enabled: true;
-    config: StellaActivationRequest;
+    config: StellaActivationRequest & { manifestPath: string };
     hooks: {
       allowConversationAccess: true;
       allowPromptInjection: true;
@@ -73,7 +74,7 @@ export function assessStellaActivation(
   }
   const desiredEntry = {
     enabled: true as const,
-    config: request,
+    config: { ...request, manifestPath: DEFAULT_MANIFEST_PATH },
     hooks: {
       allowConversationAccess: true as const,
       allowPromptInjection: true as const,
