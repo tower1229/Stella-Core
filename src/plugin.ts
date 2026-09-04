@@ -443,6 +443,9 @@ export default definePluginEntry({
               },
             });
             rememberStagedEpisode(ctx.runId, ctx.sessionKey, ctx.sessionId, staged);
+            api.logger.info(
+              `Stella Praxis staged correlation run=${Boolean(ctx.runId)} sessionKey=${Boolean(ctx.sessionKey)} sessionId=${Boolean(ctx.sessionId)}`,
+            );
             appendContext = `${appendContext ?? ""}\npre_outcome_episode_ref: ${staged.ref}`.trim();
           }
           preparedTurns.put(turnKey, { outcome: "ready" });
@@ -531,6 +534,9 @@ export default definePluginEntry({
           ctx.runId,
           event.sessionKey ?? ctx.sessionKey,
           event.sessionId ?? ctx.sessionId,
+        );
+        api.logger.info(
+          `Stella Praxis finalize correlation eventRun=${Boolean(event.runId)} contextRun=${Boolean(ctx.runId)} eventSessionKey=${Boolean(event.sessionKey)} contextSessionKey=${Boolean(ctx.sessionKey)} eventSessionId=${Boolean(event.sessionId)} contextSessionId=${Boolean(ctx.sessionId)} resolved=${Boolean(pending)}`,
         );
         if (!pending) return;
         const recommendation = event.lastAssistantMessage ?? lastAssistantText(event.messages ?? []);

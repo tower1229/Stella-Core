@@ -75,6 +75,11 @@ export async function startExactHostGateway({ cwd, env, openclawBin }) {
         });
         return {
           env: gatewayEnv,
+          diagnostics: () => startupOutput
+            .split("\n")
+            .filter((line) => line.includes("Stella Praxis"))
+            .slice(-20)
+            .join("\n"),
           stop: async () => {
             if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
             await waitForExit(child, 5_000);

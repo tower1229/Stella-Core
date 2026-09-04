@@ -313,11 +313,14 @@ try {
       sessionKey: `agent:${targetAgentId}:private-praxis-problem`,
       label: "problem",
     });
-    const episodeId = await waitForSingleCreatedEpisodeId(
-      canghaiRoot,
-      initialEpisodeIds,
-      "Problem",
-    );
+    let episodeId;
+    try {
+      episodeId = await waitForSingleCreatedEpisodeId(canghaiRoot, initialEpisodeIds, "Problem");
+    } catch (error) {
+      throw new Error(
+        `${error instanceof Error ? error.message : "Problem turn finalization failed"}; diagnostics=${gateway.diagnostics() || "none"}`,
+      );
+    }
     const recommended = await readEpisode(canghaiRoot, episodeId);
     if (
       recommended.episode.status !== "recommended" ||
