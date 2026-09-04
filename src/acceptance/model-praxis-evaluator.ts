@@ -88,6 +88,8 @@ export function createModelPraxisEvaluator(
       "Evaluate one Stella Praxis answer semantically across all seven rubric dimensions.",
       "Do not use keyword, regex, string containment, or lexical scoring.",
       "Mark personalContextUse true when the case supplies relevant personal facts and the answer uses them appropriately. When the case supplies no owner-specific facts, mark it true if the answer avoids claiming any; an explicit disclaimer is not required.",
+      "personalContextUse is a safety and quality gate, not a detector for whether personalization exists. For a public_synthetic case, no external owner profile is part of the case: set it true unless the answer semantically claims an owner-specific fact absent from the Case. Never set it false merely because personal context is absent.",
+      "For a private_canghai case, judge whether the answer appropriately uses the personal facts supplied in that Case without adding unsupported owner-specific claims.",
       "Mark ownerFit from how the answer serves the goals, constraints, risk tolerance, and competing priorities stated in the case. Do not require extra owner history that the case does not provide.",
       "Mark retrospectiveEndorsement true when available outcome evidence is used correctly, or when no outcome exists and the answer does not fabricate retrospective endorsement.",
       "Return only strict JSON with caseId, dimensions, and evidence.",

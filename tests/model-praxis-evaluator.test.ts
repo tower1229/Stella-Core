@@ -35,6 +35,8 @@ test("uses an answer Host and structured model judge instead of lexical scoring"
   assert.equal(observation.caseId, evaluationCase.id);
   assert.match(judgePrompt, /seven rubric dimensions/i);
   assert.match(judgePrompt, /an explicit disclaimer is not required/i);
+  assert.match(judgePrompt, /safety and quality gate, not a detector/i);
+  assert.match(judgePrompt, /public_synthetic case, no external owner profile/i);
   assert.match(judgePrompt, /Do not require extra owner history/i);
   assert.match(judgePrompt, /does not fabricate retrospective endorsement/i);
   assert.match(judgePrompt, /never return an empty evidence array/i);
