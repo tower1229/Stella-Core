@@ -27,7 +27,6 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
       );
       assert.match(systemPrompt, /Praxis takes precedence over twin and ordinary/);
       assert.match(systemPrompt, /never transfer a memory across relationship, family, workplace/);
-      assert.match(systemPrompt, /openEpisodeRef is mandatory/);
       const route = JSON.stringify({
         mode: "praxis",
         domains: ["relationship"],
@@ -40,7 +39,6 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
         candidateFrameworks: ["path:framework.yaml#operator:reversible_test"],
         candidateTwinRefs: ["path:twin.md"],
         candidatePraxisRefs: ["path:praxis.md"],
-        openEpisodeRef: "path:open-episode.json",
         twinPrediction: {
           possibleActions: { "send-one-message": 0.7, wait: 0.3 },
           likelyInterpretations: ["The user will prefer a reversible action"],
@@ -76,6 +74,32 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
   assert.deepEqual(route.situation?.unknowns, ["Other person's reason"]);
   assert.equal(route.twinPrediction?.possibleActions["send-one-message"], 0.7);
   assert.equal(route.openEpisodeRef, "path:open-episode.json");
+});
+
+test("semantic router rejects an explicit contradiction of the selected Episode", async () => {
+  const router = createSemanticRouter(async ({ purpose }) => ({
+    text: JSON.stringify(purpose === "stella-core-open-episode-selection"
+      ? { openEpisodeRef: "path:selected.json" }
+      : {
+          mode: "praxis", domains: ["decision"], stakes: "low", reversibility: "high",
+          needsTwin: true, needsFramework: true, needsReality: true, needsExternalResearch: false,
+          candidateFrameworks: [], candidateTwinRefs: [], candidatePraxisRefs: [],
+          openEpisodeRef: "path:other.json",
+          twinPrediction: { possibleActions: { wait: 1 }, likelyInterpretations: [], keyFactors: [] },
+          situation: {
+            actors: ["self"], observations: ["A decision is open"], interpretations: [],
+            unknowns: [], userGoals: ["Continue the selected decision"], constraints: [],
+          },
+        }),
+  }));
+  await assert.rejects(router("Continue the selected decision", {
+    frameworks: [], twin: [], personalPraxis: [],
+    openEpisodes: [
+      { ref: "path:selected.json", purpose: "Selected decision" },
+      { ref: "path:other.json", purpose: "Different decision" },
+    ],
+  }), (error: unknown) => error instanceof Error && "validationCode" in error &&
+    error.validationCode === "episode_consistency");
 });
 
 test("semantic router accepts a valid Praxis route with zero Framework operators", async () => {

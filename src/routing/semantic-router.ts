@@ -422,9 +422,9 @@ export function createSemanticRouter(
       "For praxis, stakes and reversibility must each be exactly low, medium, or high.",
       "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
       "Select Twin and personal Praxis refs only when their supplied purpose is semantically relevant to this exact situation. Empty selections are correct when no candidate applies; never transfer a memory across relationship, family, workplace, or other domains merely because both situations are social.",
-      "For praxis, when exactly one supplied open Episode is semantically relevant to the request, openEpisodeRef is mandatory and must contain its exact ref; otherwise omit openEpisodeRef.",
+      "For praxis, the Host will attach the already selected openEpisodeRef. Omit this redundant field; if you return it, it must match the dedicated selector exactly.",
       ...(selectedOpenEpisodeRef
-        ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis with top-level openEpisodeRef exactly matching it, or outcome with outcome.openEpisodeRef exactly matching it.`]
+        ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis, or outcome with outcome.openEpisodeRef exactly matching it.`]
         : ["The dedicated semantic selector did not choose an open Episode. Omit openEpisodeRef."]),
       "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
       "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
@@ -451,7 +451,10 @@ export function createSemanticRouter(
         throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
       }
       try {
-        const route = parseModelRoute(result.text, candidates);
+        const parsedRoute = parseModelRoute(result.text, candidates);
+        const route = parsedRoute.mode === "praxis" && parsedRoute.openEpisodeRef === undefined && selectedOpenEpisodeRef
+          ? { ...parsedRoute, openEpisodeRef: selectedOpenEpisodeRef }
+          : parsedRoute;
         const selectedEpisodeMatches = selectedOpenEpisodeRef
           ? (route.mode === "praxis" && route.openEpisodeRef === selectedOpenEpisodeRef) ||
             (route.mode === "outcome" && route.outcome?.openEpisodeRef === selectedOpenEpisodeRef)
