@@ -18,6 +18,18 @@ Twin / Framework / Praxis runtime
 
 Do not relocate or rewrite the existing corpus merely to satisfy the new architecture.
 
+### Verified legacy baseline
+
+The Stella 1.0 backup is CangHai `dev`, verified on 2026-09-05 at
+`a1c2f4ec444b7d3245a7a0afea74460470a5dfc2`. The current `local/stella-alpha` branch is a
+Stella Core integration test branch. Read legacy evidence from the resolved `dev` commit;
+do not infer 1.0 capabilities from the current working tree.
+
+The manifest and `30_PersonalData/` structure described below are 3.0 additions and do not exist
+in that legacy commit. Migration and runtime operations still require an explicitly configured
+source revision; the legacy backup branch is not automatically a runnable 3.0 recovery target.
+See [the requirements alignment record](09-REQUIREMENTS-ALIGNMENT.md) for the complete distinction.
+
 ## 2. Migration rule: reference first, re-role second, move last
 
 For each legacy asset:

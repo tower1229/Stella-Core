@@ -1,0 +1,669 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stella-core.dev/schemas/praxis-episode-v2.schema.json",
+  "title": "Stella Praxis Episode v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "provenance",
+    "situation",
+    "recoveryPriority",
+    "historicalInputRefs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "stella.praxis-episode/v2"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "open",
+        "recommended",
+        "acted",
+        "observing",
+        "closed",
+        "abandoned",
+        "expired"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recoveryPriority": {
+      "enum": [
+        "normal",
+        "important"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agentId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "messageRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "situation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "domains",
+        "observations"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "actors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "interpretations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stakes": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "reversibility": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        }
+      }
+    },
+    "twin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hypothesisRefs": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "prediction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "possibleActions": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "minProperties": 1
+            },
+            "likelyInterpretations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "keyFactors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "possibleActions",
+            "likelyInterpretations",
+            "keyFactors"
+          ]
+        }
+      }
+    },
+    "framework": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "frameworkRefs": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "operatorRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reality": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "modes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "base_model",
+              "personal_praxis",
+              "external_research"
+            ]
+          }
+        },
+        "norms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hiddenVariables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "likelyInterpretations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "socialCosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "uncertainties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "externalRefs": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "similarEpisodeRefs": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommendation",
+        "rationale"
+      ],
+      "properties": {
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recommendation": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actionGate": {
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ]
+        }
+      }
+    },
+    "actual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "occurredAt",
+        "recordedAt",
+        "source",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occurredAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "enum": [
+            "user_report",
+            "tool_observation",
+            "system_event"
+          ]
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observations",
+        "result",
+        "observedAt",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "result": {
+          "type": "string"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    },
+    "retrospective": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "endorsement": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "regret": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "comment": {
+          "type": "string"
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithmVersion",
+        "predictionAssessment",
+        "evidenceRefs",
+        "praxis",
+        "twin"
+      ],
+      "properties": {
+        "algorithmVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "predictionAssessment": {
+          "enum": [
+            "supported",
+            "countered",
+            "unresolved"
+          ]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "twin": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "reality": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "praxis": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "frameworkPractice": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "historicalInputRefs": {
+      "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "open"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decision": false,
+          "actual": false,
+          "outcome": false,
+          "learning": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "recommended"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": true,
+          "actual": false,
+          "outcome": false,
+          "learning": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "acted"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "decision",
+          "actual"
+        ],
+        "properties": {
+          "decision": true,
+          "actual": true,
+          "outcome": false,
+          "learning": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "closed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "decision",
+          "actual",
+          "outcome",
+          "learning"
+        ],
+        "properties": {
+          "decision": true,
+          "actual": true,
+          "outcome": true,
+          "learning": true
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "observing"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "decision",
+          "actual"
+        ],
+        "properties": {
+          "decision": true,
+          "actual": true,
+          "outcome": false,
+          "learning": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "abandoned",
+              "expired"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "actual": false,
+          "outcome": false,
+          "learning": false
+        }
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "required": [
+            "twin"
+          ],
+          "properties": {
+            "twin": {
+              "required": [
+                "prediction"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "learning": {
+            "properties": {
+              "predictionAssessment": {
+                "const": "unresolved"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "description": "Target contract; v1 runtime migration is required before activation. Cross-record and temporal invariants are specified in docs/contracts/PRAXIS-EPISODE.md.",
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

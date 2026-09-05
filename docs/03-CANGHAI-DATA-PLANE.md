@@ -12,6 +12,14 @@ This is broader than “only confirmed facts belong in CangHai” and narrower t
 
 A fresh Stella deployment must be reconstructable from CangHai without restoring the old OpenClaw runtime host.
 
+The owner's product requirement is to centralize data sources in the personal digital repository.
+Git is the current storage implementation. For this architecture, a complete CangHai Git repository
+copy must also contain all retained original personal data,
+including images, audio, video, conversation archives, and their attachments. Original bytes must
+be recoverable from that copy itself. An attachment catalog or pointer that requires a separate
+external asset store does not satisfy the confirmed storage boundary. Owner-directed retention and
+deletion rules still apply; runtime credentials remain governed by the external-secret contract.
+
 ## 2. Recovery invariant
 
 The recovery target is **core consciousness**, not process state.
@@ -29,7 +37,9 @@ CangHai
 → recover durable identity, Twin, frameworks, Praxis learning, and durable open state
 ```
 
-Old sessions and transcripts are optional historical evidence, not a required dependency for recovery.
+Core-consciousness recovery must not require restoring old runtime sessions. Complete conversation
+archives are retained personal evidence under the requirements below; their retention is a separate
+obligation from restoring session execution state.
 
 If a runtime-only record becomes necessary to reproduce Stella's learned behavior after a total server loss, that record has been misclassified and must gain a portable CangHai representation.
 
@@ -49,12 +59,35 @@ A tool must never silently substitute the repository default branch when an inst
 
 The branch or tag name may describe an operator workflow, but the resolved commit SHA is the coherence boundary used for reproducibility and recovery.
 
+### 2.2 Conversation retention and general personal data
+
+[The confirmed requirements](09-REQUIREMENTS-ALIGNMENT.md) default to complete daily-conversation
+retention, with owner-directed non-retention or deletion exceptions. Reuse OpenClaw storage and
+backup capabilities. Archive integration and in-repository formats remain to be designed within the
+self-contained Git-copy requirement;
+this requirement does not introduce a second Core-owned session database or make runtime sessions
+a prerequisite for consciousness recovery.
+
+Raw material, facts/experiences, understanding/learning, and rebuildable retrieval views are distinct
+logical roles. Preserve original media and provenance; summaries cannot replace raw evidence.
+The owner handles corrections and removals by directly editing stored files and then resynchronizing
+memory indexes. Sync uses the updated repository revision and propagates source changes to dependent
+views and understanding; stale summaries must not remain valid evidence. Other valid sources may
+still support a conclusion. Normal sync and learning must not restore removed source content from
+old indexes, summaries, or repository history.
+
+Stella Core has no natural-language event-forgetting feature. Physical history and backup management
+remain owner-operated rather than a pending Stella erasure capability. In-repository media formats
+and archive integration remain open. Host database-backup capability alone is not evidence that the
+retained conversation archive and every referenced media file are included in CangHai.
+
 ## 3. What belongs in CangHai
 
 Examples:
 
 - raw and normalized personal experiences;
-- important conversation/life event archives where intentionally retained as personal evidence;
+- retained original images, audio, video, files, and attachments as self-contained repository content;
+- complete daily-conversation archives by default, subject to explicit owner exceptions, and retained life-event evidence;
 - owner-authored thinking frameworks;
 - active Framework IR snapshots when required to reproduce actual cognitive behavior;
 - durable Twin hypotheses;

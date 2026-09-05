@@ -1,240 +1,72 @@
 # Stella Core Local Development Integration
 
-## Goal
+本文件是操作入口。[设计基线](10-DESIGN-BASELINE.md)定义现行规则，[Alpha 验收](05-ALPHA-PLAN.md)定义通过条件。命令存在不表示当前版本已满足新增契约。
 
-Run Stella 3.0 locally against the exact Alpha acceptance Host, OpenClaw 2026.8.2, using:
+## 1. 环境
 
-- a local Stella-Core checkout loaded as a linked OpenClaw plugin;
-- an isolated OpenClaw development state directory;
-- a local CangHai checkout based on the reviewed Stella 3.0 rebuild branch;
-- no dependency on production OpenClaw sessions or machine-local runtime state.
+使用隔离 OpenClaw 状态、干净 Core checkout、显式 CangHai checkout／branch／完整 commit SHA。Exact Alpha Host 为 2026.8.2。
 
-The historical first targets were read-only bootstrap and local-write Praxis. The Alpha delivery
-target is now `managed_durable_write` with a persistent recovery pointer and remote synchronization.
+Stella 1.0 历史核查只读取 dev@a1c2f4ec444b7d3245a7a0afea74460470a5dfc2。Core 改造后的测试分支是不同用途；运行／恢复基线由实际实例明确选择，禁止据此默认使用 dev 或仓库默认分支。
 
-## Development topology
+本地配置 OPENCLAW_STATE_DIR 指向隔离目录，并配置可工作的模型与目标 agent。源码中的 agentId 默认值和某台机器使用 main 的事实都不替代实例选择。
 
-```text
-OpenClaw 2026.8.2 (isolated dev state)
-        |
-        v
-Stella-Core local checkout --linked plugin
-        |
-        v
-CangHai local checkout
-  base: dev-stella-3-rebuild
-  local working branch: local/stella-alpha
-        |
-        +-- legacy 1.0 evidence (read)
-        +-- Stella 3.0 managed data (read/write in phase 2)
-```
+## 2. 数据模式
 
-## Important Git semantics
+| 模式 | 允许行为 | 可声明的完成程度 |
+| --- | --- | --- |
+| read_only | 读取与诊断，无认知写入 | 不能声称已长期记住纠正 |
+| local_write | 写入隔离仓库，禁止 push | 仅本地验证，不能声称抗服务器丢失 |
+| managed_durable_write | 显式远端／分支，commit、pointer CAS、push／RPO | 按实际同步状态声明 |
 
-`sourceBaseline` / bootstrap baseline records the immutable CangHai revision used to derive the initial Stella 3.0 managed artifacts. It is provenance, not the forever-current CangHai HEAD.
+启用 managed 模式须已有对该远端写入的授权。不得把用户未提交文件混入自动提交，或通过 reset 保持机器所期待的旧状态。
 
-A production recovery point is the explicit CangHai Git revision selected for restore. Normal Stella learning is expected to create later revisions.
-
-Therefore:
-
-- runtime must never require current HEAD to equal the original bootstrap commit forever;
-- derived artifacts must retain source blob pins so source drift can invalidate/rebuild only the affected artifact;
-- one explicitly selected CangHai Git revision remains the coherence boundary for restore;
-- local development writes must not silently push to the durable remote repository.
-
-This distinction must be reflected in the final restore validator before write-enabled Alpha testing is declared complete.
-
-## Phase 0 — Prepare local repositories
-
-Recommended layout:
-
-```text
-~/dev/Stella-Core
-~/dev/CangHai-Stella-Dev
-~/.openclaw-stella-dev
-```
-
-CangHai:
+## 3. 本地构建与链接
 
 ```bash
-git clone git@github.com:tower1229/CangHai.git ~/dev/CangHai-Stella-Dev
-cd ~/dev/CangHai-Stella-Dev
-git fetch origin
-git switch dev-stella-3-rebuild
-git switch -c local/stella-alpha
-# Keep test writes local unless explicitly promoted.
-git config --local push.default nothing
-```
-
-Stella-Core:
-
-```bash
-git clone git@github.com:tower1229/Stella-Core.git ~/dev/Stella-Core
-cd ~/dev/Stella-Core
-npm install
+npm ci
 npm run check
+npm run check:schemas
 npm run build
 npm test
+npm run test:package
+openclaw plugins install --link /path/to/Stella-Core
 ```
 
-## Phase 1 — Isolate OpenClaw development state
+完整工程检查入口为 npm run verify。先确认当前源码和所选 profile 符合规范；未实现的 Memory Lifecycle 或完成协调不能通过现有 package smoke 自动获得证明。
 
-Do not use the normal OpenClaw state for initial plugin development.
+## 4. 激活
+
+使用仓库入口诊断配置；下面 agent-id 必须替换为实际实例值：
 
 ```bash
-export OPENCLAW_STATE_DIR="$HOME/.openclaw-stella-dev"
+npm run stella:activate -- --canghai-root /path/to/CangHai --agent-id main --data-mode managed_durable_write --check
 ```
 
-Create/configure a dedicated Stella agent in this isolated state. A typical dedicated workspace is:
-
-```text
-~/.openclaw-stella-dev/workspace-stella
-```
-
-The runtime must have a working model/provider route before Stella behavior can be tested.
-
-## Phase 2 — Link Stella-Core into OpenClaw
-
-Local plugin development should use a linked install so edits remain connected to the checkout:
+确认来源、分支、SHA、远端、Host／runner、插件权限及能力契约后，才在对应任务授权范围内执行：
 
 ```bash
-cd ~/dev/Stella-Core
-openclaw plugins install --link "$PWD"
-```
-
-If OpenClaw requests explicit trust confirmation for the local source, review the source and accept it; non-interactive setup may require the corresponding force/trust flag.
-
-For current Alpha activation, use the repository-owned check/apply command rather than mutating
-individual fields by hand:
-
-```bash
-npm run stella:activate -- --canghai-root "$HOME/dev/CangHai-Stella-Dev" \
-  --agent-id main --data-mode managed_durable_write --check
-npm run stella:activate -- --canghai-root "$HOME/dev/CangHai-Stella-Dev" \
-  --agent-id main --data-mode managed_durable_write --apply
-```
-
-Verify the runtime plugin surface:
-
-```bash
+npm run stella:activate -- --canghai-root /path/to/CangHai --agent-id main --data-mode managed_durable_write --apply
 openclaw plugins inspect stella-core --runtime --json
 openclaw gateway status --deep --require-rpc
 ```
 
-## Phase 3 — Read-only consciousness bootstrap acceptance
+当前 activation 命令尚未证明新增 completion／full_memory profile 的全部能力检查；检查成功不能替代对应 G/A/M 条件。apply 变更 Host 配置，需备份、验证和失败回滚。正式候选／本机验收以对应任务的证据要求为准。
 
-Before implementing any durable write path, prove:
+## 5. 私有端到端证据
 
-1. OpenClaw starts with Stella-Core enabled.
-2. `before_agent_run` does not block only when the local CangHai checkout is clean at the configured recovery SHA, compatible, and `runtimeState.activationStatus: active`.
-3. `before_prompt_build` injects the Stella bootstrap context only for the configured Stella agent.
-4. `migration_required`, `degraded`, incompatible versions, dirty/mismatched recovery revisions, invalid records, and breaking/removing the manifest cause Stella to fail closed with a stable category.
-5. Restoring the manifest makes Stella usable again without restoring any old OpenClaw session.
-6. Ordinary questions remain ordinary; loading Stella Core alone must not force every turn into Praxis analysis.
+对一个干净 Core revision 打包成唯一 tarball。以该 artifact 顺序生成：
 
-Recommended smoke probes:
+1. praxis:private：从明确 initial CangHai SHA 跑实际 write loop，记录最终同步 SHA。
+2. recover:private：从该最终 SHA 在空 runtime 恢复。
+3. evaluate:praxis：同一 artifact／最终 CangHai SHA，公共 suite 加私有 fragment。
+4. candidate：核对 write-loop、recovery、evaluation、durability 及版本关联。
 
-```text
-A. 普通事实/技术问题：不应触发 Praxis 深层分析。
-B. “你是谁，你和普通 OpenClaw Agent 有什么区别？”：应体现 Stella identity/bootstrap。
-C. 一个关系或私人现实问题：此阶段只确认意识数据可读，不要求完整 Praxis Loop。
-```
+精确参数见 [README](../README.md)。私有 adapter、原文和输出留在 CangHai／私有输出位置。源码或 artifact 变化使对应证据失效，不能拼接不同版本的成功记录。
 
-## Phase 4 — Implement first Praxis vertical slice in shadow/read-only mode
+## 6. 验证与故障处理
 
-Implement in this order:
+除正常闭环外，运行 Alpha 的澄清、错误行动来源、重复 outcome、合法空恢复及 Host 回调／同步故障用例。存在未满足的 A 项就报告未通过；旧 receipt 不自动覆盖新增断言。
 
-```text
-Turn Router
--> Situation Builder
--> Twin Context Builder
--> Framework Selector
--> Reality Need Check
--> Praxis Context Packet
--> main model answer
-```
+Source Baseline 只记录派生历史，Recovery Revision 是当前选定恢复点。来源变化后按 Memory Lifecycle 重评当前依赖，历史预测保持原貌。pointer CAS 失败保留已生成的提交，协调当前配置后重试；push 状态不明先查远端，不能再生成一条同样学习。
 
-At first, log/inspect the generated packet but do not persist episodes.
-
-Acceptance criteria:
-
-- ordinary lane adds near-zero personal context;
-- Praxis lane returns a bounded Twin context rather than a full personality profile;
-- Framework Selector chooses 0-2 active operators;
-- Reality Need Check distinguishes model-base social knowledge from cases requiring external research;
-- the final answer gives one concrete next action when the user asks what to do.
-
-## Phase 5 — Enable local CangHai writes
-
-Before this phase, Stella-Core should add an explicit data write mode, recommended values:
-
-```text
-read_only
-local_write
-managed_durable_write
-```
-
-Local-only development may use `local_write`:
-
-- may create/update managed Stella 3.0 files in the local CangHai checkout;
-- must not git push;
-- should not auto-edit legacy `30_RAG` source documents;
-- all generated writes must be schema validated before replace/commit.
-
-First persisted object: a pre-outcome Praxis Episode.
-
-Required ordering:
-
-```text
-prediction persisted
--> recommendation/action
--> later actual action/outcome
--> append outcome
--> compute prediction error
--> update at least one Twin Hypothesis
-```
-
-Never rewrite the original prediction after the outcome is known.
-
-## Phase 6 — Local recovery drill
-
-After at least one learned Praxis outcome exists:
-
-1. commit the local CangHai test branch;
-2. stop the isolated OpenClaw Gateway;
-3. remove/recreate the isolated OpenClaw state directory (or use a second clean dev state);
-4. reinstall/link Stella-Core;
-5. point it to the same explicit CangHai recovery revision;
-6. create a fresh Stella agent/session;
-7. rebuild disposable runtime indexes;
-8. run continuity checks.
-
-Acceptance condition:
-
-The new runtime can recover the identity, active Framework IR, Twin state, and learned Praxis outcome without the old session database.
-
-Alpha delivery uses `managed_durable_write`. It additionally
-requires `durabilityRemote` and `durabilityBranch` in plugin configuration and a manifest durability
-policy. Critical open/high-value state returns success only after commit and push. Normal closed
-learning commits immediately, schedules a push within `maxNormalRpoSeconds`, and exposes pending or
-breached RPO diagnostics. Every commit advances the persistent recovery pointer before push; CAS
-conflicts fail explicitly. Do not point this mode at a real remote unless that external write has
-been authorized.
-
-## Immediate implementation sequence
-
-```text
-P0  Local build/test and packed clean-install against exact OpenClaw 2026.8.2
-P1  Linked plugin + isolated OpenClaw state
-P2  Read-only consciousness bootstrap smoke test
-P3  Correct bootstrap-baseline vs recovery-revision semantics in validator/contracts
-P4  Turn Router
-P5  Situation Builder + Twin Context Builder
-P6  Framework Selector + Reality Need Check
-P7  Praxis Context Packet
-P8  local_write CangHaiStore + Praxis Episode
-P9  Outcome association + prediction-error update
-P10 clean-runtime recovery drill
-```
-
-Do not begin broad CangHai migration, fine-tuning, social graph construction, or autonomous action work before P10 passes.
+本文件不授权自动提交、push、迁移私有数据、修改正式配置、关闭 Issue 或发布。具体执行遵循当前任务已经给出的授权，不重复索取已有授权。

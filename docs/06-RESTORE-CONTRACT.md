@@ -17,6 +17,20 @@ fresh server
 
 Recovery does not attempt to resume an old conversation. It reconstructs the durable cognitive identity needed for the next fresh conversation to still be recognizably the same Stella.
 
+### Complete personal-data recovery
+
+The [confirmed storage requirement](09-REQUIREMENTS-ALIGNMENT.md) centralizes data sources in the
+personal digital repository. Under the current Git-based architecture, a complete CangHai Git
+repository copy must contain all retained original personal data, including conversation
+archives and media attachments. Data verification must establish archive coverage, reference
+resolution, and content integrity from the copy itself, without access to the old runtime server
+or a separate external attachment store.
+
+This extends acceptance beyond cognitive bootstrap: the existing Alpha Level 0–3 drill does not
+yet establish complete raw-data coverage. Retaining the conversation archive does not require
+resuming its old sessions. Compatible runtime/model capabilities and required external secrets
+remain execution dependencies, distinct from the self-contained personal-data requirement.
+
 ## 2. Restore levels
 
 ### Level 0 — Data readable

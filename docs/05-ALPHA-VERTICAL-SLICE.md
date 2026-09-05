@@ -1,252 +1,39 @@
 # Stella 3.0 Alpha Vertical Slice
 
-## 1. Goal
+范围与出口只在 [Alpha 验收](05-ALPHA-PLAN.md)维护。本文件给出开发与测试可使用的单一场景流程；数据状态以 [Episode 契约](contracts/PRAXIS-EPISODE.md)为准。
 
-The Alpha is successful when Stella can learn from one real private-life decision loop end to end.
+## 1. 初次求助
 
-It is not a complete personal-model platform.
+主人提出一个关系／社交判断问题。Host 记录输入，Cortex 恢复事项及来源，使用结构化 LLM 路由和取证。
 
-The first vertical slice is:
+Scenario fixture 必须区分用户陈述、他人话语和助手旧解释，包含相关上下文及反证。选择零至两个适用 Framework operators，Reality 按需要补足情境因素。
 
-```text
-real user problem
-→ route as praxis
-→ build situation frame
-→ retrieve relevant Twin context
-→ select 0-2 Framework operators
-→ add Reality/Social intelligence
-→ compose Praxis Context Packet
-→ main OpenClaw model answers / acts
-→ persist Praxis Episode
-→ later detect outcome
-→ update episode
-→ update one Twin hypothesis or Praxis learning item
-```
+若关键事实未知，返回 clarification，保存已知上下文；不得为使案例“有行动”而猜测。证据充分并需要行动建议时，形成 action_advice。建议可以是澄清期待、降低投入或暂不行动，推进关系不是默认成功标准。
 
-## 2. Non-goals
+## 2. 建议与持久化
 
-Alpha explicitly does not require:
+存在有意义的选择时，记录当时有效的 Twin 假设和精确 IR，封存预测。Episode 为同一事项保留稳定 ID。建议释放前必须完成适用的关键持久化检查；推荐内容和投递结果分别记录。
 
-- personal fine-tuning;
-- soft prompts or KV-cache personalization;
-- a global user vector;
-- a complete social graph;
-- a complete probabilistic state model;
-- a knowledge graph rewrite of CangHai;
-- multi-agent Swarm or A2A;
-- full autonomous action;
-- migration of all legacy RAG before runtime validation.
+推荐发布只产生 recommended 状态。写入、远端同步或投递失败分别报告，不能将回调被执行视为全部完成。
 
-## 3. Runtime components
+## 3. 后续交互
 
-A single OpenClaw plugin, working name `stella-cortex`, contains:
+主人提出纠正或拒绝时，先利用已有原因，理解缺少的约束，更新该事项上下文；不是每次反馈都要求 Episode 关闭或 Twin 全局改动。
 
-```text
-stella-cortex/
-├── routing/       Turn classification
-├── situation/     Situation Frame construction
-├── twin/          Context retrieval + hypothesis prediction
-├── framework/     Compiled Framework Registry + selection
-├── reality/       Base / personal / external reality intelligence
-├── praxis/        Packet, decision, episode, outcome
-├── learning/      Prediction error and consolidation
-├── canghai/       Portable personal-data persistence
-└── openclaw/      Hook and tool adapters
-```
+主人随后提供实际行动和结果时，语义匹配已有 Episode。匹配含糊则澄清或保留未关联反馈，不能随便选择最近事件。action 推断不得充当实际证据。
 
-These are modules, not independent long-lived agents.
+同一结果重复到达只应用一次。关闭时记录对预测和现实理解的评估，以及支持得出的学习。此专用验收案例须实际产生一个 Twin **或** Praxis 项；普通案例可只有有依据的评估而无新增模型变化。
 
-Temporary subagents are allowed only for bounded tasks such as deep external research, multi-session recall, or perspective simulation.
+社交结果只被动接收；不按重要性或学习价值安排关系跟进。
 
-## 4. OpenClaw integration
+## 4. 再次使用与恢复
 
-Alpha uses public OpenClaw plugin seams only.
+下一次相似请求通过来源关联取回学习，并在有效范围内使用；不只检查字符串出现在存储文件中。随后在干净 Host 中从明确同步 revision 恢复，并再次验证学习可用。
 
-| Need | OpenClaw seam |
-| --- | --- |
-| Route and assemble context | `before_prompt_build` |
-| Optional model override | `before_model_resolve` |
-| Register Twin/Framework/Praxis tools | `api.registerTool(...)` |
-| Gate external action | `before_tool_call` |
-| One bounded final-answer correction | `before_agent_finalize` |
-| Persist run outcome / episode seed | `agent_end` |
-| Observe tool outcomes | `after_tool_call` |
-| Follow-up scheduling | Standing Intent / cron |
+更新被引用的 Twin 后，旧预测仍按历史版本保持完整；当前理解使用新版本。删除来源后，其内容不得通过旧摘要回流。
 
-Stella Core must not fork or patch OpenClaw core unless a required capability cannot be expressed through a stable public SDK seam.
+恢复 fixture 分别覆盖有重要开放事项和合法空集合。不得为了让通用恢复成功而保留虚假的开放 Episode。
 
-## 5. Turn modes
+## 5. 失败场景
 
-```ts
-type CortexMode =
-  | "ordinary"
-  | "twin"
-  | "praxis"
-  | "deep_praxis"
-  | "outcome";
-```
-
-### ordinary
-
-No personal cognitive machinery is required.
-
-### twin
-
-The question primarily asks how the owner tends to think, choose, write, or behave.
-
-### praxis
-
-A real-world/private situation requires synthesis of personal context + framework + reality experience into action.
-
-### deep_praxis
-
-The Praxis problem additionally requires fresh external facts, high-stakes research, or bounded deep recall.
-
-### outcome
-
-A later observation can update an existing open Praxis Episode.
-
-## 6. Router contract
-
-The router does not answer the user. It produces only a compact execution plan.
-
-```ts
-interface CortexRoute {
-  mode: CortexMode;
-  domains: string[];
-  actors?: string[];
-  stakes?: "low" | "medium" | "high";
-  reversibility?: "high" | "medium" | "low";
-  needsTwin: boolean;
-  needsFramework: boolean;
-  needsReality: boolean;
-  needsExternalResearch: boolean;
-  candidateFrameworks?: string[];
-  openEpisodeRef?: string;
-}
-```
-
-Routing should use deterministic/lightweight checks first. A model router is fallback for ambiguous turns, not a mandatory extra LLM call on every message.
-
-## 7. Situation Frame
-
-```ts
-interface SituationFrame {
-  actors: string[];
-  observations: string[];
-  interpretations: string[];
-  unknowns: string[];
-  userGoals: string[];
-  constraints: string[];
-  socialContext?: {
-    relationshipStage?: string;
-    powerRelation?: string;
-    reciprocity?: string;
-    intimacy?: string;
-    ambiguity?: string;
-  };
-  decision?: {
-    options?: string[];
-    stakes: "low" | "medium" | "high";
-    reversibility: "high" | "medium" | "low";
-  };
-}
-```
-
-Observation and interpretation must remain distinguishable so Stella can model uncertainty without treating a hypothesis as an observed fact.
-
-## 8. Praxis Context Packet
-
-The main model receives a compact packet, not raw personal archives.
-
-```ts
-interface PraxisContextPacket {
-  mode: "praxis" | "deep_praxis";
-  situation: SituationFrame;
-  twin?: {
-    hypothesisRefs: string[];
-    relevantPatterns: string[];
-    values?: string[];
-    similarEpisodeRefs?: string[];
-    prediction?: Record<string, number>;
-  };
-  framework?: {
-    frameworkRefs: string[];
-    operatorRefs: string[];
-    failureModes?: string[];
-  };
-  reality?: {
-    modes: Array<"base_model" | "personal_praxis" | "external_research">;
-    norms?: string[];
-    hiddenVariables?: string[];
-    socialCosts?: string[];
-    uncertainties?: string[];
-    externalRefs?: string[];
-  };
-  openEpisodeRef?: string;
-}
-```
-
-The internal packet is not the user-facing response format.
-
-## 9. Action gates
-
-Alpha uses four execution levels:
-
-- **A — Auto:** reversible internal work, retrieval, organization, private records.
-- **B — Prepare:** draft or stage an external action without committing it.
-- **C — Confirm:** ordinary external side effects such as sending a private message or submitting a form.
-- **D — Strong confirm:** high-impact, expensive, public, legally meaningful, destructive, or hard-to-reverse actions.
-
-Action gate selection considers impact, reversibility, Stella confidence, and prior acceptance. Alpha may use conservative defaults; learned domain autonomy is future work.
-
-## 10. Episode persistence
-
-Every meaningful `praxis` or `deep_praxis` turn creates or updates a `PraxisEpisode`.
-
-A meaningful choice prediction must be written before the eventual real outcome is known.
-
-Long-term episodes are personal data and must have a portable CangHai representation. Runtime SQLite/index rows are caches and operational state only.
-
-## 11. Outcome association
-
-Prefer passive capture from later user messages or observed tool events.
-
-Active follow-up is scheduled only when:
-
-```text
-importance × expected learning value > interruption cost
-```
-
-Outcome association can use episode search or bounded cross-session recall.
-
-## 12. First learning rule
-
-Alpha does not need a sophisticated Bayesian or neural updater.
-
-On episode close:
-
-1. compare persisted prediction with actual action;
-2. compare reality assumptions with observed result;
-3. record retrospective endorsement/regret when available;
-4. append evidence to relevant Twin hypotheses;
-5. create a candidate hypothesis when repeated unexplained prediction error appears;
-6. record Praxis learning separately from canonical Framework source.
-
-The update algorithm must be versioned so later versions can recompute hypothesis strength from raw episode history.
-
-## 13. Alpha acceptance test
-
-A single end-to-end case passes when:
-
-1. the system correctly routes a real private-life problem to Praxis;
-2. relevant legacy CangHai personal context is retrieved;
-3. no more than two useful Framework operators are selected;
-4. Reality adds at least one material variable the raw Twin context does not provide;
-5. the final answer gives a concrete next action;
-6. a valid Praxis Episode is persisted before the outcome;
-7. a later outcome is associated with the episode;
-8. one Twin or Praxis learning record changes because of the outcome;
-9. the next comparable case can retrieve that learning.
-
-This is the first true Stella 3.0 milestone.
+必须覆盖：关键未知、推断行动、错误事件匹配、重复 outcome、来源变化、权限变化、取消、Host 回调超时、commit/CAS/push 失败和 Gateway 重启。各失败的预期结果从统一 G/A 条件引用，不再维护另一组较宽松的完成定义。

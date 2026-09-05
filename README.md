@@ -19,6 +19,11 @@ This repository contains **runtime code, schemas, architecture, and evaluation l
 
 Long-lived personal data belongs in the private CangHai repository. Runtime caches, indexes, embeddings, and other rebuildable OpenClaw state do not need to be committed here or to CangHai unless they become portable personal learning assets.
 
+The owner's requirement is to centralize data sources in the personal digital repository. With
+CangHai currently based on Git, a complete repository copy must contain all retained original personal
+data, including conversation archives and media attachments. External asset references alone do not meet this
+requirement; full archive coverage is an additional acceptance property beyond the current Alpha drill.
+
 A Stella instance must be reconstructable after total runtime-server loss from:
 
 ```text
@@ -33,6 +38,7 @@ Old OpenClaw sessions and machine-local databases are not part of this recovery 
 
 ## Design baseline
 
+- `docs/09-REQUIREMENTS-ALIGNMENT.md` — confirmed top-level requirements, source-baseline corrections, and remaining design questions; governs product scope and experience tradeoffs beyond Alpha.
 - `docs/00-VISION.md` — Stella 3.0 mission and product definition.
 - `docs/01-ARCHITECTURE.md` — four-system Cortex architecture and consciousness portability invariant.
 - `docs/02-PRAXIS-RUNTIME.md` — end-to-end Praxis runtime protocol.
@@ -69,7 +75,7 @@ public/private case counts without copying prompts into the report.
 
 ## Current cold-start state
 
-The private CangHai repository now has an additive Stella 3.0 bootstrap layer with:
+The private CangHai `local/stella-alpha` test branch has an additive Stella 3.0 bootstrap layer with:
 
 - a deterministic consciousness manifest;
 - a portable Stella runtime profile;
@@ -78,7 +84,10 @@ The private CangHai repository now has an additive Stella 3.0 bootstrap layer wi
 - the first activated relationship/social Framework IR;
 - a small set of relationship/social Twin hypothesis seeds derived from legacy evidence.
 
-Legacy Stella 1.0 data remains in place and is treated as cold-start evidence.
+Legacy Stella 1.0 data remains in place and is treated as cold-start evidence. The Stella 1.0 backup
+baseline is CangHai `dev`, not the current test branch. See `docs/09-REQUIREMENTS-ALIGNMENT.md` for
+the verified commit SHAs. This source distinction does not change the explicit revision required
+for activation or recovery.
 
 ## Alpha recovery and candidate gates
 

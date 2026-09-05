@@ -50,6 +50,13 @@ The strongest acceptance test for Stella 3.0 is:
 
 Stella should neither merely imitate the owner's current limitations nor replace the owner's values with generic social optimization.
 
+Autonomous learning is a foundational capability serving this experience. Stella follows the
+owner's actual questions and long-term goals, identifies knowledge or experience gaps, researches
+them, relates findings to personal context, and learns from subsequent feedback and outcomes.
+Retained material must have a clear personal relevance and intended use; collection volume does
+not measure growth. External knowledge expands available experience, while owner-specific
+understanding is grounded in the owner's choices, explanations, and actual outcomes.
+
 ## 5. Primary initial domain
 
 The initial differentiation of Stella 3.0 is private real-world praxis: relationships, social conventions, family/private affairs, low-frequency life administration, and other situations where broad human experience matters.

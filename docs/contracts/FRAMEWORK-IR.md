@@ -138,4 +138,12 @@ The exact path is not frozen by this document.
 
 Experience-derived refinements are stored as separate Praxis notes/playbook learning.
 
-A stable repeated refinement may later be proposed back to the owner as a possible source-framework update, but that is a distinct action.
+Stella may proactively challenge an existing framework when specific evidence suggests a limitation,
+explain the evidence and scope, and propose a revision. The discussion must distinguish factual
+understanding from value tradeoffs; external theories or different values alone do not establish
+that the owner's framework is wrong.
+
+The owner decides whether to formally revise the framework. Existing explicit authorization is
+sufficient and must not be requested again. Challenges and proposals remain distinct from canonical
+source and active IR: an unaccepted revision must not silently rewrite the source or be introduced
+through a new active IR. Accepted changes follow the versioned compilation and activation contract.

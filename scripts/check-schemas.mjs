@@ -8,6 +8,7 @@ const schemaFiles = [
   "consciousness-manifest.schema.json",
   "framework-ir.schema.json",
   "praxis-episode.schema.json",
+  "praxis-episode-v2.schema.json",
   "twin-hypothesis.schema.json",
 ];
 const ajv = new Ajv2020({ allErrors: true, strict: true });

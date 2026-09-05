@@ -1,182 +1,74 @@
-# Stella 3.0 Alpha Plan
+# Stella 3.0 Alpha Scope and Acceptance
 
-## 1. Alpha objective
+本文件是 Alpha 范围和出口的唯一维护位置。完整产品要求见[需求记录](09-REQUIREMENTS-ALIGNMENT.md)，通用不变量见[设计基线](10-DESIGN-BASELINE.md)。
 
-Prove one closed Praxis learning loop on top of OpenClaw without requiring a trained personal model or a complete CangHai migration.
+## 1. 范围
 
-A successful Alpha can:
-
-```text
-real private-life question
-→ route as Praxis
-→ recall relevant owner context
-→ select framework operators
-→ add reality/social intelligence
-→ produce one concrete action
-→ persist a Praxis Episode
-→ associate a later outcome
-→ update one Twin Hypothesis or Praxis strategy
-```
-
-If this loop works reliably, Stella 3.0 exists as a product architecture.
-
-## 2. Minimal runtime components
-
-Implement only:
-
-1. Turn Router
-2. Situation Builder
-3. Twin Context Builder
-4. Framework Registry/Selector
-5. Reality Need Check
-6. Praxis Packet Builder
-7. Episode Recorder / Outcome Matcher
-8. lightweight Learning Updater
-
-OpenClaw continues to provide the Agent Loop, model call, tools, sessions, memory, approvals, and scheduling.
-
-## 3. Contract hardening before code
-
-Before generating JSON Schema, settle four points.
-
-### 3.1 Stable identity
-
-Recommended Alpha format:
+Alpha 验证一个按需关系／社交决策学习闭环：
 
 ```text
-praxis_<ULID>
-twin_<ULID>
-fw_<stable-slug>
-fw_ir_<ULID>
+主人求助 → 有来源的理解与判断 → 有依据的行动建议
+→ 封存预测与记录建议 → 主人后来报告实际行动／结果
+→ 一个 Twin 或 Praxis 学习项 → 下次相似问题使用该学习
+→ 远端同步 → 干净 Host 恢复
 ```
 
-Cross-record references are opaque typed strings. Filesystem paths are never identity.
+预测的实际持久顺序以 Episode 契约为准：建议释放前已经封存。上述示意不是 hook 调用顺序。
 
-### 3.2 Time
+OpenClaw 保留模型执行、会话、搜索、工具、权限和调度。Cortex 包含路由、Situation、Twin context、Framework selection、Reality、packet、Episode 和学习协调。
 
-All machine timestamps use RFC 3339 with an explicit offset or `Z`.
+不要求个人 fine-tuning、全量语料迁移、完整 social graph、全自治外部执行或新增持久 Agent。完整记忆和写作契约的设计不自动扩大 Alpha 发布范围。明确禁止的行为适用于所有版本。
 
-Human-facing Markdown may additionally display local time, but machine semantics do not depend on locale formatting.
+## 2. 实现约束
 
-### 3.3 Praxis prediction immutability
+- Exact Alpha Host 为 OpenClaw 2026.8.2；最低兼容声明 2026.8.1 尚需独立验证。
+- 语义路由与选择使用结构化 LLM；无词面 fallback。
+- 每轮最多两个有来源的 Framework operators，使用精确 active IR。
+- read_only 和 local_write 用于隔离验证；Alpha 交付使用 managed_durable_write、明确远端／分支和 RPO。
+- Episode 以事项关联，不强制每轮新建，不把建议当实际行动。
+- 关键未知可先澄清；仅在取证和请求支持行动时要求行动建议。
+- 社交状态按主人求助触发，不安排主动关系跟进。
+- 公开代码、fixtures 和 receipts 不含私人原文、事实或私人路径。
 
-Once a Praxis Episode stores a pre-outcome Twin prediction, that prediction snapshot is immutable.
+## 3. Alpha 工程出口
 
-Later outcome processing may append evaluation and learning, but must not rewrite what Stella predicted earlier.
+| ID | 通过条件 |
+| --- | --- |
+| A-01 | packed plugin 在确切 Host／runner 中加载；目标 agent 增强，非目标 agent 不注入个人资料 |
+| A-02 | 来源 revision、兼容性、activationStatus 和必要能力校验失败会明确阻断目标操作 |
+| A-03 | 普通请求跳过不必要的认知组装；社交求助正确进入对应 lane |
+| A-04 | Situation 区分观察、转述和推断；相关个人上下文及 IR 有可解析来源 |
+| A-05 | 情境需要时 Reality 补充实质变量；无需补充时不为凑项编造变量 |
+| A-06 | 证据充分案例提供可行下一步；关键未知案例提供有效澄清，二者都不被格式强改 |
+| A-07 | 选择预测在建议释放前封存；建议进入 recommended；推断不能成为实际行动 |
+| A-08 | 真实后续证据关联正确 Episode；重复输入不重复学习；原预测保持不变 |
+| A-09 | 专用学习案例更新至少一个 Twin **或** Praxis 项，后续相似请求检索并使用它 |
+| A-10 | critical 已同步、normal RPO 可观察且达标；commit／CAS／push 故障可恢复且不假成功 |
+| A-11 | 无旧会话运行态的恢复保留所选 revision 的身份、Twin、精确 IR、学习及声明的重要状态 |
+| A-12 | 有重要开放事项的 fixture 验证其恢复；合法空集合 fixture 同样通过，不制造开放事项 |
+| A-13 | 回调失败／超时、取消和重启不会把未持久化状态报告为完成 |
+| A-14 | Core／CangHai SHA、artifact SHA-256、Host 和 runner、私有用例范围与证据彼此一致 |
 
-Implementation can use either:
+以上出口结合设计基线中适用的 G 项判定。仅记录一条学习文字，尚不能证明后续使用；仅存在恢复脚本，尚不能证明可恢复。
 
-- immutable nested snapshot plus later mutable outcome fields; or
-- append-only episode events and a derived Markdown view.
+## 4. 语义诊断
 
-Alpha should start with the simpler first option, with runtime validation preventing prediction replacement after it is sealed.
+保留 30–50 个可重复运行的关系／社交案例，当前公共套件为 32 例，覆盖关系沟通、感谢互惠、求助、拒绝、私人事务、礼仪、工作关系与冲突。私有案例留在个人仓库或私有评测位置。
 
-### 3.4 Framework activation
+七个诊断维度保留：situationUnderstanding、personalContextUse、frameworkApplication、hiddenVariablesSurfaced、concreteNextAction、ownerFit、retrospectiveEndorsement。rubric 按 responseKind 定义适用语义：必要澄清无需确定行动，无 outcome 不编造认可，无需框架或额外变量时不强凑内容。报告明确每维结果及理由。
 
-Framework source and active Framework IR are versioned independently.
+公共案例只使用其合成个人背景；私有案例限定在获授权资料内。评测记录固定模型、prompt／rubric 版本和证据截止时间，不能使用后续结果污染过去判断。
 
-A runtime turn records the exact IR id/version it used.
+工程候选要求配置的诊断门禁通过；它证明该套回归满足约定，不证明实际建议有效。真实效果依赖主人自然反馈，不增加问卷或主观 A/B 分数门禁。
 
-Recompiling the same source under a new compiler/model creates a new IR artifact rather than silently replacing the old operational interpretation.
+## 5. 候选证据与完成声明
 
-## 4. First vertical slice
+候选仍要求同一干净 Core SHA、确切 tarball、最终同步的 CangHai SHA、OpenClaw 2026.8.2，以及私有 write-loop、clean recovery、durability 和混合评测证据。公开合成结果不能代替私有 Exact Host 验证。
 
-Start with one initial domain: **relationship/social praxis**.
+旧 candidate v2 receipt 只证明其记录的旧测试范围；在 A-01–A-14 收敛后，适配器／报告必须明确包含新的完成与空状态断言。不得仅因 receipt 的 candidate=true 宣称新增契约已验收。
 
-Reason:
+候选、commit、push、CI、激活和发布分别报告。生成候选不自动创建 tag、Release、npm 发布或生产部署。实际运行方式见[本地集成](08-LOCAL-DEV-INTEGRATION.md)。
 
-- it exercises Twin context;
-- it exercises owner frameworks;
-- it benefits strongly from external/social experience;
-- outcomes can often be observed in later conversation;
-- existing Stella 1.0 assets already provide useful cold-start material.
+## 6. 完整产品的进一步验收
 
-The vertical slice should use synthetic/public test fixtures in Stella-Core and private real cases only in CangHai/private evaluation data.
-
-## 5. Alpha behavior
-
-For a Praxis turn:
-
-1. Router identifies `praxis`.
-2. Situation Builder extracts facts, interpretations, goals, actors, stakes, reversibility.
-3. Twin Builder retrieves at most a small bounded set of relevant hypotheses/episodes.
-4. Framework Selector chooses zero to two operators.
-5. Reality Need Check chooses base-model, personalized Praxis recall, or external research.
-6. Packet Builder injects a compact Praxis Context Packet through OpenClaw.
-7. Main model answers naturally and concretely.
-8. `agent_end` writes an open Praxis Episode to CangHai.
-9. Later user/tool evidence can associate an outcome.
-10. Closing the episode updates evaluation signals and may adjust one or more Twin hypotheses.
-
-## 6. OpenClaw hook plan
-
-Initial hook surface:
-
-- `before_prompt_build`: run routing/context assembly and inject Praxis packet;
-- `before_tool_call`: apply action gate where Stella-specific policy is needed;
-- `after_tool_call`: collect outcome/tool observations;
-- `before_agent_finalize`: at most one structural rewrite if Praxis answer lacks a concrete action;
-- `agent_end`: persist episode metadata and final recommendation;
-- `session_start` / `session_end`: optional lifecycle indexing and cleanup.
-
-Avoid replacing `reply_dispatch` in Alpha.
-
-## 7. Data storage
-
-### Stella-Core
-
-Contains schemas, runtime code, synthetic fixtures, and evaluation code only.
-
-### CangHai
-
-Alpha adds portable representations for:
-
-- Twin Hypotheses;
-- Framework sources and active IR snapshots;
-- Praxis Episodes;
-- later personalized Praxis playbook items.
-
-Do not migrate all existing `30_RAG` data before this vertical slice works. Read legacy data through compatibility adapters first.
-
-## 8. Initial evaluation suite
-
-Create 30–50 Praxis cases covering:
-
-- relationship communication;
-- gratitude and reciprocity;
-- asking for help;
-- refusing requests;
-- family/private affairs;
-- social etiquette;
-- informal workplace relationships;
-- uncertainty and conflict.
-
-Judge at least:
-
-1. situation understanding;
-2. relevant personal-context use;
-3. correct framework application;
-4. hidden real-world/social variables surfaced;
-5. concrete next action;
-6. fit with the owner rather than generic advice;
-7. retrospective endorsement when outcome data exists.
-
-The repository ships 32 public synthetic cases across all eight categories. The evaluation runner
-accepts a behavioral adapter rather than implementing semantic grading with keywords or regexes.
-Each observation must provide evidence for all seven dimensions. Public and private inputs may be
-combined for one 30–50 case run, but every case retains its boundary and the report contains only
-aggregate public/private counts plus failed case IDs—not prompts or private evidence text.
-
-## 9. Exit criteria
-
-Alpha is successful when all are true:
-
-- ordinary turns can bypass Cortex cheaply;
-- Praxis turns produce compact traceable packets;
-- every meaningful Praxis turn can create a valid episode;
-- predictions are stored before outcome and cannot be rewritten later;
-- later conversation can close at least a useful fraction of episodes automatically;
-- repeated outcomes can strengthen/weaken Twin hypotheses;
-- framework operators improve action quality without turning answers into framework exposition;
-- private data never leaks into Stella-Core fixtures/logs;
-- users perceive recommendations as both personally congruent and more experienced than their unaided default.
+完整记忆以 [Memory Lifecycle 的 M 项](contracts/MEMORY-LIFECYCLE.md#7-完整记忆验收)为准，包括全量原件覆盖、跨来源检索、交互纠正、写作接续及变更传播。Alpha 出口不代替这些检查，也不把尚未通过的功能写成已完成。
