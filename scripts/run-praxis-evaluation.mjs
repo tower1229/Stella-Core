@@ -10,6 +10,7 @@ import {
   parsePraxisEvaluationSuite,
   parsePraxisEvaluationSuiteFragment,
   runPraxisEvaluation,
+  selectPraxisEvaluationAnswerAgent,
 } from "../dist/src/acceptance/praxis-evaluation.js";
 import { createModelPraxisEvaluator } from "../dist/src/acceptance/model-praxis-evaluator.js";
 import {
@@ -155,15 +156,25 @@ async function runPrivateExactHostEvaluation() {
       runtimeStateRoot,
     });
     if (
-      typeof harness?.answerAgentId !== "string" ||
-      !harness.answerAgentId.trim() ||
+      typeof harness?.privateAnswerAgentId !== "string" ||
+      !harness.privateAnswerAgentId.trim() ||
+      typeof harness?.publicAnswerAgentId !== "string" ||
+      !harness.publicAnswerAgentId.trim() ||
       typeof harness?.judgeAgentId !== "string" ||
       !harness.judgeAgentId.trim()
     ) {
-      throw new Error("Private evaluation harness must provide answerAgentId and judgeAgentId");
+      throw new Error(
+        "Private evaluation harness must provide privateAnswerAgentId, publicAnswerAgentId, and judgeAgentId",
+      );
     }
-    if (harness.answerAgentId !== targetAgentId) {
+    if (harness.privateAnswerAgentId !== targetAgentId) {
       throw new Error("Private evaluation harness must use the Alpha target agent");
+    }
+    if (
+      harness.publicAnswerAgentId === harness.privateAnswerAgentId ||
+      harness.publicAnswerAgentId === harness.judgeAgentId
+    ) {
+      throw new Error("Public evaluation answers must use an isolated agent");
     }
     const { stdout: hostConfigOutput } = await runOpenClaw([
       "config",
@@ -174,7 +185,7 @@ async function runPrivateExactHostEvaluation() {
     assertStellaHostConfig(JSON.parse(hostConfigOutput), {
       canghaiRoot,
       canghaiRevision: execution.canghaiRevision,
-      agentId: harness.answerAgentId,
+      agentId: harness.privateAnswerAgentId,
     });
     const { stdout: hostHooksOutput } = await runOpenClaw([
       "config",
@@ -227,11 +238,17 @@ async function runPrivateExactHostEvaluation() {
       return await runPraxisEvaluation(
         cases,
         createModelPraxisEvaluator({
-          answerCase: (evaluationCase) => runTurn(
-            harness.answerAgentId,
-            `agent:${harness.answerAgentId}:alpha-eval-${evaluationCase.id}`,
-            evaluationCase.prompt,
-          ),
+          answerCase: (evaluationCase) => {
+            const answerAgentId = selectPraxisEvaluationAnswerAgent(
+              evaluationCase.boundary,
+              harness,
+            );
+            return runTurn(
+              answerAgentId,
+              `agent:${answerAgentId}:alpha-eval-${evaluationCase.id}`,
+              evaluationCase.prompt,
+            );
+          },
           judge: async (prompt) => ({
             text: await runTurn(
               harness.judgeAgentId,

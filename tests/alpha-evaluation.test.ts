@@ -6,6 +6,7 @@ import {
   parsePraxisEvaluationSuite,
   parsePraxisEvaluationSuiteFragment,
   runPraxisEvaluation,
+  selectPraxisEvaluationAnswerAgent,
   type PraxisEvaluationCase,
   type PraxisEvaluationObservation,
 } from "../src/acceptance/praxis-evaluation.js";
@@ -37,6 +38,16 @@ function publicCases(count = 30): PraxisEvaluationCase[] {
     prompt: `Synthetic social situation ${index + 1}`,
   }));
 }
+
+test("isolates public synthetic answers from the private Stella agent", () => {
+  const agents = {
+    publicAnswerAgentId: "alpha-public",
+    privateAnswerAgentId: "main",
+  };
+
+  assert.equal(selectPraxisEvaluationAnswerAgent("public_synthetic", agents), "alpha-public");
+  assert.equal(selectPraxisEvaluationAnswerAgent("private_canghai", agents), "main");
+});
 
 test("runs 30-50 public Praxis cases through an injected behavioral seam", async () => {
   const seen: string[] = [];

@@ -11,6 +11,20 @@ export const PRAXIS_EVALUATION_CATEGORIES = [
 
 export type PraxisEvaluationBoundary = "public_synthetic" | "private_canghai";
 
+export type PraxisEvaluationAnswerAgents = {
+  publicAnswerAgentId: string;
+  privateAnswerAgentId: string;
+};
+
+export function selectPraxisEvaluationAnswerAgent(
+  boundary: PraxisEvaluationBoundary,
+  agents: PraxisEvaluationAnswerAgents,
+): string {
+  return boundary === "public_synthetic"
+    ? agents.publicAnswerAgentId
+    : agents.privateAnswerAgentId;
+}
+
 export type PraxisEvaluationCase = {
   id: string;
   boundary: PraxisEvaluationBoundary;
