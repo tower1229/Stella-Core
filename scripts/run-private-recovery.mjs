@@ -9,6 +9,7 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
 import {
   buildExactHostAgentCommand,
+  extractSafeExactHostAgentError,
   parseExactHostAgentTurn,
 } from "../dist/src/acceptance/exact-host-agent.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
@@ -212,11 +213,19 @@ try {
             message: probe.message,
             sessionKey: `agent:${targetAgentId}:private-recovery-${probe.id}`,
           });
-          const result = await execFileAsync(
-            command.executable,
-            command.args,
-            { cwd: consumerRoot, env: gateway.env },
-          );
+          let result;
+          try {
+            result = await execFileAsync(
+              command.executable,
+              command.args,
+              { cwd: consumerRoot, env: gateway.env },
+            );
+          } catch (error) {
+            const safeError = extractSafeExactHostAgentError(`${error?.stdout ?? ""}`, probe.message);
+            throw new Error(
+              `Exact Host recovery probe ${probe.id} failed${safeError ? `: ${safeError}` : ""}`,
+            );
+          }
           if (!result.stdout.trim()) {
             throw new Error(`Exact Host probe ${probe.id} returned no result`);
           }

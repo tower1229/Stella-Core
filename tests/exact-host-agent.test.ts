@@ -146,7 +146,10 @@ test("extracts and redacts nested OpenClaw agent errors", () => {
     runId: "run-1",
     status: "error",
     result: {
-      error: `Stella could not prepare this turn: ${privateMessage} at C:\\private\\state token_abcdefghijklmnopqrstuvwxyz0123456789`,
+      error: {
+        kind: "hook_block",
+        message: `Stella could not prepare this turn: ${privateMessage} at C:\\private\\state token_abcdefghijklmnopqrstuvwxyz0123456789`,
+      },
     },
   });
   const diagnostic = extractSafeExactHostAgentError(stdout, privateMessage);
