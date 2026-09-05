@@ -263,7 +263,7 @@ async function selectRelevantOpenEpisode(
     let result: { text: string };
     try {
       result = await complete({
-        maxTokens: 500,
+        maxTokens: 4_096,
         temperature: 0,
         purpose: "stella-core-open-episode-selection",
         systemPrompt: attempt === 0 ? systemPrompt : `${systemPrompt} ${repairInstruction}`,
