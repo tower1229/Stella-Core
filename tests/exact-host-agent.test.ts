@@ -6,6 +6,7 @@ import {
   extractSafeExactHostAgentError,
   parseExactHostAgentOutput,
   parseExactHostAgentTurn,
+  runWithOneExactHostReadRetry,
 } from "../src/acceptance/exact-host-agent.js";
 
 const runtimeMeta = {
@@ -156,5 +157,23 @@ test("extracts and redacts nested OpenClaw agent errors", () => {
   assert.equal(
     diagnostic,
     "Stella could not prepare this turn: <private-message> at <path> <token>",
+  );
+});
+
+test("retries one failed read-only Exact Host turn without hiding a repeated failure", async () => {
+  const attempts: number[] = [];
+  const result = await runWithOneExactHostReadRetry(async (attempt) => {
+    attempts.push(attempt);
+    if (attempt === 0) throw new Error("transient");
+    return "ok";
+  });
+  assert.equal(result, "ok");
+  assert.deepEqual(attempts, [0, 1]);
+
+  await assert.rejects(
+    runWithOneExactHostReadRetry(async () => {
+      throw new Error("repeated");
+    }),
+    /repeated/,
   );
 });

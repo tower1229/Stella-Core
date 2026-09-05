@@ -14,7 +14,9 @@ import {
 import { createModelPraxisEvaluator } from "../dist/src/acceptance/model-praxis-evaluator.js";
 import {
   buildExactHostAgentCommand,
+  extractSafeExactHostAgentError,
   parseExactHostAgentTurn,
+  runWithOneExactHostReadRetry,
 } from "../dist/src/acceptance/exact-host-agent.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 import {
@@ -197,24 +199,27 @@ async function runPrivateExactHostEvaluation() {
     let judgeIndex = 0;
     const runTurn = async (agentId, sessionKey, message) => {
       try {
-        const command = buildExactHostAgentCommand(openclawBin, {
-          agentId,
-          message,
-          sessionKey,
+        return await runWithOneExactHostReadRetry(async (attempt) => {
+          const attemptSessionKey = attempt === 0 ? sessionKey : `${sessionKey}-retry`;
+          const command = buildExactHostAgentCommand(openclawBin, {
+            agentId,
+            message,
+            sessionKey: attemptSessionKey,
+          });
+          const result = await execFileAsync(
+            command.executable,
+            command.args,
+            { cwd: consumerRoot, env: gateway.env, maxBuffer: 4 * 1024 * 1024 },
+          );
+          return parseExactHostAgentTurn(result.stdout, attemptSessionKey).text;
         });
-        const result = await execFileAsync(
-          command.executable,
-          command.args,
-          { cwd: consumerRoot, env: gateway.env, maxBuffer: 4 * 1024 * 1024 },
-        );
-        const turn = parseExactHostAgentTurn(result.stdout, sessionKey);
-        return turn.text;
-      } catch {
+      } catch (error) {
         const diagnosticTurn = /^[a-zA-Z0-9:_-]{1,160}$/u.test(sessionKey)
           ? sessionKey
           : "unknown";
+        const safeError = extractSafeExactHostAgentError(`${error?.stdout ?? ""}`, message);
         throw new Error(
-          `Private Exact Host evaluation turn failed; turn=${diagnosticTurn}; diagnostics=${gateway.diagnostics() || "none"}`,
+          `Private Exact Host evaluation turn failed; turn=${diagnosticTurn}${safeError ? `; error=${safeError}` : ""}; diagnostics=${gateway.diagnostics() || "none"}`,
         );
       }
     };

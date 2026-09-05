@@ -11,6 +11,7 @@ import {
   buildExactHostAgentCommand,
   extractSafeExactHostAgentError,
   parseExactHostAgentTurn,
+  runWithOneExactHostReadRetry,
 } from "../dist/src/acceptance/exact-host-agent.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 import {
@@ -208,32 +209,34 @@ try {
       rebuild: harness.rebuild,
       verifyContinuity: async (input) => {
         for (const probe of harness.probes) {
-          const command = buildExactHostAgentCommand(openclawBin, {
-            agentId: targetAgentId,
-            message: probe.message,
-            sessionKey: `agent:${targetAgentId}:private-recovery-${probe.id}`,
-          });
-          let result;
           try {
-            result = await execFileAsync(
-              command.executable,
-              command.args,
-              { cwd: consumerRoot, env: gateway.env },
-            );
+            const turn = await runWithOneExactHostReadRetry(async (attempt) => {
+              const sessionKey = [
+                `agent:${targetAgentId}:private-recovery-${probe.id}`,
+                ...(attempt === 1 ? ["retry"] : []),
+              ].join("-");
+              const command = buildExactHostAgentCommand(openclawBin, {
+                agentId: targetAgentId,
+                message: probe.message,
+                sessionKey,
+              });
+              const result = await execFileAsync(
+                command.executable,
+                command.args,
+                { cwd: consumerRoot, env: gateway.env },
+              );
+              return parseExactHostAgentTurn(result.stdout, probe.id);
+            });
+            observedTurns.push({
+              id: probe.id,
+              output: turn.text,
+            });
           } catch (error) {
             const safeError = extractSafeExactHostAgentError(`${error?.stdout ?? ""}`, probe.message);
             throw new Error(
               `Exact Host recovery probe ${probe.id} failed${safeError ? `: ${safeError}` : ""}`,
             );
           }
-          if (!result.stdout.trim()) {
-            throw new Error(`Exact Host probe ${probe.id} returned no result`);
-          }
-          const turn = parseExactHostAgentTurn(result.stdout, probe.id);
-          observedTurns.push({
-            id: probe.id,
-            output: turn.text,
-          });
         }
         return harness.verifyContinuity(input, { observedTurns, hostEnv: gateway.env });
       },

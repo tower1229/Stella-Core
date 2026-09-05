@@ -84,6 +84,16 @@ export function extractSafeExactHostAgentError(
     .slice(0, 300);
 }
 
+export async function runWithOneExactHostReadRetry<T>(
+  run: (attempt: 0 | 1) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(0);
+  } catch {
+    return run(1);
+  }
+}
+
 export function parseExactHostAgentTurn(stdout: string, probeId: string): ExactHostAgentTurn {
   const start = stdout.lastIndexOf("\n{");
   const candidate = (start >= 0 ? stdout.slice(start + 1) : stdout).trim();
