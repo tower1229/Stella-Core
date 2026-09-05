@@ -73,7 +73,7 @@ Reality 区分基础世界知识、个人实践经验和外部来源。当前、
 
 ## 5. Context packet
 
-Packet 是取证后的有界投影，至少带 mode、responseKind、工作／事件 ID、EvidenceBundle 定位、来源 revision／generation、相关 Twin 版本、精确 IR/operator 引用和现实不确定性。
+Packet 是取证后的有界投影，必含 mode 和 responseKind；个人取证路径还须带 EvidenceBundle 定位及来源 revision／generation。工作／事件 ID、Twin 版本、精确 IR/operator 引用和现实不确定性按实际参与情况携带，不强造未使用对象。
 
 它保持主张与依据、事实与推断的关联。小候选集合或字符上限不能充当充分性标准；超出容量时继续分段取证或显式报告资源失败，不能静默丢弃重要来源。自然语言回答无需暴露内部 packet。
 
@@ -104,7 +104,7 @@ finalization 最多一次结构修正，按 responseKind 检查，不能重复�
 
 Episode 以现实事项为单位，同一事项的澄清与拒绝不重复创建事件。是否关联由 LLM 根据工作和来源判断，含糊时不强关联。
 
-有意义的选择预测必须在建议释放前封存并记录所见版本。发布建议进入 recommended；真实行动证据才能进入 acted。仅有推断不能转换为 acted。实际行动、结果和学习可在一次有证据的更新中从 recommended 原子进入 closed。完整状态机以 [Episode 契约](contracts/PRAXIS-EPISODE.md) 为准。
+有意义的选择预测必须在建议释放前封存并记录所见版本。保存建议进入 recommended，实际投递独立确认；真实行动证据才能进入 acted。仅有推断不能转换为 acted。实际行动、结果和学习可在一次有证据的更新中从 recommended 原子进入 closed。完整状态机以 [Episode 契约](contracts/PRAXIS-EPISODE.md) 为准。
 
 主人纠正、拒绝原因及写作进展走 learn／OngoingWork，可先于 Episode 关闭更新理解。没有实际行动时不得制造 outcome。关闭事件不必都改变 Twin；Alpha 的专用验证案例需要产生并再次使用至少一个 Twin **或** Praxis 更新。
 

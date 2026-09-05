@@ -1,5 +1,9 @@
 # Consciousness Manifest Contract
 
+Current authority: [Design baseline](../10-DESIGN-BASELINE.md). Registry payloads, runtime profile,
+capabilities and migration are defined in [Portable Registries](PORTABLE-REGISTRIES.md).
+The v1 schema checks structure; the activation invariants below are also mandatory.
+
 ## 1. Purpose
 
 The Consciousness Manifest is the deterministic bootstrap entrypoint for one Stella instance.
@@ -69,6 +73,7 @@ interface StellaConsciousnessManifest {
     hypothesisRegistryRef: string;
     contextualSelfRegistryRef?: string;
     durableStateRef?: string;
+    authorityClass?: "derived_falsifiable_model";
   };
 
   frameworks: {
@@ -127,10 +132,11 @@ interface StellaConsciousnessManifest {
   };
 
   durability?: {
-    criticalWritePolicy: "sync_immediately" | "bounded_batch";
-    normalWritePolicy: "sync_immediately" | "bounded_batch";
+    criticalWritePolicy?: "sync_immediately" | "bounded_batch";
+    normalWritePolicy?: "sync_immediately" | "bounded_batch";
     maxNormalRpoSeconds?: number;
   };
+  notes?: string[];
 }
 ```
 
@@ -190,7 +196,10 @@ During the Stella 1.0 → 3.0 transition, existing CangHai skills may be restore
 
 The manifest records only logical secret references.
 
-Secret values remain in an external secret system or are re-provisioned during restore. Absence of an optional secret may degrade capabilities but must not corrupt personal cognitive data.
+Secret values remain external or are re-provisioned. Required secrets/capabilities must be available
+for the selected profile or activation fails. Optional capability availability is reported separately;
+it does not permit running an instance marked degraded. A later request needing that capability
+must fail explicitly when it is unavailable.
 
 ## 9. Git revision as coherence boundary
 
@@ -212,7 +221,19 @@ Before activation, restoration validates:
 4. active Framework IR references are resolvable;
 5. portable behavior assets are resolvable when declared;
 6. compatibility constraints are satisfied or an explicit migration is available;
-7. required external secrets/capabilities are either available or explicitly marked degraded;
+7. required external secrets/capabilities are available; optional unavailable capabilities are reported separately;
 8. the continuity suite can run.
 
 For read-only Alpha activation, validation is fail closed: the checkout must be clean at the explicitly configured 40-character recovery SHA, the Core and Host versions must satisfy their declared ranges, and `runtimeState.activationStatus` must be `active`. `migration_required` and `degraded` are not runnable target-agent states.
+
+The same rule applies to writable profiles. identity.runtimeProfileRef is authoritative; its optional
+runtimeState duplicate must resolve to identical content. Managed durability requires both policies
+explicitly configured, critical sync_immediately, and an explicit nonnegative RPO for normal batching.
+
+Authority settings cannot override product invariants: effective currentExplicitUserStatementPrecedence
+is true, derivedRuntimeMayWriteAuthority is false, and sourceUsagePolicyRequiredBeforeDerivation is true.
+Missing values use these invariants; contradictory configured values fail validation.
+
+Full memory is discovered through corpus registry memory_catalog_ref. Declared OngoingWork and catalog
+work entries must match. Restore validates exact declared contents, including legitimate empty sets.
+Historical pins verify historical integrity; current eligibility follows [source synchronization](MEMORY-LIFECYCLE.md#5-来源变更同步).

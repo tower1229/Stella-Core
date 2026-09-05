@@ -625,9 +625,13 @@
           ],
           "properties": {
             "twin": {
+              "properties": {
+                "prediction": {}
+              },
               "required": [
                 "prediction"
-              ]
+              ],
+              "type": "object"
             }
           }
         }
@@ -639,7 +643,8 @@
               "predictionAssessment": {
                 "const": "unresolved"
               }
-            }
+            },
+            "type": "object"
           }
         }
       }

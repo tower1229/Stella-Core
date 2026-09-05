@@ -53,7 +53,14 @@ Every bootstrap, migration, compilation, or restore operation that reads owner-s
 2. resolve that ref to an immutable commit SHA before deriving managed state;
 3. record the resolved commit as the source baseline for generated Stella-managed artifacts;
 4. pin content-derived inputs strongly enough to detect source drift before reusing a prior derivation (for example, source blob SHAs for Twin hypotheses or Framework IR);
-5. require explicit reconciliation when the selected baseline or pinned source content changes.
+5. reconcile current-use eligibility when source content changes, preserving the immutable input versions of historical predictions and traces.
+
+The recovery commit locates one coherent current state. A historical input pin records what was used
+then, not a requirement that the corresponding current file remain unchanged. Source identity,
+content version, recovery revision and view generation are separate under
+[Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md). Ordinary learning cannot invalidate a historical
+prediction merely by updating a Twin file, nor reuse the old pin as current evidence without checking
+its eligibility. Reconciliation records the changed dependencies and outcome explicitly.
 
 A tool must never silently substitute the repository default branch when an instance source ref is missing. Missing source-baseline information is a fail-closed configuration error.
 
@@ -63,8 +70,8 @@ The branch or tag name may describe an operator workflow, but the resolved commi
 
 [The confirmed requirements](09-REQUIREMENTS-ALIGNMENT.md) default to complete daily-conversation
 retention, with owner-directed non-retention or deletion exceptions. Reuse OpenClaw storage and
-backup capabilities. Archive integration and in-repository formats remain to be designed within the
-self-contained Git-copy requirement;
+backup capabilities. [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md) defines archive items, coverage,
+attachment integrity, repository formats and synchronization within the self-contained Git-copy requirement;
 this requirement does not introduce a second Core-owned session database or make runtime sessions
 a prerequisite for consciousness recovery.
 
@@ -77,8 +84,8 @@ still support a conclusion. Normal sync and learning must not restore removed so
 old indexes, summaries, or repository history.
 
 Stella Core has no natural-language event-forgetting feature. Physical history and backup management
-remain owner-operated rather than a pending Stella erasure capability. In-repository media formats
-and archive integration remain open. Host database-backup capability alone is not evidence that the
+remain owner-operated rather than a pending Stella erasure capability. Original media retain their
+formats; archive adapters must satisfy the shared contract. Host database-backup capability alone is not evidence that the
 retained conversation archive and every referenced media file are included in CangHai.
 
 ## 3. What belongs in CangHai
@@ -128,9 +135,12 @@ It must not copy private CangHai content, personal facts, relationship details, 
 
 Stella-Core defines **how** cognition runs. CangHai contains the owner-specific data/config that determines **which Stella** is reconstructed.
 
-## 6. Proposed logical organization
+## 6. Logical organization and authoritative locators
 
-The exact physical migration is not frozen yet. The target logical roles are:
+The tree below illustrates logical roles. Manifest and registry references are authoritative;
+the existing bootstrap configuration lives under `50_PersonalAgent/stella/`. The new memory catalog
+and operation records also live there; originals and new managed cognition use the locations defined
+in [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md). Existing source files remain in place.
 
 ```text
 30_PersonalData/
@@ -202,15 +212,16 @@ The mapping is always relative to the explicitly selected source baseline from �
 
 Durable personal learning is classified before it is published.
 
-Suggested distinction:
+Required order (details and crash recovery in Memory Lifecycle):
 
 ```text
-critical write = validate → atomic local publish → scoped Git commit → immediate push
-normal write   = validate → atomic local publish → scoped Git commit → bounded-RPO push
+critical = validate/stage → scoped Git commit → recovery pointer CAS → immediate push → publish validated view generation → completion receipt
+normal   = validate/stage → scoped Git commit → recovery pointer CAS → publish validated local generation → bounded-RPO push
 ```
 
-Open/high-value Praxis state is critical because losing it changes future behavior. Ordinary closed
-Praxis learning is normal and may be batched only for the remote push; it is committed locally first.
+Important open Praxis state and any state declared critical by the manifest require immediate sync.
+Normal open state, ordinary closed learning and other normal writes may batch only the remote push;
+they are committed locally first. The contract does not classify every open object as critical.
 The runtime configuration names the remote and branch explicitly. It never infers the repository
 default branch.
 
@@ -234,3 +245,7 @@ A release must eventually pass a destructive recovery test:
 8. run a fixed continuity evaluation against the previous deployment.
 
 The test does not require old sessions to be restored.
+
+Required restore levels, legitimate empty collections and full-memory archive coverage are defined
+once in [Restore Contract](06-RESTORE-CONTRACT.md). Historical nonempty test fixtures do not impose
+a production requirement to invent open work or personal hypotheses.

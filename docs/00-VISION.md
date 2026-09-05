@@ -12,7 +12,7 @@ Everything else—memory, provenance, governance, schemas, approvals, latent rep
 
 The Personal Twin models how the owner tends to perceive, interpret, decide, express, and act under a given context.
 
-Its quality is not measured by how many personal facts it stores, but by how well it predicts future judgments and actions before observing the answer.
+Pre-outcome predictions and later errors help diagnose and calibrate the Twin. Stored fact counts do not measure this ability. Actual usefulness is judged by the owner's feedback in use; prediction scores do not certify the whole personal model. See [the current evaluation boundary](10-DESIGN-BASELINE.md#5-语义诊断与真实使用).
 
 A useful approximation is:
 

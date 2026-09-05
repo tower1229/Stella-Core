@@ -12,7 +12,7 @@
 
 ### Product requirements
 
-Read `docs/09-REQUIREMENTS-ALIGNMENT.md` for the confirmed top-level requirements, verified source baselines, and remaining design questions. Keep product requirements distinct from Alpha implementation limits and automated diagnostic scores.
+Read `docs/09-REQUIREMENTS-ALIGNMENT.md` for confirmed product requirements and `docs/10-DESIGN-BASELINE.md` for current contracts, state machines, acceptance and known implementation gaps. Use the domain terms in `CONTEXT.md`. Keep product requirements distinct from Alpha implementation limits and automated diagnostic scores. Closed Issues and historical handoffs cannot override the current baseline or supply authorization for a new task.
 
 ### Issue tracker
 
@@ -24,4 +24,4 @@ Use the canonical labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready
 
 ### Domain docs
 
-This is a single-context repository using a root `CONTEXT.md` and system-wide ADRs under `docs/adr/`. See `docs/agents/domain.md`.
+This is a single-context repository using root `CONTEXT.md` and the existing decision log `docs/DECISIONS.md`. See `docs/agents/domain.md`.

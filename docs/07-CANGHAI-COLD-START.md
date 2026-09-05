@@ -4,14 +4,16 @@
 
 Build the first recoverable Stella 3.0 consciousness set from the existing CangHai/Stella 1.0 assets without destructive migration.
 
-Alpha uses an additive compatibility layer:
+Current mapping follows [Portable Registries](contracts/PORTABLE-REGISTRIES.md) and [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md). Existing files can remain canonical sources; obsolete managed formats require explicit migration before activation.
+
+Alpha uses an additive source mapping:
 
 ```text
 existing CangHai assets
         ↓ referenced in place
 Consciousness Manifest + registries
         ↓
-Stella Core compatibility adapters
+Stella Core versioned source adapters
         ↓
 Twin / Framework / Praxis runtime
 ```
@@ -37,7 +39,7 @@ For each legacy asset:
 1. preserve original path and provenance;
 2. assign its Stella 3.0 cognitive role;
 3. reference it through a registry;
-4. let Stella Core read it through a compatibility adapter;
+4. validate its declared format through a versioned adapter; migrate obsolete managed formats explicitly;
 5. only later decide whether physical relocation improves maintainability.
 
 A path move is not an architectural milestone.
@@ -50,7 +52,7 @@ A path move is not an architectural milestone.
 | `.../IDENTITY.md` | instance identity projection | reference directly |
 | `.../USER.md` | owner bootstrap projection | reference directly; not treated as full Twin |
 | `.../MEMORY.md` | curated bootstrap/experience pointer | reference during compatibility period |
-| `50_PersonalAgent/openclaw/openclaw.json` | legacy runtime/model configuration source | reference as transitional runtime profile; later compile a portable Stella runtime profile |
+| `50_PersonalAgent/openclaw/openclaw.json` | legacy runtime/model configuration source | read only as migration input; derive and validate the portable runtime profile before activation |
 | `50_PersonalAgent/corpus-registry.yaml` | experience/corpus discovery | reference directly |
 | `30_RAG/model-seed/` | Twin cold-start hypotheses + supporting evidence | derive bounded Twin Hypothesis seeds; keep source files unchanged |
 | `30_RAG/self-reflection/` | Twin evidence | retrieve as supporting/counter evidence |
@@ -60,7 +62,7 @@ A path move is not an architectural milestone.
 | `30_RAG/work/` | work contextual-self evidence | keep for later domains |
 | `30_RAG/writing/` | writing contextual-self/style evidence | keep for later domains |
 | `30_RAG/frameworks/` | canonical Framework Source | register existing framework files as sources |
-| `50_PersonalAgent/skills/` | legacy owner-specific behavior assets | expose through a transitional skill registry; later decide which logic belongs in generic Stella Core |
+| `50_PersonalAgent/skills/` | legacy owner-specific behavior assets | classify and map to the current skill contract before enabling; retain private behavior in CangHai |
 | existing Stella evals | continuity/regression seed | reuse privately where owner facts are involved |
 
 ## 4. New additive CangHai bootstrap structure
@@ -128,30 +130,16 @@ extensions:
 
 ## 6. Runtime profile separation
 
-Do not make the Consciousness Manifest depend directly on an arbitrary historical `openclaw.json` forever.
+The only authoritative profile is identity.runtimeProfileRef, using the complete field contract in
+[Portable Registries](contracts/PORTABLE-REGISTRIES.md#3-runtime-profile). Required fields include
+language, timezone, contract profile, model roles, capability adapters, source policies and autonomy.
+Use actual instance values and external SecretRefs; placeholder models and undeclared capabilities
+cannot pass activation.
 
-Alpha should introduce a small portable Stella runtime profile containing only settings required to reconstruct Stella-specific cognitive behavior, for example:
-
-```yaml
-schema_version: stella.runtime-profile/v1
-agent_id: stella
-language: zh-CN
-openclaw:
-  memory_profile: builtin
-  active_memory: enabled
-  dreaming_role: episodic_only
-models:
-  main: ...
-  router: ...
-  framework_compiler: ...
-cortex:
-  alpha_domain: relationship
-  max_framework_operators: 2
-```
-
-Environment-specific values, credentials, absolute paths, host ports, service configuration, and machine-local OpenClaw state do not belong here.
-
-The legacy `openclaw.json` remains useful migration input and deployment backup, but 3.0 recovery should eventually compile host-specific OpenClaw configuration from this portable profile.
+The legacy openclaw.json is migration evidence and a deployment backup, not a second active Stella
+profile. Derive the portable non-secret profile explicitly, then generate Host configuration from it.
+Machine paths, ports, credentials and old runtime state do not become personal cognition. Optional
+unavailable capabilities and a blocked activation state are distinct.
 
 ## 7. Framework cold start
 
@@ -218,7 +206,7 @@ A skill that encodes owner-specific preferences, workflows, data sources, or pri
 
 Skills primarily wrapping external services or one-off operational tooling remain separate capabilities and are restored only when dependencies are available.
 
-Alpha does not need to decide the final class for every legacy skill. The transitional registry records the current source path and restore status.
+The canonical class values are core_behavior, owner_behavior and integration. Inactive legacy assets may remain unmapped evidence, but every enabled skill must have a valid class, source, policy and capability declaration. Old save-confirmation rules and current owner authorization must be reconciled before execution; unknown or conflicting instructions cannot be activated unchanged.
 
 ## 10. New personal learning writes
 
@@ -251,14 +239,16 @@ A fresh restore during Alpha should:
 5. load canonical framework sources from existing `30_RAG/frameworks/` paths;
 6. load exact active IR from new 3.0 managed storage;
 7. load Praxis episodes/playbook from new storage;
-8. load transitional owner-specific skills registry;
+8. validate the current owner-specific skills registry, policy and dependencies;
 9. rebuild OpenClaw runtime projections/indexes;
 10. start with a fresh session.
 
-No old session database is required.
+No old session database is required. Empty registries are legal; declared dependencies are mandatory.
+Episode v1, unversioned registries and old profiles require the explicit migrations in their contracts.
+Raw legacy source files need not change merely because their discovery metadata is upgraded.
 
-## 12. Exit condition for the compatibility layer
+## 12. Completion of source mapping
 
-The compatibility layer may be retired only when every durable cognitive dependency needed for restore has a first-class 3.0 representation or an intentionally retained canonical legacy source.
+Source mapping is complete when every declared durable dependency has a validated current representation or an intentionally retained canonical legacy source readable through the declared adapter. There is one current managed format per contract; obsolete format fallback and parallel writes do not satisfy migration.
 
 Physical migration of old archives is optional. Continuity and reconstructability are the requirement.

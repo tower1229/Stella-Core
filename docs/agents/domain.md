@@ -5,6 +5,8 @@ How the engineering skills should consume this repository's domain documentation
 ## Before exploring, read these
 
 - `CONTEXT.md` at the repository root.
+- `docs/10-DESIGN-BASELINE.md` for current contract authority and acceptance.
+- `docs/DECISIONS.md` for decisions and explicit supersession; this is the existing system-wide decision log.
 - `CONTEXT-MAP.md` at the repository root if it exists; read each linked context relevant to the task.
 - Relevant ADRs under `docs/adr/`.
 
@@ -17,7 +19,7 @@ This is a single-context repository:
 ```text
 /
 ├── CONTEXT.md
-├── docs/adr/
+├── docs/DECISIONS.md
 └── src/
 ```
 
@@ -29,4 +31,4 @@ If a needed concept is not in the glossary, reconsider whether the new term is n
 
 ## Flag ADR conflicts
 
-If work contradicts an existing ADR, surface the conflict explicitly rather than silently overriding the prior decision.
+If work contradicts an existing decision, surface the conflict explicitly and record its replacement in `docs/DECISIONS.md`. Do not duplicate existing decisions in a second ADR hierarchy.

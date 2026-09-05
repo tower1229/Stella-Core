@@ -2,6 +2,8 @@
 
 Issues and PRDs for this repo live as GitHub issues in `tower1229/Stella-Core`. Use the `gh` CLI for all operations.
 
+Current product requirements and contracts follow [the design baseline](../10-DESIGN-BASELINE.md). A ticket defines work within its stated version and scope; closed proposals and old acceptance counts are historical evidence. Cite the current contract in new work, and record a conflict rather than treating an old ticket as authority over newer settled requirements. Historical publication or activation permission does not authorize a new task.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`.

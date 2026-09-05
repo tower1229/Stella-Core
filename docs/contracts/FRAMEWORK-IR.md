@@ -1,5 +1,9 @@
 # Framework IR Contract
 
+Current authority: [Design baseline](../10-DESIGN-BASELINE.md). The v1 wire format is JSON using
+the camelCase keys below and [the schema](../../schemas/framework-ir.schema.json); lifecycle and
+cross-reference checks remain required beyond schema validation.
+
 ## 1. Purpose
 
 Framework IR converts an owner-authored thinking framework into compact executable cognitive operators usable by the Stella Cortex.
@@ -20,7 +24,7 @@ Praxis learning must not silently rewrite the source.
 
 ```ts
 interface FrameworkIR {
-  schemaVersion: string;
+  schemaVersion: "stella.framework-ir/v1";
   id: string;
   name: string;
 
@@ -28,6 +32,7 @@ interface FrameworkIR {
     ref: string;
     contentHash: string;
     sourceVersion?: string;
+    baseline?: { repository: string; branch?: string; commit: string };
   };
 
   compiler: {
@@ -73,7 +78,8 @@ interface FrameworkOperator {
 
 Framework runtime selects by **cognitive job**, not by philosophical keyword similarity.
 
-Normally a Praxis turn should use zero to two operators.
+Alpha uses zero to two operators per turn. The full product selects the smallest sufficient set
+by structured LLM judgment; positiveSignals and negativeSignals describe meaning, not keyword rules.
 
 A framework can be relevant while still being intentionally unused if another operator is more directly sufficient.
 
@@ -84,7 +90,7 @@ Every important framework should encode known misuse patterns.
 Example:
 
 ```yaml
-failure_modes:
+failureModes:
   - name: spiritual_bypass
     description: using impermanence to deny concrete harm or boundary violations
   - name: analysis_avoidance_inversion
@@ -117,6 +123,12 @@ Why persist the IR even though it is derived:
 - moving to another runtime should not silently change the owner's effective praxis framework.
 
 The source remains the authority for “what the owner said.” The active IR is the authority for “what Stella executed at that time.”
+
+For current v1 assets, source.contentHash and registry source_blob_sha are the same Git blob SHA;
+compiler.promptHash identifies the exact compiler prompt. Memory catalog Ref versions use their
+separate SHA-256 contract. Source edits invalidate current IR selection until a validated replacement
+is available; historical executions retain their exact IR and source version. A path-only move
+updates discovery without changing semantic identity or rewriting the historical snapshot.
 
 ## 7. Suggested CangHai representation
 

@@ -1,16 +1,7 @@
 # Evaluations
 
-Stella 3.0 evaluation focuses on product behavior rather than retrieval alone.
+公共合成套件位于 evaluation/praxis-social.synthetic.json，运行实现位于 src/acceptance。此目录只保留说明，不另建一套套件位置。
 
-Initial suites should measure:
+评测口径唯一维护于[Alpha 验收](../docs/05-ALPHA-PLAN.md#4-语义诊断)及[设计基线](../docs/10-DESIGN-BASELINE.md#5-语义诊断与真实使用)。按响应类型检查回答、澄清和共同思考，不强迫所有请求产生行动。
 
-- Praxis judgment quality;
-- whether relevant personal context was used;
-- whether the owner's frameworks were applied correctly;
-- whether Reality Intelligence surfaced important hidden variables;
-- action concreteness;
-- Twin prediction accuracy/calibration;
-- retrospective endorsement and regret;
-- identity plasticity and adaptation after correction.
-
-Synthetic fixtures belong here. Private real evaluation data may live in CangHai or a private evaluation store.
+自动化验证实现契约，LLM 评分用于语义诊断；实际效果通过主人自然反馈判断。私有案例和原始证据留在个人仓库／私有评测环境。

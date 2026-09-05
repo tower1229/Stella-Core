@@ -1,120 +1,93 @@
 project: Stella Core
 version_target: "3.0 Alpha"
-status: alpha-write-loop-gate-implemented
-updated_at: "2026-09-04"
+status: design-contracts-baselined-runtime-alignment-pending
+updated_at: "2026-09-05"
 
-mission:
-  single_goal: >-
-    Become the owner's increasingly accurate digital counterpart and
-    high-dimensional self, then improve real-world judgment and action.
+mission: >-
+  Become the owner's increasingly accurate digital counterpart and
+  high-dimensional self, extending memory, experience, simulation and praxis.
+
+normative_refs:
+  requirements: docs/09-REQUIREMENTS-ALIGNMENT.md
+  current_baseline: docs/10-DESIGN-BASELINE.md
+  glossary: CONTEXT.md
+  contracts: docs/contracts/README.md
+  alpha_acceptance: docs/05-ALPHA-PLAN.md
+  decisions: docs/DECISIONS.md
 
 repositories:
   core:
     repo: tower1229/Stella-Core
-    role: public OpenClaw plugin runtime, contracts, architecture, schemas, evaluation harness
+    role: public plugin runtime, contracts, schemas and synthetic evaluation
   personal_data:
     repo: tower1229/CangHai
-    role: private portable durable consciousness and personal data plane
-
-recovery_invariant: >-
-  A fresh compatible OpenClaw + Stella Core installation must be able to
-  restore Stella core consciousness from one coherent CangHai revision and
-  required external secrets without importing old OpenClaw sessions or
-  machine-local runtime databases.
-
-core_systems:
-  - Personal Twin
-  - Framework Compiler
-  - Reality / Social Intelligence
-  - Praxis Loop
+    role: private originals, portable learning and instance configuration
+    legacy_backup_ref: dev
+    verified_legacy_commit: a1c2f4ec444b7d3245a7a0afea74460470a5dfc2
+    core_test_branch: local/stella-alpha
+    runtime_revision: explicitly selected by instance; never inferred from these labels
 
 runtime_strategy:
   host: OpenClaw
   target_host_version: "2026.8.2"
   minimum_claimed_host_version: "2026.8.1"
+  minimum_version_independently_verified: false
   integration: single stella-core plugin
   replace_agent_loop: false
+  completion_strategy: limited reply_dispatch adapter over Host Agent Loop; Exact Host proof required
   consciousness_manifest: 50_PersonalAgent/stella/manifest.yaml
-  local_dev:
-    isolated_openclaw_state: true
-    linked_plugin_checkout: true
-    canghai_base_branch: dev-stella-3-rebuild
-    canghai_local_work_branch: local/stella-alpha
-    initial_data_mode: managed_durable_write
+  alpha_delivery_mode: managed_durable_write
 
-completed:
-  - vision baseline
-  - four-system architecture
-  - Praxis runtime protocol
-  - CangHai portable data-plane boundary
-  - consciousness portability invariant
-  - consciousness manifest contract and JSON schema
-  - clean-server restore contract and destructive restore acceptance design
-  - CangHai 1.0 to 3.0 additive cold-start mapping
-  - explicit CangHai source-baseline pinning contract for bootstrap and derived-artifact provenance
-  - Framework IR logical contract and JSON schema
-  - Twin Hypothesis logical contract and JSON schema
-  - Praxis Episode logical contract and JSON schema
-  - private CangHai 3.0 bootstrap manifest/registries/runtime profile rebuilt from dev baseline
-  - first active relationship/social Framework IR persisted in CangHai rebuild branch
-  - first bounded relationship/social Twin hypothesis seeds persisted in CangHai rebuild branch
-  - OpenClaw plugin package scaffold
-  - safe CangHai path reference resolver
-  - consciousness manifest loader and durable-reference existence validation
-  - fail-closed target-agent bootstrap hook skeleton
-  - initial unit-test sources for ref/manifest loading
-  - isolated local OpenClaw 8.1 integration runbook
-  - manifest, Twin Hypothesis, and Framework IR runtime schema validation
-  - explicit clean CangHai recovery revision and active-state fail-closed gate
-  - bounded target-agent context injection with non-target-agent bypass
-  - OpenClaw 2026.8.2 packed clean-install smoke and CI verification chain
-  - managed Git durability with critical immediate sync and observable normal bounded RPO
-  - Level 0-3 recovery drill orchestration with explicit derived rebuild and continuity evidence
-  - 32-case public synthetic relationship/social Praxis evaluation suite and boundary-safe runner
-  - fail-closed Alpha candidate artifact receipt bound to clean source revisions and artifact hash
-  - explicit recommended/acted Praxis lifecycle with sealed pre-outcome prediction
-  - persistent compare-and-set recovery pointer transaction for every managed commit
-  - transactional local activation check/apply entrypoint for OpenClaw 2026.8.2
-  - private three-turn managed-write, remote-sync, restart, and learning-reuse receipt contract
-  - Alpha candidate receipt v2 requiring write-loop, recovery, private evaluation, and durability evidence
+design_complete:
+  - document authority, response kinds, common gates and distinct Alpha/full-memory acceptance
+  - versioned source identity, evidence provenance, original-data coverage and portable discovery
+  - multi-round retrieval, source rereads, counterevidence, stopping and explicit failures
+  - scoped interaction learning and OngoingWork independent of action outcomes
+  - source-change synchronization, historical pins, current eligibility and failure recovery
+  - Episode v2 state machine and machine schema
+  - restore semantics for legal empty sets and optional unavailable capabilities
+  - current Host seam review and required completion adapter contract
 
-frozen_decisions:
-  - one Cortex, not four persistent agents
-  - Praxis is the primary product loop
-  - Personal Twin is evaluated by pre-outcome prediction
-  - CangHai carries durable Stella consciousness; Stella Core runtime is replaceable
-  - old OpenClaw sessions are not required for consciousness recovery
-  - one explicitly selected CangHai Git revision is the restore coherence boundary
-  - repository default branch must never be inferred as the personal-data baseline or recovery revision
-  - bootstrap/source baseline records derivation provenance; it is not a requirement that all later CangHai recovery revisions equal the original bootstrap commit
-  - content-derived managed artifacts must pin source identity strongly enough to detect source drift before reuse
-  - critical durable cognition must synchronize remotely; normal learning has explicit bounded RPO
-  - owner framework source, compiled IR, and Praxis learning are separate
-  - legacy Stella 1.0 corpus remains cold-start evidence and is not destructively migrated for Alpha
-  - new 3.0 learning uses managed personal-data locations
-  - recommendation does not imply action; acted requires external actual-action evidence
-  - recovery pointer persistence occurs after commit and before remote synchronization
-  - local development may use read_only or local_write, but Alpha delivery requires managed_durable_write
-  - no personal fine-tuning required for Alpha
-  - Stella-Core must contain no private CangHai data
+implementation_evidence:
+  reviewed_runtime_commit: 22a9b91187e9966b2d5c0fba7a624a3a47eb5a52
+  existing:
+    - plugin scaffold, manifest and reference loading, Framework IR and Twin validation
+    - managed commits, persistent recovery pointer CAS, push and bounded normal RPO diagnostics
+    - existing Episode v1 recommendation/action/outcome path and immutable prediction checks
+    - recovery, evaluation, private write-loop, activation and candidate receipt runners
+    - 32 public synthetic relationship/social diagnostic cases
+  new_contract_checks:
+    - Episode v2 JSON Schema compilation and structural contract tests
+  limit: >-
+    Existing code and historical receipts do not certify the revised baseline.
+    Full validators, migrations and exact-Host fault evidence remain necessary.
 
-next_phase:
-  id: ALPHA-03
-  title: Final exact-Host evidence and Issue closure
-  immediate_order:
-    - commit and pack one clean Core revision
-    - migrate private acted-without-actual Episodes to recommended and activate the portable runtime profile
-    - run the three-turn private managed-write loop and explicitly flush normal learning
-    - recover a fresh OpenClaw 2026.8.2 Host from the final synchronized CangHai revision
-    - rerun private evaluation on the same artifact and final CangHai revision
-    - generate Alpha candidate receipt v2 and verify current-SHA CI
-    - update and close Issue 5 only when every bound gate passes
+implementation_gaps:
+  - response-kind routing and evaluation without mandatory action or prediction
+  - Episode v2 one-time migration and matching runtime/store/runner support
+  - generation-aware evidence and dependency synchronization across Core and Host views
+  - full archive adapters, coverage, media materialization and retention coordination
+  - OngoingWork and LearningChange persistence, application and idempotency
+  - required completion adapter, cancellation and observable delivery failures
+  - complete registry/profile validation and legal-empty recovery fixtures
 
-not_now:
-  - personal fine-tuning
-  - soft prompts or user vectors
-  - full social graph
-  - multi-agent swarm architecture
-  - A2A social twin network
-  - exhaustive CangHai physical migration
-  - complex autonomy scoring
+settled_constraints:
+  - one Cortex with four cooperating cognitive systems
+  - personal data centralized in CangHai; current Git copy contains retained original bytes
+  - reuse Host sessions, search infrastructure, models, tools, permissions and scheduling
+  - structured LLM judgment for variable natural-language meaning
+  - full contract success or explicit diagnosable failure
+  - quality-first recall; material unknowns permit clarification
+  - social judgment only when requested; other accepted autonomy remains
+  - writing collaboration preserves authorial intent and unfinished thinking
+  - prior explicit delegation remains usable within scope
+  - no natural-language forgetting; owner file edits drive synchronization
+  - immutable historical predictions and separately validated current understanding
+  - actual usefulness comes from owner feedback, not a mandatory score
+  - private data never enters public Core assets
+
+scope_of_this_change:
+  private_data_migrated: false
+  runtime_activated: false
+  candidate_certified: false
+  publication_performed: false

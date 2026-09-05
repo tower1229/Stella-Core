@@ -60,7 +60,7 @@ learning.predictionAssessment 为 supported／countered／unresolved。没有预
 
 ## 4. 预测与建议
 
-prediction 包含 possibleActions、likelyInterpretations、keyFactors；possibleActions 值在 [0,1]，至少一个候选，分布须在数值容差内归一。封存记录来源版本与时间；事后修改预测字段、prediction.json 或其关联 hash 均失败。
+prediction 包含 possibleActions、likelyInterpretations、keyFactors；possibleActions 值在 [0,1]，至少一个候选，总和与 1 的绝对误差不得超过 1e-6。封存记录来源版本与时间；事后修改预测字段、prediction.json 或其关联 hash 均失败。
 
 有预测的 Episode 在建议释放前须完成封存的 critical 同步。无预测的事项不为匹配存储接口补造一个分布。建议更新使用新的记录版本，保留旧建议与该次取证版本；“已投递”依据 Host receipt，不能由 recommended 状态推断。
 

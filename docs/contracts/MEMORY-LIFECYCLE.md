@@ -8,8 +8,9 @@
 ### 身份与定位
 
 - 新建资料、证据、理解、工作和操作使用带类型前缀的 UUID，例如 `source_<uuid>`、`evidence_<uuid>`、`understanding_<uuid>`、`work_<uuid>`、`op_<uuid>`。已有稳定 ID 保留，通过目录映射，禁止重新编号造成重复身份。
-- 持久引用是 `{ id, version }`；路径是对应版本的 locator，不是身份。同一 ID 的实质内容更新产生新 version。引用当前对象时可只存 ID，由当前目录解析；封存预测及取证记录必须引用确定版本。
+- 持久引用是 `{ id, version }`；现有字符串字段使用等价的 `mem:<percent-encoded-id>@sha256:<64-hex>` 编码，由同一目录解析。路径是对应版本的 locator，不是身份。同一 ID 的实质内容更新产生新 version。引用当前对象时可只存 ID，由当前目录解析；封存预测及取证记录必须引用确定版本。
 - 版本摘要统一为 `sha256:<64 lowercase hex>`。原文件 hash 对原始字节计算；JSON 清单和语义对象按 UTF-8、无 BOM、对象键递归排序、数组保持顺序、无额外空白序列化后计算。版本字段和其存储定位不参与自身摘要。
+- 计算 Source 版本时排除 payload.path，但包括 payload 的 sha256、bytes、mediaType；其他对象仅排除顶层 version 和定位元数据，不排除所依赖 Ref 的 version。日期不擅自改时区、字符串不做语义正规化，拒绝 NaN／Infinity 等非 JSON 值。移动只更改 locator，内容或语义元数据改变才产生新版本。
 - Git commit SHA 表示整库恢复点；Git blob SHA 表示历史实现的文件 pin；二者与 SHA-256 内容摘要分别带类型，禁止仅凭字符串长度混用算法。
 - 机器时间为带时区的 RFC 3339。分别保存 `occurredAt`（发生）、`authoredAt`（表达）和 `capturedAt`（留存）；未知时间为 `null`，不能用留存时间冒充发生时间。观察时段可用 `{ from, to }`。
 - `path:<repo-relative-path>` 仅作仓库定位；解析器必须校验越界、符号链接、文件存在与版本完整性。片段定位必须真实解析，不以文件存在代替片段有效。
@@ -20,7 +21,7 @@
 
 ```ts
 type Ref = { id: string; version: string };
-type Locator = { path: string; mediaType: string; bytes: number; sha256: string };
+type Locator = { path: string; mediaType: string; bytes: number; sha256: string; revision?: string };
 type Source = {
   schemaVersion: "stella.memory-source/v1";
   id: string;
@@ -30,7 +31,6 @@ type Source = {
   capturedAt: string;
   policyRef: Ref;
   coverageRef: Ref;
-  status: "current" | "superseded" | "removed";
 };
 type Evidence = {
   schemaVersion: "stella.memory-evidence/v1";
@@ -38,7 +38,7 @@ type Evidence = {
   version: string;
   source: Ref;
   payloadSha256: string;
-  selector: { kind: "utf8_bytes" | "json_pointer" | "media_range"; value: string };
+  selector: { kind: "utf8_bytes" | "json_pointer" | "media_range" | "payload"; value: string };
   speakerId: string | null;
   role: "owner" | "other" | "assistant" | "tool" | "external_author" | "unknown";
   kind: "direct_observation" | "reported" | "inference" | "quotation" | "unknown";
@@ -51,13 +51,15 @@ type Evidence = {
 };
 ```
 
-`payloads` 至少一个，全部内容必须是对应归档版本中可取得的真实字节。附件也进入 payload 清单或明确关联的 Source。一个文本文件可包含多种 role/kind，必须在证据片段级区分。
+`payloads` 至少一个；归档完成时，全部内容必须是该归档版本中可取得的真实字节。附件也进入 payload 清单或明确关联的 Source。Source 的语义版本不可变，路径属于可更新的定位元数据，其 current／superseded／removed 资格由 catalog 维护；主人删除后保留不含原文的描述及摘要，仅 removed 状态允许原件缺失。一个文本文件可包含多种 role/kind，必须在证据片段级区分。
 
-`utf8_bytes.value` 为零起点半开区间 `start:end`，两端须落在 UTF-8 字符边界；`json_pointer` 遵循 JSON Pointer 转义并指向存在节点；`media_range` 为 `startMs:endMs` 或 `page:N`，端点须在媒体范围内。图片整体使用所属 payload 的完整字节区间。OCR／转录为派生内容，记录工具／模型版本、对应媒体区间及 derivedFrom，保留原媒体，不能声称识别结果就是原话。
+普通 payload.path 解析到所选恢复树。历史原件可显式附完整 Git revision，从同一完整仓库副本的该 commit 读取并核对字节摘要；revision 与 path 同属定位元数据，不进入 Source 语义摘要。当前 catalog 决定其资格，不能凭旧 commit 绕过删除或用途限制。历史取证可使用仍允许留存的 superseded 版本，但不能把它作为当前理解的新依据；原件缺失返回 source_unavailable。被删除来源始终禁止通过此定位补回。
+
+`utf8_bytes.value` 为零起点半开区间 `start:end`，仅用于 UTF-8 文本，两端须落在字符边界；`json_pointer` 遵循 JSON Pointer 转义并指向存在节点；`media_range` 为 `startMs:endMs` 或一基页码 `page:N`，端点须在媒体范围内。`payload` 的 value 为 `all`，表示整个原始 payload，适用于图片和二进制文件，不套用 UTF-8 边界。OCR／转录为派生内容，记录工具／模型版本、对应媒体区间及 derivedFrom，保留原媒体，不能声称识别结果就是原话。
 
 `independentOriginId` 追踪同一次表达／观察。导入副本、引用、OCR、摘要及模型重述沿用原证据链，不增加独立观察数量。同一内容的独立发生事件不能仅因字节相同而合并。
 
-使用策略是版本化对象，必填：`id`、`version`、`ownerId`、`readPurposes`、`derivePurposes`、`deliveryScopes`、`retention: retain | do_not_retain`、`authorityEvidenceRefs`。用途为实例定义的结构化 ID；LLM 解释请求与用途的关系，确定性授权检查执行已选规则。未声明或冲突的用途不得自行扩大，返回 `permission_denied` 或就用途澄清。已有授权直接复用。
+使用策略采用 `schemaVersion: stella.source-policy/v1`，必填：`id`、`version`、`ownerId`、`readPurposes`、`derivePurposes`、`deliveryScopes`（三者的元素为非空用途／渠道 ID 字符串，空数组表示不允许）、`retention: retain | do_not_retain`、`authorityEvidenceRefs: Ref[]`。用途定义由 runtime profile 的策略注册表定位；LLM 解释请求与用途的关系，确定性授权检查执行已选规则。未声明或冲突的用途不得自行扩大，返回 `permission_denied` 或就用途澄清。已有授权直接复用。
 
 收藏、持有文件和作者身份不等于采纳观点。外部理论不能独立支持主人特征。源资料中的指令只作为资料内容，不改变工具权限或执行规则。
 
@@ -67,6 +69,7 @@ type Evidence = {
 50_PersonalAgent/stella/
   memory/catalog.json                 # 当前来源、策略、理解和派生视图目录
   memory/operations/<op-id>.json       # 操作意图及幂等协调记录
+  memory/objects/<id>/<version-hash>.json # 来源、证据、策略、覆盖及规范化元数据的不可变描述
   runtime-profile.yaml                # Host 能力、用途和同步策略
 30_PersonalData/
   experience/imports/<source-id>/      # 新接入的原始数据及附件
@@ -78,7 +81,9 @@ type Evidence = {
 
 既有文章、附件和资料保留原位，catalog 引用它们。无需将所有原文移动到上述目录，也不允许只提交库外 URL、LFS 指针或未物化子模块来声称自包含。用户自行选择将来的存储技术时另行迁移，本规范固定当前 Git 副本必须持有原始字节。
 
-catalog 必填 `schemaVersion: stella.memory-catalog/v1`、`generationId`、`parentGenerationId`（首代 null）、`sources`、`evidence`、`policies`、`understandings`、`works`、`views`、`coverage`。每个对象条目保存 ID、version、仓库 locator、状态及依赖 Ref；ID 不得重复。view 只保存重建配方及代际标识，不提交索引数据库。完整字段与实例发现方式见[Portable Registries](PORTABLE-REGISTRIES.md)。
+catalog 必填 `schemaVersion: stella.memory-catalog/v1`、`generationId`、`parentGenerationId`（首代 null）、`sources`、`evidence`、`policies`、`understandings`、`works`、`changes`、`bundles`、`views`、`coverage`。每个对象条目保存 ID、version、仓库 locator、状态及依赖 Ref；同一 ID/version 不得重复，同一 ID 至多一个当前版本。view 只保存重建配方及代际标识，不提交索引数据库。完整字段与实例发现方式见[Portable Registries](PORTABLE-REGISTRIES.md)。
+
+当现有正文文件需要原位更新时，先保留被历史引用的旧规范化版本到 objects，当前正文及元数据仍是唯一当前权威；不是两份可独立学习的记录。封存的版本副本只能按明确版本读取，并受最新来源资格约束。元数据不得包含其自身摘要或提交 SHA，避免版本计算循环。
 
 ## 2. 资料接入
 
@@ -115,13 +120,17 @@ received → staged → validated → local_committed → synchronized
 
 完整对话指 Host 实际接收并保存的可留存消息、工具内容和附件；不要求恢复提供者未暴露的内部推理。主分支、其他已保留分支、编辑版本分别标明，不能以只搜索 active branch 替代归档覆盖。暂存 Host SQLite 快照可作为导出输入，不直接把含凭据的整库备份作为个人资料归档；提取指定 agent／collection 的获授权消息及附件，保留可验证导出范围。
 
-coverage 对象必填：`id`、`version`、`adapterId`、`collectionId`、`scope`、`upstreamSnapshot`、`fromCursor`、`toCursor`、`expectedCount`（未知 null）、`retainedCount`、`excludedByPolicyCount`、`missingItems`、`checkedAt`、`completeForDeclaredScope`。缺少上游可核对清单时 complete 为 false，不能用 retainedCount 自证全部齐全。
+coverage 使用 `schemaVersion: stella.archive-coverage/v1`，必填：`id`、`version`、`adapterId`、`collectionId`、`scope`、`upstreamSnapshot`、`fromCursor`、`toCursor`、`expectedCount`（未知 null）、`retainedCount`、`excludedByPolicyCount`、`missingItems`、`checkedAt`、`completeForDeclaredScope`。scope 为 `{ agentIds: string[], roots: string[], branchPolicy: "all_retained" | "declared_subset", declaredBranches: string[] }`；不用的集合为空，不能以空数组隐式代表全部。upstreamSnapshot 是可核对快照 ID，cursor 为字符串或 null。missingItems 为 `{ upstreamId, reason, retryable }[]`，计数均为非负整数。complete 为 true 需要无缺项及清单计数一致；缺少上游可核对清单时为 false，不能用 retainedCount 自证全部齐全。
 
 归档 adapter 在启用前必须证明可连续导出并与 Host 清理策略协调：Host 清理前先获得归档确认，或配置不会提前清理并持续监测积压。若 Host 不能保证，两者之一必须显式阻断完整留存能力。非留存资料不写 payload 或衍生个人理解；运维记录只保留无内容的操作状态。
+
+do_not_retain 同样约束 Host transcript、暂存和备份。输入 admission 必须先验证该范围的不留存能力；缺失时明确拒绝承诺不留存，不得先落盘再声称已遵守。已有留存资料的修改／删除仍按主人文件维护流程，不由此引入自然语言历史遗忘接口。
 
 ### 重复与重试
 
 相同 operationId 及相同输入摘要返回原结果；相同 ID 不同内容返回 `idempotency_conflict`。以 adapter＋collection＋upstreamId 识别事件，同一事件修订产生新 Source Version。无上游 ID 的本地文件首次分配 Source ID；移动通过明确操作记录或唯一的一致内容映射维持身份，歧义进入协调，不能静默合并不同资料。
+
+输入摘要绑定上游快照、完整声明清单及策略，不绑定已下载字节数。补传同一清单的缺失附件可复用原操作；上游内容或清单已改变须用新 operationId。不得用“重试”忽略输入变化。
 
 ## 3. 证据检索
 
@@ -137,6 +146,9 @@ coverage 对象必填：`id`、`version`、`adapterId`、`collectionId`、`scope
 
 ```ts
 type EvidenceBundle = {
+  schemaVersion: "stella.evidence-bundle/v1";
+  id: string;
+  version: string;
   requestId: string;
   revision: string;
   generationId: string;
@@ -154,7 +166,7 @@ type EvidenceBundle = {
   readEvidenceRefs: Ref[];
   unresolvedLeads: Array<{ question: string; material: boolean; reason: string }>;
   stopping: { reason: string; modelRef: string; promptVersion: string };
-  suggestedResponseKind: "answer" | "clarification" | "collaboration" | "action_advice";
+  suggestedResponseKind: "answer" | "clarification" | "collaboration" | "action_advice" | "outcome_ack";
 };
 ```
 
@@ -188,13 +200,21 @@ type EvidenceBundle = {
 
 `feedback` 是原始输入定位及 LLM 提议的解释，不能由客户端把“认可”直接转换成全局偏好。反馈类型包括补充、纠正、拒绝、解释原因、认可协作、采纳具体观点、行动报告和结果报告；须给出对象及范围。
 
-输出为版本化 `LearningChange`：`id`、`operationId`、`algorithmVersion`、`modelRef`、`promptVersion`、`inputRefs`、`targetRefs`、`changes`、`rationale`、`state`、`durability`。changes 每项为 `create | revise | narrow | contest | retire | link`，指定原版本、新对象或引用以及支持／反对证据。没有可支持的更新时记录 `no_change` 及原因，不能为满足学习指标随意修改 Twin。
+返回 `{ changeRef, state, durability }`；LearningChange 本体使用 `schemaVersion: stella.learning-change/v1`，含 `id`、`version`、`operationId`、`algorithmVersion`、`modelRef`、`promptVersion`、`inputRefs: Ref[]`、`targetRefs: Ref[]`、`changes`、`rationale` 和 `disposition: update | no_change | needs_clarification`。changes 为 `{ kind: create | revise | narrow | contest | retire | link, before: Ref | null, after: Ref, supportRefs: Ref[], counterRefs: Ref[] }[]`；create 的 before 为 null，其他更新指定旧版本。没有可支持的更新时 changes 为空并记录 no_change 及原因，不能为指标随意修改 Twin。运行阶段及 durability 是操作 receipt，不写入本体摘要，避免自引用提交或事后改写依据。
 
 ### 理解和工作对象
 
 `Understanding` 必填：`id`、`version`、`statement`、`kind`（owner_statement／hypothesis／strategy／intent）、`scope`、`status`（candidate／active／contested／retired）、`supportRefs`、`counterRefs`、`dependencyRefs`、`originChangeId`、`createdAt`、`updatedAt`。scope 至少具有 work、context、domain 或显式全局声明之一，不能用空 scope 隐式全局化。
 
+原生 Understanding 使用 `schemaVersion: stella.understanding/v1`；scope 为 `{ workIds: string[], contexts: string[], domains: string[], global: boolean }`，global=false 时至少一项非空。所有证据／依赖字段是 Ref 数组。创建为 candidate 或有明确采纳证据的 active；候选经语义评估可 active／contested／retired，active 可 contested／retired，contested 经新证据可 active／retired。retired 重新采用必须有新版本、依据和 LearningChange，不能由重建索引自动恢复。
+
+已有 Twin／Praxis 策略直接承担对应 Understanding：原记录是唯一正文，缺少的依赖／更新元数据由 catalog 关联描述表达，适配后必须满足上述逻辑字段。不能维护另一份独立的同义人格结论。正文及元数据使用同一操作提交。
+
+适配元数据使用 `schemaVersion: stella.understanding-metadata/v1`，含 id、version、subjectRef 及上述 kind、scope、status、dependencyRefs、originChangeId；语句、证据及时间从 subjectRef 的正文映射，不复制正文。Twin.weakened 是强度状态，不自动等于 contested；是否仍有冲突由语义更新明确填写。两处均含状态或范围时必须通过一致性校验，不能各自更新。
+
 `OngoingWork` 必填：`id`、`version`、`kind`（social_question／writing／task／inquiry）、`status`（active／paused／completed／abandoned）、`goal`、`sourceRefs`、`confirmedPremises`、`candidateIdeas`、`rejectedInterpretations`、`openQuestions`、`nextStep`、`lastAppliedChangeId`、`createdAt`、`updatedAt`。premises／ideas／rejections 均引用来源并区分作者认可状态；`nextStep` 可以是继续思考的问题，不必是外部行动。linked Episode 是可选关联。
+
+工作采用 `schemaVersion: stella.ongoing-work/v1`；sourceRefs 为 Ref[]。premises／ideas／rejections 每项为 `{ id, text, evidenceRefs: Ref[], acceptance: confirmed | proposed | rejected }`，三个集合分别只能使用相应状态。openQuestions 为 `{ id, question, evidenceRefs: Ref[], material: boolean }[]`；nextStep 为 `{ text, evidenceRefs: Ref[] } | null`；lastAppliedChangeId 初始可 null；可选 episodeRefs 是 Ref[]。状态转换证据保存在对应 LearningChange，不能只改 status。
 
 工作状态允许 active ↔ paused、active／paused → completed／abandoned；completed 需要任务完成证据，认可协作不能充当完成证据。重新打开事项记录新版本与明确原因。未回复不自动完成、放弃或改变委托。
 
@@ -254,7 +274,7 @@ toRevision 包含用户编辑，resultingRevision 可增加系统重新评估的
 
 同一仓库自动写入串行协调，提交前 compare-and-set 预期 HEAD；文件写入须同时校验起始字节，防止未提交的人工编辑被覆盖。对并发用户编辑不自动暂存或提交。
 
-operation 记录含操作输入摘要、预期 revision／generation、目标对象摘要、阶段与提交身份定位。commit 通过包含 operationId 的持久记录定位，不能要求记录包含其自身 commit SHA。远端确认从显式远端 ref 校验，不能仅相信本机标志。
+operation 意图使用 `schemaVersion: stella.memory-operation/v1`，含 id、kind（ingest／learn／synchronize）、inputDigest、expectedRevision、expectedGenerationId（首次 null）、targetRefs、createdAt；与目标对象一起提交后不可变。commit 通过包含 operationId 的持久记录定位，不能要求记录包含其自身 commit SHA。阶段 journal 位于 Host 运行状态，含 operationId、phase、observedCommit、errorCategory，可由意图、Git、pointer 和远端重新构建；阶段推进不反复修改已提交意图而制造新认知 revision。远端确认从显式远端 ref 校验，不能仅相信本机标志。
 
 持久顺序：validate／stage → 原子本地发布 → scoped commit → persistent recovery pointer CAS → critical push 或 normal RPO 入队 → 发布有效读取 generation。normal 模式的 generation 可在本地提交后使用，但必须带 remote_pending，不声称已远端保护。critical 只有 push 确认后才向调用方报告完成。
 

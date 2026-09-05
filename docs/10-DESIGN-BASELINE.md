@@ -72,11 +72,11 @@ Alpha 执行其路径涉及的 G 项及 Alpha 出口；完整记忆实现还须�
 | 已确定的契约 | 该源码仍需收敛的部分 |
 | --- | --- |
 | 按响应语义完成 | 路由／评测尚未完整表达 responseKind；可写 Praxis 仍强制暂存预测 |
-| 严格行动证据 | v1 Schema 和路由可解码 `inferred`；转换校验必须拒绝其成为 actual |
+| 严格行动证据 | 新增 v2 Schema 排除 `inferred`；旧 runtime／路由、持久层和 fixtures 尚需统一迁移 |
 | 历史与当前分别校验 | Episode 来源 pin 仍与当前文件比对；完整依赖失效和重算尚无实现 |
 | 关键写入成功可观察 | finalize/end 回调仍承担写入；尚未证明 Host 失败时整个完成状态可靠 |
 | 合法空状态恢复 | 当前 drill 要求重要开放 Episode 非空；须与专用覆盖 fixture 区分 |
 | 完整记忆四段契约 | 尚无目录、操作日志、工作上下文、代际检索及同步协调的完整实现 |
-| 完整配置契约 | 已有四个 JSON Schema 不覆盖所有 portable registries 和 runtime profile |
+| 完整配置契约 | 原有四个 Schema 及新增 Episode v2 Schema 不覆盖所有 portable registries 和 runtime profile |
 
 本目录下新增格式是开发目标。实现新格式必须同时交付结构校验、语义不变量校验、显式迁移和对应测试；现有 v1 解码范围不能作为新行为的成功判据。更新线上私有数据或改变运行配置需通过实际任务的迁移／激活流程，本次整理不执行这些操作。

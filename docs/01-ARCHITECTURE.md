@@ -1,5 +1,7 @@
 # Stella 3.0 Architecture
 
+Current authority and acceptance: [design baseline](10-DESIGN-BASELINE.md). Data formats and the complete memory flow are defined by [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md) and [Portable Registries](contracts/PORTABLE-REGISTRIES.md).
+
 ## 1. System view
 
 ```text
@@ -23,7 +25,7 @@
 
 ## 2. Runtime architecture
 
-Stella 3.0 is implemented as one OpenClaw runtime plugin, provisionally named `stella-cortex`.
+Stella 3.0 uses one OpenClaw runtime plugin, `stella-core`; Cortex names its shared cognitive architecture.
 
 ```text
 OpenClaw Agent Loop
@@ -266,8 +268,8 @@ The same memory needs to preserve several kinds of information without forcing t
 
 The ongoing-work row is a logical responsibility within the existing Cortex and data plane, not a
 new persistent agent or a second session database. Reuse existing article context files and Host
-state where their contracts fit. Its serialization and synchronization still require a concrete
-design. Full conversation retention supplies evidence; resuming work also requires finding the
+state where their contracts fit. OngoingWork serialization, LearningChange and synchronization follow
+the Memory Lifecycle contract. Full conversation retention supplies evidence; resuming work also requires finding the
 relevant current state without repeating already-resolved questions.
 
 ### Inputs and coverage
@@ -298,11 +300,12 @@ Owner request
 
 Stella supplies semantic planning and evidence judgment; OpenClaw supplies the applicable file,
 search, session, model and execution infrastructure. Keep those responsibilities separate from
-specific storage engines or hook choices until the target Host contract has been verified.
+the selected Host adapters. The versioned integration seams and remaining proof obligations are in
+[OpenClaw integration](04-OPENCLAW-INTEGRATION.md); API availability alone is not completion evidence.
 
 A compact response or context projection comes after sufficient evidence work. Candidate-count
 limits, prompt size and a convenient number of retrieved items do not establish sufficiency. The
-retrieval contract needs an explicit stopping judgment: material claims have support or visible
+retrieval contract requires an explicit stopping judgment: material claims have support or visible
 uncertainty, relevant available contrary or newer evidence has been checked, and no known unresolved
 lead is being dropped merely to meet a small packet budget. Missing material facts call for
 clarification; unavailable sources and resource failures remain diagnosable failures, not findings

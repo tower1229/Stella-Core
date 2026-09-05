@@ -65,6 +65,8 @@ type CompletionPort = {
 
 这里定义 Stella 所需接口，不把这些方法名冒充 Host SDK。adapter 用 runEmbeddedAgent 产生草稿，用 Host dispatcher 投递；必须转交 Host 的 onAgentRunStart、userTurnTranscriptRecorder 及存在时的 prepareAssistantTranscriptMessage，防止重复记录输入或改变显示归属。
 
+completion receipt 是 `stella.completion-receipt/v1` 的运行结果，包含 operationId、draftId、draftHash、responseKind、evidenceRef、writeOperationIds、observedRevision、generationId、persistenceStatus 和 checkedAt。它根据持久操作意图、Git、pointer 及远端确认重建，不要求把自身 commit SHA 写进同一个提交。投递结果另由 Host receipt 关联 operationId；草稿存在不证明主人已经收到。
+
 执行顺序：
 
 1. 认知写入 profile 的目标 agent 必须通过配置声明 completion adapter。默认模型路径不得自行发送尚未完成的业务回复。

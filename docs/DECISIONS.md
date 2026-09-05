@@ -1,6 +1,6 @@
 # Stella 3.0 Decision Log
 
-This file records architecture decisions that should not silently drift during later design work. Decisions may be superseded, but a replacement should explicitly say what it replaces and why.
+This file records architectural decisions and explicit replacements. [The design baseline](10-DESIGN-BASELINE.md) is the current navigation and acceptance authority. Historical decisions remain context only where a later decision names a replacement.
 
 ## D-001 — Single goal
 
@@ -38,7 +38,7 @@ Do not block Alpha on a comprehensive ontology, full social graph, fine-tuning, 
 
 ## D-006 — Personal Twin is predictive
 
-**Decision:** Twin quality is measured by pre-outcome prediction and later error, not by the completeness of a static user profile.
+**Decision:** Pre-outcome prediction and later error diagnose the Twin's predictive ability. D-034 clarifies that they do not objectively certify the whole model or lived usefulness; owner feedback remains the product criterion.
 
 ## D-007 — Contextual selves
 
@@ -158,7 +158,7 @@ This separates historical evidence from continuously learned Stella 3.0 consciou
 
 ## D-027 — Recommendation and actual action are distinct durable states
 
-**Decision:** Publishing advice moves a Praxis Episode from `open` to `recommended`. Only evidence
+**Decision (state semantics refined by D-051):** Saving advice moves a Praxis Episode from `open` to `recommended`; actual delivery is recorded independently. Only evidence
 that the owner, a tool, or the system actually acted may produce `acted`. Outcome association may
 atomically close either a recommended or acted Episode, but closure always requires actual action,
 outcome, and learning while preserving the original prediction snapshot.
@@ -190,7 +190,7 @@ satisfy the complete contract and must not introduce silent semantic degradation
 
 **Decision:** Daily conversations are retained as complete original evidence by default, subject to
 owner-directed non-retention and direct file corrections/removals under D-042. Storage and backup reuse OpenClaw capabilities; physical
-archive integration into CangHai is still unresolved. This extends the retained-data scope without
+archive integration now follows D-050 and Memory Lifecycle. This extends the retained-data scope without
 replacing D-019: durable cognition remains independently recoverable without importing old runtime
 sessions. Preserve original evidence separately from derived understanding and rebuildable views.
 
@@ -242,7 +242,7 @@ enter the long-term personal model, their scope, and their updates. Summaries re
 references and do not count as additional independent evidence. One owner correction propagates to
 affected summaries, hypotheses, and subsequent answers. Competing interpretations may coexist with
 their evidence and uncertainty. This settles the logical responsibility boundary in D-030; the
-concrete synchronization protocol is still a design task, not a verified implementation capability.
+concrete synchronization protocol is defined by D-050, but remains unverified as a complete runtime capability.
 
 ## D-038 — Personal data sources are centralized in the personal digital repository
 
@@ -255,7 +255,7 @@ retained original personal data, including images, audio, video, conversation ar
 attachments. The original content must be recoverable from that copy without a separate external
 asset store. Keeping only external attachment references does not satisfy the current boundary.
 
-In-repository formats remain open within this self-contained storage boundary. Owner-directed
+Original media retain their formats within this self-contained boundary. D-050 defines the managed descriptors, coverage and synchronization protocol. Owner-directed
 retention/deletion, synchronization policy, rebuildable runtime state, and external-secret contracts
 continue to apply. Complete raw-data coverage and integrity are additional acceptance requirements;
 the current Alpha consciousness-recovery drill does not establish them.
@@ -412,3 +412,71 @@ owner corrections, and preserving unfinished understanding. Their response seman
 distinct: calibrated social assessment versus collaborative reasoning that helps the owner write.
 The source format, retrieval and synchronization contracts are technical design work to ground in
 the repository and target Host capabilities, not reasons to reopen confirmed product constraints.
+
+## D-049 — One current baseline separates requirements, contracts and evidence
+
+**Decision:** docs/10-DESIGN-BASELINE.md owns current document authority and common correctness gates.
+docs/09 owns product requirements; contracts own data/state invariants; docs/05-ALPHA-PLAN.md owns
+Alpha scope and acceptance. Closed Issues, old handoffs and implementation limits do not override
+new settled requirements or provide authorization for a new task. This replaces duplicated and
+conflicting exit criteria without discarding historical receipts as regression evidence.
+
+## D-050 — Four shared memory contracts connect originals to current understanding
+
+**Decision:** Memory Lifecycle defines ingest, retrieve, learn and synchronize; Portable Registries
+defines discovery and instance configuration. OpenClaw remains the recording, model, search,
+execution and scheduling infrastructure. Core supplies semantic judgment and consistency adapters.
+
+Original bytes, role-level evidence, scoped understanding and derived views have distinct contracts.
+OngoingWork preserves unfinished reasoning independently of an action Episode. LearningChange
+records why an interpretation changes, including refusal reasons and author corrections before an
+outcome exists. These contracts settle the previously open technical design in D-031/D-037/D-038;
+they do not claim archive adapters or source-change propagation are already implemented.
+
+## D-051 — Episode v2 and response semantics replace action-only completion
+
+**Decision:** answer, clarification, collaboration, action_advice and outcome_ack have distinct
+completion conditions. A necessary clarification is valid; collaboration need not invent an
+action or outcome. Episode v2 requires actual-action evidence and permits unknown action time as null.
+Recommended records saved advice, not proof of delivery. Closed requires actual, outcome and an
+evidence-based learning assessment; a natural event can produce no_change.
+
+This refines D-027 and supersedes the v1 inferred-action allowance, mandatory predictions and
+action-only completion assumptions. v1 is an explicit migration input; new runtime activation must
+use the completed v2 contract without dual writes or fallback. Immutable historical predictions
+remain protected under D-015.
+
+## D-052 — Historical input versions and current eligibility are separate
+
+**Decision:** A recovery revision locates coherent current state. Historical traces pin the versions
+actually used, retained at independently resolvable locations. Updating a Twin or moving a source
+does not corrupt a past prediction. Source changes instead invalidate and semantically reassess
+current dependent understanding and views.
+
+Deletion prevents normal recall through stale summaries, caches or Git history; it does not rewrite
+sealed predictions or require automatic physical history erasure. This clarifies D-014/D-015/D-023
+and the source-drift rule; matching a current file hash is not historical integrity validation.
+Generation switching, CAS and idempotent recovery follow the shared synchronization contract.
+
+## D-053 — Required persistence must precede final business delivery
+
+**Decision:** Use limited reply_dispatch completion coordination over the Host's normal Agent Loop,
+with a trusted run permit, explicit durable receipts and Host dispatcher. This supersedes the former
+blanket exclusion of reply_dispatch in the integration design, because soft finalize/end callbacks
+cannot alone enforce persistence-before-completion. It does not replace OpenClaw's Agent Loop.
+
+Exact Host fault injection must prove takeover failure is blocked, cancellation prevents late
+delivery, critical write failure cannot report success and unknown delivery remains observable.
+An unproven adapter cannot activate the corresponding write profile. Normal writes preserve their
+declared bounded RPO; a local receipt is not a remote durability claim.
+
+## D-054 — Alpha learning is disjunctive; empty restore state is valid
+
+**Decision:** The Alpha learning fixture demonstrates a supported Twin OR Praxis update and its later
+use. It does not require every real outcome to change a Twin. A production restore validates exactly
+the selected revision's declared set, which may be empty; separate nonempty fixtures prove important
+open-state recovery. Optional unavailable capabilities do not justify a runnable degraded instance.
+
+These rules replace conflicting mandatory-Twin, always-nonempty and degraded-activation language.
+Automated assertions, semantic diagnostics and owner feedback remain separate under D-034. Historical
+candidate receipts do not certify the newly defined assertions.
