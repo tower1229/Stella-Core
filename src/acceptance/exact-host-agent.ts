@@ -47,6 +47,43 @@ export type ExactHostAgentTurn = {
   runtimeContextChars: number;
 };
 
+function errorMessage(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const message = (value as Record<string, unknown>).message;
+  return typeof message === "string" ? message : undefined;
+}
+
+export function extractSafeExactHostAgentError(
+  stdout: string,
+  privateMessage: string,
+): string | undefined {
+  const start = stdout.lastIndexOf("\n{");
+  const candidate = (start >= 0 ? stdout.slice(start + 1) : stdout).trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
+  const record = parsed as Record<string, unknown>;
+  const result = typeof record.result === "object" &&
+      record.result !== null &&
+      !Array.isArray(record.result)
+    ? record.result as Record<string, unknown>
+    : undefined;
+  const message = errorMessage(record.error) ?? errorMessage(result?.error);
+  if (!message) return undefined;
+  return message
+    .replaceAll(privateMessage, "<private-message>")
+    .replace(/https?:\/\/\S+/giu, "<url>")
+    .replace(/[a-zA-Z]:\\\S+/gu, "<path>")
+    .replace(/\/(?:Users|private|var|tmp)\/\S+/gu, "<path>")
+    .replace(/[a-zA-Z0-9_=-]{32,}/gu, "<token>")
+    .slice(0, 300);
+}
+
 export function parseExactHostAgentTurn(stdout: string, probeId: string): ExactHostAgentTurn {
   const start = stdout.lastIndexOf("\n{");
   const candidate = (start >= 0 ? stdout.slice(start + 1) : stdout).trim();

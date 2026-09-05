@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildExactHostAgentArguments,
   buildExactHostAgentCommand,
+  extractSafeExactHostAgentError,
   parseExactHostAgentOutput,
   parseExactHostAgentTurn,
 } from "../src/acceptance/exact-host-agent.js";
@@ -136,5 +137,21 @@ test("rejects a failed or empty exact-Host turn", () => {
       "identity",
     ),
     /did not complete successfully/,
+  );
+});
+
+test("extracts and redacts nested OpenClaw agent errors", () => {
+  const privateMessage = "private relationship details";
+  const stdout = JSON.stringify({
+    runId: "run-1",
+    status: "error",
+    result: {
+      error: `Stella could not prepare this turn: ${privateMessage} at C:\\private\\state token_abcdefghijklmnopqrstuvwxyz0123456789`,
+    },
+  });
+  const diagnostic = extractSafeExactHostAgentError(stdout, privateMessage);
+  assert.equal(
+    diagnostic,
+    "Stella could not prepare this turn: <private-message> at <path> <token>",
   );
 });
