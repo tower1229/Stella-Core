@@ -30,7 +30,7 @@ test("builds an exact-Host turn through the Gateway", () => {
       "continuity probe",
       "--json",
       "--timeout",
-      "120",
+      "600",
     ],
   );
 });
