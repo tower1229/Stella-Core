@@ -7,12 +7,14 @@ type SchemaName =
   | "consciousness-manifest"
   | "framework-ir"
   | "praxis-episode"
+  | "praxis-episode-v2"
   | "twin-hypothesis";
 
 const schemaFileByName: Record<SchemaName, string> = {
   "consciousness-manifest": "consciousness-manifest.schema.json",
   "framework-ir": "framework-ir.schema.json",
   "praxis-episode": "praxis-episode.schema.json",
+  "praxis-episode-v2": "praxis-episode-v2.schema.json",
   "twin-hypothesis": "twin-hypothesis.schema.json",
 };
 

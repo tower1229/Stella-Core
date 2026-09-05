@@ -23,6 +23,7 @@ import {
 import { createOpenClawRecoveryPointerWriter } from "./openclaw/recovery-pointer.js";
 import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
 import type { CortexRoute } from "./routing/router.js";
+import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 const STELLA_CORE_SYSTEM_CONTEXT =
@@ -259,6 +260,7 @@ export default definePluginEntry({
 
   register(api) {
     const config = parsePluginConfig(api.pluginConfig);
+    registerCompletionTranscriptGuard(api, config.agentId);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
     const preparedTurns = new PreparedTurnStore();
     const classifySemantically = createSemanticRouter(
