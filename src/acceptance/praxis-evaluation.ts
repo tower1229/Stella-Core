@@ -1,3 +1,5 @@
+import type { HostCompatibility } from "./host-compatibility.js";
+
 export const PRAXIS_EVALUATION_CATEGORIES = [
   "relationship_communication",
   "gratitude_reciprocity",
@@ -68,6 +70,7 @@ export type PraxisEvaluationReport = {
 };
 
 export type PraxisEvaluationExecution = {
+  hostCompatibility?: HostCompatibility;
   coreRevision: string;
   canghaiRevision: string;
   hostVersion: string;

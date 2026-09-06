@@ -11,7 +11,11 @@ import {
 } from "../src/acceptance/exact-host-evidence.js";
 
 const receipt = {
-  schemaVersion: "stella.exact-host-recovery-receipt/v1",
+  schemaVersion: "stella.exact-host-recovery-receipt/v2",
+        sourceCloneVerified: true,
+        nativeFinalsBound: true,
+        transport: "chat.send",
+        runtimeEpisodeContract: "stella.praxis-episode/v2",
   coreRevision: "1".repeat(40),
   canghaiRevision: "2".repeat(40),
   hostVersion: ALPHA_HOST_VERSION,
@@ -62,8 +66,6 @@ test("requires explicit prompt injection permission and a sufficient semantic ho
     allowPromptInjection: true,
     timeouts: {
       before_prompt_build: 90_000,
-      before_agent_finalize: 90_000,
-      agent_end: 90_000,
     },
   }));
   assert.throws(() => assertStellaHostHooks({
@@ -84,6 +86,10 @@ test("requires explicit prompt injection permission and a sufficient semantic ho
       agent_end: 15_000,
     },
   }), /insufficient/);
+  for (const timeout of [undefined, NaN, Infinity, 90_000.5, "90000"]) {
+    assert.throws(() => assertStellaHostHooks({ allowConversationAccess: true, allowPromptInjection: true,
+      timeouts: { before_prompt_build: timeout, before_agent_finalize: 90_000, agent_end: 90_000 } }), /insufficient/);
+  }
 });
 
 test("validates the effective Stella Host source binding", () => {
@@ -107,11 +113,16 @@ test("requires the packed Stella runtime and admission hooks to be active", () =
     plugin: { id: "stella-core", status: "loaded", activated: true },
     typedHooks: [
       { name: "before_prompt_build" },
-      { name: "before_agent_finalize" },
+      { name: "before_message_write" },
+      { name: "llm_output" },
+      { name: "reply_dispatch" },
       { name: "before_agent_run" },
     ],
   };
   assert.doesNotThrow(() => assertStellaPluginRuntime(runtime));
+  assert.throws(() => assertStellaPluginRuntime({ ...runtime, typedHooks: [
+    { name: "before_prompt_build" }, { name: "before_agent_run" }, { name: "before_agent_finalize" },
+  ] }), /not active/);
   assert.throws(
     () => assertStellaPluginRuntime({ ...runtime, typedHooks: [{ name: "before_prompt_build" }] }),
     /not active/,
@@ -124,4 +135,9 @@ test("fails closed for incomplete or non-exact recovery receipts", () => {
   assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, continuityAccepted: false }), /Invalid/);
   assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, importedLegacyRuntime: true }), /Invalid/);
   assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, coreRevision: "short" }), /Invalid/);
+  assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, schemaVersion: "stella.exact-host-recovery-receipt/v1" }), /Invalid/);
+  assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, transport: "agent" }), /Invalid/);
+  assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, sourceCloneVerified: false }), /Invalid/);
+  assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, nativeFinalsBound: false }), /Invalid/);
+  assert.throws(() => parseExactHostRecoveryReceipt({ ...receipt, runtimeEpisodeContract: "stella.praxis-episode/v1" }), /Invalid/);
 });

@@ -4,6 +4,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { assertSameHostCompatibility, type HostCompatibility } from "./host-compatibility.js";
 import {
   PRAXIS_EVALUATION_CATEGORIES,
   type PraxisEvaluationReport,
@@ -55,7 +56,7 @@ export type AlphaCandidateReceipt = {
   createdAt: string;
   core: { revision: string; sourceClean: true };
   canghai: { revision: string; sourceClean: true };
-  host: { product: "OpenClaw"; version: "2026.8.2"; cleanRuntimeState: true };
+  host: { product: "OpenClaw"; version: "2026.8.2"; cleanRuntimeState: true; compatibility?: HostCompatibility };
   artifact: { path: string; sha256: string; bytes: number };
   recovery: AlphaRecoveryEvidence;
   praxisLoop: ExactHostPraxisReceipt;
@@ -191,6 +192,7 @@ export async function createAlphaCandidateReceipt(
   if (input.durability.synchronizedRevision !== canghaiRevision) {
     throw new Error("Alpha durability evidence is not bound to the CangHai recovery revision");
   }
+  assertSameHostCompatibility(recovery.hostCompatibility, praxisLoop.hostCompatibility, input.evaluation.execution!.hostCompatibility);
 
   return {
     schemaVersion: "stella.alpha-candidate-receipt/v2",
@@ -198,7 +200,8 @@ export async function createAlphaCandidateReceipt(
     createdAt,
     core: { revision: coreRevision, sourceClean: true },
     canghai: { revision: canghaiRevision, sourceClean: true },
-    host: { product: "OpenClaw", version: ALPHA_HOST_VERSION, cleanRuntimeState: true },
+    host: { product: "OpenClaw", version: ALPHA_HOST_VERSION, cleanRuntimeState: true,
+      ...(recovery.hostCompatibility ? { compatibility: recovery.hostCompatibility } : {}) },
     artifact: { path: path.resolve(input.artifactPath), ...artifact },
     recovery,
     praxisLoop,

@@ -1,5 +1,5 @@
 import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
-import { objectVersion } from "../canghai/content-version.js";
+import { canonicalJson, objectVersion } from "../canghai/content-version.js";
 import type { ResponseKind } from "../openclaw/completion.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { EpisodeEvidenceResolver } from "./episode-evidence.js";
@@ -74,7 +74,25 @@ export async function loadEvidenceBundle(resolver: EpisodeEvidenceResolver, bind
   const reader = resolver.reader;
   const bundle = parseEvidenceBundle(await reader.read(binding.bundleRef, "bundles"));
   check(bundle.requestId === binding.requestId && bundle.revision === binding.revision &&
-    bundle.generationId === binding.generationId && bundle.generationId === reader.catalog.generationId, "bundle_context_mismatch");
+    bundle.generationId === binding.generationId, "bundle_context_mismatch");
+  if (bundle.generationId !== reader.catalog.generationId) {
+    const originalCatalog = await reader.catalogAtRevision(bundle.revision);
+    check(originalCatalog.generationId === bundle.generationId, "bundle_context_mismatch");
+    const groups = ["sources", "evidence", "policies", "understandings", "works", "changes", "bundles", "coverage"] as const;
+    const historical = new Map(groups.flatMap((group) => originalCatalog[group].map((entry) => [key(entry), { group, entry }] as const)));
+    const visited = new Set<string>();
+    const verifyHistoricalRef = (ref: VersionedRef): void => {
+      if (visited.has(key(ref))) return;
+      visited.add(key(ref));
+      const original = historical.get(key(ref));
+      check(original?.entry.status === "current", "bundle_historical_reference_mismatch");
+      const current = reader.entry(ref, original.group);
+      check(canonicalJson(original.entry.dependencies) === canonicalJson(current.dependencies) &&
+        canonicalJson(original.entry.metadataRef ?? null) === canonicalJson(current.metadataRef ?? null), "bundle_historical_reference_mismatch");
+      for (const dependency of [...original.entry.dependencies, ...(original.entry.metadataRef ? [original.entry.metadataRef] : [])]) verifyHistoricalRef(dependency);
+    };
+    for (const ref of [...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs]) verifyHistoricalRef(ref);
+  }
   const dependencies = new Set(reader.entry(binding.bundleRef, "bundles").dependencies.map(key));
   check([...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs].every((ref) => dependencies.has(key(ref))), "undeclared_object_dependency");
   const coverage = [];
@@ -86,5 +104,5 @@ export async function loadEvidenceBundle(resolver: EpisodeEvidenceResolver, bind
   const originalEvidence = [];
   for (const ref of bundle.readEvidenceRefs) originalEvidence.push(await resolver.readEvidence(ref));
   await reader.assertCurrent();
-  return { bundle, coverage, originalEvidence };
+  return { bundle, coverage, originalEvidence, validatedGenerationId: reader.catalog.generationId };
 }

@@ -275,6 +275,9 @@ test("prepared context crosses independent main hook registrations and is admitt
       assert.deepEqual(gate, { outcome: "pass" });
       assert.match(prompt!.appendContext!, /CangHai is the sole authority/);
       assert.match(prompt!.appendContext!, /response_contract/);
+      assert.ok(prompt!.prependSystemContext!.includes(`"recoveryRevision":"${revision}"`));
+      assert.ok(prompt!.prependSystemContext!.includes('"memoryGeneration":"fixture-empty-v2"'));
+      assert.ok(!prompt!.prependSystemContext!.includes(root), "runtime provenance must not disclose a local path");
       assert.doesNotMatch(prompt!.appendContext!, /stella_core_praxis_context/);
       assert.equal((readCompletionPreparation("cross-registration") as { admitted: boolean }).admitted, true);
       assert.equal((await requireHook(otherRegistration, "before_agent_run")({}, context) as { outcome: string }).outcome, "block");

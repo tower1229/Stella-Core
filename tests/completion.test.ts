@@ -44,6 +44,19 @@ test("persistence failure cannot release a business reply", async () => {
   assert.deepEqual(events, ["generate"]);
 });
 
+test("a Host continuation cannot replace an evidence-bound private draft or reach persistence", async () => {
+  const events: string[] = [];
+  await assert.rejects(coordinateCompletion(input, { ...ports(events), async generateDraft() {
+    captureCompletionOutput("another-run", "ignored");
+    captureCompletionOutput(input.runId, "original draft");
+    assert.equal(readCompletionOutput(input.runId), "original draft");
+    captureCompletionOutput(input.runId, "Host continuation on a different prompt");
+    readCompletionOutput(input.runId);
+    return draft;
+  } }), (error: unknown) => error instanceof CompletionError && error.category === "host_generation_retried");
+  assert.deepEqual(events, []);
+});
+
 test("settled failures revoke draft permission without cancelling the Host failure dispatcher", async () => {
   let generationSignal: AbortSignal | undefined;
   await assert.rejects(coordinateCompletion(input, {

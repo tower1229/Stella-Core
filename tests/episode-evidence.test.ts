@@ -448,7 +448,8 @@ test("evidence-bound closure atomically commits learning, retries pointer failur
     assert.equal(closed.episode.actual?.occurredAt, null);
     const change = await recovered.evidence.reader.read(transaction.changeRef, "changes");
     const bundle = await loadEvidenceBundle(recovered.evidence, { bundleRef: transaction.bundleRef, requestId: "report",
-      revision: initial, generationId: receipt.generationId });
+      revision: initial, generationId: transaction.bundle.generationId });
+    assert.equal(bundle.validatedGenerationId, receipt.generationId);
     assert.deepEqual(bundle.bundle, transaction.bundle);
     assert.equal(bundle.originalEvidence[0]!.text, "我已经询问了时间，对方确认周末有空。");
     assert.equal(bundle.bundle.claims.some((claim) => claim.id === "candidate-strategy"), propose);

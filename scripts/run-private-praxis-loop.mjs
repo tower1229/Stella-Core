@@ -23,8 +23,9 @@ import {
   extractSafeExactHostAgentError,
   parseExactHostAgentTurn,
 } from "../dist/src/acceptance/exact-host-agent.js";
-import { ALPHA_HOST_VERSION } from "../dist/src/acceptance/exact-host-evidence.js";
+import { ALPHA_HOST_VERSION, parseExactHostRecoveryReceipt, parseExactHostVersion } from "../dist/src/acceptance/exact-host-evidence.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
+import { installHostCompatibility } from "./lib/install-host-compatibility.mjs";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -33,7 +34,7 @@ const targetAgentId = "main";
 const options = parseRequiredArguments(
   process.argv.slice(2),
   ["canghai-root", "canghai-revision", "artifact", "adapter", "output"],
-  "Usage: --canghai-root <path> --canghai-revision <sha> --artifact <tgz> --adapter <module> --output <json>",
+  "Usage: --canghai-root <path> --canghai-revision <sha> --artifact <tgz> --adapter <module> --output <json> [--recovery-receipt <json>]",
 );
 
 function sha256(value) {
@@ -207,6 +208,16 @@ if (!outputRelative.startsWith("..") || path.isAbsolute(outputRelative)) {
 }
 
 const coreRevision = await git(projectRoot, ["rev-parse", "HEAD"]);
+const artifactSha256 = await hashFile(artifactPath);
+const recoveryReceipt = options["recovery-receipt"] ? parseExactHostRecoveryReceipt(JSON.parse(
+  await readFile(path.resolve(options["recovery-receipt"]), "utf8"),
+)) : undefined;
+if (recoveryReceipt && (recoveryReceipt.coreRevision !== coreRevision ||
+  recoveryReceipt.artifactSha256 !== artifactSha256 ||
+  recoveryReceipt.canghaiRevision !== options["canghai-revision"] ||
+  recoveryReceipt.canghaiFixture !== "private")) {
+  throw new Error("Praxis inputs do not match the private recovery receipt");
+}
 await Promise.all([
   assertCleanRevision("Core", projectRoot, coreRevision),
   assertCleanRevision("CangHai", canghaiRoot, options["canghai-revision"]),
@@ -220,7 +231,6 @@ const initialRemoteRevision = await resolveRemoteRevision(canghaiRoot, remote, b
 if (initialRemoteRevision !== options["canghai-revision"]) {
   throw new Error("Initial CangHai revision is not synchronized to origin/local/stella-alpha");
 }
-const artifactSha256 = await hashFile(artifactPath);
 const initialEpisodeIds = await listEpisodeIds(canghaiRoot);
 const isolatedRoot = await mkdtemp(path.join(os.tmpdir(), "stella-private-praxis-"));
 
@@ -243,6 +253,10 @@ try {
     artifactPath,
     `openclaw@${ALPHA_HOST_VERSION}`,
   ], { cwd: consumerRoot });
+  if (recoveryReceipt?.hostCompatibility) {
+    const installed = await installHostCompatibility(consumerRoot);
+    await writeFile(path.join(isolatedRoot, "host-compatibility.json"), JSON.stringify(installed, null, 2));
+  }
   const openclawBin = await realpath(path.join(consumerRoot, "node_modules/openclaw/openclaw.mjs"));
   const runOpenClaw = (args, commandOptions) =>
     execFileAsync(process.execPath, [openclawBin, ...args], commandOptions);
@@ -252,9 +266,7 @@ try {
     cwd: consumerRoot,
     env: commandEnv,
   })).stdout.trim();
-  if (!version.includes(ALPHA_HOST_VERSION)) {
-    throw new Error(`Private Praxis loop requires OpenClaw ${ALPHA_HOST_VERSION}`);
-  }
+  parseExactHostVersion(version);
   await runOpenClaw([
     "plugins",
     "install",
@@ -457,6 +469,7 @@ try {
     }
 
     const receipt = {
+      ...(recoveryReceipt?.hostCompatibility ? { hostCompatibility: recoveryReceipt.hostCompatibility } : {}),
       schemaVersion: "stella.exact-host-praxis-receipt/v1",
       coreRevision,
       initialCanghaiRevision: options["canghai-revision"],

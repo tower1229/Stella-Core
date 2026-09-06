@@ -17,6 +17,9 @@ test("empty Alpha evidence permits a model-selected clarification without invent
       assert.deepEqual(input.originalEvidence, []);
       assert.match(prompt, /does not prove all personal files/);
       assert.match(prompt, /model interpretations/);
+      assert.match(prompt, /No Markdown\/code fences/);
+      const schema = JSON.parse(prompt.split("\n").find((line) => line.startsWith("Output JSON Schema: "))!.slice("Output JSON Schema: ".length));
+      assert.deepEqual(schema.required, ["status", "claims", "unresolvedLeads", "stoppingReason", "suggestedResponseKind"]);
       return { text: JSON.stringify(decision), provider: "synthetic", model: "injected" };
     } });
   assert.equal(result.bundle.status, "material_unknown");
@@ -24,6 +27,24 @@ test("empty Alpha evidence permits a model-selected clarification without invent
   assert.equal(result.bundle.stopping.modelRef, "synthetic/injected");
   assert.deepEqual(result.originalEvidence, []);
   assert.equal(fixture.catalog.bundles.length, 1);
+});
+
+test("question evidence normalizes only a whole JSON fence without changing the semantic bundle", async (t) => {
+  const fixture = await bundleFixture(t);
+  const input = { requestId: "question", revision: "a".repeat(40), question: "Question", route, priorContext: "", resolver: await fixture.resolver() };
+  const plain = JSON.stringify(decision);
+  const wrapped = `\u0060\u0060\u0060json\n${plain}\n\u0060\u0060\u0060`;
+  const complete = (text: string) => async () => ({ text, provider: "synthetic", model: "injected" });
+  const decodedPlain = await prepareQuestionEvidence({ ...input, complete: complete(plain) });
+  const decodedWrapped = await prepareQuestionEvidence({ ...input, complete: complete(wrapped) });
+  assert.deepEqual(decodedWrapped.bundle, decodedPlain.bundle);
+  assert.equal(decodedWrapped.modelOutput.encoding, "markdown_json");
+  assert.notEqual(decodedWrapped.modelOutput.sha256, decodedPlain.modelOutput.sha256);
+  for (const text of ["PRIVATE MALFORMED", `Explanation\n${wrapped}`, `${wrapped}\nExtra prose`, `${wrapped}\n${wrapped}`, "```json\n{bad}\n```", `\u0060\u0060\u0060javascript\n${plain}\n\u0060\u0060\u0060`]) {
+    await assert.rejects(prepareQuestionEvidence({ ...input, complete: async () => ({ text, provider: "synthetic", model: "injected" }) }), /question_evidence_invalid_json/);
+  }
+  await assert.rejects(prepareQuestionEvidence({ ...input, complete: async () => ({ text: JSON.stringify({ ...decision, extra: true }),
+    provider: "synthetic", model: "injected" }) }), /question_evidence_invalid_envelope/);
 });
 
 test("question evidence rejects unsupported refs, missing model provenance and forced advice over unknowns", async (t) => {

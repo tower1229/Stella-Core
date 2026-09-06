@@ -13,7 +13,7 @@ export async function loadOutcomeRecoveryBinding(root: string, manifestPath: str
   const loaded = await loadConsciousness(root, manifestPath);
   if (loaded.manifest.runtimeState.activationStatus !== "active") throw new EpisodeV2Error("recovery_binding_inactive");
   const binding = await loadPraxisRuntimeBinding(loaded);
-  const paths = [...new Set([path.relative(loaded.canghaiRoot, loaded.manifestPath).replaceAll("\\", "/"), binding.configPath,
+  const paths = [...new Set([path.relative(loaded.canghaiRoot, loaded.manifestPath).replaceAll("\\", "/"), binding.configPath, ...binding.profileAuthorityPaths,
     ...loaded.bootstrapDocuments.map((document) => parseCangHaiRef(document.ref).relativePath)])];
   try {
     for (const file of paths) {

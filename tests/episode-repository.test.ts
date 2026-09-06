@@ -157,7 +157,7 @@ test("v2 repository refuses v1 activation, path traversal and concurrent ownersh
   assert.throws(() => new EpisodeRepository(root, "../outside", ports()), /unsafe_episode_root/);
   await assert.rejects(repository.apply({ operationId: "../outside", expectedVersion: null, episode: initial() }), /unsafe_record_id/);
   await writeFile(path.join(root, "episodes/praxis-synthetic/episode.json"), JSON.stringify({ ...initial(), schemaVersion: "stella.praxis-episode/v1" }));
-  await assert.rejects(repository.listEligible(), /schema validation failed/);
+  await assert.rejects(repository.listEligible(), /legacy_episode_migration_required/);
 });
 
 test("v2 operations survive real Git pointer failure, retry and clean remote recovery", async (t) => {

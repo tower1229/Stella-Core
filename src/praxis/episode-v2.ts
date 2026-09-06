@@ -1,4 +1,5 @@
 import { validateSchema } from "../canghai/schema.js";
+import { isRecord } from "../shared/type-guards.js";
 
 export type VersionedRef = { id: string; version: string };
 export type ActualSource = "user_report" | "tool_observation" | "system_event";
@@ -48,6 +49,9 @@ function canonical(value: unknown): string {
 }
 
 export async function parseEpisodeV2(value: unknown): Promise<EpisodeV2> {
+  if (isRecord(value) && value.schemaVersion === "stella.praxis-episode/v1") {
+    throw new EpisodeV2Error("legacy_episode_migration_required");
+  }
   await validateSchema("praxis-episode-v2", value);
   const episode = value as EpisodeV2;
   const prediction = episode.twin?.prediction;
@@ -98,7 +102,9 @@ export async function validateEpisodeV2Transition(previous: EpisodeV2, next: Epi
     throw new EpisodeV2Error("identity_or_time_changed");
   }
   if (!transitions[previous.status].includes(next.status)) throw new EpisodeV2Error("illegal_transition");
-  if (previous.twin?.prediction && canonical(previous.twin.prediction) !== canonical(next.twin?.prediction)) {
+  // Absence is also part of the sealed opening state. A later recommendation
+  // or reported outcome cannot retroactively create an advance prediction.
+  if (canonical(previous.twin?.prediction) !== canonical(next.twin?.prediction)) {
     throw new EpisodeV2Error("sealed_prediction_changed");
   }
   if (canonical(previous.historicalInputRefs) !== canonical(next.historicalInputRefs)) {

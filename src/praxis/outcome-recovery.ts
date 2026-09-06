@@ -96,7 +96,7 @@ export async function recoverPendingOutcome(input: {
   const bundle = parseEvidenceBundle(bundleObject.object);
   check(`outcome_${bytesVersion(bundle.requestId).slice(7)}` === plan.operationId);
   const expectedBundle = createOutcomeEvidenceBundle({ operationId: plan.operationId, requestId: bundle.requestId,
-    revision: bundle.revision, generationId: expected.generationId, prepared: {
+    revision: bundle.revision, generationId: before.generationId, prepared: {
       disposition: "ready", expectedVersion: episodeVersion(previous), episode,
       modelRef: change.object.modelRef, promptVersion: change.object.promptVersion,
       readEvidenceRefs: bundle.readEvidenceRefs, searchedCoverageRefs: bundle.searchedCoverageRefs,

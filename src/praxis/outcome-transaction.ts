@@ -65,7 +65,7 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
   changes.push({ path: episodePath, before: beforeEpisode, after: canonicalJson(episode) });
   after.parentGenerationId = reader.catalog.generationId;
   after.generationId = `generation_${bytesVersion(canonicalJson({ operationId, before: reader.catalogHash, version, changeRef })).slice(7)}`;
-  const bundle = createOutcomeEvidenceBundle({ operationId, requestId: input.requestId, revision: input.revision, generationId: after.generationId, prepared });
+  const bundle = createOutcomeEvidenceBundle({ operationId, requestId: input.requestId, revision: input.revision, generationId: reader.catalog.generationId, prepared });
   const bundleRef = add("bundles", bundle, [...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs]);
   const afterCatalog = canonicalJson(after);
   changes.push({ path: reader.catalogPath, before: beforeCatalog, after: afterCatalog });
@@ -80,7 +80,7 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
           if (![bytesVersion(beforeCatalog), bytesVersion(afterCatalog)].includes(current.catalogHash)) throw new EpisodeV2Error("stale_generation");
           await current.validatePreview(after, objects, async (preview) => {
             const resolver = new EpisodeEvidenceResolver(preview, runtime.evidence.purpose, runtime.evidence.complete);
-            await loadEvidenceBundle(resolver, { bundleRef, requestId: input.requestId, revision: input.revision, generationId: after.generationId });
+            await loadEvidenceBundle(resolver, { bundleRef, requestId: input.requestId, revision: input.revision, generationId: bundle.generationId });
             await validateEpisodeV2References(episode, {
               resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
               verifyActionEvidence: (actual) => resolver.verifyActionEvidence(actual), verifyOutcomeEvidence: (actual, outcome) => resolver.verifyOutcomeEvidence(actual, outcome),

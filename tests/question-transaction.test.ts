@@ -13,6 +13,7 @@ import { loadEvidenceBundle } from "../src/praxis/evidence-bundle.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
 import { prepareQuestionTransaction, recoverPendingQuestion } from "../src/praxis/question-transaction.js";
 import { bundleFixture } from "./evidence-bundle-fixture.js";
+import { loadQuestionEvaluationAnswer } from "../src/acceptance/question-evaluation-answer.js";
 
 const run = promisify(execFile);
 test("question evidence commits without an Episode and recovers after pointer failure with exact answer binding", async (t) => {
@@ -33,6 +34,7 @@ test("question evidence commits without an Episode and recovers after pointer fa
   const resolver = await fixture.resolver();
   const content = { ...fixture.bundle, id: stableId("bundle", `question:${fixture.bundle.requestId}`), revision: initial };
   const prepared = await prepareQuestionTransaction({ resolver, objectRoot: "objects", bundle: { ...content, version: objectVersion(content) } });
+  assert.equal(prepared.bundle.version, objectVersion(content));
   assert.equal((await run("git", ["-C", fixture.root, "status", "--porcelain"])).stdout.trim(), "");
   const answer = { requestHash: bytesVersion("Synthetic question"), draftHash: bytesVersion("Synthetic clarification") };
   let fail = true;
@@ -59,7 +61,9 @@ test("question evidence commits without an Episode and recovers after pointer fa
   await run("git", ["-c", "core.autocrlf=false", "clone", "--quiet", "--branch", "main", remote, restored]);
   const reader = await CatalogReader.load(restored, "catalog.json");
   const loaded = await loadEvidenceBundle(new EpisodeEvidenceResolver(reader, resolver.purpose, resolver.complete), {
-    bundleRef: prepared.bundleRef, requestId: content.requestId, revision: initial, generationId: receipt.generationId });
+    bundleRef: prepared.bundleRef, requestId: content.requestId, revision: initial, generationId: prepared.bundle.generationId });
+  assert.equal(loaded.validatedGenerationId, receipt.generationId);
+  assert.equal(loaded.bundle.generationId, fixture.bundle.generationId);
   assert.deepEqual(loaded.bundle, prepared.bundle);
   assert.deepEqual(reader.catalog.changes, []);
   assert.deepEqual(reader.catalog.understandings, []);
@@ -67,5 +71,12 @@ test("question evidence commits without an Episode and recovers after pointer fa
   assert.equal(binding.requestHash, answer.requestHash);
   assert.equal(binding.draftHash, answer.draftHash);
   assert.equal(binding.evidenceCutoff, resolver.purpose.evidenceCutoff);
+  const evaluationInput = { root: restored, catalogPath: "catalog.json", requestId: content.requestId,
+    question: "Synthetic question", text: "Synthetic clarification", purpose: resolver.purpose, complete: resolver.complete };
+  const evaluation = await loadQuestionEvaluationAnswer(evaluationInput);
+  assert.deepEqual(evaluation.answer.bundleRef, prepared.bundleRef);
+  assert.equal(Date.parse(evaluation.resolver.purpose.evidenceCutoff), Date.parse(resolver.purpose.evidenceCutoff));
+  await assert.rejects(loadQuestionEvaluationAnswer({ ...evaluationInput, text: "Replacement answer" }), /evaluation_answer_binding_mismatch/);
+  await assert.rejects(loadQuestionEvaluationAnswer({ ...evaluationInput, question: "Different question" }), /evaluation_answer_binding_mismatch/);
   assert.equal((await run("git", ["-C", fixture.root, "status", "--porcelain"])).stdout.trim(), "");
 });

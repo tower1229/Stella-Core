@@ -1,39 +1,50 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { GatewayClient } from "openclaw/plugin-sdk/gateway-runtime";
 import { createFixture, initializeFixtureRepository } from "../.test-dist/tests/consciousness-fixture.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 
 const run = promisify(execFile);
 const root = fileURLToPath(new URL("../", import.meta.url));
-const hostRoot = path.join(root, "node_modules/openclaw");
+const packageRoot = path.resolve(process.env.STELLA_PROBE_PACKAGE_ROOT ?? root);
+const hostRoot = path.resolve(process.env.STELLA_PROBE_HOST_ROOT ?? path.join(root, "node_modules/openclaw"));
+const { GatewayClient } = await import(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/gateway-runtime.js")).href);
 const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8"));
 assert.equal(host.version, "2026.8.2");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
-const recoveryProbe = process.argv.includes("--outcome-recovery") || questionRecoveryProbe;
+const admissionReplayProbe = process.argv.includes("--admission-replay");
+const adviceTailProbe = process.argv.includes("--advice-evidence-recovery");
+const recoveryProbe = process.argv.includes("--outcome-recovery") || questionRecoveryProbe || adviceTailProbe;
 const failureProbe = process.argv.includes("--outcome-persist-failure") || recoveryProbe;
-const outcomeProbe = process.argv.includes("--outcome") || failureProbe && !questionRecoveryProbe;
-const questionProbe = process.argv.includes("--question-evidence") || process.argv.includes("--question-durable") || questionRecoveryProbe;
-const managed = process.argv.includes("--managed") || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe;
+const outcomeProbe = process.argv.includes("--outcome") || failureProbe && !questionRecoveryProbe && !adviceTailProbe;
+const questionProbe = process.argv.includes("--question-evidence") || process.argv.includes("--question-durable") || questionRecoveryProbe || admissionReplayProbe;
+const managed = process.argv.includes("--managed") || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe || adviceTailProbe || admissionReplayProbe;
 const temp = await mkdtemp(path.join(os.tmpdir(), "stella-main-completion-"));
+// Resolve dependencies from the tested package's consumer, not the development checkout.
+const snapshotParent = path.join(packageRoot, ".artifacts");
+await mkdir(snapshotParent, { recursive: true });
+const coreSnapshot = await mkdtemp(path.join(snapshotParent, "main-probe-build-"));
+const coreDist = path.join(coreSnapshot, "dist");
+await cp(path.join(packageRoot, "dist"), coreDist, { recursive: true });
+await cp(path.join(packageRoot, "schemas"), path.join(coreSnapshot, "schemas"), { recursive: true });
+const buildModule = (relative) => pathToFileURL(path.join(coreDist, relative)).href;
 const canghaiRoot = await createFixture();
 let outcomeSeed;
 let outcomePurpose;
 async function verifyQuestionBundle(reader, requestId, revision, remote, remoteRevision) {
-  const { loadEvidenceBundle } = await import("../dist/src/praxis/evidence-bundle.js");
-  const { EpisodeEvidenceResolver } = await import("../dist/src/praxis/episode-evidence.js");
-  const { bytesVersion } = await import("../dist/src/canghai/content-version.js");
+  const { loadEvidenceBundle } = await import(buildModule("src/praxis/evidence-bundle.js"));
+  const { EpisodeEvidenceResolver } = await import(buildModule("src/praxis/episode-evidence.js"));
+  const { bytesVersion } = await import(buildModule("src/canghai/content-version.js"));
   assert.equal(reader.catalog.bundles.length, 1);
   const entry = reader.catalog.bundles[0];
   const resolver = new EpisodeEvidenceResolver(reader, { ...outcomePurpose, evidenceCutoff: new Date().toISOString(),
     trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No new semantic judgment during readback"); });
-  const loaded = await loadEvidenceBundle(resolver, { bundleRef: { id: entry.id, version: entry.version }, requestId, revision, generationId: reader.catalog.generationId });
+  const loaded = await loadEvidenceBundle(resolver, { bundleRef: { id: entry.id, version: entry.version }, requestId, revision, generationId: (await reader.read(entry, "bundles")).generationId });
   assert.equal(loaded.bundle.suggestedResponseKind, "answer");
   assert.equal(loaded.originalEvidence.length, 1);
   assert.deepEqual(reader.catalog.changes, []);
@@ -46,14 +57,14 @@ async function verifyQuestionBundle(reader, requestId, revision, remote, remoteR
   assert.deepEqual(JSON.parse((await run("git", ["--git-dir", remote, "show", `${remoteRevision}:${bindingPath}`])).stdout), binding);
 }
 async function verifyOutcomeBundle(reader, requestId, revision, remote, remoteRevision) {
-  const { loadEvidenceBundle } = await import("../dist/src/praxis/evidence-bundle.js");
-  const { EpisodeEvidenceResolver } = await import("../dist/src/praxis/episode-evidence.js");
+  const { loadEvidenceBundle } = await import(buildModule("src/praxis/evidence-bundle.js"));
+  const { EpisodeEvidenceResolver } = await import(buildModule("src/praxis/episode-evidence.js"));
   assert.equal(reader.catalog.bundles.length, 1);
   const entry = reader.catalog.bundles[0];
   const resolver = new EpisodeEvidenceResolver(reader, { ...outcomePurpose, evidenceCutoff: new Date().toISOString(),
     trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("Readback is not a new action judgment"); });
   const loaded = await loadEvidenceBundle(resolver, { bundleRef: { id: entry.id, version: entry.version }, requestId, revision,
-    generationId: reader.catalog.generationId });
+    generationId: (await reader.read(entry, "bundles")).generationId });
   assert.equal(loaded.bundle.suggestedResponseKind, "outcome_ack");
   assert.equal(loaded.originalEvidence.length, 1);
   assert.equal(loaded.originalEvidence[0].role, "owner");
@@ -61,13 +72,34 @@ async function verifyOutcomeBundle(reader, requestId, revision, remote, remoteRe
   const remoteBundle = JSON.parse((await run("git", ["--git-dir", remote, "show", `${remoteRevision}:${entry.locator.path}`])).stdout);
   assert.deepEqual(remoteBundle, loaded.bundle);
 }
+async function verifyAdviceBundle(reader, requestId, revision, remote, remoteRevision, episode) {
+  const { loadEvidenceBundle } = await import(buildModule("src/praxis/evidence-bundle.js"));
+  const { EpisodeEvidenceResolver } = await import(buildModule("src/praxis/episode-evidence.js"));
+  const { bytesVersion } = await import(buildModule("src/canghai/content-version.js"));
+  const { episodeVersion } = await import(buildModule("src/praxis/episode-repository.js"));
+  const entry = reader.catalog.bundles[0];
+  assert.equal(reader.catalog.bundles.length, 1);
+  const bundle = await reader.read(entry, "bundles");
+  const resolver = new EpisodeEvidenceResolver(reader, { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat",
+    evidenceCutoff: new Date().toISOString(), trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No synthetic action judgment during readback"); });
+  const loaded = await loadEvidenceBundle(resolver, { bundleRef: { id: entry.id, version: entry.version }, requestId, revision, generationId: bundle.generationId });
+  assert.equal(loaded.bundle.suggestedResponseKind, "action_advice");
+  assert.notEqual(loaded.bundle.generationId, loaded.validatedGenerationId);
+  assert.deepEqual(JSON.parse((await run("git", ["--git-dir", remote, "show", `${remoteRevision}:${entry.locator.path}`])).stdout), bundle);
+  const bindingPath = `30_PersonalData/memory/operations/question_${bytesVersion(requestId).slice(7)}.evidence.json`;
+  const binding = JSON.parse(await readFile(path.join(canghaiRoot, bindingPath), "utf8"));
+  assert.deepEqual(binding.advice, { id: episode.id, version: episodeVersion(episode) });
+  assert.equal(binding.draftHash, bytesVersion("SYNTHETIC_MAIN_ANSWER"));
+  assert.equal(binding.requestHash, bytesVersion("Synthetic main plugin question"));
+  assert.deepEqual(JSON.parse((await run("git", ["--git-dir", remote, "show", `${remoteRevision}:${bindingPath}`])).stdout), binding);
+}
 if (outcomeProbe || questionProbe) {
-  const { loadConsciousness } = await import("../dist/src/canghai/manifest.js");
-  const { loadPraxisRuntimeBinding, createBoundPraxisRuntime } = await import("../dist/src/praxis/runtime-binding.js");
-  const { prepareHostInputArchive } = await import("../dist/src/canghai/host-input-archive.js");
-  const { persistHostInputArchive } = await import("../dist/src/canghai/archive-writer.js");
-  const { CatalogReader } = await import("../dist/src/canghai/catalog-reader.js");
-  const { memoryRoutingRef } = await import("../dist/src/praxis/runtime-memory.js");
+  const { loadConsciousness } = await import(buildModule("src/canghai/manifest.js"));
+  const { loadPraxisRuntimeBinding, createBoundPraxisRuntime } = await import(buildModule("src/praxis/runtime-binding.js"));
+  const { prepareHostInputArchive } = await import(buildModule("src/canghai/host-input-archive.js"));
+  const { persistHostInputArchive } = await import(buildModule("src/canghai/archive-writer.js"));
+  const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
+  const { memoryRoutingRef } = await import(buildModule("src/praxis/runtime-memory.js"));
   const loaded = await loadConsciousness(canghaiRoot);
   const binding = await loadPraxisRuntimeBinding(loaded);
   const now = "2026-09-05T00:00:00Z";
@@ -99,7 +131,7 @@ if (managed) {
   await run("git", ["init", "--bare", "--quiet", remote]);
   await run("git", ["-C", canghaiRoot, "remote", "add", "origin", remote]);
   await run("git", ["-C", canghaiRoot, "push", "origin", "HEAD:refs/heads/main"]);
-  if (failureProbe) await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", path.join(temp, "intentionally-missing-remote.git")]);
+  if (failureProbe && !adviceTailProbe) await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", path.join(temp, "intentionally-missing-remote.git")]);
 }
 const state = path.join(temp, "state");
 const plugin = path.join(temp, "plugin");
@@ -107,9 +139,24 @@ const workspace = path.join(temp, "workspace");
 await Promise.all([state, plugin, workspace].map((directory) => mkdir(directory)));
 await writeFile(path.join(workspace, "AGENTS.md"), "Synthetic isolated main plugin probe. No tools or private data.\n");
 await writeFile(path.join(plugin, "package.json"), JSON.stringify({ name: "stella-main-probe", version: "0.0.0", type: "module", openclaw: { extensions: ["./index.mjs"] } }));
-await writeFile(path.join(plugin, "openclaw.plugin.json"), await readFile(path.join(root, "openclaw.plugin.json")));
+await writeFile(path.join(plugin, "openclaw.plugin.json"), await readFile(path.join(packageRoot, "openclaw.plugin.json")));
 await writeFile(path.join(plugin, "index.mjs"), `
-import main from ${JSON.stringify(pathToFileURL(path.join(root, "dist/src/plugin.js")).href)};
+import main from ${JSON.stringify(buildModule("src/plugin.js"))};
+import { GitCangHaiDurability } from ${JSON.stringify(buildModule("src/canghai/durability.js"))};
+import { existsSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+if (${adviceTailProbe}) {
+  const checkpoint = ${JSON.stringify(path.join(temp, "advice-tail-checkpoint.json"))};
+  const originalSync = GitCangHaiDurability.prototype.syncCritical;
+  GitCangHaiDurability.prototype.syncCritical = async function(paths, message) {
+    if (message.startsWith('preserve question evidence ') && !existsSync(checkpoint)) {
+      const beforeTailRevision = execFileSync('git', ['-C', ${JSON.stringify(canghaiRoot)}, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+      writeFileSync(checkpoint, JSON.stringify({ beforeTailRevision }));
+      execFileSync('git', ['-C', ${JSON.stringify(canghaiRoot)}, 'remote', 'set-url', 'origin', ${JSON.stringify(path.join(temp, "intentionally-missing-remote.git"))}]);
+    }
+    return originalSync.call(this, paths, message);
+  };
+}
 const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 export default { ...main, register(api) {
   main.register({ ...api, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
@@ -171,13 +218,14 @@ delete env.NODE_OPTIONS;
 let gateway;
 let client;
 const observedEvents = [];
+const evaluationListeners = new Set();
 async function connectObserver() {
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Synthetic main observer timeout")), 15_000);
     client = new GatewayClient({ url: `ws://127.0.0.1:${gateway.env.OPENCLAW_GATEWAY_PORT}`, token: gateway.env.OPENCLAW_GATEWAY_TOKEN,
       env: gateway.env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"], sharedStateMode: "read-only", deviceIdentity: null,
       onHelloOk() { clearTimeout(timeout); resolve(); }, onConnectError() { clearTimeout(timeout); reject(new Error("Synthetic main observer failed")); },
-      onEvent(event) { observedEvents.push(event); },
+      onEvent(event) { observedEvents.push(event); for (const listener of evaluationListeners) listener(event); },
     });
     client.start();
   });
@@ -192,29 +240,39 @@ try {
   assert.equal(providerRequests, 0, "Direct agent execution must not reach the model");
   assert.match(`${direct.stdout}\n${direct.stderr}`, /Stella Core 需要经过可验证的完成协调入口/);
   const sessionKey = "agent:probe:main-completion";
-  const sent = await client.request("chat.send", { sessionKey, message: questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" });
+  const submission = { sessionKey, message: questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" };
+  const { runExactHostEvaluationChat } = await import(buildModule("src/acceptance/exact-host-chat.js"));
+  const sent = failureProbe ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
+    request: (method, params) => client.request(method, params, { timeoutMs: 35_000 }),
+    subscribe(listener) { evaluationListeners.add(listener); return () => evaluationListeners.delete(listener); },
+  }, submission);
+  if (!failureProbe) assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
   const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 });
   const history = await client.request("chat.history", { sessionKey, limit: 10 });
   const messages = history.messages ?? [];
   assert.equal(terminal.status, failureProbe ? "error" : "ok", JSON.stringify(terminal));
   let persistence;
   if (failureProbe) {
-    const { CatalogReader } = await import("../dist/src/canghai/catalog-reader.js");
+    const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
     await assert.rejects((await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json")).assertCurrent(), /memory_transaction_pending/);
-    assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim(), revision);
-    assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, revision);
+    const beforeTailRevision = adviceTailProbe ? JSON.parse(await readFile(path.join(temp, "advice-tail-checkpoint.json"), "utf8")).beforeTailRevision : revision;
+    assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim(), beforeTailRevision);
+    const expectedPointer = adviceTailProbe ? (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim() : beforeTailRevision;
+    assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, expectedPointer);
+    if (adviceTailProbe) assert.notEqual(beforeTailRevision, revision);
     assert.equal(observedEvents.filter((event) => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
     assert.equal(observedEvents.filter((event) => event.event === "chat" && event.payload?.runId === sent.runId && event.payload?.state === "error").length, 1);
-    persistence = { synchronized: false, pendingTransactionFenced: true, remoteUnchanged: true, nativeFailureWithoutDraft: true };
+    persistence = { synchronized: false, pendingTransactionFenced: true, remoteUnchangedSinceFailingStage: true, nativeFailureWithoutDraft: true,
+      ...(adviceTailProbe ? { adviceAlreadySynchronizedBeforeBundleFailure: true } : {}) };
     if (recoveryProbe) {
       await client.stopAndWait({ timeoutMs: 2_000 });
       await gateway.stop();
       await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", remote]);
       gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
       await connectObserver();
-      const { bytesVersion } = await import("../dist/src/canghai/content-version.js");
-      const operationId = `${questionProbe ? "question" : "outcome"}_${bytesVersion(sent.runId).slice(7)}`;
-      const method = questionProbe ? "stella.recoverQuestionEvidence" : "stella.recoverOutcome";
+      const { bytesVersion } = await import(buildModule("src/canghai/content-version.js"));
+      const operationId = `${questionProbe || adviceTailProbe ? "question" : "outcome"}_${bytesVersion(sent.runId).slice(7)}`;
+      const method = questionProbe || adviceTailProbe ? "stella.recoverQuestionEvidence" : "stella.recoverOutcome";
       const recovered = await client.request(method, { operationId });
       assert.deepEqual(await client.request(method, { operationId }), recovered);
       assert.equal(recovered.replyResent, false);
@@ -225,17 +283,19 @@ try {
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, remoteRevision);
       const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
       await reader.assertCurrent();
-      const episode = JSON.parse(await readFile(path.join(canghaiRoot, `30_PersonalData/praxis/episodes/${outcomeSeed.episodeId}/episode.json`), "utf8"));
-      assert.equal(episode.status, questionProbe ? "recommended" : "closed");
-      if (!questionProbe) assert.equal((await reader.read(episode.learning.praxis[0], "understandings")).status, "candidate");
+      const episodeId = adviceTailProbe ? `praxis_${bytesVersion(sent.runId).slice(7)}` : outcomeSeed.episodeId;
+      const episode = JSON.parse(await readFile(path.join(canghaiRoot, `30_PersonalData/praxis/episodes/${episodeId}/episode.json`), "utf8"));
+      assert.equal(episode.status, questionProbe || adviceTailProbe ? "recommended" : "closed");
+      if (outcomeProbe) assert.equal((await reader.read(episode.learning.praxis[0], "understandings")).status, "candidate");
       const afterRecovery = await client.request("chat.history", { sessionKey, limit: 10 });
       assert.equal(afterRecovery.messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
       assert.equal(observedEvents.filter((event) => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
-      await (questionProbe ? verifyQuestionBundle : verifyOutcomeBundle)(reader, sent.runId, revision, remote, remoteRevision);
+      if (adviceTailProbe) await verifyAdviceBundle(reader, sent.runId, revision, remote, remoteRevision, episode);
+      else await (questionProbe ? verifyQuestionBundle : verifyOutcomeBundle)(reader, sent.runId, revision, remote, remoteRevision);
       persistence.recovery = { hostRestarted: true, synchronized: true, pointerConfirmed: true, replyResent: false, evidenceBundleSynchronized: true };
     }
   } else if (questionProbe && managed) {
-    const { CatalogReader } = await import("../dist/src/canghai/catalog-reader.js");
+    const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
     const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
     const remoteRevision = (await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim();
     assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), remoteRevision);
@@ -246,7 +306,7 @@ try {
     const localRevision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
     const remoteRevision = (await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim();
     const actualConfig = JSON.parse(await readFile(configPath, "utf8"));
-    const { bytesVersion } = await import("../dist/src/canghai/content-version.js");
+    const { bytesVersion } = await import(buildModule("src/canghai/content-version.js"));
     const recordPath = `30_PersonalData/praxis/episodes/${outcomeSeed?.episodeId ?? `praxis_${bytesVersion(sent.runId).slice(7)}`}/episode.json`;
     const localEpisode = JSON.parse(await readFile(path.join(canghaiRoot, recordPath), "utf8"));
     const remoteEpisode = JSON.parse((await run("git", ["--git-dir", remote, "show", `${remoteRevision}:${recordPath}`])).stdout);
@@ -257,7 +317,7 @@ try {
     if (outcomeProbe) {
       assert.equal(localEpisode.actual.occurredAt, null);
       assert.equal(localEpisode.learning.praxis.length, 1);
-      const { CatalogReader } = await import("../dist/src/canghai/catalog-reader.js");
+      const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
       const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
       const strategy = await reader.read(localEpisode.learning.praxis[0], "understandings");
       assert.equal(strategy.status, "candidate");
@@ -268,12 +328,58 @@ try {
       const remoteStrategy = JSON.parse((await run("git", ["--git-dir", remote, "show", `${remoteRevision}:${strategyEntry.locator.path}`])).stdout);
       assert.deepEqual(remoteStrategy, strategy);
       await verifyOutcomeBundle(reader, sent.runId, revision, remote, remoteRevision);
-    } else assert.equal(localEpisode.actual, undefined);
+    } else {
+      assert.equal(localEpisode.actual, undefined);
+      const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
+      await verifyAdviceBundle(await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json"), sent.runId, revision, remote, remoteRevision, localEpisode);
+    }
     assert.equal(localRevision, remoteRevision);
     assert.equal(actualConfig.plugins.entries["stella-core"].config.recoveryRevision, remoteRevision);
     assert.notEqual(remoteRevision, revision);
     persistence = { schemaVersion: localEpisode.schemaVersion, status: localEpisode.status, synchronized: true, pointerConfirmed: true,
-      actualInvented: false, predictionInvented: false, ...(outcomeProbe ? { strategyStatus: "candidate", learningChangeSynchronized: true, evidenceBundleSynchronized: true } : {}) };
+      actualInvented: false, predictionInvented: false, evidenceBundleSynchronized: true,
+      ...(outcomeProbe ? { strategyStatus: "candidate", learningChangeSynchronized: true } : { adviceAndDraftHashBound: true }) };
+  }
+  let admissionReplay;
+  if (admissionReplayProbe) {
+    const beforeReplayRevision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
+    await client.stopAndWait({ timeoutMs: 2_000 });
+    await gateway.stop();
+    gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+    await connectObserver();
+    const replay = await client.request("chat.send", submission);
+    const replayTerminal = await client.request("agent.wait", { runId: replay.runId, timeoutMs: 60_000 });
+    assert.equal(replay.runId, sent.runId);
+    assert.equal(replayTerminal.status, "error");
+    const coreAdmissionRejected = JSON.stringify(replayTerminal).includes("run_recovery_required");
+    const hostSessionRejected = replayTerminal.error === `Error: Session "${sessionKey}" changed while starting work. Retry.`;
+    assert.ok(coreAdmissionRejected || hostSessionRejected, "Replay must fail at an identified admission boundary");
+    const replayHistory = await client.request("chat.history", { sessionKey, limit: 10 });
+    await writeFile(path.join(temp, "replay-observation.json"), JSON.stringify({
+      replayTerminal, providerRequests,
+      messages: replayHistory.messages.map((message) => ({ role: message.role, id: message.id,
+        content: message.content })),
+      terminalEvents: observedEvents.filter((event) => event.event === "chat" && event.payload?.runId === sent.runId),
+    }, null, 2));
+    // Exact Host may store its blocked-input notice with role=user. Count the
+    // submitted payload, not that role label, as evidence of a repeated input.
+    const replayUsers = replayHistory.messages.filter((message) => message.role === "user");
+    const messageText = (message) => typeof message.content === "string" ? message.content
+      : message.content.map((part) => part.type === "text" ? part.text : "").join("\n");
+    assert.equal(replayUsers.filter((message) => messageText(message) === submission.message).length, 1);
+    const notices = replayUsers.filter((message) => messageText(message) !== submission.message);
+    for (const notice of notices) assert.equal(messageText(notice),
+      "Your message could not be sent: Stella Core 需要经过可验证的完成协调入口，已停止本轮请求。 (blocked by stella-core)");
+    assert.ok(notices.length <= 1, "Host must not multiply rejection notices");
+    assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), beforeReplayRevision);
+    assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
+    assert.equal(replayHistory.messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length, 1);
+    assert.equal(observedEvents.filter((event) => event.event === "chat" && event.payload?.runId === sent.runId && event.payload?.state === "final").length, 1);
+    assert.equal(providerRequests, 1);
+    admissionReplay = { hostRestarted: true, sameRunRejectedBeforeModel: true,
+      rejectionLayer: coreAdmissionRejected ? "core_persistent_admission" : "host_session_state",
+      duplicateUserMessages: 0, hostRejectionNotices: notices.length, duplicateFinals: 0,
+      businessRevisionUnchanged: true };
   }
   const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: outcomeProbe
     ? "synthetic owner-bound original evidence; actual main outcome transaction, candidate LearningChange, OpenClaw pointer and local bare remote; semantic verdicts injected, not private/model accuracy proof"
@@ -284,7 +390,7 @@ try {
     terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
     provesV2Persistence: managed && !questionProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe,
-    provesOutcomeRecovery: recoveryProbe && !questionProbe,
+    provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
   await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
@@ -298,4 +404,6 @@ try {
   await gateway?.stop();
   provider.closeAllConnections();
   await new Promise((resolve) => provider.close(resolve));
+  assert.ok(coreSnapshot.startsWith(path.join(snapshotParent, "main-probe-build-")));
+  await rm(coreSnapshot, { recursive: true, force: true });
 }

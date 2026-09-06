@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -10,16 +10,15 @@ import {
   parsePraxisEvaluationSuite,
   parsePraxisEvaluationSuiteFragment,
   runPraxisEvaluation,
-  selectPraxisEvaluationAnswerAgent,
 } from "../dist/src/acceptance/praxis-evaluation.js";
-import { createModelPraxisEvaluator } from "../dist/src/acceptance/model-praxis-evaluator.js";
-import {
-  buildExactHostAgentCommand,
-  extractSafeExactHostAgentError,
-  parseExactHostAgentTurn,
-  runWithOneExactHostReadRetry,
-} from "../dist/src/acceptance/exact-host-agent.js";
+import { createModelPraxisEvaluator, PRAXIS_RUBRIC_VERSION } from "../dist/src/acceptance/model-praxis-evaluator.js";
+import { runExactHostEvaluationChat } from "../dist/src/acceptance/exact-host-chat.js";
+import { loadQuestionEvaluationAnswer } from "../dist/src/acceptance/question-evaluation-answer.js";
+import { loadConsciousness } from "../dist/src/canghai/manifest.js";
+import { loadPraxisRuntimeBinding } from "../dist/src/praxis/runtime-binding.js";
+import { STELLA_CORE_COMPATIBILITY_VERSION } from "../dist/src/plugin.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
+import { installHostCompatibility } from "./lib/install-host-compatibility.mjs";
 import {
   assertStellaHostConfig,
   assertStellaHostHooks,
@@ -37,7 +36,7 @@ const targetAgentId = "main";
 const options = parseRequiredArguments(
   process.argv.slice(2),
   ["suite", "adapter", "recovery-receipt", "output"],
-  "Usage: --suite <json> [--private-suite <json> --artifact <tgz> --canghai-root <path>] --adapter <module> --recovery-receipt <json> --output <json>",
+  "Usage: --suite <json> [--private-suite <json> --artifact <tgz> --canghai-root <path> --public-canghai-root <synthetic repository>] --adapter <module> --recovery-receipt <json> --output <json>",
 );
 const suite = parsePraxisEvaluationSuite(await readFile(path.resolve(options.suite), "utf8"));
 const privateSuite = options["private-suite"]
@@ -54,6 +53,7 @@ const recoveryReceipt = parseExactHostRecoveryReceipt(JSON.parse(
   await readFile(path.resolve(options["recovery-receipt"]), "utf8"),
 ));
 const execution = {
+  ...(recoveryReceipt.hostCompatibility ? { hostCompatibility: recoveryReceipt.hostCompatibility } : {}),
   coreRevision: recoveryReceipt.coreRevision,
   canghaiRevision: recoveryReceipt.canghaiRevision,
   hostVersion: recoveryReceipt.hostVersion,
@@ -79,7 +79,7 @@ async function inspectSource(label, root, revision) {
 }
 
 async function runPrivateExactHostEvaluation() {
-  for (const key of ["artifact", "canghai-root"]) {
+  for (const key of ["artifact", "canghai-root", "public-canghai-root"]) {
     if (!options[key]) throw new Error(`Private Praxis evaluation requires --${key}`);
   }
   if (recoveryReceipt.canghaiFixture !== "private" || recoveryReceipt.cleanRuntimeState !== true) {
@@ -87,9 +87,15 @@ async function runPrivateExactHostEvaluation() {
   }
   const artifactPath = path.resolve(options.artifact);
   const canghaiRoot = path.resolve(options["canghai-root"]);
+  const publicRoot = await realpath(path.resolve(options["public-canghai-root"]));
+  if (publicRoot.toLowerCase() === (await realpath(canghaiRoot)).toLowerCase()) {
+    throw new Error("Public evaluation requires a separate synthetic source repository");
+  }
+  const publicRevision = (await execFileAsync("git", ["-C", publicRoot, "rev-parse", "HEAD"])).stdout.trim();
   await Promise.all([
     inspectSource("Core", projectRoot, execution.coreRevision),
     inspectSource("CangHai", canghaiRoot, execution.canghaiRevision),
+    inspectSource("Public synthetic source", publicRoot, publicRevision),
   ]);
   if (await hashFile(artifactPath) !== execution.artifactSha256) {
     throw new Error("Evaluation artifact does not match the recovery receipt");
@@ -99,9 +105,9 @@ async function runPrivateExactHostEvaluation() {
   }
 
   const isolatedRoot = await mkdtemp(path.join(os.tmpdir(), "stella-private-evaluation-"));
+  const runtimes = [];
   try {
     const consumerRoot = path.join(isolatedRoot, "consumer");
-    const runtimeStateRoot = path.join(isolatedRoot, "openclaw-state");
     await mkdir(consumerRoot, { recursive: true });
     await writeFile(
       path.join(consumerRoot, "package.json"),
@@ -119,9 +125,13 @@ async function runPrivateExactHostEvaluation() {
       `openclaw@${execution.hostVersion}`,
     ], { cwd: consumerRoot });
     const openclawBin = await realpath(path.join(consumerRoot, "node_modules/openclaw/openclaw.mjs"));
+    if (recoveryReceipt.hostCompatibility) {
+      const installed = await installHostCompatibility(consumerRoot);
+      await writeFile(path.join(isolatedRoot, "host-compatibility.json"), JSON.stringify(installed, null, 2));
+    }
     const runOpenClaw = (args, commandOptions) =>
       execFileAsync(process.execPath, [openclawBin, ...args], commandOptions);
-    const hostEnv = { OPENCLAW_STATE_DIR: runtimeStateRoot };
+    const hostEnv = { OPENCLAW_STATE_DIR: path.join(isolatedRoot, "install-state") };
     const { stdout: versionOutput } = await runOpenClaw(["--version"], {
       cwd: consumerRoot,
       env: { ...process.env, ...hostEnv },
@@ -143,11 +153,36 @@ async function runPrivateExactHostEvaluation() {
     assertStellaPluginManifest(JSON.parse(
       await readFile(path.join(installedRoot, "openclaw.plugin.json"), "utf8"),
     ));
+    // Independent Host states and repositories, not merely different session keys.
+    // The synthetic source is an explicit input; it must never be copied from private memory.
+    const gatewayRuntime = await import(pathToFileURL(path.join(consumerRoot,
+      "node_modules/openclaw/dist/plugin-sdk/gateway-runtime.js")).href);
+    async function createCaseRuntime(boundary) {
+    const [sourceRoot, sourceRevision] = boundary === "public_synthetic"
+      ? [publicRoot, publicRevision] : [canghaiRoot, execution.canghaiRevision];
+    const caseRoot = path.join(isolatedRoot, `${boundary}-${randomUUID()}`);
+    const runtimeStateRoot = path.join(caseRoot, "openclaw-state");
+    const workingRoot = path.join(caseRoot, "canghai");
+    const remoteRoot = path.join(caseRoot, "canghai.git");
+    await mkdir(path.dirname(workingRoot), { recursive: true });
+    await execFileAsync("git", ["clone", "--no-local", sourceRoot, workingRoot]);
+    await execFileAsync("git", ["-C", workingRoot, "checkout", "-b", "evaluation", sourceRevision]);
+    await execFileAsync("git", ["clone", "--bare", "--no-local", workingRoot, remoteRoot]);
+    await execFileAsync("git", ["-C", workingRoot, "remote", "set-url", "origin", remoteRoot]);
+    await execFileAsync("git", ["-C", workingRoot, "config", "user.name", "Stella Evaluation"]);
+    await execFileAsync("git", ["-C", workingRoot, "config", "user.email", "evaluation@stella.invalid"]);
+    const hostEnv = { OPENCLAW_STATE_DIR: runtimeStateRoot, OPENCLAW_CONFIG_PATH: path.join(runtimeStateRoot, "openclaw.json") };
+    await runOpenClaw(["plugins", "install", artifactPath, "--force", "--accept-capabilities"],
+      { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
     const harness = await adapter.createEvaluationHarness({
       agentId: targetAgentId,
       artifactPath,
-      canghaiRoot,
-      canghaiRevision: execution.canghaiRevision,
+      boundary,
+      canghaiRoot: workingRoot,
+      canghaiRevision: sourceRevision,
+      dataMode: "managed_durable_write",
+      durabilityRemote: "origin",
+      durabilityBranch: "evaluation",
       consumerRoot,
       coreRevision: execution.coreRevision,
       hostEnv,
@@ -155,26 +190,8 @@ async function runPrivateExactHostEvaluation() {
       openclawBin,
       runtimeStateRoot,
     });
-    if (
-      typeof harness?.privateAnswerAgentId !== "string" ||
-      !harness.privateAnswerAgentId.trim() ||
-      typeof harness?.publicAnswerAgentId !== "string" ||
-      !harness.publicAnswerAgentId.trim() ||
-      typeof harness?.judgeAgentId !== "string" ||
-      !harness.judgeAgentId.trim()
-    ) {
-      throw new Error(
-        "Private evaluation harness must provide privateAnswerAgentId, publicAnswerAgentId, and judgeAgentId",
-      );
-    }
-    if (harness.privateAnswerAgentId !== targetAgentId) {
-      throw new Error("Private evaluation harness must use the Alpha target agent");
-    }
-    if (
-      harness.publicAnswerAgentId === harness.privateAnswerAgentId ||
-      harness.publicAnswerAgentId === harness.judgeAgentId
-    ) {
-      throw new Error("Public evaluation answers must use an isolated agent");
+    if (typeof harness?.judgeAgentId !== "string" || !/^[a-zA-Z0-9_-]+$/.test(harness.judgeAgentId) || harness.judgeAgentId === targetAgentId) {
+      throw new Error("Evaluation requires a non-target judge agent");
     }
     const { stdout: hostConfigOutput } = await runOpenClaw([
       "config",
@@ -182,11 +199,29 @@ async function runPrivateExactHostEvaluation() {
       "plugins.entries.stella-core.config",
       "--json",
     ], { cwd: consumerRoot, env: { ...process.env, ...hostEnv } });
-    assertStellaHostConfig(JSON.parse(hostConfigOutput), {
-      canghaiRoot,
-      canghaiRevision: execution.canghaiRevision,
-      agentId: harness.privateAnswerAgentId,
+    const hostConfig = JSON.parse(hostConfigOutput);
+    const completeHostConfig = JSON.parse(await readFile(hostEnv.OPENCLAW_CONFIG_PATH, "utf8"));
+    for (const agentId of [targetAgentId, harness.judgeAgentId]) {
+      const agent = completeHostConfig.agents?.entries?.[agentId];
+      if (agent?.model !== "google/gemini-3.1-pro-preview" || !Array.isArray(agent.skills) || agent.skills.length ||
+        !Array.isArray(agent.tools?.deny) || !agent.tools.deny.includes("*")) {
+        throw new Error("Evaluation requires pinned Gemini 3.1 Pro and tool-free isolated agents");
+      }
+    }
+    assertStellaHostConfig(hostConfig, {
+      canghaiRoot: workingRoot,
+      canghaiRevision: sourceRevision,
+      agentId: targetAgentId,
+      dataMode: "managed_durable_write",
     });
+    if (hostConfig.durabilityRemote !== "origin" || hostConfig.durabilityBranch !== "evaluation") {
+      throw new Error("Evaluation writes must synchronize to the isolated local remote");
+    }
+    const loaded = await loadConsciousness(workingRoot, hostConfig.manifestPath, {
+      recoveryRevision: sourceRevision, coreVersion: STELLA_CORE_COMPATIBILITY_VERSION, openclawVersion: execution.hostVersion,
+      dataMode: "managed_durable_write",
+    });
+    const binding = await loadPraxisRuntimeBinding(loaded);
     const { stdout: hostHooksOutput } = await runOpenClaw([
       "config",
       "get",
@@ -207,63 +242,87 @@ async function runPrivateExactHostEvaluation() {
       env: hostEnv,
       openclawBin,
     });
-    let judgeIndex = 0;
-    const runTurn = async (agentId, sessionKey, message) => {
-      try {
-        return await runWithOneExactHostReadRetry(async (attempt) => {
-          const attemptSessionKey = attempt === 0 ? sessionKey : `${sessionKey}-retry`;
-          const command = buildExactHostAgentCommand(openclawBin, {
-            agentId,
-            message,
-            sessionKey: attemptSessionKey,
-          });
-          const result = await execFileAsync(
-            command.executable,
-            command.args,
-            { cwd: consumerRoot, env: gateway.env, maxBuffer: 4 * 1024 * 1024 },
-          );
-          return parseExactHostAgentTurn(result.stdout, attemptSessionKey).text;
-        });
-      } catch (error) {
-        const diagnosticTurn = /^[a-zA-Z0-9:_-]{1,160}$/u.test(sessionKey)
-          ? sessionKey
-          : "unknown";
-        const safeError = extractSafeExactHostAgentError(`${error?.stdout ?? ""}`, message);
-        throw new Error(
-          `Private Exact Host evaluation turn failed; turn=${diagnosticTurn}${safeError ? `; error=${safeError}` : ""}; diagnostics=${gateway.diagnostics() || "none"}`,
-        );
-      }
+    const listeners = new Set();
+    const runtime = { boundary, gateway, workingRoot, binding, harness, listeners };
+    runtimes.push(runtime);
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Evaluation Gateway connection timeout")), 15_000);
+      runtime.client = new gatewayRuntime.GatewayClient({
+        url: `ws://127.0.0.1:${gateway.env.OPENCLAW_GATEWAY_PORT}`, token: gateway.env.OPENCLAW_GATEWAY_TOKEN,
+        env: gateway.env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"],
+        sharedStateMode: "read-only", deviceIdentity: null,
+        onHelloOk() { clearTimeout(timer); resolve(); },
+        onConnectError() { clearTimeout(timer); reject(new Error("Evaluation Gateway connection failed")); },
+        onEvent(event) { for (const listener of listeners) listener(event); },
+      });
+      runtime.client.start();
+    });
+    runtime.turn = (agentId, message) => {
+      const id = randomUUID();
+      return runExactHostEvaluationChat({
+        request: (method, params) => runtime.client.request(method, params, { timeoutMs: 35_000 }),
+        subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+      }, { sessionKey: `agent:${agentId}:evaluation-${id}`, message, idempotencyKey: id });
     };
-    try {
+    return runtime;
+    }
+    const answers = new Map();
+    let currentRuntime;
+    const evidenceRecords = [];
+    const evaluator = createModelPraxisEvaluator({
+      answerCase: async (evaluationCase) => {
+        // Fresh source copies prevent evaluation scenarios from becoming later history.
+        if (currentRuntime) {
+          await currentRuntime.client.stopAndWait({ timeoutMs: 2_000 });
+          await currentRuntime.gateway.stop();
+          runtimes.splice(runtimes.indexOf(currentRuntime), 1);
+        }
+        const runtime = currentRuntime = await createCaseRuntime(evaluationCase.boundary);
+        const delivered = await runtime.turn(targetAgentId, evaluationCase.prompt);
+        const bound = await loadQuestionEvaluationAnswer({
+          root: runtime.workingRoot, catalogPath: runtime.binding.catalogPath,
+          requestId: delivered.runId, question: evaluationCase.prompt, text: delivered.text,
+          purpose: { ...runtime.binding.purpose, evidenceCutoff: new Date().toISOString(),
+            trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
+          complete: async ({ prompt }) => ({ text: (await runtime.turn(runtime.harness.judgeAgentId, prompt)).text }),
+        });
+        answers.set(evaluationCase.id, bound);
+        return bound.answer;
+      },
+      evidenceResolver: async (evaluationCase) => answers.get(evaluationCase.id).resolver,
+      judge: async (prompt) => ({
+        text: (await currentRuntime.turn(currentRuntime.harness.judgeAgentId, prompt)).text,
+      }),
+    });
       return await runPraxisEvaluation(
         cases,
-        createModelPraxisEvaluator({
-          answerCase: (evaluationCase) => {
-            const answerAgentId = selectPraxisEvaluationAnswerAgent(
-              evaluationCase.boundary,
-              harness,
-            );
-            return runTurn(
-              answerAgentId,
-              `agent:${answerAgentId}:alpha-eval-${evaluationCase.id}`,
-              evaluationCase.prompt,
-            );
-          },
-          judge: async (prompt) => ({
-            text: await runTurn(
-              harness.judgeAgentId,
-              `agent:${harness.judgeAgentId}:alpha-judge-${++judgeIndex}`,
-              prompt,
-            ),
-          }),
-        }),
+        async (evaluationCase) => {
+          const observation = await evaluator(evaluationCase);
+          const { answer, resolver } = answers.get(evaluationCase.id);
+          evidenceRecords.push({ caseId: evaluationCase.id, boundary: evaluationCase.boundary,
+            requestId: answer.requestId, revision: answer.revision, generationId: answer.generationId,
+            bundleRef: answer.bundleRef, evidenceCutoff: resolver.purpose.evidenceCutoff,
+            questionSha256: createHash("sha256").update(evaluationCase.prompt).digest("hex"),
+            answerSha256: createHash("sha256").update(answer.text).digest("hex"),
+            observation });
+          await writeFile(path.join(isolatedRoot, "evaluation-evidence.json"), JSON.stringify({
+            schemaVersion: "stella.evaluation-evidence/v1", execution, publicRevision,
+            configuredModel: "google/gemini-3.1-pro-preview", rubricVersion: PRAXIS_RUBRIC_VERSION,
+            scope: "diagnostic; isolated per-case writable copies and local synchronization, not original private remote durability proof",
+            cases: evidenceRecords,
+          }, null, 2), { mode: 0o600 });
+          return observation;
+        },
         execution,
       );
-    } finally {
-      await gateway.stop();
-    }
   } finally {
-    await rm(isolatedRoot, { recursive: true, force: true });
+    for (const runtime of runtimes) {
+      await runtime.client?.stopAndWait({ timeoutMs: 2_000 });
+      await runtime.gateway.stop();
+    }
+    // Retain the journals and exact Host state, including failed pending transactions.
+    // This local path is not included in the shareable evaluation report.
+    process.stderr.write(`Evaluation evidence retained locally: ${isolatedRoot}\n`);
   }
 }
 

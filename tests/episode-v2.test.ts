@@ -35,6 +35,17 @@ test("v2 requires normalized sealed predictions and rejects their revision", asy
   await assert.rejects(parseEpisodeV2({ ...item, twin: { prediction: { ...item.twin.prediction, possibleActions: { wait: 0.7 } } } }), /prediction_not_normalized/);
   await assert.rejects(validateEpisodeV2Transition(item, { ...closed(), twin: { prediction: { ...item.twin.prediction, possibleActions: { wait: 0.6, ask: 0.4 } } } }), /sealed_prediction_changed/);
 });
+
+test("v2 cannot add a retrospective prediction to an already opened no-prediction matter", async () => {
+  const prediction = { possibleActions: { wait: 1 }, likelyInterpretations: [], keyFactors: [] };
+  for (const [previous, next] of [
+    [open(), recommended()], [recommended(), recommended()], [recommended(), closed()],
+  ] as const) {
+    await assert.rejects(validateEpisodeV2Transition(previous, { ...next, twin: { prediction } }), /sealed_prediction_changed/);
+  }
+  // Creating a new matter with a genuine advance prediction is still supported.
+  await validateEpisodeV2Transition({ ...open(), twin: { prediction } }, { ...recommended(), twin: { prediction } });
+});
 test("v2 rejects terminal reopening and replaced historical references", async () => {
   await assert.rejects(validateEpisodeV2Transition(closed(), recommended()), /illegal_transition/);
   await assert.rejects(validateEpisodeV2Transition(open(), { ...recommended(), historicalInputRefs: [] }), /historical_inputs_changed/);

@@ -94,8 +94,9 @@ function selectTwinContext(route: CortexRoute, loaded: LoadedConsciousness) {
     .filter((document) => document.category === "twin")
     .flatMap((document) => {
       const record = parseTwinHypothesisRecord(document.content);
-      return selectedRefs.has(document.ref) && typeof record.statement === "string"
-        ? [{ ref: document.ref, statement: record.statement }]
+      return selectedRefs.has(document.ref) && ["active", "weakened"].includes(String(record.status)) && typeof record.statement === "string"
+        ? [{ ref: document.ref, statement: record.statement, status: record.status, scope: record.scope,
+            strength: record.strength, supportingRefs: record.supportingRefs, counterRefs: record.counterRefs }]
         : [];
     })
     .slice(0, 3);
@@ -107,7 +108,10 @@ function selectTwinContext(route: CortexRoute, loaded: LoadedConsciousness) {
   if (matches.length === 0) return undefined;
   return {
     hypothesisRefs: matches.map((match) => match.ref),
-    relevantPatterns: matches.map((match) => boundedText(match.statement, MAX_TWIN_PATTERN_CHARS)),
+    relevantPatterns: matches.map((match) => JSON.stringify({
+      statement: boundedText(match.statement, MAX_TWIN_PATTERN_CHARS), status: match.status, scope: match.scope,
+      strength: match.strength, supportingRefs: match.supportingRefs, counterRefs: match.counterRefs,
+    })),
   };
 }
 
@@ -156,7 +160,7 @@ export function listSemanticRoutingCandidates(
     .filter((document) => document.category === "twin")
     .flatMap((document) => {
       const record = parseTwinHypothesisRecord(document.content);
-      return typeof record.statement === "string"
+      return ["active", "weakened"].includes(String(record.status)) && typeof record.statement === "string"
         ? [{ ref: document.ref, purpose: boundedText(record.statement, 160) }]
         : [];
     });
@@ -337,6 +341,7 @@ export function renderPraxisContextPacket(
     "owner_boundary: advise or prepare only; never send, commit, or act externally",
     "situation_understanding: distinguish observations, interpretations, and unknowns",
     "personal_context: connect relevant supplied personal context to the advice; if none applies, rely only on current facts and never imply owner-specific facts",
+    "twin_evidence_boundary: Twin patterns are scoped, revisable interpretations, not owner statements; active/strength labels do not verify their provenance. Preserve weakened status, counterevidence and unknown support; check original evidence before treating a pattern as established",
     "framework_application: apply the selected operators to the recommendation, not merely name them",
     "hidden_variables: surface the few uncertainties that could materially change the advice",
     "response_contract: follow responseKind; clarification asks about a material unknown, collaboration advances the author's thinking without replacing their intent",

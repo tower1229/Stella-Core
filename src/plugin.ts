@@ -33,7 +33,9 @@ import type { HostInputSnapshot } from "./openclaw/host-input.js";
 import { prepareEvidenceBoundOutcome } from "./praxis/outcome-preparation.js";
 import { prepareOutcomeTransaction } from "./praxis/outcome-transaction.js";
 import { MemoryTransactionError } from "./canghai/memory-transaction.js";
-import { CatalogError } from "./canghai/catalog-reader.js";
+import { CatalogError, CatalogReader } from "./canghai/catalog-reader.js";
+import { EpisodeEvidenceResolver } from "./praxis/episode-evidence.js";
+import { parseCangHaiRef } from "./canghai/ref.js";
 import { recoverPendingOutcome } from "./praxis/outcome-recovery.js";
 import { loadOutcomeRecoveryBinding } from "./praxis/outcome-recovery-binding.js";
 import { prepareQuestionEvidence } from "./praxis/question-evidence.js";
@@ -334,6 +336,7 @@ export default definePluginEntry({
           );
           let persistRecommendation: PreparedTurn["persistRecommendation"];
           let evidenceRef: string | undefined;
+          let questionBundle: Awaited<ReturnType<typeof prepareQuestionEvidence>>["bundle"] | undefined;
           const renderSelectedContext = () =>
             route.mode === "ordinary"
               ? STELLA_CORE_SYSTEM_CONTEXT
@@ -364,6 +367,10 @@ export default definePluginEntry({
             route.responseKind = retrieved.bundle.suggestedResponseKind;
             route.evidenceStatus = retrieved.bundle.status;
             route.materialUnknowns = retrieved.bundle.unresolvedLeads.filter((lead) => lead.material).map((lead) => lead.question);
+            questionBundle = retrieved.bundle;
+            if (config.dataMode === "managed_durable_write" && route.responseKind === "action_advice") {
+              evidenceRef = canonicalJson({ id: questionBundle.id, version: questionBundle.version });
+            }
             if (config.dataMode === "managed_durable_write" && ["answer", "clarification"].includes(route.responseKind)) {
               if (!durability) throw new CompletionError("critical_durability_required", "prepare");
               const transaction = await prepareQuestionTransaction({ resolver: runtime.evidence, objectRoot: binding.archive.objectRoot, bundle: retrieved.bundle });
@@ -419,9 +426,9 @@ export default definePluginEntry({
               const externalRefs = await resolveBoundInputRefs(runtime, binding, packet.reality.externalRefs ?? []);
               const learningRefs = await Promise.all((packet.reality.personalPraxisRefs ?? []).map((ref) => runtime.selectedLearning(ref)));
               const recordedAt = String(original.event.timestamp);
-              return persistBoundAdvice({
+              const persisted = await persistBoundAdvice({
                 loaded, binding, runtime, durability: durability!, operationId: runId, original, abortSignal, complete: evidenceComplete,
-                inputRefs: [...twinRefs, ...frameworkRefs, ...externalRefs, ...learningRefs],
+                inputRefs: [...twinRefs, ...frameworkRefs, ...externalRefs, ...learningRefs, ...questionBundle!.readEvidenceRefs],
                 episode: {
                   schemaVersion: "stella.praxis-episode/v2", id: `praxis_${bytesVersion(runId).slice(7)}`, status: "open",
                   createdAt: recordedAt, updatedAt: recordedAt, recoveryPriority: "important",
@@ -437,6 +444,15 @@ export default definePluginEntry({
                 },
                 decision: { recommendation: text, rationale: [] },
               });
+              const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
+              if (reader.catalogHash !== persisted.catalogHash) throw new CatalogError("stale_generation");
+              const transaction = await prepareQuestionTransaction({
+                resolver: new EpisodeEvidenceResolver(reader, runtime.evidence.purpose, evidenceComplete),
+                objectRoot: binding.archive.objectRoot, episodeRoot: parseCangHaiRef(loaded.manifest.praxis.episodeRootRef).relativePath, bundle: questionBundle!,
+              });
+              const receipt = await transaction.persist(durability!, abortSignal,
+                { requestHash: bytesVersion(original.text), draftHash: completionDraftHash(text), advice: persisted.episodeRef });
+              return { ...receipt, writeOperationIds: [...persisted.writeOperationIds, ...receipt.writeOperationIds] };
             };
           }
           appendContext = `${appendContext ?? ""}\nresponse_contract: ${JSON.stringify({
@@ -448,7 +464,10 @@ export default definePluginEntry({
             generationId: memory.generationId, persistRecommendation, evidenceRef,
           } satisfies PreparedTurn);
           return {
-            prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
+            prependSystemContext: `${STELLA_CORE_SYSTEM_CONTEXT}\nVerified runtime restoration scope: ${JSON.stringify({
+              repository: "CangHai", recoveryRevision: loaded.recoveryRevision ?? config.recoveryRevision,
+              memoryGeneration: memory.generationId,
+            })}\nWhen explaining what was restored or its authority boundary, explicitly identify this selected recovery revision. It identifies a repository snapshot, not proof that historical interpretations are owner facts or that capabilities have passed acceptance.`,
             ...(appendContext ? { appendContext } : {}),
           };
         } catch (error) {
@@ -459,14 +478,18 @@ export default definePluginEntry({
               `Stella semantic routing failed: ${error.diagnostic}${error.validationCode ? `:${error.validationCode}` : ""}`,
             );
           }
-          recordCompletionPreparation(runId, {
-            outcome: "blocked",
-            category: consciousnessFailure
+          const failureCategory = consciousnessFailure
               ? error.category
               : semanticFailure
                 ? error.category
                 : error instanceof CompletionError || error instanceof EpisodeV2Error || error instanceof MemoryTransactionError || error instanceof CatalogError
-                  ? error.category : "stella_turn_preparation_failed",
+                  ? error.category : "stella_turn_preparation_failed";
+          // The Host admission error preserves only the user-facing message.
+          // Keep a bounded machine category for diagnosis, never error prose.
+          api.logger.error(`Stella turn preparation failed: ${/^[a-z][a-z0-9_]{0,95}$/.test(failureCategory) ? failureCategory : "stella_turn_preparation_failed"}`);
+          recordCompletionPreparation(runId, {
+            outcome: "blocked",
+            category: failureCategory,
             message: consciousnessFailure
               ? "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。"
               : semanticFailure

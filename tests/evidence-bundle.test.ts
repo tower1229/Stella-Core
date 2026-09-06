@@ -40,7 +40,7 @@ test("binds persisted bundle to exact request, revision and generation", async (
   fixture.catalog.generationId = "new";
   await fixture.save();
   await assert.rejects(loadEvidenceBundle(old, fixture.answer("answer")), /stale_generation/);
-  await assert.rejects(loadEvidenceBundle(await fixture.resolver(), fixture.answer("answer")), /bundle_context_mismatch/);
+  await assert.rejects(loadEvidenceBundle(await fixture.resolver(), fixture.answer("answer")), /historical_catalog_unavailable|unsafe_historical_catalog/);
 });
 
 test("rejects bundle refs without declared dependencies before reading unverified originals", async (t) => {

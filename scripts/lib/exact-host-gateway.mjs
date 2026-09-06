@@ -87,7 +87,7 @@ export async function startExactHostGateway({ cwd, env, openclawBin }) {
           diagnostics: () => startupOutput
             .split("\n")
             .filter((line) =>
-              line.includes("Stella Praxis") || line.includes("Stella semantic routing failed")
+              line.includes("Stella Praxis") || line.includes("Stella semantic routing failed") || line.includes("Stella turn preparation failed")
             )
             .slice(-20)
             .join("\n"),

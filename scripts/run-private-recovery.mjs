@@ -1,19 +1,14 @@
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rename, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
-import {
-  buildExactHostAgentCommand,
-  extractSafeExactHostAgentError,
-  parseExactHostAgentTurn,
-  runWithOneExactHostReadRetry,
-} from "../dist/src/acceptance/exact-host-agent.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
+import { installHostCompatibility } from "./lib/install-host-compatibility.mjs";
 import {
   ALPHA_HOST_VERSION,
   assertStellaHostConfig,
@@ -54,7 +49,7 @@ async function hashFile(filePath) {
   return hash.digest("hex");
 }
 
-const canghaiRoot = path.resolve(options["canghai-root"]);
+const sourceRoot = path.resolve(options["canghai-root"]);
 const artifactPath = path.resolve(options.artifact);
 const adapterPath = path.resolve(options.adapter);
 const outputPath = path.resolve(options.output);
@@ -66,12 +61,15 @@ const { stdout: coreRevisionOutput } = await execFileAsync("git", ["-C", project
 const coreRevision = coreRevisionOutput.trim();
 await Promise.all([
   inspectCleanSource("Core", projectRoot, coreRevision),
-  inspectCleanSource("CangHai", canghaiRoot, options["canghai-revision"]),
+  inspectCleanSource("CangHai", sourceRoot, options["canghai-revision"]),
 ]);
 const artifactSha256 = await hashFile(artifactPath);
 
 const isolatedRoot = await mkdtemp(path.join(os.tmpdir(), "stella-private-recovery-"));
-try {
+process.stderr.write(`Private recovery evidence: ${isolatedRoot}\n`);
+// Retain private journals and native receipts for failure diagnosis. Observation
+// timeout does not authorize deleting uncertain-run evidence or resubmission.
+{
   if ((await readdir(isolatedRoot)).length !== 0) {
     throw new Error("Private recovery runtime must start empty");
   }
@@ -85,6 +83,11 @@ try {
   if (!process.env.npm_execpath) {
     throw new Error("npm CLI path is unavailable; run private recovery through npm");
   }
+  const canghaiRoot = path.join(isolatedRoot, "canghai");
+  await execFileAsync("git", ["clone", "--no-local", "--quiet", sourceRoot, canghaiRoot]);
+  await execFileAsync("git", ["-C", canghaiRoot, "checkout", "--detach", options["canghai-revision"]]);
+  await execFileAsync("git", ["-C", canghaiRoot, "remote", "remove", "origin"]);
+  await inspectCleanSource("Restored CangHai", canghaiRoot, options["canghai-revision"]);
   await execFileAsync(process.execPath, [process.env.npm_execpath,
     "install",
     "--ignore-scripts",
@@ -94,6 +97,8 @@ try {
     `openclaw@${hostVersion}`,
   ], { cwd: consumerRoot });
   const openclawBin = await realpath(path.join(consumerRoot, "node_modules/openclaw/openclaw.mjs"));
+  const hostCompatibility = await installHostCompatibility(consumerRoot);
+  await writeFile(path.join(isolatedRoot, "host-compatibility.json"), JSON.stringify(hostCompatibility, null, 2));
   const runOpenClaw = (args, commandOptions) =>
     execFileAsync(process.execPath, [openclawBin, ...args], commandOptions);
   const hostEnv = { OPENCLAW_STATE_DIR: runtimeStateRoot };
@@ -130,6 +135,7 @@ try {
     artifactPath,
     artifactSha256,
     canghaiRoot,
+    dataMode: "read_only",
     canghaiRevision: options["canghai-revision"],
     coreRevision,
     consumerRoot,
@@ -138,6 +144,17 @@ try {
     openclawBin,
     runtimeStateRoot,
   });
+  if (typeof harness?.evidenceAgentId !== "string" || !/^[a-z0-9-]+$/.test(harness.evidenceAgentId) ||
+    harness.evidenceAgentId === targetAgentId) throw new Error("recovery_evidence_agent_required");
+  const hostConfigPath = hostEnv.OPENCLAW_CONFIG_PATH ?? path.join(runtimeStateRoot, "openclaw.json");
+  const fullHostConfig = JSON.parse(await readFile(hostConfigPath, "utf8"));
+  for (const agentId of [targetAgentId, harness.evidenceAgentId]) {
+    const agent = fullHostConfig.agents?.entries?.[agentId];
+    if (agent?.model !== "google/gemini-3.1-pro-preview" || !Array.isArray(agent.skills) || agent.skills.length ||
+      !Array.isArray(agent.tools?.deny) || !agent.tools.deny.includes("*")) {
+      throw new Error("Recovery requires pinned Gemini 3.1 Pro and tool-free isolated agents");
+    }
+  }
   const { stdout: hostConfigOutput } = await runOpenClaw([
     "config",
     "get",
@@ -193,57 +210,95 @@ try {
   const installedRecovery = await import(
     `${pathToFileURL(path.join(installedRoot, "dist/src/acceptance/recovery-drill.js")).href}?private=${Date.now()}`,
   );
+  const { runExactHostEvaluationChat } = await import(pathToFileURL(path.join(installedRoot, "dist/src/acceptance/exact-host-chat.js")).href);
+  const { GatewayClient } = await import(pathToFileURL(path.join(consumerRoot, "node_modules/openclaw/dist/plugin-sdk/gateway-runtime.js")).href);
   const observedTurns = [];
+  const runObservations = [];
   const gateway = await startExactHostGateway({
     cwd: consumerRoot,
     env: hostEnv,
     openclawBin,
   });
 
+  let client;
+  const listeners = new Set();
   try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("recovery_gateway_connection_timeout")), 15_000);
+      client = new GatewayClient({
+        url: `ws://127.0.0.1:${gateway.env.OPENCLAW_GATEWAY_PORT}`, token: gateway.env.OPENCLAW_GATEWAY_TOKEN,
+        env: gateway.env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"],
+        sharedStateMode: "read-only", deviceIdentity: null,
+        onHelloOk() { clearTimeout(timer); resolve(); },
+        onConnectError() { clearTimeout(timer); reject(new Error("recovery_gateway_connection_failed")); },
+        onEvent(event) { for (const listener of listeners) listener(event); },
+      });
+      client.start();
+    });
+    const chat = (agentId, message) => {
+      const id = randomUUID();
+      return runExactHostEvaluationChat({
+        request: async (method, params) => {
+          const response = await client.request(method, params, { timeoutMs: 35_000 });
+          // Host error prose may contain prompts or secrets. Record only the
+          // protocol state and explicit machine categories, never raw prose.
+          const safeCategory = (value) => typeof value === "string" && /^[a-z][a-z0-9_]{0,95}$/.test(value) ? value : null;
+          runObservations.push({ method, runId: response.runId, status: response.status,
+            startedAt: response.startedAt, endedAt: response.endedAt,
+            timeoutPhase: safeCategory(response.timeoutPhase), stopReason: safeCategory(response.stopReason),
+            livenessState: safeCategory(response.livenessState), providerStarted: response.providerStarted,
+            errorCategory: safeCategory(response.error), errorPresent: response.error != null,
+            terminalReceiptPresent: response.terminalReceipt != null, terminalReplyPresent: response.terminalReply != null });
+          await writeFile(path.join(isolatedRoot, "run-observations.json"), JSON.stringify(runObservations, null, 2), { mode: 0o600 });
+          return response;
+        },
+        subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+      }, { sessionKey: `agent:${agentId}:recovery-${id}`, message, idempotencyKey: id });
+    };
     const report = await installedRecovery.runRecoveryDrill({
       canghaiRoot,
       recoveryRevision: options["canghai-revision"],
       coreVersion: installedPlugin.STELLA_CORE_COMPATIBILITY_VERSION,
       hostVersion,
       rebuild: harness.rebuild,
+      completeEvidence: async ({ prompt }) => {
+        if (typeof harness.evidenceAgentId !== "string" || !/^[a-z0-9-]+$/.test(harness.evidenceAgentId) ||
+          harness.evidenceAgentId === targetAgentId) throw new Error("recovery_evidence_agent_required");
+        return chat(harness.evidenceAgentId, prompt);
+      },
       verifyContinuity: async (input) => {
         for (const probe of harness.probes) {
           try {
-            const turn = await runWithOneExactHostReadRetry(async (attempt) => {
-              const sessionKey = [
-                `agent:${targetAgentId}:private-recovery-${probe.id}`,
-                ...(attempt === 1 ? ["retry"] : []),
-              ].join("-");
-              const command = buildExactHostAgentCommand(openclawBin, {
-                agentId: targetAgentId,
-                message: probe.message,
-                sessionKey,
-              });
-              const result = await execFileAsync(
-                command.executable,
-                command.args,
-                { cwd: consumerRoot, env: gateway.env },
-              );
-              return parseExactHostAgentTurn(result.stdout, probe.id);
-            });
+            const turn = await chat(targetAgentId, probe.message);
             observedTurns.push({
               id: probe.id,
+              runId: turn.runId,
               output: turn.text,
             });
           } catch (error) {
-            const safeError = extractSafeExactHostAgentError(`${error?.stdout ?? ""}`, probe.message);
-            throw new Error(
-              `Exact Host recovery probe ${probe.id} failed${safeError ? `: ${safeError}` : ""}`,
-            );
+            await writeFile(path.join(isolatedRoot, "probe-failure.json"), JSON.stringify({ probeId: probe.id,
+              category: /^evaluation_chat_[a-z_]+$/.test(error?.message ?? "") ? error.message : "recovery_probe_failed",
+              preparationCategories: [...gateway.diagnostics().matchAll(/Stella turn preparation failed: ([a-z][a-z0-9_]{0,95})/g)].map((match) => match[1]),
+              requestNotResubmitted: true, runObservations }, null, 2), { mode: 0o600 });
+            throw new Error(`Exact Host recovery probe ${probe.id} failed; no resubmission`);
           }
         }
-        return harness.verifyContinuity(input, { observedTurns, hostEnv: gateway.env });
+        await writeFile(path.join(isolatedRoot, "probe-observations.private.json"), JSON.stringify(observedTurns), { mode: 0o600 });
+        return harness.verifyContinuity(input, { observedTurns, hostEnv: gateway.env,
+          runJudge: (prompt) => chat(harness.evidenceAgentId, prompt) });
       },
     });
+    if (report.schemaVersion !== "stella.recovery-drill/v2" || typeof report.memoryGeneration !== "string" || !report.memoryGeneration) {
+      throw new Error("recovery_artifact_contract_migration_required");
+    }
+    await inspectCleanSource("Restored CangHai after probes", canghaiRoot, options["canghai-revision"]);
+    await inspectCleanSource("Original CangHai after probes", sourceRoot, options["canghai-revision"]);
+    await writeFile(path.join(isolatedRoot, "continuity-evidence.json"), JSON.stringify({ report, observedTurns,
+      continuityPolicy: harness.continuityPolicy }, null, 2), { mode: 0o600 });
 
     const receipt = {
-      schemaVersion: "stella.exact-host-recovery-receipt/v1",
+      schemaVersion: "stella.exact-host-recovery-receipt/v2",
+      hostCompatibility,
       coreRevision,
       canghaiRevision: options["canghai-revision"],
       hostVersion,
@@ -251,6 +306,10 @@ try {
       canghaiFixture: "private",
       cleanRuntimeState: true,
       importedLegacyRuntime: false,
+      sourceCloneVerified: true,
+      transport: "chat.send",
+      nativeFinalsBound: true,
+      runtimeEpisodeContract: "stella.praxis-episode/v2",
       dataReadable: report.levels.dataReadable,
       cognitiveBootstrapRestored: report.levels.cognitiveBootstrapRestored,
       derivedRuntimeRebuilt: report.levels.derivedRuntimeRebuilt,
@@ -269,8 +328,7 @@ try {
     await rename(stagingPath, outputPath);
     process.stdout.write(`${JSON.stringify({ output: outputPath, ...receipt })}\n`);
   } finally {
+    await client?.stopAndWait({ timeoutMs: 2_000 });
     await gateway.stop();
   }
-} finally {
-  await rm(isolatedRoot, { recursive: true, force: true });
 }

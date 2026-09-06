@@ -9,6 +9,26 @@ import {
 import { publishCompletionDraft } from "./completion-delivery.js";
 import { isRecord } from "../shared/type-guards.js";
 import { captureHostInput, type HostInputSnapshot } from "./host-input.js";
+import { admitCompletionOnce, openCompletionAdmissionJournal } from "./completion-admission.js";
+
+// Keep terminal run IDs too: a late callback is not a new request. Do not evict a
+// known run merely to admit new work, since eviction could authorize a resend.
+const claimedRuns = new Set<string>();
+const MAX_RECORDED_RUNS = 65_536;
+// Host-visible silence is intentional while Core owns the not-yet-published
+// draft. Core still requires a complete nonempty private answer below.
+export const PRIVATE_DRAFT_HOST_POLICY = {
+  silentExpected: true,
+  allowEmptyAssistantReplyAsSilent: true,
+  terminalReplyExpectation: "optional",
+} as const;
+function claimRun(agentId: string, runId: string): boolean {
+  const key = JSON.stringify([agentId, runId]);
+  if (claimedRuns.has(key)) return false;
+  if (claimedRuns.size >= MAX_RECORDED_RUNS) throw new CompletionError("run_registry_capacity_exhausted", "admission");
+  claimedRuns.add(key);
+  return true;
+}
 
 export function parsePrivateAssistantDraft(value: unknown): string {
   if (!isRecord(value) || value.role !== "assistant" || value.stopReason !== "stop" ||
@@ -52,7 +72,15 @@ export function registerCompletionAdapter(
     let terminalError: string | undefined;
     let queued = false;
     let claimed = false;
+    let duplicate = false;
     try {
+      // This must precede Host ownership and any awaited work. Otherwise a second
+      // registration can replace the first owner's terminal callback, then fail at
+      // resource admission and clear the first registration's prepared draft.
+      if (runId && !claimRun(agentId, runId)) {
+        duplicate = true;
+        return { handled: true, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } };
+      }
       if (!runId || ctx.dispatchKind !== "agent" || !ctx.dispatcher.supportsSettledReceipt ||
           !ctx.onAgentRunStart || !ctx.userTurnTranscriptRecorder ||
           event.images?.length || event.inboundAudio || event.isTailDispatch ||
@@ -60,13 +88,13 @@ export function registerCompletionAdapter(
         throw new CompletionError("capability_unavailable", "admission");
       }
       if (ctx.abortSignal?.aborted) throw new CompletionError("cancelled", "admission");
-      claimed = true;
       const ownership = ctx.onAgentRunStart(runId, undefined, {
         completionSource: "reply-dispatch", getResult: () => ({ terminalOutcome: {
           reason: terminalOutcome, status: terminalOutcome === "completed" ? "ok" : "error", error: terminalError,
         } }),
       });
       if (ownership !== "reply-dispatch") throw new CompletionError("capability_unavailable", "admission");
+      claimed = true;
       const entry = getSessionEntry({ agentId, sessionKey });
       if (entry?.modelOverride || entry?.providerOverride) {
         throw new CompletionError("session_model_override_unavailable", "admission");
@@ -78,12 +106,17 @@ export function registerCompletionAdapter(
       const resourceScope = await ports.resourceScope();
       result = await coordinateCompletion({ operationId: runId, runId, resourceScope, timeoutMs: 600_000, abortSignal: ctx.abortSignal }, {
         async generateDraft({ abortSignal }) {
+          let admissionStore;
+          try { admissionStore = await openCompletionAdmissionJournal(api.runtime.state.resolveStateDir()); }
+          catch { throw new CompletionError("admission_store_unavailable", "admission"); }
+          await admitCompletionOnce(admissionStore, { agentId, runId, sessionKey, resourceScope, prompt });
+          if (abortSignal.aborted) throw new CompletionError("cancelled", "admission");
           const generated = await api.runtime.agent.runEmbeddedAgent({
             agentId, sessionId, sessionKey, runId,
             workspaceDir: resolveAgentWorkspaceDir(ctx.cfg, agentId), config: ctx.cfg,
             prompt, transcriptPrompt: prompt, ...model, modelFallbacksOverride: [],
             timeoutMs: 540_000, abortSignal, disableTools: true, suppressLiveStreamOutput: true,
-            silentExpected: true, deferTerminalLifecycle: true,
+            ...PRIVATE_DRAFT_HOST_POLICY, deferTerminalLifecycle: true,
             userTurnTranscriptRecorder: ctx.userTurnTranscriptRecorder,
             prepareAssistantTranscriptMessage: ctx.prepareAssistantTranscriptMessage,
           });
@@ -126,7 +159,7 @@ export function registerCompletionAdapter(
           api.logger.error("Stella completion: cleanup_failed:settled");
         }
       }
-      ctx.markIdle("Stella completion settled");
+      if (!duplicate) ctx.markIdle("Stella completion settled");
     }
     return { handled: true, queuedFinal: queued, counts: { tool: 0, block: 0, final: queued ? 1 : 0 } };
   }, { priority: 1_000, timeoutMs: 660_000, eligibleDispatchKinds: ["agent"] });

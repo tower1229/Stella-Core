@@ -2,10 +2,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { loadConsciousness, type LoadedConsciousness } from "../canghai/manifest.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
-import {
-  CangHaiPraxisEpisodeStore,
-  type PraxisMemory,
-} from "../praxis/episode-store.js";
+import type { PraxisMemory } from "../praxis/episode-store.js";
+import { createBoundPraxisRuntime, loadPraxisRuntimeBinding } from "../praxis/runtime-binding.js";
 
 export type DerivedRebuildEvidence = {
   target: string;
@@ -29,12 +27,14 @@ export type RecoveryDrillOptions = {
   coreVersion: string;
   hostVersion: string;
   requiredCoverage?: { praxisLearning: boolean; importantOpenState: boolean };
+  completeEvidence?: Parameters<typeof createBoundPraxisRuntime>[2];
   rebuild: (target: string, loaded: LoadedConsciousness) => Promise<DerivedRebuildEvidence>;
   verifyContinuity: (input: ContinuityProbeInput) => Promise<ContinuityProbeResult>;
 };
 
 export type RecoveryDrillReport = {
-  schemaVersion: "stella.recovery-drill/v1";
+  schemaVersion: "stella.recovery-drill/v2";
+  memoryGeneration: string;
   recoveryRevision: string;
   levels: {
     dataReadable: true;
@@ -135,10 +135,11 @@ export async function runRecoveryDrill(
   requireBootstrapCategory(loaded, "twin");
   requireBootstrapCategory(loaded, "framework");
 
-  const memory = await new CangHaiPraxisEpisodeStore({
-    loaded,
-    dataMode: "read_only",
-  }).listMemory();
+  const binding = await loadPraxisRuntimeBinding(loaded);
+  const runtime = await createBoundPraxisRuntime(loaded, binding,
+    options.completeEvidence ?? (async () => { throw new Error("recovery_evidence_model_unavailable"); }),
+    async () => { throw new Error("recovery_is_read_only"); });
+  const memory = await runtime.listMemory();
   if (options.requiredCoverage?.praxisLearning && memory.learningItems.length === 0) {
     throw new Error("Recovery Level 1 is missing durable Praxis learning");
   }
@@ -179,9 +180,18 @@ export async function runRecoveryDrill(
   ) {
     throw new Error("Recovery Level 3 continuity verification failed");
   }
+  await runtime.evidence.reader.assertCurrent();
+  const [head, status] = await Promise.all([
+    execFileAsync("git", ["-C", loaded.canghaiRoot, "rev-parse", "HEAD"]),
+    execFileAsync("git", ["-C", loaded.canghaiRoot, "status", "--porcelain"]),
+  ]);
+  if (head.stdout.trim() !== options.recoveryRevision || status.stdout.trim()) {
+    throw new Error("recovery_source_changed_during_verification");
+  }
 
   return {
-    schemaVersion: "stella.recovery-drill/v1",
+    schemaVersion: "stella.recovery-drill/v2",
+    memoryGeneration: memory.generationId,
     recoveryRevision: options.recoveryRevision,
     levels: {
       dataReadable: true,

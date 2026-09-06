@@ -3,6 +3,8 @@ import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from
 import { bytesVersion } from "../canghai/content-version.js";
 import type { LoadedConsciousness } from "../canghai/manifest.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
+import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
+import { loadRuntimeProfileResources } from "../canghai/runtime-profile-resources.js";
 import { HOST_INPUT_ARCHIVE_ADAPTER, prepareHostInputArchive } from "../canghai/host-input-archive.js";
 import { persistHostInputArchive } from "../canghai/archive-writer.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
@@ -14,6 +16,7 @@ import { PraxisRuntimeMemory } from "./runtime-memory.js";
 import { EpisodeV2Error, type EpisodeV2, type VersionedRef } from "./episode-v2.js";
 
 export type PraxisRuntimeBinding = {
+  profileAuthorityPaths: string[];
   configPath: string;
   catalogPath: string;
   archive: { policyRef: VersionedRef; objectRoot: string; payloadRoot: string };
@@ -34,9 +37,9 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
   try {
     const profileDocument = loaded.bootstrapDocuments.find((document) => document.field === "identity.runtimeProfileRef");
     requireValue(profileDocument);
-    const profile: unknown = parseYaml(profileDocument.content);
-    requireValue(isRecord(profile) && profile.schema_version === "stella.runtime-profile/v1" && profile.contract_profile === "alpha_praxis" &&
-      isRecord(profile.memory) && Array.isArray(profile.capabilities));
+    const profile = parseRuntimeProfile(parseYaml(profileDocument.content));
+    requireValue(profile.contract_profile === "alpha_praxis" && profile.memory);
+    const resources = await loadRuntimeProfileResources(loaded.canghaiRoot, profile);
     const catalogPath = relativeRef(profile.memory.catalog_ref);
     const capabilities = profile.capabilities.filter((value) => isRecord(value) && value.id === "transcript_archive");
     const capability = capabilities[0];
@@ -59,10 +62,11 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       requireValue(!referenceBindings.some((other) => other.routingRef === binding.routingRef));
       referenceBindings.push({ routingRef: binding.routingRef, sourceRef: { id: binding.sourceRef.id, version: binding.sourceRef.version } });
     }
-    return { configPath, catalogPath, archive: { policyRef: value.archive.policyRef, objectRoot: value.archive.objectRoot, payloadRoot: value.archive.payloadRoot },
+    return { profileAuthorityPaths: resources.authorityPaths, configPath, catalogPath, archive: { policyRef: value.archive.policyRef, objectRoot: value.archive.objectRoot, payloadRoot: value.archive.payloadRoot },
       purpose: value.purpose as PraxisRuntimeBinding["purpose"], referenceBindings };
   } catch (error) {
     if (error instanceof EpisodeV2Error) throw error;
+    if (error instanceof RuntimeProfileError) throw new EpisodeV2Error(error.category);
     throw new EpisodeV2Error("runtime_binding_migration_required");
   }
 }
@@ -104,7 +108,7 @@ export async function persistBoundAdvice(input: {
   operationId: string; original: HostInputSnapshot; episode: Omit<EpisodeV2, "historicalInputRefs">;
   inputRefs: VersionedRef[]; decision: NonNullable<EpisodeV2["decision"]>; abortSignal: AbortSignal;
   complete: ConstructorParameters<typeof EpisodeEvidenceResolver>[2];
-}): Promise<{ revision: string; generationId: string; writeOperationIds: string[] }> {
+}): Promise<{ revision: string; generationId: string; catalogHash: string; episodeRef: VersionedRef; writeOperationIds: string[] }> {
   const checkActive = () => { if (input.abortSignal.aborted) throw new EpisodeV2Error("operation_cancelled"); };
   checkActive();
   const operationId = `op_${bytesVersion(input.operationId).slice(7)}`;
@@ -117,11 +121,12 @@ export async function persistBoundAdvice(input: {
   checkActive();
   const runtime = await createBoundPraxisRuntime(input.loaded, input.binding, input.complete,
     async ({ paths, operationId: id }) => { checkActive(); await input.durability.syncCritical(paths, `stella: preserve ${id}`); });
-  await runtime.recommend({ operationId, episode: { ...input.episode, historicalInputRefs: [...input.inputRefs, archived.sourceRef] },
+  const recommended = await runtime.recommend({ operationId, episode: { ...input.episode, historicalInputRefs: [...input.inputRefs, archived.sourceRef] },
     decision: input.decision, recordedAt: input.episode.updatedAt, abortSignal: input.abortSignal });
   checkActive();
   const diagnostics = await input.durability.diagnostics();
   if (!diagnostics.criticalSynchronized || diagnostics.localRevision !== diagnostics.synchronizedRevision) throw new EpisodeV2Error("critical_sync_failed");
   return { revision: diagnostics.localRevision, generationId: archived.generationId,
+    catalogHash: runtime.evidence.reader.catalogHash, episodeRef: { id: recommended.episode.id, version: recommended.version },
     writeOperationIds: [`${operationId}-archive`, `${operationId}-open`, `${operationId}-recommend`] };
 }

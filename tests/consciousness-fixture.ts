@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { stringify } from "yaml";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 
 const execFileAsync = promisify(execFile);
@@ -42,12 +43,25 @@ export async function createFixture(): Promise<string> {
     schemaVersion: "stella.alpha-praxis-binding/v2", archive: { policyRef, objectRoot: "30_PersonalData/memory/objects", payloadRoot: "30_PersonalData/host-archive" },
     purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, referenceBindings: [],
   }));
-  await writeFile(path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml"), [
-    "schema_version: stella.runtime-profile/v1", "contract_profile: alpha_praxis", "agent_id: stella", "language: zh-CN", "timezone: Asia/Shanghai",
-    "memory:", "  catalog_ref: path:30_PersonalData/memory/catalog.json", "  semantic_provider: synthetic", "  required_views: []", "  archive_max_rpo_seconds: 300",
-    "capabilities:", "  - id: transcript_archive", "    required: true", "    adapter_id: openclaw-transcript-2026.8.2", "    adapter_version: '1'",
-    "    config_ref: path:50_PersonalAgent/stella/praxis-binding.json", "    required_secret_refs: []",
-  ].join("\n") + "\n");
+  const prefix = "50_PersonalAgent/stella";
+  await writeFile(path.join(root, `${prefix}/source-policies.yaml`), stringify({ schema_version: "stella.source-policy-registry/v1",
+    id: "fixture-policies", policies: [{ id: policy.id, ref: "path:30_PersonalData/memory/policy.json" }] }));
+  await writeFile(path.join(root, `${prefix}/delivery.yaml`), stringify({ schema_version: "stella.delivery-policy/v1", timezone: "Asia/Shanghai",
+    allowed_windows: [], max_initiations_per_day: 0, channel_ref: "host-chat" }));
+  await writeFile(path.join(root, `${prefix}/delegations.yaml`), stringify({ schema_version: "stella.delegation-registry/v1", id: "fixture-delegations", delegations: [] }));
+  await writeFile(path.join(root, `${prefix}/capability-acceptance.json`), canonicalJson({ status: "not_evaluated", scope: "synthetic structural fixture" }));
+  await writeFile(path.join(root, `${prefix}/runtime-profile.yaml`), stringify({
+    schema_version: "stella.runtime-profile/v1", contract_profile: "alpha_praxis", agent_id: "stella", language: "zh-CN", timezone: "Asia/Shanghai",
+    models: Object.fromEntries(["main", "router", "learning", "framework_compiler"].map((role) => [role,
+      { provider: "synthetic", model: "synthetic", required_capabilities: ["structured_model"] }])),
+    memory: { catalog_ref: "path:30_PersonalData/memory/catalog.json", semantic_provider: "synthetic", required_views: [], archive_max_rpo_seconds: 300 },
+    capabilities: ["transcript_archive", "structured_model"].map((id) => ({ id, required: true,
+      adapter_id: id === "transcript_archive" ? "openclaw-transcript-2026.8.2" : "synthetic", adapter_version: "1",
+      config_ref: `path:${prefix}/praxis-binding.json`, acceptance_ref: `path:${prefix}/capability-acceptance.json`, required_secret_refs: [] })),
+    source_policies_ref: `path:${prefix}/source-policies.yaml`,
+    autonomy: { research_enabled: false, proactive_delivery_enabled: false,
+      delivery_policy_ref: `path:${prefix}/delivery.yaml`, delegation_registry_ref: `path:${prefix}/delegations.yaml` },
+  }));
 
   await mkdir(path.join(root, "30_PersonalData/praxis/episodes"), { recursive: true });
   await writeFile(path.join(root, "30_PersonalData/praxis/episodes/.gitkeep"), "", "utf8");

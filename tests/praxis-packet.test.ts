@@ -6,6 +6,7 @@ import { loadConsciousness } from "../src/canghai/manifest.js";
 import {
   buildPraxisContextPacket,
   DEFAULT_MAX_PRAXIS_PACKET_CHARS,
+  listSemanticRoutingCandidates,
   renderPraxisContextPacket,
 } from "../src/praxis/packet.js";
 import type { CortexRoute } from "../src/routing/router.js";
@@ -36,6 +37,26 @@ const relationshipRoute: CortexRoute = {
     constraints: ["不想给她压力"],
   },
 };
+
+test("candidate and retired Twin records cannot be recalled or injected by a stale route", async (t) => {
+  const root = await createFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const original = await loadConsciousness(root);
+  for (const status of ["candidate", "retired"]) {
+    const loaded = { ...original, bootstrapDocuments: original.bootstrapDocuments.map((document) =>
+      document.category === "twin" ? { ...document, content: document.content.replace("status: active", `status: ${status}`) } : document) };
+    assert.deepEqual(listSemanticRoutingCandidates(loaded).twin, []);
+    assert.throws(() => buildPraxisContextPacket("Synthetic request", relationshipRoute, loaded), /selected Twin hypotheses/);
+  }
+  const weakened = { ...original, bootstrapDocuments: original.bootstrapDocuments.map((document) =>
+    document.category === "twin" ? { ...document, content: document.content.replace("status: active", "status: weakened") } : document) };
+  assert.equal(listSemanticRoutingCandidates(weakened).twin.length, 1);
+  const pattern = JSON.parse(buildPraxisContextPacket("Synthetic request", relationshipRoute, weakened).twin!.relevantPatterns[0]!);
+  assert.equal(pattern.status, "weakened");
+  assert.deepEqual(pattern.scope.domains, ["relationship", "testing"]);
+  assert.deepEqual(pattern.supportingRefs, []);
+  assert.deepEqual(pattern.counterRefs, []);
+});
 
 test("builds a bounded traceable Praxis packet from validated CangHai registries", async () => {
   const root = await createFixture();

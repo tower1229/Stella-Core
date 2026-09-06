@@ -32,7 +32,7 @@ export class CompletionError extends Error {
   }
 }
 
-type RunPermit = { operationId: string; runId: string; active: boolean; privateOutput?: unknown; preparation?: unknown };
+type RunPermit = { operationId: string; runId: string; active: boolean; outputCount?: number; privateOutput?: unknown; preparation?: unknown };
 const permits = new AsyncLocalStorage<RunPermit>();
 const activeResources = new Set<string>();
 
@@ -46,11 +46,17 @@ export function isCompletionDraftContext(): boolean {
 }
 
 export function captureCompletionOutput(runId: string, output: unknown): void {
-  if (hasCompletionRunPermit(runId)) permits.getStore()!.privateOutput = output;
+  if (!hasCompletionRunPermit(runId)) return;
+  const permit = permits.getStore()!;
+  permit.outputCount = (permit.outputCount ?? 0) + 1;
+  // A Host continuation is not the original evidence-bound draft. Keep the first
+  // capture private for diagnosis; never silently select the last generation.
+  if (permit.outputCount === 1) permit.privateOutput = output;
 }
 
 export function readCompletionOutput(runId: string): unknown {
   if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "generate");
+  if ((permits.getStore()!.outputCount ?? 0) > 1) throw new CompletionError("host_generation_retried", "generate");
   return permits.getStore()!.privateOutput;
 }
 

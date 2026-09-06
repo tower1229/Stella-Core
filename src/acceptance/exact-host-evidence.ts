@@ -1,9 +1,15 @@
 import { isRecord } from "../shared/type-guards.js";
+import { parseHostCompatibility, type HostCompatibility } from "./host-compatibility.js";
 
 export const ALPHA_HOST_VERSION = "2026.8.2";
 
 export type ExactHostRecoveryReceipt = {
-  schemaVersion: "stella.exact-host-recovery-receipt/v1";
+  hostCompatibility?: HostCompatibility;
+  schemaVersion: "stella.exact-host-recovery-receipt/v2";
+  sourceCloneVerified: true;
+  transport: "chat.send";
+  nativeFinalsBound: true;
+  runtimeEpisodeContract: "stella.praxis-episode/v2";
   coreRevision: string;
   canghaiRevision: string;
   hostVersion: typeof ALPHA_HOST_VERSION;
@@ -37,14 +43,14 @@ export function parseExactHostVersion(output: string): typeof ALPHA_HOST_VERSION
 
 export function assertStellaHostConfig(
   value: unknown,
-  expected: { canghaiRoot: string; canghaiRevision: string; agentId: string },
+  expected: { canghaiRoot: string; canghaiRevision: string; agentId: string; dataMode?: "read_only" | "managed_durable_write" },
 ): void {
   if (
     !isRecord(value) ||
     value.canghaiRoot !== expected.canghaiRoot ||
     value.recoveryRevision !== expected.canghaiRevision ||
     value.agentId !== expected.agentId ||
-    value.dataMode !== "read_only"
+    value.dataMode !== (expected.dataMode ?? "read_only")
   ) {
     throw new Error("Exact Host Stella config is not bound to the requested CangHai source");
   }
@@ -56,12 +62,8 @@ export function assertStellaHostHooks(value: unknown): void {
     value.allowConversationAccess !== true ||
     value.allowPromptInjection !== true ||
     !isRecord(value.timeouts) ||
-    typeof value.timeouts.before_prompt_build !== "number" ||
-    value.timeouts.before_prompt_build < 60_000 ||
-    typeof value.timeouts.before_agent_finalize !== "number" ||
-    value.timeouts.before_agent_finalize < 60_000 ||
-    typeof value.timeouts.agent_end !== "number" ||
-    value.timeouts.agent_end < 60_000
+    !Number.isSafeInteger(value.timeouts.before_prompt_build) ||
+    (value.timeouts.before_prompt_build as number) < 60_000
   ) {
     throw new Error("Exact Host Stella prompt hook permissions or timeout are insufficient");
   }
@@ -94,7 +96,9 @@ export function assertStellaPluginRuntime(value: unknown): void {
     plugin.status !== "loaded" ||
     plugin.activated !== true ||
     !hookNames.has("before_prompt_build") ||
-    !hookNames.has("before_agent_finalize") ||
+    !hookNames.has("before_message_write") ||
+    !hookNames.has("llm_output") ||
+    !hookNames.has("reply_dispatch") ||
     !hookNames.has("before_agent_run")
   ) {
     throw new Error("Exact Host Stella plugin runtime is not active with required hooks");
@@ -103,7 +107,10 @@ export function assertStellaPluginRuntime(value: unknown): void {
 
 export function parseExactHostRecoveryReceipt(value: unknown): ExactHostRecoveryReceipt {
   if (!isRecord(value)) throw new Error("Invalid exact-host recovery receipt");
+  const hostCompatibility = value.hostCompatibility === undefined ? undefined : parseHostCompatibility(value.hostCompatibility);
   const requiredTrue = [
+    "sourceCloneVerified",
+    "nativeFinalsBound",
     "cleanRuntimeState",
     "dataReadable",
     "cognitiveBootstrapRestored",
@@ -117,7 +124,9 @@ export function parseExactHostRecoveryReceipt(value: unknown): ExactHostRecovery
     "privateFixtureIncluded",
   ];
   if (
-    value.schemaVersion !== "stella.exact-host-recovery-receipt/v1" ||
+    value.schemaVersion !== "stella.exact-host-recovery-receipt/v2" ||
+    value.transport !== "chat.send" ||
+    value.runtimeEpisodeContract !== "stella.praxis-episode/v2" ||
     typeof value.coreRevision !== "string" ||
     !SHA_PATTERN.test(value.coreRevision) ||
     typeof value.canghaiRevision !== "string" ||
@@ -134,7 +143,12 @@ export function parseExactHostRecoveryReceipt(value: unknown): ExactHostRecovery
     throw new Error("Invalid exact-host recovery receipt");
   }
   return {
-    schemaVersion: "stella.exact-host-recovery-receipt/v1",
+    schemaVersion: "stella.exact-host-recovery-receipt/v2",
+    ...(hostCompatibility ? { hostCompatibility } : {}),
+    sourceCloneVerified: true,
+    nativeFinalsBound: true,
+    transport: "chat.send",
+    runtimeEpisodeContract: "stella.praxis-episode/v2",
     coreRevision: value.coreRevision as string,
     canghaiRevision: value.canghaiRevision as string,
     hostVersion: ALPHA_HOST_VERSION,

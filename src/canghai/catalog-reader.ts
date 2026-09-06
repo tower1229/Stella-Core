@@ -90,6 +90,18 @@ export class CatalogReader {
     try { requireCondition(bytesVersion(await readRepositoryBytes(this.root, this.catalogPath)) === this.catalogHash, "stale_generation"); }
     catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("catalog_unavailable"); }
   }
+  async catalogAtRevision(revision: string): Promise<MemoryCatalog> {
+    await this.assertCurrent();
+    requireCondition(/^[a-f0-9]{40}$/.test(revision), "invalid_catalog_revision");
+    try {
+      const { stdout: tree } = await run("git", ["-C", this.root, "ls-tree", revision, "--", this.catalogPath]);
+      requireCondition(/^100(644|755) blob [a-f0-9]{40}\t/.test(tree), "unsafe_historical_catalog");
+      const { stdout } = await run("git", ["-C", this.root, "cat-file", "blob", `${revision}:${this.catalogPath}`], { maxBuffer: 16 * 1024 * 1024 });
+      const catalog = parseMemoryCatalog(JSON.parse(stdout));
+      await this.assertCurrent();
+      return catalog;
+    } catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("historical_catalog_unavailable"); }
+  }
   /** Validate derived objects against unchanged original evidence before publishing their catalog. */
   async validatePreview(catalog: MemoryCatalog, objects: Array<{ path: string; bytes: string }>,
     validate: (reader: CatalogReader) => Promise<void>): Promise<void> {

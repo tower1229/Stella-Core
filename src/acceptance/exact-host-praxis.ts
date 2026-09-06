@@ -1,10 +1,12 @@
 import { isRecord } from "../shared/type-guards.js";
 import { ALPHA_HOST_VERSION } from "./exact-host-evidence.js";
+import { parseHostCompatibility, type HostCompatibility } from "./host-compatibility.js";
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/iu;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
 
 export type ExactHostPraxisReceipt = {
+  hostCompatibility?: HostCompatibility;
   schemaVersion: "stella.exact-host-praxis-receipt/v1";
   coreRevision: string;
   initialCanghaiRevision: string;
@@ -28,6 +30,7 @@ export type ExactHostPraxisReceipt = {
 
 export function parseExactHostPraxisReceipt(value: unknown): ExactHostPraxisReceipt {
   if (!isRecord(value)) throw new Error("Invalid exact-host Praxis receipt");
+  if (value.hostCompatibility !== undefined) parseHostCompatibility(value.hostCompatibility);
   const requiredTrue = [
     "predictionSealedBeforeOutcome",
     "recommendationPersisted",

@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
-import { createFixture, initializeFixtureRepository } from "./consciousness-fixture.js";
+import { createFixture, initializeFixtureRepository, updateFixtureManifest } from "./consciousness-fixture.js";
+import { listSemanticRoutingCandidates } from "../src/praxis/packet.js";
 import { loadConsciousness } from "../src/canghai/manifest.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, persistBoundAdvice, resolveBoundInputRefs } from "../src/praxis/runtime-binding.js";
@@ -35,7 +36,7 @@ test("runtime binding requires explicit v2 configuration and refuses unknown cog
   await assert.rejects(resolveBoundInputRefs(runtime, binding, ["path:unverified.json"]), /cognitive_source_binding_required/);
   const profile = loaded.bootstrapDocuments.find((document) => document.field === "identity.runtimeProfileRef")!;
   profile.content = "fixture: legacy";
-  await assert.rejects(loadPraxisRuntimeBinding(loaded), /runtime_binding_migration_required/);
+  await assert.rejects(loadPraxisRuntimeBinding(loaded), /profile_migration_required/);
 });
 
 test("recovery bindings tolerate pending business files but reject changed authority at the configured revision", async (t) => {
@@ -50,6 +51,51 @@ test("recovery bindings tolerate pending business files but reject changed autho
   const file = path.join(root, context.binding.configPath);
   await writeFile(file, `${await readFile(file, "utf8")}\n`);
   await assert.rejects(loadOutcomeRecoveryBinding(root, loaded.manifestPath, revision), /recovery_binding_changed/);
+});
+
+test("runtime binding requires declared profile resources without promoting not-evaluated acceptance", async (t) => {
+  const root = await createFixture(); t.after(() => rm(root, { recursive: true, force: true }));
+  const loaded = await loadConsciousness(root);
+  const binding = await loadPraxisRuntimeBinding(loaded);
+  assert.ok(binding.profileAuthorityPaths.includes("50_PersonalAgent/stella/capability-acceptance.json"));
+  assert.ok(binding.profileAuthorityPaths.includes("30_PersonalData/memory/policy.json"));
+  assert.ok(!binding.profileAuthorityPaths.includes(binding.catalogPath), "mutable catalog is not configuration authority");
+  const acceptancePath = path.join(root, "50_PersonalAgent/stella/capability-acceptance.json");
+  const acceptance = await readFile(acceptancePath);
+  assert.equal(JSON.parse(acceptance.toString()).status, "not_evaluated");
+  await rm(acceptancePath);
+  await assert.rejects(loadPraxisRuntimeBinding(loaded), /profile_resource_unavailable/);
+  await writeFile(acceptancePath, acceptance);
+  assert.deepEqual(await readFile(acceptancePath), acceptance);
+  const policyPath = path.join(root, "30_PersonalData/memory/policy.json");
+  const policy = JSON.parse(await readFile(policyPath, "utf8"));
+  await writeFile(policyPath, JSON.stringify({ ...policy, id: "another-policy" }));
+  await assert.rejects(loadPraxisRuntimeBinding(loaded), /source_policy_identity_mismatch/);
+});
+
+test("recovery pins referenced policies even when bootstrap documents and main binding are unchanged", async (t) => {
+  const root = await createFixture(); t.after(() => rm(root, { recursive: true, force: true }));
+  const revision = await initializeFixtureRepository(root);
+  const loaded = await loadConsciousness(root);
+  await loadOutcomeRecoveryBinding(root, loaded.manifestPath, revision);
+  const policyPath = path.join(root, "30_PersonalData/memory/policy.json");
+  await writeFile(policyPath, `${await readFile(policyPath, "utf8")}\n`);
+  await assert.rejects(loadOutcomeRecoveryBinding(root, loaded.manifestPath, revision), /recovery_binding_changed/);
+});
+
+test("profile resources reject invalid UTF-8 and duplicate source-policy identities", async (t) => {
+  const root = await createFixture(); t.after(() => rm(root, { recursive: true, force: true }));
+  const loaded = await loadConsciousness(root);
+  const acceptancePath = path.join(root, "50_PersonalAgent/stella/capability-acceptance.json");
+  const acceptance = await readFile(acceptancePath);
+  await writeFile(acceptancePath, Buffer.from([0xff, 0xfe]));
+  await assert.rejects(loadPraxisRuntimeBinding(loaded), /invalid_profile_resource/);
+  await writeFile(acceptancePath, acceptance);
+  const item = { id: "policy-fixture", ref: "path:30_PersonalData/memory/policy.json" };
+  await writeFile(path.join(root, "50_PersonalAgent/stella/source-policies.yaml"), JSON.stringify({
+    schema_version: "stella.source-policy-registry/v1", id: "fixture-policies", policies: [item, item],
+  }));
+  await assert.rejects(loadPraxisRuntimeBinding(loaded), /invalid_source_policy_registry/);
 });
 
 test("bound v2 advice archives original input, resumes pointer failure, and restores from a clean Git clone", async (t) => {
@@ -98,4 +144,15 @@ test("bound v2 advice archives original input, resumes pointer failure, and rest
   assert.equal(restoredEpisode.episode.actual, undefined);
   assert.equal(restoredEpisode.episode.outcome, undefined);
   assert.equal(restoredEpisode.episode.learning, undefined);
+  // Current Alpha consumes authoritative documents/catalog and immutable Episode
+  // versions directly; legacy derived targets have no runtime data consumer.
+  const candidates = listSemanticRoutingCandidates(restoredLoaded, memory.openEpisodes);
+  await updateFixtureManifest(restored, (manifest) => manifest.replace(
+    "rebuild: [bootstrap_projection, memory_index]", "rebuild: []"));
+  const directLoaded = await loadConsciousness(restored);
+  assert.deepEqual(directLoaded.bootstrapDocuments, restoredLoaded.bootstrapDocuments);
+  const directRuntime = await createBoundPraxisRuntime(directLoaded, await loadPraxisRuntimeBinding(directLoaded), complete, async () => {});
+  assert.deepEqual(await directRuntime.listMemory(), memory);
+  assert.deepEqual(listSemanticRoutingCandidates(directLoaded, memory.openEpisodes), candidates);
+  assert.deepEqual(await directRuntime.repository.read(episode.id), restoredEpisode);
 });
