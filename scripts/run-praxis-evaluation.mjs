@@ -276,7 +276,7 @@ if (privateSuite) {
   }
   report = await runPraxisEvaluation(
     cases,
-    createModelPraxisEvaluator({ answerCase: adapter.answerCase, judge: adapter.judge }),
+    createModelPraxisEvaluator({ answerCase: adapter.answerCase, evidenceResolver: adapter.evidenceResolver, judge: adapter.judge }),
     execution,
   );
 }

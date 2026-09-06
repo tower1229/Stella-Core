@@ -53,13 +53,6 @@ export type CortexRoute = {
   };
   outcome?: {
     openEpisodeRef: string;
-    actualAction: string;
-    source: "user_report" | "tool_observation" | "system_event";
-    observations: string[];
-    result: string;
-    predictionAssessment: "supported" | "countered" | "unresolved";
-    praxisLearning: string;
-    observedAt: string;
   };
 };
 

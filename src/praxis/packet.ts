@@ -54,7 +54,7 @@ export type PraxisContextPacket = {
     status: OpenEpisodeCandidate["status"];
     summary: string;
     domains: string[];
-    prediction: OpenEpisodeCandidate["prediction"];
+    prediction?: OpenEpisodeCandidate["prediction"];
     recommendation?: string;
   };
 };
@@ -305,7 +305,7 @@ export function buildPraxisContextPacket(
             status: selectedOpenEpisode.status,
             summary: boundedText(selectedOpenEpisode.summary, MAX_TWIN_PATTERN_CHARS),
             domains: boundedStrings(selectedOpenEpisode.domains, 80),
-            prediction: selectedOpenEpisode.prediction,
+            ...(selectedOpenEpisode.prediction ? { prediction: selectedOpenEpisode.prediction } : {}),
             ...(selectedOpenEpisode.recommendation
               ? {
                   recommendation: boundedText(

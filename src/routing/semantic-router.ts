@@ -139,36 +139,10 @@ function parseOutcome(
   if (!availableOpenEpisodes.has(openEpisodeRef)) {
     throw new Error("Model outcome route selected an unavailable open Episode");
   }
-  const source = requiredString(value, "source");
-  if (
-    source !== "user_report" &&
-    source !== "tool_observation" &&
-    source !== "system_event"
-  ) {
-    throw new Error("Model outcome source is unsupported");
+  if (Object.keys(value).some((key) => key !== "openEpisodeRef")) {
+    throw new Error("Model outcome routing cannot supply unverified action or learning details");
   }
-  const predictionAssessment = requiredString(value, "predictionAssessment");
-  if (
-    predictionAssessment !== "supported" &&
-    predictionAssessment !== "countered" &&
-    predictionAssessment !== "unresolved"
-  ) {
-    throw new Error("Model outcome prediction assessment is unsupported");
-  }
-  const observedAt = requiredString(value, "observedAt");
-  if (Number.isNaN(Date.parse(observedAt))) {
-    throw new Error("Model outcome observedAt must be an ISO date-time");
-  }
-  return {
-    openEpisodeRef,
-    actualAction: requiredString(value, "actualAction"),
-    source,
-    observations: stringList(value, "observations", 4),
-    result: requiredString(value, "result"),
-    predictionAssessment,
-    praxisLearning: requiredString(value, "praxisLearning"),
-    observedAt,
-  } as const;
+  return { openEpisodeRef };
 }
 
 function routeRiskFields(record: Record<string, unknown>) {
@@ -347,7 +321,7 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
   if (evidenceStatus === "material_unknown" && responseKind === "action_advice") {
     throw new Error("Model route field responseKind cannot force action advice across material unknowns");
   }
-  if ((parsed.mode === "outcome") !== (responseKind === "outcome_ack")) {
+  if (parsed.mode === "outcome" ? !["outcome_ack", "clarification"].includes(responseKind) : responseKind === "outcome_ack") {
     throw new Error("Model route field responseKind disagrees with outcome mode");
   }
   if (parsed.twinPrediction !== undefined && responseKind !== "action_advice") {
@@ -444,7 +418,7 @@ export function createSemanticRouter(
     const systemPrompt = [
       "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
       "Return only strict JSON with mode, responseKind, evidenceStatus, materialUnknowns, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, openEpisodeRef, situation, twinPrediction, and outcome when applicable.",
-      "Choose responseKind semantically: answer, clarification, collaboration, action_advice, outcome_ack. It is independent of Cortex mode except outcome requires outcome_ack. evidenceStatus must be sufficient, material_unknown, or conflicting; materialUnknowns is an array of zero to four concrete missing facts. Operational faults are errors, not evidence states.",
+      "Choose responseKind semantically: answer, clarification, collaboration, action_advice, outcome_ack. Outcome mode permits outcome_ack or clarification; outcome_ack is provisional until original evidence and persistence are verified. evidenceStatus must be sufficient, material_unknown, or conflicting; materialUnknowns is an array of zero to four concrete missing facts. Operational faults are errors, not evidence states.",
       "When missing facts would change the decision, identify them in materialUnknowns and choose an answerable clarification or useful collaboration, never force action_advice. Writing collaboration preserves the author's intent and unresolved thinking, without invented action, outcome, optimistic meaning, or motivational ending.",
       "Use praxis for a personal real-world choice or when the owner asks to recall, inspect, or continue one semantically relevant supplied open Episode; use twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
       "Praxis takes precedence over twin and ordinary whenever a supplied open Episode can answer the owner's request. A direct owner request to inspect current open personal state is Praxis, not machine-authored extraction.",
@@ -457,8 +431,7 @@ export function createSemanticRouter(
         ? [`The dedicated semantic selector chose ${JSON.stringify(selectedOpenEpisodeRef)}. The route must be praxis, or outcome with outcome.openEpisodeRef exactly matching it.`]
         : ["The dedicated semantic selector did not choose an open Episode. Omit openEpisodeRef."]),
       "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
-      "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
-      "For outcome, mode must be exactly outcome; needsTwin, needsFramework, needsReality, and needsExternalResearch must all be false. outcome.source must be exactly user_report for an owner-reported result, tool_observation for tool evidence, or system_event for a system event. Inferred actions belong only in situation.interpretations and cannot establish an outcome. Source labels alone are not evidence. outcome.predictionAssessment must be exactly supported, countered, or unresolved (always unresolved without a prediction), and outcome.observedAt must be an ISO date-time.",
+      "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Set all context needs false and supply outcome:{openEpisodeRef:<exact supplied ref>} only. This routing decision selects a candidate, not proof that an action or result occurred. Actual action, result, time and learning belong exclusively to the subsequent original-evidence verification phase; never supply them in routing output. If no supplied Episode clearly matches, do not use outcome.",
       "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
       "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
       `Available semantic candidates: ${JSON.stringify(candidates)}`,

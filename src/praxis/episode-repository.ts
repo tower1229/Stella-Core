@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { link, lstat, mkdir, open, readFile, readdir, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { bytesVersion, canonicalJson as canonical } from "../canghai/content-version.js";
+import { assertMemoryTransactionReadable, withMemoryMutationLock } from "../canghai/memory-transaction.js";
 import {
   EpisodeV2Error, parseEpisodeV2, validateEpisodeV2References, validateEpisodeV2Transition,
   type EpisodeV2,
@@ -97,32 +98,46 @@ export class EpisodeRepository {
   }
 
   async read(id: string): Promise<EpisodeSnapshot> {
+    await assertMemoryTransactionReadable(this.#root);
     const record = await this.#record(id);
     if (!record) throw new EpisodeV2Error("record_not_found");
     await validateEpisodeV2References(record.episode, this.ports);
+    await assertMemoryTransactionReadable(this.#root);
     return record;
   }
 
+  historicalPath(id: string, version: string): string {
+    return `${this.#relativeRoot}/${checkedId(id)}/.versions/${versionHash(version)}.json`;
+  }
+
   async readHistorical(id: string, version: string): Promise<EpisodeSnapshot> {
+    await assertMemoryTransactionReadable(this.#root);
     const directory = await this.#directory(`${this.#relativeRoot}/${checkedId(id)}/.versions`);
     const text = await fileText(path.join(directory, `${versionHash(version)}.json`));
     if (text === undefined) throw new EpisodeV2Error("historical_version_unavailable");
     const episode = await parseEpisodeV2(JSON.parse(text));
     if (episode.id !== id || episodeVersion(episode) !== version) throw new EpisodeV2Error("record_version_mismatch");
     await validateEpisodeV2References(episode, this.ports);
+    await assertMemoryTransactionReadable(this.#root);
     return { episode, version };
   }
 
   async listEligible(): Promise<EpisodeSnapshot[]> {
+    await assertMemoryTransactionReadable(this.#root);
     const root = await this.#directory(this.#relativeRoot);
     const result: EpisodeSnapshot[] = [];
     for (const entry of (await readdir(root, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name.startsWith(".")) continue;
       if (entry.isSymbolicLink()) throw new EpisodeV2Error("unsafe_record_directory");
       if (!entry.isDirectory()) continue;
-      const snapshot = await this.read(entry.name);
-      if (await this.ports.isCurrentlyEligible(snapshot.episode)) result.push(snapshot);
+      const snapshot = await this.#record(entry.name);
+      if (!snapshot) throw new EpisodeV2Error("record_not_found");
+      if (await this.ports.isCurrentlyEligible(snapshot.episode)) {
+        await validateEpisodeV2References(snapshot.episode, this.ports);
+        result.push(snapshot);
+      }
     }
+    await assertMemoryTransactionReadable(this.#root);
     return result;
   }
 
@@ -140,7 +155,15 @@ export class EpisodeRepository {
     } finally { try { await unlink(staging); } catch (error) { if (!missing(error)) throw error; } }
   }
 
-  async apply(input: { operationId: string; expectedVersion: string | null; episode: EpisodeV2 }): Promise<EpisodeSnapshot> {
+  async apply(input: { operationId: string; expectedVersion: string | null; episode: EpisodeV2; abortSignal?: AbortSignal }): Promise<EpisodeSnapshot> {
+    const frozen = { ...input, episode: JSON.parse(serialize(input.episode)) as EpisodeV2 };
+    return withMemoryMutationLock(this.#root, () => this.#apply(frozen));
+  }
+
+  async #apply(input: { operationId: string; expectedVersion: string | null; episode: EpisodeV2; abortSignal?: AbortSignal }): Promise<EpisodeSnapshot> {
+    const checkActive = () => { if (input.abortSignal?.aborted) throw new EpisodeV2Error("operation_cancelled"); };
+    checkActive();
+    await assertMemoryTransactionReadable(this.#root);
     checkedId(input.operationId);
     checkedId(input.episode.id);
     if (input.expectedVersion !== null) versionHash(input.expectedVersion);
@@ -151,10 +174,8 @@ export class EpisodeRepository {
       expectedVersion: input.expectedVersion, nextVersion, episode };
     const root = await this.#directory(this.#relativeRoot, true);
     const lockFile = path.join(root, ".write-lock");
-    let lock;
-    try { lock = await open(lockFile, "wx", 0o600); }
-    catch (error) { throw new EpisodeV2Error(error instanceof Error && "code" in error && error.code === "EEXIST" ? "write_in_progress" : "lock_unavailable"); }
-    try {
+    if (await fileText(lockFile) !== undefined) throw new EpisodeV2Error("legacy_write_lock_requires_recovery");
+    {
       const operations = await this.#directory(`${this.#relativeRoot}/.operations`, true);
       const operationFile = path.join(operations, `${input.operationId}.json`);
       const appliedFile = path.join(operations, `${input.operationId}.applied.json`);
@@ -172,7 +193,9 @@ export class EpisodeRepository {
         priority: episode.status === "closed" || episode.status === "abandoned" || episode.status === "expired" ? "normal" as const : "critical" as const };
       if (applied !== undefined) {
         const original = await this.readHistorical(episode.id, nextVersion);
+        checkActive();
         await this.ports.persist(persistence);
+        checkActive();
         return original;
       }
       const replay = recorded !== undefined && previous?.version === nextVersion;
@@ -183,6 +206,7 @@ export class EpisodeRepository {
       }
       await validateEpisodeV2References(episode, this.ports);
       if (!await this.ports.isCurrentlyEligible(episode)) throw new EpisodeV2Error("evidence_not_currently_eligible");
+      checkActive();
       await this.#immutable(operationFile, serialize(intent));
       const directory = await this.#directory(relative, true);
       const versions = await this.#directory(`${relative}/.versions`, true);
@@ -194,8 +218,10 @@ export class EpisodeRepository {
         finally { try { await unlink(staging); } catch (error) { if (!missing(error)) throw error; } }
       }
       await this.#immutable(appliedFile, appliedContent);
+      checkActive();
       await this.ports.persist(persistence);
+      checkActive();
       return { episode, version: nextVersion };
-    } finally { await lock.close(); await unlink(lockFile); }
+    }
   }
 }

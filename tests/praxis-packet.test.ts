@@ -136,6 +136,12 @@ test("includes the selected open Episode stage and bounded recovery context", as
       prediction: { possibleActions: { wait: 0.7, ask: 0.3 } },
       recommendation: "Observe before the next reversible step",
     });
+    const withoutPrediction = buildPraxisContextPacket(
+      "继续这个没有预测的事项", { ...relationshipRoute, openEpisodeRef: ref }, loaded,
+      [{ ref, status: "open", summary: "Synthetic no-prediction decision", domains: ["relationship"] }],
+    );
+    assert.ok(withoutPrediction.openEpisode);
+    assert.equal(Object.hasOwn(withoutPrediction.openEpisode, "prediction"), false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

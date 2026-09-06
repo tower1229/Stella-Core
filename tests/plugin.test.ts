@@ -5,6 +5,9 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import plugin from "../src/plugin.js";
+import { EpisodeRepository } from "../src/praxis/episode-repository.js";
+import { memoryRoutingRef } from "../src/praxis/runtime-memory.js";
+import type { EpisodeV2 } from "../src/praxis/episode-v2.js";
 import { coordinateCompletion, completionDraftHash, readCompletionPreparation } from "../src/openclaw/completion.js";
 import {
   createFixture,
@@ -39,6 +42,7 @@ function registerPlugin(
   },
   dataMode: "read_only" | "local_write" | "managed_durable_write" = "read_only",
   errors: string[] = [],
+  assessEvidence?: (params: unknown) => Promise<{ text: string; provider?: string; model?: string }>,
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
@@ -47,8 +51,18 @@ function registerPlugin(
       recoveryRevision,
       agentId: "stella",
       dataMode,
+      ...(dataMode === "managed_durable_write" ? { durabilityRemote: "origin", durabilityBranch: "local/stella-alpha" } : {}),
     },
-    runtime: { version: "2026.8.2", llm: { complete } },
+    runtime: { version: "2026.8.2", llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
+      if (params.purpose === "stella-question-evidence") {
+        if (assessEvidence) return assessEvidence(params);
+        const input = JSON.parse(params.messages![0]!.content.split("\n").at(-1)!) as { provisionalRoute: { responseKind: string; evidenceStatus: string; materialUnknowns: string[] } };
+        return { provider: "synthetic", model: "injected", text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
+          claims: [], unresolvedLeads: input.provisionalRoute.materialUnknowns.map((question) => ({ question, material: true, reason: "Synthetic unknown" })),
+          stoppingReason: "Synthetic configured empty source scope", suggestedResponseKind: input.provisionalRoute.responseKind }) };
+      }
+      return complete(params);
+    } } },
     logger: {
       debug() {},
       info() {},
@@ -59,6 +73,10 @@ function registerPlugin(
     },
     on(name: string, handler: HookHandler) {
       hooks.set(name, handler);
+    },
+    registerGatewayMethod(name: string, handler: HookHandler, options: { scope: string }) {
+      assert.equal(options.scope, "operator.admin");
+      hooks.set(`gateway:${name}`, handler);
     },
   };
   plugin.register(api as never);
@@ -117,6 +135,7 @@ test("plugin requires explicit data mode and managed durability transport", () =
     },
     runtime: { version: "2026.8.2", llm: { complete: async () => ({ text: "{}" }) } },
     on() {},
+    registerGatewayMethod() {},
   };
   assert.throws(() => plugin.register(api as never), /config\.dataMode/);
   assert.throws(
@@ -168,6 +187,68 @@ test("main plugin registers coordinated completion and removes soft critical wri
     assert.ok(hooks.has("reply_dispatch"));
     assert.ok(hooks.has("llm_output"));
     for (const name of ["after_tool_call", "before_agent_finalize", "agent_end"]) assert.equal(hooks.has(name), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("recovery Gateway method rejects missing admin authority and caller-supplied destinations before model access", async () => {
+  const root = await createFixture();
+  try {
+    let modelCalls = 0;
+    const hooks = registerPlugin(root, await initializeFixtureRepository(root), async () => { modelCalls++; throw new Error("Must not call model"); }, "managed_durable_write");
+    for (const [method, prefix] of [["stella.recoverOutcome", "outcome"], ["stella.recoverQuestionEvidence", "question"]]) {
+    const recover = requireHook(hooks, `gateway:${method}`);
+    const operationId = `${prefix}_${"a".repeat(64)}`;
+    for (const request of [
+      { client: null, params: { operationId }, category: "recovery_admin_required" },
+      { client: { connect: { role: "operator", scopes: ["operator.read"] } }, params: { operationId }, category: "recovery_admin_required" },
+      { client: { connect: { role: "operator", scopes: ["operator.admin"] } }, params: { operationId, root: "untrusted" }, category: "invalid_recovery_request" },
+    ]) {
+      let responses = 0;
+      await recover({ ...request, respond(ok: boolean, _payload: unknown, error: { message: string }) {
+        responses++; assert.equal(ok, false); assert.match(error.message, new RegExp(request.category));
+      } }, {});
+      assert.equal(responses, 1);
+    }
+    }
+    assert.equal(modelCalls, 0);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("main outcome route requests evidence clarification without closing an unauthenticated report", async () => {
+  const root = await createFixture();
+  try {
+    const repository = new EpisodeRepository(root, "30_PersonalData/praxis/episodes", {
+      async resolveHistorical() {}, async resolveEvidence() { assert.fail("No action evidence exists"); },
+      async resolveLearning() { assert.fail("No learning exists"); }, async verifyActionEvidence() { return false; },
+      async verifyOutcomeEvidence() { return false; }, async isCurrentlyEligible() { return true; }, async persist() {},
+    });
+    const now = "2026-09-05T00:00:00Z";
+    const open: EpisodeV2 = { schemaVersion: "stella.praxis-episode/v2", id: "praxis-main-clarification", status: "open",
+      createdAt: now, updatedAt: now, recoveryPriority: "important", historicalInputRefs: [], provenance: {},
+      situation: { summary: "Synthetic weekend invitation", domains: ["social"], observations: [] } };
+    const opened = await repository.apply({ operationId: "synthetic-open", expectedVersion: null, episode: open });
+    const advised = await repository.apply({ operationId: "synthetic-advice", expectedVersion: opened.version,
+      episode: { ...open, status: "recommended", decision: { recommendation: "Confirm a suitable time", rationale: [] } } });
+    const episodeRef = memoryRoutingRef({ id: open.id, version: advised.version }, repository.historicalPath(open.id, advised.version));
+    const revision = await initializeFixtureRepository(root);
+    let calls = 0;
+    const hooks = registerPlugin(root, revision, async (params) => {
+      calls++;
+      const purpose = (params as { purpose: string }).purpose;
+      if (purpose !== "stella-core-semantic-routing") return { text: JSON.stringify({ openEpisodeRef: null }) };
+      return { text: JSON.stringify({ mode: "outcome", responseKind: "outcome_ack", evidenceStatus: "sufficient", materialUnknowns: [],
+        domains: ["social"], needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false,
+        outcome: { openEpisodeRef: episodeRef } }) };
+    });
+    await preparedRun(hooks, "outcome-clarification", "后来约成了", (result, gate) => {
+      assert.deepEqual(gate, { outcome: "pass" });
+      assert.match(result?.appendContext ?? "", /"responseKind":"clarification"/);
+      const prepared = readCompletionPreparation("outcome-clarification") as { persistRecommendation?: unknown };
+      assert.equal(prepared.persistRecommendation, undefined);
+    });
+    assert.equal(calls, 2);
+    assert.equal((await repository.read(open.id)).version, advised.version);
+    assert.equal((await execFileAsync("git", ["-C", root, "status", "--porcelain"])).stdout.trim(), "");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -229,6 +310,42 @@ test("local-only advice cannot claim critical durable completion or stage a reco
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("managed advice preparation defers all business writes until coordinated persistence", async () => {
+  const root = await createFixture();
+  try {
+    const revision = await initializeFixtureRepository(root);
+    const hooks = registerPlugin(root, revision, praxisRouteCompletion, "managed_durable_write");
+    await preparedRun(hooks, "managed-prepare", "她两天没回我，我要不要再发一条？", (_prompt, gate) => {
+      assert.deepEqual(gate, { outcome: "pass" });
+      assert.equal(typeof (readCompletionPreparation("managed-prepare") as { persistRecommendation?: unknown }).persistRecommendation, "function");
+    });
+    assert.equal((await readdir(path.join(root, "30_PersonalData/praxis/episodes"))).some((name) => name.startsWith("praxis-") || name === ".staging"), false);
+    const status = await execFileAsync("git", ["-C", root, "status", "--porcelain"]);
+    assert.equal(status.stdout.trim(), "");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("original-evidence judgment can replace provisional advice with clarification without staging an Episode", async () => {
+  const root = await createFixture();
+  try {
+    const revision = await initializeFixtureRepository(root);
+    const hooks = registerPlugin(root, revision, praxisRouteCompletion, "managed_durable_write", [], async () => ({
+      provider: "synthetic", model: "injected", text: JSON.stringify({ status: "material_unknown", claims: [],
+        unresolvedLeads: [{ question: "此前明确约定了什么时候回复？", material: true, reason: "This changes whether the delay contradicts an actual commitment" }],
+        stoppingReason: "No original commitment available in the configured scope", suggestedResponseKind: "clarification" }),
+    }));
+    await preparedRun(hooks, "evidence-clarification", "她两天没回我，我要不要再发一条？", (prompt, gate) => {
+      assert.deepEqual(gate, { outcome: "pass" });
+      const prepared = readCompletionPreparation("evidence-clarification") as { route: { responseKind: string }; persistRecommendation?: unknown };
+      assert.equal(prepared.route.responseKind, "clarification");
+      assert.equal(typeof prepared.persistRecommendation, "function");
+      assert.match(prompt!.appendContext!, /此前明确约定/);
+      assert.doesNotMatch(prompt!.appendContext!, /"responseKind":"action_advice"/);
+    });
+    assert.equal((await execFileAsync("git", ["-C", root, "status", "--porcelain"])).stdout.trim(), "");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("semantic failures remain explicit and exclude raw provider content", async () => {
   const root = await createFixture();
   try {
@@ -249,7 +366,7 @@ test("semantic failures remain explicit and exclude raw provider content", async
 test("migration-required consciousness blocks coordinated admission", async () => {
   const root = await createFixture();
   try {
-    await updateFixtureManifest(root, (manifest) => { manifest.runtimeState.activationStatus = "migration_required"; });
+    await updateFixtureManifest(root, (manifest) => manifest.replace("activationStatus: active", "activationStatus: migration_required"));
     const hooks = registerPlugin(root, await initializeFixtureRepository(root));
     await preparedRun(hooks, "migration", "synthetic", (prompt, gate) => {
       assert.equal(prompt, undefined);

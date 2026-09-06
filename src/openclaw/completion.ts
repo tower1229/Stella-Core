@@ -34,6 +34,7 @@ export class CompletionError extends Error {
 
 type RunPermit = { operationId: string; runId: string; active: boolean; privateOutput?: unknown; preparation?: unknown };
 const permits = new AsyncLocalStorage<RunPermit>();
+const activeResources = new Set<string>();
 
 export function hasCompletionRunPermit(runId: string | undefined): boolean {
   const permit = permits.getStore();
@@ -92,11 +93,16 @@ export async function coordinateCompletion(input: {
   operationId: string;
   runId: string;
   timeoutMs: number;
+  resourceScope?: string;
   abortSignal?: AbortSignal;
 }, ports: CompletionPorts): Promise<CompletionResult> {
   if (!input.operationId || !input.runId || !Number.isSafeInteger(input.timeoutMs) || input.timeoutMs <= 0) {
     throw new CompletionError("invalid_input", "admission");
   }
+  const resourceScope = input.resourceScope ?? input.runId;
+  if (!resourceScope.trim()) throw new CompletionError("invalid_input", "admission");
+  if (activeResources.has(resourceScope)) throw new CompletionError("operation_in_progress", "admission");
+  activeResources.add(resourceScope);
   const controller = new AbortController();
   const permit: RunPermit = { operationId: input.operationId, runId: input.runId, active: true };
   let stage = "generate";
@@ -135,7 +141,9 @@ export async function coordinateCompletion(input: {
   };
   try {
     if (input.abortSignal?.aborted) onAbort();
-    return await Promise.race([aborted, work()]);
+    // Cancellation ends the Host request, not necessarily the underlying write.
+    const drainingWork = work().finally(() => { activeResources.delete(resourceScope); });
+    return await Promise.race([aborted, drainingWork]);
   } catch (cause) {
     if (cause instanceof CompletionError) throw cause;
     throw new CompletionError(stage === "publish" ? "delivery_unknown" : "completion_failed", stage, { cause });

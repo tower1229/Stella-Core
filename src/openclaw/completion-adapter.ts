@@ -28,6 +28,7 @@ export function parsePrivateAssistantDraft(value: unknown): string {
 }
 
 export type CompletionAdapterPorts = {
+  resourceScope(): Promise<string>;
   describeDraft(runId: string, text: string, input: HostInputSnapshot, preparation: unknown): CompletionDraft;
   persist: CompletionPorts["persist"];
   settled(runId: string, result: CompletionResult | undefined): void;
@@ -39,7 +40,6 @@ export function registerCompletionAdapter(
   agentId: string,
   ports: CompletionAdapterPorts,
 ): void {
-  let activeRun: string | undefined;
   api.on("llm_output", (event, ctx) => {
     if (ctx.agentId === agentId) captureCompletionOutput(event.runId, event.lastAssistant);
   }, { priority: 1_000 });
@@ -59,9 +59,7 @@ export function registerCompletionAdapter(
           event.suppressUserDelivery || event.sendPolicy !== "allow") {
         throw new CompletionError("capability_unavailable", "admission");
       }
-      if (activeRun) throw new CompletionError("operation_in_progress", "admission");
       if (ctx.abortSignal?.aborted) throw new CompletionError("cancelled", "admission");
-      activeRun = runId;
       claimed = true;
       const ownership = ctx.onAgentRunStart(runId, undefined, {
         completionSource: "reply-dispatch", getResult: () => ({ terminalOutcome: {
@@ -77,7 +75,8 @@ export function registerCompletionAdapter(
       const model = resolveDefaultModelForAgent({ cfg: ctx.cfg, agentId });
       const prompt = event.ctx.Body;
       if (typeof prompt !== "string" || !prompt.trim()) throw new CompletionError("invalid_input", "admission");
-      result = await coordinateCompletion({ operationId: runId, runId, timeoutMs: 600_000, abortSignal: ctx.abortSignal }, {
+      const resourceScope = await ports.resourceScope();
+      result = await coordinateCompletion({ operationId: runId, runId, resourceScope, timeoutMs: 600_000, abortSignal: ctx.abortSignal }, {
         async generateDraft({ abortSignal }) {
           const generated = await api.runtime.agent.runEmbeddedAgent({
             agentId, sessionId, sessionKey, runId,
@@ -123,7 +122,9 @@ export function registerCompletionAdapter(
       ctx.recordProcessed("error", { reason: `stella_${failure.category}` });
     } finally {
       if (claimed && runId) {
-        try { ports.settled(runId, result); } finally { activeRun = undefined; }
+        try { ports.settled(runId, result); } catch {
+          api.logger.error("Stella completion: cleanup_failed:settled");
+        }
       }
       ctx.markIdle("Stella completion settled");
     }

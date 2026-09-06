@@ -140,7 +140,7 @@ export type OpenEpisodeCandidate = {
   status: "open" | "recommended" | "acted" | "observing";
   summary: string;
   domains: string[];
-  prediction: Prediction;
+  prediction?: Prediction;
   recommendation?: string;
   recoveryPriority?: "normal" | "important";
 };

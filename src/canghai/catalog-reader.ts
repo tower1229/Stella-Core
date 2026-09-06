@@ -4,7 +4,8 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { isRecord } from "../shared/type-guards.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
-import { bytesVersion, objectVersion } from "./content-version.js";
+import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
+import { assertMemoryTransactionReadable } from "./memory-transaction.js";
 
 const run = promisify(execFile);
 const groups = ["sources", "evidence", "policies", "understandings", "works", "changes", "bundles", "coverage"] as const;
@@ -57,7 +58,7 @@ function safeRelative(value: string): string {
   requireCondition(relative && !path.isAbsolute(relative) && !relative.split("/").some((part) => !part || part === "." || part === ".." || part.includes(":")), "unsafe_locator");
   return relative;
 }
-async function readLocal(root: string, relativePath: string): Promise<Buffer> {
+export async function readRepositoryBytes(root: string, relativePath: string): Promise<Buffer> {
   const parts = safeRelative(relativePath).split("/");
   let current = root;
   const rootStat = await lstat(current);
@@ -73,19 +74,38 @@ async function readLocal(root: string, relativePath: string): Promise<Buffer> {
 
 /** Reads a fixed catalog snapshot; it never treats older Git content as current evidence. */
 export class CatalogReader {
+  readonly #plannedObjects = new Map<string, Buffer>();
   readonly #entries = new Map<string, { group: CatalogGroup; entry: CatalogEntry }>();
   private constructor(readonly root: string, readonly catalogPath: string, readonly catalog: MemoryCatalog, readonly catalogHash: string) {
     for (const group of groups) for (const entry of catalog[group]) this.#entries.set(key(entry), { group, entry });
   }
   static async load(root: string, catalogPath: string): Promise<CatalogReader> {
     try {
-      const bytes = await readLocal(path.resolve(root), catalogPath);
+      const bytes = await readRepositoryBytes(path.resolve(root), catalogPath);
       return new CatalogReader(path.resolve(root), safeRelative(catalogPath), parseMemoryCatalog(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))), bytesVersion(bytes));
     } catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("catalog_unavailable"); }
   }
   async assertCurrent(): Promise<void> {
-    try { requireCondition(bytesVersion(await readLocal(this.root, this.catalogPath)) === this.catalogHash, "stale_generation"); }
+    await assertMemoryTransactionReadable(this.root);
+    try { requireCondition(bytesVersion(await readRepositoryBytes(this.root, this.catalogPath)) === this.catalogHash, "stale_generation"); }
     catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("catalog_unavailable"); }
+  }
+  /** Validate derived objects against unchanged original evidence before publishing their catalog. */
+  async validatePreview(catalog: MemoryCatalog, objects: Array<{ path: string; bytes: string }>,
+    validate: (reader: CatalogReader) => Promise<void>): Promise<void> {
+    await this.assertCurrent();
+    const planned = parseMemoryCatalog(structuredClone(catalog));
+    for (const group of ["sources", "evidence", "policies", "coverage", "works", "views"] as const) {
+      requireCondition(canonicalJson(planned[group]) === canonicalJson(this.catalog[group]), "preview_original_evidence_changed");
+    }
+    const preview = new CatalogReader(this.root, this.catalogPath, planned, this.catalogHash);
+    for (const object of objects) {
+      const entry = [...planned.understandings, ...planned.changes, ...planned.bundles].find((entry) => entry.locator.path === object.path);
+      requireCondition(entry && entry.locator.sha256 === bytesVersion(object.bytes) && !preview.#plannedObjects.has(object.path), "invalid_preview_object");
+      preview.#plannedObjects.set(safeRelative(object.path), Buffer.from(object.bytes, "utf8"));
+    }
+    await validate(preview);
+    await this.assertCurrent();
   }
   entry(ref: VersionedRef, group?: CatalogGroup): CatalogEntry {
     const found = this.#entries.get(key(ref));
@@ -110,7 +130,7 @@ export class CatalogReader {
     requireCondition(entry.status !== "removed", "source_removed");
     if (mode === "current") requireCondition(this.eligible(ref), "evidence_not_currently_eligible");
     try {
-      const bytes = await readLocal(this.root, entry.locator.path);
+      const bytes = this.#plannedObjects.get(entry.locator.path) ?? await readRepositoryBytes(this.root, entry.locator.path);
       requireCondition(bytesVersion(bytes) === entry.locator.sha256, "locator_digest_mismatch");
       const object: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       requireCondition(isRecord(object) && object.id === ref.id && typeof object.schemaVersion === "string" &&
@@ -129,7 +149,7 @@ export class CatalogReader {
       Number.isSafeInteger(payload.bytes) && Number(payload.bytes) >= 0 && validVersion(payload.sha256), "invalid_payload");
     let bytes: Buffer;
     try {
-      if (payload.revision === undefined) bytes = await readLocal(this.root, payload.path);
+      if (payload.revision === undefined) bytes = await readRepositoryBytes(this.root, payload.path);
       else {
         requireCondition(typeof payload.revision === "string" && /^[a-f0-9]{40}$/.test(payload.revision), "invalid_payload_revision");
         const relative = safeRelative(payload.path);

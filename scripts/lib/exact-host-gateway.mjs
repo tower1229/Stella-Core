@@ -67,7 +67,8 @@ export async function startExactHostGateway({ cwd, env, openclawBin }) {
 
   try {
     let lastError;
-    for (let attempt = 0; attempt < 240; attempt += 1) {
+    const startupDeadline = Date.now() + 180_000;
+    for (let attempt = 0; attempt < 240 && Date.now() < startupDeadline; attempt += 1) {
       if (child.exitCode !== null || child.signalCode !== null) break;
       try {
         await execFileAsync(process.execPath, [
@@ -79,6 +80,7 @@ export async function startExactHostGateway({ cwd, env, openclawBin }) {
         ], {
           cwd,
           env: gatewayEnv,
+          timeout: Math.max(1, Math.min(15_000, startupDeadline - Date.now())),
         });
         return {
           env: gatewayEnv,

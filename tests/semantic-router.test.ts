@@ -183,8 +183,8 @@ test("semantic router associates an outcome with exactly one available open Epis
       return { text: JSON.stringify({ openEpisodeRef: episodeRef }) };
     }
     assert.match(systemPrompt, /praxis-1\/episode\.json/);
-    assert.match(systemPrompt, /source must be exactly user_report/);
-    assert.match(systemPrompt, /needsTwin, needsFramework, needsReality, and needsExternalResearch must all be false/);
+    assert.match(systemPrompt, /subsequent original-evidence verification phase/);
+    assert.match(systemPrompt, /Set all context needs false/);
     return {
       text: JSON.stringify({
         mode: "outcome", responseKind: "outcome_ack", evidenceStatus: "sufficient", materialUnknowns: [],
@@ -195,13 +195,6 @@ test("semantic router associates an outcome with exactly one available open Epis
         needsExternalResearch: false,
         outcome: {
           openEpisodeRef: episodeRef,
-          actualAction: "waited",
-          source: "user_report",
-          observations: ["the other person replied later"],
-          result: "waiting avoided pressure",
-          predictionAssessment: "countered",
-          praxisLearning: "waiting can better preserve a low-pressure goal",
-          observedAt: "2026-09-03T02:00:00.000Z",
         },
       }),
     };
@@ -216,7 +209,19 @@ test("semantic router associates an outcome with exactly one available open Epis
 
   assert.equal(route.mode, "outcome");
   assert.equal(route.outcome?.openEpisodeRef, episodeRef);
-  assert.equal(route.outcome?.predictionAssessment, "countered");
+  assert.deepEqual(route.outcome, { openEpisodeRef: episodeRef });
+});
+
+test("outcome routing permits clarification but rejects unverified action and learning fields", async () => {
+  const ref = "path:episodes/pending.json";
+  const candidates = { frameworks: [], twin: [], personalPraxis: [], openEpisodes: [{ ref, purpose: "Synthetic pending invitation" }] };
+  const route = { mode: "outcome", responseKind: "clarification", evidenceStatus: "material_unknown", materialUnknowns: ["Which original result record supports this report?"],
+    domains: ["social"], needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false, outcome: { openEpisodeRef: ref } };
+  const create = (outcome: unknown) => createSemanticRouter(async ({ purpose }) => ({ text: JSON.stringify(
+    purpose === "stella-core-open-episode-selection" ? { openEpisodeRef: null } : { ...route, outcome }) }));
+  assert.equal((await create(route.outcome)("Synthetic uncertain report", candidates)).responseKind, "clarification");
+  await assert.rejects(create({ ...route.outcome, actualAction: "imagined action", praxisLearning: "invented strategy" })("Synthetic uncertain report", candidates),
+    /Stella semantic routing failed/);
 });
 
 test("deep Praxis fails explicitly while external research is unavailable", async () => {

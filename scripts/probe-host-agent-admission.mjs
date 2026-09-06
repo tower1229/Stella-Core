@@ -49,6 +49,7 @@ export default { id: 'stella-admission-probe', register(api) {
       if (hasCompletionRunPermit(ctx.runId)) recordCompletionPreparation(ctx.runId, { runId: ctx.runId, marker: 'synthetic-preparation' });
     });
     registerCompletionAdapter(api, 'probe', {
+      async resourceScope() { return ${JSON.stringify(workspace)}; },
       describeDraft(runId, text, input, preparation) {
         if (preparation?.runId !== runId || preparation?.marker !== 'synthetic-preparation') throw new Error('Synthetic preparation correlation failed');
         record('exact_preparation_captured');

@@ -1,0 +1,90 @@
+import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
+import { objectVersion } from "../canghai/content-version.js";
+import type { ResponseKind } from "../openclaw/completion.js";
+import { isRecord } from "../shared/type-guards.js";
+import type { EpisodeEvidenceResolver } from "./episode-evidence.js";
+import type { VersionedRef } from "./episode-v2.js";
+
+export type EvidenceBundle = VersionedRef & {
+  schemaVersion: "stella.evidence-bundle/v1";
+  requestId: string;
+  revision: string;
+  generationId: string;
+  status: "sufficient" | "material_unknown" | "conflicting";
+  claims: Array<{ id: string; statement: string; kind: "fact" | "inference" | "proposal";
+    support: VersionedRef[]; counter: VersionedRef[]; unresolved: string[]; scope: string }>;
+  searchedCoverageRefs: VersionedRef[];
+  readEvidenceRefs: VersionedRef[];
+  unresolvedLeads: Array<{ question: string; material: boolean; reason: string }>;
+  stopping: { reason: string; modelRef: string; promptVersion: string };
+  suggestedResponseKind: ResponseKind;
+};
+
+const key = (ref: VersionedRef) => JSON.stringify([ref.id, ref.version]);
+function check(condition: unknown, category: string): asserts condition {
+  if (!condition) throw new CatalogError(category);
+}
+function text(value: unknown): value is string { return typeof value === "string" && Boolean(value.trim()); }
+function exact(value: Record<string, unknown>, keys: string[]): boolean {
+  return Object.keys(value).length === keys.length && keys.every((name) => Object.hasOwn(value, name));
+}
+function refs(value: unknown): value is VersionedRef[] {
+  return Array.isArray(value) && value.every((ref) => validMemoryRef(ref) && exact(ref, ["id", "version"])) &&
+    new Set(value.map(key)).size === value.length;
+}
+
+/** Structural validation does not certify the model's claim of evidence sufficiency. */
+export function parseEvidenceBundle(value: unknown): EvidenceBundle {
+  check(isRecord(value) && exact(value, ["schemaVersion", "id", "version", "requestId", "revision", "generationId", "status",
+    "claims", "searchedCoverageRefs", "readEvidenceRefs", "unresolvedLeads", "stopping", "suggestedResponseKind"]) &&
+    value.schemaVersion === "stella.evidence-bundle/v1" && validMemoryRef(value) && text(value.requestId) &&
+    typeof value.revision === "string" && /^[a-f0-9]{40}$/.test(value.revision) && text(value.generationId) &&
+    ["sufficient", "material_unknown", "conflicting"].includes(String(value.status)) &&
+    ["answer", "clarification", "collaboration", "action_advice", "outcome_ack"].includes(String(value.suggestedResponseKind)) &&
+    refs(value.searchedCoverageRefs) && refs(value.readEvidenceRefs) && Array.isArray(value.claims) &&
+    Array.isArray(value.unresolvedLeads) && isRecord(value.stopping) && exact(value.stopping, ["reason", "modelRef", "promptVersion"]) &&
+    Object.values(value.stopping).every(text), "invalid_evidence_bundle");
+  const read = new Set(value.readEvidenceRefs.map(key));
+  const claimIds = new Set<string>();
+  for (const claim of value.claims) {
+    check(isRecord(claim) && exact(claim, ["id", "statement", "kind", "support", "counter", "unresolved", "scope"]) &&
+      text(claim.id) && !claimIds.has(claim.id) && text(claim.statement) && text(claim.scope) &&
+      ["fact", "inference", "proposal"].includes(String(claim.kind)) && refs(claim.support) && refs(claim.counter) &&
+      Array.isArray(claim.unresolved) && claim.unresolved.every(text), "invalid_bundle_claim");
+    claimIds.add(claim.id);
+    check([...claim.support, ...claim.counter].every((ref) => read.has(key(ref))), "bundle_claim_evidence_not_read");
+    check(claim.kind === "proposal" || claim.support.length > 0 || claim.unresolved.length > 0, "unsupported_bundle_claim");
+  }
+  for (const lead of value.unresolvedLeads) {
+    check(isRecord(lead) && exact(lead, ["question", "material", "reason"]) && text(lead.question) &&
+      typeof lead.material === "boolean" && text(lead.reason), "invalid_bundle_lead");
+  }
+  check(value.status !== "sufficient" || !value.unresolvedLeads.some((lead) => lead.material), "bundle_material_unknown_unresolved");
+  check(value.status !== "material_unknown" || value.unresolvedLeads.some((lead) => lead.material), "bundle_material_unknown_missing");
+  check(objectVersion(value) === value.version, "object_version_mismatch");
+  return value as EvidenceBundle;
+}
+
+export type EvidenceBundleBinding = {
+  bundleRef: VersionedRef; requestId: string; revision: string; generationId: string;
+};
+
+/** Reload persisted originals under the caller's current policy and historical cutoff. */
+export async function loadEvidenceBundle(resolver: EpisodeEvidenceResolver, binding: EvidenceBundleBinding) {
+  const reader = resolver.reader;
+  const bundle = parseEvidenceBundle(await reader.read(binding.bundleRef, "bundles"));
+  check(bundle.requestId === binding.requestId && bundle.revision === binding.revision &&
+    bundle.generationId === binding.generationId && bundle.generationId === reader.catalog.generationId, "bundle_context_mismatch");
+  const dependencies = new Set(reader.entry(binding.bundleRef, "bundles").dependencies.map(key));
+  check([...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs].every((ref) => dependencies.has(key(ref))), "undeclared_object_dependency");
+  const coverage = [];
+  for (const ref of bundle.searchedCoverageRefs) {
+    const record = await reader.read(ref, "coverage");
+    check(record.schemaVersion === "stella.archive-coverage/v1", "invalid_archive_coverage");
+    coverage.push(record);
+  }
+  const originalEvidence = [];
+  for (const ref of bundle.readEvidenceRefs) originalEvidence.push(await resolver.readEvidence(ref));
+  await reader.assertCurrent();
+  return { bundle, coverage, originalEvidence };
+}

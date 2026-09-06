@@ -5,6 +5,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { CatalogError, CatalogReader, parseMemoryCatalog, validMemoryRef, type MemoryCatalog } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import type { HostInputArchive } from "./host-input-archive.js";
+import { withMemoryMutationLock } from "./memory-transaction.js";
 
 type ArchiveWriterPorts = {
   persist(paths: string[], operationId: string): Promise<void>;
@@ -51,6 +52,15 @@ export async function persistHostInputArchive(input: {
   reader: CatalogReader; archive: HostInputArchive; operationId: string;
   purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
 }, ports: ArchiveWriterPorts): Promise<{ generationId: string; sourceRef: HostInputArchive["sourceRef"]; evidenceRefs: HostInputArchive["evidenceRefs"] }> {
+  const frozen = { ...input, archive: JSON.parse(canonicalJson(input.archive)) as HostInputArchive,
+    purpose: { ...input.purpose } };
+  return withMemoryMutationLock(input.reader.root, () => persistArchive(frozen, ports));
+}
+
+async function persistArchive(input: {
+  reader: CatalogReader; archive: HostInputArchive; operationId: string;
+  purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
+}, ports: ArchiveWriterPorts): Promise<{ generationId: string; sourceRef: HostInputArchive["sourceRef"]; evidenceRefs: HostInputArchive["evidenceRefs"] }> {
   requireValue(/^[a-zA-Z][a-zA-Z0-9_-]{0,199}$/.test(input.operationId), "invalid_archive_operation_id");
   const archive: HostInputArchive = JSON.parse(canonicalJson(input.archive));
   const inputHash = bytesVersion(canonicalJson({ archive, purpose: input.purpose }));
@@ -64,9 +74,8 @@ export async function persistHostInputArchive(input: {
   }
   const { reader } = input;
   const lockPath = await location(reader.root, `${reader.catalogPath}.write-lock`);
-  let lock;
-  try { lock = await open(lockPath, "wx", 0o600); } catch { throw new CatalogError("archive_write_in_progress"); }
-  try {
+  requireValue(await optionalText(lockPath) === undefined, "legacy_archive_lock_requires_recovery");
+  {
     const operationPath = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${input.operationId}.json`);
     const operationFile = await location(reader.root, operationPath, true);
     const expectedPaths = [reader.catalogPath, operationPath, archive.payload.path, ...archive.objects.map((object) => object.entry.locator.path)];
@@ -118,5 +127,5 @@ export async function persistHostInputArchive(input: {
     await publishFile(await location(reader.root, reader.catalogPath), canonicalJson(intent.after), true);
     await ports.persist(intent.paths, input.operationId);
     return { generationId: intent.after.generationId, sourceRef: archive.sourceRef, evidenceRefs: archive.evidenceRefs };
-  } finally { await lock.close(); await unlink(lockPath); }
+  }
 }

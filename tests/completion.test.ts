@@ -146,6 +146,43 @@ test("delivery unknown is preserved and never automatically resent", async () =>
   assert.equal(result.delivery.status, "unknown");
   assert.equal(sends, 1);
 });
+
+test("resource admission stays locked after cancellation until the underlying persistence drains", async () => {
+  const controller = new AbortController();
+  let release!: () => void;
+  let started!: () => void;
+  const blocked = new Promise<void>((resolve) => { release = resolve; });
+  const entered = new Promise<void>((resolve) => { started = resolve; });
+  const scoped = { ...input, resourceScope: "synthetic-shared-canghai" };
+  const pending = coordinateCompletion({ ...scoped, abortSignal: controller.signal }, {
+    ...ports([]),
+    async persist() { started(); await blocked; return receipt; },
+    async publishFinal() { assert.fail("Cancelled persistence must not publish"); },
+  });
+  await entered;
+  const assertBusy = () => assert.rejects(coordinateCompletion({ ...scoped, runId: "other-run" }, {
+    ...ports([]), async generateDraft() { assert.fail("Busy resource must not generate"); },
+  }), (error: unknown) => error instanceof CompletionError && error.category === "operation_in_progress");
+  await assertBusy();
+  controller.abort();
+  await assert.rejects(pending, (error: unknown) => error instanceof CompletionError && error.category === "cancelled");
+  await assertBusy();
+  const other = await coordinateCompletion({ ...input, resourceScope: "independent-canghai" }, ports([]));
+  assert.equal(other.delivery.status, "confirmed");
+  release();
+  await delay(0);
+  assert.equal((await coordinateCompletion(scoped, ports([]))).delivery.status, "confirmed");
+});
+
+test("resource admission is released after generation failure and pre-cancellation", async () => {
+  const scoped = { ...input, resourceScope: "synthetic-failed-canghai" };
+  await assert.rejects(coordinateCompletion(scoped, {
+    ...ports([]), async generateDraft() { throw new Error("synthetic"); },
+  }));
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(coordinateCompletion({ ...scoped, abortSignal: controller.signal }, ports([])));
+  assert.equal((await coordinateCompletion(scoped, ports([]))).delivery.status, "confirmed");
+});
 test("pre-cancelled operations never generate", async () => {
   const controller = new AbortController(); controller.abort();
   const events: string[] = [];

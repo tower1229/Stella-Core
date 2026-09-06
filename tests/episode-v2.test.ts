@@ -45,8 +45,10 @@ test("v2 resolves exact historical versions independently and requires semantic 
     async resolveHistorical(ref: typeof evidence) { seen.push(ref.version); },
     async resolveEvidence() {}, async resolveLearning() {},
     async verifyActionEvidence() { return true; },
+    async verifyOutcomeEvidence() { return true; },
   };
   await validateEpisodeV2References(closed(), ports);
   assert.deepEqual(seen, [evidence.version]);
+  await assert.rejects(validateEpisodeV2References(closed(), { ...ports, async verifyOutcomeEvidence() { return false; } }), /unsupported_reported_outcome/);
   await assert.rejects(validateEpisodeV2References(closed(), { ...ports, async verifyActionEvidence() { return false; } }), /unsupported_actual_action/);
 });

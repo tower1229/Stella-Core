@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -25,6 +26,28 @@ export async function createFixture(): Promise<string> {
     "schema_version: stella.praxis-playbook-registry/v1alpha\nitems: []\n",
     "utf8",
   );
+
+  const policy = { schemaVersion: "stella.source-policy/v1", id: "policy-fixture", ownerId: "owner-fixture",
+    readPurposes: ["alpha_praxis"], derivePurposes: ["alpha_praxis"], deliveryScopes: ["host-chat"], retention: "retain", authorityEvidenceRefs: [] };
+  const policyRef = { id: policy.id, version: objectVersion(policy) };
+  const policyBytes = canonicalJson(policy);
+  await mkdir(path.join(root, "30_PersonalData/memory"), { recursive: true });
+  await writeFile(path.join(root, "30_PersonalData/memory/policy.json"), policyBytes);
+  await writeFile(path.join(root, "30_PersonalData/memory/catalog.json"), canonicalJson({
+    schemaVersion: "stella.memory-catalog/v1", generationId: "fixture-empty-v2", parentGenerationId: null,
+    sources: [], evidence: [], understandings: [], works: [], changes: [], bundles: [], coverage: [], views: [],
+    policies: [{ ...policyRef, status: "current", dependencies: [], locator: { path: "30_PersonalData/memory/policy.json", sha256: bytesVersion(policyBytes) } }],
+  }));
+  await writeFile(path.join(root, "50_PersonalAgent/stella/praxis-binding.json"), canonicalJson({
+    schemaVersion: "stella.alpha-praxis-binding/v2", archive: { policyRef, objectRoot: "30_PersonalData/memory/objects", payloadRoot: "30_PersonalData/host-archive" },
+    purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, referenceBindings: [],
+  }));
+  await writeFile(path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml"), [
+    "schema_version: stella.runtime-profile/v1", "contract_profile: alpha_praxis", "agent_id: stella", "language: zh-CN", "timezone: Asia/Shanghai",
+    "memory:", "  catalog_ref: path:30_PersonalData/memory/catalog.json", "  semantic_provider: synthetic", "  required_views: []", "  archive_max_rpo_seconds: 300",
+    "capabilities:", "  - id: transcript_archive", "    required: true", "    adapter_id: openclaw-transcript-2026.8.2", "    adapter_version: '1'",
+    "    config_ref: path:50_PersonalAgent/stella/praxis-binding.json", "    required_secret_refs: []",
+  ].join("\n") + "\n");
 
   await mkdir(path.join(root, "30_PersonalData/praxis/episodes"), { recursive: true });
   await writeFile(path.join(root, "30_PersonalData/praxis/episodes/.gitkeep"), "", "utf8");

@@ -31,6 +31,7 @@ function ports(overrides: Partial<EpisodeRepositoryPorts> = {}): EpisodeReposito
   return { async resolveHistorical(value) { assert.deepEqual(value, ref); },
     async resolveEvidence(value) { assert.deepEqual(value, ref); }, async resolveLearning() {},
     async verifyActionEvidence() { return true; }, async isCurrentlyEligible() { return true; },
+    async verifyOutcomeEvidence() { return true; },
     async persist() {}, ...overrides };
 }
 async function fixture(t: { after(fn: () => Promise<void>): void }, overrides: Partial<EpisodeRepositoryPorts> = {}) {
@@ -56,6 +57,17 @@ test("v2 repository persists no-prediction lifecycle, historical versions and ex
   assert.equal((await readdir(path.join(root, "episodes/praxis-synthetic/.versions"))).length, 3);
   assert.equal((await readdir(path.join(root, "episodes/praxis-synthetic"))).includes("prediction.json"), false);
   assert.deepEqual(writes.map((write) => write.priority), ["critical", "critical", "normal", "critical"]);
+});
+
+test("legacy ownerless Episode locks require explicit recovery rather than silent deletion", async (t) => {
+  const { root, repository } = await fixture(t);
+  const opened = await repository.apply({ operationId: "op-open", expectedVersion: null, episode: initial() });
+  const legacy = path.join(root, "episodes", ".write-lock");
+  await writeFile(legacy, "");
+  await assert.rejects(repository.apply({ operationId: "op-advice", expectedVersion: opened.version, episode: recommended() }),
+    /legacy_write_lock_requires_recovery/);
+  assert.equal(await readFile(legacy, "utf8"), "");
+  assert.equal((await repository.read(initial().id)).version, opened.version);
 });
 
 test("v2 repository rejects stale CAS and operation reuse without overwriting", async (t) => {
@@ -96,6 +108,33 @@ test("v2 repository separates historical integrity from current evidence eligibi
   await assert.rejects(repository.apply({ operationId: "op-advice", expectedVersion: opened.version, episode: recommended() }), /evidence_not_currently_eligible/);
 });
 
+test("normal recall excludes invalidated Episodes before rereading their removed evidence", async (t) => {
+  let eligible = true;
+  let historicalReads = 0;
+  const { repository } = await fixture(t, {
+    async isCurrentlyEligible() { return eligible; },
+    async resolveHistorical() { historicalReads++; if (!eligible) throw new Error("Removed evidence must not be reread"); },
+  });
+  await repository.apply({ operationId: "op-open", expectedVersion: null, episode: initial() });
+  eligible = false;
+  historicalReads = 0;
+  assert.deepEqual(await repository.listEligible(), []);
+  assert.equal(historicalReads, 0);
+});
+
+test("cancellation during evidence validation cannot create an Episode or call durability", async (t) => {
+  const controller = new AbortController();
+  let persisted = false;
+  const { root, repository } = await fixture(t, {
+    async resolveHistorical() { controller.abort(); },
+    async persist() { persisted = true; },
+  });
+  await assert.rejects(repository.apply({ operationId: "cancelled", expectedVersion: null, episode: initial(), abortSignal: controller.signal }), /operation_cancelled/);
+  assert.equal(persisted, false);
+  await assert.rejects(readFile(path.join(root, "episodes/praxis-synthetic/episode.json")), { code: "ENOENT" });
+  assert.deepEqual(await readdir(path.join(root, "episodes/.operations")), []);
+});
+
 test("v2 repository verifies immutable prediction and rejects damaged history", async (t) => {
   const { root, repository } = await fixture(t);
   const episode: EpisodeV2 = { ...initial(), twin: { prediction: { possibleActions: { wait: 1 }, likelyInterpretations: [], keyFactors: [] } } };
@@ -113,7 +152,7 @@ test("v2 repository refuses v1 activation, path traversal and concurrent ownersh
   const first = repository.apply({ operationId: "op-open", expectedVersion: null, episode: initial() });
   await ready;
   const other = new EpisodeRepository(root, "episodes", ports());
-  await assert.rejects(other.apply({ operationId: "op-other", expectedVersion: null, episode: initial() }), /write_in_progress/);
+  await assert.rejects(other.apply({ operationId: "op-other", expectedVersion: null, episode: initial() }), /memory_transaction_in_progress/);
   release(); await first;
   assert.throws(() => new EpisodeRepository(root, "../outside", ports()), /unsafe_episode_root/);
   await assert.rejects(repository.apply({ operationId: "../outside", expectedVersion: null, episode: initial() }), /unsafe_record_id/);

@@ -64,6 +64,7 @@ export async function parseEpisodeV2(value: unknown): Promise<EpisodeV2> {
 export async function validateEpisodeV2References(episode: EpisodeV2, ports: {
   resolveHistorical(ref: VersionedRef): Promise<void>;
   verifyActionEvidence(actual: NonNullable<EpisodeV2["actual"]>): Promise<boolean>;
+  verifyOutcomeEvidence(actual: NonNullable<EpisodeV2["actual"]>, outcome: NonNullable<EpisodeV2["outcome"]>): Promise<boolean>;
   resolveEvidence(ref: VersionedRef): Promise<void>;
   resolveLearning(ref: VersionedRef): Promise<void>;
 }): Promise<void> {
@@ -76,6 +77,9 @@ export async function validateEpisodeV2References(episode: EpisodeV2, ports: {
   for (const ref of [...(episode.actual?.evidenceRefs ?? []), ...(episode.outcome?.evidenceRefs ?? []),
     ...(episode.learning?.evidenceRefs ?? []), ...(episode.retrospective?.evidenceRefs ?? [])]) await ports.resolveEvidence(ref);
   if (episode.actual && !await ports.verifyActionEvidence(episode.actual)) throw new EpisodeV2Error("unsupported_actual_action");
+  if (episode.outcome && (!episode.actual || !await ports.verifyOutcomeEvidence(episode.actual, episode.outcome))) {
+    throw new EpisodeV2Error("unsupported_reported_outcome");
+  }
   for (const ref of [...(episode.learning?.twin ?? []), ...(episode.learning?.praxis ?? [])]) await ports.resolveLearning(ref);
 }
 

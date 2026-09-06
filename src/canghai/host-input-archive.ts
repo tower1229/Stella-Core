@@ -11,7 +11,7 @@ export type HostInputArchive = {
   sourceRef: VersionedRef; evidenceRefs: VersionedRef[]; coverageRef: VersionedRef;
   payload: { path: string; bytes: string; sha256: string }; objects: ArchiveObject[];
 };
-function stableId(prefix: string, identity: string): string {
+export function stableId(prefix: string, identity: string): string {
   const digest = createHash("sha256").update(identity).digest();
   // UUIDv8 is deterministic for this adapter's upstream identity, independent of file location.
   digest[6] = (digest[6]! & 0x0f) | 0x80;
