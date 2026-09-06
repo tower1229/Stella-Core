@@ -273,6 +273,7 @@ try {
   ];
   const ordinaryRoute = {
     mode: "ordinary",
+    responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
     domains: ["general"],
     needsTwin: false,
     needsFramework: false,
@@ -281,6 +282,7 @@ try {
   };
   const praxisRoute = {
     mode: "praxis",
+    responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [],
     domains: ["relationship"],
     stakes: "medium",
     reversibility: "high",
@@ -307,6 +309,7 @@ try {
   };
   const twinRoute = {
     mode: "twin",
+    responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
     domains: ["identity"],
     needsTwin: true,
     needsFramework: false,
@@ -630,6 +633,7 @@ try {
     `${pathToFileURL(path.join(installedRoot, "dist", "src", "acceptance", "recovery-drill.js")).href}?smoke=${Date.now()}`
   );
   const recoveryReport = await installedRecovery.runRecoveryDrill({
+    requiredCoverage: { praxisLearning: true, importantOpenState: true },
     canghaiRoot: syntheticCangHaiRoot,
     recoveryRevision: syntheticCangHaiRevision,
     coreVersion: installedPlugin.STELLA_CORE_COMPATIBILITY_VERSION,

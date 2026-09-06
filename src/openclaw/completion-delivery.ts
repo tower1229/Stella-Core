@@ -6,7 +6,6 @@ type SettledCounts = {
 };
 export type CompletionDispatcher = {
   supportsSettledReceipt?: true;
-  appendBeforeDeliver?: (hook: (payload: { text?: string }) => { text?: string } | null) => void;
   sendFinalReply(payload: { text: string }): boolean;
   markComplete(): void;
   waitForIdle(): Promise<void | { counts: { final: SettledCounts }; anyVisibleDelivered: boolean }>;
@@ -19,11 +18,12 @@ export async function publishCompletionDraft(input: {
   dispatcher: CompletionDispatcher;
 }): Promise<CompletionResult["delivery"]> {
   const { dispatcher, abortSignal } = input;
-  if (!dispatcher.supportsSettledReceipt || !dispatcher.appendBeforeDeliver) {
+  if (!dispatcher.supportsSettledReceipt) {
     throw new CompletionError("capability_unavailable", "publish");
   }
   if (abortSignal.aborted) throw new CompletionError("cancelled", "publish");
-  dispatcher.appendBeforeDeliver((payload) => abortSignal.aborted ? null : payload);
+  // reply_dispatch exposes an abort-aware facade, not the underlying dispatcher hooks.
+  // After queue admission, cancellation cannot prove that delivery was retracted.
   const deliveryId = `${input.operationId}:${input.draft.draftId}`;
   if (!dispatcher.sendFinalReply({ text: input.draft.text })) return { deliveryId, status: "failed" };
   dispatcher.markComplete();

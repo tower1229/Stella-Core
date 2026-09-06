@@ -124,7 +124,7 @@ test("restores Level 3 continuity from one exact CangHai revision", async () => 
   }
 });
 
-test("does not treat an ordinary open episode as important recovery state", async () => {
+test("allows empty important state but does not substitute ordinary state for fixture coverage", async () => {
   const root = await createFixture();
   try {
     await addPraxisContinuityState(root);
@@ -133,17 +133,50 @@ test("does not treat an ordinary open episode as important recovery state", asyn
     episode.recoveryPriority = "normal";
     await writeFile(episodePath, `${JSON.stringify(episode, null, 2)}\n`);
     const revision = await initializeFixtureRepository(root);
+    const report = await runRecoveryDrill({
+      canghaiRoot: root,
+      recoveryRevision: revision,
+      coreVersion: "3.0.0-alpha.0",
+      hostVersion: "2026.8.2",
+      rebuild: async (target) => ({ target, evidence: `rebuilt:${target}` }),
+      verifyContinuity: async () => ({ accepted: true, evidence: ["probe"] }),
+    });
+    assert.deepEqual(report.structuralEvidence.openEpisodeRefs, []);
     await assert.rejects(
       runRecoveryDrill({
         canghaiRoot: root,
         recoveryRevision: revision,
         coreVersion: "3.0.0-alpha.0",
         hostVersion: "2026.8.2",
+        requiredCoverage: { praxisLearning: true, importantOpenState: true },
         rebuild: async (target) => ({ target, evidence: `rebuilt:${target}` }),
         verifyContinuity: async () => ({ accepted: true, evidence: ["probe"] }),
       }),
       /important open Praxis state/,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("restores legal empty Episode and learning sets without fabricating coverage", async () => {
+  const root = await createFixture();
+  try {
+    const revision = await initializeFixtureRepository(root);
+    const options = {
+      canghaiRoot: root,
+      recoveryRevision: revision,
+      coreVersion: "3.0.0-alpha.0",
+      hostVersion: "2026.8.2",
+      rebuild: async (target: string) => ({ target, evidence: `rebuilt:${target}` }),
+      verifyContinuity: async () => ({ accepted: true, evidence: ["empty state verified"] }),
+    };
+    const report = await runRecoveryDrill(options);
+    assert.deepEqual(report.structuralEvidence.praxisLearningRefs, []);
+    assert.deepEqual(report.structuralEvidence.openEpisodeRefs, []);
+    await assert.rejects(runRecoveryDrill({
+      ...options, requiredCoverage: { praxisLearning: true, importantOpenState: true },
+    }), /missing durable Praxis learning/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

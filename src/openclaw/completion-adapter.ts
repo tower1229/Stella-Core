@@ -1,0 +1,132 @@
+import { randomUUID } from "node:crypto";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import { resolveAgentWorkspaceDir, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
+import { getSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
+import {
+  CompletionError, coordinateCompletion, captureCompletionOutput, readCompletionOutput, readCompletionPreparation,
+  type CompletionDraft, type CompletionPorts, type CompletionResult,
+} from "./completion.js";
+import { publishCompletionDraft } from "./completion-delivery.js";
+import { isRecord } from "../shared/type-guards.js";
+import { captureHostInput, type HostInputSnapshot } from "./host-input.js";
+
+export function parsePrivateAssistantDraft(value: unknown): string {
+  if (!isRecord(value) || value.role !== "assistant" || value.stopReason !== "stop" ||
+      value.phase === "commentary" || !Array.isArray(value.content)) {
+    throw new CompletionError("invalid_private_draft", "generate");
+  }
+  const text: string[] = [];
+  for (const part of value.content) {
+    if (!isRecord(part)) throw new CompletionError("invalid_private_draft", "generate");
+    if (part.type === "thinking") continue;
+    if (part.type !== "text" || typeof part.text !== "string") throw new CompletionError("unsupported_final_payload", "generate");
+    text.push(part.text);
+  }
+  const result = text.join("\n");
+  if (!result.trim()) throw new CompletionError("empty_private_draft", "generate");
+  return result;
+}
+
+export type CompletionAdapterPorts = {
+  describeDraft(runId: string, text: string, input: HostInputSnapshot, preparation: unknown): CompletionDraft;
+  persist: CompletionPorts["persist"];
+  settled(runId: string, result: CompletionResult | undefined): void;
+};
+
+/** The Alpha text-only adapter uses the Host loop and the original Host session. */
+export function registerCompletionAdapter(
+  api: OpenClawPluginApi,
+  agentId: string,
+  ports: CompletionAdapterPorts,
+): void {
+  let activeRun: string | undefined;
+  api.on("llm_output", (event, ctx) => {
+    if (ctx.agentId === agentId) captureCompletionOutput(event.runId, event.lastAssistant);
+  }, { priority: 1_000 });
+  api.on("reply_dispatch", async (event, ctx) => {
+    const sessionKey = event.sessionKey ?? event.ctx.SessionKey;
+    if (!sessionKey?.startsWith(`agent:${agentId}:`)) return;
+    const runId = event.runId;
+    let result: CompletionResult | undefined;
+    let terminalOutcome: "completed" | "failed" = "failed";
+    let terminalError: string | undefined;
+    let queued = false;
+    let claimed = false;
+    try {
+      if (!runId || ctx.dispatchKind !== "agent" || !ctx.dispatcher.supportsSettledReceipt ||
+          !ctx.onAgentRunStart || !ctx.userTurnTranscriptRecorder ||
+          event.images?.length || event.inboundAudio || event.isTailDispatch ||
+          event.suppressUserDelivery || event.sendPolicy !== "allow") {
+        throw new CompletionError("capability_unavailable", "admission");
+      }
+      if (activeRun) throw new CompletionError("operation_in_progress", "admission");
+      if (ctx.abortSignal?.aborted) throw new CompletionError("cancelled", "admission");
+      activeRun = runId;
+      claimed = true;
+      const ownership = ctx.onAgentRunStart(runId, undefined, {
+        completionSource: "reply-dispatch", getResult: () => ({ terminalOutcome: {
+          reason: terminalOutcome, status: terminalOutcome === "completed" ? "ok" : "error", error: terminalError,
+        } }),
+      });
+      if (ownership !== "reply-dispatch") throw new CompletionError("capability_unavailable", "admission");
+      const entry = getSessionEntry({ agentId, sessionKey });
+      if (entry?.modelOverride || entry?.providerOverride) {
+        throw new CompletionError("session_model_override_unavailable", "admission");
+      }
+      const sessionId = entry?.sessionId ?? randomUUID();
+      const model = resolveDefaultModelForAgent({ cfg: ctx.cfg, agentId });
+      const prompt = event.ctx.Body;
+      if (typeof prompt !== "string" || !prompt.trim()) throw new CompletionError("invalid_input", "admission");
+      result = await coordinateCompletion({ operationId: runId, runId, timeoutMs: 600_000, abortSignal: ctx.abortSignal }, {
+        async generateDraft({ abortSignal }) {
+          const generated = await api.runtime.agent.runEmbeddedAgent({
+            agentId, sessionId, sessionKey, runId,
+            workspaceDir: resolveAgentWorkspaceDir(ctx.cfg, agentId), config: ctx.cfg,
+            prompt, transcriptPrompt: prompt, ...model, modelFallbacksOverride: [],
+            timeoutMs: 540_000, abortSignal, disableTools: true, suppressLiveStreamOutput: true,
+            silentExpected: true, deferTerminalLifecycle: true,
+            userTurnTranscriptRecorder: ctx.userTurnTranscriptRecorder,
+            prepareAssistantTranscriptMessage: ctx.prepareAssistantTranscriptMessage,
+          });
+          if (generated.meta.error || generated.meta.aborted || generated.didSendViaMessagingTool ||
+              generated.payloads?.some((payload) => payload.isError || payload.mediaUrl || payload.mediaUrls?.length)) {
+            throw new CompletionError("generation_failed", "generate");
+          }
+          const originalInput = captureHostInput({ hostVersion: api.runtime.version, agentId, sessionId, sessionKey,
+            recorder: ctx.userTurnTranscriptRecorder! });
+          return ports.describeDraft(runId, parsePrivateAssistantDraft(readCompletionOutput(runId)), originalInput, readCompletionPreparation(runId));
+        },
+        persist: ports.persist,
+        async publishFinal(input) {
+          // Admission is the irreversible send boundary; never re-send on unknown delivery.
+          queued = true;
+          return publishCompletionDraft({ ...input, dispatcher: ctx.dispatcher });
+        },
+      });
+      terminalOutcome = result.delivery.status === "confirmed" ? "completed" : "failed";
+      if (terminalOutcome === "failed") terminalError = `Stella 未完成本轮请求（delivery_${result.delivery.status}，阶段：publish）。交付未确认，不自动重发。`;
+      ctx.recordProcessed(terminalOutcome === "completed" ? "completed" : "error", {
+        reason: `stella_delivery_${result.delivery.status}`,
+      });
+    } catch (error) {
+      const failure = error instanceof CompletionError ? error : new CompletionError("completion_failed", "admission");
+      api.logger.error(`Stella completion: ${failure.category}:${failure.stage}`);
+      terminalError = `Stella 未完成本轮请求（${failure.category}，阶段：${failure.stage}）。${queued ? "交付未确认，不自动重发。" : "未确认的业务回复没有发布。"}`;
+      // Claimed chat runs deliver failures through the Host's native chat/error terminal.
+      if (!claimed && !queued && !ctx.abortSignal?.aborted && event.sendPolicy === "allow" && !event.suppressUserDelivery) {
+        queued = ctx.dispatcher.sendFinalReply({
+          text: terminalError,
+        });
+        ctx.dispatcher.markComplete();
+        await ctx.dispatcher.waitForIdle();
+      }
+      ctx.recordProcessed("error", { reason: `stella_${failure.category}` });
+    } finally {
+      if (claimed && runId) {
+        try { ports.settled(runId, result); } finally { activeRun = undefined; }
+      }
+      ctx.markIdle("Stella completion settled");
+    }
+    return { handled: true, queuedFinal: queued, counts: { tool: 0, block: 0, final: queued ? 1 : 0 } };
+  }, { priority: 1_000, timeoutMs: 660_000, eligibleDispatchKinds: ["agent"] });
+}

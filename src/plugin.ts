@@ -17,13 +17,16 @@ import {
 import {
   CangHaiPraxisEpisodeStore,
   STELLA_DATA_MODES,
-  type StagedEpisode,
   type StellaDataMode,
 } from "./praxis/episode-store.js";
 import { createOpenClawRecoveryPointerWriter } from "./openclaw/recovery-pointer.js";
 import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
 import type { CortexRoute } from "./routing/router.js";
 import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
+import { registerCompletionAdapter } from "./openclaw/completion-adapter.js";
+import { CompletionError, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
+  type CompletionDraft } from "./openclaw/completion.js";
+import { canonicalJson } from "./canghai/content-version.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 const STELLA_CORE_SYSTEM_CONTEXT =
@@ -150,29 +153,12 @@ type PreparedTurn = {
   outcome: "ready" | "blocked";
   category?: string;
   message?: string;
-  preparedAt: number;
+  admitted?: boolean;
+  route?: CortexRoute;
+  context?: string;
+  revision?: string;
+  persistRecommendation?: (text: string) => Promise<string>;
 };
-
-class PreparedTurnStore {
-  readonly #turns = new Map<string, PreparedTurn>();
-
-  put(key: string, turn: Omit<PreparedTurn, "preparedAt">): void {
-    if (this.#turns.size >= 128) {
-      const oldest = [...this.#turns.entries()].sort(
-        (left, right) => left[1].preparedAt - right[1].preparedAt,
-      )[0]?.[0];
-      if (oldest) this.#turns.delete(oldest);
-    }
-    this.#turns.set(key, { ...turn, preparedAt: Date.now() });
-  }
-
-  take(key: string): PreparedTurn | undefined {
-    const turn = this.#turns.get(key);
-    this.#turns.delete(key);
-    if (!turn || Date.now() - turn.preparedAt > 60_000) return undefined;
-    return turn;
-  }
-}
 
 function renderTwinContext(loaded: LoadedConsciousness, route: CortexRoute): string {
   const selectedTwinRefs = new Set(route.candidateTwinRefs ?? []);
@@ -186,72 +172,6 @@ function renderTwinContext(loaded: LoadedConsciousness, route: CortexRoute): str
   });
 }
 
-function preparedTurnKey(
-  sessionKey: string | undefined,
-  traceId: string | undefined,
-  runId: string | undefined,
-): string {
-  if (!sessionKey) throw new Error("Stella prepared turn requires a Host session key");
-  const turnId = traceId ?? runId;
-  if (!turnId) throw new Error("Stella prepared turn requires a Host trace or run id");
-  return `${sessionKey}:${turnId}`;
-}
-
-function renderToolObservation(toolName: string, result: unknown, error: string | undefined): string {
-  try {
-    return JSON.stringify({
-      source: "tool_observation",
-      toolName,
-      result: JSON.stringify(result).slice(0, 4_000),
-      error: error?.slice(0, 1_000),
-    });
-  } catch (cause) {
-    throw new Error("Stella tool observation is not serializable", { cause });
-  }
-}
-
-async function associateRouteOutcome(
-  store: CangHaiPraxisEpisodeStore,
-  route: CortexRoute,
-): Promise<void> {
-  if (!route.outcome) throw new Error("Outcome route is missing outcome details");
-  await store.associateOutcome({
-    episodeRef: route.outcome.openEpisodeRef,
-    actualAction: route.outcome.actualAction,
-    source: route.outcome.source,
-    observations: route.outcome.observations,
-    result: route.outcome.result,
-    observedAt: route.outcome.observedAt,
-    predictionAssessment: route.outcome.predictionAssessment,
-    praxisLearning: route.outcome.praxisLearning,
-  });
-}
-
-function lastAssistantText(messages: unknown[]): string | undefined {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (typeof message !== "object" || message === null || Array.isArray(message)) continue;
-    const record = message as Record<string, unknown>;
-    if (record.role !== "assistant") continue;
-    if (typeof record.content === "string" && record.content.trim()) return record.content;
-    if (!Array.isArray(record.content)) continue;
-    const text = record.content
-      .flatMap((part) =>
-        typeof part === "object" &&
-        part !== null &&
-        !Array.isArray(part) &&
-        (part as Record<string, unknown>).type === "text" &&
-        typeof (part as Record<string, unknown>).text === "string"
-          ? [(part as Record<string, unknown>).text as string]
-          : [],
-      )
-      .join("\n")
-      .trim();
-    if (text) return text;
-  }
-  return undefined;
-}
-
 export default definePluginEntry({
   id: "stella-core",
   name: "Stella Core",
@@ -262,15 +182,9 @@ export default definePluginEntry({
     const config = parsePluginConfig(api.pluginConfig);
     registerCompletionTranscriptGuard(api, config.agentId);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
-    const preparedTurns = new PreparedTurnStore();
     const classifySemantically = createSemanticRouter(
       (params) => api.runtime.llm.complete({ ...params, agentId: config.agentId }),
     );
-    const episodeByRun = new Map<string, {
-      staged: StagedEpisode;
-      store: CangHaiPraxisEpisodeStore;
-    }>();
-    const episodeRunsBySession = new Map<string, Set<string>>();
     const recoveryPointer = createOpenClawRecoveryPointerWriter();
     let durability: GitCangHaiDurability | undefined;
 
@@ -302,58 +216,49 @@ export default definePluginEntry({
       });
     };
 
-    const sessionCorrelationKey = (sessionKey?: string, sessionId?: string): string | undefined =>
-      sessionKey && sessionId ? `${config.agentId}\u0000${sessionKey}\u0000${sessionId}` : undefined;
-
-    const rememberStagedEpisode = (
-      runId: string,
-      sessionKey: string | undefined,
-      sessionId: string | undefined,
-      staged: StagedEpisode,
-      store: CangHaiPraxisEpisodeStore,
-    ): void => {
-      episodeByRun.set(runId, { staged, store });
-      const sessionKeyId = sessionCorrelationKey(sessionKey, sessionId);
-      if (!sessionKeyId) return;
-      const runIds = episodeRunsBySession.get(sessionKeyId) ?? new Set<string>();
-      runIds.add(runId);
-      episodeRunsBySession.set(sessionKeyId, runIds);
-    };
-
-    const resolveStagedEpisode = (
-      eventRunId: string | undefined,
-      contextRunId: string | undefined,
-      sessionKey: string | undefined,
-      sessionId: string | undefined,
-    ): {
-      runId: string;
-      staged: StagedEpisode;
-      store: CangHaiPraxisEpisodeStore;
-    } | undefined => {
-      const sessionKeyId = sessionCorrelationKey(sessionKey, sessionId);
-      const exactRunId = [eventRunId, contextRunId].find((runId) =>
-        runId ? episodeByRun.has(runId) : false
-      );
-      const sessionRunIds = sessionKeyId ? episodeRunsBySession.get(sessionKeyId) : undefined;
-      const runId = exactRunId ?? (sessionRunIds?.size === 1 ? [...sessionRunIds][0] : undefined);
-      if (!runId) return undefined;
-      const pending = episodeByRun.get(runId);
-      return pending ? { runId, ...pending } : undefined;
-    };
-
-    const forgetStagedEpisode = (runId: string): void => {
-      episodeByRun.delete(runId);
-      for (const [sessionKeyId, sessionRunIds] of episodeRunsBySession) {
-        sessionRunIds.delete(runId);
-        if (sessionRunIds.size === 0) episodeRunsBySession.delete(sessionKeyId);
-      }
-    };
+    const completions = new Map<string, { prepared: PreparedTurn; draft: CompletionDraft }>();
+    registerCompletionAdapter(api, config.agentId, {
+      describeDraft(runId, text, input, value) {
+        const prepared = value as PreparedTurn | undefined;
+        if (prepared?.outcome !== "ready" || !prepared.admitted || !prepared.route || !prepared.revision) {
+          throw new CompletionError("stella_turn_preparation_unavailable", "generate");
+        }
+        const draft: CompletionDraft = {
+          draftId: runId, text, responseKind: prepared.route.responseKind,
+          evidenceRef: completionDraftHash(canonicalJson({
+            originalInput: input, context: prepared.context ?? "", route: prepared.route, revision: prepared.revision,
+          })),
+          requiresCriticalPersistence: Boolean(prepared.persistRecommendation),
+        };
+        completions.set(runId, { prepared, draft });
+        return draft;
+      },
+      async persist({ operationId, draft, abortSignal }) {
+        const pending = completions.get(operationId);
+        if (!pending || pending.draft !== draft || abortSignal.aborted) throw new CompletionError("invalid_prepared_completion", "persist");
+        let revision = pending.prepared.revision!;
+        const writes: string[] = [];
+        if (pending.prepared.persistRecommendation) {
+          revision = await pending.prepared.persistRecommendation(draft.text);
+          writes.push(operationId);
+        }
+        return {
+          schemaVersion: "stella.completion-receipt/v1", operationId, draftId: draft.draftId,
+          draftHash: completionDraftHash(draft.text), responseKind: draft.responseKind, evidenceRef: draft.evidenceRef,
+          observedRevision: revision, generationId: `alpha-recovery:${revision}`,
+          writeOperationIds: writes, persistenceStatus: writes.length ? "synchronized" : "not_required",
+          checkedAt: new Date().toISOString(),
+        };
+      },
+      settled(runId) { completions.delete(runId); },
+    });
 
     api.on(
       "before_prompt_build",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return;
-        const turnKey = preparedTurnKey(ctx.sessionKey, ctx.trace?.traceId, ctx.runId);
+        if (!hasCompletionRunPermit(ctx.runId)) return;
+        const runId = ctx.runId!;
         try {
           const loaded = await consciousness.load();
           const episodeStore = createEpisodeStore(loaded);
@@ -370,6 +275,7 @@ export default definePluginEntry({
             event.prompt,
             candidates,
           );
+          let persistRecommendation: PreparedTurn["persistRecommendation"];
           let appendContext =
             route.mode === "ordinary"
               ? STELLA_CORE_SYSTEM_CONTEXT
@@ -388,14 +294,19 @@ export default definePluginEntry({
                   )
                 : renderTwinContext(loadedForTurn, route);
           if (route.mode === "outcome") {
-            await associateRouteOutcome(episodeStore, route);
+            throw new CompletionError("action_evidence_migration_required", "prepare");
           } else if (
             (route.mode === "praxis" || route.mode === "deep_praxis") &&
+            route.responseKind === "action_advice" &&
             config.dataMode !== "read_only"
           ) {
+            if (config.dataMode !== "managed_durable_write") {
+              throw new CompletionError("critical_durability_required", "prepare");
+            }
             if (!route.twinPrediction || !route.situation) {
               throw new Error("Praxis route is missing its pre-outcome prediction");
             }
+            const prediction = route.twinPrediction;
             if (!ctx.runId) throw new Error("Writable Praxis turn requires a Host run id");
             const packet = buildPraxisContextPacket(
               event.prompt,
@@ -403,6 +314,7 @@ export default definePluginEntry({
               loadedForTurn,
               memory.openEpisodes,
             );
+            persistRecommendation = async (text) => {
             const staged = await episodeStore.stagePrediction({
               provenance: {
                 agentId: ctx.agentId,
@@ -422,7 +334,7 @@ export default definePluginEntry({
               },
               twin: {
                 hypothesisRefs: packet.twin?.hypothesisRefs,
-                prediction: route.twinPrediction,
+                prediction,
               },
               ...(packet.framework
                 ? {
@@ -452,13 +364,22 @@ export default definePluginEntry({
                   : {}),
               },
             });
-            rememberStagedEpisode(ctx.runId, ctx.sessionKey, ctx.sessionId, staged, episodeStore);
-            api.logger.info(
-              `Stella Praxis staged correlation run=${Boolean(ctx.runId)} sessionKey=${Boolean(ctx.sessionKey)} sessionId=${Boolean(ctx.sessionId)}`,
-            );
-            appendContext = `${appendContext ?? ""}\npre_outcome_episode_ref: ${staged.ref}`.trim();
+            await episodeStore.publishRecommendation(staged, text, []);
+            const state = await durability!.diagnostics();
+            if (!state.criticalSynchronized || state.synchronizedRevision !== state.localRevision) {
+              throw new CompletionError("stella_critical_sync_failed", "persist");
+            }
+            return state.localRevision;
+            };
           }
-          preparedTurns.put(turnKey, { outcome: "ready" });
+          appendContext = `${appendContext ?? ""}\nresponse_contract: ${JSON.stringify({
+            responseKind: route.responseKind, evidenceStatus: route.evidenceStatus,
+            materialUnknowns: route.materialUnknowns,
+          })}`.trim();
+          recordCompletionPreparation(runId, {
+            outcome: "ready", route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
+            persistRecommendation,
+          } satisfies PreparedTurn);
           return {
             prependSystemContext: STELLA_CORE_SYSTEM_CONTEXT,
             ...(appendContext ? { appendContext } : {}),
@@ -471,13 +392,13 @@ export default definePluginEntry({
               `Stella semantic routing failed: ${error.diagnostic}${error.validationCode ? `:${error.validationCode}` : ""}`,
             );
           }
-          preparedTurns.put(turnKey, {
+          recordCompletionPreparation(runId, {
             outcome: "blocked",
             category: consciousnessFailure
               ? error.category
               : semanticFailure
                 ? error.category
-                : "stella_turn_preparation_failed",
+                : error instanceof CompletionError ? error.category : "stella_turn_preparation_failed",
             message: consciousnessFailure
               ? "Stella Core 无法加载或验证 CangHai 核心意识数据。请先完成 CangHai 恢复/校验，再继续使用 Stella。"
               : semanticFailure
@@ -491,42 +412,19 @@ export default definePluginEntry({
     );
 
     api.on(
-      "after_tool_call",
-      async (event, ctx) => {
-        if (ctx.agentId !== config.agentId) return;
-        const loaded = await consciousness.load();
-        const episodeStore = createEpisodeStore(loaded);
-        const memory = await episodeStore.listMemory();
-        if (memory.openEpisodes.length === 0) return;
-        const candidates = listSemanticRoutingCandidates(
-          {
-            ...loaded,
-            praxisPlaybookItems: [...loaded.praxisPlaybookItems, ...memory.learningItems],
-          },
-          memory.openEpisodes,
-        );
-        const route = await classifySemantically(
-          renderToolObservation(event.toolName, event.result, event.error),
-          candidates,
-        );
-        if (route.mode !== "outcome") return;
-        if (!route.outcome || route.outcome.source !== "tool_observation") {
-          throw new Error("Tool outcome route must retain tool_observation provenance");
-        }
-        await associateRouteOutcome(episodeStore, route);
-      },
-      { priority: 100, timeoutMs: 60_000 },
-    );
-
-    api.on(
       "before_agent_run",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
 
-        const prepared = preparedTurns.take(
-          preparedTurnKey(ctx.sessionKey, ctx.trace?.traceId, ctx.runId),
-        );
-        if (prepared?.outcome === "ready") return { outcome: "pass" } as const;
+        if (!hasCompletionRunPermit(ctx.runId)) return {
+          outcome: "block", reason: "Stella requires coordinated completion",
+          message: "Stella Core 需要经过可验证的完成协调入口，已停止本轮请求。", category: "capability_unavailable",
+        } as const;
+        const prepared = readCompletionPreparation(ctx.runId!) as PreparedTurn | undefined;
+        if (prepared?.outcome === "ready" && !prepared.admitted) {
+          prepared.admitted = true;
+          return { outcome: "pass" } as const;
+        }
         const category = prepared?.category ?? "stella_turn_preparation_unavailable";
         return {
           outcome: "block",
@@ -538,51 +436,5 @@ export default definePluginEntry({
       { priority: 1_000, timeoutMs: 15_000 },
     );
 
-    api.on(
-      "before_agent_finalize",
-      async (event, ctx) => {
-        const pending = resolveStagedEpisode(
-          event.runId,
-          ctx.runId,
-          event.sessionKey ?? ctx.sessionKey,
-          event.sessionId ?? ctx.sessionId,
-        );
-        api.logger.info(
-          `Stella Praxis finalize correlation eventRun=${Boolean(event.runId)} contextRun=${Boolean(ctx.runId)} eventSessionKey=${Boolean(event.sessionKey)} contextSessionKey=${Boolean(ctx.sessionKey)} eventSessionId=${Boolean(event.sessionId)} contextSessionId=${Boolean(ctx.sessionId)} resolved=${Boolean(pending)}`,
-        );
-        if (!pending) return;
-        const recommendation = event.lastAssistantMessage ?? lastAssistantText(event.messages ?? []);
-        if (!recommendation) return;
-        await pending.store.publishRecommendation(
-          pending.staged,
-          recommendation.slice(0, 8_000),
-          [],
-        );
-        forgetStagedEpisode(pending.runId);
-      },
-      { priority: 100, timeoutMs: 90_000 },
-    );
-
-    api.on("agent_end", async (event, ctx) => {
-      const pending = resolveStagedEpisode(
-        event.runId,
-        ctx.runId,
-        ctx.sessionKey,
-        ctx.sessionId,
-      );
-      if (!pending) return;
-      const recommendation = event.success ? lastAssistantText(event.messages) : undefined;
-      if (!recommendation) {
-        await pending.store.discardStagedPrediction(pending.staged);
-        forgetStagedEpisode(pending.runId);
-        return;
-      }
-      await pending.store.publishRecommendation(
-        pending.staged,
-        recommendation.slice(0, 8_000),
-        [],
-      );
-      forgetStagedEpisode(pending.runId);
-    });
   },
 });

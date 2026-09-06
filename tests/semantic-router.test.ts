@@ -2,6 +2,42 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSemanticRouter } from "../src/routing/semantic-router.js";
 
+test("response semantics allow clarification, collaboration and meaningful advice without invented predictions", async () => {
+  const candidates = { frameworks: [], twin: [], personalPraxis: [] };
+  for (const responseKind of ["clarification", "collaboration", "action_advice"] as const) {
+    const router = createSemanticRouter(async () => ({ text: JSON.stringify({
+      mode: "praxis", responseKind,
+      evidenceStatus: responseKind === "action_advice" ? "sufficient" : "material_unknown",
+      materialUnknowns: responseKind === "action_advice" ? [] : ["Which constraint has priority?"],
+      domains: ["decision"], stakes: "low", reversibility: "high",
+      needsTwin: true, needsFramework: true, needsReality: true, needsExternalResearch: false,
+      candidateFrameworks: [], candidateTwinRefs: [], candidatePraxisRefs: [],
+      situation: { actors: [], observations: [], interpretations: [], unknowns: [], userGoals: [], constraints: [] },
+    }) }));
+    const route = await router("Continue discussing the unresolved tradeoff", candidates);
+    assert.equal(route.responseKind, responseKind);
+    assert.equal(route.twinPrediction, undefined);
+    assert.equal(route.outcome, undefined);
+  }
+});
+
+test("missing response semantics and forced advice over material unknowns fail explicitly", async () => {
+  const base = {
+    mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
+    domains: ["general"], needsTwin: false, needsFramework: false,
+    needsReality: false, needsExternalResearch: false,
+  };
+  for (const invalid of [
+    { ...base, responseKind: undefined },
+    { ...base, responseKind: "action_advice", evidenceStatus: "material_unknown", materialUnknowns: ["A material fact"] },
+    { ...base, evidenceStatus: "material_unknown" },
+  ]) {
+    const router = createSemanticRouter(async () => ({ text: JSON.stringify(invalid) }));
+    await assert.rejects(router("A synthetic request", { frameworks: [], twin: [], personalPraxis: [] }),
+      (error: unknown) => error instanceof Error && "category" in error && error.category === "stella_semantic_routing_failed");
+  }
+});
+
 test("semantic router preserves structured Praxis meaning and candidate selection", async () => {
   const router = createSemanticRouter(
     async (params) => {
@@ -28,7 +64,7 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
       assert.match(systemPrompt, /Praxis takes precedence over twin and ordinary/);
       assert.match(systemPrompt, /never transfer a memory across relationship, family, workplace/);
       const route = JSON.stringify({
-        mode: "praxis",
+        mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [],
         domains: ["relationship"],
         stakes: "medium",
         reversibility: "high",
@@ -81,7 +117,7 @@ test("semantic router rejects an explicit contradiction of the selected Episode"
     text: JSON.stringify(purpose === "stella-core-open-episode-selection"
       ? { openEpisodeRef: "path:selected.json" }
       : {
-          mode: "praxis", domains: ["decision"], stakes: "low", reversibility: "high",
+          mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["decision"], stakes: "low", reversibility: "high",
           needsTwin: true, needsFramework: true, needsReality: true, needsExternalResearch: false,
           candidateFrameworks: [], candidateTwinRefs: [], candidatePraxisRefs: [],
           openEpisodeRef: "path:other.json",
@@ -105,7 +141,7 @@ test("semantic router rejects an explicit contradiction of the selected Episode"
 test("semantic router accepts a valid Praxis route with zero Framework operators", async () => {
   const router = createSemanticRouter(async () => ({
     text: JSON.stringify({
-      mode: "praxis",
+      mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [],
       domains: ["decision"],
       stakes: "low",
       reversibility: "high",
@@ -151,7 +187,7 @@ test("semantic router associates an outcome with exactly one available open Epis
     assert.match(systemPrompt, /needsTwin, needsFramework, needsReality, and needsExternalResearch must all be false/);
     return {
       text: JSON.stringify({
-        mode: "outcome",
+        mode: "outcome", responseKind: "outcome_ack", evidenceStatus: "sufficient", materialUnknowns: [],
         domains: ["relationship"],
         needsTwin: false,
         needsFramework: false,
@@ -186,7 +222,7 @@ test("semantic router associates an outcome with exactly one available open Epis
 test("deep Praxis fails explicitly while external research is unavailable", async () => {
   const router = createSemanticRouter(async () => ({
     text: JSON.stringify({
-      mode: "deep_praxis",
+      mode: "deep_praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [],
       domains: ["travel"],
       stakes: "medium",
       reversibility: "medium",
@@ -245,7 +281,7 @@ test("open Episode selector repairs one invalid structured response with feedbac
     }
     return {
       text: JSON.stringify({
-        mode: "ordinary",
+        mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
         domains: ["general"],
         needsTwin: false,
         needsFramework: false,
@@ -308,7 +344,7 @@ test("semantic routing retries one transient completion failure without degradin
     if (attempts === 1) throw new Error("transient provider failure");
     return {
       text: JSON.stringify({
-        mode: "ordinary",
+        mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
         domains: ["general"],
         needsTwin: false,
         needsFramework: false,
@@ -335,7 +371,7 @@ test("semantic routing retries one invalid structured route without degrading", 
     assert.match(systemPrompt, /Validation error:/);
     return {
       text: JSON.stringify({
-        mode: "ordinary",
+        mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
         domains: ["general"],
         needsTwin: false,
         needsFramework: false,
@@ -356,7 +392,7 @@ test("semantic routing retries one invalid structured route without degrading", 
 test("semantic route fails instead of silently truncating over-capacity selections", async () => {
   const router = createSemanticRouter(async () => ({
     text: JSON.stringify({
-      mode: "twin",
+      mode: "twin", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
       domains: ["personal"],
       needsTwin: true,
       needsFramework: false,

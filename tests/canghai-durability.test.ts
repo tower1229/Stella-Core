@@ -53,6 +53,50 @@ test("critical writes commit and push before reporting success", async () => {
   }
 });
 
+test("repeated critical persistence reconfirms the same revision without another commit", async () => {
+  const { root, branch } = await fixture();
+  try {
+    await writeFile(path.join(root, "operation.json"), "synthetic operation\n");
+    const durability = new GitCangHaiDurability({ root, remote: "origin", branch,
+      criticalWritePolicy: "sync_immediately", normalWritePolicy: "bounded_batch", maxNormalRpoSeconds: 300 });
+    const first = await durability.syncCritical(["operation.json"], "synthetic operation");
+    const replay = await durability.syncCritical(["operation.json"], "synthetic operation");
+    assert.equal(replay.localRevision, first.localRevision);
+    assert.equal(replay.synchronizedRevision, first.localRevision);
+    assert.equal(replay.criticalSynchronized, true);
+  } finally { await rm(path.dirname(root), { recursive: true, force: true }); }
+});
+
+test("restart cannot push a pending critical commit before recovery pointer confirmation", async () => {
+  const { root, remote, branch } = await fixture();
+  try {
+    await writeFile(path.join(root, "operation.json"), "synthetic operation\n");
+    const options = { root, remote: "origin", branch, criticalWritePolicy: "sync_immediately" as const,
+      normalWritePolicy: "bounded_batch" as const, maxNormalRpoSeconds: 300,
+      async onRevision() { throw new Error("synthetic pointer failure"); } };
+    await assert.rejects(new GitCangHaiDurability(options).syncCritical(["operation.json"], "synthetic"));
+    const { stdout: before } = await execFileAsync("git", ["--git-dir", remote, "rev-parse", `refs/heads/${branch}`]);
+    await assert.rejects(new GitCangHaiDurability(options).syncCritical(["operation.json"], "synthetic"));
+    const { stdout: after } = await execFileAsync("git", ["--git-dir", remote, "rev-parse", `refs/heads/${branch}`]);
+    assert.equal(after, before);
+  } finally { await rm(path.dirname(root), { recursive: true, force: true }); }
+});
+
+test("recovery refuses to automatically push unrelated pending commits", async () => {
+  const { root, remote, branch } = await fixture();
+  try {
+    const { stdout: before } = await execFileAsync("git", ["--git-dir", remote, "rev-parse", `refs/heads/${branch}`]);
+    await writeFile(path.join(root, "owner.txt"), "Unrelated owner work\n");
+    await execFileAsync("git", ["-C", root, "add", "owner.txt"]);
+    await execFileAsync("git", ["-C", root, "commit", "--quiet", "-m", "Owner work not approved for synchronization"]);
+    const durability = new GitCangHaiDurability({ root, remote: "origin", branch,
+      criticalWritePolicy: "sync_immediately", normalWritePolicy: "bounded_batch", maxNormalRpoSeconds: 300 });
+    await assert.rejects(durability.diagnostics(), /explicit reconciliation/);
+    const { stdout: after } = await execFileAsync("git", ["--git-dir", remote, "rev-parse", `refs/heads/${branch}`]);
+    assert.equal(after, before);
+  } finally { await rm(path.dirname(root), { recursive: true, force: true }); }
+});
+
 test("critical writes await recovery pointer persistence before pushing", async () => {
   const { root, remote, branch } = await fixture();
   let releasePointer: (() => void) | undefined;

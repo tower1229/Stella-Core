@@ -75,7 +75,7 @@ export type EpisodePredictionInput = {
 export type EpisodeOutcomeInput = {
   episodeRef: string;
   actualAction: string;
-  source: "user_report" | "tool_observation" | "system_event" | "inferred";
+  source: "user_report" | "tool_observation" | "system_event";
   observations: string[];
   result: string;
   observedAt: string;
@@ -193,6 +193,12 @@ async function writeAtomicFile(filePath: string, content: string): Promise<void>
 
 function serialize(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function requireActualSource(source: unknown): void {
+  if (source !== "user_report" && source !== "tool_observation" && source !== "system_event") {
+    throw new Error("Praxis actual action cannot be an inference");
+  }
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
@@ -345,6 +351,7 @@ export class CangHaiPraxisEpisodeStore {
   }
 
   async recordActualAction(input: EpisodeActionInput): Promise<void> {
+    requireActualSource(input.source);
     await this.#assertWritable();
     const { episodePath, predictionPath } = this.#resolveEpisodeRef(input.episodeRef);
     const { episode, predictionSealed } = await this.#readVerifiedEpisode(
@@ -415,6 +422,7 @@ export class CangHaiPraxisEpisodeStore {
   }
 
   async associateOutcome(input: EpisodeOutcomeInput): Promise<void> {
+    requireActualSource(input.source);
     await this.#assertWritable();
     const { episodePath, predictionPath } = this.#resolveEpisodeRef(input.episodeRef);
     const { episode, predictionSealed } = await this.#readVerifiedEpisode(

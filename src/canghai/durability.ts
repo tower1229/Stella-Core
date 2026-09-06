@@ -54,6 +54,7 @@ export class GitCangHaiDurability {
   readonly #onRevision?: (revision: string) => void | Promise<void>;
   #pendingNormalSince?: number;
   #synchronizedRevision?: string;
+  #confirmedPointerRevision?: string;
   #criticalSynchronized = false;
   #lastErrorCategory?: CangHaiDurabilityDiagnostics["lastErrorCategory"];
   #normalFlushScheduled = false;
@@ -127,8 +128,11 @@ export class GitCangHaiDurability {
           throw new Error("Normal CangHai synchronization failed", { cause: error });
         }
       } else {
-        this.#pendingNormalSince ??= this.#now();
-        this.#scheduleNormalFlush();
+        const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
+        if (stdout.trim() !== this.#synchronizedRevision) {
+          this.#pendingNormalSince ??= this.#now();
+          this.#scheduleNormalFlush();
+        }
       }
       return this.#diagnostics();
     });
@@ -181,35 +185,55 @@ export class GitCangHaiDurability {
     if (paths.length === 0) throw new Error("Durability commit requires at least one path");
     await this.#assertBranch();
     await execFileAsync("git", ["-C", this.#root, "add", "--", ...paths]);
-    try {
-      await execFileAsync("git", [
-        "-C",
-        this.#root,
-        "commit",
-        "--quiet",
-        "-m",
-        `[stella:${kind}] ${message}`,
-        "--",
-        ...paths,
-      ]);
-    } catch (error) {
-      throw new Error("CangHai durability commit failed", { cause: error });
+    const { stdout: changed } = await execFileAsync("git", ["-C", this.#root, "diff", "--cached", "--name-only", "--", ...paths]);
+    if (changed.trim()) {
+      if (kind === "critical") this.#criticalSynchronized = false;
+      try {
+        await execFileAsync("git", ["-C", this.#root, "commit", "--quiet", "-m", `[stella:${kind}] ${message}`, "--", ...paths]);
+      } catch (error) {
+        throw new Error("CangHai durability commit failed", { cause: error });
+      }
     }
+    await this.#confirmRecoveryPointer();
+  }
+
+  async confirmPreviouslyCommitted(repositoryPath: string): Promise<void> {
+    return this.#enqueue(async () => {
+      const file = validateRepositoryPath(repositoryPath);
+      await execFileAsync("git", ["-C", this.#root, "ls-files", "--error-unmatch", "--", file]);
+      await execFileAsync("git", ["-C", this.#root, "diff", "--exit-code", "HEAD", "--", file]);
+      await this.#ensureInitialized();
+      await this.#push();
+    });
+  }
+
+  async #confirmRecoveryPointer(): Promise<string> {
     const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
-    await this.#onRevision?.(stdout.trim());
+    const revision = stdout.trim();
+    if (revision === this.#confirmedPointerRevision) return revision;
+    await this.#onRevision?.(revision);
+    this.#confirmedPointerRevision = revision;
+    return revision;
   }
 
   async #push(): Promise<void> {
     await this.#assertBranch();
+    const revision = await this.#confirmRecoveryPointer();
     await execFileAsync("git", [
       "-C",
       this.#root,
       "push",
       this.#remote,
-      `HEAD:refs/heads/${this.#branch}`,
+      `${revision}:refs/heads/${this.#branch}`,
     ]);
-    const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
-    this.#synchronizedRevision = stdout.trim();
+    const [{ stdout: local }, { stdout: remote }] = await Promise.all([
+      execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]),
+      execFileAsync("git", ["-C", this.#root, "ls-remote", "--exit-code", this.#remote, `refs/heads/${this.#branch}`]),
+    ]);
+    if (local.trim() !== revision || remote.trim().split(/\s+/)[0] !== revision) {
+      throw new Error("CangHai synchronization revision changed concurrently");
+    }
+    this.#synchronizedRevision = revision;
     this.#criticalSynchronized = true;
   }
 
@@ -280,10 +304,10 @@ export class GitCangHaiDurability {
     if (records.length === 0 || records.some(({ timestamp }) => !Number.isFinite(timestamp))) {
       throw new Error("Managed durability could not reconstruct unsynchronized Git history");
     }
-    const hasCriticalOrUnknown = records.some(
-      ({ subject }) => !subject.startsWith("[stella:normal] "),
-    );
-    if (hasCriticalOrUnknown) {
+    if (records.some(({ subject }) => !subject.startsWith("[stella:normal] ") && !subject.startsWith("[stella:critical] "))) {
+      throw new Error("Managed durability requires explicit reconciliation of unknown pending commits");
+    }
+    if (records.some(({ subject }) => subject.startsWith("[stella:critical] "))) {
       try {
         await this.#push();
         this.#pendingNormalSince = undefined;

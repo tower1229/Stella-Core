@@ -22,6 +22,9 @@ type RealityMode = "base_model" | "personal_praxis" | "external_research";
 
 export type PraxisContextPacket = {
   mode: "praxis" | "deep_praxis";
+  responseKind: CortexRoute["responseKind"];
+  evidenceStatus: CortexRoute["evidenceStatus"];
+  materialUnknowns: string[];
   situation: SituationFrame;
   twin?: {
     hypothesisRefs: string[];
@@ -288,6 +291,9 @@ export function buildPraxisContextPacket(
 
   return {
     mode: route.mode,
+    responseKind: route.responseKind,
+    evidenceStatus: route.evidenceStatus,
+    materialUnknowns: route.materialUnknowns,
     situation,
     ...(twin ? { twin } : {}),
     ...(framework ? { framework } : {}),
@@ -333,7 +339,8 @@ export function renderPraxisContextPacket(
     "personal_context: connect relevant supplied personal context to the advice; if none applies, rely only on current facts and never imply owner-specific facts",
     "framework_application: apply the selected operators to the recommendation, not merely name them",
     "hidden_variables: surface the few uncertainties that could materially change the advice",
-    "concrete_next_action: required when the owner asks what to do",
+    "response_contract: follow responseKind; clarification asks about a material unknown, collaboration advances the author's thinking without replacing their intent",
+    "concrete_next_action: required only for supported action_advice; never fabricate an action, prediction, outcome, or endorsement to fill a format",
     "owner_fit: explicitly connect the recommendation to the supplied goals and constraints, including competing goals, and preserve reversible risk",
     "retrospective_boundary: use outcome evidence when supplied; otherwise do not imply an outcome or endorsement",
     packetJson,

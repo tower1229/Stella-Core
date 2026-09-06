@@ -41,6 +41,11 @@ test("uses an answer Host and structured model judge instead of lexical scoring"
   assert.match(judgePrompt, /does not fabricate retrospective endorsement/i);
   assert.match(judgePrompt, /never return an empty evidence array/i);
   assert.match(judgePrompt, /先区分事实与解释/);
+  assert.match(judgePrompt, /stella\.praxis-rubric\/v2/);
+  assert.match(judgePrompt, /clarification passes only/);
+  assert.match(judgePrompt, /collaboration passes only/);
+  assert.match(judgePrompt, /does not by itself establish a real owner action/);
+  assert.match(judgePrompt, /Later outcomes cannot justify a historical prediction/);
 });
 
 test("fails closed when the model judge omits a rubric dimension", async () => {

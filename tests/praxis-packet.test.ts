@@ -12,7 +12,7 @@ import type { CortexRoute } from "../src/routing/router.js";
 import { createFixture } from "./consciousness-fixture.js";
 
 const relationshipRoute: CortexRoute = {
-  mode: "praxis",
+  mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [],
   domains: ["relationship"],
   actors: ["self", "other"],
   stakes: "medium",

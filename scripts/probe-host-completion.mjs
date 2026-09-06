@@ -64,8 +64,8 @@ try {
       if (mode === "delivery_failure") throw new Error("synthetic delivery failure");
     } });
     const completion = coordinateCompletion({ operationId: "synthetic-op", runId: "synthetic-run",
-      responseKind: "action_advice", critical: true, timeoutMs: 1000, abortSignal: abort.signal }, {
-      async generateDraft() { return { draftId: "synthetic-draft", text: "Synthetic final", evidenceRef: "synthetic-evidence" }; },
+      timeoutMs: 1000, abortSignal: abort.signal }, {
+      async generateDraft() { return { draftId: "synthetic-draft", text: "Synthetic final", evidenceRef: "synthetic-evidence", responseKind: "action_advice", requiresCriticalPersistence: true }; },
       async persist({ draft, operationId, responseKind }) {
         if (mode === "push_failure") throw new Error("synthetic push failure");
         if (mode === "cancelled_write") abort.abort();

@@ -6,7 +6,7 @@ test("Situation Frame keeps observations separate from interpretations and unkno
   const frame = buildSituationFrame(
     "她两天没回我消息。我觉得她可能在疏远我，但也不知道她是不是在忙。我想确认关系，同时不想给她压力。我要不要再发一条？",
     {
-      mode: "praxis",
+      mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [],
       domains: ["relationship"],
       actors: ["self", "other"],
       stakes: "medium",
@@ -40,7 +40,7 @@ test("Situation Frame keeps observations separate from interpretations and unkno
 
 test("one clause can preserve overlapping goal, unknown, and interpretation semantics", () => {
   const frame = buildSituationFrame("我觉得她是不是在回避我。我想知道要不要再发一条。", {
-    mode: "praxis",
+    mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [],
     domains: ["relationship"],
     stakes: "medium",
     reversibility: "high",

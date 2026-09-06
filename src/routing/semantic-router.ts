@@ -119,6 +119,9 @@ function parseTwinPrediction(record: Record<string, unknown>) {
   ) {
     throw new Error("Model Twin prediction possibleActions is invalid");
   }
+  if (Math.abs(actionEntries.reduce((sum, [, probability]) => sum + (probability as number), 0) - 1) > 1e-6) {
+    throw new Error("Model Twin prediction probabilities must sum to one");
+  }
   return {
     possibleActions: Object.fromEntries(actionEntries) as Record<string, number>,
     likelyInterpretations: stringList(value, "likelyInterpretations", 4),
@@ -140,8 +143,7 @@ function parseOutcome(
   if (
     source !== "user_report" &&
     source !== "tool_observation" &&
-    source !== "system_event" &&
-    source !== "inferred"
+    source !== "system_event"
   ) {
     throw new Error("Model outcome source is unsupported");
   }
@@ -329,6 +331,29 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
   }
   if (!isCortexMode(parsed.mode)) throw new Error("Model router returned an unsupported mode");
 
+  const responseKind = parsed.responseKind;
+  if (responseKind !== "answer" && responseKind !== "clarification" && responseKind !== "collaboration" &&
+      responseKind !== "action_advice" && responseKind !== "outcome_ack") {
+    throw new Error("Model route field responseKind is invalid");
+  }
+  const evidenceStatus = parsed.evidenceStatus;
+  if (evidenceStatus !== "sufficient" && evidenceStatus !== "material_unknown" && evidenceStatus !== "conflicting") {
+    throw new Error("Model route field evidenceStatus is invalid");
+  }
+  const materialUnknowns = stringList(parsed, "materialUnknowns", 4);
+  if (evidenceStatus === "material_unknown" && materialUnknowns.length === 0) {
+    throw new Error("Model route field materialUnknowns must identify the missing evidence");
+  }
+  if (evidenceStatus === "material_unknown" && responseKind === "action_advice") {
+    throw new Error("Model route field responseKind cannot force action advice across material unknowns");
+  }
+  if ((parsed.mode === "outcome") !== (responseKind === "outcome_ack")) {
+    throw new Error("Model route field responseKind disagrees with outcome mode");
+  }
+  if (parsed.twinPrediction !== undefined && responseKind !== "action_advice") {
+    throw new Error("Model route field responseKind does not support a new choice prediction");
+  }
+
   const domains = stringList(parsed, "domains", 4);
   if (domains.length === 0) throw new Error("Model route requires at least one domain");
   const isPraxis = parsed.mode === "praxis" || parsed.mode === "deep_praxis";
@@ -380,6 +405,9 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
 
   return {
     mode: parsed.mode,
+    responseKind,
+    evidenceStatus,
+    materialUnknowns,
     domains,
     ...(isPraxis ? routeRiskFields(parsed) : {}),
     needsTwin,
@@ -393,7 +421,7 @@ function parseModelRoute(text: string, candidates: SemanticRoutingCandidates): C
           candidatePraxisRefs,
           ...(openEpisodeRef ? { openEpisodeRef } : {}),
           situation: parseSituation(parsed),
-          twinPrediction: parseTwinPrediction(parsed),
+          ...(parsed.twinPrediction !== undefined ? { twinPrediction: parseTwinPrediction(parsed) } : {}),
         }
       : {}),
     ...(parsed.mode === "outcome"
@@ -415,12 +443,14 @@ export function createSemanticRouter(
     }
     const systemPrompt = [
       "Semantically classify one user turn for Stella Cortex. Do not answer the user.",
-      "Return only strict JSON with mode, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, openEpisodeRef, situation, twinPrediction, and outcome when applicable.",
+      "Return only strict JSON with mode, responseKind, evidenceStatus, materialUnknowns, domains, stakes, reversibility, needsTwin, needsFramework, needsReality, needsExternalResearch, candidateFrameworks, candidateTwinRefs, candidatePraxisRefs, openEpisodeRef, situation, twinPrediction, and outcome when applicable.",
+      "Choose responseKind semantically: answer, clarification, collaboration, action_advice, outcome_ack. It is independent of Cortex mode except outcome requires outcome_ack. evidenceStatus must be sufficient, material_unknown, or conflicting; materialUnknowns is an array of zero to four concrete missing facts. Operational faults are errors, not evidence states.",
+      "When missing facts would change the decision, identify them in materialUnknowns and choose an answerable clarification or useful collaboration, never force action_advice. Writing collaboration preserves the author's intent and unresolved thinking, without invented action, outcome, optimistic meaning, or motivational ending.",
       "Use praxis for a personal real-world choice or when the owner asks to recall, inspect, or continue one semantically relevant supplied open Episode; use twin for owner-self questions, deep_praxis only when current external facts are required, and ordinary otherwise.",
       "Praxis takes precedence over twin and ordinary whenever a supplied open Episode can answer the owner's request. A direct owner request to inspect current open personal state is Praxis, not machine-authored extraction.",
       "Machine-authored internal planning, extraction, transformation, or structured-output requests are ordinary, even when their source material mentions a personal choice. Use praxis only when the turn itself asks Stella to help the owner make or evaluate that choice.",
       "For praxis, stakes and reversibility must each be exactly low, medium, or high.",
-      "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints, and include twinPrediction with one to four possibleActions probabilities plus likelyInterpretations and keyFactors.",
+      "Praxis must request Twin, Framework, and Reality, select zero to two exact Framework operator refs, zero to three exact Twin refs, and zero to two exact personal Praxis refs from the supplied candidates, and include situation arrays: actors, observations, interpretations, unknowns, userGoals, constraints. Only include twinPrediction for a meaningful choice before its outcome is known, when responseKind is action_advice; it is optional, never required to fill a format. If present, supply one to four possibleActions probabilities summing to one, plus likelyInterpretations and keyFactors.",
       "Select Twin and personal Praxis refs only when their supplied purpose is semantically relevant to this exact situation. Empty selections are correct when no candidate applies; never transfer a memory across relationship, family, workplace, or other domains merely because both situations are social.",
       "For praxis, the Host will attach the already selected openEpisodeRef. Omit this redundant field; if you return it, it must match the dedicated selector exactly.",
       ...(selectedOpenEpisodeRef
@@ -428,7 +458,7 @@ export function createSemanticRouter(
         : ["The dedicated semantic selector did not choose an open Episode. Omit openEpisodeRef."]),
       "twinPrediction.possibleActions must be a JSON object mapping action strings to numeric probabilities from 0 to 1, never an array.",
       "Use outcome only when the message semantically reports a result for exactly one supplied open Episode. Each open Episode candidate includes its immutable pre-outcome prediction and recommendation. Compare that prediction with the reported actual action and result: predictionAssessment must state supported, countered, or unresolved, and praxisLearning must be derived from that explicit comparison rather than invented independently. Then set all context needs false and include outcome with the exact openEpisodeRef, actualAction, source, observations, result, predictionAssessment, praxisLearning, and observedAt. If no supplied Episode clearly matches, do not use outcome.",
-      "For outcome, mode must be exactly outcome; needsTwin, needsFramework, needsReality, and needsExternalResearch must all be false. outcome.source must be exactly user_report for an owner-reported result, tool_observation for tool evidence, system_event for a system event, or inferred only when explicitly marked as inference. outcome.predictionAssessment must be exactly supported, countered, or unresolved, and outcome.observedAt must be an ISO date-time.",
+      "For outcome, mode must be exactly outcome; needsTwin, needsFramework, needsReality, and needsExternalResearch must all be false. outcome.source must be exactly user_report for an owner-reported result, tool_observation for tool evidence, or system_event for a system event. Inferred actions belong only in situation.interpretations and cannot establish an outcome. Source labels alone are not evidence. outcome.predictionAssessment must be exactly supported, countered, or unresolved (always unresolved without a prediction), and outcome.observedAt must be an ISO date-time.",
       "Twin mode must select zero to three exact Twin refs. Never invent or alter a candidate ref. deep_praxis is unavailable and must not be selected.",
       "Keep observations separate from interpretations. Do not infer meaning from isolated keywords; judge the complete utterance in context.",
       `Available semantic candidates: ${JSON.stringify(candidates)}`,

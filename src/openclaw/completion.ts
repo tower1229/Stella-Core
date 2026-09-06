@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 
 export type ResponseKind = "answer" | "clarification" | "collaboration" | "action_advice" | "outcome_ack";
 export type PersistenceStatus = "not_required" | "local_committed" | "remote_pending" | "synchronized";
-export type CompletionDraft = { draftId: string; text: string; evidenceRef: string };
+export type CompletionDraft = {
+  draftId: string; text: string; evidenceRef: string;
+  responseKind: ResponseKind;
+  requiresCriticalPersistence: boolean;
+};
 export type CompletionReceipt = {
   schemaVersion: "stella.completion-receipt/v1";
   operationId: string;
@@ -28,7 +32,7 @@ export class CompletionError extends Error {
   }
 }
 
-type RunPermit = { operationId: string; runId: string; active: boolean };
+type RunPermit = { operationId: string; runId: string; active: boolean; privateOutput?: unknown; preparation?: unknown };
 const permits = new AsyncLocalStorage<RunPermit>();
 
 export function hasCompletionRunPermit(runId: string | undefined): boolean {
@@ -40,8 +44,27 @@ export function isCompletionDraftContext(): boolean {
   return permits.getStore() !== undefined;
 }
 
+export function captureCompletionOutput(runId: string, output: unknown): void {
+  if (hasCompletionRunPermit(runId)) permits.getStore()!.privateOutput = output;
+}
+
+export function readCompletionOutput(runId: string): unknown {
+  if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "generate");
+  return permits.getStore()!.privateOutput;
+}
+
+export function recordCompletionPreparation(runId: string, preparation: unknown): void {
+  if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "prepare");
+  permits.getStore()!.preparation = preparation;
+}
+
+export function readCompletionPreparation(runId: string): unknown {
+  if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "prepare");
+  return permits.getStore()!.preparation;
+}
+
 export type CompletionPorts = {
-  generateDraft(input: { operationId: string; runId: string; responseKind: ResponseKind; abortSignal: AbortSignal }): Promise<CompletionDraft>;
+  generateDraft(input: { operationId: string; runId: string; abortSignal: AbortSignal }): Promise<CompletionDraft>;
   persist(input: { operationId: string; draft: CompletionDraft; responseKind: ResponseKind; abortSignal: AbortSignal }): Promise<CompletionReceipt>;
   publishFinal(input: { operationId: string; draft: CompletionDraft; receipt: CompletionReceipt; abortSignal: AbortSignal }): Promise<CompletionResult["delivery"]>;
 };
@@ -50,18 +73,16 @@ export function completionDraftHash(text: string): string {
   return `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
 }
 
-function validateReceipt(receipt: CompletionReceipt, input: {
-  operationId: string; responseKind: ResponseKind; critical: boolean;
-}, draft: CompletionDraft): void {
+function validateReceipt(receipt: CompletionReceipt, input: { operationId: string }, draft: CompletionDraft): void {
   if (receipt.schemaVersion !== "stella.completion-receipt/v1" ||
       receipt.operationId !== input.operationId || receipt.draftId !== draft.draftId ||
       receipt.draftHash !== completionDraftHash(draft.text) ||
-      receipt.evidenceRef !== draft.evidenceRef || receipt.responseKind !== input.responseKind ||
+      receipt.evidenceRef !== draft.evidenceRef || receipt.responseKind !== draft.responseKind ||
       !/^[0-9a-f]{40}$/.test(receipt.observedRevision) || !receipt.generationId ||
       !Number.isFinite(Date.parse(receipt.checkedAt)) ||
       !["not_required", "local_committed", "remote_pending", "synchronized"].includes(receipt.persistenceStatus) ||
       !Array.isArray(receipt.writeOperationIds) || receipt.writeOperationIds.some((id) => !id) ||
-      (input.critical && (receipt.persistenceStatus !== "synchronized" || receipt.writeOperationIds.length === 0))) {
+      (draft.requiresCriticalPersistence && (receipt.persistenceStatus !== "synchronized" || receipt.writeOperationIds.length === 0))) {
     throw new CompletionError("invalid_completion_receipt", "persist");
   }
 }
@@ -70,8 +91,6 @@ function validateReceipt(receipt: CompletionReceipt, input: {
 export async function coordinateCompletion(input: {
   operationId: string;
   runId: string;
-  responseKind: ResponseKind;
-  critical: boolean;
   timeoutMs: number;
   abortSignal?: AbortSignal;
 }, ports: CompletionPorts): Promise<CompletionResult> {
@@ -100,9 +119,11 @@ export async function coordinateCompletion(input: {
     const draft = await permits.run(permit, () => ports.generateDraft({ ...input, abortSignal: controller.signal }));
     checkActive();
     permit.active = false;
-    if (!draft.draftId || !draft.text.trim() || !draft.evidenceRef) throw new CompletionError("invalid_draft", stage);
+    if (!draft.draftId || !draft.text.trim() || !draft.evidenceRef ||
+        !["answer", "clarification", "collaboration", "action_advice", "outcome_ack"].includes(draft.responseKind) ||
+        typeof draft.requiresCriticalPersistence !== "boolean") throw new CompletionError("invalid_draft", stage);
     stage = "persist";
-    const receipt = await ports.persist({ ...input, draft, abortSignal: controller.signal });
+    const receipt = await ports.persist({ ...input, draft, responseKind: draft.responseKind, abortSignal: controller.signal });
     if (controller.signal.aborted) throw new CompletionError("cancelled", stage);
     validateReceipt(receipt, input, draft);
     stage = "publish";
@@ -121,7 +142,6 @@ export async function coordinateCompletion(input: {
   } finally {
     clearTimeout(timer);
     permit.active = false;
-    controller.abort();
     input.abortSignal?.removeEventListener("abort", onAbort);
   }
 }

@@ -15,6 +15,8 @@ const DIMENSION_KEYS = [
   "retrospectiveEndorsement",
 ] as const satisfies readonly (keyof PraxisEvaluationDimensions)[];
 
+export const PRAXIS_RUBRIC_VERSION = "stella.praxis-rubric/v2";
+
 type ModelPraxisEvaluatorOptions = {
   answerCase: (evaluationCase: PraxisEvaluationCase) => Promise<string>;
   judge: (prompt: string) => Promise<{ text: string }>;
@@ -86,7 +88,14 @@ export function createModelPraxisEvaluator(
     if (!answer.trim()) throw new Error("Praxis answer Host returned an empty answer");
     const prompt = [
       "Evaluate one Stella Praxis answer semantically across all seven rubric dimensions.",
+      `Rubric version: ${PRAXIS_RUBRIC_VERSION}. This is diagnostic evidence, not proof of real owner usefulness or release readiness.`,
       "Do not use keyword, regex, string containment, or lexical scoring.",
+      "Judge the appropriate responseKind from the complete request and available evidence: answer, clarification, collaboration, action_advice, or outcome_ack. Do not assume every Praxis question needs action advice.",
+      "For concreteNextAction, a necessary clarification passes only if it identifies a material unknown that changes the judgment and asks an answerable question; a collaboration passes only if it advances the author's concrete thinking while preserving stated intent and unresolved issues; a direct answer or outcome acknowledgement needs no invented next action. For action_advice, require an appropriately concrete, authorized next step.",
+      "For frameworkApplication, assess reasoning appropriate to the responseKind. A framework label, forced framework ritual, optimistic reframing, or motivational ending is not required. Do not penalize a justified clarification for deferring a final judgment.",
+      "For hiddenVariablesSurfaced and situationUnderstanding, distinguish reported facts, third-party statements, external knowledge, and model interpretation. Uncertainty is not a reason to ignore clear counterevidence, repeated asymmetric investment, or a change in relationship state; politeness or topic engagement alone does not prove relationship investment.",
+      "A source label such as user_report, a prior model-generated analysis, or a synthetic/replayed outcome does not by itself establish a real owner action. Do not promote any of these to verified owner feedback. User approval of collaboration does not imply endorsement of every claim or an action having occurred.",
+      "Respect the case's as-of evidence boundary. Later outcomes cannot justify a historical prediction or relationship judgment. An unknown action time must remain unknown; an observation or report time cannot stand in for the action time.",
       "Mark personalContextUse true when the case supplies relevant personal facts and the answer uses them appropriately. When the case supplies no owner-specific facts, mark it true if the answer avoids claiming any; an explicit disclaimer is not required.",
       "personalContextUse is a safety and quality gate, not a detector for whether personalization exists. For a public_synthetic case, no external owner profile is part of the case: set it true unless the answer semantically claims an owner-specific fact absent from the Case. Never set it false merely because personal context is absent.",
       "For a private_canghai case, judge whether the answer appropriately uses the personal facts supplied in that Case without adding unsupported owner-specific claims.",

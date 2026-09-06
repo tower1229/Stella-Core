@@ -1,3 +1,5 @@
+import type { ResponseKind } from "../openclaw/completion.js";
+
 export const CORTEX_MODES = [
   "ordinary",
   "twin",
@@ -28,6 +30,9 @@ export type RouteSituation = {
 
 export type CortexRoute = {
   mode: CortexMode;
+  responseKind: ResponseKind;
+  evidenceStatus: "sufficient" | "material_unknown" | "conflicting";
+  materialUnknowns: string[];
   domains: string[];
   actors?: string[];
   stakes?: Stakes;
@@ -49,7 +54,7 @@ export type CortexRoute = {
   outcome?: {
     openEpisodeRef: string;
     actualAction: string;
-    source: "user_report" | "tool_observation" | "system_event" | "inferred";
+    source: "user_report" | "tool_observation" | "system_event";
     observations: string[];
     result: string;
     predictionAssessment: "supported" | "countered" | "unresolved";

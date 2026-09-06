@@ -28,6 +28,7 @@ export type RecoveryDrillOptions = {
   recoveryRevision: string;
   coreVersion: string;
   hostVersion: string;
+  requiredCoverage?: { praxisLearning: boolean; importantOpenState: boolean };
   rebuild: (target: string, loaded: LoadedConsciousness) => Promise<DerivedRebuildEvidence>;
   verifyContinuity: (input: ContinuityProbeInput) => Promise<ContinuityProbeResult>;
 };
@@ -138,13 +139,13 @@ export async function runRecoveryDrill(
     loaded,
     dataMode: "read_only",
   }).listMemory();
-  if (memory.learningItems.length === 0) {
+  if (options.requiredCoverage?.praxisLearning && memory.learningItems.length === 0) {
     throw new Error("Recovery Level 1 is missing durable Praxis learning");
   }
   const importantOpenEpisodes = memory.openEpisodes.filter(
     ({ recoveryPriority }) => recoveryPriority === "important",
   );
-  if (importantOpenEpisodes.length === 0) {
+  if (options.requiredCoverage?.importantOpenState && importantOpenEpisodes.length === 0) {
     throw new Error("Recovery Level 1 is missing important open Praxis state");
   }
   if (!loaded.manifest.compatibility.modelPolicyRef) {
