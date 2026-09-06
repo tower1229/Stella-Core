@@ -16,7 +16,8 @@ import { bundleFixture } from "./evidence-bundle-fixture.js";
 import { loadQuestionEvaluationAnswer } from "../src/acceptance/question-evaluation-answer.js";
 
 const run = promisify(execFile);
-test("question evidence commits without an Episode and recovers after pointer failure with exact answer binding", async (t) => {
+for (const responseKind of ["clarification", "collaboration"] as const) {
+test(`${responseKind} evidence commits without an Episode and recovers after pointer failure with exact answer binding`, async (t) => {
   const fixture = await bundleFixture(t);
   const external = await mkdtemp(path.join(os.tmpdir(), "stella-question-remote-"));
   t.after(() => rm(external, { recursive: true, force: true }));
@@ -32,11 +33,14 @@ test("question evidence commits without an Episode and recovers after pointer fa
   await run("git", ["-C", fixture.root, "remote", "add", "origin", remote]);
   await run("git", ["-C", fixture.root, "push", "origin", "main"]);
   const resolver = await fixture.resolver();
-  const content = { ...fixture.bundle, id: stableId("bundle", `question:${fixture.bundle.requestId}`), revision: initial };
+  const content = { ...fixture.bundle, id: stableId("bundle", `question:${fixture.bundle.requestId}`), revision: initial,
+    suggestedResponseKind: responseKind,
+    ...(responseKind === "collaboration" ? { status: "sufficient" as const, unresolvedLeads: [] } : {}) };
   const prepared = await prepareQuestionTransaction({ resolver, objectRoot: "objects", bundle: { ...content, version: objectVersion(content) } });
   assert.equal(prepared.bundle.version, objectVersion(content));
   assert.equal((await run("git", ["-C", fixture.root, "status", "--porcelain"])).stdout.trim(), "");
-  const answer = { requestHash: bytesVersion("Synthetic question"), draftHash: bytesVersion("Synthetic clarification") };
+  const answerText = `Synthetic ${responseKind}`;
+  const answer = { requestHash: bytesVersion("Synthetic question"), draftHash: bytesVersion(answerText) };
   let fail = true;
   const pointer = path.join(external, "pointer");
   const createDurability = () => new GitCangHaiDurability({ root: fixture.root, remote: "origin", branch: "main",
@@ -72,11 +76,17 @@ test("question evidence commits without an Episode and recovers after pointer fa
   assert.equal(binding.draftHash, answer.draftHash);
   assert.equal(binding.evidenceCutoff, resolver.purpose.evidenceCutoff);
   const evaluationInput = { root: restored, catalogPath: "catalog.json", requestId: content.requestId,
-    question: "Synthetic question", text: "Synthetic clarification", purpose: resolver.purpose, complete: resolver.complete };
+    question: "Synthetic question", text: answerText, purpose: resolver.purpose, complete: resolver.complete };
   const evaluation = await loadQuestionEvaluationAnswer(evaluationInput);
   assert.deepEqual(evaluation.answer.bundleRef, prepared.bundleRef);
   assert.equal(Date.parse(evaluation.resolver.purpose.evidenceCutoff), Date.parse(resolver.purpose.evidenceCutoff));
   await assert.rejects(loadQuestionEvaluationAnswer({ ...evaluationInput, text: "Replacement answer" }), /evaluation_answer_binding_mismatch/);
   await assert.rejects(loadQuestionEvaluationAnswer({ ...evaluationInput, question: "Different question" }), /evaluation_answer_binding_mismatch/);
+  await assert.rejects(loadQuestionEvaluationAnswer({ ...evaluationInput, requestId: "missing-operation" }),
+    (error: unknown) => {
+      assert.deepEqual((error as { diagnostics?: unknown }).diagnostics, { stage: "binding_record", cause: "ENOENT" });
+      return true;
+    });
   assert.equal((await run("git", ["-C", fixture.root, "status", "--porcelain"])).stdout.trim(), "");
 });
+}

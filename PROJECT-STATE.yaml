@@ -1,7 +1,7 @@
 project: Stella Core
 version_target: "3.0 Alpha"
-status: design-contracts-baselined-runtime-alignment-pending
-updated_at: "2026-09-05"
+status: alpha-integration-and-evidence-validation
+updated_at: "2026-09-06"
 
 mission: >-
   Become the owner's increasingly accurate digital counterpart and
@@ -49,11 +49,11 @@ design_complete:
   - current Host seam review and required completion adapter contract
 
 implementation_evidence:
-  reviewed_runtime_commit: 22a9b91187e9966b2d5c0fba7a624a3a47eb5a52
+  reviewed_runtime_commit: 1c49cf53fe9ccaca0ed9dea2d3431ba3a1435d0d
   existing:
     - plugin scaffold, manifest and reference loading, Framework IR and Twin validation
     - managed commits, persistent recovery pointer CAS, push and bounded normal RPO diagnostics
-    - existing Episode v1 recommendation/action/outcome path and immutable prediction checks
+    - Episode v2 initial advice and evidence-bound outcome transactions with immutable prediction checks
     - recovery, evaluation, private write-loop, activation and candidate receipt runners
     - 32 public synthetic relationship/social diagnostic cases
   new_contract_checks:
@@ -61,15 +61,30 @@ implementation_evidence:
   limit: >-
     Existing code and historical receipts do not certify the revised baseline.
     Full validators, migrations and exact-Host fault evidence remain necessary.
+  isolated_acceptance:
+    recovery_core_revision: f54f462e1b1bc148027a24b8096758dba5ab6342
+    recovery_host_patch: stella-openclaw-2026.8.2-private-draft-v1
+    recovery_model: google/gemini-3.1-pro-preview
+    clean_recovery: passed_for_selected_staged_source
+    current_convergence_recovery: passed_three_native_turns_and_continuity_judge
+    current_convergence_revision: 43bf05a42a4600e74df0ea9cef3bb2d32f58d228
+    current_convergence_artifact_sha256: eef727064206a8f7ca93cc9b7dbc5aa3fcf4d0736463ceac0a1ad89034e345a1
+    important_state_scope: legal_empty_sets_not_real_learning_proof
+    mixed_evaluation: completed_40_cases_36_passed_4_public_personal_context_failures
+    mixed_evaluation_public: 28_of_32_all_dimensions_passed
+    mixed_evaluation_private: 8_of_8_all_dimensions_passed
+    native_collaboration_answer_binding: verified_on_current_convergence_artifact
+    real_action_learning_acceptance: skipped_by_user_unverified
+    candidate_certified: false
 
 implementation_gaps:
-  - response-kind routing and evaluation without mandatory action or prediction
-  - Episode v2 one-time migration and matching runtime/store/runner support
+  - public synthetic case persona boundaries must exclude unrelated fixture Twin assumptions
+  - Episode v2 advice revisions and matching private acceptance runner support
   - generation-aware evidence and dependency synchronization across Core and Host views
   - full archive adapters, coverage, media materialization and retention coordination
   - OngoingWork and LearningChange persistence, application and idempotency
-  - required completion adapter, cancellation and observable delivery failures
-  - complete registry/profile validation and legal-empty recovery fixtures
+  - remaining exact-Host replay, cancellation and fault coverage on one candidate artifact
+  - complete registry/profile validation and required capability acceptance
 
 settled_constraints:
   - one Cortex with four cooperating cognitive systems
@@ -88,6 +103,7 @@ settled_constraints:
 
 scope_of_this_change:
   private_data_migrated: false
+  private_staging_only: true
   runtime_activated: false
   candidate_certified: false
   publication_performed: false

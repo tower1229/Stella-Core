@@ -17,7 +17,7 @@ type AnswerBinding = { requestHash: string; draftHash: string; advice?: Versione
 function preparePlan(catalogPath: string, beforeBytes: string, objectRoot: string, original: EvidenceBundle, evidenceCutoff: string) {
   const before = parseMemoryCatalog(JSON.parse(beforeBytes));
   const source = parseEvidenceBundle(structuredClone(original));
-  check(["answer", "clarification", "action_advice"].includes(source.suggestedResponseKind));
+  check(["answer", "clarification", "collaboration", "action_advice"].includes(source.suggestedResponseKind));
   check(source.id === stableId("bundle", `question:${source.requestId}`) && !before.bundles.some((entry) => entry.id === source.id));
   check(Number.isFinite(Date.parse(evidenceCutoff)) && /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(evidenceCutoff));
   const operationId = `question_${bytesVersion(source.requestId).slice(7)}`;

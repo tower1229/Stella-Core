@@ -18,7 +18,23 @@ const DIMENSION_KEYS = [
   "retrospectiveEndorsement",
 ] as const satisfies readonly (keyof PraxisEvaluationDimensions)[];
 
-export const PRAXIS_RUBRIC_VERSION = "stella.praxis-rubric/v3";
+export const PRAXIS_RUBRIC_VERSION = "stella.praxis-rubric/v4";
+
+const reasonSchema = { type: "string", minLength: 1, pattern: "\\S" };
+const keyedReasonSchema = { oneOf: [reasonSchema, { type: "array", minItems: 1, maxItems: 1, items: reasonSchema }] };
+const observationSchema = {
+  type: "object", additionalProperties: false, required: ["caseId", "dimensions", "evidence"],
+  properties: {
+    caseId: { type: "string", minLength: 1 },
+    dimensions: { type: "object", additionalProperties: false, required: DIMENSION_KEYS,
+      properties: Object.fromEntries(DIMENSION_KEYS.map(key => [key, { type: "boolean" }])) },
+    evidence: { oneOf: [
+      { type: "array", minItems: 1, maxItems: 7, items: reasonSchema },
+      { type: "object", additionalProperties: false, required: DIMENSION_KEYS,
+        properties: Object.fromEntries(DIMENSION_KEYS.map(key => [key, keyedReasonSchema])) },
+    ] },
+  },
+};
 
 export type PraxisEvaluationAnswer = EvidenceBundleBinding & { text: string };
 
@@ -70,12 +86,22 @@ function parseObservation(text: string, expectedCaseId: string): PraxisEvaluatio
   ) {
     throw new Error("Praxis model judge returned invalid rubric dimensions");
   }
-  if (
-    !Array.isArray(record.evidence) ||
-    record.evidence.length === 0 ||
-    record.evidence.length > 7 ||
-    record.evidence.some((entry) => typeof entry !== "string" || !entry.trim())
-  ) {
+  let reasons = record.evidence;
+  if (typeof reasons === "object" && reasons !== null && !Array.isArray(reasons)) {
+    const keyed = reasons as Record<string, unknown>;
+    const reasonText = (value: unknown): unknown => Array.isArray(value) && value.length === 1 ? value[0] : value;
+    if (Object.keys(keyed).length === DIMENSION_KEYS.length &&
+      DIMENSION_KEYS.every(key => {
+        const value = reasonText(keyed[key]);
+        return Object.hasOwn(keyed, key) && typeof value === "string" && value.trim();
+      })) {
+      // Lossless transport normalization: retain every key, exact reason and
+      // original boolean verdict. No model rerun, dropped entries or defaults.
+      reasons = DIMENSION_KEYS.map(key => `${key}: ${reasonText(keyed[key])}`);
+    }
+  }
+  if (!Array.isArray(reasons) || reasons.length === 0 || reasons.length > 7 ||
+    reasons.some((entry) => typeof entry !== "string" || !entry.trim())) {
     throw new Error("Praxis model judge must provide non-empty evidence");
   }
   return {
@@ -83,7 +109,7 @@ function parseObservation(text: string, expectedCaseId: string): PraxisEvaluatio
     dimensions: Object.fromEntries(
       DIMENSION_KEYS.map((key) => [key, dimensionRecord[key]]),
     ) as PraxisEvaluationDimensions,
-    evidence: record.evidence as string[],
+    evidence: reasons as string[],
   };
 }
 
@@ -114,6 +140,8 @@ export function createModelPraxisEvaluator(
       "Mark ownerFit from how the answer serves the goals, constraints, risk tolerance, and competing priorities stated in the case. Do not require extra owner history that the case does not provide.",
       "Mark retrospectiveEndorsement true when available outcome evidence is used correctly, or when no outcome exists and the answer does not fabricate retrospective endorsement.",
       "Return only strict JSON with caseId, dimensions, and evidence.",
+      `Output JSON Schema: ${JSON.stringify(observationSchema)}`,
+      "Use the exact Case.id as caseId. evidence may be an array of reason strings or an object with exactly all seven dimension keys and one non-empty reason string for each (a singleton string array is equivalent). Do not return nested reason objects.",
       "Evidence must contain one to seven non-empty concise reasons grounded in the answer, verified evidence and rubric; never return an empty evidence array, quote private text, or expose identities, private facts, paths, or source excerpts. Use abstract failure categories when explaining a private case.",
       `Case: ${JSON.stringify(evaluationCase)}`,
       `Answer: ${JSON.stringify(answer.text)}`,

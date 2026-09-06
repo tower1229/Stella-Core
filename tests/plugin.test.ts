@@ -349,6 +349,27 @@ test("original-evidence judgment can replace provisional advice with clarificati
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("managed collaboration binds evidence persistence without inventing an action Episode", async () => {
+  const root = await createFixture();
+  try {
+    const revision = await initializeFixtureRepository(root);
+    const hooks = registerPlugin(root, revision, praxisRouteCompletion, "managed_durable_write", [], async () => ({
+      provider: "synthetic", model: "injected", text: JSON.stringify({ status: "sufficient", claims: [], unresolvedLeads: [],
+        stoppingReason: "Enough to co-design a synthetic next question", suggestedResponseKind: "collaboration" }),
+    }));
+    await preparedRun(hooks, "evidence-collaboration", "一起推敲一个低成本的尝试", (prompt, gate) => {
+      assert.deepEqual(gate, { outcome: "pass" });
+      const prepared = readCompletionPreparation("evidence-collaboration") as { route: { responseKind: string }; persistRecommendation?: unknown; evidenceRef?: string };
+      assert.equal(prepared.route.responseKind, "collaboration");
+      assert.equal(typeof prepared.persistRecommendation, "function");
+      assert.equal(typeof prepared.evidenceRef, "string");
+      assert.match(prompt!.appendContext!, /"responseKind":"collaboration"/);
+    });
+    assert.equal((await readdir(path.join(root, "30_PersonalData/praxis/episodes"))).some(name => name.startsWith("praxis-") || name === ".staging"), false);
+    assert.equal((await execFileAsync("git", ["-C", root, "status", "--porcelain"])).stdout.trim(), "");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("semantic failures remain explicit and exclude raw provider content", async () => {
   const root = await createFixture();
   try {

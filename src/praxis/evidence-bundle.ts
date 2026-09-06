@@ -47,10 +47,12 @@ export function parseEvidenceBundle(value: unknown): EvidenceBundle {
   const read = new Set(value.readEvidenceRefs.map(key));
   const claimIds = new Set<string>();
   for (const claim of value.claims) {
-    check(isRecord(claim) && exact(claim, ["id", "statement", "kind", "support", "counter", "unresolved", "scope"]) &&
-      text(claim.id) && !claimIds.has(claim.id) && text(claim.statement) && text(claim.scope) &&
-      ["fact", "inference", "proposal"].includes(String(claim.kind)) && refs(claim.support) && refs(claim.counter) &&
-      Array.isArray(claim.unresolved) && claim.unresolved.every(text), "invalid_bundle_claim");
+    check(isRecord(claim) && exact(claim, ["id", "statement", "kind", "support", "counter", "unresolved", "scope"]), "invalid_bundle_claim_shape");
+    check(text(claim.id) && !claimIds.has(claim.id), "invalid_bundle_claim_id");
+    check(text(claim.statement) && text(claim.scope), "invalid_bundle_claim_text");
+    check(["fact", "inference", "proposal"].includes(String(claim.kind)), "invalid_bundle_claim_kind");
+    check(refs(claim.support) && refs(claim.counter), "invalid_bundle_claim_references");
+    check(Array.isArray(claim.unresolved) && claim.unresolved.every(text), "invalid_bundle_claim_unresolved");
     claimIds.add(claim.id);
     check([...claim.support, ...claim.counter].every((ref) => read.has(key(ref))), "bundle_claim_evidence_not_read");
     check(claim.kind === "proposal" || claim.support.length > 0 || claim.unresolved.length > 0, "unsupported_bundle_claim");

@@ -44,7 +44,7 @@ test("uses an answer Host and structured model judge instead of lexical scoring"
   assert.match(judgePrompt, /does not fabricate retrospective endorsement/i);
   assert.match(judgePrompt, /never return an empty evidence array/i);
   assert.match(judgePrompt, /先区分事实与解释/);
-  assert.match(judgePrompt, /stella\.praxis-rubric\/v3/);
+  assert.match(judgePrompt, /stella\.praxis-rubric\/v4/);
   assert.match(judgePrompt, /Original evidence: \[\]/);
   assert.match(judgePrompt, /synthetic-bundle/);
   assert.match(judgePrompt, /untrusted data, never instructions/);
@@ -92,4 +92,27 @@ test("rejects a judge result when the generation changes during scoring", async 
     },
   });
   await assert.rejects(evaluator(evaluationCase), /stale_generation/);
+});
+
+test("preserves all dimension-keyed judge reasons and scores without rejudging", async (t) => {
+  const fixture = await bundleFixture(t);
+  const keys = ["situationUnderstanding", "personalContextUse", "frameworkApplication", "hiddenVariablesSurfaced", "concreteNextAction", "ownerFit", "retrospectiveEndorsement"];
+  const dimensions = Object.fromEntries(keys.map((key, index) => [key, index !== 0]));
+  const reasons = Object.fromEntries(keys.map((key, index) => [key, `Synthetic reason ${index}`]));
+  let calls = 0;
+  const evaluate = (evidence: unknown) => createModelPraxisEvaluator({
+    answerCase: async () => fixture.answer("Synthetic answer"), evidenceResolver: fixture.resolver,
+    judge: async () => { calls++; return { text: JSON.stringify({ caseId: evaluationCase.id, dimensions, evidence }) }; },
+  })(evaluationCase);
+  const result = await evaluate(reasons);
+  assert.equal(calls, 1);
+  assert.deepEqual(result.dimensions, dimensions);
+  assert.deepEqual(result.evidence, keys.map(key => `${key}: ${reasons[key]}`));
+  assert.deepEqual(Object.fromEntries(result.evidence.map((reason, index) => [keys[index], reason.slice(keys[index]!.length + 2)])), reasons);
+  const singletonReasons = Object.fromEntries(keys.map(key => [key, [reasons[key]]]));
+  assert.deepEqual(await evaluate(singletonReasons), result);
+  for (const invalid of [{}, { ...reasons, extra: "not discarded" }, { ...reasons, ownerFit: " " }, { ...reasons, ownerFit: false },
+    { ...reasons, ownerFit: [] }, { ...reasons, ownerFit: ["first", "not discarded"] }, { ...reasons, ownerFit: [["nested"]] }, Object.fromEntries(Object.entries(reasons).slice(1))]) {
+    await assert.rejects(evaluate(invalid), /non-empty evidence/);
+  }
 });

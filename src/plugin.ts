@@ -361,6 +361,7 @@ export default definePluginEntry({
               complete: (input) => api.runtime.llm.complete({ agentId: config.agentId, purpose: "stella-question-evidence",
                 maxTokens: input.maxTokens, temperature: 0, messages: [{ role: "user", content: input.prompt }] }),
             });
+            api.logger.info(`Stella evidence assessment attempts: ${JSON.stringify(retrieved.modelOutput.attempts.map(({ sha256, category }) => ({ sha256, category })))}`);
             if (retrieved.bundle.suggestedResponseKind === "action_advice" && route.mode !== "praxis" && route.mode !== "deep_praxis") {
               throw new CompletionError("question_response_mode_mismatch", "prepare");
             }
@@ -371,7 +372,7 @@ export default definePluginEntry({
             if (config.dataMode === "managed_durable_write" && route.responseKind === "action_advice") {
               evidenceRef = canonicalJson({ id: questionBundle.id, version: questionBundle.version });
             }
-            if (config.dataMode === "managed_durable_write" && ["answer", "clarification"].includes(route.responseKind)) {
+            if (config.dataMode === "managed_durable_write" && ["answer", "clarification", "collaboration"].includes(route.responseKind)) {
               if (!durability) throw new CompletionError("critical_durability_required", "prepare");
               const transaction = await prepareQuestionTransaction({ resolver: runtime.evidence, objectRoot: binding.archive.objectRoot, bundle: retrieved.bundle });
               retrieved.bundle = transaction.bundle;
@@ -454,6 +455,9 @@ export default definePluginEntry({
                 { requestHash: bytesVersion(original.text), draftHash: completionDraftHash(text), advice: persisted.episodeRef });
               return { ...receipt, writeOperationIds: [...persisted.writeOperationIds, ...receipt.writeOperationIds] };
             };
+          }
+          if (config.dataMode === "managed_durable_write" && route.mode !== "outcome" && !persistRecommendation) {
+            throw new CompletionError("question_evidence_persistence_required", "prepare");
           }
           appendContext = `${appendContext ?? ""}\nresponse_contract: ${JSON.stringify({
             responseKind: route.responseKind, evidenceStatus: route.evidenceStatus,

@@ -243,7 +243,7 @@ async function runPrivateExactHostEvaluation() {
       openclawBin,
     });
     const listeners = new Set();
-    const runtime = { boundary, gateway, workingRoot, binding, harness, listeners };
+    const runtime = { boundary, gateway, workingRoot, caseRoot, binding, harness, listeners };
     runtimes.push(runtime);
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Evaluation Gateway connection timeout")), 15_000);
@@ -279,6 +279,11 @@ async function runPrivateExactHostEvaluation() {
         }
         const runtime = currentRuntime = await createCaseRuntime(evaluationCase.boundary);
         const delivered = await runtime.turn(targetAgentId, evaluationCase.prompt);
+        await writeFile(path.join(runtime.caseRoot, "native-turn-binding.json"), JSON.stringify({
+          runId: delivered.runId,
+          questionSha256: createHash("sha256").update(evaluationCase.prompt).digest("hex"),
+          answerSha256: createHash("sha256").update(delivered.text).digest("hex"),
+        }, null, 2), { mode: 0o600 });
         const bound = await loadQuestionEvaluationAnswer({
           root: runtime.workingRoot, catalogPath: runtime.binding.catalogPath,
           requestId: delivered.runId, question: evaluationCase.prompt, text: delivered.text,
@@ -286,7 +291,7 @@ async function runPrivateExactHostEvaluation() {
             trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
           complete: async ({ prompt }) => ({ text: (await runtime.turn(runtime.harness.judgeAgentId, prompt)).text }),
         });
-        answers.set(evaluationCase.id, bound);
+        answers.set(evaluationCase.id, { ...bound, clientRunId: delivered.runId });
         return bound.answer;
       },
       evidenceResolver: async (evaluationCase) => answers.get(evaluationCase.id).resolver,
@@ -298,8 +303,9 @@ async function runPrivateExactHostEvaluation() {
         cases,
         async (evaluationCase) => {
           const observation = await evaluator(evaluationCase);
-          const { answer, resolver } = answers.get(evaluationCase.id);
+          const { answer, resolver, clientRunId } = answers.get(evaluationCase.id);
           evidenceRecords.push({ caseId: evaluationCase.id, boundary: evaluationCase.boundary,
+            clientRunId,
             requestId: answer.requestId, revision: answer.revision, generationId: answer.generationId,
             bundleRef: answer.bundleRef, evidenceCutoff: resolver.purpose.evidenceCutoff,
             questionSha256: createHash("sha256").update(evaluationCase.prompt).digest("hex"),

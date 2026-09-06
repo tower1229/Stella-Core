@@ -284,6 +284,7 @@ process.stderr.write(`Private recovery evidence: ${isolatedRoot}\n`);
           }
         }
         await writeFile(path.join(isolatedRoot, "probe-observations.private.json"), JSON.stringify(observedTurns), { mode: 0o600 });
+        await writeFile(path.join(isolatedRoot, "assessment-diagnostics.json"), JSON.stringify({ diagnostics: gateway.diagnostics() }), { mode: 0o600 });
         return harness.verifyContinuity(input, { observedTurns, hostEnv: gateway.env,
           runJudge: (prompt) => chat(harness.evidenceAgentId, prompt) });
       },

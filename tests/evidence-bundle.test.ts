@@ -31,6 +31,28 @@ test("rejects unsupported claims, unread refs, false sufficient status, duplicat
   assert.throws(() => parseEvidenceBundle({ ...syntheticBundle(), requestId: "changed" }), /object_version_mismatch/);
 });
 
+test("reports claim field categories without exposing rejected content", () => {
+  const claim = { id: "claim", statement: "PRIVATE-SENTINEL", kind: "proposal", scope: "synthetic", support: [], counter: [], unresolved: [] };
+  const cases: Array<[unknown[], string]> = [
+    [[{ ...claim, extra: true }], "invalid_bundle_claim_shape"],
+    [[claim, claim], "invalid_bundle_claim_id"],
+    [[{ ...claim, scope: " " }], "invalid_bundle_claim_text"],
+    [[{ ...claim, kind: "unknown" }], "invalid_bundle_claim_kind"],
+    [[{ ...claim, support: [{ id: "ref", version: "invalid" }] }], "invalid_bundle_claim_references"],
+    [[{ ...claim, unresolved: [""] }], "invalid_bundle_claim_unresolved"],
+  ];
+  for (const [claims, category] of cases) {
+    const bundle = { ...syntheticBundle(), claims };
+    bundle.version = objectVersion(bundle);
+    assert.throws(() => parseEvidenceBundle(bundle), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(error.message, `Memory catalog failed: ${category}`);
+      assert.equal(error.message.includes("PRIVATE-SENTINEL"), false);
+      return true;
+    });
+  }
+});
+
 test("binds persisted bundle to exact request, revision and generation", async (t) => {
   const fixture = await bundleFixture(t);
   for (const patch of [{ requestId: "other" }, { revision: "c".repeat(40) }, { generationId: "other" }]) {

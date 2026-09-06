@@ -108,6 +108,29 @@ test("question preparation supplies original roles and rereads the source after 
   await assert.rejects(prepare(), /payload_digest_mismatch/);
 });
 
+test("question evidence resolves model-selected handles to exact read versions without accepting invented refs", async (t) => {
+  const { root, evidence } = await fixture(t);
+  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, "catalog.json"), purpose, async () => { throw new Error("Not used"); });
+  let selected: unknown[] = ["E1"];
+  let observedPrompt = "";
+  const prepare = () => prepareQuestionEvidence({ requestId: "selected-evidence", revision: "a".repeat(40), question: "What does the report say?",
+    route: { mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["general"],
+      needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false }, priorContext: "", resolver,
+    complete: async ({ prompt }) => {
+      observedPrompt = prompt;
+      return { provider: "synthetic", model: "injected", text: JSON.stringify({ status: "sufficient",
+        claims: [{ id: "claim", statement: "The supplied original contains a report", kind: "fact", scope: "synthetic", support: selected, counter: [], unresolved: [] }],
+        unresolvedLeads: [], stoppingReason: "Selected the read original", suggestedResponseKind: "answer" }) };
+    } });
+  const result = await prepare();
+  assert.match(observedPrompt, /"handle":"E1"/);
+  assert.deepEqual(result.bundle.claims[0]!.support, [evidence]);
+  for (const invalid of [["E2"], ["E1", "E1"], [evidence]]) {
+    selected = invalid;
+    await assert.rejects(prepare(), /bundle_claim_evidence_not_read|invalid_bundle_claim_references/);
+  }
+});
+
 test("evidence resolver rereads a genuine selected source span before semantic verification", async (t) => {
   const { root, actual } = await fixture(t);
   let calls = 0;
