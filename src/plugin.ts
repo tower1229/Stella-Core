@@ -470,8 +470,7 @@ export default definePluginEntry({
           return {
             prependSystemContext: `${STELLA_CORE_SYSTEM_CONTEXT}\nVerified runtime restoration scope: ${JSON.stringify({
               repository: "CangHai", recoveryRevision: loaded.recoveryRevision ?? config.recoveryRevision,
-              memoryGeneration: memory.generationId,
-            })}\nWhen explaining what was restored or its authority boundary, explicitly identify this selected recovery revision. It identifies a repository snapshot, not proof that historical interpretations are owner facts or that capabilities have passed acceptance.`,
+            })}\nOnly when the user explicitly asks about runtime restoration, its version or authority boundary, identify this selected recovery revision. Do not append runtime metadata, repository snapshots or diagnostic footnotes to ordinary answers, clarification, collaboration or advice. Keep relevant evidence provenance and uncertainty in the answer; this diagnostic scope is not personal evidence or proof that capabilities have passed acceptance.`,
             ...(appendContext ? { appendContext } : {}),
           };
         } catch (error) {

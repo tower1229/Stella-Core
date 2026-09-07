@@ -17,6 +17,8 @@ const repairableStructure = new Set(["question_evidence_invalid_json", "question
 function assessmentSchema(handles: string[]) {
   const refSchema = handles.length ? { type: "string", enum: handles } : false;
   return { type: "object", additionalProperties: false,
+  allOf: [{ if: { properties: { status: { const: "material_unknown" } }, required: ["status"] },
+    then: { properties: { suggestedResponseKind: { const: "clarification" } } } }],
   required: ["status", "claims", "unresolvedLeads", "stoppingReason", "suggestedResponseKind"], properties: {
     status: { enum: ["sufficient", "material_unknown", "conflicting"] },
     claims: { type: "array", items: { type: "object", additionalProperties: false,
@@ -119,7 +121,7 @@ export async function prepareQuestionEvidence(input: {
             ? { ...claim, support: resolveSelectedRefs(claim.support), counter: resolveSelectedRefs(claim.counter) } : claim) : value.claims,
         unresolvedLeads: value.unresolvedLeads,
         readEvidenceRefs: originals.map(({ ref }) => ref), searchedCoverageRefs: [...coverage.values()].map(({ ref }) => ref),
-        stopping: { reason: value.stoppingReason, modelRef, promptVersion: "stella-question-evidence/v7" },
+        stopping: { reason: value.stoppingReason, modelRef, promptVersion: "stella-question-evidence/v8" },
         suggestedResponseKind: value.suggestedResponseKind };
       bundle = parseEvidenceBundle({ ...object, version: objectVersion(object) });
       check(bundle.status !== "material_unknown" || bundle.suggestedResponseKind === "clarification", "question_evidence_requires_clarification");

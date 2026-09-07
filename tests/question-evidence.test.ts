@@ -19,6 +19,10 @@ test("model output schema forbids the unsupported claims rejected by the evidenc
       return { text: JSON.stringify(decision), provider: "synthetic", model: "injected" };
     } });
   const validate = new Ajv({ strict: false }).compile(modelSchema);
+  assert.equal(validate({ ...decision, suggestedResponseKind: "action_advice" }), false,
+    "the model schema must reject material unknowns paired with advice");
+  assert.equal(validate({ ...decision, suggestedResponseKind: "collaboration" }), false);
+  assert.equal(validate(decision), true);
   const claim = { id: "claim", statement: "Unverified assertion", kind: "fact", scope: "synthetic", support: [], counter: [], unresolved: [] };
   assert.equal(validate({ ...decision, claims: [claim] }), false);
   assert.equal(validate({ ...decision, claims: [{ ...claim, kind: "inference" }] }), false);

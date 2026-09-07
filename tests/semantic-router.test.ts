@@ -45,7 +45,7 @@ test("semantic router preserves structured Praxis meaning and candidate selectio
         return { text: JSON.stringify({ openEpisodeRef: "path:open-episode.json" }) };
       }
       assert.equal("agentId" in params, false);
-      assert.equal(params.maxTokens, 2_000);
+      assert.equal(params.maxTokens, 8_192);
       const { systemPrompt } = params;
       assert.match(systemPrompt, /path:framework.yaml#operator:reversible_test/);
       assert.match(systemPrompt, /stakes and reversibility must each be exactly low, medium, or high/);

@@ -442,7 +442,9 @@ export function createSemanticRouter(
       let result: { text: string };
       try {
         result = await completeWithOneRetry({
-          maxTokens: 2_000,
+          // The Host output budget also covers reasoning; 2,000 truncated valid
+          // Gemini route responses before the JSON object was complete.
+          maxTokens: 8_192,
           temperature: 0,
           purpose: "stella-core-semantic-routing",
           systemPrompt: attempt === 0
