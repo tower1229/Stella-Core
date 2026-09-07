@@ -65,6 +65,8 @@ A path move is not an architectural milestone.
 | `50_PersonalAgent/skills/` | legacy owner-specific behavior assets | classify and map to the current skill contract before enabling; retain private behavior in CangHai |
 | existing Stella evals | continuity/regression seed | reuse privately where owner facts are involved |
 
+上表的直接引用用于保留来源，不表示允许将旧文件全文当作新版运行指令注入。2026-09-07 初始化设计要求先完成下文 §13 的行为映射，再依据 [Host 初始化设计](04-OPENCLAW-INTEGRATION.md#8-stella-实例初始化与运行投影详细设计)生成运行投影；原件仍留存。
+
 ## 4. New additive CangHai bootstrap structure
 
 Alpha adds a small 3.0 control surface without moving legacy content:
@@ -252,3 +254,54 @@ Raw legacy source files need not change merely because their discovery metadata 
 Source mapping is complete when every declared durable dependency has a validated current representation or an intentionally retained canonical legacy source readable through the declared adapter. There is one current managed format per contract; obsolete format fallback and parallel writes do not satisfy migration.
 
 Physical migration of old archives is optional. Continuity and reconstructability are the requirement.
+
+## 13. Stella 1.0 运行实现调查与功能承接（2026-09-07）
+
+本节是对备份实现的静态调查，不是旧服务器运行验收。再次从本地沧海 `dev` 解析并读取的 SHA 为 `a1c2f4ec444b7d3245a7a0afea74460470a5dfc2`；没有切换、修改该仓库，也没有执行其中的同步脚本。备份配置 `meta.lastTouchedVersion` 为 `2026.7.1`，它是配置最后修改版本，不能证明旧服务器当前或历史每次运行的版本。本次新版源码基线为 Core `a42db5d0d55e6b474ca0f3e2647a2bd022c24547`、本地依赖 OpenClaw `2026.8.2`。
+
+### 13.1 1.0 的实际组成
+
+1. `50_PersonalAgent/openclaw/workspace/AGENTS.md` 定义会话启动、检索门禁、十个用户入口、内部 skills 分派、写入与回写流程。它是功能编排的一部分，不只是通用安全说明。
+2. 同目录 `SOUL.md` 定义身份、语气、挑战方式及写作、关系等行为边界；`IDENTITY.md` 是展示身份；`USER.md` 是主人基本背景和偏好；`MEMORY.md` 主要保存存在性锚点、检索指针及待观察假设。原件涉及私人信息，本节只记录职责，不复制正文。
+3. `HEARTBEAT.md` 有主动问候与 bootstrap 健康检查的 `tasks:` 声明；另有独立的灵感漫游周报 cron 安装脚本。文件声明不能证明定时任务实际按预期运行。
+4. `50_PersonalAgent/skills/` 有 14 个 `SKILL.md`，为检索、保存、写作、自我观察、关系、健康、阅读和运维提供模型执行流程。规则主要依赖模型遵守；Shell 脚本负责文件、索引、Git 和部署操作。
+5. `50_PersonalAgent/openclaw/openclaw.json` 保存宿主配置。备份启用 `memory-core` 的 Dreaming、`active-memory`、`memory-wiki`，以及 `session-memory` 内部 hook。这里只证明配置声明；插件代码、实际可用性、索引覆盖与故障语义需另验。该 commit 的 `50_PersonalAgent/plugins/` 未发现受跟踪文件。
+6. `50_PersonalAgent/corpus-registry.yaml` 与同步脚本把公开作者语料及私人记忆语料接到搜索和 Wiki；不能据此宣称已覆盖所有在途文章、日常对话和附件。
+
+运行链为：workspace 常驻指令 → 语义识别请求 → skill 指导检索／分析 → 按旧规则确认写入 → 操作 skill 调脚本 → Git 回写或部署 → 索引／Wiki 同步。新版需要承接这条功能链，而不只是恢复几个身份引用。
+
+### 13.2 Skills 与入口承接清单
+
+以下是迁移设计；不是启用清单。每个启用项还需源码／依赖 pin、策略核对和目标 Host 验收。保留用户熟悉的表达，通用自然语言入口由结构化 LLM 判断；显式 CLI 或 slash 命令可确定性分派。
+
+| 1.0 skill／入口 | 现有职责 | 新版承接与变化 |
+| --- | --- | --- |
+| `memory-routing`／写入记忆 | 判断存储层、锚点与篇章，保存前确认 | 通用语义判断进入 ingest／learn；按已确认整理权执行，不继续逐次确认；原话与理解分开保存 |
+| `canghai-operations`／从沧海同步、同步到沧海 | 文件写入、导入、部署、回写、索引协调 | 薄运维 skill 调 Core 受控操作；同步方向明确，不能再整体 rsync 配置或自动回写生成投影 |
+| `memory-handling` | 来源用途、引用、敏感性及事实边界 | 源策略校验由 Core 强制执行，语义证据判断由 LLM；不是可忘记调用的可选提示 |
+| `personal-model` | 按需检索长期模式，避免固化画像 | Twin 的情境选择与反证检查；移除按工作目录一刀切排除的通用规则，保留每份资料的实际用途限制 |
+| `relationship-boundary` | 关系意图、尺度和边界分析 | 按需社交判断；旧版禁止结合历史和当前资料判断状态的通用条款与现行需求冲突，须显式迁移；不取消来源级用途限制 |
+| `health-recovery` | 识别过载，给出恢复建议，核对健康原件 | 主人行为资产；保留证据门槛，不能把旧固定时点或信号示例直接编译成硬编码语义路由 |
+| `writing-editor` | 保留原声、诊断、轻改或重写 | 写作协作与编辑资产；补齐现行作者原意、共同推演、纠正和 OngoingWork，不限于已成稿编辑 |
+| `know-me`／了解我 | 主动开启背景故事访谈和时间线整理 | 保留自愿访谈流程，学习走共享 ingest／learn；不强迫保存所有推断，不机械沿用旧确认链 |
+| `insight-me`／洞察我 | 一次性、可追溯自我观察 | 保留请求触发及临时候选性质；认知推断不是已确认 Twin，不因执行而自动激活假设 |
+| `synthesis-review`／关联检索、关联治理 | 多角度语义搜索与关联候选审查 | 共享 retrieve／consolidation；旧固定轮数和候选上限不作为完整产品充分性标准 |
+| `book-framework`／书籍解读 | 提取书籍概念系统及实践含义 | 保留阅读工作流；作者观点不自动成为主人的 Framework Source 或 active IR |
+| `weread-skills`／调用微信读书 | 阅读服务接口 | integration，另验服务、依赖与凭据；备份代码存在不证明连接可用 |
+| `roaming-report`／定时周报 | 定时取材、语义关联、私聊报告 | owner_behavior + 宿主调度；迁移声明、时区与投递授权，状态缺失时不擅自重启任务 |
+| `public-ask-learning-batch`／批处理网站问答 | 私有筛选、短名单确认后物化公开问答 | 独立 integration，保留具体发布内容的授权边界；不作为 Core 基础初始化的必需能力 |
+
+`AGENTS.md` 还引用 `web-tools-guide` 及多项通用技能；该备份的上述 skill 目录没有 `web-tools-guide/SKILL.md`。这表示依赖在该备份范围内未闭合，不能断言原服务器未安装。初始化须把所有正文引用、脚本、模板、外部工具及服务纳入依赖清单；缺失的必需项阻断对应能力，不能只复制 14 个入口文件就报告功能恢复。
+
+### 13.3 旧部署与备份脚本的价值和边界
+
+核对了 `99_System/Scripts/sync-openclaw-runtime.sh`、`backup-openclaw-runtime.sh`、`sync-openclaw-memory.sh`、`install-roaming-report-cron.sh`：
+
+- 已有双向同步、部署前 lint、旧 runtime 覆盖新沧海修改的检查，以及周报声明与回读验证，值得承接其“来源和实际部署必须一致”的目标。
+- runtime deploy 整体复制 `openclaw.json`、workspace 与 skills，并可能同步其他 `workspace-*`；新版只能管理明确目标 Agent 及声明字段，不移植这种跨 Agent 副作用。
+- 备份脚本复制六个 bootstrap 文件和已登记的 skills；主 workspace 的完整对话、附件留存不能由此证明。主 workspace 与其他 `workspace-*` 的目录备份范围也不相同。
+- workspace／skills deploy 使用不带 `--delete` 的 rsync，来源移除不保证运行时旧 skill 消失；新设计按上一部署清单删除失效的受管项，并保护非受管内容。
+- cron 安装器按名称找旧任务并删除重建，缺投递目标可被上层当 warning；新版使用稳定任务身份、幂等更新及逐能力状态，不能以名称或“脚本结束”证明完整恢复。
+- 脚本会 pull、commit、push 或重启，不能当只读规划器调用。新初始化先输出精确来源版本和可审查变更，再执行获授权的计划，应用期间不能悄悄 pull 到另一 revision。
+
+新版初始化的迁移结果须逐项记录 `retained | adapted | retired | unavailable | conflict`、原始定位／blob、目标职责、被替代条款、依赖和验收。`retired` 只指旧运行实现退出，不表示删除原件或取消未被修改的产品能力。

@@ -93,6 +93,8 @@ profile.memory.catalog_ref 必须与 corpus registry 的 memory_catalog_ref 解�
 
 ## 3. Runtime profile
 
+初始化的后续格式扩展见 [Host 集成 §8.4](../04-OPENCLAW-INTEGRATION.md#84-数据格式与接口草案)：提出以显式 v2 引用 Host 物化配置。以下 v1 契约保持其原有字段范围；本次设计不让现有解析器接受未定义字段，也不表示 v2 已实现或启用。
+
 `identity.runtimeProfileRef` 是唯一 profile 权威。若同时存在 `runtimeState.runtimeProfileRef`，必须解析为同一文件和内容；`compatibility.modelPolicyRef` 引用其中明确模型策略或独立的同版本模型策略对象，禁止两套模型配置互相覆盖。
 
 profile 必填：

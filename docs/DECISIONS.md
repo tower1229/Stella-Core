@@ -480,3 +480,42 @@ open-state recovery. Optional unavailable capabilities do not justify a runnable
 These rules replace conflicting mandatory-Twin, always-nonempty and degraded-activation language.
 Automated assertions, semantic diagnostics and owner feedback remain separate under D-034. Historical
 candidate receipts do not certify the newly defined assertions.
+
+## D-055 — Temporal scope covers fact validity and recorded judgments
+
+**Decision (2026-09-07):** Support understanding a past real-world state using currently eligible
+evidence, and explaining an actually recorded past judgment using its sealed inputs. Distinguish
+when a state held from when Stella learned about it or corrected its interpretation. Unknown temporal
+boundaries remain unknown; correcting an earlier mistake is not evidence that the owner changed.
+
+Do not yet promise reconstruction of the complete cognitive state at arbitrary historical instants.
+That alternative requires preserving and reconstructing the then-current eligibility, permissions
+and understanding across the whole memory, beyond the recorded-judgment trace needed here. This
+refines D-052 without weakening source retention, sealed predictions, deletion restrictions or exact
+recovery. The owner confirmed this scope; concrete temporal fields and query protocols remain open.
+See [the confirmed historical scope](09-REQUIREMENTS-ALIGNMENT.md#53-事实有效时间与实际判断回溯2026-09-07-已确认).
+
+The owner further confirmed that recorded judgments include important factual and situational
+conclusions, authorial-intent interpretations and their substantive revisions, not only action
+advice. Preserve the then-recorded evidence, scope, uncertainty and explanation; distinguish
+formation from delivery. Ordinary wording changes remain in the original conversation archive.
+Do not turn every internal reasoning step into a record or fabricate a retrospective explanation
+as if it had been recorded at the time.
+
+## D-056 — Continue corrected work while other affected work is reassessed
+
+**Decision (2026-09-07):** Once the current work's correction satisfies critical durability, all
+inputs required for its answer are valid, and the complete affected set of old understanding is
+blocked, current collaboration may continue while other affected work is reassessed in the
+background. Waiting for global reassessment would unnecessarily block work whose dependencies
+are already corrected. Queries needing pending understanding remain blocked or explicitly pending;
+current-work readiness never means the whole correction has completed.
+
+This refines D-050/D-052's publication contract: intermediate generations may be activated only as
+coherent states with durable, restart-safe exclusion of pending objects and dependent views. Each
+generation still satisfies all applicable dependency, permission, required-view and durability
+checks. A partial file transaction, failed required view or incomplete affected-set analysis cannot
+be disguised as an intermediate generation. Later batches revalidate the latest revision and
+generation and preserve idempotency; the full operation completes only when its whole scope does.
+This settles the execution boundary, not its schema or implementation. See
+[the staged reassessment contract](contracts/MEMORY-LIFECYCLE.md#分批重评与中间代发布).

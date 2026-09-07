@@ -11,6 +11,7 @@
 | 现行规范导航、验收分层 | 本文 |
 | 数据格式、生命周期、不变量 | [契约目录](contracts/README.md) |
 | 当轮执行及 Host 要求 | [运行协议](02-PRAXIS-RUNTIME.md)、[Host 集成](04-OPENCLAW-INTEGRATION.md) |
+| 实例初始化、运行文件／skills／调度迁移设计 | [Host 初始化设计](04-OPENCLAW-INTEGRATION.md#8-stella-实例初始化与运行投影详细设计)、[1.0 功能映射](07-CANGHAI-COLD-START.md#13-stella-10-运行实现调查与功能承接2026-09-07) |
 | Alpha 范围和出口 | [Alpha 验收](05-ALPHA-PLAN.md) |
 | 技术决定及替代关系 | [决策记录](DECISIONS.md) |
 | 实现证据 | 固定源码版本、测试、Exact Host receipt；[项目状态](../PROJECT-STATE.yaml)只做索引 |
@@ -80,3 +81,5 @@ Alpha 执行其路径涉及的 G 项及 Alpha 出口；完整记忆实现还须�
 | 完整配置契约 | 原有四个 Schema 及新增 Episode v2 Schema 不覆盖所有 portable registries 和 runtime profile |
 
 本目录下新增格式是开发目标。实现新格式必须同时交付结构校验、语义不变量校验、显式迁移和对应测试；现有 v1 解码范围不能作为新行为的成功判据。更新线上私有数据或改变运行配置需通过实际任务的迁移／激活流程，本次整理不执行这些操作。
+
+2026-09-07 初始化专项核查（Core `a42db5d0d55e6b474ca0f3e2647a2bd022c24547`）：现有 `stella:activate` 配置并检查插件入口，`plugin.ts` 动态注入认知上下文；尚无覆盖目标 Agent 文件、展示身份、有效 skills、自动任务和会话生效的统一初始化协调器。Host 集成 §8 给出详细设计及 I 系列验收，提出的 profile v2 等格式尚未实现；不以该设计更新重写上表 2026-09-05 历史源码事实，也不声称当前 Alpha 通过。
