@@ -197,7 +197,7 @@ export async function updateFixtureManifest(
 }
 
 export async function initializeFixtureRepository(root: string): Promise<string> {
-  await execFileAsync("git", ["init", "--quiet", root]);
+  await execFileAsync("git", ["init", "--quiet", "--initial-branch=main", root]);
   await execFileAsync("git", ["-C", root, "config", "user.name", "Stella Core Tests"]);
   await execFileAsync("git", ["-C", root, "config", "user.email", "tests@stella-core.invalid"]);
   await execFileAsync("git", ["-C", root, "add", "."]);

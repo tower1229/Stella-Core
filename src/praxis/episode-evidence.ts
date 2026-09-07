@@ -184,7 +184,7 @@ export class EpisodeEvidenceResolver {
   }
   async isCurrentlyEligible(episode: EpisodeV2): Promise<boolean> {
     await this.reader.assertCurrent();
-    return [...episode.historicalInputRefs, ...(episode.twin?.hypothesisRefs ?? []), ...(episode.framework?.frameworkRefs ?? []),
+    return [...episode.historicalInputRefs, ...(episode.decision?.inputRefs ?? []), ...(episode.twin?.hypothesisRefs ?? []), ...(episode.framework?.frameworkRefs ?? []),
       ...(episode.reality?.externalRefs ?? []), ...(episode.reality?.similarEpisodeRefs ?? []), ...(episode.actual?.evidenceRefs ?? []),
       ...(episode.outcome?.evidenceRefs ?? []), ...(episode.learning?.evidenceRefs ?? []), ...(episode.learning?.twin ?? []), ...(episode.learning?.praxis ?? [])]
       .every((ref) => this.reader.eligible(ref));

@@ -116,7 +116,8 @@ test("bound v2 advice archives original input, resumes pointer failure, and rest
   const loaded = await loadConsciousness(root);
   const binding = await loadPraxisRuntimeBinding(loaded);
   const runtime = await createBoundPraxisRuntime(loaded, binding, complete, async () => { throw new Error("Read runtime must not write"); });
-  const args = { loaded, binding, runtime, durability, complete, operationId: "fixture-run", original, episode, inputRefs: [],
+  const args = { loaded, binding, runtime, durability, complete, operationId: "fixture-run", original,
+    target: { kind: "new" as const, episode }, inputRefs: [],
     decision: { recommendation: "Synthetic final advice", rationale: [] }, abortSignal: new AbortController().signal };
   await assert.rejects(persistBoundAdvice(args), /Synthetic pointer storage failure/);
   assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim(), revision);
@@ -128,19 +129,42 @@ test("bound v2 advice archives original input, resumes pointer failure, and rest
   const beforeReplay = (await run("git", ["-C", root, "rev-list", "--count", "HEAD"])).stdout;
   assert.deepEqual(await persistBoundAdvice(args), result);
   assert.equal((await run("git", ["-C", root, "rev-list", "--count", "HEAD"])).stdout, beforeReplay);
+  const nextLoaded = await loadConsciousness(root);
+  const nextRuntime = await createBoundPraxisRuntime(nextLoaded, binding, complete, async () => {});
+  const firstMemory = await nextRuntime.listMemory();
+  const selected = await nextRuntime.selectedEpisode(firstMemory.openEpisodes[0]!.ref);
+  const revisedText = "Synthetic follow-up constraint";
+  const revisedOriginal: HostInputSnapshot = { ...original, entryId: "fixture-followup", logicalTurnId: "fixture-followup-turn", rawSeq: 2,
+    text: revisedText, event: { ...original.event, id: "fixture-followup", timestamp: "2026-09-06T01:00:00Z",
+      message: { role: "user", content: [{ type: "text", text: revisedText }] } } };
+  const reviseArgs = { ...args, loaded: nextLoaded, runtime: nextRuntime, operationId: "fixture-revision", original: revisedOriginal,
+    target: { kind: "revision" as const, selected }, decision: { recommendation: "Revised synthetic advice", rationale: [] } };
+  failPointer = true;
+  await assert.rejects(persistBoundAdvice(reviseArgs), /Synthetic pointer storage failure/);
+  failPointer = false;
+  const revised = await persistBoundAdvice(reviseArgs);
+  assert.equal(revised.episodeRef.id, selected.episode.id);
+  assert.equal(revised.writeOperationIds.length, 2);
+  assert.deepEqual(await persistBoundAdvice(reviseArgs), revised);
   const restored = path.join(temp, "restored");
   await run("git", ["clone", "--quiet", "--branch", "main", remote, restored]);
   const restoredLoaded = await loadConsciousness(restored);
   const restoredRuntime = await createBoundPraxisRuntime(restoredLoaded, await loadPraxisRuntimeBinding(restoredLoaded), complete, async () => {});
+  assert.deepEqual((await restoredRuntime.repository.readHistorical(selected.episode.id, selected.version)).episode, selected.episode);
   const memory = await restoredRuntime.listMemory();
   assert.equal(memory.openEpisodes.length, 1);
   assert.equal(memory.openEpisodes[0]!.prediction, undefined);
-  assert.equal(memory.openEpisodes[0]!.recommendation, "Synthetic final advice");
+  assert.equal(memory.openEpisodes[0]!.recommendation, "Revised synthetic advice");
   const capturedRef = restoredRuntime.evidence.reader.catalog.evidence[0]!;
   const captured = await restoredRuntime.evidence.readEvidence(capturedRef);
   assert.equal(captured.text, original.text);
   assert.equal(captured.role, "unknown");
   const restoredEpisode = await restoredRuntime.repository.read(episode.id);
+  assert.deepEqual(restoredEpisode.episode.historicalInputRefs, selected.episode.historicalInputRefs);
+  assert.notDeepEqual(restoredEpisode.episode.decision!.inputRefs, selected.episode.decision!.inputRefs);
+  assert.equal(restoredEpisode.episode.provenance.runId, "fixture-revision");
+  const retainedOriginals = await Promise.all(restoredRuntime.evidence.reader.catalog.evidence.map((ref) => restoredRuntime.evidence.readEvidence(ref)));
+  assert.deepEqual(retainedOriginals.map((item) => item.text), [original.text, revisedText]);
   assert.equal(restoredEpisode.episode.actual, undefined);
   assert.equal(restoredEpisode.episode.outcome, undefined);
   assert.equal(restoredEpisode.episode.learning, undefined);

@@ -67,6 +67,8 @@ OpenClaw 保留模型执行、会话、搜索、工具、权限和调度。Corte
 
 旧 candidate v2 receipt 只证明其记录的旧测试范围；在 A-01–A-14 收敛后，适配器／报告必须明确包含新的完成与空状态断言。不得仅因 receipt 的 candidate=true 宣称新增契约已验收。
 
+现行私有 Praxis runner 输出 `stella.exact-host-praxis-receipt/v2`：通过 `chat.send` 验证初次建议、同事项修订、真实结果和重启后学习使用四轮。adapter 必须提供 `createAdviceRevisionMessage`；不得自动生成主人实际行动。无预测时记录 `predictionStatus=not_applicable`，不伪造封存预测。学习使用须绑定 v2 的确切对象版本；只有候选学习时显式失败，不计作可复用学习。旧 v1 Praxis receipt 不能进入当前候选门禁。runner 实现与合成测试不代表私有验收已经执行。
+
 候选、commit、push、CI、激活和发布分别报告。生成候选不自动创建 tag、Release、npm 发布或生产部署。实际运行方式见[本地集成](08-LOCAL-DEV-INTEGRATION.md)。
 
 ## 6. 完整产品的进一步验收

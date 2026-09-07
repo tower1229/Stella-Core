@@ -102,4 +102,17 @@ export class PraxisRuntimeMemory {
     abortIfRequested(input.abortSignal);
     return result;
   }
+
+  async reviseRecommendation(input: { operationId: string; selected: EpisodeSnapshot;
+    decision: NonNullable<EpisodeV2["decision"]>; provenance: EpisodeV2["provenance"];
+    recordedAt: string; abortSignal?: AbortSignal }): Promise<EpisodeSnapshot> {
+    abortIfRequested(input.abortSignal);
+    if (input.selected.episode.status !== "recommended") throw new EpisodeV2Error("advice_revision_requires_recommended_episode");
+    if (!input.decision.inputRefs?.length) throw new EpisodeV2Error("advice_revision_sources_required");
+    const result = await this.repository.apply({ operationId: `${input.operationId}-revise`, expectedVersion: input.selected.version,
+      episode: { ...input.selected.episode, updatedAt: input.recordedAt, decision: input.decision, provenance: input.provenance },
+      abortSignal: input.abortSignal });
+    abortIfRequested(input.abortSignal);
+    return result;
+  }
 }

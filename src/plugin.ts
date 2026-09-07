@@ -418,10 +418,15 @@ export default definePluginEntry({
               throw new CompletionError("critical_durability_required", "prepare");
             }
             if (!route.situation) throw new CompletionError("situation_unavailable", "prepare");
-            if (route.openEpisodeRef) throw new CompletionError("advice_revision_binding_unavailable", "prepare");
+            const selected = route.openEpisodeRef ? await runtime.selectedEpisode(route.openEpisodeRef) : undefined;
+            if (selected && selected.episode.status !== "recommended") {
+              throw new CompletionError("advice_revision_requires_recommended_episode", "prepare");
+            }
+            if (selected && route.twinPrediction) throw new CompletionError("sealed_prediction_changed", "prepare");
             const situation = route.situation;
             const packet = buildPraxisContextPacket(event.prompt, route, loadedForTurn, memory.openEpisodes);
             persistRecommendation = async (text, abortSignal, original) => {
+              if (route.openEpisodeRef) await runtime.selectedEpisode(route.openEpisodeRef);
               const twinRefs = await resolveBoundInputRefs(runtime, binding, packet.twin?.hypothesisRefs ?? []);
               const frameworkRefs = await resolveBoundInputRefs(runtime, binding, packet.framework?.frameworkRefs ?? []);
               const externalRefs = await resolveBoundInputRefs(runtime, binding, packet.reality.externalRefs ?? []);
@@ -430,7 +435,7 @@ export default definePluginEntry({
               const persisted = await persistBoundAdvice({
                 loaded, binding, runtime, durability: durability!, operationId: runId, original, abortSignal, complete: evidenceComplete,
                 inputRefs: [...twinRefs, ...frameworkRefs, ...externalRefs, ...learningRefs, ...questionBundle!.readEvidenceRefs],
-                episode: {
+                target: selected ? { kind: "revision", selected } : { kind: "new", episode: {
                   schemaVersion: "stella.praxis-episode/v2", id: `praxis_${bytesVersion(runId).slice(7)}`, status: "open",
                   createdAt: recordedAt, updatedAt: recordedAt, recoveryPriority: "important",
                   provenance: { agentId: original.agentId, sessionId: original.sessionId, runId, messageRefs: [original.entryId] },
@@ -442,7 +447,7 @@ export default definePluginEntry({
                     ...(route.twinPrediction ? { prediction: route.twinPrediction } : {}) } } : {}),
                   ...(packet.framework ? { framework: { frameworkRefs, operatorRefs: packet.framework.operatorRefs } } : {}),
                   reality: { modes: packet.reality.modes, ...(externalRefs.length ? { externalRefs } : {}) },
-                },
+                } },
                 decision: { recommendation: text, rationale: [] },
               });
               const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);

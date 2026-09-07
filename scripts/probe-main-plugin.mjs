@@ -18,12 +18,14 @@ const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf
 assert.equal(host.version, "2026.8.2");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
 const admissionReplayProbe = process.argv.includes("--admission-replay");
-const adviceTailProbe = process.argv.includes("--advice-evidence-recovery");
+const cancellationProbe = process.argv.includes("--cancel");
+const adviceRevisionProbe = process.argv.includes("--advice-revision") || process.argv.includes("--advice-revision-recovery");
+const adviceTailProbe = process.argv.includes("--advice-evidence-recovery") || process.argv.includes("--advice-revision-recovery");
 const recoveryProbe = process.argv.includes("--outcome-recovery") || questionRecoveryProbe || adviceTailProbe;
 const failureProbe = process.argv.includes("--outcome-persist-failure") || recoveryProbe;
 const outcomeProbe = process.argv.includes("--outcome") || failureProbe && !questionRecoveryProbe && !adviceTailProbe;
 const questionProbe = process.argv.includes("--question-evidence") || process.argv.includes("--question-durable") || questionRecoveryProbe || admissionReplayProbe;
-const managed = process.argv.includes("--managed") || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe || adviceTailProbe || admissionReplayProbe;
+const managed = process.argv.includes("--managed") || cancellationProbe || adviceRevisionProbe || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe || adviceTailProbe || admissionReplayProbe;
 const temp = await mkdtemp(path.join(os.tmpdir(), "stella-main-completion-"));
 // Resolve dependencies from the tested package's consumer, not the development checkout.
 const snapshotParent = path.join(packageRoot, ".artifacts");
@@ -93,7 +95,7 @@ async function verifyAdviceBundle(reader, requestId, revision, remote, remoteRev
   assert.equal(binding.requestHash, bytesVersion("Synthetic main plugin question"));
   assert.deepEqual(JSON.parse((await run("git", ["--git-dir", remote, "show", `${remoteRevision}:${bindingPath}`])).stdout), binding);
 }
-if (outcomeProbe || questionProbe) {
+if (outcomeProbe || questionProbe || adviceRevisionProbe) {
   const { loadConsciousness } = await import(buildModule("src/canghai/manifest.js"));
   const { loadPraxisRuntimeBinding, createBoundPraxisRuntime } = await import(buildModule("src/praxis/runtime-binding.js"));
   const { prepareHostInputArchive } = await import(buildModule("src/canghai/host-input-archive.js"));
@@ -117,9 +119,11 @@ if (outcomeProbe || questionProbe) {
   const episodeId = "praxis-synthetic-outcome";
   const advised = await runtime.recommend({ operationId: "synthetic-initial", recordedAt: now,
     episode: { schemaVersion: "stella.praxis-episode/v2", id: episodeId, status: "open", createdAt: now, updatedAt: now,
-      recoveryPriority: "important", historicalInputRefs: [], provenance: {}, situation: { summary: "Synthetic weekend invitation", domains: ["social"], observations: [] } },
+      recoveryPriority: "important", historicalInputRefs: [], provenance: {},
+      ...(adviceRevisionProbe ? { twin: { prediction: { possibleActions: { ask: 0.6, wait: 0.4 }, likelyInterpretations: [], keyFactors: [] } } } : {}),
+      situation: { summary: "Synthetic weekend invitation", domains: ["social"], observations: [] } },
     decision: { recommendation: "Ask for a suitable weekend time", rationale: [] } });
-  outcomeSeed = { episodeId, episodeRef: memoryRoutingRef({ id: episodeId, version: advised.version }, runtime.repository.historicalPath(episodeId, advised.version)),
+  outcomeSeed = { episodeId, advised, episodeRef: memoryRoutingRef({ id: episodeId, version: advised.version }, runtime.repository.historicalPath(episodeId, advised.version)),
     actual: { action: "Asked about the weekend time", occurredAt: null, source: "user_report", evidenceRefs: archived.evidenceRefs },
     outcome: { observations: ["Friend confirmed Saturday"], result: "Weekend time confirmed", observedAt: now, evidenceRefs: archived.evidenceRefs },
     learning: { disposition: "propose_strategy", rationale: "Synthetic local candidate based on this report", evidenceRefs: archived.evidenceRefs,
@@ -161,7 +165,7 @@ const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 export default { ...main, register(api) {
   main.register({ ...api, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
     async complete(params) {
-      if (params.purpose === 'stella-core-open-episode-selection') return { text: JSON.stringify({ openEpisodeRef: null }) };
+      if (params.purpose === 'stella-core-open-episode-selection') return { text: JSON.stringify({ openEpisodeRef: ${JSON.stringify(adviceRevisionProbe ? outcomeSeed.episodeRef : null)} }) };
       if (params.purpose === 'stella-question-evidence') {
         const input = JSON.parse(params.messages[0].content.split('\\n').at(-1));
         return { provider: 'synthetic', model: 'injected', text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
@@ -188,6 +192,8 @@ export default { ...main, register(api) {
   } } });
 } };
 `);
+const providerArrived = Promise.withResolvers();
+const providerRelease = Promise.withResolvers();
 let providerRequests = 0;
 let providerReceivedOriginalEvidence = false;
 const provider = createServer(async (request, response) => {
@@ -197,6 +203,7 @@ const provider = createServer(async (request, response) => {
   const requestBody = Buffer.concat(chunks).toString('utf8');
   providerReceivedOriginalEvidence ||= requestBody.includes("Synthetic owner report: I asked about the weekend time. My friend confirmed Saturday.") &&
     requestBody.includes("stella.evidence-bundle/v1");
+  if (cancellationProbe) { providerArrived.resolve(); await providerRelease.promise; }
   response.setHeader("content-type", "application/json");
   response.end(JSON.stringify({ id: "synthetic-main", object: "chat.completion", created: 1, model: "probe",
     choices: [{ index: 0, message: { role: "assistant", content: "SYNTHETIC_MAIN_ANSWER" }, finish_reason: "stop" }],
@@ -242,17 +249,35 @@ try {
   const sessionKey = "agent:probe:main-completion";
   const submission = { sessionKey, message: questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" };
   const { runExactHostEvaluationChat } = await import(buildModule("src/acceptance/exact-host-chat.js"));
-  const sent = failureProbe ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
+  const sent = failureProbe || cancellationProbe ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
     request: (method, params) => client.request(method, params, { timeoutMs: 35_000 }),
     subscribe(listener) { evaluationListeners.add(listener); return () => evaluationListeners.delete(listener); },
   }, submission);
-  if (!failureProbe) assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
+  if (cancellationProbe) {
+    let timer;
+    try {
+      await Promise.race([providerArrived.promise, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Synthetic provider did not receive generation")), 15000);
+      })]);
+    } finally { clearTimeout(timer); }
+    const aborted = await client.request("chat.abort", { sessionKey, runId: sent.runId });
+    providerRelease.resolve();
+    assert.equal(aborted.aborted, true);
+  }
+  if (!failureProbe && !cancellationProbe) assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
   const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 });
   const history = await client.request("chat.history", { sessionKey, limit: 10 });
   const messages = history.messages ?? [];
-  assert.equal(terminal.status, failureProbe ? "error" : "ok", JSON.stringify(terminal));
+  assert.equal(terminal.status, failureProbe || cancellationProbe ? "error" : "ok", JSON.stringify(terminal));
   let persistence;
-  if (failureProbe) {
+  if (cancellationProbe) {
+    const events = observedEvents.filter(event => event.event === "chat" && event.payload?.runId === sent.runId);
+    assert.equal(events.filter(event => event.payload.state === "final").length, 0);
+    assert.ok(events.some(event => ["aborted", "error"].includes(event.payload.state)));
+    assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), revision);
+    assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
+    persistence = { cancelledDuringGeneration: true, businessRevisionUnchanged: true, lateProviderAnswerNotDelivered: true };
+  } else if (failureProbe) {
     const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
     await assert.rejects((await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json")).assertCurrent(), /memory_transaction_pending/);
     const beforeTailRevision = adviceTailProbe ? JSON.parse(await readFile(path.join(temp, "advice-tail-checkpoint.json"), "utf8")).beforeTailRevision : revision;
@@ -283,7 +308,7 @@ try {
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, remoteRevision);
       const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
       await reader.assertCurrent();
-      const episodeId = adviceTailProbe ? `praxis_${bytesVersion(sent.runId).slice(7)}` : outcomeSeed.episodeId;
+      const episodeId = adviceTailProbe && !adviceRevisionProbe ? `praxis_${bytesVersion(sent.runId).slice(7)}` : outcomeSeed.episodeId;
       const episode = JSON.parse(await readFile(path.join(canghaiRoot, `30_PersonalData/praxis/episodes/${episodeId}/episode.json`), "utf8"));
       assert.equal(episode.status, questionProbe || adviceTailProbe ? "recommended" : "closed");
       if (outcomeProbe) assert.equal((await reader.read(episode.learning.praxis[0], "understandings")).status, "candidate");
@@ -292,7 +317,13 @@ try {
       assert.equal(observedEvents.filter((event) => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
       if (adviceTailProbe) await verifyAdviceBundle(reader, sent.runId, revision, remote, remoteRevision, episode);
       else await (questionProbe ? verifyQuestionBundle : verifyOutcomeBundle)(reader, sent.runId, revision, remote, remoteRevision);
+      if (adviceRevisionProbe) {
+        assert.equal(episode.id, outcomeSeed.episodeId);
+        assert.deepEqual(episode.twin?.prediction, outcomeSeed.advised.episode.twin.prediction);
+        assert.deepEqual(episode.historicalInputRefs, outcomeSeed.advised.episode.historicalInputRefs);
+      }
       persistence.recovery = { hostRestarted: true, synchronized: true, pointerConfirmed: true, replyResent: false, evidenceBundleSynchronized: true };
+      if (adviceRevisionProbe) persistence.recovery.adviceRevisionPreserved = true;
     }
   } else if (questionProbe && managed) {
     const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
@@ -313,7 +344,7 @@ try {
     assert.deepEqual(remoteEpisode, localEpisode);
     assert.equal(localEpisode.schemaVersion, "stella.praxis-episode/v2");
     assert.equal(localEpisode.status, outcomeProbe ? "closed" : "recommended");
-    assert.equal(localEpisode.twin?.prediction, undefined);
+    assert.deepEqual(localEpisode.twin?.prediction, adviceRevisionProbe ? outcomeSeed.advised.episode.twin.prediction : undefined);
     if (outcomeProbe) {
       assert.equal(localEpisode.actual.occurredAt, null);
       assert.equal(localEpisode.learning.praxis.length, 1);
@@ -332,13 +363,31 @@ try {
       assert.equal(localEpisode.actual, undefined);
       const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
       await verifyAdviceBundle(await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json"), sent.runId, revision, remote, remoteRevision, localEpisode);
+      if (adviceRevisionProbe) {
+        assert.equal(localEpisode.id, outcomeSeed.episodeId);
+        assert.deepEqual(localEpisode.historicalInputRefs, outcomeSeed.advised.episode.historicalInputRefs);
+        assert.ok(localEpisode.decision.inputRefs.length > 0);
+        assert.equal(localEpisode.provenance.runId, sent.runId);
+        const restored = path.join(temp, "restored-source");
+        await run("git", ["clone", "--quiet", "--branch", "main", remote, restored]);
+        const { loadConsciousness } = await import(buildModule("src/canghai/manifest.js"));
+        const { loadPraxisRuntimeBinding, createBoundPraxisRuntime } = await import(buildModule("src/praxis/runtime-binding.js"));
+        const loaded = await loadConsciousness(restored);
+        const runtime = await createBoundPraxisRuntime(loaded, await loadPraxisRuntimeBinding(loaded),
+          async () => { throw new Error("Restoration must not invent new action evidence"); }, async () => {});
+        const memory = await runtime.listMemory();
+        assert.equal(memory.openEpisodes.length, 1);
+        assert.equal(memory.openEpisodes[0].recommendation, "SYNTHETIC_MAIN_ANSWER");
+        assert.deepEqual(await runtime.repository.readHistorical(localEpisode.id, outcomeSeed.advised.version), outcomeSeed.advised);
+      }
     }
     assert.equal(localRevision, remoteRevision);
     assert.equal(actualConfig.plugins.entries["stella-core"].config.recoveryRevision, remoteRevision);
     assert.notEqual(remoteRevision, revision);
     persistence = { schemaVersion: localEpisode.schemaVersion, status: localEpisode.status, synchronized: true, pointerConfirmed: true,
       actualInvented: false, predictionInvented: false, evidenceBundleSynchronized: true,
-      ...(outcomeProbe ? { strategyStatus: "candidate", learningChangeSynchronized: true } : { adviceAndDraftHashBound: true }) };
+      ...(outcomeProbe ? { strategyStatus: "candidate", learningChangeSynchronized: true } : { adviceAndDraftHashBound: true }),
+      ...(adviceRevisionProbe ? { adviceRevision: true, originalPredictionPreserved: true, oldAdviceRestored: true, importantOpenStateRestored: true } : {}) };
   }
   let admissionReplay;
   if (admissionReplayProbe) {
@@ -381,7 +430,9 @@ try {
       duplicateUserMessages: 0, hostRejectionNotices: notices.length, duplicateFinals: 0,
       businessRevisionUnchanged: true };
   }
-  const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: outcomeProbe
+  const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: cancellationProbe
+    ? "synthetic managed generation cancelled through chat.abort; no business write or late answer delivery"
+    : outcomeProbe
     ? "synthetic owner-bound original evidence; actual main outcome transaction, candidate LearningChange, OpenClaw pointer and local bare remote; semantic verdicts injected, not private/model accuracy proof"
     : questionProbe ? "synthetic original evidence reaches actual main final-generation model input; structured evidence judgment injected; not private or model accuracy proof"
     : managed
@@ -389,17 +440,18 @@ try {
     : "synthetic read-only ordinary turn; structured router injected; actual main registration and completion adapter",
     terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
-    provesV2Persistence: managed && !questionProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe,
+    provesV2Persistence: managed && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
     provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
   await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
-  assert.equal(report.terminalStatus, failureProbe ? "error" : "ok");
+  assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");
   assert.equal(report.providerRequests, 1);
   assert.equal(report.userMessages, 1);
-  assert.equal(report.finalAnswers, failureProbe ? 0 : 1);
+  assert.equal(report.finalAnswers, failureProbe || cancellationProbe ? 0 : 1);
   if (questionProbe) assert.equal(providerReceivedOriginalEvidence, true);
 } finally {
+  providerRelease.resolve();
   await client?.stopAndWait({ timeoutMs: 2_000 });
   await gateway?.stop();
   provider.closeAllConnections();

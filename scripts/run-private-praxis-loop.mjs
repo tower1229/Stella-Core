@@ -1,11 +1,10 @@
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
   mkdir,
   mkdtemp,
   readFile,
-  readdir,
   realpath,
   rename,
   rm,
@@ -18,18 +17,22 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
-import {
-  buildExactHostAgentCommand,
-  extractSafeExactHostAgentError,
-  parseExactHostAgentTurn,
-} from "../dist/src/acceptance/exact-host-agent.js";
+import { runExactHostEvaluationChat } from "../dist/src/acceptance/exact-host-chat.js";
+import { listPraxisEpisodeIds, readPraxisEpisodeState } from "../dist/src/acceptance/praxis-loop-state.js";
+import { bytesVersion, canonicalJson } from "../dist/src/canghai/content-version.js";
+import { readRecordedMemoryTransaction } from "../dist/src/canghai/memory-transaction.js";
+import { loadConsciousness } from "../dist/src/canghai/manifest.js";
+import { parseCangHaiRef } from "../dist/src/canghai/ref.js";
+import { loadPraxisRuntimeBinding } from "../dist/src/praxis/runtime-binding.js";
+import { CatalogReader } from "../dist/src/canghai/catalog-reader.js";
+import { EpisodeEvidenceResolver } from "../dist/src/praxis/episode-evidence.js";
 import { ALPHA_HOST_VERSION, parseExactHostRecoveryReceipt, parseExactHostVersion } from "../dist/src/acceptance/exact-host-evidence.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 import { installHostCompatibility } from "./lib/install-host-compatibility.mjs";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const episodeRootRelative = "30_PersonalData/praxis/episodes";
+let episodeRootRelative;
 const targetAgentId = "main";
 const options = parseRequiredArguments(
   process.argv.slice(2),
@@ -75,12 +78,7 @@ async function resolveRemoteRevision(root, remote, branch) {
 }
 
 async function listEpisodeIds(canghaiRoot) {
-  const entries = await readdir(path.join(canghaiRoot, episodeRootRelative), {
-    withFileTypes: true,
-  });
-  return new Set(entries
-    .filter((entry) => entry.isDirectory() && /^praxis-[a-zA-Z0-9_-]+$/u.test(entry.name))
-    .map((entry) => entry.name));
+  return listPraxisEpisodeIds(canghaiRoot, episodeRootRelative);
 }
 
 async function waitForSingleCreatedEpisodeId(canghaiRoot, baselineIds, label) {
@@ -108,15 +106,7 @@ async function waitForEpisode(canghaiRoot, id, predicate, label) {
 }
 
 async function readEpisode(canghaiRoot, id) {
-  const directory = path.join(canghaiRoot, episodeRootRelative, id);
-  const [episodeText, predictionText] = await Promise.all([
-    readFile(path.join(directory, "episode.json"), "utf8"),
-    readFile(path.join(directory, "prediction.json"), "utf8"),
-  ]);
-  return {
-    episode: JSON.parse(episodeText),
-    predictionHash: sha256(predictionText),
-  };
+  return readPraxisEpisodeState(canghaiRoot, episodeRootRelative, id);
 }
 
 function validateHarness(harness) {
@@ -124,78 +114,42 @@ function validateHarness(harness) {
     harness?.agentId !== targetAgentId ||
     typeof harness.problemMessage !== "string" ||
     !harness.problemMessage.trim() ||
+    typeof harness.createAdviceRevisionMessage !== "function" ||
     typeof harness.createOutcomeMessage !== "function" ||
     typeof harness.createSimilarProblemMessage !== "function" ||
     typeof harness.verifyLearningUse !== "function"
   ) {
-    throw new Error("Praxis loop harness must provide three private turns and verifyLearningUse");
+    throw new Error("Praxis loop harness must provide four private turns, including an advice revision, and verifyLearningUse");
   }
 }
 
-async function runPrivateTurn({ openclawBin, consumerRoot, env, message, sessionKey, label }) {
+async function runPrivateTurn({ openclawBin, env, message, sessionKey, label }) {
+  const gatewayModule = path.join(path.dirname(openclawBin), "dist/plugin-sdk/gateway-runtime.js");
+  const { GatewayClient } = await import(pathToFileURL(gatewayModule).href);
+  const listeners = new Set();
+  let client;
   try {
-    const command = buildExactHostAgentCommand(openclawBin, {
-      agentId: targetAgentId,
-      message,
-      sessionKey,
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("praxis_gateway_connect_timeout")), 15000);
+      client = new GatewayClient({ url: `ws://127.0.0.1:${env.OPENCLAW_GATEWAY_PORT}`, token: env.OPENCLAW_GATEWAY_TOKEN,
+        env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"], sharedStateMode: "read-only", deviceIdentity: null,
+        onHelloOk() { clearTimeout(timer); resolve(); },
+        onConnectError() { clearTimeout(timer); reject(new Error("praxis_gateway_connect_failed")); },
+        onEvent(event) { for (const listener of listeners) listener(event); },
+      });
+      client.start();
     });
-    const result = await execFileAsync(
-      command.executable,
-      command.args,
-      { cwd: consumerRoot, env, maxBuffer: 8 * 1024 * 1024 },
-    );
-    return parseExactHostAgentTurn(result.stdout, label).text;
+    const answer = await runExactHostEvaluationChat({
+      request: (method, params) => client.request(method, params, { timeoutMs: 35000 }),
+      subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    }, { sessionKey, idempotencyKey: randomUUID(), message });
+    return answer;
   } catch (error) {
-    const stdout = `${error?.stdout ?? ""}`;
-    const output = `${stdout}\n${error?.stderr ?? ""}`;
-    const category = /(?:api key|unauthorized|authentication|\b401\b|\b403\b)/iu.test(output)
-      ? "provider_authentication"
-      : /(?:model[^\n]{0,80}(?:not found|unavailable)|\b404\b)/iu.test(output)
-        ? "model_unavailable"
-        : /(?:unknown agent|agent[^\n]{0,80}(?:not found|not configured|does not exist))/iu.test(output)
-          ? "agent_unavailable"
-          : /(?:message could not be sent|stella turn admission|stella[_ ]core|canghai|recovery revision)/iu.test(output)
-          ? "stella_preparation"
-            : /(?:provider|model)/iu.test(output)
-              ? "provider_execution"
-              : /(?:eperm|eacces|permission denied)/iu.test(output)
-                ? "filesystem_permission"
-                : /(?:invalid config|configuration|schema)/iu.test(output)
-                  ? "host_configuration"
-                  : /(?:timed out|timeout)/iu.test(output)
-                    ? "timeout"
-                    : /(?:econnrefused|gateway)/iu.test(output)
-                      ? "gateway"
-                      : output.trim()
-                        ? "host_error"
-                        : "process_error";
-    let envelope = "unparsed";
-    const jsonStart = Math.max(stdout.lastIndexOf("\n{"), stdout.trimStart().startsWith("{") ? 0 : -1);
-    if (jsonStart >= 0) {
-      try {
-        const parsed = JSON.parse(stdout.slice(jsonStart === 0 ? 0 : jsonStart + 1).trim());
-        const safeToken = (value) => typeof value === "string" && /^[a-zA-Z0-9_.:-]{1,80}$/u.test(value)
-          ? value
-          : undefined;
-        const status = safeToken(parsed.status);
-        const code = safeToken(parsed.error?.code) ?? safeToken(parsed.error?.category) ??
-          safeToken(parsed.result?.error?.code) ?? safeToken(parsed.result?.error?.category);
-        const safeError = extractSafeExactHostAgentError(stdout, message);
-        envelope = [
-          `keys=${Object.keys(parsed).sort().join(",")}`,
-          ...(status ? [`status=${status}`] : []),
-          ...(code ? [`code=${code}`] : []),
-          ...(parsed.error && typeof parsed.error === "object"
-            ? [`errorKeys=${Object.keys(parsed.error).sort().join(",")}`]
-            : []),
-          ...(safeError ? [`error=${safeError}`] : []),
-        ].join(";");
-      } catch {
-        envelope = "invalid-json";
-      }
-    }
-    throw new Error(`Exact Host private Praxis turn failed: ${label} (${category};${envelope})`);
-  }
+    // The native error may contain the private question or model text.
+    const category = error instanceof Error && /^(?:evaluation_chat|praxis_gateway)_[a-z_]+$/.test(error.message)
+      ? error.message : "praxis_gateway_failed";
+    throw new Error(`Exact Host private Praxis turn failed: ${label} (${category})`);
+  } finally { await client?.stopAndWait({ timeoutMs: 2000 }); }
 }
 
 const canghaiRoot = path.resolve(options["canghai-root"]);
@@ -231,6 +185,8 @@ const initialRemoteRevision = await resolveRemoteRevision(canghaiRoot, remote, b
 if (initialRemoteRevision !== options["canghai-revision"]) {
   throw new Error("Initial CangHai revision is not synchronized to origin/local/stella-alpha");
 }
+const source = await loadConsciousness(canghaiRoot);
+episodeRootRelative = parseCangHaiRef(source.manifest.praxis.episodeRootRef).relativePath;
 const initialEpisodeIds = await listEpisodeIds(canghaiRoot);
 const isolatedRoot = await mkdtemp(path.join(os.tmpdir(), "stella-private-praxis-"));
 
@@ -316,7 +272,7 @@ try {
   let recommendationAnswer;
   let outcomeAnswer;
   try {
-    recommendationAnswer = await runPrivateTurn({
+    const recommendationTurn = await runPrivateTurn({
       openclawBin,
       consumerRoot,
       env: gateway.env,
@@ -324,6 +280,7 @@ try {
       sessionKey: `agent:${targetAgentId}:private-praxis-problem`,
       label: "problem",
     });
+    recommendationAnswer = recommendationTurn.text;
     let episodeId;
     try {
       episodeId = await waitForSingleCreatedEpisodeId(canghaiRoot, initialEpisodeIds, "Problem");
@@ -332,11 +289,13 @@ try {
         `${error instanceof Error ? error.message : "Problem turn finalization failed"}; diagnostics=${gateway.diagnostics() || "none"}`,
       );
     }
-    const recommended = await readEpisode(canghaiRoot, episodeId);
+    let recommended = await readEpisode(canghaiRoot, episodeId);
     if (
       recommended.episode.status !== "recommended" ||
       typeof recommended.episode.decision?.recommendation !== "string" ||
       !recommended.episode.decision.recommendation.trim() ||
+      recommended.episode.decision.recommendation !== recommendationAnswer ||
+      recommended.episode.provenance.runId !== recommendationTurn.runId ||
       recommended.episode.actual !== undefined ||
       recommended.episode.outcome !== undefined ||
       recommended.episode.learning !== undefined
@@ -345,6 +304,23 @@ try {
     }
 
     const episodeRef = `path:${episodeRootRelative}/${episodeId}/episode.json`;
+    const originalRecommendation = recommended;
+    const revisionMessage = await harness.createAdviceRevisionMessage({
+      episodeRef, recommendation: recommended.episode.decision.recommendation,
+    });
+    if (typeof revisionMessage !== "string" || !revisionMessage.trim()) throw new Error("Private Praxis harness returned an invalid revision turn");
+    const revisionTurn = await runPrivateTurn({ openclawBin, consumerRoot, env: gateway.env, message: revisionMessage,
+      sessionKey: `agent:${targetAgentId}:private-praxis-revision`, label: "advice-revision" });
+    recommended = await readEpisode(canghaiRoot, episodeId);
+    const afterRevisionIds = await listEpisodeIds(canghaiRoot);
+    if (recommended.version === originalRecommendation.version || recommended.episode.status !== "recommended" ||
+        recommended.predictionHash !== originalRecommendation.predictionHash ||
+        canonicalJson(recommended.episode.historicalInputRefs) !== canonicalJson(originalRecommendation.episode.historicalInputRefs) ||
+        !recommended.episode.decision?.inputRefs?.length || recommended.episode.decision.recommendation !== revisionTurn.text ||
+        recommended.episode.provenance.runId !== revisionTurn.runId ||
+        afterRevisionIds.size !== initialEpisodeIds.size + 1 || [...initialEpisodeIds].some(id => !afterRevisionIds.has(id))) {
+      throw new Error("Advice revision did not preserve the same matter and sealed history");
+    }
     const outcomeMessage = await harness.createOutcomeMessage({
       episodeRef,
       recommendation: recommended.episode.decision.recommendation,
@@ -352,7 +328,7 @@ try {
     if (typeof outcomeMessage !== "string" || !outcomeMessage.trim()) {
       throw new Error("Private Praxis harness returned an invalid outcome turn");
     }
-    outcomeAnswer = await runPrivateTurn({
+    const outcomeTurn = await runPrivateTurn({
       openclawBin,
       consumerRoot,
       env: gateway.env,
@@ -360,6 +336,7 @@ try {
       sessionKey: `agent:${targetAgentId}:private-praxis-outcome`,
       label: "outcome",
     });
+    outcomeAnswer = outcomeTurn.text;
     const closed = await waitForEpisode(
       canghaiRoot,
       episodeId,
@@ -373,8 +350,8 @@ try {
       !closed.episode.actual.action.trim() ||
       typeof closed.episode.outcome?.result !== "string" ||
       !closed.episode.outcome.result.trim() ||
-      !Array.isArray(closed.episode.learning?.praxis) ||
-      closed.episode.learning.praxis.length === 0
+      !closed.episode.learning ||
+      [...closed.episode.learning.twin, ...closed.episode.learning.praxis].length === 0
     ) {
       throw new Error("Outcome turn did not atomically close the Episode with sealed learning");
     }
@@ -403,8 +380,29 @@ try {
     if (typeof similarProblemMessage !== "string" || !similarProblemMessage.trim()) {
       throw new Error("Private Praxis harness returned an invalid similar-problem turn");
     }
+    const currentSource = await loadConsciousness(canghaiRoot);
+    const currentBinding = await loadPraxisRuntimeBinding(currentSource);
+    const outcomeOperationId = `outcome_${bytesVersion(outcomeTurn.runId).slice(7)}`;
+    const outcomeJournal = await readRecordedMemoryTransaction(canghaiRoot, outcomeOperationId,
+      path.posix.join(path.posix.dirname(currentBinding.catalogPath), "operations", `${outcomeOperationId}.transaction.json`));
+    if (outcomeJournal.files.find(file => file.path === `${episodeRootRelative}/${episodeId}/episode.json`)?.after !== canonicalJson(closed.episode)) {
+      throw new Error("Outcome completion does not match the native run transaction");
+    }
+    const reader = await CatalogReader.load(canghaiRoot, currentBinding.catalogPath);
+    const resolver = new EpisodeEvidenceResolver(reader, { ...currentBinding.purpose, evidenceCutoff: new Date().toISOString(),
+      trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
+      async () => { throw new Error("Acceptance readback cannot manufacture action evidence"); });
+    const reusable = [];
+    for (const ref of [...closed.episode.learning.twin, ...closed.episode.learning.praxis]) {
+      if (!reader.eligible(ref)) continue;
+      const understanding = await reader.read(ref, "understandings");
+      if (understanding.kind !== "strategy" || !["active", "contested"].includes(understanding.status)) continue;
+      await resolver.resolveLearning(ref);
+      reusable.push(ref);
+    }
+    if (!reusable.length) throw new Error("learning_not_eligible_for_reuse: candidate creation does not prove active learning");
     const afterOutcomeIds = await listEpisodeIds(canghaiRoot);
-    const similarAnswer = await runPrivateTurn({
+    const similarTurn = await runPrivateTurn({
       openclawBin,
       consumerRoot,
       env: gateway.env,
@@ -412,19 +410,19 @@ try {
       sessionKey: `agent:${targetAgentId}:private-praxis-similar`,
       label: "similar-problem",
     });
+    const similarAnswer = similarTurn.text;
     const followupId = await waitForSingleCreatedEpisodeId(
       canghaiRoot,
       afterOutcomeIds,
       "Similar problem",
     );
     const followup = await readEpisode(canghaiRoot, followupId);
-    const learningRef = `${episodeRef}#learning:praxis:0`;
-    if (
-      followup.episode.status !== "recommended" ||
-      followup.episode.sourceSnapshot?.[learningRef] === undefined ||
-      !followup.episode.reality?.similarEpisodeRefs?.includes(learningRef)
-    ) {
-      throw new Error("Similar problem did not select the newly persisted Praxis learning");
+    const learningRefs = [...closed.episode.learning.twin, ...closed.episode.learning.praxis];
+    const usedRefs = followup.episode.decision?.inputRefs ?? followup.episode.historicalInputRefs;
+    if (followup.episode.status !== "recommended" || followup.episode.provenance.runId !== similarTurn.runId ||
+        followup.episode.decision.recommendation !== similarAnswer || !learningRefs.some(ref =>
+      usedRefs.some(used => used.id === ref.id && used.version === ref.version))) {
+      throw new Error("Similar problem did not select the exact newly persisted learning version");
     }
     const verdict = await harness.verifyLearningUse({
       recommendationAnswer,
@@ -470,14 +468,18 @@ try {
 
     const receipt = {
       ...(recoveryReceipt?.hostCompatibility ? { hostCompatibility: recoveryReceipt.hostCompatibility } : {}),
-      schemaVersion: "stella.exact-host-praxis-receipt/v1",
+      schemaVersion: "stella.exact-host-praxis-receipt/v2",
+      episodeSchemaVersion: "stella.praxis-episode/v2",
+      transport: "chat.send",
+      adviceRevisionPersisted: true,
+      predictionStatus: originalRecommendation.predictionHash === null ? "not_applicable" : "sealed",
       coreRevision,
       initialCanghaiRevision: options["canghai-revision"],
       finalCanghaiRevision: finalRevision,
       hostVersion: ALPHA_HOST_VERSION,
       artifactSha256,
       dataMode: "managed_durable_write",
-      predictionSealedBeforeOutcome: true,
+      predictionSealedBeforeOutcome: originalRecommendation.predictionHash !== null,
       recommendationPersisted: true,
       actualRecorded: true,
       outcomeClosed: true,
@@ -485,9 +487,9 @@ try {
       learningRetrievedAfterRestart: true,
       finalRevisionRemoteSynchronized: true,
       sourceClean: true,
-      exactHostAgentTurns: 3,
+      exactHostAgentTurns: 4,
       episodeRefHash: sha256(episodeRef),
-      learningRefHash: sha256(learningRef),
+      learningRefHash: sha256(canonicalJson(learningRefs)),
       privateFixtureIncluded: true,
     };
     const installedPraxisReceipt = await import(

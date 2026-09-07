@@ -46,7 +46,7 @@ closed 的后续纠正以 LearningChange 修正当前理解，原预测与过去
 | situation | summary、domains、observations 必填；interpretations、unknowns、goals、actors 等按需 |
 | twin | hypothesisRefs 可选；prediction 可选，出现时须与独立 prediction.json 字节／规范化内容一致 |
 | framework / reality | 精确执行版本、operator 标识和实际使用来源类别 |
-| decision | recommended 及其后阶段必填 recommendation、rationale；actionGate 可选 |
+| decision | recommended 及其后阶段必填 recommendation、rationale；actionGate 可选；修订建议必填 inputRefs |
 | actual | acted／observing／closed 必填 action、occurredAt、recordedAt、source、evidenceRefs |
 | outcome | closed 必填 observations、result、observedAt、evidenceRefs |
 | learning | closed 必填 algorithmVersion、predictionAssessment、evidenceRefs、twin、praxis |
@@ -65,6 +65,10 @@ prediction 包含 possibleActions、likelyInterpretations、keyFactors；possibl
 有预测的 Episode 在建议释放前须完成封存的 critical 同步。无预测的事项不为匹配存储接口补造一个分布。建议更新使用新的记录版本，保留旧建议与该次取证版本；“已投递”依据 Host receipt，不能由 recommended 状态推断。
 
 ## 5. 历史与当前引用
+
+建议修订沿用同一 Episode ID，以所选确切版本做 CAS，原建议保存在不可变版本中。新建议的 `decision.inputRefs` 必须非空，固定本次原始求助和所用证据／认知来源；不得修改开场时封存的 `historicalInputRefs` 或预测。`provenance` 记录当前修订的 Host 请求，旧版本保留原追踪信息。删除新建议的来源同样会阻断正常召回。
+
+`decision.inputRefs` 是 v2 的兼容扩展：已有初始建议可以不含该字段，仍按原 `historicalInputRefs` 校验；新的建议修订必须写入并校验该字段。它不放宽 v1 迁移要求。
 
 historicalInputRefs 按封存时的来源版本验证，不与当前 Twin 文件强制相等。源变更触发当前理解重评；不能篡改旧 pin 使校验表面通过。
 

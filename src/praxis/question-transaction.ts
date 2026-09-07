@@ -66,7 +66,8 @@ async function persist(input: { root: string; catalogPath: string; episodeRoot?:
             `${input.episodeRoot}/${answer.advice.id}/.versions/${answer.advice.version.slice(7)}.json`)).toString("utf8")));
           check(episode.id === answer.advice.id && episodeVersion(episode) === answer.advice.version && episode.status === "recommended" &&
             episode.provenance.runId === prepared.bundle.requestId && episode.decision && bytesVersion(episode.decision.recommendation) === answer.draftHash &&
-            prepared.bundle.readEvidenceRefs.every((ref) => episode.historicalInputRefs.some((inputRef) => inputRef.id === ref.id && inputRef.version === ref.version)));
+            prepared.bundle.readEvidenceRefs.every((ref) => (episode.decision!.inputRefs ?? episode.historicalInputRefs)
+              .some((inputRef) => inputRef.id === ref.id && inputRef.version === ref.version)));
         }
       });
     },

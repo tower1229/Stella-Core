@@ -27,7 +27,8 @@ export type EpisodeV2 = {
     norms?: string[]; hiddenVariables?: string[]; likelyInterpretations?: string[];
     socialCosts?: string[]; uncertainties?: string[]; externalRefs?: VersionedRef[]; similarEpisodeRefs?: VersionedRef[];
   };
-  decision?: { recommendation: string; rationale: string[]; options?: string[]; actionGate?: "A" | "B" | "C" | "D" };
+  decision?: { recommendation: string; rationale: string[]; options?: string[]; actionGate?: "A" | "B" | "C" | "D";
+    inputRefs?: VersionedRef[] };
   actual?: { action: string; occurredAt: string | null; recordedAt: string; source: ActualSource; evidenceRefs: VersionedRef[] };
   outcome?: { observations: string[]; result: string; observedAt: string; evidenceRefs: VersionedRef[] };
   learning?: { algorithmVersion: string; predictionAssessment: "supported" | "countered" | "unresolved";
@@ -74,7 +75,7 @@ export async function validateEpisodeV2References(episode: EpisodeV2, ports: {
 }): Promise<void> {
   await parseEpisodeV2(episode);
   for (const ref of [
-    ...episode.historicalInputRefs, ...(episode.twin?.hypothesisRefs ?? []),
+    ...episode.historicalInputRefs, ...(episode.decision?.inputRefs ?? []), ...(episode.twin?.hypothesisRefs ?? []),
     ...(episode.framework?.frameworkRefs ?? []), ...(episode.reality?.externalRefs ?? []),
     ...(episode.reality?.similarEpisodeRefs ?? []),
   ]) await ports.resolveHistorical(ref);
@@ -109,5 +110,9 @@ export async function validateEpisodeV2Transition(previous: EpisodeV2, next: Epi
   }
   if (canonical(previous.historicalInputRefs) !== canonical(next.historicalInputRefs)) {
     throw new EpisodeV2Error("historical_inputs_changed");
+  }
+  if (previous.status === "recommended" && next.status === "recommended" &&
+      canonical(previous.decision) !== canonical(next.decision) && !next.decision?.inputRefs?.length) {
+    throw new EpisodeV2Error("advice_revision_sources_required");
   }
 }

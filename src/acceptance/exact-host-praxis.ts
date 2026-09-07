@@ -7,14 +7,18 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
 
 export type ExactHostPraxisReceipt = {
   hostCompatibility?: HostCompatibility;
-  schemaVersion: "stella.exact-host-praxis-receipt/v1";
+  schemaVersion: "stella.exact-host-praxis-receipt/v2";
+  episodeSchemaVersion: "stella.praxis-episode/v2";
+  transport: "chat.send";
+  adviceRevisionPersisted: true;
+  predictionStatus: "sealed" | "not_applicable";
   coreRevision: string;
   initialCanghaiRevision: string;
   finalCanghaiRevision: string;
   hostVersion: typeof ALPHA_HOST_VERSION;
   artifactSha256: string;
   dataMode: "managed_durable_write";
-  predictionSealedBeforeOutcome: true;
+  predictionSealedBeforeOutcome: boolean;
   recommendationPersisted: true;
   actualRecorded: true;
   outcomeClosed: true;
@@ -32,7 +36,7 @@ export function parseExactHostPraxisReceipt(value: unknown): ExactHostPraxisRece
   if (!isRecord(value)) throw new Error("Invalid exact-host Praxis receipt");
   if (value.hostCompatibility !== undefined) parseHostCompatibility(value.hostCompatibility);
   const requiredTrue = [
-    "predictionSealedBeforeOutcome",
+    "adviceRevisionPersisted",
     "recommendationPersisted",
     "actualRecorded",
     "outcomeClosed",
@@ -43,7 +47,10 @@ export function parseExactHostPraxisReceipt(value: unknown): ExactHostPraxisRece
     "privateFixtureIncluded",
   ];
   if (
-    value.schemaVersion !== "stella.exact-host-praxis-receipt/v1" ||
+    value.schemaVersion !== "stella.exact-host-praxis-receipt/v2" ||
+    value.episodeSchemaVersion !== "stella.praxis-episode/v2" || value.transport !== "chat.send" ||
+    !["sealed", "not_applicable"].includes(String(value.predictionStatus)) ||
+    value.predictionSealedBeforeOutcome !== (value.predictionStatus === "sealed") ||
     typeof value.coreRevision !== "string" ||
     !SHA_PATTERN.test(value.coreRevision) ||
     typeof value.initialCanghaiRevision !== "string" ||
@@ -57,7 +64,7 @@ export function parseExactHostPraxisReceipt(value: unknown): ExactHostPraxisRece
     value.dataMode !== "managed_durable_write" ||
     requiredTrue.some((field) => value[field] !== true) ||
     !Number.isInteger(value.exactHostAgentTurns) ||
-    (value.exactHostAgentTurns as number) < 3 ||
+    (value.exactHostAgentTurns as number) < 4 ||
     typeof value.episodeRefHash !== "string" ||
     !SHA256_PATTERN.test(value.episodeRefHash) ||
     typeof value.learningRefHash !== "string" ||

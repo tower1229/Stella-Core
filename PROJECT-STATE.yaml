@@ -1,7 +1,7 @@
 project: Stella Core
 version_target: "3.0 Alpha"
 status: alpha-integration-and-evidence-validation
-updated_at: "2026-09-06"
+updated_at: "2026-09-07"
 
 mission: >-
   Become the owner's increasingly accurate digital counterpart and
@@ -49,7 +49,7 @@ design_complete:
   - current Host seam review and required completion adapter contract
 
 implementation_evidence:
-  reviewed_runtime_commit: 1c49cf53fe9ccaca0ed9dea2d3431ba3a1435d0d
+  reviewed_runtime_commit: a0094b341f07c1fecb154d30b5b48de5c658d8ee
   existing:
     - plugin scaffold, manifest and reference loading, Framework IR and Twin validation
     - managed commits, persistent recovery pointer CAS, push and bounded normal RPO diagnostics
@@ -77,9 +77,28 @@ implementation_evidence:
     real_action_learning_acceptance: skipped_by_user_unverified
     candidate_certified: false
 
+  sequential_convergence_20260907:
+    local_evidence_index: .artifacts/sequential-20260907/summary.json
+    ci_fixture_default_branch: fixed_locally_and_reproduced_with_master_default
+    public_diagnostic_core_revision: a0094b341f07c1fecb154d30b5b48de5c658d8ee
+    public_diagnostic_artifact_sha256: 97f146bfad51620477ce69cb507c643c6ea6a491cbd9baa6ede35650bcfb40a4
+    public_diagnostic: 32_of_32_passed_no_execution_or_semantic_failures
+    public_source_revision: 86bc5d5054fca4f0624456fa14e0f90d3507b59f
+    working_tree_source_clean: false
+    working_tree_tests: 255_passed_0_failed_0_skipped
+    working_tree_artifact_sha256: d5544e169d63f248eeff3a2ee3736176f56c5d92407cdb1b42bb881f01e43ac9
+    working_tree_packed_diagnostics: 8_passed_plus_native_cancellation_on_same_artifact
+    advice_revision: implemented_with_immutable_prediction_version_cas_and_per_advice_source_pins
+    important_nonempty_state: synthetic_revised_advice_and_old_version_restored_from_clean_clone
+    private_runner: v2_chat_send_four_turn_contract_implemented_private_execution_not_run
+    private_inputs: eight_cases_located_original_v1_source_preserved_inactive_v2_copy_prepared
+    private_recovery_and_mixed_evaluation: authorized_pending_clean_snapshots_and_execution
+    candidate_certified: false
+
 implementation_gaps:
-  - public synthetic case persona boundaries must exclude unrelated fixture Twin assumptions
-  - Episode v2 advice revisions and matching private acceptance runner support
+  - final clean candidate must rerun after current working-tree changes are committed
+  - private instance adapter must provide the v2 four-turn harness and authorized evidence inputs
+  - real-action learning and eligible next-turn use remain unverified; candidate strategy creation is insufficient
   - generation-aware evidence and dependency synchronization across Core and Host views
   - full archive adapters, coverage, media materialization and retention coordination
   - OngoingWork and LearningChange persistence, application and idempotency

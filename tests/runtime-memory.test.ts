@@ -64,7 +64,7 @@ test("v2 runtime rejects a stale selected Episode and never invents an outcome",
     decision: { recommendation: "Synthetic advice", rationale: [] } });
   const memory = await runtime.listMemory();
   await runtime.repository.apply({ operationId: "revise", expectedVersion: result.version,
-    episode: { ...result.episode, decision: { recommendation: "Changed synthetic advice", rationale: [] } } });
+    episode: { ...result.episode, decision: { recommendation: "Changed synthetic advice", rationale: [], inputRefs: episode.historicalInputRefs } } });
   await assert.rejects(runtime.selectedEpisode(memory.openEpisodes[0]!.ref), /stale_episode_selection/);
   const current = await runtime.repository.read(episode.id);
   assert.equal(current.episode.actual, undefined);
@@ -92,4 +92,46 @@ test("v2 runtime rejects v1 input and pre-cancelled writes", async (t) => {
   await assert.rejects(runtime.recommend({ ...args, abortSignal: cancellation.signal }), /operation_cancelled/);
   await assert.rejects(runtime.recommend({ ...args, episode: { ...episode, schemaVersion: "stella.praxis-episode/v1" } as unknown as EpisodeV2 }));
   assert.deepEqual((await runtime.listMemory()).openEpisodes, []);
+});
+
+test("advice revision preserves sealed prediction, retries exactly and rejects stale writers", async (t) => {
+  const { create, episode } = await fixture(t);
+  const runtime = await create();
+  episode.twin = { prediction: { possibleActions: { wait: 0.7, ask: 0.3 }, likelyInterpretations: [], keyFactors: [] } };
+  const selected = await runtime.recommend({ operationId: "initial", episode, recordedAt: now,
+    decision: { recommendation: "Wait", rationale: [] } });
+  const input = { operationId: "followup", selected, recordedAt: "2026-09-06T01:00:00Z", provenance: { runId: "followup" },
+    decision: { recommendation: "Ask one bounded question", rationale: [], inputRefs: episode.historicalInputRefs } };
+  const result = await runtime.reviseRecommendation(input);
+  assert.equal(result.episode.id, episode.id);
+  assert.deepEqual(result.episode.twin, selected.episode.twin);
+  assert.deepEqual(result.episode.historicalInputRefs, selected.episode.historicalInputRefs);
+  assert.equal(result.episode.actual, undefined);
+  assert.deepEqual(await runtime.reviseRecommendation(input), result);
+  assert.deepEqual(await runtime.repository.readHistorical(episode.id, selected.version), selected);
+  await assert.rejects(runtime.reviseRecommendation({ ...input, operationId: "stale" }), /version_conflict/);
+  await assert.rejects(runtime.reviseRecommendation({ ...input, decision: { ...input.decision, recommendation: "Replaced replay" } }), /operation_id_conflict/);
+  await assert.rejects(runtime.reviseRecommendation({ ...input, operationId: "cancelled", abortSignal: AbortSignal.abort() }), /operation_cancelled/);
+  await assert.rejects(runtime.reviseRecommendation({ ...input, selected: { ...selected, episode } }), /advice_revision_requires_recommended_episode/);
+  assert.equal((await runtime.listMemory()).openEpisodes.length, 1);
+});
+
+test("removing a revision source hides the new recommendation without changing history", async (t) => {
+  const { root, create, episode, catalog, save } = await fixture(t);
+  const object = { schemaVersion: "stella.memory-source/v1", id: "source-followup", label: "Synthetic followup" };
+  const ref = { id: object.id, version: objectVersion(object) };
+  const body = canonicalJson(object);
+  await writeFile(path.join(root, "followup.json"), body);
+  catalog.sources.push({ ...ref, status: "current", dependencies: [], locator: { path: "followup.json", sha256: bytesVersion(body) } });
+  await save();
+  const runtime = await create();
+  const selected = await runtime.recommend({ operationId: "initial", episode, recordedAt: now,
+    decision: { recommendation: "Wait", rationale: [] } });
+  await runtime.reviseRecommendation({ operationId: "followup", selected, recordedAt: now, provenance: {},
+    decision: { recommendation: "Ask", rationale: [], inputRefs: [ref] } });
+  catalog.sources[1]!.status = "removed";
+  await save();
+  const restored = await create();
+  assert.deepEqual((await restored.listMemory()).openEpisodes, []);
+  assert.deepEqual(await restored.repository.readHistorical(episode.id, selected.version), selected);
 });

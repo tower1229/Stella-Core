@@ -11,7 +11,7 @@ import type { GitCangHaiDurability } from "../canghai/durability.js";
 import type { HostInputSnapshot } from "../openclaw/host-input.js";
 import { isRecord } from "../shared/type-guards.js";
 import { EpisodeEvidenceResolver } from "./episode-evidence.js";
-import { EpisodeRepository, type EpisodeRepositoryPorts } from "./episode-repository.js";
+import { EpisodeRepository, type EpisodeRepositoryPorts, type EpisodeSnapshot } from "./episode-repository.js";
 import { PraxisRuntimeMemory } from "./runtime-memory.js";
 import { EpisodeV2Error, type EpisodeV2, type VersionedRef } from "./episode-v2.js";
 
@@ -105,7 +105,8 @@ export async function resolveBoundInputRefs(runtime: PraxisRuntimeMemory, bindin
 
 export async function persistBoundAdvice(input: {
   loaded: LoadedConsciousness; binding: PraxisRuntimeBinding; runtime: PraxisRuntimeMemory; durability: GitCangHaiDurability;
-  operationId: string; original: HostInputSnapshot; episode: Omit<EpisodeV2, "historicalInputRefs">;
+  operationId: string; original: HostInputSnapshot;
+  target: { kind: "new"; episode: Omit<EpisodeV2, "historicalInputRefs"> } | { kind: "revision"; selected: EpisodeSnapshot };
   inputRefs: VersionedRef[]; decision: NonNullable<EpisodeV2["decision"]>; abortSignal: AbortSignal;
   complete: ConstructorParameters<typeof EpisodeEvidenceResolver>[2];
 }): Promise<{ revision: string; generationId: string; catalogHash: string; episodeRef: VersionedRef; writeOperationIds: string[] }> {
@@ -121,12 +122,20 @@ export async function persistBoundAdvice(input: {
   checkActive();
   const runtime = await createBoundPraxisRuntime(input.loaded, input.binding, input.complete,
     async ({ paths, operationId: id }) => { checkActive(); await input.durability.syncCritical(paths, `stella: preserve ${id}`); });
-  const recommended = await runtime.recommend({ operationId, episode: { ...input.episode, historicalInputRefs: [...input.inputRefs, archived.sourceRef] },
-    decision: input.decision, recordedAt: input.episode.updatedAt, abortSignal: input.abortSignal });
+  const inputRefs = [...new Map([...input.inputRefs, archived.sourceRef].map((ref) => [`${ref.id}@${ref.version}`, ref])).values()];
+  const recordedAt = String(input.original.event.timestamp);
+  const decision = { ...input.decision, inputRefs };
+  const recommended = input.target.kind === "new"
+    ? await runtime.recommend({ operationId, episode: { ...input.target.episode, historicalInputRefs: inputRefs },
+      decision, recordedAt, abortSignal: input.abortSignal })
+    : await runtime.reviseRecommendation({ operationId, selected: input.target.selected, decision, recordedAt,
+      provenance: { agentId: input.original.agentId, sessionId: input.original.sessionId, runId: input.operationId, messageRefs: [input.original.entryId] },
+      abortSignal: input.abortSignal });
   checkActive();
   const diagnostics = await input.durability.diagnostics();
   if (!diagnostics.criticalSynchronized || diagnostics.localRevision !== diagnostics.synchronizedRevision) throw new EpisodeV2Error("critical_sync_failed");
   return { revision: diagnostics.localRevision, generationId: archived.generationId,
     catalogHash: runtime.evidence.reader.catalogHash, episodeRef: { id: recommended.episode.id, version: recommended.version },
-    writeOperationIds: [`${operationId}-archive`, `${operationId}-open`, `${operationId}-recommend`] };
+    writeOperationIds: [`${operationId}-archive`, ...(input.target.kind === "new"
+      ? [`${operationId}-open`, `${operationId}-recommend`] : [`${operationId}-revise`])] };
 }

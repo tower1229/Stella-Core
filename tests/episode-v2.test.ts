@@ -50,6 +50,12 @@ test("v2 rejects terminal reopening and replaced historical references", async (
   await assert.rejects(validateEpisodeV2Transition(closed(), recommended()), /illegal_transition/);
   await assert.rejects(validateEpisodeV2Transition(open(), { ...recommended(), historicalInputRefs: [] }), /historical_inputs_changed/);
 });
+test("v2 rejects a revised recommendation without its own source pins", async () => {
+  const previous = recommended();
+  await assert.rejects(validateEpisodeV2Transition(previous, { ...previous,
+    decision: { recommendation: "Ask one bounded question", rationale: [] },
+  }), /advice_revision_sources_required/);
+});
 test("v2 resolves exact historical versions independently and requires semantic action support", async () => {
   const seen: string[] = [];
   const ports = {
