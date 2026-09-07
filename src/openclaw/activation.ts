@@ -1,4 +1,5 @@
 import path from "node:path";
+import { PREPARATION_HOOK_TIMEOUT_MS } from "./completion.js";
 import { isDeepStrictEqual } from "node:util";
 import type { StellaDataMode } from "../praxis/episode-store.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -26,7 +27,7 @@ export type StellaActivationAssessment = {
       allowConversationAccess: true;
       allowPromptInjection: true;
       timeouts: {
-        before_prompt_build: 60_000;
+        before_prompt_build: typeof PREPARATION_HOOK_TIMEOUT_MS;
         before_agent_finalize: 90_000;
         agent_end: 90_000;
       };
@@ -69,14 +70,14 @@ export function assessStellaActivation(
   ) {
     throw new Error("Managed Stella activation requires an explicit durability remote and branch");
   }
-  const desiredEntry = {
+  const desiredEntry: StellaActivationAssessment["desiredEntry"] = {
     enabled: true as const,
     config: { ...request, manifestPath: DEFAULT_MANIFEST_PATH },
     hooks: {
       allowConversationAccess: true as const,
       allowPromptInjection: true as const,
       timeouts: {
-        before_prompt_build: 60_000 as const,
+        before_prompt_build: PREPARATION_HOOK_TIMEOUT_MS,
         before_agent_finalize: 90_000 as const,
         agent_end: 90_000 as const,
       },

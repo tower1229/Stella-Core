@@ -80,6 +80,8 @@ completion receipt 是 `stella.completion-receipt/v1` 的运行结果，包含 o
 
 启用前必须用 Exact Host 故障注入验证：接管失败不能回到无门禁的默认发送；critical push 失败不能报告完成；中止后无晚到投递；实际发送结果可辨认。无法满足就返回 capability_unavailable，禁止将不支持的 runner 标为完整写入 profile。此契约没有要求 fork OpenClaw 或复制 Agent Loop。
 
+准备阶段的路由、候选选择与证据判断共用 Core 的 300 秒预算，并继承整轮取消信号；Host `before_prompt_build` 使用 330 秒上限，为 Core 返回 `preparation_timeout` 留出时间。整轮完成预算仍为 600 秒。启用配置和隔离验收适配器必须同步使用该上限，不能保留旧的 60／90 秒钩子配置。取消或超时后停止新的模型调用，迟到结果不得恢复 admission、触发持久化或发送回答。
+
 ## 5. 记忆与 archive adapter
 
 完整接口及错误含义见[Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md)。每个 archive adapter 须提供 scope 清单、连续 cursor／快照、原始 payload、角色与分支信息、附件及清理前归档保证。读快照只使用被版本验证的格式；不直接依赖未经验证的 Host 内部表结构。

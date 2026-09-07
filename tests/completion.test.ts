@@ -226,3 +226,55 @@ test("transcript guard isolates target drafts but preserves user, other-agent an
     },
   });
 });
+
+test("preparation has one bounded budget and discards a non-cooperative late model", async (t) => {
+  const { runCompletionPreparation, completeWithPreparationSignal } = await import("../src/openclaw/completion.js");
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let release: (value: string) => void = () => {};
+  const late = new Promise<string>((resolve) => { release = resolve; });
+  let entered = () => {};
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  let modelSignal: AbortSignal | undefined;
+  let calls = 0;
+  const events: string[] = [];
+  const running = coordinateCompletion({ ...input, timeoutMs: 1000 }, {
+    ...ports(events),
+    async generateDraft() {
+      return runCompletionPreparation(input.runId, async () => {
+        try {
+          await completeWithPreparationSignal(async (signal) => { calls++; modelSignal = signal; entered(); return late; });
+        } catch {
+          // Existing semantic repair loops cannot start another provider call.
+          await completeWithPreparationSignal(async () => { calls++; return "retry"; });
+        }
+        recordCompletionPreparation(input.runId, { outcome: "ready" });
+        return draft;
+      }, 50);
+    },
+  });
+  const rejected = assert.rejects(running, (error: unknown) => error instanceof CompletionError && error.category === "preparation_timeout");
+  await started;
+  t.mock.timers.tick(50);
+  await rejected;
+  release("late answer");
+  await Promise.resolve();
+  assert.equal(modelSignal?.aborted, true);
+  assert.equal(calls, 1);
+  assert.deepEqual(events, []);
+});
+
+test("normal preparation shares its signal across sequential model judgments and then persists", async () => {
+  const { runCompletionPreparation, completeWithPreparationSignal } = await import("../src/openclaw/completion.js");
+  const signals: Array<AbortSignal | undefined> = [];
+  const events: string[] = [];
+  await coordinateCompletion(input, { ...ports(events), async generateDraft() {
+    return runCompletionPreparation(input.runId, async () => {
+      for (let i = 0; i < 2; i++) await completeWithPreparationSignal(async (signal) => { signals.push(signal); return "judgment"; });
+      recordCompletionPreparation(input.runId, { outcome: "ready" });
+      return draft;
+    });
+  } });
+  assert.ok(signals[0]);
+  assert.equal(signals[0], signals[1]);
+  assert.deepEqual(events, ["persist", "publish"]);
+});

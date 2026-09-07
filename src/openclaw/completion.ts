@@ -32,9 +32,52 @@ export class CompletionError extends Error {
   }
 }
 
-type RunPermit = { operationId: string; runId: string; active: boolean; outputCount?: number; privateOutput?: unknown; preparation?: unknown };
+type RunPermit = { operationId: string; runId: string; active: boolean; abortSignal: AbortSignal; outputCount?: number; privateOutput?: unknown; preparation?: unknown };
 const permits = new AsyncLocalStorage<RunPermit>();
 const activeResources = new Set<string>();
+// Sequential routing and evidence judgments share this budget. The Host allows
+// a further 30 seconds for Core to return an explicit preparation failure.
+export const PREPARATION_TIMEOUT_MS = 300_000;
+export const PREPARATION_HOOK_TIMEOUT_MS = 330_000;
+const preparationScopes = new AsyncLocalStorage<{ signal: AbortSignal; active: boolean }>();
+
+async function untilAborted<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T> {
+  signal.throwIfAborted();
+  let onAbort = () => {};
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try { return await Promise.race([aborted, work()]); }
+  finally { signal.removeEventListener("abort", onAbort); }
+}
+
+export async function runCompletionPreparation<T>(runId: string, prepare: () => Promise<T>, timeoutMs = PREPARATION_TIMEOUT_MS): Promise<T> {
+  if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "prepare");
+  const parent = permits.getStore()!.abortSignal;
+  const controller = new AbortController();
+  const cancel = () => controller.abort(new CompletionError("cancelled", "prepare"));
+  parent.addEventListener("abort", cancel, { once: true });
+  if (parent.aborted) cancel();
+  const timer = setTimeout(() => controller.abort(new CompletionError("preparation_timeout", "prepare")), timeoutMs);
+  const scope = { signal: controller.signal, active: true };
+  try { return await preparationScopes.run(scope, () => untilAborted(scope.signal, prepare)); }
+  finally {
+    scope.active = false;
+    clearTimeout(timer);
+    parent.removeEventListener("abort", cancel);
+  }
+}
+
+/** Outside preparation, persistence/recovery keep their own existing signals. */
+export async function completeWithPreparationSignal<T>(complete: (signal: AbortSignal | undefined) => Promise<T>): Promise<T> {
+  const scope = preparationScopes.getStore();
+  if (!scope) return complete(undefined);
+  if (!scope.active) throw new CompletionError("cancelled", "prepare");
+  const result = await untilAborted(scope.signal, () => complete(scope.signal));
+  scope.signal.throwIfAborted();
+  return result;
+}
 
 export function hasCompletionRunPermit(runId: string | undefined): boolean {
   const permit = permits.getStore();
@@ -61,6 +104,8 @@ export function readCompletionOutput(runId: string): unknown {
 }
 
 export function recordCompletionPreparation(runId: string, preparation: unknown): void {
+  const scope = preparationScopes.getStore();
+  if (scope && (!scope.active || scope.signal.aborted)) throw new CompletionError("cancelled", "prepare");
   if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "prepare");
   permits.getStore()!.preparation = preparation;
 }
@@ -110,7 +155,7 @@ export async function coordinateCompletion(input: {
   if (activeResources.has(resourceScope)) throw new CompletionError("operation_in_progress", "admission");
   activeResources.add(resourceScope);
   const controller = new AbortController();
-  const permit: RunPermit = { operationId: input.operationId, runId: input.runId, active: true };
+  const permit: RunPermit = { operationId: input.operationId, runId: input.runId, active: true, abortSignal: controller.signal };
   let stage = "generate";
   let rejectAborted: (error: CompletionError) => void = () => {};
   const aborted = new Promise<never>((_, reject) => { rejectAborted = reject; });

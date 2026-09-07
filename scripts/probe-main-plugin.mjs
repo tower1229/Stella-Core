@@ -18,7 +18,8 @@ const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf
 assert.equal(host.version, "2026.8.2");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
 const admissionReplayProbe = process.argv.includes("--admission-replay");
-const cancellationProbe = process.argv.includes("--cancel");
+const preparationCancellationProbe = process.argv.includes("--cancel-preparation");
+const cancellationProbe = process.argv.includes("--cancel") || preparationCancellationProbe;
 const adviceRevisionProbe = process.argv.includes("--advice-revision") || process.argv.includes("--advice-revision-recovery");
 const adviceTailProbe = process.argv.includes("--advice-evidence-recovery") || process.argv.includes("--advice-revision-recovery");
 const recoveryProbe = process.argv.includes("--outcome-recovery") || questionRecoveryProbe || adviceTailProbe;
@@ -165,6 +166,7 @@ const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 export default { ...main, register(api) {
   main.register({ ...api, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
     async complete(params) {
+      if (${preparationCancellationProbe}) return api.runtime.llm.complete(params);
       if (params.purpose === 'stella-core-open-episode-selection') return { text: JSON.stringify({ openEpisodeRef: ${JSON.stringify(adviceRevisionProbe ? outcomeSeed.episodeRef : null)} }) };
       if (params.purpose === 'stella-question-evidence') {
         const input = JSON.parse(params.messages[0].content.split('\\n').at(-1));
@@ -216,7 +218,7 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
   models: { providers: { "stella-smoke": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 256 }] } } },
   plugins: { allow: ["stella-core"], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true,
-    hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", dataMode: managed ? "managed_durable_write" : "read_only",
+    llm: { allowAgentIdOverride: true }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}) } } } },
   tools: { deny: ["*"] },
 }));
@@ -276,7 +278,7 @@ try {
     assert.ok(events.some(event => ["aborted", "error"].includes(event.payload.state)));
     assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), revision);
     assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
-    persistence = { cancelledDuringGeneration: true, businessRevisionUnchanged: true, lateProviderAnswerNotDelivered: true };
+    persistence = { cancelledDuringPreparation: preparationCancellationProbe, cancelledDuringGeneration: !preparationCancellationProbe, businessRevisionUnchanged: true, lateProviderAnswerNotDelivered: true };
   } else if (failureProbe) {
     const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
     await assert.rejects((await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json")).assertCurrent(), /memory_transaction_pending/);
@@ -431,7 +433,7 @@ try {
       businessRevisionUnchanged: true };
   }
   const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: cancellationProbe
-    ? "synthetic managed generation cancelled through chat.abort; no business write or late answer delivery"
+    ? `synthetic managed ${preparationCancellationProbe ? "preparation" : "generation"} cancelled through chat.abort; no business write or late answer delivery`
     : outcomeProbe
     ? "synthetic owner-bound original evidence; actual main outcome transaction, candidate LearningChange, OpenClaw pointer and local bare remote; semantic verdicts injected, not private/model accuracy proof"
     : questionProbe ? "synthetic original evidence reaches actual main final-generation model input; structured evidence judgment injected; not private or model accuracy proof"
@@ -447,7 +449,8 @@ try {
   console.log(JSON.stringify(report, null, 2));
   assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");
   assert.equal(report.providerRequests, 1);
-  assert.equal(report.userMessages, 1);
+  // Preparation cancellation precedes the Host user transcript append.
+  assert.equal(report.userMessages, preparationCancellationProbe ? 0 : 1);
   assert.equal(report.finalAnswers, failureProbe || cancellationProbe ? 0 : 1);
   if (questionProbe) assert.equal(providerReceivedOriginalEvidence, true);
 } finally {

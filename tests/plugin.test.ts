@@ -413,3 +413,79 @@ test("non-target execution remains outside Stella admission and context injectio
     assert.equal(await requireHook(hooks, "before_prompt_build")({ prompt: "synthetic" }, context), undefined);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+for (const phase of ["routing", "evidence"] as const) test(`cancelling ${phase} preparation aborts the model and prevents late admission`, async () => {
+  const root = await createFixture();
+  try {
+    const revision = await initializeFixtureRepository(root);
+    let enter = () => {};
+    const entered = new Promise<void>((resolve) => { enter = resolve; });
+    let release: (value: { text: string }) => void = () => {};
+    const late = new Promise<{ text: string }>((resolve) => { release = resolve; });
+    let signal: AbortSignal | undefined;
+    let evidenceCalls = 0;
+    let modelCalls = 0;
+    const stalledModel = async (params: unknown) => {
+      modelCalls++;
+      signal = (params as { signal?: AbortSignal }).signal;
+      enter();
+      return late;
+    };
+    const hooks = registerPlugin(root, revision, phase === "routing" ? stalledModel : undefined, "read_only", [],
+      phase === "evidence" ? stalledModel : async () => { evidenceCalls++; throw new Error("must not run"); });
+    const controller = new AbortController();
+    let preparation: Promise<unknown> | undefined;
+    const runId = `cancel-${phase}-preparation`;
+    const run = coordinateCompletion({ operationId: runId, runId, timeoutMs: 10000, abortSignal: controller.signal }, {
+      async generateDraft() {
+        preparation = Promise.resolve(requireHook(hooks, "before_prompt_build")({ prompt: "Synthetic" }, { agentId: "stella", runId }));
+        await preparation;
+        throw new Error("generation must not proceed");
+      },
+      async persist() { throw new Error("must not persist"); },
+      async publishFinal() { throw new Error("must not send"); },
+    });
+    await entered;
+    controller.abort();
+    await assert.rejects(run, /cancelled/);
+    release({ text: "{}" });
+    await preparation?.catch(() => {});
+    assert.equal(signal?.aborted, true);
+    assert.equal(modelCalls, 1);
+    assert.equal(evidenceCalls, 0);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("preparation deadline records an explicit blocked admission before a late model resolves", async (t) => {
+  const { PREPARATION_TIMEOUT_MS } = await import("../src/openclaw/completion.js");
+  const root = await createFixture();
+  try {
+    const revision = await initializeFixtureRepository(root);
+    let enter = () => {};
+    const entered = new Promise<void>((resolve) => { enter = resolve; });
+    let release: (value: { text: string }) => void = () => {};
+    const late = new Promise<{ text: string }>((resolve) => { release = resolve; });
+    const hooks = registerPlugin(root, revision, async () => { enter(); return late; });
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const runId = "preparation-deadline";
+    const context = { agentId: "stella", runId };
+    const running = coordinateCompletion({ operationId: runId, runId, timeoutMs: 600000 }, {
+      async generateDraft() {
+        await requireHook(hooks, "before_prompt_build")({ prompt: "Synthetic" }, context);
+        const gate = await requireHook(hooks, "before_agent_run")({}, context) as { outcome: string; category: string };
+        assert.equal(gate.outcome, "block");
+        assert.equal(gate.category, "preparation_timeout");
+        assert.equal((readCompletionPreparation(runId) as { category: string }).category, "preparation_timeout");
+        throw new Error("expected blocked draft");
+      },
+      async persist() { assert.fail("must not persist"); },
+      async publishFinal() { assert.fail("must not send"); },
+    });
+    const rejected = assert.rejects(running, /completion_failed/);
+    await entered;
+    t.mock.timers.tick(PREPARATION_TIMEOUT_MS);
+    await rejected;
+    release({ text: "{}" });
+    await Promise.resolve();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

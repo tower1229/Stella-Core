@@ -10,6 +10,9 @@ async function configure(context) {
   const harness = await configureLegacyHost(context);
   const configPath = context.hostEnv.OPENCLAW_CONFIG_PATH ?? path.join(context.runtimeStateRoot, "openclaw.json");
   const config = JSON.parse(await readFile(configPath, "utf8"));
+  const { PREPARATION_HOOK_TIMEOUT_MS } = await import(pathToFileURL(path.join(
+    context.consumerRoot, "node_modules/@tower1229/stella-core/dist/src/openclaw/completion.js")).href);
+  config.plugins.entries["stella-core"].hooks.timeouts.before_prompt_build = PREPARATION_HOOK_TIMEOUT_MS;
   for (const id of [context.agentId, harness.judgeAgentId]) {
     const agent = config.agents?.entries?.[id];
     if (agent?.model !== "google/gemini-3.1-pro-preview" || !Array.isArray(agent.skills) || agent.skills.length ||

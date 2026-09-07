@@ -120,6 +120,10 @@ export function registerCompletionAdapter(
             userTurnTranscriptRecorder: ctx.userTurnTranscriptRecorder,
             prepareAssistantTranscriptMessage: ctx.prepareAssistantTranscriptMessage,
           });
+          const preparation = readCompletionPreparation(runId);
+          if (isRecord(preparation) && preparation.outcome === "blocked" && typeof preparation.category === "string") {
+            throw new CompletionError(preparation.category, "prepare");
+          }
           if (generated.meta.error || generated.meta.aborted || generated.didSendViaMessagingTool ||
               generated.payloads?.some((payload) => payload.isError || payload.mediaUrl || payload.mediaUrls?.length)) {
             throw new CompletionError("generation_failed", "generate");
