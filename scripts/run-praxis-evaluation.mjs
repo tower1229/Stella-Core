@@ -28,6 +28,7 @@ import {
   parseExactHostVersion,
 } from "../dist/src/acceptance/exact-host-evidence.js";
 import { parseRequiredArguments } from "./lib/cli-args.mjs";
+import { assertPublicEvaluationSource } from "../dist/src/acceptance/public-evaluation-source.js";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -97,6 +98,7 @@ async function runPrivateExactHostEvaluation() {
     inspectSource("CangHai", canghaiRoot, execution.canghaiRevision),
     inspectSource("Public synthetic source", publicRoot, publicRevision),
   ]);
+  await assertPublicEvaluationSource(publicRoot);
   if (await hashFile(artifactPath) !== execution.artifactSha256) {
     throw new Error("Evaluation artifact does not match the recovery receipt");
   }

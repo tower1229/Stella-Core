@@ -54,6 +54,15 @@ openclaw gateway status --deep --require-rpc
 
 ## 5. 私有端到端证据
 
+混合评估的公开部分先运行 `npm run prepare:evaluation-source`，使用输出的 `root` 作为
+`--public-canghai-root`，保留其 `revision`。该命令只新建合成仓库，不接收个人仓库输入。
+独立案例没有预设的主人画像或历史学习；一般框架仍可使用，认知原件带有 v2 版本绑定。
+通用测试 fixture 的 Twin 假设不能作为公开案例人物的背景。运行器在模型调用前核对公开源声明及
+文件摘要；旧源或声明后变化的源会显式拒绝，需要重新生成，不通过修改案例或评分消除失败。
+声明只记录生成来源与内容完整性，不证明模型语义通过。macOS、Windows 均使用上述 Node/npm 入口，
+生成仓库内的 `.gitattributes` 保持原件字节不被 `core.autocrlf` 改写，以保留版本及摘要绑定。
+不要并行执行会清理同一个 `dist` 或 `.test-dist` 的构建命令。
+
 对一个干净 Core revision 打包成唯一 tarball。以该 artifact 顺序生成：
 
 1. praxis:private：从明确 initial CangHai SHA 跑实际 write loop，记录最终同步 SHA。

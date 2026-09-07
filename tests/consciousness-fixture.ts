@@ -8,7 +8,8 @@ import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/conte
 
 const execFileAsync = promisify(execFile);
 
-export async function createFixture(): Promise<string> {
+export async function createFixture(options: { ownerProfile?: "synthetic" | "case_only" } = {}): Promise<string> {
+  const includeOwnerProfile = options.ownerProfile !== "case_only";
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-core-test-"));
   const files = [
     "50_PersonalAgent/corpus-registry.yaml",
@@ -75,15 +76,16 @@ export async function createFixture(): Promise<string> {
 
   await writeFile(
     path.join(root, "50_PersonalAgent/openclaw/workspace/SOUL.md"),
-    "# Soul\nEvidence-driven and direct.\n",
+    includeOwnerProfile ? "# Soul\nEvidence-driven and direct.\n"
+      : "# Synthetic assistant role\nAssist the current case speaker with their request. No prior personal profile is known. Personal facts come only from the current case; general reasoning is not a known personal trait.\n",
     "utf8",
   );
   await writeFile(
     path.join(root, "50_PersonalAgent/stella/twin/hypotheses-registry.yaml"),
-    "hypotheses:\n  - id: twin_fixture\n    ref: path:30_PersonalData/twin/hypotheses/twin_fixture.md\n",
+    includeOwnerProfile ? "hypotheses:\n  - id: twin_fixture\n    ref: path:30_PersonalData/twin/hypotheses/twin_fixture.md\n" : "hypotheses: []\n",
     "utf8",
   );
-  await writeFile(
+  if (includeOwnerProfile) await writeFile(
     path.join(root, "30_PersonalData/twin/hypotheses/twin_fixture.md"),
     `---
 schema_version: stella.twin-hypothesis/v1

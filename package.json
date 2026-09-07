@@ -21,6 +21,7 @@
     "recover:private": "npm run build --silent && node scripts/run-private-recovery.mjs",
     "praxis:private": "npm run build --silent && node scripts/run-private-praxis-loop.mjs",
     "evaluate:praxis": "npm run build --silent && node scripts/run-praxis-evaluation.mjs",
+    "prepare:evaluation-source": "node scripts/compile.mjs build && node scripts/compile.mjs test && node scripts/prepare-public-evaluation-source.mjs",
     "candidate": "npm run build --silent && node scripts/create-alpha-candidate.mjs",
     "stella:activate": "npm run build --silent && node scripts/stella-activate.mjs",
     "verify": "npm run check && npm run check:schemas && npm run build && npm test && npm run test:package"
