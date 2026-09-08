@@ -110,3 +110,50 @@ test("disabled automation declarations are retained but enabled jobs require a H
     automation_declarations: [{ ...declaration, task_ref: { ...declaration.task_ref, sha256: `sha256:${"0".repeat(64)}` } }] },
   { agentId: "probe", hostVersion: "2026.8.2" }), /source_pin_mismatch/);
 });
+
+test("complete reviewed documents are rendered without a second template policy", async (t) => {
+  const f = await fixture(t);
+  const result = await f.compile();
+  for (const recipe of f.document.projection_recipes) {
+    if (recipe.target === "IDENTITY.md") continue;
+    const source = await readFile(path.join(f.root, recipe.input_refs[0]!.ref.slice(5)), "utf8");
+    assert.equal(result.contents.get(recipe.target)!.toString(), `<!-- stella.host-templates/v2 -->\n\n${source.trimEnd()}\n`);
+  }
+});
+
+test("legacy template recipes are rejected rather than silently changing behavior", async (t) => {
+  const f = await fixture(t);
+  f.document.projection_recipes[0]!.template_version = "stella.host-templates/v1";
+  await assert.rejects(f.compile(), /projection_template_migration_required/);
+});
+
+test("split or empty behavior documents cannot masquerade as complete content", async (t) => {
+  const f = await fixture(t);
+  f.document.projection_recipes[0]!.input_refs = [];
+  await assert.rejects(f.compile(), /complete_reviewed_document_required/);
+});
+
+test("display role affects the prompt without introducing unsupported Host identity fields", async (t) => {
+  const f = await fixture(t);
+  const recipe = f.document.projection_recipes.find(item => item.target === "IDENTITY.md")!;
+  const old = recipe.input_refs[0]!;
+  const value = JSON.parse(await readFile(path.join(f.root, old.ref.slice(5)), "utf8"));
+  value.role = "Synthetic collaboration partner";
+  const bytes = canonicalJson(value);
+  await writeFile(path.join(f.root, old.ref.slice(5)), bytes);
+  const next = { ...old, sha256: bytesVersion(bytes) };
+  recipe.input_refs = [next];
+  const mappingPath = path.join(f.root, f.document.behavior_mapping_ref.ref.slice(5));
+  const mapping = JSON.parse(await readFile(mappingPath, "utf8"));
+  for (const entry of mapping.entries) {
+    if (entry.source.ref === old.ref) entry.source = next;
+    entry.new_rule_refs = entry.new_rule_refs.map((ref: { ref: string; sha256: string }) => ref.ref === old.ref ? next : ref);
+  }
+  const mappingBytes = canonicalJson(mapping);
+  await writeFile(mappingPath, mappingBytes);
+  f.document.behavior_mapping_ref.sha256 = bytesVersion(mappingBytes);
+  const result = await f.compile();
+  assert.match(result.contents.get("IDENTITY.md")!.toString(), /Role: Synthetic collaboration partner/);
+  assert.equal("role" in result.identity, false);
+  assert.equal(result.identity.theme, "Isolated local acceptance");
+});

@@ -21,7 +21,7 @@ export async function prepareInitializationFixture(root: string, agentId: string
   await mkdir(path.join(root, prefix, "host"), { recursive: true });
   const files = [];
   for (const target of ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"]) {
-    const content = target === "IDENTITY.md" ? canonicalJson({ schema_version: "stella.display-identity/v1", id: "synthetic-identity",
+    const content = target === "IDENTITY.md" ? canonicalJson({ schema_version: "stella.display-identity/v2", id: "synthetic-identity",
       name: "Synthetic Stella", theme: "Isolated local acceptance", emoji: "🧪" }) : `# Synthetic ${target}\nSynthetic isolated Host acceptance.\n`;
     const source = `${prefix}/host/${target === "IDENTITY.md" ? "display-identity.json" : target}`;
     await writeFile(path.join(root, source), content);
@@ -63,7 +63,7 @@ export async function prepareInitializationFixture(root: string, agentId: string
   const materialization = {
     schema_version: "stella.host-materialization/v1", id: "synthetic-host",
     host_adapter: { id: "openclaw", version: "1", host_version: "2026.8.2", harness: "openclaw" }, behavior_mapping_ref: mapping,
-    projection_recipes: files.map((file) => ({ target: file.target, template_version: "stella.host-templates/v1", behavior_ids: [file.target],
+    projection_recipes: files.map((file) => ({ target: file.target, template_version: "stella.host-templates/v2", behavior_ids: [file.target],
       input_refs: [{ ref: `path:${file.source}`, sha256: file.sha256 }], exposure_policy_ref: exposure })),
     skill_bindings: [{ registry_ref: registry, registry_id: "synthetic-skills", skill_id: "initialization-probe", name: "stella-initialization-probe",
       source_root: `path:${skillRoot}`, files: tree, tree_digest: bytesVersion(canonicalJson(tree)), purpose: "host_initialization", policy_ref: policy,

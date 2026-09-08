@@ -78,15 +78,15 @@ test("compiles public Core templates and pinned reviewed behavior without rewrit
     new_rule_refs: [rule], reason: "Synthetic reviewed voice", replacement_requirements: [] as string[], dependencies: [] as string[], required: true,
   }] };
   const mappingRef = await save("mapping.json", mapping);
-  const displayIdentity = await save("display-identity.json", { schema_version: "stella.display-identity/v1", id: "unit-identity", name: "Unit Stella", emoji: "🧪" });
+  const displayIdentity = await save("display-identity.json", { schema_version: "stella.display-identity/v2", id: "unit-identity", name: "Unit Stella", emoji: "🧪" });
   mapping.entries.push({ id: "identity", source: { ref: "path:2.txt", sha256: f.recipe.files[2]!.sha256 }, role: "owner_behavior", status: "adapted",
     new_rule_refs: [displayIdentity], reason: "Synthetic display identity", replacement_requirements: ["native-identity"], dependencies: [], required: true });
   Object.assign(mappingRef, await save("mapping.json", mapping));
   const materialization = { schema_version: "stella.host-materialization/v1", id: "synthetic-instance",
     host_adapter: { id: "openclaw", version: "1", host_version: "2026.8.2", harness: "openclaw" }, behavior_mapping_ref: mappingRef,
     projection_recipes: BOOTSTRAP_TARGETS.map((target) => ({ target, template_version: INITIALIZATION_TEMPLATE_VERSION,
-      behavior_ids: target === "SOUL.md" ? ["voice"] : target === "IDENTITY.md" ? ["identity"] : [],
-      input_refs: target === "SOUL.md" ? [rule] : target === "IDENTITY.md" ? [displayIdentity] : [], exposure_policy_ref: exposureRef })),
+      behavior_ids: target === "IDENTITY.md" ? ["identity"] : ["voice"],
+      input_refs: target === "IDENTITY.md" ? [displayIdentity] : [rule], exposure_policy_ref: exposureRef })),
     skill_bindings: [], automation_declarations: [], required_checks: ["host_files", "host_skills", "host_identity", "host_setup"],
   };
   await save("recipe.json", materialization);
@@ -94,7 +94,7 @@ test("compiles public Core templates and pinned reviewed behavior without rewrit
   await f.git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "Reviewed synthetic materialization"]);
   f.config.revision = await f.git(["rev-parse", "HEAD"]);
   const receipt = await f.initializer.initialize();
-  assert.match(await readFile(path.join(f.workspace, "AGENTS.md"), "utf8"), /Stella Core coordinates this Agent/);
+  assert.match(await readFile(path.join(f.workspace, "AGENTS.md"), "utf8"), /Be precise\. Ask about material unknowns\./);
   assert.match(await readFile(path.join(f.workspace, "SOUL.md"), "utf8"), /Be precise\. Ask about material unknowns\./);
   assert.deepEqual(await f.ports.readIdentity(), { name: "Unit Stella", emoji: "🧪" });
   assert.equal(await f.git(["status", "--porcelain"]), "");
@@ -114,7 +114,7 @@ test("compiles public Core templates and pinned reviewed behavior without rewrit
 
   const missingRule = structuredClone(materialization);
   missingRule.projection_recipes.find((recipe) => recipe.target === "SOUL.md")!.input_refs = [];
-  await assert.rejects(compileInitializationSource(f.source, missingRule, f.config), /unmapped_projection_input/);
+  await assert.rejects(compileInitializationSource(f.source, missingRule, f.config), /complete_reviewed_document_required/);
   const conflict = structuredClone(mapping); conflict.entries[0]!.status = "conflict";
   const conflicted = { ...materialization, behavior_mapping_ref: await save("conflict.json", conflict) };
   await assert.rejects(compileInitializationSource(f.source, conflicted, f.config), /required_behavior_unresolved/);

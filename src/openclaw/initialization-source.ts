@@ -128,7 +128,8 @@ export async function compileInitializationSource(root: string, document: unknow
   for (const recipe of document.projection_recipes) {
     object(recipe, ["target", "template_version", "behavior_ids", "input_refs", "exposure_policy_ref"]);
     check(typeof recipe.target === "string" && BOOTSTRAP_TARGETS.includes(recipe.target as BootstrapTarget) && !contents.has(recipe.target) &&
-      recipe.template_version === INITIALIZATION_TEMPLATE_VERSION, "invalid_projection_recipe");
+      typeof recipe.template_version === "string", "invalid_projection_recipe");
+    check(recipe.template_version === INITIALIZATION_TEMPLATE_VERSION, "projection_template_migration_required");
     strings(recipe.behavior_ids);
     check(Array.isArray(recipe.input_refs), "invalid_projection_recipe");
     const allowedPins = new Set<string>();
@@ -139,6 +140,7 @@ export async function compileInitializationSource(root: string, document: unknow
       for (const rule of behavior.rules) allowedPins.add(canonicalJson(rule));
     }
     const inputs = recipe.input_refs.map(pin);
+    check(inputs.length === 1, "complete_reviewed_document_required");
     check(inputs.length === allowedPins.size && new Set(inputs.map(canonicalJson)).size === inputs.length &&
       inputs.every((input) => allowedPins.has(canonicalJson(input))), "unmapped_projection_input");
     const exposure = await readDocument(recipe.exposure_policy_ref);
@@ -151,8 +153,8 @@ export async function compileInitializationSource(root: string, document: unknow
     if (recipe.target === "IDENTITY.md") {
       check(inputs.length === 1, "display_identity_required");
       const value = await readDocument(inputs[0]);
-      object(value, ["schema_version", "id", "name", "theme", "emoji", "avatar"]);
-      check(value.schema_version === "stella.display-identity/v1" && typeof value.id === "string" && value.id.trim() &&
+      object(value, ["schema_version", "id", "name", "theme", "emoji", "avatar", "role"]);
+      check(value.schema_version === "stella.display-identity/v2" && typeof value.id === "string" && value.id.trim() &&
         typeof value.name === "string" && value.name.trim(), "invalid_display_identity");
       const fields: HostIdentity = {};
       for (const key of ["name", "theme", "emoji", "avatar"] as const) if (value[key] !== undefined) {
@@ -161,11 +163,14 @@ export async function compileInitializationSource(root: string, document: unknow
           !/[\x00-\x1f\x7f]/.test(field) && !/^[*_`]|[*_`]$/.test(field), "invalid_display_identity");
         fields[key] = field;
       }
+      if (value.role !== undefined) check(typeof value.role === "string" && value.role.trim() === value.role &&
+        value.role.length > 0 && value.role.length <= 256 && !/[\x00-\x1f\x7f]/.test(value.role), "invalid_display_identity");
       identity = { ...fields, name: value.name };
-      bytes = Buffer.from(renderDisplayIdentity(identity));
+      bytes = Buffer.from(renderDisplayIdentity({ ...identity, ...(typeof value.role === "string" ? { role: value.role } : {}) }));
     } else {
       const sections = [];
       for (const input of inputs) sections.push(new TextDecoder("utf-8", { fatal: true }).decode(await read(input)));
+      check(sections[0]?.trim(), "complete_reviewed_document_required");
       bytes = Buffer.from(renderInitializationTemplate(recipe.target as BootstrapTarget, sections));
     }
     contents.set(recipe.target, bytes);

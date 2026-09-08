@@ -11,7 +11,7 @@
 | 现行规范导航、验收分层 | 本文 |
 | 数据格式、生命周期、不变量 | [契约目录](contracts/README.md) |
 | 当轮执行及 Host 要求 | [运行协议](02-PRAXIS-RUNTIME.md)、[Host 集成](04-OPENCLAW-INTEGRATION.md) |
-| 实例初始化、运行文件／skills／调度迁移设计 | [Host 初始化设计](04-OPENCLAW-INTEGRATION.md#8-stella-实例初始化与运行投影详细设计)、[1.0 功能映射](07-CANGHAI-COLD-START.md#13-stella-10-运行实现调查与功能承接2026-09-07) |
+| 实例初始化、运行文件／skills／调度迁移设计 | [Host 初始化设计](04-OPENCLAW-INTEGRATION.md#8-stella-实例初始化与运行投影详细设计)、[内容职责与五份候选正文](04-OPENCLAW-INTEGRATION.md#812-初始化内容设计修订2026-09-08)、[1.0 功能映射](07-CANGHAI-COLD-START.md#13-stella-10-运行实现调查与功能承接2026-09-07) |
 | Alpha 范围和出口 | [Alpha 验收](05-ALPHA-PLAN.md) |
 | 技术决定及替代关系 | [决策记录](DECISIONS.md) |
 | 实现证据 | 固定源码版本、测试、Exact Host receipt；[项目状态](../PROJECT-STATE.yaml)只做索引 |
