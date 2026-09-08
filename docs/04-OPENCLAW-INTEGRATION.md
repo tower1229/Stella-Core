@@ -294,6 +294,7 @@ Agent 尚未加载 Core 或插件无法启动时，Core 自身 hook 无法构成
 - `stella.host-templates/v1` 提供五份公开模板；映射区分 retained、adapted、retired、unavailable 和 conflict。必需行为未解决、投影漏用或夹带未审查规则均阻断。投影输入须由 `stella.projection-exposure/v1` 明确允许公开运行指令；不把私人事实复制进公共启动上下文。
 - 技能必须与 Manifest 指向的规范 `stella.skill-registry/v1` 对齐，校验来源用途、暴露策略、完整资源树、摘要和可执行权限。不能通过空 bindings 跳过已启用技能。尚无适配器的 required_capabilities、非空 automation_declarations、额外 required_checks，以及 `full_memory` profile 均显式返回不可用，不把裁减后的结果标为成功。
 - `stella.display-identity/v1` 生成原生 `IDENTITY.md`，并通过 Host `mutateConfigFile` 对指定 Agent 的 identity 做 CAS 更新；只修改该配置字段，并等待热重载实际生效。通过公开 `ensureAgentWorkspace` 验证 setup 不再 pending；必须已有显式目标 Agent 配置，尚不提供新 Agent 创建。
+- 2026-09-08 增加真实 bootstrap 加载校验：初始化验收及后续准入调用公开 `resolveBootstrapContextForRun`，以目标 Agent 当前配置、direct 主会话和 full context 核对五份必要文件的原始内容及预算处理后的内容。仅接受 Host 的尾部空白处理，截断、遗漏或 Hook 改写均阻断；校验期间配置变化也阻断。每 Agent 预算及默认值由 Host 解析，不修改其他 Agent 配置。`contextInjection: never` 和尚未具备会话刷新证明的 `continuation-skip` 返回 `host_context_injection_unsupported`。这是共享加载器的完整性证明，不能替代各 native harness 的实际消费、群聊／子代理过滤和既有 transcript 刷新验收。
 - 每次操作保留独立归档，使用持久化 journal、文件锁、before 内容与权限校验。进程被杀后只回收 SDK 已确认死亡的锁持有者；恢复复用原操作。重复初始化在内容未变时复用已验收操作，并重新查询 Host 技能及文件。
 - OpenClaw 2026.8.2 的 `api.runtime.gateway.request` 拒绝第三方插件。当前通过显式配置 `initializationGatewayAccess: local_operator_read` 授权本机公开认证连接，仅查询文件与技能，凭据仍由 Host 管理；不制造官方插件身份。不能在启动 service 中等待尚未监听的 Gateway，因此初始化异步开始，未完成时仍阻断请求。
 - Host 会重复注册执行 harness；准入必须从持久化 receipt 恢复，并将内部 run 与完成协调操作绑定到同一初始化操作。正常的业务提交和配置热重载使用当前 recovery pointer 核对内容，不能错误取消已持久化且投影未变的回复。

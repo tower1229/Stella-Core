@@ -27,6 +27,7 @@ const files = packed.files.map((entry) => entry.path);
 for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admission.js",
   "dist/src/openclaw/initialization.js", "dist/src/openclaw/initialization-registration.js",
   "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
+  "dist/src/openclaw/initialization-context.js",
   "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
   "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
   "dist/src/acceptance/recovery-drill.js", "openclaw.plugin.json",

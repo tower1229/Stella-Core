@@ -256,6 +256,11 @@ test("Host service initializes on startup; manual entry shares the same transact
   assert.equal(initialization.status().state, "ready");
   assert.equal(hostConfig.agents?.entries?.stella?.identity?.name, "Synthetic Stella");
   assert.equal(hostConfig.agents?.entries?.other?.identity?.name, "Keep other identity");
+  hostConfig.agents!.entries!.stella!.bootstrapMaxChars = 100;
+  await assert.rejects(initialization.assertReady(), /host_bootstrap_context_incomplete/);
+  assert.equal((await initialization.initialize()).state, "blocked");
+  delete hostConfig.agents!.entries!.stella!.bootstrapMaxChars;
+  assert.equal((await initialization.initialize()).state, "ready");
   assert.equal(await hooks.get("before_agent_run")!({}, context), undefined);
   const manual = await command!.handler({ agentId: "stella", isAuthorizedSender: true } as never);
   assert.equal(JSON.parse(manual.text!).state, "ready");

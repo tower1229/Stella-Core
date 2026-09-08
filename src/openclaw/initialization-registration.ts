@@ -10,6 +10,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { InitializationError, StellaInitializer, type Materialization } from "./initialization.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import type { HostIdentity } from "./initialization-templates.js";
+import { verifyInitializationContext } from "./initialization-context.js";
 import { Type } from "typebox";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { completionOperationForRun, isCompletionResourceActive } from "./completion.js";
@@ -155,6 +156,9 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
               if (!isRecord(observed) || !isRecord(observed.file) || typeof observed.file.content !== "string" ||
                 bytesVersion(observed.file.content) !== file.sha256) throw new InitializationError("host_projection_mismatch");
             }
+            stage = "host_context";
+            await verifyInitializationContext({ workspace, agentId: config.agentId,
+              files: materialization.files, currentConfig: () => api.runtime.config.current() });
           },
           release: async () => {},
         }, shutdown.signal);
@@ -196,6 +200,8 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     const source = await materializationSource({ ...config, recoveryRevision: current.config.recoveryRevision });
     Object.assign(initializer.source, source, { skillRegistryRef: source.skillRegistryRef });
     const receipt = await initializer.assertCurrent();
+    await verifyInitializationContext({ workspace: receipt.workspace, agentId: config.agentId,
+      files: receipt.files.map(file => ({ target: file.target, sha256: file.hash })), currentConfig: () => api.runtime.config.current() });
     status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash };
   };
 
