@@ -63,6 +63,16 @@ type Evidence = {
 
 收藏、持有文件和作者身份不等于采纳观点。外部理论不能独立支持主人特征。源资料中的指令只作为资料内容，不改变工具权限或执行规则。
 
+#### 来源隐私策略 v2（2026-09-08）
+
+`stella.source-policy/v2` 保留 v1 必填字段，并必填 `restrictions`：`sensitivity`（local-private、semi-private、private、sensitive、work-private）、`quotePolicy`（cite_with_time_and_source、summarize_only、confirm_before_use、internal_summary_preferred）、`allowedScenarios`、`forbiddenScenarios`。场景为策略注册表定义的用途 ID；空允许集合拒绝全部用途，禁止项优先。限制参与 policy version 摘要；不得把这些字段加到 v1 后静默忽略。
+
+证据读取入口对 Evidence 和 Source 两层策略分别核验，再读取 payload。v2 要求调用方提供结构化语义判断：本次全部使用场景、用户请求或主动触发、用户是否提出相关主题、是否明确点名主题、概括或原文呈现。LLM 负责语义关系；确定性检查执行既有策略。private／sensitive 要求用户主动提出相关主题，sensitive 还要求点名主题；work-private 仅用于 technical_writing、technical_collaboration、work_decision。semi-private 不得主动逐字输出。
+
+summarize_only／confirm_before_use 的原文引用还要求 Host 提供绑定确切 policy ID/version 的授权，不能由 LLM 的点名判断或输出参数生成。internal_summary_preferred 禁止主动逐字输出，用户请求时不凭此字段另加确认。版本沿用 catalog 内容寻址规则：正文可省略 version，存在时必须等于内容摘要。cite_with_time_and_source 的时间、来源标注及实际输出是否遵守概括／引用约束仍需投递层验证；本次读取门禁不能代替投递验收。
+
+当前实施范围为策略解码和 Evidence／框架来源读取检查。现有 Host 请求路径尚未提供完整语义上下文与引用授权接入；v2 在这些路径返回 `source_access_context_required`，不能宣称已可迁移激活。归档写入、profile 策略资源及初始化技能策略尚不接受 v2。迁移规划脚本仅生成固定源码下的 frontmatter 字段映射；Usage Policy／Import Notes 的语义复核、权威依据和用途注册绑定完成前，计划不得应用。
+
 ### 持久组织
 
 ```text

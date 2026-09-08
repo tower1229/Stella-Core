@@ -25,7 +25,7 @@ const purpose: EvidencePurpose = { readPurpose: "alpha", derivePurpose: "alpha",
   trustedAdapters: { user_report: ["synthetic-host"], tool_observation: ["synthetic-tool"], system_event: ["synthetic-system"] } };
 const emptyCatalog = (): MemoryCatalog => ({ schemaVersion: "stella.memory-catalog/v1", generationId: "generation-synthetic", parentGenerationId: null,
   sources: [], evidence: [], policies: [], understandings: [], works: [], changes: [], bundles: [], coverage: [], views: [] });
-async function fixture(t: { after(fn: () => Promise<void>): void }, options: { role?: string; kind?: string; authoredAt?: string } = {}) {
+async function fixture(t: { after(fn: () => Promise<void>): void }, options: { role?: string; kind?: string; authoredAt?: string; restricted?: boolean } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-original-evidence-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const catalog = emptyCatalog();
@@ -38,8 +38,9 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, options: { r
     catalog[group].push({ ...ref, locator: { path: file, sha256: bytesVersion(body) }, status: "current", dependencies });
     return ref;
   };
-  const policy = await put("policies", { schemaVersion: "stella.source-policy/v1", id: "policy-synthetic", ownerId: "owner-synthetic",
-    readPurposes: ["alpha"], derivePurposes: ["alpha"], deliveryScopes: ["gemini-evaluation"], retention: "retain", authorityEvidenceRefs: [] });
+  const policy = await put("policies", { schemaVersion: options.restricted ? "stella.source-policy/v2" : "stella.source-policy/v1", id: "policy-synthetic", ownerId: "owner-synthetic",
+    readPurposes: ["alpha"], derivePurposes: ["alpha"], deliveryScopes: ["gemini-evaluation"], retention: "retain", authorityEvidenceRefs: [],
+    ...(options.restricted ? { restrictions: { sensitivity: "sensitive", quotePolicy: "summarize_only", allowedScenarios: ["relationship_context"], forbiddenScenarios: ["relationship_judgment"] } } : {}) });
   const coverage = await put("coverage", { schemaVersion: "stella.archive-coverage/v1", id: "coverage-synthetic",
     adapterId: "synthetic-host", collectionId: "synthetic-session", upstreamSnapshot: "synthetic-snapshot",
     scope: { agentIds: ["synthetic-agent"], roots: [], branchPolicy: "declared_subset", declaredBranches: ["synthetic-branch"] },
@@ -62,6 +63,22 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, options: { r
 }
 const verdict = (actual: NonNullable<EpisodeV2["actual"]>, supported = true) => ({ text: JSON.stringify({
   supported, action: actual.action, occurredAt: actual.occurredAt, source: actual.source, evidenceRefs: actual.evidenceRefs, rationale: "Synthetic semantic verdict" }) });
+
+test("restricted evidence fails before payload access without an admitted semantic context", async (t) => {
+  const f = await fixture(t, { restricted: true });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  let reads = 0;
+  const originalRead = reader.readPayload.bind(reader);
+  reader.readPayload = async (...args) => { reads++; return originalRead(...args); };
+  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("Must not call model"); });
+  await assert.rejects(resolver.readEvidence(f.evidence), /source_access_context_required/);
+  assert.equal(reads, 0);
+  const permitted = new EpisodeEvidenceResolver(reader, { ...purpose, sourceAccess: {
+    judgment: { scenarios: ["relationship_context"], trigger: "user_requested", topicRequested: true, topicExplicitlyNamed: true, presentation: "summary" }, quoteGrants: [],
+  } }, resolver.complete);
+  assert.match((await permitted.readEvidence(f.evidence)).text, /询问/);
+  assert.equal(reads, 1);
+});
 
 test("persisted bundles reread original roles and reject unauthorized or modified evidence", async (t) => {
   const { root, catalog, save, put, evidence } = await fixture(t, { role: "assistant", kind: "inference" });

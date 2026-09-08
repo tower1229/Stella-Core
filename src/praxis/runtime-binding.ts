@@ -1,4 +1,5 @@
 import { parse as parseYaml } from "yaml";
+import { assertSourcePolicyAccess } from "../canghai/source-policy.js";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
 import { bytesVersion } from "../canghai/content-version.js";
 import type { LoadedConsciousness } from "../canghai/manifest.js";
@@ -93,9 +94,8 @@ export async function resolveBoundInputRefs(runtime: PraxisRuntimeMemory, bindin
     const source = await reader.read(target.sourceRef, "sources");
     if (!validMemoryRef(source.policyRef)) throw new EpisodeV2Error("cognitive_source_policy_required");
     const policy = await reader.read(source.policyRef, "policies");
-    if (!Array.isArray(policy.readPurposes) || !policy.readPurposes.includes(binding.purpose.readPurpose) ||
-        !Array.isArray(policy.derivePurposes) || !policy.derivePurposes.includes(binding.purpose.derivePurpose) ||
-        !Array.isArray(policy.deliveryScopes) || !policy.deliveryScopes.includes(binding.purpose.deliveryScope)) throw new CatalogError("permission_denied");
+    // Static configuration cannot supply a trusted per-request privacy judgment.
+    assertSourcePolicyAccess(policy, binding.purpose);
     const bytes = await readRepositoryBytes(reader.root, relativeRef(ref));
     await reader.readPayload(target.sourceRef, bytesVersion(bytes));
     if (!result.some((value) => value.id === target.sourceRef.id && value.version === target.sourceRef.version)) result.push({ ...target.sourceRef });

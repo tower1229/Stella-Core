@@ -2,6 +2,7 @@ import { CatalogError, CatalogReader, selectTextEvidence, validMemoryRef } from 
 import { canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { ActualSource, EpisodeV2, VersionedRef } from "./episode-v2.js";
+import { assertSourcePolicyAccess, type SourceAccessContext } from "../canghai/source-policy.js";
 
 export type OriginalEvidence = {
   ref: VersionedRef; text: string; role: string; kind: string; independentOriginId: string;
@@ -9,6 +10,7 @@ export type OriginalEvidence = {
   coverageComplete: boolean;
 };
 export type EvidencePurpose = {
+  sourceAccess?: SourceAccessContext;
   readPurpose: string; derivePurpose: string; deliveryScope: string; evidenceCutoff: string;
   trustedAdapters: Record<ActualSource, readonly string[]>;
 };
@@ -28,11 +30,7 @@ export class EpisodeEvidenceResolver {
   }
   async #policy(ref: VersionedRef): Promise<void> {
     const policy = await this.reader.read(ref, "policies");
-    check(policy.schemaVersion === "stella.source-policy/v1" && typeof policy.ownerId === "string" && policy.ownerId &&
-      Array.isArray(policy.readPurposes) && Array.isArray(policy.derivePurposes) && Array.isArray(policy.deliveryScopes) &&
-      refs(policy.authorityEvidenceRefs) && ["retain", "do_not_retain"].includes(String(policy.retention)), "invalid_source_policy");
-    check(policy.readPurposes.includes(this.purpose.readPurpose) && policy.derivePurposes.includes(this.purpose.derivePurpose) &&
-      policy.deliveryScopes.includes(this.purpose.deliveryScope), "permission_denied");
+    assertSourcePolicyAccess(policy, this.purpose, this.purpose.sourceAccess);
   }
   #dependencies(ref: VersionedRef, dependencies: VersionedRef[]): void {
     const declared = this.reader.entry(ref).dependencies;
