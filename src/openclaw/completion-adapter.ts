@@ -110,7 +110,10 @@ export function registerCompletionAdapter(
       const prompt = event.ctx.Body;
       if (typeof prompt !== "string" || !prompt.trim()) throw new CompletionError("invalid_input", "admission");
       const resourceScope = await ports.resourceScope();
-      result = await coordinateCompletion({ operationId: runId, runId, resourceScope, timeoutMs: 600_000, abortSignal: ctx.abortSignal }, {
+      result = await coordinateCompletion({ operationId: runId, runId, resourceScope, timeoutMs: 600_000, abortSignal: ctx.abortSignal,
+        request: { agentId, sessionId, sessionKey, prompt, senderId: sender.senderId || undefined,
+          senderIsOwner: sender.senderIsOwner, chatType },
+      }, {
         async generateDraft({ abortSignal }) {
           let admissionStore;
           try { admissionStore = await openCompletionAdmissionJournal(api.runtime.state.resolveStateDir()); }

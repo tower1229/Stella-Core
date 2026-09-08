@@ -24,7 +24,7 @@ import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-r
 import type { CortexRoute } from "./routing/router.js";
 import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
 import { registerCompletionAdapter } from "./openclaw/completion-adapter.js";
-import { CompletionError, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
+import { CompletionError, readCompletionRequest, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
   type CompletionDraft } from "./openclaw/completion.js";
 import { canonicalJson, bytesVersion } from "./canghai/content-version.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, resolveBoundInputRefs, persistBoundAdvice } from "./praxis/runtime-binding.js";
@@ -329,6 +329,11 @@ export default definePluginEntry({
         const runId = ctx.runId!;
         try {
           return await runCompletionPreparation(runId, async () => {
+            const request = readCompletionRequest(runId, config.agentId, ctx.sessionId, ctx.sessionKey);
+            // This path loads personal cognitive context, not just public bootstrap rules.
+            if (!request.senderIsOwner || !request.senderId || request.chatType !== "direct") {
+              throw new CompletionError("private_context_owner_direct_required", "prepare");
+            }
             const loaded = await consciousness.load();
             const { runtime, binding } = await createRuntime(loaded);
             const memory = await runtime.listMemory();
@@ -342,7 +347,7 @@ export default definePluginEntry({
               memory.openEpisodes,
             );
             const route = await classifySemantically(
-              event.prompt,
+              request.prompt,
               candidates,
             );
             let persistRecommendation: PreparedTurn["persistRecommendation"];
@@ -356,7 +361,7 @@ export default definePluginEntry({
                 : route.mode === "praxis" || route.mode === "deep_praxis"
                   ? renderPraxisContextPacket(
                       buildPraxisContextPacket(
-                        event.prompt,
+                        request.prompt,
                         route,
                         loadedForTurn,
                         memory.openEpisodes,
@@ -368,7 +373,7 @@ export default definePluginEntry({
             let appendContext = renderSelectedContext();
             if (route.mode !== "outcome") {
               const retrieved = await prepareQuestionEvidence({ requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
-                question: event.prompt, route, priorContext: appendContext ?? "", resolver: runtime.evidence,
+                question: request.prompt, route, priorContext: appendContext ?? "", resolver: runtime.evidence,
                 complete: (input) => completeModel({ agentId: config.agentId, purpose: "stella-question-evidence",
                   maxTokens: input.maxTokens, temperature: 0, messages: [{ role: "user", content: input.prompt }] }),
               });
@@ -397,7 +402,7 @@ export default definePluginEntry({
               const episodeRef = route.outcome?.openEpisodeRef ?? route.openEpisodeRef;
               if (!episodeRef) throw new CompletionError("unavailable_episode_selection", "prepare");
               const selected = await runtime.selectedEpisode(episodeRef);
-              const planned = await prepareEvidenceBoundOutcome({ request: event.prompt, selected, recordedAt: new Date().toISOString(),
+              const planned = await prepareEvidenceBoundOutcome({ request: request.prompt, selected, recordedAt: new Date().toISOString(),
                 resolver: runtime.evidence, complete: evidenceComplete });
               await runtime.selectedEpisode(episodeRef);
               if (planned.disposition === "ready") {
@@ -435,7 +440,7 @@ export default definePluginEntry({
               }
               if (selected && route.twinPrediction) throw new CompletionError("sealed_prediction_changed", "prepare");
               const situation = route.situation;
-              const packet = buildPraxisContextPacket(event.prompt, route, loadedForTurn, memory.openEpisodes);
+              const packet = buildPraxisContextPacket(request.prompt, route, loadedForTurn, memory.openEpisodes);
               persistRecommendation = async (text, abortSignal, original) => {
                 if (route.openEpisodeRef) await runtime.selectedEpisode(route.openEpisodeRef);
                 const twinRefs = await resolveBoundInputRefs(runtime, binding, packet.twin?.hypothesisRefs ?? []);

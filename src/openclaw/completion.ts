@@ -1,3 +1,4 @@
+import { snapshotTurnRequest, type HostTurnRequest, type BoundTurnRequest } from "./turn-request.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 
@@ -32,7 +33,7 @@ export class CompletionError extends Error {
   }
 }
 
-type RunPermit = { operationId: string; runId: string; active: boolean; abortSignal: AbortSignal; outputCount?: number; privateOutput?: unknown; preparation?: unknown };
+type RunPermit = { request?: BoundTurnRequest; operationId: string; runId: string; active: boolean; abortSignal: AbortSignal; outputCount?: number; privateOutput?: unknown; preparation?: unknown };
 const permits = new AsyncLocalStorage<RunPermit>();
 const activeResources = new Set<string>();
 export function isCompletionResourceActive(scope: string): boolean {
@@ -89,6 +90,18 @@ export function hasCompletionRunPermit(runId: string | undefined): boolean {
 
 export function completionOperationForRun(runId: string | undefined): string | undefined {
   return hasCompletionRunPermit(runId) ? permits.getStore()?.operationId : undefined;
+}
+
+/** Current run only; no session cache and no model-supplied identity. */
+export function readCompletionRequest(runId: string, agentId: string, sessionId?: string, sessionKey?: string): BoundTurnRequest {
+  if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "prepare");
+  const request = permits.getStore()!.request;
+  if (!request || request.agentId !== agentId ||
+      (sessionId !== undefined && request.sessionId !== sessionId) ||
+      (sessionKey !== undefined && request.sessionKey !== sessionKey)) {
+    throw new CompletionError("host_request_binding_required", "prepare");
+  }
+  return request;
 }
 
 export function isCompletionDraftContext(): boolean {
@@ -152,17 +165,21 @@ export async function coordinateCompletion(input: {
   runId: string;
   timeoutMs: number;
   resourceScope?: string;
+  request?: HostTurnRequest;
   abortSignal?: AbortSignal;
 }, ports: CompletionPorts): Promise<CompletionResult> {
   if (!input.operationId || !input.runId || !Number.isSafeInteger(input.timeoutMs) || input.timeoutMs <= 0) {
     throw new CompletionError("invalid_input", "admission");
   }
+  let request: BoundTurnRequest | undefined;
+  try { request = input.request ? snapshotTurnRequest(input.request, input.runId) : undefined; }
+  catch { throw new CompletionError("invalid_host_turn_request", "admission"); }
   const resourceScope = input.resourceScope ?? input.runId;
   if (!resourceScope.trim()) throw new CompletionError("invalid_input", "admission");
   if (activeResources.has(resourceScope)) throw new CompletionError("operation_in_progress", "admission");
   activeResources.add(resourceScope);
   const controller = new AbortController();
-  const permit: RunPermit = { operationId: input.operationId, runId: input.runId, active: true, abortSignal: controller.signal };
+  const permit: RunPermit = { ...(request ? { request } : {}), operationId: input.operationId, runId: input.runId, active: true, abortSignal: controller.signal };
   let stage = "generate";
   let rejectAborted: (error: CompletionError) => void = () => {};
   const aborted = new Promise<never>((_, reject) => { rejectAborted = reject; });
@@ -180,18 +197,18 @@ export async function coordinateCompletion(input: {
   };
   const work = async (): Promise<CompletionResult> => {
     checkActive();
-    const draft = await permits.run(permit, () => ports.generateDraft({ ...input, abortSignal: controller.signal }));
+    const draft = await permits.run(permit, () => ports.generateDraft({ operationId: input.operationId, runId: input.runId, abortSignal: controller.signal }));
     checkActive();
     permit.active = false;
     if (!draft.draftId || !draft.text.trim() || !draft.evidenceRef ||
         !["answer", "clarification", "collaboration", "action_advice", "outcome_ack"].includes(draft.responseKind) ||
         typeof draft.requiresCriticalPersistence !== "boolean") throw new CompletionError("invalid_draft", stage);
     stage = "persist";
-    const receipt = await ports.persist({ ...input, draft, responseKind: draft.responseKind, abortSignal: controller.signal });
+    const receipt = await ports.persist({ operationId: input.operationId, draft, responseKind: draft.responseKind, abortSignal: controller.signal });
     if (controller.signal.aborted) throw new CompletionError("cancelled", stage);
     validateReceipt(receipt, input, draft);
     stage = "publish";
-    const delivery = await ports.publishFinal({ ...input, draft, receipt, abortSignal: controller.signal });
+    const delivery = await ports.publishFinal({ operationId: input.operationId, draft, receipt, abortSignal: controller.signal });
     if (!delivery.deliveryId || !["confirmed", "failed", "unknown"].includes(delivery.status)) {
       throw new CompletionError("invalid_delivery_receipt", stage);
     }

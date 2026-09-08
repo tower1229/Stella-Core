@@ -79,6 +79,8 @@ provider 的 describe 端口只能返回已获准供该模型处理的、绑定�
 
 Evidence 的源级／证据级策略以及 Framework 原文入口共享这一 provider；相同来源的两层策略相同可复用本次检查，不跨来源复用。原文返回前再次读取策略验证摘要。事务重建 reader 时保留本轮 provider，并对新目录重新校验。上述为 Core 读取路径的实施进度：真实 Host 的可信请求绑定、主题描述处理授权、复核约束迁移及最终输出校验仍未全部接通，main 的 full_memory 门禁和禁止读取的迁移策略保持不变，不能将此进度称为真实问答验收完成。
 
+2026-09-08 请求绑定实现：`reply_dispatch` 将 Host 的原始 Body、SDK 确认的发送者身份及所有者标记、Agent／session／run 和 chatType 固定到完成协调器的运行上下文。`before_prompt_build` 在读取个人认知之前核对归属，并要求明确的主人私聊；路由及取证使用绑定的原始问题，不把 hook 拼接文本当作请求授权。绑定在取消／生成结束后失效，不流入持久化或投递端口参数。这只证明请求身份与问题的来源，不授予资料用途、引用或外部模型处理权限；逐来源策略启用、主题描述授权和私人视图生成仍未接通。
+
 迁移规划脚本 `scripts/plan-source-policy-migration.mjs <root> <full-revision> [semantic-review.json]` 始终只读，要求来源为固定且干净的 HEAD。可选审查文件使用 `stella.source-policy-semantic-review/v1`，包含 sourceRevision、reviewer（kind: llm、id）和完整 entries；每项包含 sourceId、sourceSha256、interpretation、requiredChanges。LLM 负责阅读 Usage Policy／Import Notes 并形成解释，脚本仅验证逐来源身份、摘要、完整性和格式，不替代语义复核，也不验证模型身份或授予权限。审查结果随摘要进入计划，原始元数据映射保持不变；有审查结果也始终 `readyToApply: false`。审查约束落地、权威依据、用途注册、请求及引用授权接入完成前，计划不得应用。
 
 ### 持久组织

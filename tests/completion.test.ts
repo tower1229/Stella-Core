@@ -3,7 +3,7 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { registerCompletionTranscriptGuard } from "../src/openclaw/completion-transcript.js";
 import {
-  CompletionError, completionDraftHash, coordinateCompletion, hasCompletionRunPermit,
+  CompletionError, readCompletionRequest, completionDraftHash, coordinateCompletion, hasCompletionRunPermit,
   isCompletionDraftContext, captureCompletionOutput, readCompletionOutput, recordCompletionPreparation, readCompletionPreparation,
   type CompletionPorts, type CompletionReceipt,
 } from "../src/openclaw/completion.js";
@@ -277,4 +277,36 @@ test("normal preparation shares its signal across sequential model judgments and
   assert.ok(signals[0]);
   assert.equal(signals[0], signals[1]);
   assert.deepEqual(events, ["persist", "publish"]);
+});
+
+
+test("Host request is immutable, exact-run bound and absent from persistence ports", async () => {
+  const request = { agentId: "stella", sessionId: "session", sessionKey: "agent:stella:main", prompt: "Original synthetic request",
+    senderId: "owner", senderIsOwner: true, chatType: "direct" as const };
+  await coordinateCompletion({ ...input, request }, {
+    ...ports([]), async generateDraft() {
+      request.prompt = "Mutated input";
+      const bound = readCompletionRequest(input.runId, "stella", "session", "agent:stella:main");
+      assert.equal(bound.prompt, "Original synthetic request");
+      assert.equal(bound.senderIsOwner, true);
+      assert.equal(bound.requestHash, completionDraftHash(bound.prompt));
+      assert.equal(Object.isFrozen(bound), true);
+      assert.throws(() => readCompletionRequest(input.runId, "other-agent"), /host_request_binding_required/);
+      assert.throws(() => readCompletionRequest(input.runId, "stella", "other-session"), /host_request_binding_required/);
+      assert.throws(() => readCompletionRequest("other-run", "stella"), /invalid_run_permit/);
+      return draft;
+    }, async persist(args) {
+      assert.equal("request" in args, false);
+      assert.throws(() => readCompletionRequest(input.runId, "stella"), /invalid_run_permit/);
+      return receipt;
+    },
+  });
+  assert.throws(() => readCompletionRequest(input.runId, "stella"), /invalid_run_permit/);
+});
+
+test("missing Host request never falls back to a prompt or cached session identity", async () => {
+  await coordinateCompletion(input, { ...ports([]), async generateDraft() {
+    assert.throws(() => readCompletionRequest(input.runId, "stella"), /host_request_binding_required/);
+    return draft;
+  } });
 });
