@@ -1,5 +1,5 @@
 import { parse as parseYaml } from "yaml";
-import { assertSourcePolicyAccess } from "../canghai/source-policy.js";
+import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
 import { bytesVersion } from "../canghai/content-version.js";
 import type { LoadedConsciousness } from "../canghai/manifest.js";
@@ -73,9 +73,11 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
 }
 
 export async function createBoundPraxisRuntime(loaded: LoadedConsciousness, binding: PraxisRuntimeBinding,
-  complete: ConstructorParameters<typeof EpisodeEvidenceResolver>[2], persist: EpisodeRepositoryPorts["persist"]): Promise<PraxisRuntimeMemory> {
+  complete: ConstructorParameters<typeof EpisodeEvidenceResolver>[2], persist: EpisodeRepositoryPorts["persist"],
+  sourceAccess?: SourceAccessProvider): Promise<PraxisRuntimeMemory> {
   const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
   const resolver = new EpisodeEvidenceResolver(reader, { ...binding.purpose, evidenceCutoff: new Date().toISOString(),
+    ...(sourceAccess ? { sourceAccess } : {}),
     trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, complete);
   return new PraxisRuntimeMemory(new EpisodeRepository(loaded.canghaiRoot, relativeRef(loaded.manifest.praxis.episodeRootRef), {
     resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
@@ -93,9 +95,7 @@ export async function resolveBoundInputRefs(runtime: PraxisRuntimeMemory, bindin
     if (!target) throw new EpisodeV2Error("cognitive_source_binding_required");
     const source = await reader.read(target.sourceRef, "sources");
     if (!validMemoryRef(source.policyRef)) throw new EpisodeV2Error("cognitive_source_policy_required");
-    const policy = await reader.read(source.policyRef, "policies");
-    // Static configuration cannot supply a trusted per-request privacy judgment.
-    assertSourcePolicyAccess(policy, binding.purpose);
+    await runtime.evidence.assertSourceAccess(target.sourceRef, source.policyRef);
     const bytes = await readRepositoryBytes(reader.root, relativeRef(ref));
     await reader.readPayload(target.sourceRef, bytesVersion(bytes));
     if (!result.some((value) => value.id === target.sourceRef.id && value.version === target.sourceRef.version)) result.push({ ...target.sourceRef });
@@ -121,7 +121,8 @@ export async function persistBoundAdvice(input: {
   });
   checkActive();
   const runtime = await createBoundPraxisRuntime(input.loaded, input.binding, input.complete,
-    async ({ paths, operationId: id }) => { checkActive(); await input.durability.syncCritical(paths, `stella: preserve ${id}`); });
+    async ({ paths, operationId: id }) => { checkActive(); await input.durability.syncCritical(paths, `stella: preserve ${id}`); },
+    input.runtime.evidence.purpose.sourceAccess);
   const inputRefs = [...new Map([...input.inputRefs, archived.sourceRef].map((ref) => [`${ref.id}@${ref.version}`, ref])).values()];
   const recordedAt = String(input.original.event.timestamp);
   const decision = { ...input.decision, inputRefs };

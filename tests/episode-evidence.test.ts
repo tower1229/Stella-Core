@@ -19,6 +19,7 @@ import { promisify } from "node:util";
 import { loadEvidenceBundle } from "../src/praxis/evidence-bundle.js";
 import { syntheticBundle } from "./evidence-bundle-fixture.js";
 import { prepareQuestionEvidence } from "../src/praxis/question-evidence.js";
+import { createSourceAccessProvider } from "../src/canghai/source-access.js";
 
 const now = "2026-09-06T00:00:00Z";
 const purpose: EvidencePurpose = { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "gemini-evaluation", evidenceCutoff: now,
@@ -73,11 +74,40 @@ test("restricted evidence fails before payload access without an admitted semant
   const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("Must not call model"); });
   await assert.rejects(resolver.readEvidence(f.evidence), /source_access_context_required/);
   assert.equal(reads, 0);
-  const permitted = new EpisodeEvidenceResolver(reader, { ...purpose, sourceAccess: {
+  const permitted = new EpisodeEvidenceResolver(reader, { ...purpose, sourceAccess: async () => ({
     judgment: { scenarios: ["relationship_context"], trigger: "user_requested", topicRequested: true, topicExplicitlyNamed: true, presentation: "summary" }, quoteGrants: [],
-  } }, resolver.complete);
+  }) }, resolver.complete);
   assert.match((await permitted.readEvidence(f.evidence)).text, /询问/);
   assert.equal(reads, 1);
+});
+
+test("the evidence reader applies semantic authorization to each source before reading original bytes", async t => {
+  const f = await fixture(t, { restricted: true });
+  const oldSource = JSON.parse(await readFile(path.join(f.root, "source-synthetic.json"), "utf8")) as Record<string, unknown>;
+  delete oldSource.version;
+  const secondSource = await f.put("sources", { ...oldSource, id: "source-unrequested" }, f.catalog.sources[0]!.dependencies);
+  const oldEvidence = JSON.parse(await readFile(path.join(f.root, "evidence-synthetic.json"), "utf8")) as Record<string, unknown>;
+  delete oldEvidence.version;
+  const secondEvidence = await f.put("evidence", { ...oldEvidence, id: "evidence-unrequested", source: secondSource }, [secondSource, f.catalog.policies[0]!]);
+  await f.save();
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  const request = "请回顾我指定的合成事件中，对方确认了什么。";
+  const reads: string[] = [];
+  const read = reader.readPayload.bind(reader);
+  reader.readPayload = async (...args) => { reads.push(args[0].id); return read(...args); };
+  const sourceAccess = createSourceAccessProvider({ request, trigger: "user_requested", presentation: "summary", quoteGrants: [],
+    describe: async (_reader, target) => ({ ...target, description: "Synthetic topic descriptor; permission to process this metadata is provided by the test Host." }),
+    complete: async input => {
+      const binding = JSON.parse(input.prompt.split("\n").at(-1)!) as { requestHash: string; sourceRef: VersionedRef; policyRef: VersionedRef };
+      assert.ok(!input.prompt.includes("对方确认周末有空"), "Access classifier must not see original payloads");
+      return { text: JSON.stringify({ requestHash: binding.requestHash, sourceRef: binding.sourceRef, policyRef: binding.policyRef,
+        applicable: true, scenarios: ["relationship_context"], topicRequested: binding.sourceRef.id === f.source.id,
+        topicExplicitlyNamed: binding.sourceRef.id === f.source.id }) };
+    } });
+  const resolver = new EpisodeEvidenceResolver(reader, { ...purpose, sourceAccess }, async () => { throw new Error("No action inference requested"); });
+  assert.equal((await resolver.readEvidence(f.evidence)).text, "我已经询问了时间，对方确认周末有空。");
+  await assert.rejects(resolver.readEvidence(secondEvidence), /source_topic_required/);
+  assert.deepEqual(reads, [f.source.id]);
 });
 
 test("persisted bundles reread original roles and reject unauthorized or modified evidence", async (t) => {
@@ -102,8 +132,15 @@ test("persisted bundles reread original roles and reject unauthorized or modifie
 });
 
 test("question preparation supplies original roles and rereads the source after model judgment", async (t) => {
-  const { root, evidence } = await fixture(t, { role: "assistant", kind: "inference" });
-  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, "catalog.json"), purpose, async () => { throw new Error("No action verification here"); });
+  const { root, evidence } = await fixture(t, { role: "assistant", kind: "inference", restricted: true });
+  const sourceAccess = createSourceAccessProvider({ request: "Evaluate this interpretation", trigger: "user_requested", presentation: "summary", quoteGrants: [],
+    describe: async (_reader, target) => ({ ...target, description: "Synthetic interpretation of a requested interaction." }),
+    complete: async ({ prompt }) => {
+      const bound = JSON.parse(prompt.split("\n").at(-1)!) as { requestHash: string; sourceRef: VersionedRef; policyRef: VersionedRef };
+      return { text: JSON.stringify({ requestHash: bound.requestHash, sourceRef: bound.sourceRef, policyRef: bound.policyRef,
+        applicable: true, scenarios: ["relationship_context"], topicRequested: true, topicExplicitlyNamed: true }) };
+    } });
+  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, "catalog.json"), { ...purpose, sourceAccess }, async () => { throw new Error("No action verification here"); });
   let mutate = false;
   const prepare = () => prepareQuestionEvidence({ requestId: "question", revision: "a".repeat(40), question: "Evaluate this interpretation",
     route: { mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["general"],

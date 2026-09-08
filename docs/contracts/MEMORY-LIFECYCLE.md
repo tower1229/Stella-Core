@@ -73,6 +73,12 @@ summarize_only／confirm_before_use 的原文引用还要求 Host 提供绑定�
 
 当前实施范围为策略解码、profile 策略资源验证和 Evidence／框架来源读取检查。profile 资源加载同时验证 v1／v2 的完整策略结构、身份及内容版本；加载成功不授予资料访问权。现有 Host 请求路径尚未提供完整语义上下文与引用授权接入；v2 在这些路径返回 `source_access_context_required`，不能宣称已可迁移激活。归档写入及初始化技能策略尚不接受 v2。
 
+2026-09-08 增加逐来源访问 provider（`src/canghai/source-access.ts`），取代 EvidencePurpose 上整轮共用的固定上下文。每次判断绑定请求摘要、Source ID/version 和 Policy ID/version；共享同一 policy 的两个来源也必须分别判断。Host 固定触发方式、概括／引用方式及引用许可，模型只返回用途与主题关系，不能在结果中添加或改写 Host 授权。用途／渠道已被禁止、敏感资料的主动触发及缺失引用许可在描述交给模型前拒绝。
+
+provider 的 describe 端口只能返回已获准供该模型处理的、绑定确切来源和策略版本的主题描述，不能通过先读原文来判断原文是否可读。描述的读取和模型处理权限仍由 Host 适配器负责，provider 本身不授予这种权限。模型结束后再次核对描述、目录、来源及策略；版本变化、取消、未知主题、禁止场景或异常均显式失败。失败不携带模型原始输出或 provider 私有原因；每请求最多 128 次判断，耗尽返回错误，不截断成成功。
+
+Evidence 的源级／证据级策略以及 Framework 原文入口共享这一 provider；相同来源的两层策略相同可复用本次检查，不跨来源复用。原文返回前再次读取策略验证摘要。事务重建 reader 时保留本轮 provider，并对新目录重新校验。上述为 Core 读取路径的实施进度：真实 Host 的可信请求绑定、主题描述处理授权、复核约束迁移及最终输出校验仍未全部接通，main 的 full_memory 门禁和禁止读取的迁移策略保持不变，不能将此进度称为真实问答验收完成。
+
 迁移规划脚本 `scripts/plan-source-policy-migration.mjs <root> <full-revision> [semantic-review.json]` 始终只读，要求来源为固定且干净的 HEAD。可选审查文件使用 `stella.source-policy-semantic-review/v1`，包含 sourceRevision、reviewer（kind: llm、id）和完整 entries；每项包含 sourceId、sourceSha256、interpretation、requiredChanges。LLM 负责阅读 Usage Policy／Import Notes 并形成解释，脚本仅验证逐来源身份、摘要、完整性和格式，不替代语义复核，也不验证模型身份或授予权限。审查结果随摘要进入计划，原始元数据映射保持不变；有审查结果也始终 `readyToApply: false`。审查约束落地、权威依据、用途注册、请求及引用授权接入完成前，计划不得应用。
 
 ### 持久组织

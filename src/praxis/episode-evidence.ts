@@ -2,7 +2,8 @@ import { CatalogError, CatalogReader, selectTextEvidence, validMemoryRef } from 
 import { canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { ActualSource, EpisodeV2, VersionedRef } from "./episode-v2.js";
-import { assertSourcePolicyAccess, type SourceAccessContext } from "../canghai/source-policy.js";
+import { assertSourcePolicyAccess, parseSourcePolicy } from "../canghai/source-policy.js";
+import type { SourceAccessProvider } from "../canghai/source-access.js";
 
 export type OriginalEvidence = {
   ref: VersionedRef; text: string; role: string; kind: string; independentOriginId: string;
@@ -10,7 +11,7 @@ export type OriginalEvidence = {
   coverageComplete: boolean;
 };
 export type EvidencePurpose = {
-  sourceAccess?: SourceAccessContext;
+  sourceAccess?: SourceAccessProvider;
   readPurpose: string; derivePurpose: string; deliveryScope: string; evidenceCutoff: string;
   trustedAdapters: Record<ActualSource, readonly string[]>;
 };
@@ -28,9 +29,12 @@ export class EpisodeEvidenceResolver {
     readonly complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string }>) {
     check(purpose.readPurpose && purpose.derivePurpose && purpose.deliveryScope && timestamp(purpose.evidenceCutoff), "invalid_evidence_purpose");
   }
-  async #policy(ref: VersionedRef): Promise<void> {
+  async assertSourceAccess(sourceRef: VersionedRef, ref: VersionedRef): Promise<void> {
     const policy = await this.reader.read(ref, "policies");
-    assertSourcePolicyAccess(policy, this.purpose, this.purpose.sourceAccess);
+    const restricted = Boolean(parseSourcePolicy(policy).restrictions);
+    check(!restricted || typeof this.purpose.sourceAccess === "function", "source_access_context_required");
+    const context = restricted ? await this.purpose.sourceAccess!(this.reader, { sourceRef, policyRef: ref }, this.purpose) : undefined;
+    assertSourcePolicyAccess(await this.reader.read(ref, "policies"), this.purpose, context);
   }
   #dependencies(ref: VersionedRef, dependencies: VersionedRef[]): void {
     const declared = this.reader.entry(ref).dependencies;
@@ -46,7 +50,7 @@ export class EpisodeEvidenceResolver {
       typeof evidence.independentOriginId === "string" && evidence.independentOriginId &&
       timestamp(evidence.occurredAt, true) && timestamp(evidence.authoredAt, true) && timestamp(evidence.capturedAt), "invalid_evidence");
     this.#dependencies(ref, [evidence.source, evidence.policyRef, ...evidence.derivedFrom]);
-    await this.#policy(evidence.policyRef);
+    await this.assertSourceAccess(evidence.source, evidence.policyRef);
     const source = await this.reader.read(evidence.source, "sources");
     check(source.schemaVersion === "stella.memory-source/v1" && isRecord(source.origin) &&
       typeof source.origin.adapterId === "string" && source.origin.adapterId &&
@@ -54,7 +58,8 @@ export class EpisodeEvidenceResolver {
       typeof source.origin.upstreamId === "string" && source.origin.upstreamId &&
       validMemoryRef(source.policyRef) && validMemoryRef(source.coverageRef) && timestamp(source.capturedAt), "invalid_source");
     this.#dependencies(evidence.source, [source.policyRef, source.coverageRef]);
-    await this.#policy(source.policyRef);
+    // Shared policy objects still require a new judgment for each different source.
+    if (!includesRef([evidence.policyRef], source.policyRef)) await this.assertSourceAccess(evidence.source, source.policyRef);
     const coverage = await this.reader.read(source.coverageRef, "coverage");
     check(coverage.schemaVersion === "stella.archive-coverage/v1" && coverage.adapterId === source.origin.adapterId &&
       coverage.collectionId === source.origin.collectionId && isRecord(coverage.scope) &&
@@ -72,6 +77,8 @@ export class EpisodeEvidenceResolver {
     check(typeof observedTime === "string" && Date.parse(observedTime) <= Date.parse(this.purpose.evidenceCutoff), "evidence_after_cutoff");
     check(evidence.occurredAt === null || Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.evidenceCutoff), "evidence_after_cutoff");
     const payload = await this.reader.readPayload(evidence.source, evidence.payloadSha256);
+    await this.reader.read(evidence.policyRef, "policies");
+    if (!includesRef([evidence.policyRef], source.policyRef)) await this.reader.read(source.policyRef, "policies");
     check(payload.mediaType.startsWith("text/") || payload.mediaType === "application/json", "text_evidence_capability_unavailable");
     const text = selectTextEvidence(payload.bytes, evidence.selector);
     check(text.trim(), "empty_evidence");
