@@ -3,7 +3,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { objectVersion } from "./content-version.js";
 
 const sensitivities = ["local-private", "semi-private", "private", "sensitive", "work-private"] as const;
-const quotePolicies = ["cite_with_time_and_source", "summarize_only", "confirm_before_use", "internal_summary_preferred"] as const;
+const quotePolicies = ["cite_with_time_and_source", "summarize_only", "confirm_before_use", "internal_summary_preferred", "never_quote"] as const;
 export type SourceRestrictions = {
   sensitivity: typeof sensitivities[number];
   quotePolicy: typeof quotePolicies[number];
@@ -64,6 +64,7 @@ export function assertSourcePolicyAccess(value: unknown, purpose: PolicyPurpose,
     check(judgment.scenarios.every((scenario) => ["technical_writing", "technical_collaboration", "work_decision"].includes(scenario)), "source_scenario_forbidden");
   }
   if (judgment.presentation === "quote") {
+    check(restrictions.quotePolicy !== "never_quote", "source_quote_forbidden");
     check(restrictions.sensitivity !== "semi-private" || judgment.trigger === "user_requested", "source_trigger_forbidden");
     check(restrictions.quotePolicy !== "internal_summary_preferred" || judgment.trigger === "user_requested", "source_trigger_forbidden");
     if (["summarize_only", "confirm_before_use"].includes(restrictions.quotePolicy)) {

@@ -1,5 +1,6 @@
 import { parse as parseYaml } from "yaml";
-import { readRepositoryBytes } from "./catalog-reader.js";
+import { CatalogError, readRepositoryBytes } from "./catalog-reader.js";
+import { parseSourcePolicy } from "./source-policy.js";
 import { bytesVersion } from "./content-version.js";
 import { parseCangHaiRef } from "./ref.js";
 import { parseRuntimeProfile, RuntimeProfileError, type RuntimeProfile } from "./runtime-profile.js";
@@ -51,7 +52,9 @@ export async function loadRuntimeProfileResources(root: string, input: RuntimePr
       "invalid_source_policy_registry");
     ids.add(item.id);
     const policy = await read(item.ref);
-    check(policy.schemaVersion === "stella.source-policy/v1" && policy.id === item.id, "source_policy_identity_mismatch");
+    check(policy.id === item.id, "source_policy_identity_mismatch");
+    try { parseSourcePolicy(policy); }
+    catch (error) { throw new RuntimeProfileError(error instanceof CatalogError ? error.category : "invalid_source_policy"); }
   }
   const delivery = await read(profile.autonomy.delivery_policy_ref);
   check(delivery.schema_version === "stella.delivery-policy/v1", "invalid_delivery_policy");

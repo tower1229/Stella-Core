@@ -22,7 +22,8 @@ test("migration planning pins original bytes, remains read-only and redacts malf
     return (await git("rev-parse", "HEAD")).stdout.trim();
   };
   const revision = await commit();
-  const plan = (ref: string) => exec(process.execPath, [path.resolve("scripts/plan-source-policy-migration.mjs"), root, ref]);
+  const plan = (ref: string, reviewFile?: string) => exec(process.execPath,
+    [path.resolve("scripts/plan-source-policy-migration.mjs"), root, ref, ...(reviewFile ? [reviewFile] : [])]);
   const output = (await plan(revision)).stdout;
   const result = JSON.parse(output);
   assert.equal(result.sourceRevision, revision);
@@ -34,6 +35,25 @@ test("migration planning pins original bytes, remains read-only and redacts malf
   assert.equal(output.includes("Synthetic private body marker"), false);
   assert.equal(await readFile(file, "utf8"), original);
   assert.equal((await git("status", "--porcelain")).stdout, "");
+  const reviewRoot = await mkdtemp(path.join(os.tmpdir(), "stella-policy-review-"));
+  t.after(() => rm(reviewRoot, { recursive: true, force: true }));
+  const reviewFile = path.join(reviewRoot, "review.json");
+  const review = { schemaVersion: "stella.source-policy-semantic-review/v1", sourceRevision: revision,
+    reviewer: { kind: "llm", id: "synthetic-reviewer" }, entries: [{ sourceId: "synthetic", sourceSha256: result.plans[0].source.sha256,
+      interpretation: "Synthetic restriction review", requiredChanges: ["preserve_source_constraints"] }] };
+  await writeFile(reviewFile, JSON.stringify(review));
+  const reviewed = JSON.parse((await plan(revision, reviewFile)).stdout);
+  assert.equal(reviewed.semanticReviewPerformed, true);
+  assert.equal(reviewed.semanticReview.sourceBindingsVerified, true);
+  assert.equal(reviewed.readyToApply, false);
+  assert.equal(reviewed.plans[0].status, "semantic_reviewed");
+  assert.deepEqual(reviewed.plans[0].restrictions, result.plans[0].restrictions);
+  await writeFile(reviewFile, JSON.stringify({ ...review, entries: [] }));
+  await assert.rejects(plan(revision, reviewFile), /invalid_semantic_review/);
+  await writeFile(reviewFile, JSON.stringify({ ...review, entries: [{ ...review.entries[0], sourceSha256: `sha256:${"0".repeat(64)}` }] }));
+  await assert.rejects(plan(revision, reviewFile), /semantic_review_source_mismatch/);
+  await writeFile(reviewFile, JSON.stringify({ ...review, entries: [{ ...review.entries[0], readyToApply: true }] }));
+  await assert.rejects(plan(revision, reviewFile), /invalid_semantic_review/);
   await writeFile(file, "---\nsource_id: [SECRET_PARSE_MARKER\n---\n");
   await assert.rejects(plan(revision), /source_revision_or_cleanliness_changed/);
   const malformedRevision = await commit();

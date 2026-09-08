@@ -43,3 +43,11 @@ test("v1 cannot silently carry v2 restrictions; changing restrictions changes po
   const { restrictions: _restrictions, ...base } = policy;
   assert.doesNotThrow(() => assertSourcePolicyAccess({ ...base, schemaVersion: "stella.source-policy/v1" }, purpose));
 });
+
+test("an absolute source quote prohibition survives an exact-version Host quote grant", () => {
+  const restricted = { ...policy, restrictions: { ...policy.restrictions, quotePolicy: "never_quote" } };
+  const granted: SourceAccessContext = { ...context, judgment: { ...context.judgment, presentation: "quote" },
+    quoteGrants: [{ id: restricted.id, version: objectVersion(restricted) }] };
+  assert.throws(() => assertSourcePolicyAccess(restricted, purpose, granted), /source_quote_forbidden/);
+  assert.doesNotThrow(() => assertSourcePolicyAccess(restricted, purpose, context));
+});

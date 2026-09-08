@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseRuntimeProfile } from "../src/canghai/runtime-profile.js";
+import { loadRuntimeProfileResources } from "../src/canghai/runtime-profile-resources.js";
+import { assertSourcePolicyAccess } from "../src/canghai/source-policy.js";
+import { createFixture } from "./consciousness-fixture.js";
+import { readFile, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { parse } from "yaml";
 
 const fixture = () => ({ schema_version: "stella.runtime-profile/v1", contract_profile: "alpha_praxis", agent_id: "main", language: "zh-CN", timezone: "Asia/Shanghai",
   models: Object.fromEntries(["main", "router", "learning", "framework_compiler"].map((role) => [role,
@@ -36,4 +42,24 @@ test("initialization uses an explicit v2 reference rather than changing v1 seman
   assert.equal(parseRuntimeProfile(v2).host_materialization_ref, "path:host.json");
   assert.throws(() => parseRuntimeProfile({ ...v2, host_materialization_ref: undefined }), /invalid_reference/);
   assert.throws(() => parseRuntimeProfile({ ...fixture(), host_materialization_ref: "path:host.json" }), /migration_required/);
+});
+
+test("profile accepts fully validated v2 policy resources without granting runtime access", async (t) => {
+  const root = await createFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const profile = parseRuntimeProfile(parse(await readFile(path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml"), "utf8")));
+  const policyPath = path.join(root, "30_PersonalData/memory/policy.json");
+  const policy = { ...JSON.parse(await readFile(policyPath, "utf8")), schemaVersion: "stella.source-policy/v2",
+    restrictions: { sensitivity: "sensitive", quotePolicy: "never_quote", allowedScenarios: ["self_reflection"], forbiddenScenarios: [] } };
+  await writeFile(policyPath, JSON.stringify(policy));
+  const resources = await loadRuntimeProfileResources(root, profile);
+  assert.ok(resources.authorityPaths.includes("30_PersonalData/memory/policy.json"));
+  assert.throws(() => assertSourcePolicyAccess(policy,
+    { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }), /source_access_context_required/);
+  await writeFile(policyPath, JSON.stringify({ ...policy, restrictions: { ...policy.restrictions, quotePolicy: "allow_everything" } }));
+  await assert.rejects(loadRuntimeProfileResources(root, profile), /invalid_source_policy/);
+  await writeFile(policyPath, JSON.stringify({ ...policy, schemaVersion: "stella.source-policy/v1" }));
+  await assert.rejects(loadRuntimeProfileResources(root, profile), /source_policy_migration_required/);
+  await writeFile(policyPath, JSON.stringify({ ...policy, id: "unregistered-policy" }));
+  await assert.rejects(loadRuntimeProfileResources(root, profile), /source_policy_identity_mismatch/);
 });
