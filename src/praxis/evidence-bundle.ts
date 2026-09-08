@@ -5,6 +5,12 @@ import { isRecord } from "../shared/type-guards.js";
 import type { EpisodeEvidenceResolver } from "./episode-evidence.js";
 import type { VersionedRef } from "./episode-v2.js";
 
+export const SOURCE_ACCESS_EXCLUSION_CATEGORIES = [
+  "permission_denied", "source_topic_unresolved", "source_scenario_forbidden",
+  "source_trigger_forbidden", "source_topic_required", "source_quote_forbidden", "source_quote_authorization_required",
+] as const;
+export type SourceAccessExclusions = Partial<Record<typeof SOURCE_ACCESS_EXCLUSION_CATEGORIES[number], number>>;
+
 export type EvidenceBundle = VersionedRef & {
   schemaVersion: "stella.evidence-bundle/v1";
   requestId: string;
@@ -15,6 +21,7 @@ export type EvidenceBundle = VersionedRef & {
     support: VersionedRef[]; counter: VersionedRef[]; unresolved: string[]; scope: string }>;
   searchedCoverageRefs: VersionedRef[];
   readEvidenceRefs: VersionedRef[];
+  excludedByAccess?: SourceAccessExclusions;
   unresolvedLeads: Array<{ question: string; material: boolean; reason: string }>;
   stopping: { reason: string; modelRef: string; promptVersion: string };
   suggestedResponseKind: ResponseKind;
@@ -36,7 +43,8 @@ function refs(value: unknown): value is VersionedRef[] {
 /** Structural validation does not certify the model's claim of evidence sufficiency. */
 export function parseEvidenceBundle(value: unknown): EvidenceBundle {
   check(isRecord(value) && exact(value, ["schemaVersion", "id", "version", "requestId", "revision", "generationId", "status",
-    "claims", "searchedCoverageRefs", "readEvidenceRefs", "unresolvedLeads", "stopping", "suggestedResponseKind"]) &&
+    "claims", "searchedCoverageRefs", "readEvidenceRefs", "unresolvedLeads", "stopping", "suggestedResponseKind",
+    ...(isRecord(value) && Object.hasOwn(value, "excludedByAccess") ? ["excludedByAccess"] : [])]) &&
     value.schemaVersion === "stella.evidence-bundle/v1" && validMemoryRef(value) && text(value.requestId) &&
     typeof value.revision === "string" && /^[a-f0-9]{40}$/.test(value.revision) && text(value.generationId) &&
     ["sufficient", "material_unknown", "conflicting"].includes(String(value.status)) &&
@@ -44,6 +52,11 @@ export function parseEvidenceBundle(value: unknown): EvidenceBundle {
     refs(value.searchedCoverageRefs) && refs(value.readEvidenceRefs) && Array.isArray(value.claims) &&
     Array.isArray(value.unresolvedLeads) && isRecord(value.stopping) && exact(value.stopping, ["reason", "modelRef", "promptVersion"]) &&
     Object.values(value.stopping).every(text), "invalid_evidence_bundle");
+  if (Object.hasOwn(value, "excludedByAccess")) {
+    check(isRecord(value.excludedByAccess) && Object.entries(value.excludedByAccess).every(([category, count]) =>
+      SOURCE_ACCESS_EXCLUSION_CATEGORIES.some(allowed => allowed === category) &&
+      typeof count === "number" && Number.isSafeInteger(count) && count > 0), "invalid_bundle_access_exclusions");
+  }
   const read = new Set(value.readEvidenceRefs.map(key));
   const claimIds = new Set<string>();
   for (const claim of value.claims) {

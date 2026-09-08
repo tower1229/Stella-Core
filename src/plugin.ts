@@ -1,4 +1,8 @@
 import path from "node:path";
+import { preparePersonalViews } from "./praxis/personal-views.js";
+import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
+import { createPersonalContextAccess, loadPersonalContextAccess } from "./canghai/personal-context-access.js";
+import type { BoundTurnRequest } from "./openclaw/turn-request.js";
 import { realpath } from "node:fs/promises";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
@@ -175,6 +179,7 @@ type PreparedTurn = {
   revision?: string;
   generationId?: string;
   evidenceRef?: string;
+  assertPersonalViewsCurrent?: () => Promise<void>;
   persistRecommendation?: (text: string, abortSignal: AbortSignal, original: HostInputSnapshot) => Promise<{ revision: string; generationId: string; writeOperationIds: string[] }>;
 };
 
@@ -213,7 +218,7 @@ export default definePluginEntry({
       agentId: config.agentId, purpose: "stella-original-action-evidence", maxTokens: input.maxTokens, temperature: 0,
       messages: [{ role: "user", content: input.prompt }],
     });
-    const createRuntime = async (loaded: LoadedConsciousness) => {
+    const createRuntime = async (loaded: LoadedConsciousness, request?: BoundTurnRequest) => {
       if (config.dataMode === "managed_durable_write" && !durability) {
         const policy = loaded.manifest.durability;
         if (!policy?.criticalWritePolicy || !policy.normalWritePolicy) {
@@ -235,12 +240,54 @@ export default definePluginEntry({
         });
       }
       const binding = await loadPraxisRuntimeBinding(loaded);
+      let sourceAccess;
+      let viewProcessing: { ownerId: string; modelRef: string; assertCurrent: () => Promise<void> } | undefined;
+      if (binding.personalContextAccessPath) {
+        if (!request) throw new CatalogError("personal_context_active_request_required");
+        const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
+        const resolveModel = () => {
+          // The SDK resolver accepts a mutable config type but only reads it.
+          // Clone the Host readonly snapshot before crossing that SDK boundary.
+          const cfg = structuredClone(api.runtime.config.current()) as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"];
+          const selected = resolveDefaultModelForAgent({ cfg, agentId: config.agentId });
+          return `${selected.provider}/${selected.model}`;
+        };
+        const modelRef = resolveModel();
+        const assertRequestCurrent = () => {
+          const current = readCompletionRequest(request.runId, request.agentId, request.sessionId, request.sessionKey);
+          if (current.requestHash !== request.requestHash) throw new CatalogError("personal_context_request_mismatch");
+          if (resolveModel() !== modelRef) throw new CatalogError("personal_context_model_changed");
+        };
+        if (processing.config.viewProcessingModelRefs) {
+          if (!processing.config.viewProcessingModelRefs.includes(modelRef)) throw new CatalogError("personal_view_model_forbidden");
+          const assertCurrent = async () => {
+            await processing.assertCurrent();
+            if (resolveModel() !== modelRef) throw new CatalogError("personal_context_model_changed");
+            const cfg = api.runtime.config.current();
+            const models = [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model,
+              cfg.agents?.list?.find(agent => agent.id === config.agentId)?.model];
+            if (models.some(model => model && typeof model !== "string" && model.fallbacks?.length)) {
+              throw new CatalogError("personal_view_fallback_route_forbidden");
+            }
+          };
+          await assertCurrent();
+          viewProcessing = { ownerId: processing.config.ownerId, modelRef, assertCurrent };
+        }
+        sourceAccess = createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
+          complete: async ({ prompt, maxTokens }) => {
+            const result = await completeModel({ agentId: config.agentId, model: modelRef,
+              purpose: "stella-source-access", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] });
+            if (`${result.provider}/${result.model}` !== modelRef) throw new CatalogError("personal_context_model_mismatch");
+            return result;
+          },
+        });
+      }
       const runtime = await createBoundPraxisRuntime(loaded, binding, evidenceComplete, async ({ paths, operationId, priority }) => {
         if (!durability || config.dataMode !== "managed_durable_write") throw new CompletionError("critical_durability_required", "persist");
         if (priority === "critical") await durability.syncCritical(paths, `stella: preserve ${operationId}`);
         else await durability.recordNormal(paths, `stella: learn ${operationId}`);
-      });
-      return { runtime, binding };
+      }, sourceAccess);
+      return { runtime, binding, viewProcessing };
     };
 
     for (const recoveryKind of ["outcome", "question"] as const) {
@@ -301,6 +348,7 @@ export default definePluginEntry({
         catch { throw new CompletionError("stale_initialization_run", "persist"); }
         const pending = completions.get(operationId);
         if (!pending || pending.draft !== draft || abortSignal.aborted) throw new CompletionError("invalid_prepared_completion", "persist");
+        await pending.prepared.assertPersonalViewsCurrent?.();
         let revision = pending.prepared.revision!;
         let generationId = pending.prepared.generationId!;
         const writes: string[] = [];
@@ -335,7 +383,13 @@ export default definePluginEntry({
               throw new CompletionError("private_context_owner_direct_required", "prepare");
             }
             const loaded = await consciousness.load();
-            const { runtime, binding } = await createRuntime(loaded);
+            const { runtime, binding, viewProcessing } = await createRuntime(loaded, request);
+            const personalViews = viewProcessing ? await preparePersonalViews({
+              requestId: runId, question: request.prompt, ownerId: viewProcessing.ownerId, modelRef: viewProcessing.modelRef,
+              resolver: runtime.evidence, assertProcessingCurrent: viewProcessing.assertCurrent,
+              complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
+                purpose: "stella-personal-views", maxTokens, temperature: 0, messages: [{ role: "user", content: prompt }] }),
+            }) : undefined;
             const memory = await runtime.listMemory();
             if (loaded.praxisPlaybookItems.length) throw new EpisodeV2Error("legacy_learning_migration_required");
             const loadedForTurn: LoadedConsciousness = {
@@ -346,10 +400,10 @@ export default definePluginEntry({
               loadedForTurn,
               memory.openEpisodes,
             );
-            const route = await classifySemantically(
-              request.prompt,
-              candidates,
-            );
+            const classifyForTurn = viewProcessing
+              ? createSemanticRouter(params => completeModel({ ...params, agentId: config.agentId, model: viewProcessing.modelRef }))
+              : classifySemantically;
+            const route = await classifyForTurn(request.prompt, candidates);
             let persistRecommendation: PreparedTurn["persistRecommendation"];
             let evidenceRef: string | undefined;
             let questionBundle: Awaited<ReturnType<typeof prepareQuestionEvidence>>["bundle"] | undefined;
@@ -373,9 +427,17 @@ export default definePluginEntry({
             let appendContext = renderSelectedContext();
             if (route.mode !== "outcome") {
               const retrieved = await prepareQuestionEvidence({ requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
-                question: request.prompt, route, priorContext: appendContext ?? "", resolver: runtime.evidence,
-                complete: (input) => completeModel({ agentId: config.agentId, purpose: "stella-question-evidence",
-                  maxTokens: input.maxTokens, temperature: 0, messages: [{ role: "user", content: input.prompt }] }),
+                question: request.prompt, route, priorContext: [appendContext, personalViews?.context].filter(Boolean).join("\n"), resolver: runtime.evidence,
+                complete: async (input) => {
+                  await viewProcessing?.assertCurrent();
+                  const result = await completeModel({ agentId: config.agentId,
+                    ...(viewProcessing ? { model: viewProcessing.modelRef } : {}), purpose: "stella-question-evidence",
+                    maxTokens: input.maxTokens, temperature: 0, messages: [{ role: "user", content: input.prompt }] });
+                  if (viewProcessing && `${result.provider}/${result.model}` !== viewProcessing.modelRef) {
+                    throw new CatalogError("personal_view_model_mismatch");
+                  }
+                  return result;
+                },
               });
               api.logger.info(`Stella evidence assessment attempts: ${JSON.stringify(retrieved.modelOutput.attempts.map(({ sha256, category }) => ({ sha256, category })))}`);
               if (retrieved.bundle.suggestedResponseKind === "action_advice" && route.mode !== "praxis" && route.mode !== "deep_praxis") {
@@ -480,6 +542,8 @@ export default definePluginEntry({
             if (config.dataMode === "managed_durable_write" && route.mode !== "outcome" && !persistRecommendation) {
               throw new CompletionError("question_evidence_persistence_required", "prepare");
             }
+            await personalViews?.assertCurrent();
+            appendContext = [appendContext, personalViews?.context].filter(Boolean).join("\n");
             appendContext = `${appendContext ?? ""}\nresponse_contract: ${JSON.stringify({
               responseKind: route.responseKind, evidenceStatus: route.evidenceStatus,
               materialUnknowns: route.materialUnknowns,
@@ -487,6 +551,7 @@ export default definePluginEntry({
             recordCompletionPreparation(runId, {
               outcome: "ready", route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
               generationId: memory.generationId, persistRecommendation, evidenceRef,
+              ...(personalViews ? { assertPersonalViewsCurrent: personalViews.assertCurrent } : {}),
             } satisfies PreparedTurn);
             return {
               prependSystemContext: `${STELLA_CORE_SYSTEM_CONTEXT}\nVerified runtime restoration scope: ${JSON.stringify({

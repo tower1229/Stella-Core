@@ -1,4 +1,5 @@
 import { parse as parseYaml } from "yaml";
+import { PERSONAL_CONTEXT_ADAPTER } from "../canghai/personal-context-access.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
 import { bytesVersion } from "../canghai/content-version.js";
@@ -20,6 +21,7 @@ export type PraxisRuntimeBinding = {
   profileAuthorityPaths: string[];
   configPath: string;
   catalogPath: string;
+  personalContextAccessPath?: string;
   archive: { policyRef: VersionedRef; objectRoot: string; payloadRoot: string };
   purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
   referenceBindings: Array<{ routingRef: string; sourceRef: VersionedRef }>;
@@ -42,6 +44,11 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
     requireValue(profile.contract_profile === "alpha_praxis" && profile.memory);
     const resources = await loadRuntimeProfileResources(loaded.canghaiRoot, profile);
     const catalogPath = relativeRef(profile.memory.catalog_ref);
+    const accessCapabilities = profile.capabilities.filter(value => value.id === "source_access_context");
+    requireValue(accessCapabilities.length <= 1);
+    const accessCapability = accessCapabilities[0];
+    if (accessCapability) requireValue(accessCapability.adapter_id === PERSONAL_CONTEXT_ADAPTER && accessCapability.adapter_version === "1");
+    const personalContextAccessPath = accessCapability ? relativeRef(accessCapability.config_ref) : undefined;
     const capabilities = profile.capabilities.filter((value) => isRecord(value) && value.id === "transcript_archive");
     const capability = capabilities[0];
     requireValue(capabilities.length === 1 && isRecord(capability) && capability.adapter_id === HOST_INPUT_ARCHIVE_ADAPTER && capability.adapter_version === "1");
@@ -63,7 +70,8 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       requireValue(!referenceBindings.some((other) => other.routingRef === binding.routingRef));
       referenceBindings.push({ routingRef: binding.routingRef, sourceRef: { id: binding.sourceRef.id, version: binding.sourceRef.version } });
     }
-    return { profileAuthorityPaths: resources.authorityPaths, configPath, catalogPath, archive: { policyRef: value.archive.policyRef, objectRoot: value.archive.objectRoot, payloadRoot: value.archive.payloadRoot },
+    return { profileAuthorityPaths: resources.authorityPaths, configPath, catalogPath,
+      ...(personalContextAccessPath ? { personalContextAccessPath } : {}), archive: { policyRef: value.archive.policyRef, objectRoot: value.archive.objectRoot, payloadRoot: value.archive.payloadRoot },
       purpose: value.purpose as PraxisRuntimeBinding["purpose"], referenceBindings };
   } catch (error) {
     if (error instanceof EpisodeV2Error) throw error;

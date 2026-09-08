@@ -1,3 +1,5 @@
+import { createPersonalContextAccess, loadPersonalContextAccess, parsePersonalContextAccess } from "../src/canghai/personal-context-access.js";
+import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -120,4 +122,63 @@ test("changing a topic descriptor during inference invalidates its verdict", asy
     describe: async (_reader, target) => ({ ...target, description }),
     complete: async () => { description = "Different topic"; return answer(f.target); } });
   await assert.rejects(access(f.reader, f.target, purpose), /source_access_descriptor_changed/);
+});
+
+test("personal metadata processing requires exact Host requester, model, owner and purpose", async t => {
+  const f = await fixture(t);
+  const config = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic",
+    requesterIds: ["owner-host-id"], modelRefs: ["synthetic/model"], purpose,
+    descriptors: [{ ...f.target, description: "Reviewed synthetic topic" }] };
+  const file = path.join(f.root, "access.json");
+  await writeFile(file, JSON.stringify(config));
+  const binding = await loadPersonalContextAccess(f.root, "access.json");
+  const bound = snapshotTurnRequest({ agentId: "main", sessionId: "session", sessionKey: "agent:main:test",
+    prompt: request, senderId: "owner-host-id", senderIsOwner: true, chatType: "direct" }, "run");
+  let active = true, calls = 0;
+  const input = { request: bound, binding, modelRef: "synthetic/model",
+    assertRequestCurrent: () => { if (!active) throw new Error("expired"); },
+    complete: async ({ prompt }: { prompt: string }) => {
+      calls++;
+      assert.match(prompt, /Reviewed synthetic topic/);
+      return answer(f.target);
+    } };
+  const access = createPersonalContextAccess(input);
+  await access(f.reader, f.target, purpose);
+  assert.equal(calls, 1);
+  for (const patch of [{ senderId: "other" }, { senderIsOwner: false }, { chatType: "group" as const }]) {
+    assert.throws(() => createPersonalContextAccess({ ...input, request: { ...bound, ...patch } }), /personal_context_requester_forbidden/);
+  }
+  assert.throws(() => createPersonalContextAccess({ ...input, modelRef: "other/model" }), /personal_context_model_forbidden/);
+  assert.throws(() => createPersonalContextAccess({ ...input, request: { ...bound, prompt: "different" } }), /personal_context_request_mismatch/);
+  await assert.rejects(access(f.reader, f.target, { ...purpose, deliveryScope: "public" }), /personal_context_purpose_mismatch/);
+  const wrongOwner = createPersonalContextAccess({ ...input, binding: { ...binding, config: { ...binding.config, ownerId: "other" } } });
+  await assert.rejects(wrongOwner(f.reader, f.target, purpose), /source_access_descriptor_unavailable/);
+  await assert.rejects(access(f.reader, f.other, purpose), /source_access_descriptor_unavailable/);
+  assert.equal(calls, 1);
+  active = false;
+  await assert.rejects(access(f.reader, f.target, purpose), /expired/);
+  active = true;
+  await writeFile(file, JSON.stringify({ ...config, modelRefs: ["other/model"] }));
+  await assert.rejects(access(f.reader, f.target, purpose), /personal_context_access_changed/);
+  assert.equal(calls, 1);
+  assert.throws(() => parsePersonalContextAccess({ ...config, descriptors: [...config.descriptors, ...config.descriptors] }), /duplicate_personal_context_descriptor/);
+});
+
+test("personal metadata grant revocation during inference invalidates the result", async t => {
+  const f = await fixture(t);
+  const config = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic",
+    requesterIds: ["owner-host-id"], modelRefs: ["synthetic/model"], purpose,
+    descriptors: [{ ...f.target, description: "Reviewed synthetic topic" }] };
+  await writeFile(path.join(f.root, "access.json"), JSON.stringify(config));
+  const access = createPersonalContextAccess({
+    request: snapshotTurnRequest({ agentId: "main", sessionId: "session", sessionKey: "agent:main:test",
+      prompt: request, senderId: "owner-host-id", senderIsOwner: true, chatType: "direct" }, "run"),
+    modelRef: "synthetic/model", binding: await loadPersonalContextAccess(f.root, "access.json"),
+    assertRequestCurrent() {},
+    complete: async () => {
+      await writeFile(path.join(f.root, "access.json"), JSON.stringify({ ...config, descriptors: [] }));
+      return answer(f.target);
+    },
+  });
+  await assert.rejects(access(f.reader, f.target, purpose), /personal_context_access_changed/);
 });

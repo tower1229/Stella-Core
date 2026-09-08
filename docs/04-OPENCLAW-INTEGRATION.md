@@ -558,6 +558,8 @@ Stella 1.0 的方法价值保留在 skills，迁移去向如下。按语义选�
 
 `initialization-source.ts` 仍只接受 `public_behavior`／`public` 暴露策略，尚无本文私人视图交付机制。2026-09-08 内容实现已将 `initialization-templates.ts` 升为 v2：每个目标必须提供一份完整审查正文，不再叠加 v1 工程规则；旧配方显式返回 `projection_template_migration_required`。展示身份使用 `stella.display-identity/v2`，可选 role 仅进入 Markdown，Host 配置仍只接收已支持字段。当前主生成阶段的工具限制也不足以执行全部 skills。必须显式实现版本迁移、来源及受众校验、视图装配与失效传播；不能仅放宽 exposure 字段或写“通过 Core 读取”就宣称可用。
 
+2026-09-08 私人视图读取阶段：已增加按请求构建的 USER／MEMORY 上下文，经来源授权、依赖／原文校验和结构化语义选择进入取证与 Host appendContext；不会重写共享文件。明确处理许可、模型绑定、失效及实现限制见 [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md)。这补上已有 Understanding／OngoingWork 的当轮装配，不等于已完成自然语言纠正写入闭环或真实 main 激活；后述 C-04 仍需完整写入与真实 Host 验收。
+
 实施按一个完整流程推进：固定五份候选及 skills 差异 → 接入有效 USER／MEMORY 视图和当轮合同 → 验证真实 prompt 装配 → 验证纠正后当前回答与下一会话 → 在指定 main 应用并核对。自动 service 初始化与用户随时重新初始化均使用同一配方和校验，不另设模型启动仪式。不得以移除 full_memory 门禁或换成 Alpha／空目录替代完整能力契约。
 
 | 验收 | 可观察的通过条件 |

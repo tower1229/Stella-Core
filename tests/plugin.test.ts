@@ -1,3 +1,6 @@
+import { canonicalJson, bytesVersion, objectVersion } from "../src/canghai/content-version.js";
+import type { MemoryCatalog, CatalogGroup } from "../src/canghai/catalog-reader.js";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -44,6 +47,8 @@ function registerPlugin(
   dataMode: "read_only" | "local_write" | "managed_durable_write" = "read_only",
   errors: string[] = [],
   assessEvidence?: (params: unknown) => Promise<{ text: string; provider?: string; model?: string }>,
+  modelFallbacks: string[] = [],
+  agentFallbacks: string[] = [],
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
@@ -54,7 +59,8 @@ function registerPlugin(
       dataMode,
       ...(dataMode === "managed_durable_write" ? { durabilityRemote: "origin", durabilityBranch: "local/stella-alpha" } : {}),
     },
-    runtime: { version: "2026.8.2", llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
+    runtime: { version: "2026.8.2", config: { current: () => ({ agents: { defaults: { model: { primary: "synthetic/model", fallbacks: modelFallbacks } },
+      entries: { stella: { model: { primary: "synthetic/model", fallbacks: agentFallbacks } } } } }) }, llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
       if (params.purpose === "stella-question-evidence") {
         if (assessEvidence) return assessEvidence(params);
         const input = JSON.parse(params.messages![0]!.content.split("\n").at(-1)!) as { provisionalRoute: { responseKind: string; evidenceStatus: string; materialUnknowns: string[] } };
@@ -537,4 +543,120 @@ test("semantic preparation uses the bound original request instead of Host-added
       assert.equal(request.includes("HOST_WRAPPER_NOT_USER_AUTHORITY"), false);
     }
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("Host preparation wires the configured personal access grant before routing", async () => {
+  for (const { admitted, fallbacks, agentFallbacks } of [
+    { admitted: true, fallbacks: [], agentFallbacks: [] }, { admitted: false, fallbacks: [], agentFallbacks: [] },
+    { admitted: true, fallbacks: ["unapproved/model"], agentFallbacks: [] },
+    { admitted: true, fallbacks: [], agentFallbacks: ["unapproved/model"] }]) {
+    const hasFallback = fallbacks.length > 0 || agentFallbacks.length > 0;
+    const allowed = admitted && !hasFallback;
+    const root = await createFixture();
+    try {
+      const prefix = "50_PersonalAgent/stella";
+      const profilePath = path.join(root, prefix, "runtime-profile.yaml");
+      const profile = parseYaml(await readFile(profilePath, "utf8")) as { capabilities: unknown[] };
+      profile.capabilities.push({ id: "source_access_context", required: true,
+        adapter_id: "stella.personal-context-access", adapter_version: "1",
+        config_ref: `path:${prefix}/personal-access.json`,
+        acceptance_ref: `path:${prefix}/capability-acceptance.json`, required_secret_refs: [] });
+      await writeFile(profilePath, stringifyYaml(profile));
+      const catalogPath = path.join(root, "30_PersonalData/memory/catalog.json");
+      const catalog = JSON.parse(await readFile(catalogPath, "utf8")) as MemoryCatalog;
+      const put = async (group: CatalogGroup, object: Record<string, unknown>, dependencies: Array<{ id: string; version: string }> = []) => {
+        const ref = { id: String(object.id), version: objectVersion(object) };
+        const file = `30_PersonalData/memory/${ref.id}.json`, body = canonicalJson(object);
+        await writeFile(path.join(root, file), body);
+        catalog[group].push({ ...ref, status: "current", dependencies, locator: { path: file, sha256: bytesVersion(body) } });
+        return ref;
+      };
+      const policyRef = await put("policies", { schemaVersion: "stella.source-policy/v2", id: "private-policy", ownerId: "synthetic-owner",
+        readPurposes: ["alpha_praxis"], derivePurposes: ["alpha_praxis"], deliveryScopes: ["host-chat"], retention: "retain",
+        authorityEvidenceRefs: [], restrictions: { sensitivity: "sensitive", quotePolicy: "summarize_only",
+          allowedScenarios: ["self_reflection"], forbiddenScenarios: [] } });
+      const timestamp = "2026-09-01T00:00:00Z";
+      const coverageRef = await put("coverage", { schemaVersion: "stella.archive-coverage/v1", id: "private-coverage",
+        adapterId: "synthetic-host", collectionId: "synthetic", upstreamSnapshot: "one",
+        scope: { agentIds: ["stella"], roots: [], branchPolicy: "declared_subset", declaredBranches: ["synthetic"] },
+        fromCursor: null, toCursor: "one", expectedCount: 1, retainedCount: 1, excludedByPolicyCount: 0,
+        missingItems: [], checkedAt: timestamp, completeForDeclaredScope: true });
+      const payload = JSON.stringify({ report: "SYNTHETIC_ORIGINAL_AUTHORIZED_REPORT" });
+      const payloadPath = "30_PersonalData/memory/payload.json";
+      await writeFile(path.join(root, payloadPath), payload);
+      const sourceRef = await put("sources", { schemaVersion: "stella.memory-source/v1", id: "private-source",
+        origin: { adapterId: "synthetic-host", collectionId: "synthetic", upstreamId: "one" },
+        payloads: [{ path: payloadPath, mediaType: "application/json", bytes: Buffer.byteLength(payload), sha256: bytesVersion(payload) }],
+        capturedAt: timestamp, policyRef, coverageRef }, [policyRef, coverageRef]);
+      await put("evidence", { schemaVersion: "stella.memory-evidence/v1", id: "private-evidence", source: sourceRef,
+        payloadSha256: bytesVersion(payload), selector: { kind: "json_pointer", value: "/report" },
+        speakerId: "synthetic-owner", role: "owner", kind: "reported", occurredAt: null, authoredAt: timestamp,
+        capturedAt: timestamp, independentOriginId: "synthetic-event", derivedFrom: [], policyRef }, [sourceRef, policyRef]);
+      await put("works", { schemaVersion: "stella.ongoing-work/v1", id: "private-work",
+        kind: "writing", status: "active", goal: "SYNTHETIC_WRITING_CONTINUITY",
+        sourceRefs: [sourceRef], confirmedPremises: [], candidateIdeas: [],
+        rejectedInterpretations: [{ id: "rejected", text: "SYNTHETIC_REJECTED_ENDING",
+          evidenceRefs: [{ id: catalog.evidence[0]!.id, version: catalog.evidence[0]!.version }], acceptance: "rejected" }],
+        openQuestions: [], nextStep: null, lastAppliedChangeId: null, createdAt: timestamp, updatedAt: timestamp },
+        [sourceRef, { id: catalog.evidence[0]!.id, version: catalog.evidence[0]!.version }]);
+      await writeFile(catalogPath, canonicalJson(catalog));
+      await writeFile(path.join(root, prefix, "personal-access.json"), JSON.stringify({
+        schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic-owner",
+        requesterIds: [admitted ? "synthetic-owner" : "another-owner"], modelRefs: ["synthetic/model"],
+        purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" },
+        descriptors: [{ sourceRef, policyRef, description: "Synthetic reviewed topic" }],
+        viewProcessingModelRefs: ["synthetic/model"],
+      }));
+      const revision = await initializeFixtureRepository(root);
+      let calls = 0, accessCalls = 0, evidenceCalls = 0, viewCalls = 0;
+      const hooks = registerPlugin(root, revision, async raw => {
+        const params = raw as { purpose?: string; model?: string; messages: Array<{ content: string }> };
+        if (params.purpose === "stella-personal-views") {
+          viewCalls++;
+          assert.equal(params.model, "synthetic/model");
+          assert.match(params.messages[0]!.content, /SYNTHETIC_REJECTED_ENDING/);
+          const bound = JSON.parse(params.messages[0]!.content.split("\n").at(-1)!) as {
+            requestHash: string; candidates: Array<{ handle: string }> };
+          return { provider: "synthetic", model: "model", text: JSON.stringify({ requestHash: bound.requestHash,
+            selections: bound.candidates.map(item => ({ handle: item.handle, view: "memory" })) }) };
+        }
+        if (params.purpose === "stella-source-access") {
+          accessCalls++;
+          assert.equal(params.model, "synthetic/model");
+          assert.ok(!params.messages[0]!.content.includes("SYNTHETIC_ORIGINAL_AUTHORIZED_REPORT"));
+          const bound = JSON.parse(params.messages[0]!.content.split("\n").at(-1)!) as { requestHash: string };
+          return { provider: "synthetic", model: "model", text: JSON.stringify({ requestHash: bound.requestHash, sourceRef, policyRef,
+            applicable: true, scenarios: ["self_reflection"], topicRequested: true, topicExplicitlyNamed: true }) };
+        }
+        calls++;
+        return { text: JSON.stringify({ mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient",
+          materialUnknowns: [], domains: ["general"], needsTwin: false, needsFramework: false,
+          needsReality: false, needsExternalResearch: false }) };
+      }, "read_only", [], async raw => {
+        evidenceCalls++;
+        const params = raw as { messages: Array<{ content: string }> };
+        assert.match(params.messages[0]!.content, /SYNTHETIC_ORIGINAL_AUTHORIZED_REPORT/);
+        assert.match(params.messages[0]!.content, /SYNTHETIC_WRITING_CONTINUITY/);
+        return { provider: "synthetic", model: "model", text: JSON.stringify({ status: "sufficient", claims: [],
+          unresolvedLeads: [], stoppingReason: "The synthetic authorized report was read", suggestedResponseKind: "answer" }) };
+      }, fallbacks, agentFallbacks);
+      await preparedRun(hooks, `configured-personal-grant-${admitted}-${fallbacks.length}`, "Synthetic question", (_result, gate) => {
+        if (allowed) {
+          assert.deepEqual(gate, { outcome: "pass" });
+          assert.match(_result?.appendContext ?? "", /SYNTHETIC_WRITING_CONTINUITY/);
+          assert.match(_result?.appendContext ?? "", /"acceptance":"rejected"/);
+          assert.match(_result?.appendContext ?? "", /"audience":"owner_direct"/);
+        }
+        else {
+          assert.equal((gate as { outcome: string }).outcome, "block");
+          assert.equal((gate as { category: string }).category,
+            hasFallback ? "personal_view_fallback_route_forbidden" : "personal_context_requester_forbidden");
+        }
+      });
+      assert.equal(calls, allowed ? 1 : 0);
+      assert.equal(accessCalls, allowed ? 4 : 0);
+      assert.equal(viewCalls, allowed ? 1 : 0);
+      assert.equal(evidenceCalls, allowed ? 1 : 0);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  }
 });

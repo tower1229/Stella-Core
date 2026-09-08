@@ -81,6 +81,22 @@ Evidence 的源级／证据级策略以及 Framework 原文入口共享这一 pr
 
 2026-09-08 请求绑定实现：`reply_dispatch` 将 Host 的原始 Body、SDK 确认的发送者身份及所有者标记、Agent／session／run 和 chatType 固定到完成协调器的运行上下文。`before_prompt_build` 在读取个人认知之前核对归属，并要求明确的主人私聊；路由及取证使用绑定的原始问题，不把 hook 拼接文本当作请求授权。绑定在取消／生成结束后失效，不流入持久化或投递端口参数。这只证明请求身份与问题的来源，不授予资料用途、引用或外部模型处理权限；逐来源策略启用、主题描述授权和私人视图生成仍未接通。
 
+2026-09-08 来源授权接线：Alpha profile 可声明 capability `source_access_context`，adapter 为 `stella.personal-context-access`、版本 `1`。其 `config_ref` 指向严格 JSON `stella.personal-context-access/v1`，必填 `ownerId`、非空且去重的 `requesterIds`／`modelRefs`、`purpose: {readPurpose, derivePurpose, deliveryScope}` 和 `descriptors: [{sourceRef, policyRef, description}]`。每个描述绑定确切来源／策略版本，最多 512 项、每项 8000 字符、配置文件 256 KB。此配置是经主人授权写入仓库的**描述处理许可**，不可由模型即时生成，不能代替正文的来源策略或最终输出许可。只有配置进入已加载 profile 的权威路径后才用于运行时。
+
+Host 适配器要求活跃请求中 SDK 确认的主人身份、私聊范围和明确 requester ID 全部匹配，策略 ownerId 与许可 ownerId 相同，用途相同。选择实际 Host 默认模型并传入精确 model ref，以 OpenClaw 2026.8.2 的直接 completion 路径完成来源判断，同时核对返回模型；不走隔离 Agent 的模型 fallback。运行中模型选择、描述许可文件、目录、来源或策略发生变化，或者请求失效时显式失败。没有活跃请求的恢复入口不自动继承私人授权。
+
+问题取证会将明确的访问拒绝记录为 `excludedByAccess`，继续读取其余获准资料；其中计数单位是 evidence 条目，不包含被拒绝对象的 ID、路径或正文。这是未检索范围，不能作为事件不存在的证据。模型故障、非法判断、缺失描述、版本失效及预算耗尽仍中止整轮，不转换成排除项。计数由 Host 写入 EvidenceBundle 的可选字段并参与版本摘要，模型不能改写；历史无此字段的 v1 bundle 仍按原摘要读取。
+
+上述接线在合成目录和插件准备路径验证；真实 main 的 full_memory 门禁仍保留。真实策略启用、获准描述迁移、私人 USER／MEMORY 视图、全部下游模型的正文处理许可和最终投递约束尚未完整验收，不能把配置可加载或一次来源判断成功当作真实个人问答完成。
+
+2026-09-08 私人视图接线：在上述配置中显式增加非空 `viewProcessingModelRefs`（必须是 `modelRefs` 的子集），才授权对应模型在既定主人／请求／用途范围内处理获准原文及其派生视图；缺省不会启用私人视图，既有描述许可不会自动扩大。Host 选择、视图选择器、携带视图的取证模型必须匹配；启用视图的目标 Agent／默认模型存在 fallback 时返回 `personal_view_fallback_route_forbidden`，不能把私人上下文转给未经核准的备用路由。
+
+`preparePersonalViews` 从当前目录读取 Understanding 和 active／paused OngoingWork，校验全部声明依赖、来源用途、所有者、原始证据和更新依据后，才将候选交给结构化 LLM 选择。返回的 `stella.personal-views/v1` 包含 Host 提供的 requestId／requestHash、generationId、owner_direct 受众、访问排除计数，以及 USER／MEMORY 两个集合。模型只选择每个候选的 user／memory／omit 归属，不改写正文或来源，不生成新人物结论。USER 仅接受有主人原文支持的 active owner_statement；其 work／context／domain 范围完整保留，不变成全局人格指令。候选、争议和写作事项进入 MEMORY 时保留状态、确认／提案／拒绝、未决问题、时间和原始依据。
+
+视图只放入当前请求的取证上下文和 Host appendContext，不改写共享 workspace 文件，也不保存第二份个人模型。生成后、准备完成及交付前的 persist 阶段重新核对目录、对象、原文和处理许可；失效时拒绝使用旧视图。最多 64 个获准候选、512 个依赖快照，选择输入 160000 字符、输出上下文 96000 字符，超限显式失败，不截断成成功。无候选是有范围的空视图，不代表全库无历史。
+
+本次实现的是已有合法理解／事项的读取与装配，不是纠正写入协调器。合成测试通过生成新目录代际及带 LearningChange 的新事项版本，验证旧视图失效、新会话读取新版本；不能据此声称自然语言纠正已自动写回、传播到全部派生资产。非空 episodeRefs 和尚无适配器的依赖显式拒绝；完整媒体检索、历史视图、输出引用约束和真实 main 的 full_memory 验收仍待实现。
+
 迁移规划脚本 `scripts/plan-source-policy-migration.mjs <root> <full-revision> [semantic-review.json]` 始终只读，要求来源为固定且干净的 HEAD。可选审查文件使用 `stella.source-policy-semantic-review/v1`，包含 sourceRevision、reviewer（kind: llm、id）和完整 entries；每项包含 sourceId、sourceSha256、interpretation、requiredChanges。LLM 负责阅读 Usage Policy／Import Notes 并形成解释，脚本仅验证逐来源身份、摘要、完整性和格式，不替代语义复核，也不验证模型身份或授予权限。审查结果随摘要进入计划，原始元数据映射保持不变；有审查结果也始终 `readyToApply: false`。审查约束落地、权威依据、用途注册、请求及引用授权接入完成前，计划不得应用。
 
 ### 持久组织
@@ -184,6 +200,7 @@ type EvidenceBundle = {
   }>;
   searchedCoverageRefs: Ref[];
   readEvidenceRefs: Ref[];
+  excludedByAccess?: Partial<Record<SourceAccessExclusionCategory, number>>; // Host 记录的正整数计数
   unresolvedLeads: Array<{ question: string; material: boolean; reason: string }>;
   stopping: { reason: string; modelRef: string; promptVersion: string };
   suggestedResponseKind: "answer" | "clarification" | "collaboration" | "action_advice" | "outcome_ack";

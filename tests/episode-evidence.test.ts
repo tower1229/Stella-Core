@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { CatalogReader, parseMemoryCatalog, selectTextEvidence, type CatalogGroup, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, parseMemoryCatalog, selectTextEvidence, type CatalogGroup, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { EpisodeEvidenceResolver, type EvidencePurpose } from "../src/praxis/episode-evidence.js";
 import type { EpisodeV2, VersionedRef } from "../src/praxis/episode-v2.js";
@@ -108,6 +108,28 @@ test("the evidence reader applies semantic authorization to each source before r
   assert.equal((await resolver.readEvidence(f.evidence)).text, "我已经询问了时间，对方确认周末有空。");
   await assert.rejects(resolver.readEvidence(secondEvidence), /source_topic_required/);
   assert.deepEqual(reads, [f.source.id]);
+  const prepare = () => prepareQuestionEvidence({ requestId: "mixed-access", revision: "a".repeat(40), question: request,
+    route: { mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["general"],
+      needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false }, priorContext: "", resolver,
+    complete: async ({ prompt }) => {
+      const input = JSON.parse(prompt.split("\n").at(-1)!) as { excludedByAccess: unknown; originalEvidence: unknown[] };
+      assert.deepEqual(input.excludedByAccess, { source_topic_required: 1 });
+      assert.equal(input.originalEvidence.length, 1);
+      assert.ok(!prompt.includes(secondSource.id));
+      return { provider: "synthetic", model: "injected", text: JSON.stringify({ status: "sufficient", claims: [],
+        unresolvedLeads: [], stoppingReason: "Only the authorized original was read; excluded history is unknown.",
+        suggestedResponseKind: "answer" }) };
+    } });
+  const prepared = await prepare();
+  assert.deepEqual(prepared.bundle.readEvidenceRefs, [f.evidence]);
+  assert.deepEqual(prepared.bundle.excludedByAccess, { source_topic_required: 1 });
+  assert.ok(reads.every(id => id === f.source.id), "Denied payload must remain unread");
+  const readEvidence = resolver.readEvidence.bind(resolver);
+  resolver.readEvidence = async ref => {
+    if (ref.id === secondEvidence.id) throw new CatalogError("source_access_model_failed");
+    return readEvidence(ref);
+  };
+  await assert.rejects(prepare(), /source_access_model_failed/);
 });
 
 test("persisted bundles reread original roles and reject unauthorized or modified evidence", async (t) => {
