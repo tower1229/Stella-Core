@@ -18,7 +18,8 @@ import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-pro
 import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportError } from "openclaw/plugin-sdk/gateway-runtime";
 
 type Config = { canghaiRoot: string; recoveryRevision: string; manifestPath: string; agentId: string; initializationGatewayAccess?: "local_operator_read" };
-type Status = { state: "not_started" | "initializing" | "blocked" | "ready"; category?: string; operationId?: string; recipeHash?: string };
+type Status = { state: "not_started" | "initializing" | "blocked" | "ready"; category?: string; operationId?: string; recipeHash?: string;
+  runtime?: { state: "blocked" | "not_evaluated"; blockers: string[] } };
 type ScopedStatus = Status & { scope: "host_bootstrap" };
 const scoped = (value: Status) => ({ ...value, scope: "host_bootstrap" as const });
 
@@ -49,6 +50,10 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
   let initializer: StellaInitializer | undefined;
+  const runtimeStatus = (): NonNullable<Status["runtime"]> => {
+    const blockers = [...(initializer?.runtimeBlockers ?? [])];
+    return { state: blockers.length ? "blocked" : "not_evaluated", blockers };
+  };
   let reportHealth: (result: Status) => void = () => {};
   const shutdown = new AbortController();
   const identitySnapshot = (value: unknown): HostIdentity | null => {
@@ -164,7 +169,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         }, shutdown.signal);
         const receipt = await initializer.initialize();
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
-        status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash };
+        status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: runtimeStatus() };
       } catch (error) {
         const category = error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category : `initialization_${stage}_failed`;
         const operationId = initializer ? await initializer.pendingOperationId().catch(() => undefined) : undefined;
@@ -177,7 +182,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     return inflight;
   };
 
-  const assertReady = async () => {
+  const assertBootstrapReady = async () => {
     if (status.state === "initializing") throw new InitializationError("initialization_required");
     // Host harness registries may register this plugin again without starting services.
     // Rehydrate only a verified receipt, without running installation side effects.
@@ -202,12 +207,17 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     const receipt = await initializer.assertCurrent();
     await verifyInitializationContext({ workspace: receipt.workspace, agentId: config.agentId,
       files: receipt.files.map(file => ({ target: file.target, sha256: file.hash })), currentConfig: () => api.runtime.config.current() });
-    status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash };
+    status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: runtimeStatus() };
+  };
+
+  const assertReady = async () => {
+    await assertBootstrapReady();
+    if (initializer!.runtimeBlockers.length) throw new InitializationError("runtime_capabilities_unavailable");
   };
 
   const inspect = async (): Promise<ScopedStatus> => {
     if (inflight || shutdown.signal.aborted) return scoped(status);
-    try { await assertReady(); }
+    try { await assertBootstrapReady(); }
     catch (error) { status = { state: "blocked", category: error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category : "initialization_failed" }; }
     return scoped(status);
   };
@@ -248,7 +258,10 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     catch (error) {
       api.logger.error(`Stella initialization admission blocked (${error instanceof InitializationError ? error.category : "initialization_failed"})`);
       return { outcome: "block" as const, category: error instanceof InitializationError ? error.category : "initialization_failed",
-        reason: "Stella initialization is not current", message: "Stella 初始化尚未完成或运行文件已变化；请执行 /stella-initialize。" };
+        reason: "Stella initialization or runtime capability admission is not current", message:
+          error instanceof InitializationError && error.category === "runtime_capabilities_unavailable"
+            ? "Stella 运行文件已初始化，但所需能力尚未就绪；请通过 /stella-initialize status 查看阻断项。"
+            : "Stella 初始化尚未完成或运行文件已变化；请执行 /stella-initialize。" };
     }
   }, { priority: 2000, timeoutMs: 15000 });
   api.on("before_tool_call", async (event, ctx) => {

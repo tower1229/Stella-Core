@@ -292,7 +292,8 @@ Agent 尚未加载 Core 或插件无法启动时，Core 自身 hook 无法构成
 - 管理员可使用 `/stella-initialize rollback <operationId>` 或 Gateway `rollback` 操作恢复原始字节、权限和目标 Agent 的展示身份。外部身份修改会在文件回滚前阻断操作。回滚后保持 fenced；Host setup 内部状态及业务数据不在此回滚范围。
 - v2 profile 的 `host_materialization_ref` 必须指向 JSON 格式的 `stella.host-materialization/v1`。`stella.host-files/v1` 仅为内部执行器格式，不再被公开入口接受。来源须为干净、精确提交；声明绑定 exact Host 版本、带内容摘要的行为映射、五份投影配方、技能资源树及必需检查。未知字段、旧 profile、非法路径、漂移与超限 bootstrap 均显式失败。
 - `stella.host-templates/v1` 提供五份公开模板；映射区分 retained、adapted、retired、unavailable 和 conflict。必需行为未解决、投影漏用或夹带未审查规则均阻断。投影输入须由 `stella.projection-exposure/v1` 明确允许公开运行指令；不把私人事实复制进公共启动上下文。
-- 技能必须与 Manifest 指向的规范 `stella.skill-registry/v1` 对齐，校验来源用途、暴露策略、完整资源树、摘要和可执行权限。不能通过空 bindings 跳过已启用技能。尚无适配器的 required_capabilities、非空 automation_declarations、额外 required_checks，以及 `full_memory` profile 均显式返回不可用，不把裁减后的结果标为成功。
+- 技能必须与 Manifest 指向的规范 `stella.skill-registry/v1` 对齐，校验来源用途、暴露策略、完整资源树、摘要和可执行权限。不能通过空 bindings 跳过已启用技能。2026-09-08 将安装与运行准入分开：`full_memory` 和带 required_capabilities 的完整技能可以安装，返回的 `scope: host_bootstrap` 状态另含 `runtime.state: blocked` 及逐项 blockers；普通运行、工具调用和回复仍被 `runtime_capabilities_unavailable` 阻断。没有声明阻断项时也只报告 `runtime.state: not_evaluated`，完整运行能力仍由其他准入环节验收。重复初始化不能把缺少适配器的状态变为运行成功。
+- automation declaration 使用 `id`、`trigger: {kind: interval | cron, expression}`、`timezone`、带摘要的 `task_ref`、`delegation_ref`、`delivery_policy_ref` 和 `enabled`。初始化接受经过结构及来源校验的停用声明，不注册或运行任务；启用声明仍返回 `automation_adapter_unavailable`。额外 required_checks 仍阻断安装。此分离用于保留完整迁移目标，不代表自动化事务或完整 Memory Lifecycle 已实现。
 - `stella.display-identity/v1` 生成原生 `IDENTITY.md`，并通过 Host `mutateConfigFile` 对指定 Agent 的 identity 做 CAS 更新；只修改该配置字段，并等待热重载实际生效。通过公开 `ensureAgentWorkspace` 验证 setup 不再 pending；必须已有显式目标 Agent 配置，尚不提供新 Agent 创建。
 - 2026-09-08 增加真实 bootstrap 加载校验：初始化验收及后续准入调用公开 `resolveBootstrapContextForRun`，以目标 Agent 当前配置、direct 主会话和 full context 核对五份必要文件的原始内容及预算处理后的内容。仅接受 Host 的尾部空白处理，截断、遗漏或 Hook 改写均阻断；校验期间配置变化也阻断。每 Agent 预算及默认值由 Host 解析，不修改其他 Agent 配置。`contextInjection: never` 和尚未具备会话刷新证明的 `continuation-skip` 返回 `host_context_injection_unsupported`。这是共享加载器的完整性证明，不能替代各 native harness 的实际消费、群聊／子代理过滤和既有 transcript 刷新验收。
 - 每次操作保留独立归档，使用持久化 journal、文件锁、before 内容与权限校验。进程被杀后只回收 SDK 已确认死亡的锁持有者；恢复复用原操作。重复初始化在内容未变时复用已验收操作，并重新查询 Host 技能及文件。
@@ -303,4 +304,6 @@ Agent 尚未加载 Core 或插件无法启动时，Core 自身 hook 无法构成
 
 已用本机 OpenClaw 2026.8.2 的隔离合成环境验证启动、手动重入、真实技能来源、普通首轮、托管写入、重启和重复请求隔离；临时干净快照的 packed 主链验收也通过。后续代码改动仍须重新生成最终产物收据，不能把临时快照 SHA 当作主工作区已提交 SHA。
 
-仍未完成：完整记忆和扩展技能能力适配器、自动化事务、Host 记忆视图与既有会话刷新、插件未加载时的独立 Host 门禁，以及真实 CangHai 迁移和本机 main 生效。身份验收覆盖原生配置和 Gateway 读取，尚非各真实 channel 展示验收。当前本机来源仍为 `runtime-profile/v1alpha`，配置 recovery revision 也落后于仓库 HEAD；不得复制旧冲突指令、生成空记忆目录或改成受限 Alpha profile 来冒充完整迁移。I 系列验收尚未全部完成。
+2026-09-08 已在真实 CangHai 的 `50_PersonalAgent/stella/initialization/` 准备独立迁移入口：五份配方、14 个完整技能目录、三个停用任务声明，以及 100 份复核过的来源策略与对应原件描述、未分类证据及覆盖对象。旧资料保留原位；新目录尚未提交或绑定 main。来源策略保留复核结论，读取／推导权限为空并明确记录 `reviewed_constraints_adapter_required`，不能把结构有效误认为私人资料已获准使用。catalog 明确仅覆盖这 100 份 Markdown，不声称其他目录或附件已完整接入。
+
+仍未完成：完整记忆和扩展技能能力适配器、自动化事务、Host 记忆视图与既有会话刷新、插件未加载时的独立 Host 门禁，以及迁移资产提交后在本机 main 生效。身份验收覆盖原生配置和 Gateway 读取，尚非各真实 channel 展示验收。当前 main 仍绑定旧 `runtime-profile/v1alpha`，配置 recovery revision 也落后于仓库 HEAD；不得复制旧冲突指令、生成空记忆目录或改成受限 Alpha profile 来冒充完整迁移。I 系列验收尚未全部完成。

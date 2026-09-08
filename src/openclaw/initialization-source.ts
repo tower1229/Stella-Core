@@ -38,12 +38,14 @@ function location(ref: string): string {
   }
 }
 
-export type CompiledInitializationSource = { materialization: Materialization; contents: Map<string, Buffer>; identity: HostIdentity & { name: string }; setup: true };
+export type CompiledInitializationSource = { materialization: Materialization; contents: Map<string, Buffer>; identity: HostIdentity & { name: string }; setup: true; runtimeBlockers: string[] };
 
 /** Compile pinned, already-reviewed behavior. No model call or source mutation is permitted here. */
 export async function compileInitializationSource(root: string, document: unknown,
   target: { agentId: string; hostVersion: string; skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory" }): Promise<CompiledInitializationSource> {
-  check(target.contractProfile !== "full_memory", "full_memory_initialization_adapter_unavailable");
+  // Installing reviewed instructions is distinct from admitting a cognitive run.
+  // No full-memory acceptance adapter exists yet; never turn installation into that verdict.
+  const runtimeBlockers = new Set<string>(target.contractProfile === "full_memory" ? ["full_memory_acceptance_unavailable"] : []);
   object(document, ["schema_version", "id", "host_adapter", "behavior_mapping_ref", "projection_recipes", "skill_bindings", "automation_declarations", "required_checks"]);
   check(document.schema_version === "stella.host-materialization/v1" && typeof document.id === "string" && document.id.trim(), "invalid_materialization_identity");
   object(document.host_adapter, ["id", "version", "host_version", "harness"]);
@@ -56,7 +58,6 @@ export async function compileInitializationSource(root: string, document: unknow
   // Unimplemented adapters remain explicit blockers; accepting declarations is not evidence of restoration.
   check(requiredChecks.every((name) => supportedChecks.includes(name)), "required_check_adapter_unavailable");
   check(Array.isArray(document.automation_declarations), "invalid_automation_declarations");
-  check(document.automation_declarations.length === 0, "automation_adapter_unavailable");
 
   const read = async (value: unknown): Promise<Buffer> => {
     const input = pin(value);
@@ -71,6 +72,23 @@ export async function compileInitializationSource(root: string, document: unknow
       throw new InitializationSourceError("invalid_pinned_document");
     }
   };
+  const automationIds = new Set<string>();
+  for (const declaration of document.automation_declarations) {
+    object(declaration, ["id", "trigger", "timezone", "task_ref", "delegation_ref", "delivery_policy_ref", "enabled"]);
+    check(typeof declaration.id === "string" && /^[a-z0-9][a-z0-9-]*$/.test(declaration.id) && !automationIds.has(declaration.id) &&
+      typeof declaration.enabled === "boolean" && typeof declaration.timezone === "string", "invalid_automation_declaration");
+    automationIds.add(declaration.id);
+    object(declaration.trigger, ["kind", "expression"]);
+    check(["interval", "cron"].includes(String(declaration.trigger.kind)) && typeof declaration.trigger.expression === "string" &&
+      declaration.trigger.expression.trim(), "invalid_automation_declaration");
+    try { new Intl.DateTimeFormat("en", { timeZone: declaration.timezone }); }
+    catch { throw new InitializationSourceError("invalid_automation_declaration"); }
+    check(typeof declaration.delegation_ref === "string" && typeof declaration.delivery_policy_ref === "string", "invalid_automation_declaration");
+    location(declaration.delegation_ref); location(declaration.delivery_policy_ref);
+    await readDocument(declaration.task_ref);
+    // An enabled declaration still requires a transactional Host scheduler adapter.
+    check(!declaration.enabled, "automation_adapter_unavailable");
+  }
   const mapping = await readDocument(document.behavior_mapping_ref);
   object(mapping, ["schema_version", "id", "entries"]);
   check(mapping.schema_version === "stella.behavior-mapping/v1" && typeof mapping.id === "string" && mapping.id.trim() &&
@@ -189,7 +207,10 @@ export async function compileInitializationSource(root: string, document: unknow
     }
     const entry = entries.get(binding.skill_id);
     check(entry?.enabled === true && entry.ref === binding.source_root && entry.policy_ref === pin(binding.policy_ref).ref, "skill_binding_mismatch");
-    check((entry.required_capabilities as string[]).length === 0, "skill_capability_adapter_unavailable");
+    for (const capability of entry.required_capabilities as string[]) {
+      check(/^[a-z0-9][a-z0-9_-]*$/.test(capability), "invalid_skill_capability");
+      runtimeBlockers.add(`skill_capability_unverified:${capability}`);
+    }
     boundSkills.add(`${registry.id}:${binding.skill_id}`);
     const policy = await readDocument(binding.policy_ref);
     check(isRecord(policy) && policy.schemaVersion === "stella.source-policy/v1", "invalid_skill_source_policy");
@@ -257,5 +278,5 @@ export async function compileInitializationSource(root: string, document: unknow
     check(!row.required || row.status === "retired" || usedBehaviors.has(row.id as string), "required_behavior_not_projected");
   }
   return { materialization: { schemaVersion: "stella.host-files/v1", agentId: target.agentId,
-    hostVersion: target.hostVersion, files, skills }, contents, identity, setup: true };
+    hostVersion: target.hostVersion, files, skills }, contents, identity, setup: true, runtimeBlockers: [...runtimeBlockers].sort() };
 }

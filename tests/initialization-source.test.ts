@@ -72,9 +72,41 @@ test("the Manifest registry cannot be bypassed by declaring no skill bindings", 
   }), /enabled_skill_not_bound/);
 });
 
-test("Host bootstrap cannot advertise a full-memory profile while its adapter is unavailable", async (t) => {
+test("full-memory instructions can be installed without declaring runtime acceptance", async (t) => {
   const f = await fixture(t);
-  await assert.rejects(compileInitializationSource(f.root, f.document, {
+  const result = await compileInitializationSource(f.root, f.document, {
     agentId: "probe", hostVersion: "2026.8.2", contractProfile: "full_memory",
-  }), /full_memory_initialization_adapter_unavailable/);
+  });
+  assert.equal(result.materialization.files.length, 6);
+  assert.deepEqual(result.runtimeBlockers, ["full_memory_acceptance_unavailable"]);
+});
+
+test("installed skills report every unverified capability instead of disappearing", async (t) => {
+  const f = await fixture(t);
+  const binding = f.document.skill_bindings[0]!;
+  const file = path.join(f.root, binding.registry_ref.ref.slice(5));
+  const registry: unknown = JSON.parse(await readFile(file, "utf8"));
+  assert.ok(isRecord(registry) && Array.isArray(registry.skills) && isRecord(registry.skills[0]));
+  registry.skills[0].required_capabilities = ["memory_access", "semantic_retrieval"];
+  const bytes = canonicalJson(registry);
+  await writeFile(file, bytes);
+  binding.registry_ref.sha256 = bytesVersion(bytes);
+  const result = await f.compile();
+  assert.deepEqual(result.materialization.skills, [binding.name]);
+  assert.deepEqual(result.runtimeBlockers, ["skill_capability_unverified:memory_access", "skill_capability_unverified:semantic_retrieval"]);
+});
+
+test("disabled automation declarations are retained but enabled jobs require a Host adapter", async (t) => {
+  const f = await fixture(t);
+  const task = await readFile(path.join(f.root, f.document.behavior_mapping_ref.ref.slice(5)));
+  const declaration = { id: "weekly-check", trigger: { kind: "cron", expression: "0 19 * * 5" }, timezone: "Asia/Shanghai",
+    task_ref: { ref: f.document.behavior_mapping_ref.ref, sha256: bytesVersion(task) },
+    delegation_ref: "path:delegations.json", delivery_policy_ref: "path:delivery.json", enabled: false };
+  const compile = (enabled: boolean) => compileInitializationSource(f.root, { ...f.document,
+    automation_declarations: [{ ...declaration, enabled }] }, { agentId: "probe", hostVersion: "2026.8.2" });
+  assert.equal((await compile(false)).materialization.skills.length, 1);
+  await assert.rejects(compile(true), /automation_adapter_unavailable/);
+  await assert.rejects(compileInitializationSource(f.root, { ...f.document,
+    automation_declarations: [{ ...declaration, task_ref: { ...declaration.task_ref, sha256: `sha256:${"0".repeat(64)}` } }] },
+  { agentId: "probe", hostVersion: "2026.8.2" }), /source_pin_mismatch/);
 });

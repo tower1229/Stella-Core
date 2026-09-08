@@ -123,6 +123,8 @@ export type InitializationPorts = {
 export class StellaInitializer {
   private compiledContents: Map<string, Buffer> | undefined;
   private compiledIdentity: HostIdentity | undefined;
+  private compiledRuntimeBlockers: string[] = [];
+  get runtimeBlockers(): readonly string[] { return [...this.compiledRuntimeBlockers]; }
   constructor(readonly workspace: string, readonly stateRoot: string, readonly source: InitializationSource, readonly ports: InitializationPorts,
     readonly signal?: AbortSignal) {}
 
@@ -157,12 +159,14 @@ export class StellaInitializer {
     let recipe: Materialization;
     this.compiledContents = undefined;
     this.compiledIdentity = undefined;
+    this.compiledRuntimeBlockers = [];
     if (isRecord(value) && value.schema_version === "stella.host-materialization/v1") {
       try {
         const compiled = await compileInitializationSource(this.source.root, value, this.source);
         recipe = parseMaterialization(compiled.materialization);
         this.compiledContents = compiled.contents;
         this.compiledIdentity = compiled.identity;
+        this.compiledRuntimeBlockers = compiled.runtimeBlockers;
       } catch (error) {
         if (error instanceof InitializationSourceError) throw new InitializationError(error.category);
         throw error;
