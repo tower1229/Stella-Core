@@ -78,6 +78,9 @@ function registerPlugin(
       assert.equal(options.scope, "operator.admin");
       hooks.set(`gateway:${name}`, handler);
     },
+    registerService() {},
+    registerCommand() {},
+    registerTool() {},
   };
   plugin.register(api as never);
   return hooks;
@@ -136,6 +139,9 @@ test("plugin requires explicit data mode and managed durability transport", () =
     runtime: { version: "2026.8.2", llm: { complete: async () => ({ text: "{}" }) } },
     on() {},
     registerGatewayMethod() {},
+    registerService() {},
+    registerCommand() {},
+    registerTool() {},
   };
   assert.throws(() => plugin.register(api as never), /config\.dataMode/);
   assert.throws(

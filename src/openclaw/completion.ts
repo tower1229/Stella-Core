@@ -35,6 +35,9 @@ export class CompletionError extends Error {
 type RunPermit = { operationId: string; runId: string; active: boolean; abortSignal: AbortSignal; outputCount?: number; privateOutput?: unknown; preparation?: unknown };
 const permits = new AsyncLocalStorage<RunPermit>();
 const activeResources = new Set<string>();
+export function isCompletionResourceActive(scope: string): boolean {
+  return activeResources.has(scope);
+}
 // Sequential routing and evidence judgments share this budget. The Host allows
 // a further 30 seconds for Core to return an explicit preparation failure.
 export const PREPARATION_TIMEOUT_MS = 300_000;
@@ -82,6 +85,10 @@ export async function completeWithPreparationSignal<T>(complete: (signal: AbortS
 export function hasCompletionRunPermit(runId: string | undefined): boolean {
   const permit = permits.getStore();
   return Boolean(permit?.active && runId && permit.runId === runId);
+}
+
+export function completionOperationForRun(runId: string | undefined): string | undefined {
+  return hasCompletionRunPermit(runId) ? permits.getStore()?.operationId : undefined;
 }
 
 export function isCompletionDraftContext(): boolean {

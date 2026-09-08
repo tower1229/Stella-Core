@@ -25,6 +25,8 @@ const [packed] = JSON.parse((await npm(["pack", "--json", "--pack-destination", 
 assert.ok(packed?.filename && Array.isArray(packed.files), "npm pack manifest missing");
 const files = packed.files.map((entry) => entry.path);
 for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admission.js",
+  "dist/src/openclaw/initialization.js", "dist/src/openclaw/initialization-registration.js",
+  "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
   "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
   "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
   "dist/src/acceptance/recovery-drill.js", "openclaw.plugin.json",
@@ -43,7 +45,7 @@ const packageRoot = path.join(consumer, "node_modules/@tower1229/stella-core");
 const hostRoot = path.join(consumer, "node_modules/openclaw");
 assert.equal(JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8")).version, hostVersion);
 const probes = [];
-for (const flag of ["--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
+for (const flag of ["--initialization", "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
   "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery"]) {
   process.stderr.write(`Packed main probe: ${flag}\n`);
   const result = await run(process.execPath, [path.join(root, "scripts/probe-main-plugin.mjs"), flag], {

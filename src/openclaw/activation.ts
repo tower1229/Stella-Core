@@ -22,7 +22,7 @@ export type StellaActivationAssessment = {
   issues: string[];
   desiredEntry: {
     enabled: true;
-    config: StellaActivationRequest & { manifestPath: string };
+    config: StellaActivationRequest & { manifestPath: string; initializationGatewayAccess: "local_operator_read" };
     hooks: {
       allowConversationAccess: true;
       allowPromptInjection: true;
@@ -72,7 +72,7 @@ export function assessStellaActivation(
   }
   const desiredEntry: StellaActivationAssessment["desiredEntry"] = {
     enabled: true as const,
-    config: { ...request, manifestPath: DEFAULT_MANIFEST_PATH },
+    config: { ...request, manifestPath: DEFAULT_MANIFEST_PATH, initializationGatewayAccess: "local_operator_read" },
     hooks: {
       allowConversationAccess: true as const,
       allowPromptInjection: true as const,

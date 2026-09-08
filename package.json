@@ -39,7 +39,7 @@
     "typescript": "^5.9.0"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.8.1"
+    "openclaw": ">=2026.8.2"
   },
   "engines": {
     "node": ">=24.18.0"
@@ -49,8 +49,8 @@
       "./dist/src/plugin.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.8.1",
-      "minGatewayVersion": "2026.8.1"
+      "pluginApi": ">=2026.8.2",
+      "minGatewayVersion": "2026.8.2"
     },
     "build": {
       "openclawVersion": "2026.8.2",

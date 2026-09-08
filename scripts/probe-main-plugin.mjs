@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createFixture, initializeFixtureRepository } from "../.test-dist/tests/consciousness-fixture.js";
+import { createFixture, initializeFixtureRepository, prepareInitializationFixture } from "../.test-dist/tests/consciousness-fixture.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 
 const run = promisify(execFile);
@@ -130,6 +130,7 @@ if (outcomeProbe || questionProbe || adviceRevisionProbe) {
     learning: { disposition: "propose_strategy", rationale: "Synthetic local candidate based on this report", evidenceRefs: archived.evidenceRefs,
       strategy: { statement: "Confirm specific time for a weekend invitation", scope: { workIds: [], contexts: ["weekend invitation"], domains: ["social"], global: false } } } };
 }
+await prepareInitializationFixture(canghaiRoot, "probe");
 const revision = await initializeFixtureRepository(canghaiRoot);
 const remote = path.join(temp, "canghai.git");
 if (managed) {
@@ -198,15 +199,45 @@ const providerArrived = Promise.withResolvers();
 const providerRelease = Promise.withResolvers();
 let providerRequests = 0;
 let providerReceivedOriginalEvidence = false;
+let providerReceivedInitialization = false;
+let initializationInputEvidence;
+const skillReadProbe = !managed && !cancellationProbe;
+let providerReceivedSkillBody = false;
+let providerReceivedInitializationResult = false;
+let observedSkillResult;
 const provider = createServer(async (request, response) => {
   providerRequests++;
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
   const requestBody = Buffer.concat(chunks).toString('utf8');
+  const parsedRequest = JSON.parse(requestBody);
+  if (skillReadProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
+  observedSkillResult = parsedRequest.messages?.filter((message) => message.role === "tool");
+  providerReceivedSkillBody ||= parsedRequest.messages?.some((message) => message.role === "tool" &&
+    JSON.stringify(message.content).includes("No private data.")) === true;
+  providerReceivedInitializationResult ||= parsedRequest.messages?.some((message) => message.role === "tool" &&
+    typeof message.content === "string" && message.content.includes('"state":"ready"') && message.content.includes('"scope":"host_bootstrap"')) === true;
+  initializationInputEvidence = { agents: requestBody.includes("# Synthetic AGENTS.md"), soul: requestBody.includes("# Synthetic SOUL.md"),
+    identity: requestBody.includes("- Name: Synthetic Stella"), skill: requestBody.includes("stella-initialization-probe") };
+  providerReceivedInitialization ||= Object.values(initializationInputEvidence).every(Boolean);
   providerReceivedOriginalEvidence ||= requestBody.includes("Synthetic owner report: I asked about the weekend time. My friend confirmed Saturday.") &&
     requestBody.includes("stella.evidence-bundle/v1");
   if (cancellationProbe) { providerArrived.resolve(); await providerRelease.promise; }
   response.setHeader("content-type", "application/json");
+  if (skillReadProbe && providerRequests === 1) {
+    response.end(JSON.stringify({ id: "synthetic-skill-read", object: "chat.completion", created: 1, model: "probe",
+      choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: "synthetic-read", type: "function",
+        function: { name: "read", arguments: JSON.stringify({ path: path.join(workspace, "skills/stella-initialization-probe/SKILL.md") }) } }] }, finish_reason: "tool_calls" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+    return;
+  }
+  if (skillReadProbe && providerRequests === 2) {
+    response.end(JSON.stringify({ id: "synthetic-initialize", object: "chat.completion", created: 1, model: "probe",
+      choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: "synthetic-initialize", type: "function",
+        function: { name: "stella_initialize", arguments: JSON.stringify({ action: "apply" }) } }] }, finish_reason: "tool_calls" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+    return;
+  }
   response.end(JSON.stringify({ id: "synthetic-main", object: "chat.completion", created: 1, model: "probe",
     choices: [{ index: 0, message: { role: "assistant", content: "SYNTHETIC_MAIN_ANSWER" }, finish_reason: "stop" }],
     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
@@ -218,9 +249,9 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
   models: { providers: { "stella-smoke": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 256 }] } } },
   plugins: { allow: ["stella-core"], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true,
-    llm: { allowAgentIdOverride: true }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", dataMode: managed ? "managed_durable_write" : "read_only",
+    llm: { allowAgentIdOverride: true }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}) } } } },
-  tools: { deny: ["*"] },
+  tools: { allow: ["read", "stella_initialize"] },
 }));
 const env = { ...process.env, OPENCLAW_STATE_DIR: state, OPENCLAW_CONFIG_PATH: configPath };
 delete env.NODE_OPTIONS;
@@ -239,9 +270,31 @@ async function connectObserver() {
     client.start();
   });
 }
+async function readHistory(params) {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    try { return await client.request("chat.history", params); }
+    catch (error) {
+      if (error?.gatewayCode !== "UNAVAILABLE" || error.retryable !== true || error.details?.method !== "chat.history" ||
+        !Number.isFinite(error.retryAfterMs) || error.retryAfterMs < 0 || error.retryAfterMs > 5_000 ||
+        Date.now() + error.retryAfterMs >= deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.max(1, error.retryAfterMs)));
+    }
+  }
+}
 try {
   gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
   await connectObserver();
+  let initializationStatus = await client.request("stella.initialize", { action: "status" });
+  for (let attempt = 0; initializationStatus.state === "initializing" && attempt < 100; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    initializationStatus = await client.request("stella.initialize", { action: "status" });
+  }
+  assert.equal(initializationStatus.state, "ready", JSON.stringify(initializationStatus));
+  const displayedAgents = await client.request("agents.list", {});
+  assert.equal(displayedAgents.agents.find((agent) => agent.id === "probe")?.identity?.name, "Synthetic Stella",
+    "The Gateway must expose the initialized identity, not merely a workspace file");
+  assert.equal((await client.request("stella.initialize", { action: "apply" })).state, "ready");
   let direct;
   try {
     direct = await run(process.execPath, [path.join(hostRoot, "openclaw.mjs"), "agent", "--agent", "probe", "--session-key", "agent:probe:direct", "--message", "Synthetic direct probe", "--json", "--timeout", "30"], { cwd: temp, env: gateway.env, timeout: 60_000 });
@@ -249,7 +302,8 @@ try {
   assert.equal(providerRequests, 0, "Direct agent execution must not reach the model");
   assert.match(`${direct.stdout}\n${direct.stderr}`, /Stella Core 需要经过可验证的完成协调入口/);
   const sessionKey = "agent:probe:main-completion";
-  const submission = { sessionKey, message: questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" };
+  const submission = { sessionKey, message: skillReadProbe ? "Read the stella-initialization-probe skill and initialize Stella again now."
+    : questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" };
   const { runExactHostEvaluationChat } = await import(buildModule("src/acceptance/exact-host-chat.js"));
   const sent = failureProbe || cancellationProbe ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
     request: (method, params) => client.request(method, params, { timeoutMs: 35_000 }),
@@ -268,7 +322,7 @@ try {
   }
   if (!failureProbe && !cancellationProbe) assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
   const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 });
-  const history = await client.request("chat.history", { sessionKey, limit: 10 });
+  const history = await readHistory({ sessionKey, limit: 10 });
   const messages = history.messages ?? [];
   assert.equal(terminal.status, failureProbe || cancellationProbe ? "error" : "ok", JSON.stringify(terminal));
   let persistence;
@@ -314,7 +368,7 @@ try {
       const episode = JSON.parse(await readFile(path.join(canghaiRoot, `30_PersonalData/praxis/episodes/${episodeId}/episode.json`), "utf8"));
       assert.equal(episode.status, questionProbe || adviceTailProbe ? "recommended" : "closed");
       if (outcomeProbe) assert.equal((await reader.read(episode.learning.praxis[0], "understandings")).status, "candidate");
-      const afterRecovery = await client.request("chat.history", { sessionKey, limit: 10 });
+      const afterRecovery = await readHistory({ sessionKey, limit: 10 });
       assert.equal(afterRecovery.messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
       assert.equal(observedEvents.filter((event) => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
       if (adviceTailProbe) await verifyAdviceBundle(reader, sent.runId, revision, remote, remoteRevision, episode);
@@ -405,7 +459,7 @@ try {
     const coreAdmissionRejected = JSON.stringify(replayTerminal).includes("run_recovery_required");
     const hostSessionRejected = replayTerminal.error === `Error: Session "${sessionKey}" changed while starting work. Retry.`;
     assert.ok(coreAdmissionRejected || hostSessionRejected, "Replay must fail at an identified admission boundary");
-    const replayHistory = await client.request("chat.history", { sessionKey, limit: 10 });
+    const replayHistory = await readHistory({ sessionKey, limit: 10 });
     await writeFile(path.join(temp, "replay-observation.json"), JSON.stringify({
       replayTerminal, providerRequests,
       messages: replayHistory.messages.map((message) => ({ role: message.role, id: message.id,
@@ -444,15 +498,23 @@ try {
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
     provesV2Persistence: managed && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
     provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
+    initialization: { providerReceivedInitialization, hostIdentityVerified: true, skillBodyRead: skillReadProbe ? providerReceivedSkillBody : "not_exercised",
+      ownerRequestedReinitialization: skillReadProbe ? providerReceivedInitializationResult : "not_exercised", scope: "host_bootstrap" },
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
-  await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));
-  console.log(JSON.stringify(report, null, 2));
   assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");
-  assert.equal(report.providerRequests, 1);
+  assert.equal(report.providerRequests, skillReadProbe ? 3 : 1);
+  if (skillReadProbe) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
+  if (skillReadProbe) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
+  if (!preparationCancellationProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
   // Preparation cancellation precedes the Host user transcript append.
   assert.equal(report.userMessages, preparationCancellationProbe ? 0 : 1);
   assert.equal(report.finalAnswers, failureProbe || cancellationProbe ? 0 : 1);
   if (questionProbe) assert.equal(providerReceivedOriginalEvidence, true);
+  await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
+} catch (error) {
+  process.stderr.write(JSON.stringify({ initializationProbe: temp, events: observedEvents.filter((event) => event.event === "chat"), diagnostics: gateway?.diagnostics() }) + "\n");
+  throw error;
 } finally {
   providerRelease.resolve();
   await client?.stopAndWait({ timeoutMs: 2_000 });

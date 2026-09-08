@@ -5,7 +5,8 @@ type Model = { provider: string; model: string; required_capabilities: string[] 
 export type RuntimeCapability = { id: string; required: boolean; adapter_id: string; adapter_version: string;
   config_ref: string; acceptance_ref: string; required_secret_refs: string[] };
 export type RuntimeProfile = {
-  schema_version: "stella.runtime-profile/v1"; contract_profile: "alpha_praxis" | "full_memory";
+  schema_version: "stella.runtime-profile/v1" | "stella.runtime-profile/v2"; contract_profile: "alpha_praxis" | "full_memory";
+  host_materialization_ref?: string;
   agent_id: string; language: string; timezone: string;
   models: Record<"main" | "router" | "learning" | "framework_compiler", Model>;
   capabilities: RuntimeCapability[]; source_policies_ref: string;
@@ -30,7 +31,13 @@ function reference(value: unknown): void {
 
 /** Structural contract only. Acceptance and current Host availability are separate checks. */
 export function parseRuntimeProfile(value: unknown): RuntimeProfile {
-  requireValue(isRecord(value) && value.schema_version === "stella.runtime-profile/v1", "profile_migration_required");
+  requireValue(isRecord(value) && (value.schema_version === "stella.runtime-profile/v1" || value.schema_version === "stella.runtime-profile/v2"), "profile_migration_required");
+  if (value.schema_version === "stella.runtime-profile/v2") {
+    requireValue(Object.keys(value).every((key) => ["schema_version", "contract_profile", "host_materialization_ref", "agent_id", "language", "timezone",
+      "models", "capabilities", "source_policies_ref", "memory", "autonomy"].includes(key)), "unknown_profile_field");
+    reference(value.host_materialization_ref);
+  }
+  else requireValue(value.host_materialization_ref === undefined, "profile_migration_required");
   requireValue(["alpha_praxis", "full_memory"].includes(String(value.contract_profile)) && text(value.agent_id) &&
     text(value.language) && text(value.timezone), "invalid_profile_identity");
   try { new Intl.DateTimeFormat("en", { timeZone: value.timezone }).format(); }

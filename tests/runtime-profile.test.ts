@@ -30,3 +30,10 @@ test("profile rejects unknown versions, absent roles, unsafe refs and invalid ti
   assert.throws(() => parseRuntimeProfile({ ...fixture(), source_policies_ref: "path:../secret" }), /invalid_reference/);
   assert.throws(() => parseRuntimeProfile({ ...fixture(), source_policies_ref: "path:.git/config" }), /invalid_reference/);
 });
+
+test("initialization uses an explicit v2 reference rather than changing v1 semantics", () => {
+  const v2 = { ...fixture(), schema_version: "stella.runtime-profile/v2", host_materialization_ref: "path:host.json" };
+  assert.equal(parseRuntimeProfile(v2).host_materialization_ref, "path:host.json");
+  assert.throws(() => parseRuntimeProfile({ ...v2, host_materialization_ref: undefined }), /invalid_reference/);
+  assert.throws(() => parseRuntimeProfile({ ...fixture(), host_materialization_ref: "path:host.json" }), /migration_required/);
+});

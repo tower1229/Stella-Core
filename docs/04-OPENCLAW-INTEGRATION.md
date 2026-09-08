@@ -282,3 +282,24 @@ Agent 尚未加载 Core 或插件无法启动时，Core 自身 hook 无法构成
 | I-15 | 初始化完成但真实学习未验收 | receipt 只证明所声明初始化能力；Alpha／完整记忆／主人使用效果分别报告 |
 
 实施验证依次使用 schema／跨对象测试、文件与配置故障注入、`npm run verify` 和同一产物的 Exact Host 场景；固定 Core SHA、包 hash、Host／harness 和来源 revision。当前文档调查没有运行这些验收，现有历史收据不能替代 I 系列证据。
+
+### 8.11 初始化执行器的实施进度（2026-09-07）
+
+工作区新增 `src/openclaw/initialization.ts`、`initialization-registration.ts`、`initialization-source.ts` 与 `initialization-templates.ts`。目前实现公开模板、已审查行为映射、完整 skill 资源树、Host 展示身份与 setup 的初始化闭环，公开状态和对应 receipt 标明 `scope: host_bootstrap`。这里的 `ready` 仅证明这些启动条件，不等于完整 Memory Lifecycle、自动化能力或私人实例已恢复。
+
+- 插件注册本身不写文件；Gateway service 启动后自动运行初始化，执行期间目标 Agent 被门禁阻断。安装前必须已配置有效来源与本机绑定；OpenClaw 对缺少必填配置的插件会保持禁用，不能据此承诺无配置安装也会成功。
+- `/stella-initialize`、`/stella-initialize status` 与管理员 Gateway 方法 `stella.initialize`（`apply`／`status`）可随时调用同一协调器。自然语言请求可由模型选择 `stella_initialize` 工具，执行 `apply` 必须有 Host 提供的主人身份；不能用模型自报或工具参数代替授权。
+- 管理员可使用 `/stella-initialize rollback <operationId>` 或 Gateway `rollback` 操作恢复原始字节、权限和目标 Agent 的展示身份。外部身份修改会在文件回滚前阻断操作。回滚后保持 fenced；Host setup 内部状态及业务数据不在此回滚范围。
+- v2 profile 的 `host_materialization_ref` 必须指向 JSON 格式的 `stella.host-materialization/v1`。`stella.host-files/v1` 仅为内部执行器格式，不再被公开入口接受。来源须为干净、精确提交；声明绑定 exact Host 版本、带内容摘要的行为映射、五份投影配方、技能资源树及必需检查。未知字段、旧 profile、非法路径、漂移与超限 bootstrap 均显式失败。
+- `stella.host-templates/v1` 提供五份公开模板；映射区分 retained、adapted、retired、unavailable 和 conflict。必需行为未解决、投影漏用或夹带未审查规则均阻断。投影输入须由 `stella.projection-exposure/v1` 明确允许公开运行指令；不把私人事实复制进公共启动上下文。
+- 技能必须与 Manifest 指向的规范 `stella.skill-registry/v1` 对齐，校验来源用途、暴露策略、完整资源树、摘要和可执行权限。不能通过空 bindings 跳过已启用技能。尚无适配器的 required_capabilities、非空 automation_declarations、额外 required_checks，以及 `full_memory` profile 均显式返回不可用，不把裁减后的结果标为成功。
+- `stella.display-identity/v1` 生成原生 `IDENTITY.md`，并通过 Host `mutateConfigFile` 对指定 Agent 的 identity 做 CAS 更新；只修改该配置字段，并等待热重载实际生效。通过公开 `ensureAgentWorkspace` 验证 setup 不再 pending；必须已有显式目标 Agent 配置，尚不提供新 Agent 创建。
+- 每次操作保留独立归档，使用持久化 journal、文件锁、before 内容与权限校验。进程被杀后只回收 SDK 已确认死亡的锁持有者；恢复复用原操作。重复初始化在内容未变时复用已验收操作，并重新查询 Host 技能及文件。
+- OpenClaw 2026.8.2 的 `api.runtime.gateway.request` 拒绝第三方插件。当前通过显式配置 `initializationGatewayAccess: local_operator_read` 授权本机公开认证连接，仅查询文件与技能，凭据仍由 Host 管理；不制造官方插件身份。不能在启动 service 中等待尚未监听的 Gateway，因此初始化异步开始，未完成时仍阻断请求。
+- Host 会重复注册执行 harness；准入必须从持久化 receipt 恢复，并将内部 run 与完成协调操作绑定到同一初始化操作。正常的业务提交和配置热重载使用当前 recovery pointer 核对内容，不能错误取消已持久化且投影未变的回复。
+- 文件修改／回滚前先持久化维护门禁，并检查目标仓库是否仍有完成协调事务。存在活动轮次时返回 `active_turn_drain_required`，保留门禁且不改运行文件；等待旧事务结束后重试。迟到草稿在业务持久化前再次验证 run 绑定。该检查目前覆盖同一 Gateway 进程中的 Core 完成协调器，不宣称多 Gateway 共用一个 workspace 已获支持。
+- 主生成适配器保留 Host 的 skills 上下文装配和上游工具权限，使用公开 `toolExecutionAllow` 限制私有草稿阶段只能执行 `read` 和 `stella_initialize`；读取仅允许当前 receipt 声明且校验通过的 skill 资源。初始化工具同时在 manifest `contracts.tools` 和注册工厂中声明名称；主人身份由 SDK `resolveCommandAuthorization` 根据 Host 提供的上下文解析，不能从提示词推断。需要脚本、外部工具或写入的完整技能尚不在这一执行范围内。
+
+已用本机 OpenClaw 2026.8.2 的隔离合成环境验证启动、手动重入、真实技能来源、普通首轮、托管写入、重启和重复请求隔离；临时干净快照的 packed 主链验收也通过。后续代码改动仍须重新生成最终产物收据，不能把临时快照 SHA 当作主工作区已提交 SHA。
+
+仍未完成：完整记忆和扩展技能能力适配器、自动化事务、Host 记忆视图与既有会话刷新、插件未加载时的独立 Host 门禁，以及真实 CangHai 迁移和本机 main 生效。身份验收覆盖原生配置和 Gateway 读取，尚非各真实 channel 展示验收。当前本机来源仍为 `runtime-profile/v1alpha`，配置 recovery revision 也落后于仓库 HEAD；不得复制旧冲突指令、生成空记忆目录或改成受限 Alpha profile 来冒充完整迁移。I 系列验收尚未全部完成。

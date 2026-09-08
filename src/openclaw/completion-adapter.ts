@@ -10,6 +10,7 @@ import { publishCompletionDraft } from "./completion-delivery.js";
 import { isRecord } from "../shared/type-guards.js";
 import { captureHostInput, type HostInputSnapshot } from "./host-input.js";
 import { admitCompletionOnce, openCompletionAdmissionJournal } from "./completion-admission.js";
+import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
 
 // Keep terminal run IDs too: a late callback is not a new request. Do not evict a
 // known run merely to admit new work, since eviction could authorize a resend.
@@ -101,6 +102,11 @@ export function registerCompletionAdapter(
       }
       const sessionId = entry?.sessionId ?? randomUUID();
       const model = resolveDefaultModelForAgent({ cfg: ctx.cfg, agentId });
+      const sender = resolveCommandAuthorization({ ctx: event.ctx, cfg: ctx.cfg, commandAuthorized: event.ctx.CommandAuthorized });
+      const chatType = event.ctx.ChatType;
+      if (chatType !== undefined && chatType !== "direct" && chatType !== "group" && chatType !== "channel") {
+        throw new CompletionError("unsupported_chat_type", "admission");
+      }
       const prompt = event.ctx.Body;
       if (typeof prompt !== "string" || !prompt.trim()) throw new CompletionError("invalid_input", "admission");
       const resourceScope = await ports.resourceScope();
@@ -113,9 +119,16 @@ export function registerCompletionAdapter(
           if (abortSignal.aborted) throw new CompletionError("cancelled", "admission");
           const generated = await api.runtime.agent.runEmbeddedAgent({
             agentId, sessionId, sessionKey, runId,
+            senderId: sender.senderId, senderIsOwner: sender.senderIsOwner,
+            messageChannel: event.ctx.Provider, chatType,
             workspaceDir: resolveAgentWorkspaceDir(ctx.cfg, agentId), config: ctx.cfg,
             prompt, transcriptPrompt: prompt, ...model, modelFallbacksOverride: [],
-            timeoutMs: 540_000, abortSignal, disableTools: true, suppressLiveStreamOutput: true,
+            timeoutMs: 540_000, abortSignal,
+            // Preserve Host prompt/skill construction and the caller's policy.
+            // Only these tools may execute before the private draft is committed.
+            toolsAllow: event.toolsAllow,
+            toolExecutionAllow: ["read", "stella_initialize"],
+            suppressLiveStreamOutput: true,
             ...PRIVATE_DRAFT_HOST_POLICY, deferTerminalLifecycle: true,
             userTurnTranscriptRecorder: ctx.userTurnTranscriptRecorder,
             prepareAssistantTranscriptMessage: ctx.prepareAssistantTranscriptMessage,

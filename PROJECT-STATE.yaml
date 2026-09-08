@@ -96,7 +96,7 @@ implementation_evidence:
     candidate_certified: false
 
 implementation_gaps:
-  - target-Agent initialization and managed Host projections, skill and automation migration; design in docs/04-OPENCLAW-INTEGRATION.md section 8, I-series acceptance unimplemented
+  - initialization Host bootstrap implements reviewed templates, behavior mapping, complete skill trees, setup and identity; full-memory and automation adapters and private main migration remain incomplete; see docs/04-OPENCLAW-INTEGRATION.md section 8.11
   - final clean candidate must rerun after current working-tree changes are committed
   - private instance adapter must provide the v2 four-turn harness and authorized evidence inputs
   - real-action learning and eligible next-turn use remain unverified; candidate strategy creation is insufficient

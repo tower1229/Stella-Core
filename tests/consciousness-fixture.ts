@@ -3,10 +3,75 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { stringify } from "yaml";
+import { parse, stringify } from "yaml";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
+import { isRecord } from "../src/shared/type-guards.js";
 
 const execFileAsync = promisify(execFile);
+
+export async function prepareInitializationFixture(root: string, agentId: string) {
+  const prefix = "50_PersonalAgent/stella";
+  const profilePath = path.join(root, prefix, "runtime-profile.yaml");
+  const profile: unknown = parse(await readFile(profilePath, "utf8"));
+  if (!isRecord(profile)) throw new Error("Synthetic runtime profile is missing");
+  profile.schema_version = "stella.runtime-profile/v2";
+  profile.agent_id = agentId;
+  profile.host_materialization_ref = `path:${prefix}/host-materialization.json`;
+  await writeFile(profilePath, stringify(profile));
+  await mkdir(path.join(root, prefix, "host"), { recursive: true });
+  const files = [];
+  for (const target of ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"]) {
+    const content = target === "IDENTITY.md" ? canonicalJson({ schema_version: "stella.display-identity/v1", id: "synthetic-identity",
+      name: "Synthetic Stella", theme: "Isolated local acceptance", emoji: "🧪" }) : `# Synthetic ${target}\nSynthetic isolated Host acceptance.\n`;
+    const source = `${prefix}/host/${target === "IDENTITY.md" ? "display-identity.json" : target}`;
+    await writeFile(path.join(root, source), content);
+    files.push({ target, source, sha256: bytesVersion(content), executable: false });
+  }
+  const skill = "---\nname: stella-initialization-probe\ndescription: Synthetic initialization acceptance only.\n---\nNo private data.\n";
+  const skillRoot = `${prefix}/host/skills/stella-initialization-probe`;
+  await mkdir(path.join(root, skillRoot), { recursive: true });
+  const skillSource = `${skillRoot}/SKILL.md`;
+  await writeFile(path.join(root, skillSource), skill);
+  const save = async (name: string, value: unknown) => {
+    const bytes = canonicalJson(value);
+    const ref = `path:${prefix}/host/${name}`;
+    await writeFile(path.join(root, prefix, "host", name), bytes);
+    return { ref, sha256: bytesVersion(bytes) };
+  };
+  const skillPin = { ref: `path:${skillSource}`, sha256: bytesVersion(skill) };
+  const exposure = await save("exposure.json", { schema_version: "stella.projection-exposure/v1", id: "synthetic-public-behavior",
+    classification: "public_behavior", audiences: ["public"], targets: [...files.map((file) => file.target), "skills/stella-initialization-probe"] });
+  const policy = await save("skill-policy.json", { schemaVersion: "stella.source-policy/v1", id: "synthetic-skill-policy", ownerId: "synthetic-owner",
+    readPurposes: ["host_initialization"], derivePurposes: [], deliveryScopes: ["host-workspace"], retention: "retain", authorityEvidenceRefs: [] });
+  const registry = await save("skill-registry.json", { schema_version: "stella.skill-registry/v1", id: "synthetic-skills", skills: [{
+    id: "initialization-probe", ref: `path:${skillRoot}`, class: "core_behavior", enabled: true, required_capabilities: [], policy_ref: policy.ref,
+  }] });
+  const manifestPath = path.join(root, prefix, "manifest.yaml");
+  const manifest: unknown = parse(await readFile(manifestPath, "utf8"));
+  if (!isRecord(manifest)) throw new Error("Synthetic manifest is missing");
+  const extensions = manifest.extensions === undefined ? {} : manifest.extensions;
+  if (!isRecord(extensions)) throw new Error("Synthetic manifest extensions are invalid");
+  manifest.extensions = { ...extensions, skillRegistryRef: registry.ref };
+  await writeFile(manifestPath, stringify(manifest));
+  const mappingEntries = files.map((file) => ({ id: file.target, source: { ref: `path:${file.source}`, sha256: file.sha256 },
+    role: "core_behavior", status: "retained", new_rule_refs: [{ ref: `path:${file.source}`, sha256: file.sha256 }],
+    reason: "Synthetic reviewed public behavior", replacement_requirements: [], dependencies: [], required: true }));
+  mappingEntries.push({ id: "probe-skill", source: skillPin, role: "core_behavior", status: "retained", new_rule_refs: [skillPin],
+    reason: "Synthetic read-only skill", replacement_requirements: [], dependencies: [], required: true });
+  const mapping = await save("behavior-mapping.json", { schema_version: "stella.behavior-mapping/v1", id: "synthetic-behavior", entries: mappingEntries });
+  const tree = [{ path: "SKILL.md", sha256: skillPin.sha256, executable: false }];
+  const materialization = {
+    schema_version: "stella.host-materialization/v1", id: "synthetic-host",
+    host_adapter: { id: "openclaw", version: "1", host_version: "2026.8.2", harness: "openclaw" }, behavior_mapping_ref: mapping,
+    projection_recipes: files.map((file) => ({ target: file.target, template_version: "stella.host-templates/v1", behavior_ids: [file.target],
+      input_refs: [{ ref: `path:${file.source}`, sha256: file.sha256 }], exposure_policy_ref: exposure })),
+    skill_bindings: [{ registry_ref: registry, registry_id: "synthetic-skills", skill_id: "initialization-probe", name: "stella-initialization-probe",
+      source_root: `path:${skillRoot}`, files: tree, tree_digest: bytesVersion(canonicalJson(tree)), purpose: "host_initialization", policy_ref: policy,
+      exposure_policy_ref: exposure, behavior_ids: ["probe-skill"] }], automation_declarations: [], required_checks: ["host_files", "host_skills", "host_identity", "host_setup"],
+  };
+  await writeFile(path.join(root, prefix, "host-materialization.json"), JSON.stringify(materialization));
+  return materialization;
+}
 
 export async function createFixture(options: { ownerProfile?: "synthetic" | "case_only" } = {}): Promise<string> {
   const includeOwnerProfile = options.ownerProfile !== "case_only";

@@ -2,6 +2,9 @@
   "id": "stella-core",
   "name": "Stella Core",
   "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
+  "contracts": {
+    "tools": ["stella_initialize"]
+  },
   "activation": {
     "onStartup": true,
     "onAgentHarnesses": ["openclaw"]
@@ -11,6 +14,11 @@
     "additionalProperties": false,
     "required": ["canghaiRoot", "recoveryRevision", "dataMode"],
     "properties": {
+      "initializationGatewayAccess": {
+        "type": "string",
+        "enum": ["local_operator_read"],
+        "description": "Explicit permission to verify initialization through the local authenticated Gateway using operator.read; credentials remain in Host configuration."
+      },
       "canghaiRoot": {
         "type": "string",
         "minLength": 1,

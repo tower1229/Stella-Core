@@ -40,6 +40,7 @@ import { recoverPendingOutcome } from "./praxis/outcome-recovery.js";
 import { loadOutcomeRecoveryBinding } from "./praxis/outcome-recovery-binding.js";
 import { prepareQuestionEvidence } from "./praxis/question-evidence.js";
 import { prepareQuestionTransaction, recoverPendingQuestion } from "./praxis/question-transaction.js";
+import { registerStellaInitialization } from "./openclaw/initialization-registration.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 const STELLA_CORE_SYSTEM_CONTEXT =
@@ -51,6 +52,7 @@ type StellaCoreConfig = {
   agentId: string;
   recoveryRevision: string;
   dataMode: StellaDataMode;
+  initializationGatewayAccess?: "local_operator_read";
   durabilityRemote?: string;
   durabilityBranch?: string;
 };
@@ -108,6 +110,7 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
         : "stella",
     recoveryRevision: config.recoveryRevision,
     dataMode: config.dataMode,
+    ...(config.initializationGatewayAccess === "local_operator_read" ? { initializationGatewayAccess: "local_operator_read" as const } : {}),
     ...(typeof config.durabilityRemote === "string"
       ? { durabilityRemote: config.durabilityRemote }
       : {}),
@@ -195,6 +198,7 @@ export default definePluginEntry({
 
   register(api) {
     const config = parsePluginConfig(api.pluginConfig);
+    const initialization = registerStellaInitialization(api, config);
     registerCompletionTranscriptGuard(api, config.agentId);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
     const completeModel = (params: Parameters<typeof api.runtime.llm.complete>[0]) =>
@@ -291,6 +295,10 @@ export default definePluginEntry({
         return draft;
       },
       async persist({ operationId, draft, abortSignal }) {
+        // A draft admitted before maintenance may finish late. Do not persist
+        // its business interpretation against a changed or fenced projection.
+        try { await initialization.assertRun(operationId); }
+        catch { throw new CompletionError("stale_initialization_run", "persist"); }
         const pending = completions.get(operationId);
         if (!pending || pending.draft !== draft || abortSignal.aborted) throw new CompletionError("invalid_prepared_completion", "persist");
         let revision = pending.prepared.revision!;
