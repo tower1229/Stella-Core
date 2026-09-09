@@ -79,3 +79,22 @@ openclaw gateway status --deep --require-rpc
 Source Baseline 只记录派生历史，Recovery Revision 是当前选定恢复点。来源变化后按 Memory Lifecycle 重评当前依赖，历史预测保持原貌。pointer CAS 失败保留已生成的提交，协调当前配置后重试；push 状态不明先查远端，不能再生成一条同样学习。
 
 本文件不授权自动提交、push、迁移私有数据、修改正式配置、关闭 Issue 或发布。具体执行遵循当前任务已经给出的授权，不重复索取已有授权。
+
+### SPEC #6 完整验收账本（Issue #7）
+
+使用现有只读入口生成真实预检和可公开的完整账本：
+
+```sh
+npm run build
+node scripts/inspect-main-readiness.mjs --config <本机配置> --output <新的私人预检.json> --ledger-output <新的账本.json>
+```
+
+此入口只查询初始化协调器的 `status`，并读取现有 profile、能力配置及目录；不初始化、不调用模型、不修改个人仓库、不投递消息。退出码 2 表示存在预检阻塞。原始预检含实例定位，必须留在私人环境；`--ledger-output` 仅输出白名单状态、内容摘要、规范相对路径和固定 case ID。零条理解或工作记录标记 `valid_empty`，不据此判断重要上下文已恢复。配置非占位和声明 `passed` 都不是行为验收。
+
+账本展开原 01～40 和全部 49 个 G／I／C／M ID，负责票来自 2026-09-09 读取的 #7～#39；19～30 是能力关闭行，不重复计入交付工作量。规范定位绑定 #6 的本地 `43d8b19aae4b3c7c3c487d1898ce8c4608fac941` 与文件内容 SHA-256，可用 `git show <revision>:<path>` 读取。生成时核对当前文件内容，变化即显式拒绝，更新规格时须审查并更新 `src/acceptance/delivery-catalog.ts`。不假设该提交已推送到 GitHub。
+
+每行按 `synthetic_contract`、`exact_host`、`real_main` 分层记录固定 `spec6-<ID>-<environment>` case；该 case 代表该行完整退出条件的验收套件，不能用局部子用例代替。`natural_feedback` 单列，不用技术通过代替主人反馈。状态使用 `pending / in_progress / implemented / verified / blocked`；部分层通过最多为 implemented。依赖未通过、配置缺失、失败用例及任何必需项缺证据均不能使总账通过。当前预检不会生成行为通过凭据；初始化状态查询也不证明实际 Gateway 版本或真实模型执行。
+
+后续执行器可通过 `--evidence-directory <私人证据目录>` 提供 `manifest.json` 数组及 `<artifactSha256>.evidence` 原件。记录字段由 `DeliveryEvidence` 定义：摘要 ID、目标编号、固定 case ID、环境、完整版本绑定、记录时间、失效时间、结果、原件 SHA-256、显式 `supersedes` 列表。摘要地址可在该私人目录定位并核验原件，公开账本不包含目录、正文或账号。版本绑定包含 Core、构建产物、Host、harness、来源、profile、策略、配置、模型和 case 集合；私人来源及模型仅存摘要。历史记录保留原日期、版本、结果及替代链；过期、未来、脏源码、不同版本及被替代的结果不计入当前通过，缺失或被改写的原件直接报错。
+
+这是执行器证据索引和差距报告，不是能力签发器：摘要校验只证明索引对应原件，不证明用例语义或执行身份可信。适配器收据生成、真实 Host 身份绑定和运行准入属于 #8。当前脚本的 Host 摘要来自检查端 SDK，公开报告明确标记 `host_runtime_version_unverified`，因此不会据此宣布真实 main 总交付完成。不得把自行填写的结果或该账本传入运行准入门禁。

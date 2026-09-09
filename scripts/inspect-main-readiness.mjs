@@ -8,7 +8,8 @@ import { inspectMainReadiness } from "../dist/src/acceptance/main-readiness.js";
 import { readRepositoryBytes } from "../dist/src/canghai/catalog-reader.js";
 import { parseCangHaiRef } from "../dist/src/canghai/ref.js";
 import { bytesVersion } from "../dist/src/canghai/content-version.js";
-const { values } = parseArgs({ options: { config: { type: "string" }, output: { type: "string" } } });
+import { writeDeliveryLedger } from "./lib/delivery-ledger.mjs";
+const { values } = parseArgs({ options: { config: { type: "string" }, output: { type: "string" }, "ledger-output": { type: "string" }, "evidence-directory": { type: "string" } } });
 if (!values.config || !values.output) throw new Error("Required: --config <OpenClaw config> --output <private new JSON file>");
 const original = await readFile(values.config);
 const cfg = JSON.parse(original.toString("utf8"));
@@ -29,6 +30,11 @@ const report = await inspectMainReadiness({ root: c.canghaiRoot, profilePath: pa
 if (bytesVersion(await readFile(values.config)) !== bytesVersion(original) || await git("rev-parse", "HEAD") !== revision || await git("status", "--porcelain")) {
   throw new Error("configuration_changed_during_inspection");
 }
-await writeFile(values.output, JSON.stringify({ ...report, sourceRevision: revision, checkedAt: new Date().toISOString() }, null, 2), { flag: "wx", mode: 0o600 });
+const snapshot = { ...report, sourceRevision: revision, checkedAt: new Date().toISOString() };
+await writeFile(values.output, JSON.stringify(snapshot, null, 2), { flag: "wx", mode: 0o600 });
+if (values["ledger-output"]) {
+  const delivery = await writeDeliveryLedger({ report: snapshot, configuration: original, output: values["ledger-output"], evidenceDirectory: values["evidence-directory"] });
+  console.log(JSON.stringify({ delivery }));
+}
 console.log(JSON.stringify({ output: values.output, blockers: report.blockers, counts: report.counts, behavioralAcceptance: report.behavioralAcceptance }));
 if (report.blockers.length) process.exitCode = 2;
