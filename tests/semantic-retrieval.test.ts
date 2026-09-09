@@ -85,5 +85,7 @@ test("semantic retrieval searches beyond 64 entries and follows original-driven 
     return { provider: "synthetic", model: "model", text: JSON.stringify({ stopped: true, nextIntents: [], reason: "Synthetic bounded stop" }) };
   } });
   assert.deepEqual(archivedResult.refs, archive.evidenceRefs);
+  assert.equal(archivedResult.coverage.descriptorOriginalReadCount, 1);
+  assert.equal(archivedResult.coverage.totalOriginalReadCount, 1);
 
 });

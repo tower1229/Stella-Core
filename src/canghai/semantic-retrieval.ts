@@ -32,6 +32,7 @@ export async function retrieveCatalogEvidence(input: {
   const descriptors = structuredClone(input.descriptors);
   const current = async () => { check(!input.abortSignal?.aborted, "operation_cancelled"); await input.assertProcessingCurrent(); await reader.assertCurrent(); };
   await current();
+  const descriptorOriginals = new Map<string, OriginalEvidence>();
   const candidates: Array<{ handle: string; ref: VersionedRef; description: string }> = [];
   for (const entry of reader.catalog.evidence) {
     if (entry.status !== "current" || !reader.eligible(entry)) continue;
@@ -49,7 +50,9 @@ export async function retrieveCatalogEvidence(input: {
       check(isRecord(source.origin) && [HOST_REQUEST_ARCHIVE_ADAPTER, HOST_INPUT_ARCHIVE_ADAPTER].includes(String(source.origin.adapterId)) &&
         policy.schemaVersion === "stella.source-policy/v1" && policy.ownerId === input.ownerId, "retrieval_descriptor_required");
       await current();
-      description = canonicalJson(await input.resolver.readEvidence({ id: entry.id, version: entry.version }));
+      const original = await input.resolver.readEvidence({ id: entry.id, version: entry.version });
+      description = canonicalJson(original);
+      descriptorOriginals.set(key(entry), original);
       check(description.length <= config.maxOriginalChars, "retrieval_original_capacity_exhausted");
     }
     candidates.push({ handle: `E${candidates.length + 1}`, ref: { id: entry.id, version: entry.version }, description });
@@ -100,11 +103,12 @@ export async function retrieveCatalogEvidence(input: {
       review.nextIntents.every(v => typeof v === "string" && v.trim() && v.length <= 2000) &&
       (review.stopped ? review.nextIntents.length === 0 : review.nextIntents.length > 0), "invalid_retrieval_review");
     if (review.stopped) {
-      for (const original of originals.values()) check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "stale_evidence");
+      for (const original of [...descriptorOriginals.values(), ...originals.values()]) check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "stale_evidence");
       await current();
       return { refs: [...originals.values()].map(o => o.ref), exclusions,
         coverage: { scope: "configured_catalog_only", descriptorCount: candidates.length, pagesReviewed, rounds: round + 1,
-          readCount: originals.size, notSelectedCount: candidates.length - originals.size - denied.size, reason: review.reason } };
+          readCount: originals.size, descriptorOriginalReadCount: descriptorOriginals.size,
+          totalOriginalReadCount: new Set([...descriptorOriginals.keys(), ...[...originals.values()].map(o => key(o.ref))]).size, notSelectedCount: candidates.length - originals.size - denied.size, reason: review.reason } };
     }
     intents = review.nextIntents as string[];
   }
