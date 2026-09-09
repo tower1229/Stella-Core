@@ -1,3 +1,4 @@
+import type { SourceAccessDescriptor } from "./canghai/source-access.js";
 import { recoverCorrection } from "./learning/correction.js";
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "./canghai/host-request-archive.js";
 import { HOST_INPUT_ARCHIVE_ADAPTER } from "./canghai/host-input-archive.js";
@@ -252,7 +253,7 @@ export default definePluginEntry({
       ensureDurability(loaded);
       const binding = await loadPraxisRuntimeBinding(loaded);
       let sourceAccess;
-      let viewProcessing: { ownerId: string; modelRef: string; assertCurrent: () => Promise<void> } | undefined;
+      let viewProcessing: { descriptors: SourceAccessDescriptor[]; ownerId: string; modelRef: string; assertCurrent: () => Promise<void> } | undefined;
       if (binding.personalContextAccessPath) {
         if (!request) throw new CatalogError("personal_context_active_request_required");
         const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
@@ -284,7 +285,7 @@ export default definePluginEntry({
             }
           };
           await assertCurrent();
-          viewProcessing = { ownerId: processing.config.ownerId, modelRef, assertCurrent };
+          viewProcessing = { descriptors: processing.config.descriptors, ownerId: processing.config.ownerId, modelRef, assertCurrent };
         }
         sourceAccess = createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
           isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId),
@@ -538,6 +539,8 @@ export default definePluginEntry({
             if (route.mode !== "outcome") {
               const retrieved = await prepareQuestionEvidence({ requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
                 question: request.prompt, route, priorContext: [appendContext, personalViews?.context].filter(Boolean).join("\n"), resolver: runtime.evidence,
+                ...(binding.semanticRetrieval && viewProcessing ? { retrieval: { config: binding.semanticRetrieval,
+                  descriptors: viewProcessing.descriptors, modelRef: viewProcessing.modelRef, ownerId: viewProcessing.ownerId, assertProcessingCurrent: viewProcessing.assertCurrent } } : {}),
                 complete: async (input) => {
                   await viewProcessing?.assertCurrent();
                   const result = await completeModel({ agentId: config.agentId,

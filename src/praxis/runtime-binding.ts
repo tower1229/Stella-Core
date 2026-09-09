@@ -1,3 +1,4 @@
+import { parseSemanticRetrievalConfig, type SemanticRetrievalConfig } from "../canghai/semantic-retrieval.js";
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js";
 import { parse as parseYaml } from "yaml";
 import { PERSONAL_CONTEXT_ADAPTER, loadPersonalContextAccess, validatePersonalContextCatalog } from "../canghai/personal-context-access.js";
@@ -22,6 +23,7 @@ export type PraxisRuntimeBinding = {
   profileAuthorityPaths: string[];
   configPath: string;
   catalogPath: string;
+  semanticRetrieval?: SemanticRetrievalConfig;
   personalContextAccessPath?: string;
   archive: { policyRef: VersionedRef; objectRoot: string; payloadRoot: string };
   purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
@@ -80,6 +82,13 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       await validatePersonalContextCatalog(await CatalogReader.load(loaded.canghaiRoot, catalogPath), processing.config);
       await processing.assertCurrent();
     }
+    const retrievalCapability = profile.capabilities.find(value => value.id === "semantic_retrieval");
+    let semanticRetrieval: SemanticRetrievalConfig | undefined;
+    if (retrievalCapability) {
+      requireValue(fullMemory && personalContextAccessPath);
+      requireValue(retrievalCapability.adapter_id === "stella.semantic-retrieval" && retrievalCapability.adapter_version === "1");
+      semanticRetrieval = parseSemanticRetrievalConfig(JSON.parse((await readRepositoryBytes(loaded.canghaiRoot, relativeRef(retrievalCapability.config_ref))).toString("utf8")));
+    }
     const referenceBindings: PraxisRuntimeBinding["referenceBindings"] = [];
     for (const binding of value.referenceBindings) {
       requireValue(isRecord(binding) && typeof binding.routingRef === "string" && validMemoryRef(binding.sourceRef));
@@ -88,6 +97,7 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       referenceBindings.push({ routingRef: binding.routingRef, sourceRef: { id: binding.sourceRef.id, version: binding.sourceRef.version } });
     }
     return { profileAuthorityPaths: resources.authorityPaths, configPath, catalogPath,
+      ...(semanticRetrieval ? { semanticRetrieval } : {}),
       ...(personalContextAccessPath ? { personalContextAccessPath } : {}), archive: { policyRef: value.archive.policyRef, objectRoot: value.archive.objectRoot, payloadRoot: value.archive.payloadRoot },
       purpose: value.purpose as PraxisRuntimeBinding["purpose"], referenceBindings };
   } catch (error) {

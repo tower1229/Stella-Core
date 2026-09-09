@@ -28,7 +28,7 @@ for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admi
   "dist/src/openclaw/initialization.js", "dist/src/openclaw/initialization-registration.js",
   "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
   "dist/src/openclaw/initialization-context.js",
-  "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
+  "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
   "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
   "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
   "dist/src/acceptance/recovery-drill.js", "openclaw.plugin.json",
