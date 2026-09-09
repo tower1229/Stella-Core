@@ -1,4 +1,10 @@
+import { recoverCorrection } from "./learning/correction.js";
+import { HOST_REQUEST_ARCHIVE_ADAPTER } from "./canghai/host-request-archive.js";
+import { HOST_INPUT_ARCHIVE_ADAPTER } from "./canghai/host-input-archive.js";
+import { prepareSourceOutputCheck } from "./canghai/source-output.js";
+import type { OriginalEvidence } from "./praxis/episode-evidence.js";
 import path from "node:path";
+import { applyHostCorrection } from "./learning/host-correction.js";
 import { preparePersonalViews } from "./praxis/personal-views.js";
 import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import { createPersonalContextAccess, loadPersonalContextAccess } from "./canghai/personal-context-access.js";
@@ -28,7 +34,7 @@ import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-r
 import type { CortexRoute } from "./routing/router.js";
 import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
 import { registerCompletionAdapter } from "./openclaw/completion-adapter.js";
-import { CompletionError, readCompletionRequest, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
+import { CompletionError, readCompletionRequest, hasCompletionPersistencePermit, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
   type CompletionDraft } from "./openclaw/completion.js";
 import { canonicalJson, bytesVersion } from "./canghai/content-version.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, resolveBoundInputRefs, persistBoundAdvice } from "./praxis/runtime-binding.js";
@@ -36,7 +42,7 @@ import { EpisodeV2Error } from "./praxis/episode-v2.js";
 import type { HostInputSnapshot } from "./openclaw/host-input.js";
 import { prepareEvidenceBoundOutcome } from "./praxis/outcome-preparation.js";
 import { prepareOutcomeTransaction } from "./praxis/outcome-transaction.js";
-import { MemoryTransactionError } from "./canghai/memory-transaction.js";
+import { MemoryTransactionError, withMemoryMutationLock } from "./canghai/memory-transaction.js";
 import { CatalogError, CatalogReader } from "./canghai/catalog-reader.js";
 import { EpisodeEvidenceResolver } from "./praxis/episode-evidence.js";
 import { parseCangHaiRef } from "./canghai/ref.js";
@@ -179,7 +185,9 @@ type PreparedTurn = {
   revision?: string;
   generationId?: string;
   evidenceRef?: string;
+  checkSourceOutput?: (text: string, signal: AbortSignal) => Promise<unknown>;
   assertPersonalViewsCurrent?: () => Promise<void>;
+  assertPersonalViewsForGeneration?: (generationId: string) => Promise<void>;
   persistRecommendation?: (text: string, abortSignal: AbortSignal, original: HostInputSnapshot) => Promise<{ revision: string; generationId: string; writeOperationIds: string[] }>;
 };
 
@@ -218,7 +226,7 @@ export default definePluginEntry({
       agentId: config.agentId, purpose: "stella-original-action-evidence", maxTokens: input.maxTokens, temperature: 0,
       messages: [{ role: "user", content: input.prompt }],
     });
-    const createRuntime = async (loaded: LoadedConsciousness, request?: BoundTurnRequest) => {
+    const ensureDurability = (loaded: LoadedConsciousness) => {
       if (config.dataMode === "managed_durable_write" && !durability) {
         const policy = loaded.manifest.durability;
         if (!policy?.criticalWritePolicy || !policy.normalWritePolicy) {
@@ -239,6 +247,9 @@ export default definePluginEntry({
           },
         });
       }
+    };
+    const createRuntime = async (loaded: LoadedConsciousness, request?: BoundTurnRequest) => {
+      ensureDurability(loaded);
       const binding = await loadPraxisRuntimeBinding(loaded);
       let sourceAccess;
       let viewProcessing: { ownerId: string; modelRef: string; assertCurrent: () => Promise<void> } | undefined;
@@ -254,8 +265,10 @@ export default definePluginEntry({
         };
         const modelRef = resolveModel();
         const assertRequestCurrent = () => {
-          const current = readCompletionRequest(request.runId, request.agentId, request.sessionId, request.sessionKey);
-          if (current.requestHash !== request.requestHash) throw new CatalogError("personal_context_request_mismatch");
+          if (!hasCompletionPersistencePermit(request.runId)) {
+            const current = readCompletionRequest(request.runId, request.agentId, request.sessionId, request.sessionKey);
+            if (current.requestHash !== request.requestHash) throw new CatalogError("personal_context_request_mismatch");
+          }
           if (resolveModel() !== modelRef) throw new CatalogError("personal_context_model_changed");
         };
         if (processing.config.viewProcessingModelRefs) {
@@ -274,6 +287,7 @@ export default definePluginEntry({
           viewProcessing = { ownerId: processing.config.ownerId, modelRef, assertCurrent };
         }
         sourceAccess = createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
+          isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId),
           complete: async ({ prompt, maxTokens }) => {
             const result = await completeModel({ agentId: config.agentId, model: modelRef,
               purpose: "stella-source-access", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] });
@@ -289,6 +303,50 @@ export default definePluginEntry({
       }, sourceAccess);
       return { runtime, binding, viewProcessing };
     };
+
+    api.registerGatewayMethod("stella.recoverCorrection", async ({ params, client, respond, signal }) => {
+      try {
+        if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin") || api.config?.gateway?.mode === "remote") {
+          throw new CompletionError("recovery_admin_required", "admission");
+        }
+        if (Object.keys(params).length !== 1 || typeof params.operationId !== "string" || !/^learn_[a-f0-9]{64}$/.test(params.operationId)) {
+          throw new CompletionError("invalid_recovery_request", "admission");
+        }
+        if (config.dataMode !== "managed_durable_write") throw new CompletionError("critical_durability_required", "admission");
+        const { loaded, binding, assertCurrent: assertRecoveryAuthorityCurrent } = await loadOutcomeRecoveryBinding(config.canghaiRoot, config.manifestPath, config.recoveryRevision);
+        if (!binding.personalContextAccessPath) throw new CatalogError("operator_recovery_grant_required");
+        const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
+        if (processing.config.operatorRecovery !== true || !processing.config.requesterIds.includes(client.connect.client.id)) {
+          throw new CatalogError("operator_recovery_grant_required");
+        }
+        const resolveModel = () => {
+          const cfg = structuredClone(api.runtime.config.current()) as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"];
+          const selected = resolveDefaultModelForAgent({ cfg, agentId: config.agentId });
+          return `${selected.provider}/${selected.model}`;
+        };
+        const modelRef = resolveModel();
+        if (!processing.config.viewProcessingModelRefs?.includes(modelRef)) throw new CatalogError("personal_view_model_forbidden");
+        const abortSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(300_000)]) : AbortSignal.timeout(300_000);
+        const assertProcessingCurrent = async () => {
+          abortSignal.throwIfAborted(); await processing.assertCurrent(); await assertRecoveryAuthorityCurrent();
+          const current = api.runtime.config.current().plugins?.entries?.["stella-core"];
+          if (current?.enabled !== true || current.config?.canghaiRoot !== config.canghaiRoot || current.config.agentId !== config.agentId ||
+            (current.config.manifestPath ?? "50_PersonalAgent/stella/manifest.yaml") !== config.manifestPath) throw new CatalogError("recovery_host_binding_changed");
+          if (resolveModel() !== modelRef) throw new CatalogError("personal_context_model_changed");
+        };
+        ensureDurability(loaded);
+        const result = await recoverCorrection({ root: loaded.canghaiRoot, operationId: params.operationId,
+          catalogPath: binding.catalogPath, objectRoot: binding.archive.objectRoot, ownerId: processing.config.ownerId, modelRef,
+          purpose: { ...binding.purpose, evidenceCutoff: new Date().toISOString(),
+            trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } },
+          durability: durability!, signal: abortSignal, assertProcessingCurrent });
+        respond(true, result);
+      } catch (error) {
+        const category = error instanceof CompletionError || error instanceof CatalogError || error instanceof EpisodeV2Error || error instanceof MemoryTransactionError
+          ? error.category : "correction_recovery_failed";
+        respond(false, undefined, { code: "UNAVAILABLE", message: `Stella recovery failed: ${category}` });
+      }
+    }, { scope: "operator.admin", profileAccess: "required" });
 
     for (const recoveryKind of ["outcome", "question"] as const) {
       api.registerGatewayMethod(recoveryKind === "outcome" ? "stella.recoverOutcome" : "stella.recoverQuestionEvidence", async ({ params, client, respond, signal }) => {
@@ -320,11 +378,47 @@ export default definePluginEntry({
       }, { scope: "operator.admin", profileAccess: "required" });
     }
 
+    const corrections = new Map<string, Awaited<ReturnType<typeof applyHostCorrection>>>();
     const completions = new Map<string, { prepared: PreparedTurn; draft: CompletionDraft; original: HostInputSnapshot }>();
     registerCompletionAdapter(api, config.agentId, {
       async resourceScope() {
         const root = await realpath(config.canghaiRoot);
         return process.platform === "win32" ? root.toLowerCase() : root;
+      },
+      async prepareInput({ runId, abortSignal }) {
+        if (config.dataMode !== "managed_durable_write") return;
+        await runCompletionPreparation(runId, async () => {
+          const request = readCompletionRequest(runId, config.agentId);
+          const loaded = await consciousness.load();
+          const { runtime, binding, viewProcessing } = await createRuntime(loaded, request);
+          if (!viewProcessing) return;
+          await initialization.assertReady();
+          const original = { schemaVersion: "stella.host-request-snapshot/v1" as const, request, capturedAt: new Date().toISOString() };
+          const assertCurrent = async () => {
+            abortSignal.throwIfAborted();
+            readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
+            await viewProcessing.assertCurrent();
+          };
+          await assertCurrent();
+          try {
+            const receipt = await completeWithPreparationSignal(signal => applyHostCorrection({ request, original, ownerId: viewProcessing.ownerId,
+              reader: runtime.evidence.reader, archive: binding.archive,
+              purpose: { ...runtime.evidence.purpose, evidenceCutoff: new Date().toISOString() },
+              durability: durability!, signal: signal ? AbortSignal.any([signal, abortSignal]) : abortSignal, assertCurrent, modelRef: viewProcessing.modelRef,
+              complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
+                purpose: "stella-correction", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] }),
+            }));
+            await assertCurrent();
+            corrections.set(runId, receipt);
+          } catch (error) {
+            throw new CompletionError(error instanceof CatalogError || error instanceof MemoryTransactionError ? error.category : "correction_failed", "prepare");
+          }
+        });
+      },
+      async validateDraft({ text, preparation, abortSignal }) {
+        const prepared = preparation as PreparedTurn | undefined;
+        try { await prepared?.checkSourceOutput?.(text, abortSignal); }
+        catch (error) { throw new CompletionError(error instanceof CatalogError ? error.category : "source_output_check_failed", "generate"); }
       },
       describeDraft(runId, text, input, value) {
         const prepared = value as PreparedTurn | undefined;
@@ -336,7 +430,7 @@ export default definePluginEntry({
           evidenceRef: prepared.evidenceRef ?? completionDraftHash(canonicalJson({
             originalInput: input, context: prepared.context ?? "", route: prepared.route, revision: prepared.revision,
           })),
-          requiresCriticalPersistence: Boolean(prepared.persistRecommendation),
+          requiresCriticalPersistence: Boolean(prepared.persistRecommendation || corrections.has(runId)),
         };
         completions.set(runId, { prepared, draft, original: input });
         return draft;
@@ -351,7 +445,7 @@ export default definePluginEntry({
         await pending.prepared.assertPersonalViewsCurrent?.();
         let revision = pending.prepared.revision!;
         let generationId = pending.prepared.generationId!;
-        const writes: string[] = [];
+        const writes: string[] = [...(corrections.get(operationId)?.writeOperationIds ?? [])];
         if (pending.prepared.persistRecommendation) {
           const persisted = await pending.prepared.persistRecommendation(draft.text, abortSignal, pending.original);
           revision = persisted.revision;
@@ -366,7 +460,17 @@ export default definePluginEntry({
           checkedAt: new Date().toISOString(),
         };
       },
-      settled(runId) { completions.delete(runId); },
+      async withFinalValidation(input, publish) {
+        const checkViews = completions.get(input.operationId)?.prepared.assertPersonalViewsForGeneration;
+        if (!checkViews) return publish();
+        return withMemoryMutationLock(config.canghaiRoot, async () => {
+          input.abortSignal.throwIfAborted();
+          await checkViews(input.receipt.generationId);
+          input.abortSignal.throwIfAborted();
+          return publish();
+        });
+      },
+      settled(runId) { completions.delete(runId); corrections.delete(runId); },
     });
 
     api.on(
@@ -404,6 +508,7 @@ export default definePluginEntry({
               ? createSemanticRouter(params => completeModel({ ...params, agentId: config.agentId, model: viewProcessing.modelRef }))
               : classifySemantically;
             const route = await classifyForTurn(request.prompt, candidates);
+            const outputOriginals: OriginalEvidence[] = personalViews ? [...personalViews.view.user, ...personalViews.view.memory].flatMap(item => item.originals) : [];
             let persistRecommendation: PreparedTurn["persistRecommendation"];
             let evidenceRef: string | undefined;
             let questionBundle: Awaited<ReturnType<typeof prepareQuestionEvidence>>["bundle"] | undefined;
@@ -425,6 +530,11 @@ export default definePluginEntry({
                     )
                   : renderTwinContext(loadedForTurn, route);
             let appendContext = renderSelectedContext();
+            const correction = corrections.get(runId);
+            if (correction) appendContext = [appendContext,
+              "The current owner input has been archived and its learning disposition durably recorded. Preserve the current corrected views. A clarification disposition must remain unresolved; it does not authorize guessing or claiming correction is complete.",
+              canonicalJson({ disposition: correction.disposition, clarification: correction.clarification, changeRef: correction.changeRef }),
+            ].filter(Boolean).join("\n");
             if (route.mode !== "outcome") {
               const retrieved = await prepareQuestionEvidence({ requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
                 question: request.prompt, route, priorContext: [appendContext, personalViews?.context].filter(Boolean).join("\n"), resolver: runtime.evidence,
@@ -439,6 +549,7 @@ export default definePluginEntry({
                   return result;
                 },
               });
+              outputOriginals.push(...retrieved.originalEvidence);
               api.logger.info(`Stella evidence assessment attempts: ${JSON.stringify(retrieved.modelOutput.attempts.map(({ sha256, category }) => ({ sha256, category })))}`);
               if (retrieved.bundle.suggestedResponseKind === "action_advice" && route.mode !== "praxis" && route.mode !== "deep_praxis") {
                 throw new CompletionError("question_response_mode_mismatch", "prepare");
@@ -467,6 +578,9 @@ export default definePluginEntry({
               const planned = await prepareEvidenceBoundOutcome({ request: request.prompt, selected, recordedAt: new Date().toISOString(),
                 resolver: runtime.evidence, complete: evidenceComplete });
               await runtime.selectedEpisode(episodeRef);
+              if (viewProcessing) for (const ref of runtime.evidence.reader.catalog.evidence) {
+                if (ref.status === "current" && runtime.evidence.reader.eligible(ref)) outputOriginals.push(await runtime.evidence.readEvidence(ref));
+              }
               if (planned.disposition === "ready") {
                 if (config.dataMode !== "managed_durable_write" || !durability) throw new CompletionError("critical_durability_required", "prepare");
                 const transaction = await prepareOutcomeTransaction({ operationId: runId, requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
@@ -548,10 +662,17 @@ export default definePluginEntry({
               responseKind: route.responseKind, evidenceStatus: route.evidenceStatus,
               materialUnknowns: route.materialUnknowns,
             })}`.trim();
+            const checkSourceOutput = viewProcessing ? await prepareSourceOutputCheck({
+              question: request.prompt, originals: outputOriginals, resolver: runtime.evidence, modelRef: viewProcessing.modelRef,
+              assertCurrent: viewProcessing.assertCurrent,
+              complete: ({ prompt, maxTokens, signal }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
+                purpose: "stella-source-output", temperature: 0, maxTokens, signal, messages: [{ role: "user", content: prompt }] }),
+            }) : undefined;
             recordCompletionPreparation(runId, {
-              outcome: "ready", route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
+              outcome: "ready", checkSourceOutput, route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
               generationId: memory.generationId, persistRecommendation, evidenceRef,
-              ...(personalViews ? { assertPersonalViewsCurrent: personalViews.assertCurrent } : {}),
+              ...(personalViews ? { assertPersonalViewsCurrent: personalViews.assertCurrent,
+                assertPersonalViewsForGeneration: personalViews.assertCurrentForGeneration } : {}),
             } satisfies PreparedTurn);
             return {
               prependSystemContext: `${STELLA_CORE_SYSTEM_CONTEXT}\nVerified runtime restoration scope: ${JSON.stringify({

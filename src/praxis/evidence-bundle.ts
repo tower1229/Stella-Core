@@ -8,6 +8,7 @@ import type { VersionedRef } from "./episode-v2.js";
 export const SOURCE_ACCESS_EXCLUSION_CATEGORIES = [
   "permission_denied", "source_topic_unresolved", "source_scenario_forbidden",
   "source_trigger_forbidden", "source_topic_required", "source_quote_forbidden", "source_quote_authorization_required",
+  "source_rule_forbidden",
 ] as const;
 export type SourceAccessExclusions = Partial<Record<typeof SOURCE_ACCESS_EXCLUSION_CATEGORIES[number], number>>;
 

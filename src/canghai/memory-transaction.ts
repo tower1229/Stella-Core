@@ -1,12 +1,18 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
-import { lstat, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
+import { lstat, mkdir, open, readFile, realpath, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin-sdk/file-lock";
 import { isRecord } from "../shared/type-guards.js";
 
 const markerName = ".stella-memory-transaction.json";
+// OpenClaw can reload the plugin registration when its recovery pointer changes.
+// Delivery hooks and the in-flight writer must share the same live lock ownership.
+type ReadLock = { root: string; bytes: string; active: boolean };
+const lockRegistryKey = Symbol.for("stella-core.memory-read-locks/v1");
+const processScope = globalThis as typeof globalThis & { [lockRegistryKey]?: Map<string, ReadLock> };
+const readLocks = processScope[lockRegistryKey] ??= new Map<string, ReadLock>();
 const owners = new AsyncLocalStorage<{ root: string; intent: string; active: boolean }>();
 export class MemoryTransactionError extends Error {
   constructor(readonly category: string) { super(`Memory transaction failed: ${category}`); }
@@ -45,6 +51,13 @@ export async function assertMemoryTransactionReadable(root: string): Promise<voi
   check(owner?.active && owner.root === resolved && owner.intent === pending, "memory_transaction_pending");
 }
 
+/** Only an unchanged lock held by this live process may be excluded from source cleanliness. */
+export async function ownsMemoryMutationLock(root: string): Promise<boolean> {
+  const held = readLocks.get(await realpath(root));
+  return Boolean(held?.active &&
+    await text(path.join(held.root, `${markerName}.lock`)) === held.bytes);
+}
+
 export async function withMemoryMutationLock<T>(root: string, work: () => Promise<T>): Promise<T> {
   const resolved = path.resolve(root);
   const owner = owners.getStore();
@@ -52,9 +65,16 @@ export async function withMemoryMutationLock<T>(root: string, work: () => Promis
   if (owner?.active && owner.root === resolved) return work();
   const stat = await lstat(resolved);
   check(stat.isDirectory() && !stat.isSymbolicLink(), "unsafe_transaction_path");
+  const key = await realpath(resolved);
   const lock = await acquireMutationLock(resolved);
-  try { await assertMemoryTransactionReadable(resolved); return await work(); }
-  finally { await lock.release(); }
+  const held = { root: resolved, bytes: "", active: true };
+  try {
+    held.bytes = (await text(path.join(resolved, `${markerName}.lock`)))!;
+    check(held.bytes !== null, "memory_lock_missing");
+    await assertMemoryTransactionReadable(resolved);
+    readLocks.set(key, held);
+    return await work();
+  } finally { held.active = false; readLocks.delete(key); await lock.release(); }
 }
 
 export type MemoryFileChange = { path: string; before: string | null; after: string };

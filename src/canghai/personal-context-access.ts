@@ -1,7 +1,7 @@
 import { CatalogError, readRepositoryBytes, validMemoryRef, type CatalogReader } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { createSourceAccessProvider, type SourceAccessDescriptor, type SourceAccessProvider } from "./source-access.js";
-import { parseSourcePolicy, type PolicyPurpose } from "./source-policy.js";
+import { assertSourcePolicyAccess, parseSourcePolicy, type PolicyPurpose, type SourceAccessContext } from "./source-policy.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 
@@ -17,19 +17,21 @@ export type PersonalContextAccess = {
   purpose: PolicyPurpose;
   descriptors: SourceAccessDescriptor[];
   viewProcessingModelRefs?: string[];
+  operatorRecovery?: true;
 };
 
 /** An explicitly configured processing grant for reviewed metadata, separate
  * from the source policies. Never created by a model during a question. */
 export function parsePersonalContextAccess(value: unknown): PersonalContextAccess {
   if (!isRecord(value) || value.schemaVersion !== "stella.personal-context-access/v1" ||
-      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs"].includes(k)) ||
+      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs", "operatorRecovery"].includes(k)) ||
       !text(value.ownerId) || !texts(value.requesterIds) || !value.requesterIds.length ||
       !texts(value.modelRefs) || !value.modelRefs.length || !isRecord(value.purpose) ||
       Object.keys(value.purpose).sort().join() !== "deliveryScope,derivePurpose,readPurpose" ||
       !Object.values(value.purpose).every(text) || !Array.isArray(value.descriptors) || value.descriptors.length > 512) {
     throw new CatalogError("invalid_personal_context_access");
   }
+  if (Object.hasOwn(value, "operatorRecovery")) check(value.operatorRecovery === true, "invalid_operator_recovery_grant");
   if (Object.hasOwn(value, "viewProcessingModelRefs")) {
     check(texts(value.viewProcessingModelRefs) && value.viewProcessingModelRefs.length > 0 &&
       value.viewProcessingModelRefs.every(ref => (value.modelRefs as string[]).includes(ref)), "invalid_view_processing_grant");
@@ -65,11 +67,13 @@ export function createPersonalContextAccess(input: {
   request: BoundTurnRequest; modelRef: string;
   binding: Awaited<ReturnType<typeof loadPersonalContextAccess>>;
   assertRequestCurrent: () => void;
+  isPersistenceRevalidation?: () => boolean;
   complete: (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
   signal?: AbortSignal;
 }): SourceAccessProvider {
   const config = parsePersonalContextAccess(input.binding.config);
   const request = structuredClone(input.request), modelRef = input.modelRef;
+  const decisions = new Map<string, SourceAccessContext>();
   check(request.senderIsOwner && request.chatType === "direct" && request.senderId &&
     config.requesterIds.includes(request.senderId), "personal_context_requester_forbidden");
   check(config.modelRefs.includes(modelRef), "personal_context_model_forbidden");
@@ -101,7 +105,18 @@ export function createPersonalContextAccess(input: {
     await current(reader);
     check(canonicalJson({ readPurpose: purpose.readPurpose, derivePurpose: purpose.derivePurpose, deliveryScope: purpose.deliveryScope }) ===
       canonicalJson(config.purpose), "personal_context_purpose_mismatch");
-    try { return await provider(reader, target, purpose); }
+    try {
+      const key = canonicalJson([target.sourceRef, target.policyRef, config.purpose]);
+      if (input.isPersistenceRevalidation?.()) {
+        const decision = decisions.get(key);
+        check(decision, "source_access_revalidation_receipt_required");
+        assertSourcePolicyAccess(await reader.read(target.policyRef, "policies"), purpose, decision);
+        return structuredClone(decision);
+      }
+      const decision = await provider(reader, target, purpose);
+      decisions.set(key, structuredClone(decision));
+      return decision;
+    }
     finally {
       // Revocation must win even when inference returns a negative decision:
       // callers may treat a policy denial as an exclusion, but never stale data.

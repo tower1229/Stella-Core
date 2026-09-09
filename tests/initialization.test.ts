@@ -15,6 +15,8 @@ import { coordinateCompletion } from "../src/openclaw/completion.js";
 import { compileInitializationSource } from "../src/openclaw/initialization-source.js";
 import { BOOTSTRAP_TARGETS, INITIALIZATION_TEMPLATE_VERSION, type HostIdentity } from "../src/openclaw/initialization-templates.js";
 
+import { withMemoryMutationLock } from "../src/canghai/memory-transaction.js";
+
 const exec = promisify(execFile);
 async function fixture(t: { after(fn: () => Promise<void>): void }, verify: InitializationPorts["verify"] = async () => undefined) {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-init-")));
@@ -328,4 +330,19 @@ test("Host service initializes on startup; manual entry shares the same transact
   await assert.rejects(initialization.assertReady(), /profile_migration_required/);
   await service!.stop!({ config: api.config, stateDir: f.state, logger: api.logger } as never);
   assert.equal((await initialization.initialize()).state, "blocked");
+});
+
+
+test("initialization accepts only its live delivery lock and still rejects unrelated dirty source", async (t) => {
+  const f = await fixture(t);
+  const alias = path.join(path.dirname(f.source), "parent-alias");
+  await symlink(path.dirname(f.source), alias);
+  await withMemoryMutationLock(path.join(alias, "source"), async () => {
+    await f.initializer.initialize();
+    await writeFile(path.join(f.source, "unexpected.txt"), "synthetic dirty source");
+    await assert.rejects(f.initializer.initialize(), /source_dirty/);
+    await rm(path.join(f.source, "unexpected.txt"));
+  });
+  await writeFile(path.join(f.source, ".stella-memory-transaction.json.lock"), "unowned");
+  await assert.rejects(f.initializer.initialize(), /source_dirty/);
 });

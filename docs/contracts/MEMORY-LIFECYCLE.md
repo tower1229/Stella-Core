@@ -97,6 +97,30 @@ Host 适配器要求活跃请求中 SDK 确认的主人身份、私聊范围和�
 
 本次实现的是已有合法理解／事项的读取与装配，不是纠正写入协调器。合成测试通过生成新目录代际及带 LearningChange 的新事项版本，验证旧视图失效、新会话读取新版本；不能据此声称自然语言纠正已自动写回、传播到全部派生资产。非空 episodeRefs 和尚无适配器的依赖显式拒绝；完整媒体检索、历史视图、输出引用约束和真实 main 的 full_memory 验收仍待实现。
 
+2026-09-08 纠正事务增量：`src/learning/correction.ts` 的 `prepareCorrection` 接收已归档、可校验身份的主人原话，以结构化模型生成更新方案并独立复核。宿主固定对象身份、时间、版本、LearningChange 和新代际；模型不能引入未读引用或跳过依赖受影响的理解／事项。当前采用完整批次同步：有访问排除而无法证明影响范围完整时拒绝更新；不实现中间代或后台重评，也不取消后续分批同步的产品要求。修订、旧版本失效、LearningChange 和目录通过现有 MemoryTransaction 一起发布，critical 同步失败保持读取屏障。同实例重试及 `recoverCorrection` 的日志恢复均复用已确认事务，不重新生成修订或重发回答；恢复再次核查计划路径与变更范围、证据及当前处理许可。
+
+2026-09-08 Host 接线增量：启用私人视图处理且使用 managed_durable_write 的请求，在生成回答前执行 `prepareInput`。先验证初始化门禁和活跃主人请求，将完成协调器已绑定的原始请求归档为 `openclaw-reply-dispatch-2026.8.2` 来源（Host 此时尚未可靠提交 transcript），保留准确请求体、身份和 run 绑定；capturedAt 只表示接收观察时间，不伪造 transcript 事件、admission receipt 或 authoredAt，再由 `archiveCorrectionInput` 将原文、Source／Evidence／Coverage 与目录放入一个 MemoryTransaction，完成 critical 后才调用纠正模型。`applyHostCorrection` 的新代际随后用于当轮视图和取证；完成收据包含归档及纠正操作。只读模式不执行这一写入路径。归档或纠正失败时不生成／投递成功回答，事务屏障保护未完成发布。
+
+生成权限结束后，完成协调器只在 persist 阶段授予同 run 的来源复核权限；不得重新读取原始请求或发起新的来源判断。复核只接受本次已成功判断的确切 Source／Policy／用途，重查许可文件和当前对象，缺收据、撤销、取消或来源变化均失败。最终投递在仓库 mutation lock 内复核当轮所用视图、原文与收据 generation；允许本轮持久化新增不影响所用材料的对象，不允许使用过时理解。该锁协调 Core 写入，不阻止仓库外部进程直接改文件。初始化检查只排除当前进程持有且字节未变的确切锁文件，其他脏改仍阻断投递。
+
+新增合成测试覆盖归档失败前零模型调用、原话完整留存、事务恢复、当轮新事项读取和投递前代际／原文复核。该入口的单请求 Coverage 不表示完整对话已归档；后续 transcript 导入仍需关联同一消息，不能重复计算独立证据。真实来源逐项用途与描述启用、生成内容是否遵守全部引用／语义约束、重启后经 Host 授权的私人纠正恢复入口、完整记忆能力接入及真实 main 行为验收仍未完成，不能将这些测试称为 C-04 已通过。
+
+2026-09-08 能力补齐增量：完整记忆使用独立的 `stella.memory-runtime-binding/v1`，由必需 capability `memory_lifecycle`（adapter `stella.memory-lifecycle`，version `1`）的 config_ref 引用。字段为 `archive: {policyRef, objectRoot, payloadRoot}`、`purpose: {readPurpose, derivePurpose, deliveryScope}`、`referenceBindings: [{routingRef, sourceRef}]`。必须另有 `source_access_context`，显式授予私人视图处理；四个角色模型均在许可范围内，必需视图为 current_understanding／ongoing_work，语义 provider 为 stella-structured-llm。Alpha 解码仍只接受原有格式；完整记忆不接受借用 Alpha 格式。该接线复用已有目录及事务内核，不能作为完整检索、媒体留存、自动任务或各 skill 能力已经验收的凭据，初始化完整运行门禁保留。
+
+私人视图路径新增生成后、持久化业务回答前的 `prepareSourceOutputCheck`。它携带本轮取证及视图所用原文、源级／证据级策略，以结构化 LLM 判断最终回答是否越权引用、超出用途、混淆证据或替换作者原意；当前访问适配器只授予概括，检查器不能生成引用许可。判断绑定 requestHash／draftHash／sourcesHash，原文、策略和处理许可在判断前后重新校验；错误或拒绝均阻断该回答的持久化与投递，不回退为成功。此前已同步的纠正不会因为回答拒绝而撤销。检查作用于已读入的这些证据，不证明尚未实现的来源约束迁移或全库检索已完成。
+
+新增管理入口 `stella.recoverCorrection`：仅接受 `{operationId: learn_<sha256>}`，要求本机 operator.admin 和当前 personal-context-access 中显式 `operatorRecovery: true`，客户端标识须在 requesterIds 内。恢复校验已绑定的主人／模型、当前处理许可和来源配置权威，再重放已有日志；不调用语义模型、不接受用户指定目的地、不重新发送回答。缺少当前来源访问证明仍显式失败，不为恢复绕过 v2 策略。隔离实际 Host 验证了失败屏障、重启恢复、重复恢复不重复学习及不重发。
+
+2026-09-09 来源限制迁移增量：`stella.source-policy/v3` 保留 v2 字段，必填 `usageRules: {access, interpretation}`。两组均为 `{id, requirement}` 数组，每组最多 32 条、单条要求最多 2000 字符、总长最多 24000 字符，组内 ID 唯一。v1／v2 不接受此字段，不能通过添加字段却沿用旧版本静默迁移。规则是限制，不授予模型、引用、投递或操作权限。
+
+读取前的逐来源语义判断必须为每条 access 规则返回 `{id,satisfied}`；Host 将检查绑定到确切 Policy Ref，漏项、伪造项、旧版本或不满足均失败。明确的 `source_rule_forbidden` 计入访问排除，格式错误和缺失规则检查仍中止请求。interpretation 规则以确切策略引用随 OriginalEvidence 传递；问题取证的 EvidenceBundle 和纠正方案在持久化前另经结构化 LLM 逐条复核，判断绑定请求、原件、规则及候选内容，前后重验来源与许可。最终回答检查同时约束这些规则，违反返回 `source_output_rejected`。这不是其他尚未接通的框架编译、外部集成或全部学习路径的完成证明。
+
+迁移规划器把既有结构化语义审查的 requiredChanges 映射到明确规则，并保留每份来源的原始 interpretation，不能只用通用规则替代特定上下文。未知规则显式标记不支持；分段、原件留存、框架占位排除和旧关系跟进投影迁移仍要求具体实现及证据，不能由模型返回合规替代。规划输出始终不是激活授权，逐来源规则复核、真实配置迁移及 full_memory 完整能力门禁仍须完成。
+
+2026-09-08 真实 main 预检：`scripts/inspect-main-readiness.mjs` 只读核对本机 Gateway 初始化状态、角色模型、能力配置／验收声明和目录用途，输出私有 JSON，存在阻断返回退出码 2；它永远不生成业务验收通过凭据，不据声明文件放开门禁。本机已移除 DeepSeek fallback 并重启加载纠正接线，但 `full_memory` 仍被运行门禁拦截。源 revision `37fc834f5958fcba02be9209bf8420bc65583678` 下，100 条来源的用途集合未启用，11 项能力配置为占位、12 项能力验收未完成，四个角色模型与实际 Gemini 3.1 Pro 不符；主人输入归档与私人上下文访问绑定缺失。该次预检时 `loadPraxisRuntimeBinding` 仅接受 Alpha；上述后续增量补充了完整记忆绑定解码，但真实 main 的占位配置尚未迁移，真实业务验收并未执行。必须先实现完整记忆运行绑定及依赖能力，再完成来源约束迁移、角色模型统一与真实用例验收；不得把更换 profile 或删掉 blocker 当作完成。
+
+来源迁移工具允许复用绑定旧 revision 的语义审查，前提是旧／新提交的整个 `30_RAG` 文件树（路径、mode、blob）相同，且每条来源摘要与审查匹配。输出保留 `reviewedRevision` 和当前 `boundRevision`，不改写原审查，不因此授予用途或模型处理许可；任一来源变化须重新审查。真实目录核对已确认 100 条来源满足这一条件，实际策略与描述启用仍未执行。
+
 迁移规划脚本 `scripts/plan-source-policy-migration.mjs <root> <full-revision> [semantic-review.json]` 始终只读，要求来源为固定且干净的 HEAD。可选审查文件使用 `stella.source-policy-semantic-review/v1`，包含 sourceRevision、reviewer（kind: llm、id）和完整 entries；每项包含 sourceId、sourceSha256、interpretation、requiredChanges。LLM 负责阅读 Usage Policy／Import Notes 并形成解释，脚本仅验证逐来源身份、摘要、完整性和格式，不替代语义复核，也不验证模型身份或授予权限。审查结果随摘要进入计划，原始元数据映射保持不变；有审查结果也始终 `readyToApply: false`。审查约束落地、权威依据、用途注册、请求及引用授权接入完成前，计划不得应用。
 
 ### 持久组织

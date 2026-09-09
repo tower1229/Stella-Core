@@ -104,15 +104,16 @@ export class CatalogReader {
   }
   /** Validate derived objects against unchanged original evidence before publishing their catalog. */
   async validatePreview(catalog: MemoryCatalog, objects: Array<{ path: string; bytes: string }>,
-    validate: (reader: CatalogReader) => Promise<void>): Promise<void> {
+    validate: (reader: CatalogReader) => Promise<void>, options: { allowWorkChanges?: boolean } = {}): Promise<void> {
     await this.assertCurrent();
     const planned = parseMemoryCatalog(structuredClone(catalog));
     for (const group of ["sources", "evidence", "policies", "coverage", "works", "views"] as const) {
+      if (group === "works" && options.allowWorkChanges) continue;
       requireCondition(canonicalJson(planned[group]) === canonicalJson(this.catalog[group]), "preview_original_evidence_changed");
     }
     const preview = new CatalogReader(this.root, this.catalogPath, planned, this.catalogHash);
     for (const object of objects) {
-      const entry = [...planned.understandings, ...planned.changes, ...planned.bundles].find((entry) => entry.locator.path === object.path);
+      const entry = [...planned.understandings, ...planned.changes, ...planned.bundles, ...(options.allowWorkChanges ? planned.works : [])].find((entry) => entry.locator.path === object.path);
       requireCondition(entry && entry.locator.sha256 === bytesVersion(object.bytes) && !preview.#plannedObjects.has(object.path), "invalid_preview_object");
       preview.#plannedObjects.set(safeRelative(object.path), Buffer.from(object.bytes, "utf8"));
     }

@@ -1,4 +1,5 @@
 import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
+import { verifySourceInterpretation } from "../canghai/source-interpretation.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import type { CortexRoute } from "../routing/router.js";
@@ -155,6 +156,11 @@ export async function prepareQuestionEvidence(input: {
     }
   }
   check(bundle && modelOutput, "question_evidence_invalid_envelope");
+  await verifySourceInterpretation({ request: input.question, originals, artifact: bundle, modelRef: bundle.stopping.modelRef,
+    complete: input.complete, assertCurrent: async () => {
+      checkActive(); await reader.assertCurrent();
+      for (const original of originals) check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "stale_evidence");
+    } });
   for (const original of originals) {
     checkActive();
     check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "stale_evidence");

@@ -180,3 +180,41 @@ test("bound v2 advice archives original input, resumes pointer failure, and rest
   assert.deepEqual(listSemanticRoutingCandidates(directLoaded, memory.openEpisodes), candidates);
   assert.deepEqual(await directRuntime.repository.read(episode.id), restoredEpisode);
 });
+
+test("full-memory uses its explicit lifecycle binding and requires private processing for every model role", async t => {
+  const { parse, stringify } = await import("yaml");
+  const { parseRuntimeProfile } = await import("../src/canghai/runtime-profile.js");
+  const root = await createFixture(); t.after(() => rm(root, { recursive: true, force: true }));
+  const base = "50_PersonalAgent/stella";
+  const profilePath = path.join(root, base, "runtime-profile.yaml");
+  const profile = parseRuntimeProfile(parse(await readFile(profilePath, "utf8")));
+  profile.contract_profile = "full_memory";
+  profile.memory = { ...profile.memory!, semantic_provider: "stella-structured-llm", required_views: ["current_understanding", "ongoing_work"] };
+  const lifecycle = profile.capabilities.find(c => c.id === "transcript_archive")!;
+  lifecycle.id = "memory_lifecycle"; lifecycle.adapter_id = "stella.memory-lifecycle";
+  const accessPath = `${base}/personal-context.json`;
+  profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
+    config_ref: `path:${accessPath}`, acceptance_ref: `path:${base}/capability-acceptance.json`, required_secret_refs: [] });
+  const bindingPath = path.join(root, base, "praxis-binding.json");
+  const binding: Record<string, unknown> = JSON.parse(await readFile(bindingPath, "utf8"));
+  binding.schemaVersion = "stella.memory-runtime-binding/v1";
+  await writeFile(bindingPath, JSON.stringify(binding));
+  const access = { schemaVersion: "stella.personal-context-access/v1", ownerId: "owner-fixture", requesterIds: ["cli"],
+    modelRefs: ["synthetic/synthetic"], viewProcessingModelRefs: ["synthetic/synthetic"], purpose: binding.purpose, descriptors: [] };
+  await writeFile(path.join(root, accessPath), JSON.stringify(access));
+  const saveProfile = () => writeFile(profilePath, stringify(profile));
+  await saveProfile();
+  const load = async () => loadPraxisRuntimeBinding(await loadConsciousness(root));
+  const result = await load();
+  assert.equal(result.personalContextAccessPath, accessPath);
+  const runtime = await createBoundPraxisRuntime(await loadConsciousness(root), result, complete, async () => {});
+  assert.equal(runtime.evidence.reader.catalog.generationId, "fixture-empty-v2");
+  profile.models.learning.model = "unapproved"; await saveProfile();
+  await assert.rejects(load(), /runtime_binding_migration_required/);
+  profile.models.learning.model = "synthetic"; await saveProfile();
+  binding.schemaVersion = "stella.alpha-praxis-binding/v2"; await writeFile(bindingPath, JSON.stringify(binding));
+  await assert.rejects(load(), /runtime_binding_migration_required/);
+  binding.schemaVersion = "stella.memory-runtime-binding/v1"; await writeFile(bindingPath, JSON.stringify(binding));
+  await writeFile(path.join(root, accessPath), JSON.stringify({ ...access, viewProcessingModelRefs: undefined }));
+  await assert.rejects(load(), /runtime_binding_migration_required/);
+});

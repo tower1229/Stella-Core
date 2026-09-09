@@ -2,13 +2,14 @@ import { CatalogError, CatalogReader, selectTextEvidence, validMemoryRef } from 
 import { canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { ActualSource, EpisodeV2, VersionedRef } from "./episode-v2.js";
-import { assertSourcePolicyAccess, parseSourcePolicy } from "../canghai/source-policy.js";
+import { assertSourcePolicyAccess, parseSourcePolicy, type SourceUsageRule } from "../canghai/source-policy.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 
 export type OriginalEvidence = {
   ref: VersionedRef; text: string; role: string; kind: string; independentOriginId: string;
   sourceAdapterId: string; occurredAt: string | null; authoredAt: string | null; capturedAt: string;
   coverageComplete: boolean;
+  usageConstraints?: Array<{ policyRef: VersionedRef; rules: SourceUsageRule[] }>;
 };
 export type EvidencePurpose = {
   sourceAccess?: SourceAccessProvider;
@@ -82,7 +83,13 @@ export class EpisodeEvidenceResolver {
     check(payload.mediaType.startsWith("text/") || payload.mediaType === "application/json", "text_evidence_capability_unavailable");
     const text = selectTextEvidence(payload.bytes, evidence.selector);
     check(text.trim(), "empty_evidence");
+    const usageConstraints: NonNullable<OriginalEvidence["usageConstraints"]> = [];
+    for (const policyRef of includesRef([evidence.policyRef], source.policyRef) ? [evidence.policyRef] : [evidence.policyRef, source.policyRef]) {
+      const policy = parseSourcePolicy(await this.reader.read(policyRef, "policies"));
+      if (policy.usageRules?.interpretation.length) usageConstraints.push({ policyRef, rules: policy.usageRules.interpretation });
+    }
     return { ref, text, role: String(evidence.role), kind: String(evidence.kind), sourceAdapterId: source.origin.adapterId,
+      ...(usageConstraints.length ? { usageConstraints } : {}),
       independentOriginId: evidence.independentOriginId, occurredAt: evidence.occurredAt,
       authoredAt: evidence.authoredAt, capturedAt: evidence.capturedAt as string, coverageComplete: coverage.completeForDeclaredScope };
   }

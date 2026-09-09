@@ -1,4 +1,4 @@
-import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson, bytesVersion } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { EpisodeEvidenceResolver, OriginalEvidence } from "./episode-evidence.js";
@@ -59,7 +59,7 @@ export function validateOngoingWork(value: Record<string, unknown>): VersionedRe
   return dependencies;
 }
 
-function validateUnderstanding(value: Record<string, unknown>): void {
+export function validateUnderstanding(value: Record<string, unknown>): void {
   const scope = value.scope;
   check(exact(value, ["schemaVersion", "id", ...(Object.hasOwn(value, "version") ? ["version"] : []),
     "kind", "status", "statement", "scope", "supportRefs", "counterRefs", "dependencyRefs", "originChangeId",
@@ -83,6 +83,7 @@ type Candidate = { handle: string; ref: VersionedRef; group: "understandings" | 
 export async function preparePersonalViews(input: {
   requestId: string; question: string; ownerId: string; modelRef: string;
   resolver: EpisodeEvidenceResolver;
+  selection?: "model" | "all_authorized";
   assertProcessingCurrent: () => Promise<void>;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
 }) {
@@ -148,7 +149,7 @@ export async function preparePersonalViews(input: {
         for (const evidence of [...change.supportRefs, ...change.counterRefs]) await authorize(evidence, visited, originals);
       }
     } else {
-      check(["stella.source-policy/v1", "stella.source-policy/v2", "stella.archive-coverage/v1"].includes(String(object.schemaVersion)),
+      check(["stella.source-policy/v1", "stella.source-policy/v2", "stella.source-policy/v3", "stella.archive-coverage/v1"].includes(String(object.schemaVersion)),
         "personal_view_dependency_adapter_required");
     }
     const entry = reader.entry(ref);
@@ -200,8 +201,8 @@ export async function preparePersonalViews(input: {
     canonicalJson({ requestHash, question: input.question, exclusions, candidates }),
   ].join("\n");
   check(prompt.length <= 160_000, "personal_view_budget_exhausted");
-  let selections: unknown = [];
-  if (candidates.length) {
+  let selections: unknown = input.selection === "all_authorized" ? candidates.map(candidate => ({ handle: candidate.handle, view: "memory" })) : [];
+  if (candidates.length && input.selection !== "all_authorized") {
     let result;
     try { result = await input.complete({ prompt, maxTokens: 3000 }); }
     catch { throw new CatalogError("personal_view_model_failed"); }
@@ -241,5 +242,15 @@ export async function preparePersonalViews(input: {
   ].join("\n");
   check(context.length <= 96_000, "personal_view_budget_exhausted");
   await assertCurrent();
-  return { view, context, assertCurrent };
+  const assertCurrentForGeneration = async (generationId: string) => {
+    await input.assertProcessingCurrent();
+    const current = await CatalogReader.load(reader.root, reader.catalogPath);
+    check(current.catalog.generationId === generationId, "stale_generation");
+    for (const snapshot of snapshots.values()) {
+      check(current.eligible(snapshot.ref) && canonicalJson(await current.read(snapshot.ref)) === snapshot.body, "stale_personal_view");
+    }
+    for (const payload of payloads.values()) await current.readPayload(payload.source, payload.sha256);
+    await current.assertCurrent(); await input.assertProcessingCurrent();
+  };
+  return { view, context, assertCurrent, assertCurrentForGeneration };
 }

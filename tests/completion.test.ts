@@ -310,3 +310,23 @@ test("missing Host request never falls back to a prompt or cached session identi
     return draft;
   } });
 });
+
+test("persistence revalidation permission is isolated from prompt access and expires before delivery", async () => {
+  const { hasCompletionPersistencePermit } = await import("../src/openclaw/completion.js");
+  let late!: () => boolean;
+  await coordinateCompletion(input, { ...ports([]), async generateDraft() {
+    assert.equal(hasCompletionPersistencePermit(input.runId), false); return draft;
+  }, async persist() {
+    assert.equal(hasCompletionPersistencePermit(input.runId), true);
+    assert.equal(hasCompletionPersistencePermit("other"), false);
+    assert.throws(() => readCompletionRequest(input.runId, "main"), /invalid_run_permit/);
+    const { AsyncResource } = await import("node:async_hooks");
+    late = AsyncResource.bind(() => hasCompletionPersistencePermit(input.runId));
+    return receipt;
+  }, async publishFinal() {
+    assert.equal(hasCompletionPersistencePermit(input.runId), false);
+    assert.equal(late(), false);
+    return { deliveryId: "delivery", status: "confirmed" };
+  } });
+  assert.equal(late(), false);
+});

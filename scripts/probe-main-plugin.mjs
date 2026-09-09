@@ -1,3 +1,4 @@
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -16,17 +17,20 @@ const hostRoot = path.resolve(process.env.STELLA_PROBE_HOST_ROOT ?? path.join(ro
 const { GatewayClient } = await import(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/gateway-runtime.js")).href);
 const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8"));
 assert.equal(host.version, "2026.8.2");
+const outputRejectionProbe = process.argv.includes("--correction-output-rejected");
+const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
+const correctionProbe = outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
 const admissionReplayProbe = process.argv.includes("--admission-replay");
 const preparationCancellationProbe = process.argv.includes("--cancel-preparation");
 const cancellationProbe = process.argv.includes("--cancel") || preparationCancellationProbe;
 const adviceRevisionProbe = process.argv.includes("--advice-revision") || process.argv.includes("--advice-revision-recovery");
 const adviceTailProbe = process.argv.includes("--advice-evidence-recovery") || process.argv.includes("--advice-revision-recovery");
-const recoveryProbe = process.argv.includes("--outcome-recovery") || questionRecoveryProbe || adviceTailProbe;
-const failureProbe = process.argv.includes("--outcome-persist-failure") || recoveryProbe;
-const outcomeProbe = process.argv.includes("--outcome") || failureProbe && !questionRecoveryProbe && !adviceTailProbe;
+const recoveryProbe = correctionRecoveryProbe || process.argv.includes("--outcome-recovery") || questionRecoveryProbe || adviceTailProbe;
+const failureProbe = outputRejectionProbe || process.argv.includes("--outcome-persist-failure") || recoveryProbe;
+const outcomeProbe = process.argv.includes("--outcome") || failureProbe && !correctionProbe && !questionRecoveryProbe && !adviceTailProbe;
 const questionProbe = process.argv.includes("--question-evidence") || process.argv.includes("--question-durable") || questionRecoveryProbe || admissionReplayProbe;
-const managed = process.argv.includes("--managed") || cancellationProbe || adviceRevisionProbe || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe || adviceTailProbe || admissionReplayProbe;
+const managed = correctionProbe || process.argv.includes("--managed") || cancellationProbe || adviceRevisionProbe || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe || adviceTailProbe || admissionReplayProbe;
 const temp = await mkdtemp(path.join(os.tmpdir(), "stella-main-completion-"));
 // Resolve dependencies from the tested package's consumer, not the development checkout.
 const snapshotParent = path.join(packageRoot, ".artifacts");
@@ -131,13 +135,25 @@ if (outcomeProbe || questionProbe || adviceRevisionProbe) {
       strategy: { statement: "Confirm specific time for a weekend invitation", scope: { workIds: [], contexts: ["weekend invitation"], domains: ["social"], global: false } } } };
 }
 await prepareInitializationFixture(canghaiRoot, "probe");
+if (correctionProbe) {
+  const prefix = "50_PersonalAgent/stella";
+  const file = path.join(canghaiRoot, prefix, "runtime-profile.yaml");
+  const profile = parseYaml(await readFile(file, "utf8"));
+  profile.capabilities.push({ id: "source_access_context", adapter_id: "stella.personal-context-access", adapter_version: "1",
+    config_ref: `path:${prefix}/personal-access.json`, acceptance_ref: `path:${prefix}/capability-acceptance.json`, required: true, required_secret_refs: [] });
+  await writeFile(file, stringifyYaml(profile));
+  await writeFile(path.join(canghaiRoot, prefix, "personal-access.json"), JSON.stringify({ schemaVersion: "stella.personal-context-access/v1",
+    ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: ["stella-smoke/probe"], viewProcessingModelRefs: ["stella-smoke/probe"], operatorRecovery: true,
+    purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, descriptors: [] }));
+}
+
 const revision = await initializeFixtureRepository(canghaiRoot);
 const remote = path.join(temp, "canghai.git");
 if (managed) {
   await run("git", ["init", "--bare", "--quiet", remote]);
   await run("git", ["-C", canghaiRoot, "remote", "add", "origin", remote]);
   await run("git", ["-C", canghaiRoot, "push", "origin", "HEAD:refs/heads/main"]);
-  if (failureProbe && !adviceTailProbe) await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", path.join(temp, "intentionally-missing-remote.git")]);
+  if (failureProbe && !adviceTailProbe && !correctionProbe) await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", path.join(temp, "intentionally-missing-remote.git")]);
 }
 const state = path.join(temp, "state");
 const plugin = path.join(temp, "plugin");
@@ -151,6 +167,17 @@ import main from ${JSON.stringify(buildModule("src/plugin.js"))};
 import { GitCangHaiDurability } from ${JSON.stringify(buildModule("src/canghai/durability.js"))};
 import { existsSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+if (${correctionRecoveryProbe}) {
+  const checkpoint = ${JSON.stringify(path.join(temp, "correction-checkpoint.json"))};
+  const originalSync = GitCangHaiDurability.prototype.syncCritical;
+  GitCangHaiDurability.prototype.syncCritical = async function(paths, message) {
+    if (message.startsWith('stella correction ') && !existsSync(checkpoint)) {
+      writeFileSync(checkpoint, JSON.stringify({ archiveRevision: execFileSync('git', ['-C', ${JSON.stringify(canghaiRoot)}, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() }));
+      execFileSync('git', ['-C', ${JSON.stringify(canghaiRoot)}, 'remote', 'set-url', 'origin', ${JSON.stringify(path.join(temp, "intentionally-missing-remote.git"))}]);
+    }
+    return originalSync.call(this, paths, message);
+  };
+}
 if (${adviceTailProbe}) {
   const checkpoint = ${JSON.stringify(path.join(temp, "advice-tail-checkpoint.json"))};
   const originalSync = GitCangHaiDurability.prototype.syncCritical;
@@ -165,13 +192,32 @@ if (${adviceTailProbe}) {
 }
 const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 export default { ...main, register(api) {
-  main.register({ ...api, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
+  main.register({ ...api, on(name, handler, options) {
+    api.on(name, handler, options);
+  }, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
     async complete(params) {
       if (${preparationCancellationProbe}) return api.runtime.llm.complete(params);
+      if (${correctionProbe} && params.purpose === 'stella-source-output') {
+        const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
+        return { provider: 'stella-smoke', model: 'probe', text: JSON.stringify({ requestHash: value.requestHash,
+          draftHash: value.draftHash, sourcesHash: value.sourcesHash, compliant: ${!outputRejectionProbe}, violations: ${JSON.stringify(outputRejectionProbe ? ["quotation_not_authorized"] : [])} }) };
+      }
+      if (${correctionProbe} && ['stella-correction', 'stella-personal-views'].includes(params.purpose)) {
+        const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
+        let result;
+        if (params.purpose === 'stella-personal-views') result = { requestHash: value.requestHash, selections: value.candidates.map(c => ({ handle: c.handle, view: 'memory' })) };
+        else if (value.proposalHash) result = { requestHash: value.requestHash, proposalHash: value.proposalHash, valid: true };
+        else result = { requestHash: value.requestHash, disposition: 'update', clarification: null, reviewedHandles: value.candidates.map(c => c.handle),
+          rationale: 'Synthetic owner intent', replacements: [{ handle: null, group: 'understandings', record: { kind: 'owner_statement', status: 'active',
+            statement: 'SYNTHETIC_CORRECTED_PREMISE', scope: { workIds: [], contexts: ['synthetic writing'], domains: ['writing'], global: false },
+            supportRefs: value.ownerEvidence.map(e => e.ref), counterRefs: [], dependencyRefs: [] } }] };
+        return { provider: 'stella-smoke', model: 'probe', text: JSON.stringify(result) };
+      }
+
       if (params.purpose === 'stella-core-open-episode-selection') return { text: JSON.stringify({ openEpisodeRef: ${JSON.stringify(adviceRevisionProbe ? outcomeSeed.episodeRef : null)} }) };
       if (params.purpose === 'stella-question-evidence') {
         const input = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: 'synthetic', model: 'injected', text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
+        return { provider: ${JSON.stringify(correctionProbe ? 'stella-smoke' : 'synthetic')}, model: ${JSON.stringify(correctionProbe ? 'probe' : 'injected')}, text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
           claims: [], unresolvedLeads: input.provisionalRoute.materialUnknowns.map((question) => ({ question, material: true, reason: 'Synthetic unknown' })),
           stoppingReason: 'Synthetic configured source scope', suggestedResponseKind: input.provisionalRoute.responseKind }) };
       }
@@ -187,7 +233,7 @@ export default { ...main, register(api) {
         if (prompt.startsWith("You are Stella's reported-outcome evidence verifier")) return result({ supported: true, outcome: seed.outcome, rationale: 'Synthetic injected outcome verdict' });
         throw new Error('Unexpected synthetic completion phase');
       }
-      return { text: JSON.stringify(${JSON.stringify(managed && !questionProbe ? {
+      return { provider: ${JSON.stringify(correctionProbe ? "stella-smoke" : "synthetic")}, model: ${JSON.stringify(correctionProbe ? "probe" : "injected")}, text: JSON.stringify(${JSON.stringify(managed && !questionProbe && !correctionProbe ? {
       mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["social"], stakes: "low", reversibility: "high",
       needsTwin: true, needsFramework: true, needsReality: true, needsExternalResearch: false, candidateTwinRefs: [], candidateFrameworks: [], candidatePraxisRefs: [],
       situation: { actors: ["self"], observations: ["Synthetic question"], interpretations: [], unknowns: [], userGoals: ["Choose a reversible step"], constraints: [] },
@@ -199,6 +245,7 @@ const providerArrived = Promise.withResolvers();
 const providerRelease = Promise.withResolvers();
 let providerRequests = 0;
 let providerReceivedOriginalEvidence = false;
+let providerReceivedCorrection = false;
 let providerReceivedInitialization = false;
 let initializationInputEvidence;
 const skillReadProbe = !managed && !cancellationProbe;
@@ -220,6 +267,7 @@ const provider = createServer(async (request, response) => {
   initializationInputEvidence = { agents: requestBody.includes("# Synthetic AGENTS.md"), soul: requestBody.includes("# Synthetic SOUL.md"),
     identity: requestBody.includes("- Name: Synthetic Stella"), skill: requestBody.includes("stella-initialization-probe") };
   providerReceivedInitialization ||= Object.values(initializationInputEvidence).every(Boolean);
+  providerReceivedCorrection ||= requestBody.includes("SYNTHETIC_CORRECTED_PREMISE");
   providerReceivedOriginalEvidence ||= requestBody.includes("Synthetic owner report: I asked about the weekend time. My friend confirmed Saturday.") &&
     requestBody.includes("stella.evidence-bundle/v1");
   if (cancellationProbe) { providerArrived.resolve(); await providerRelease.promise; }
@@ -333,6 +381,36 @@ try {
     assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), revision);
     assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
     persistence = { cancelledDuringPreparation: preparationCancellationProbe, cancelledDuringGeneration: !preparationCancellationProbe, businessRevisionUnchanged: true, lateProviderAnswerNotDelivered: true };
+  } else if (outputRejectionProbe) {
+    const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
+    const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
+    await reader.assertCurrent();
+    assert.equal(reader.catalog.changes.length, 1);
+    assert.equal(reader.catalog.bundles.length, 0);
+    assert.equal(providerRequests, 1);
+    assert.equal(observedEvents.filter(event => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
+    persistence = { correctionSynchronized: true, rejectedDraftNotDelivered: true, unverifiedAnswerNotPersisted: true };
+  } else if (correctionRecoveryProbe) {
+    const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
+    const { bytesVersion } = await import(buildModule("src/canghai/content-version.js"));
+    await assert.rejects((await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json")).assertCurrent(), /memory_transaction_pending/);
+    const checkpoint = JSON.parse(await readFile(path.join(temp, "correction-checkpoint.json"), "utf8"));
+    assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim(), checkpoint.archiveRevision);
+    assert.equal(providerRequests, 0);
+    await client.stopAndWait({ timeoutMs: 2000 }); await gateway.stop();
+    await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", remote]);
+    gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+    await connectObserver();
+    const operationId = `learn_${bytesVersion(sent.runId).slice(7)}`;
+    const recovered = await client.request("stella.recoverCorrection", { operationId });
+    assert.deepEqual(await client.request("stella.recoverCorrection", { operationId }), recovered);
+    assert.equal(recovered.replyResent, false);
+    assert.equal(recovered.revision, (await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim());
+    assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, recovered.revision);
+    const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json"); await reader.assertCurrent();
+    assert.equal(reader.catalog.changes.length, 1); assert.equal(reader.catalog.understandings.length, 1);
+    assert.equal(observedEvents.filter(event => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
+    persistence = { synchronized: true, pendingTransactionFencedBeforeRecovery: true, recoveredAfterHostRestart: true, replyResent: false, duplicateLearningCreated: false };
   } else if (failureProbe) {
     const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
     await assert.rejects((await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json")).assertCurrent(), /memory_transaction_pending/);
@@ -381,6 +459,18 @@ try {
       persistence.recovery = { hostRestarted: true, synchronized: true, pointerConfirmed: true, replyResent: false, evidenceBundleSynchronized: true };
       if (adviceRevisionProbe) persistence.recovery.adviceRevisionPreserved = true;
     }
+  } else if (correctionProbe) {
+    const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
+    const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
+    assert.equal(reader.catalog.understandings.length, 1);
+    assert.equal(reader.catalog.changes.length, 1);
+    assert.equal(reader.catalog.sources.length, 1);
+    assert.equal(reader.catalog.bundles.length, 1);
+    assert.equal(providerReceivedCorrection, true, "Final Host prompt must contain the newly synchronized understanding");
+    const localRevision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
+    assert.equal(localRevision, (await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim());
+    assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, localRevision);
+    persistence = { synchronized: true, ownerInputArchivedBeforeInference: true, correctionPresentInFinalPrompt: true };
   } else if (questionProbe && managed) {
     const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
     const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
@@ -486,7 +576,7 @@ try {
       duplicateUserMessages: 0, hostRejectionNotices: notices.length, duplicateFinals: 0,
       businessRevisionUnchanged: true };
   }
-  const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: cancellationProbe
+  const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: correctionProbe ? "synthetic Host input custody and learning before final generation; injected semantic judgments" : cancellationProbe
     ? `synthetic managed ${preparationCancellationProbe ? "preparation" : "generation"} cancelled through chat.abort; no business write or late answer delivery`
     : outcomeProbe
     ? "synthetic owner-bound original evidence; actual main outcome transaction, candidate LearningChange, OpenClaw pointer and local bare remote; semantic verdicts injected, not private/model accuracy proof"
@@ -496,18 +586,18 @@ try {
     : "synthetic read-only ordinary turn; structured router injected; actual main registration and completion adapter",
     terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
-    provesV2Persistence: managed && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
+    provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
     provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
     initialization: { providerReceivedInitialization, hostIdentityVerified: true, skillBodyRead: skillReadProbe ? providerReceivedSkillBody : "not_exercised",
       ownerRequestedReinitialization: skillReadProbe ? providerReceivedInitializationResult : "not_exercised", scope: "host_bootstrap" },
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
   assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");
-  assert.equal(report.providerRequests, skillReadProbe ? 3 : 1);
+  assert.equal(report.providerRequests, correctionRecoveryProbe ? 0 : skillReadProbe ? 3 : 1);
   if (skillReadProbe) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
   if (skillReadProbe) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
-  if (!preparationCancellationProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
+  if (!preparationCancellationProbe && !correctionRecoveryProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
   // Preparation cancellation precedes the Host user transcript append.
-  assert.equal(report.userMessages, preparationCancellationProbe ? 0 : 1);
+  assert.equal(report.userMessages, preparationCancellationProbe || correctionRecoveryProbe ? 0 : 1);
   assert.equal(report.finalAnswers, failureProbe || cancellationProbe ? 0 : 1);
   if (questionProbe) assert.equal(providerReceivedOriginalEvidence, true);
   await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));

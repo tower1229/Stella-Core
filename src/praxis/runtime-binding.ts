@@ -1,8 +1,9 @@
+import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js";
 import { parse as parseYaml } from "yaml";
-import { PERSONAL_CONTEXT_ADAPTER } from "../canghai/personal-context-access.js";
+import { PERSONAL_CONTEXT_ADAPTER, loadPersonalContextAccess } from "../canghai/personal-context-access.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
-import { bytesVersion } from "../canghai/content-version.js";
+import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import type { LoadedConsciousness } from "../canghai/manifest.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
@@ -41,28 +42,43 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
     const profileDocument = loaded.bootstrapDocuments.find((document) => document.field === "identity.runtimeProfileRef");
     requireValue(profileDocument);
     const profile = parseRuntimeProfile(parseYaml(profileDocument.content));
-    requireValue(profile.contract_profile === "alpha_praxis" && profile.memory);
+    requireValue(profile.memory);
+    const fullMemory = profile.contract_profile === "full_memory";
     const resources = await loadRuntimeProfileResources(loaded.canghaiRoot, profile);
     const catalogPath = relativeRef(profile.memory.catalog_ref);
     const accessCapabilities = profile.capabilities.filter(value => value.id === "source_access_context");
     requireValue(accessCapabilities.length <= 1);
     const accessCapability = accessCapabilities[0];
+    if (fullMemory) requireValue(accessCapability?.required === true);
     if (accessCapability) requireValue(accessCapability.adapter_id === PERSONAL_CONTEXT_ADAPTER && accessCapability.adapter_version === "1");
     const personalContextAccessPath = accessCapability ? relativeRef(accessCapability.config_ref) : undefined;
-    const capabilities = profile.capabilities.filter((value) => isRecord(value) && value.id === "transcript_archive");
+    const capabilities = profile.capabilities.filter((value) => isRecord(value) && value.id === (fullMemory ? "memory_lifecycle" : "transcript_archive"));
     const capability = capabilities[0];
-    requireValue(capabilities.length === 1 && isRecord(capability) && capability.adapter_id === HOST_INPUT_ARCHIVE_ADAPTER && capability.adapter_version === "1");
+    requireValue(capabilities.length === 1 && isRecord(capability) && capability.required && capability.adapter_id === (fullMemory ? "stella.memory-lifecycle" : HOST_INPUT_ARCHIVE_ADAPTER) && capability.adapter_version === "1");
     const configPath = relativeRef(capability.config_ref);
     const bytes = await readRepositoryBytes(loaded.canghaiRoot, configPath);
     requireValue(bytes.length <= 256_000);
     const value: unknown = JSON.parse(bytes.toString("utf8"));
-    requireValue(isRecord(value) && value.schemaVersion === "stella.alpha-praxis-binding/v2" && isRecord(value.archive) &&
+    requireValue(isRecord(value) && value.schemaVersion === (fullMemory ? "stella.memory-runtime-binding/v1" : "stella.alpha-praxis-binding/v2") && isRecord(value.archive) &&
       validMemoryRef(value.archive.policyRef) && typeof value.archive.objectRoot === "string" && value.archive.objectRoot &&
       typeof value.archive.payloadRoot === "string" && value.archive.payloadRoot && isRecord(value.purpose) &&
       typeof value.purpose.readPurpose === "string" && value.purpose.readPurpose &&
       typeof value.purpose.derivePurpose === "string" && value.purpose.derivePurpose &&
       typeof value.purpose.deliveryScope === "string" && value.purpose.deliveryScope &&
       Array.isArray(value.referenceBindings));
+    if (fullMemory) {
+      requireValue(Object.keys(value).sort().join() === "archive,purpose,referenceBindings,schemaVersion");
+      requireValue(Object.keys(value.archive).sort().join() === "objectRoot,payloadRoot,policyRef");
+      requireValue(Object.keys(value.purpose).sort().join() === "deliveryScope,derivePurpose,readPurpose");
+      for (const target of [value.archive.objectRoot, value.archive.payloadRoot]) relativeRef(`path:${target}`);
+      requireValue(profile.memory.semantic_provider === "stella-structured-llm");
+      requireValue(profile.memory.required_views.length === 2 &&
+        ["current_understanding", "ongoing_work"].every(view => profile.memory!.required_views.includes(view)));
+      const processing = await loadPersonalContextAccess(loaded.canghaiRoot, personalContextAccessPath!);
+      requireValue(processing.config.viewProcessingModelRefs?.length && canonicalJson(processing.config.purpose) === canonicalJson(value.purpose));
+      for (const model of Object.values(profile.models)) requireValue(processing.config.viewProcessingModelRefs.includes(`${model.provider}/${model.model}`));
+      await processing.assertCurrent();
+    }
     const referenceBindings: PraxisRuntimeBinding["referenceBindings"] = [];
     for (const binding of value.referenceBindings) {
       requireValue(isRecord(binding) && typeof binding.routingRef === "string" && validMemoryRef(binding.sourceRef));
@@ -86,7 +102,7 @@ export async function createBoundPraxisRuntime(loaded: LoadedConsciousness, bind
   const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
   const resolver = new EpisodeEvidenceResolver(reader, { ...binding.purpose, evidenceCutoff: new Date().toISOString(),
     ...(sourceAccess ? { sourceAccess } : {}),
-    trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, complete);
+    trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, complete);
   return new PraxisRuntimeMemory(new EpisodeRepository(loaded.canghaiRoot, relativeRef(loaded.manifest.praxis.episodeRootRef), {
     resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
     resolveLearning: (ref) => resolver.resolveLearning(ref), verifyActionEvidence: (actual) => resolver.verifyActionEvidence(actual),

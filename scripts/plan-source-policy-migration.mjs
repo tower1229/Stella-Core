@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 import { bytesVersion } from "../dist/src/canghai/content-version.js";
-import { parseSourceRestrictions } from "../dist/src/canghai/source-policy.js";
+import { parseSourceRestrictions, parseSourceUsageRules } from "../dist/src/canghai/source-policy.js";
+import { compileReviewedSourceConstraints } from "../dist/src/canghai/source-policy-migration.js";
 
 // Read-only, exact-revision inventory. Output is private review data, never a fixture or an activation receipt.
 const [root, revision, reviewFile] = process.argv.slice(2);
@@ -51,9 +52,16 @@ if (reviewFile) {
   const keys = (value, allowed) => record(value) && Object.keys(value).every(key => allowed.includes(key));
   const texts = value => Array.isArray(value) && value.every(item => typeof item === "string" && item.trim());
   if (!keys(review, ["schemaVersion", "sourceRevision", "reviewer", "entries"]) || review.schemaVersion !== "stella.source-policy-semantic-review/v1" ||
-      review.sourceRevision !== revision || !keys(review.reviewer, ["kind", "id"]) || review.reviewer.kind !== "llm" ||
+      !/^[a-f0-9]{40}$/.test(review.sourceRevision ?? "") || !keys(review.reviewer, ["kind", "id"]) || review.reviewer.kind !== "llm" ||
       typeof review.reviewer.id !== "string" || !review.reviewer.id.trim() || !Array.isArray(review.entries) ||
       review.entries.length !== plans.length || blockers.length) throw new Error("invalid_semantic_review");
+  // A later commit may only change runtime projections. Reuse the interpretation
+  // only when the entire reviewed source tree, including names/modes, is identical.
+  // Keep the original review and its revision intact; this is a new binding proof.
+  let originalTree;
+  try { originalTree = git("ls-tree", "-rz", review.sourceRevision, "30_RAG"); }
+  catch { throw new Error("semantic_review_revision_unavailable"); }
+  if (!originalTree.equals(git("ls-tree", "-rz", revision, "30_RAG"))) throw new Error("semantic_review_source_tree_changed");
   const seen = new Set();
   for (const row of review.entries) {
     if (!keys(row, ["sourceId", "sourceSha256", "interpretation", "requiredChanges"]) || typeof row.sourceId !== "string" || seen.has(row.sourceId) ||
@@ -63,9 +71,20 @@ if (reviewFile) {
     seen.add(row.sourceId);
     plan.status = "semantic_reviewed";
     plan.review = { interpretation: row.interpretation, requiredChanges: row.requiredChanges };
-    plan.remaining = ["implement_reviewed_source_constraints", ...plan.remaining.filter(item => item !== "review_usage_policy_and_import_notes")];
+    try {
+      plan.constraintImplementation = compileReviewedSourceConstraints(row.requiredChanges);
+      // Preserve the source-specific semantic review as well as the shared rule
+      // vocabulary. Generic rule ids alone cannot replace its contextual limits.
+      plan.constraintImplementation.usageRules.interpretation.push({ id: "reviewed_source_scope", requirement: row.interpretation });
+      plan.constraintImplementation.usageRules = parseSourceUsageRules(plan.constraintImplementation.usageRules);
+      plan.targetSchemaVersion = "stella.source-policy/v3";
+    } catch {
+      plan.constraintImplementation = { implementationReady: false, category: "unsupported_review_constraint" };
+    }
+    plan.remaining = ["verify_compiled_constraints_against_original", "resolve_required_capability_evidence", ...plan.remaining.filter(item => item !== "review_usage_policy_and_import_notes")];
   }
-  semanticReview = { sha256: bytesVersion(bytes), reviewer: review.reviewer, sourceBindingsVerified: true };
+  semanticReview = { sha256: bytesVersion(bytes), reviewer: review.reviewer, sourceBindingsVerified: true,
+    reviewedRevision: review.sourceRevision, boundRevision: revision, sourceTreeUnchanged: true };
 }
 checkSource();
 process.stdout.write(JSON.stringify({ schemaVersion: "stella.source-policy-migration-plan/v1", sourceRevision: revision,

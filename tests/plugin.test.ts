@@ -212,7 +212,7 @@ test("recovery Gateway method rejects missing admin authority and caller-supplie
   try {
     let modelCalls = 0;
     const hooks = registerPlugin(root, await initializeFixtureRepository(root), async () => { modelCalls++; throw new Error("Must not call model"); }, "managed_durable_write");
-    for (const [method, prefix] of [["stella.recoverOutcome", "outcome"], ["stella.recoverQuestionEvidence", "question"]]) {
+    for (const [method, prefix] of [["stella.recoverOutcome", "outcome"], ["stella.recoverQuestionEvidence", "question"], ["stella.recoverCorrection", "learn"]]) {
     const recover = requireHook(hooks, `gateway:${method}`);
     const operationId = `${prefix}_${"a".repeat(64)}`;
     for (const request of [
@@ -654,7 +654,7 @@ test("Host preparation wires the configured personal access grant before routing
         }
       });
       assert.equal(calls, allowed ? 1 : 0);
-      assert.equal(accessCalls, allowed ? 4 : 0);
+      assert.equal(accessCalls, allowed ? 5 : 0);
       assert.equal(viewCalls, allowed ? 1 : 0);
       assert.equal(evidenceCalls, allowed ? 1 : 0);
     } finally { await rm(root, { recursive: true, force: true }); }

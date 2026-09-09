@@ -48,12 +48,21 @@ test("migration planning pins original bytes, remains read-only and redacts malf
   assert.equal(reviewed.readyToApply, false);
   assert.equal(reviewed.plans[0].status, "semantic_reviewed");
   assert.deepEqual(reviewed.plans[0].restrictions, result.plans[0].restrictions);
+  // A runtime-only commit does not require sending unchanged originals to a
+  // model again; the original review revision is retained in the binding proof.
+  await git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", "commit", "--quiet", "--allow-empty", "-m", "Runtime-only update");
+  const laterRevision = (await git("rev-parse", "HEAD")).stdout.trim();
+  const rebound = JSON.parse((await plan(laterRevision, reviewFile)).stdout);
+  assert.equal(rebound.semanticReview.reviewedRevision, revision);
+  assert.equal(rebound.semanticReview.boundRevision, laterRevision);
+  assert.equal(rebound.semanticReview.sourceTreeUnchanged, true);
+  assert.equal(JSON.parse(await readFile(reviewFile, "utf8")).sourceRevision, revision);
   await writeFile(reviewFile, JSON.stringify({ ...review, entries: [] }));
-  await assert.rejects(plan(revision, reviewFile), /invalid_semantic_review/);
+  await assert.rejects(plan(laterRevision, reviewFile), /invalid_semantic_review/);
   await writeFile(reviewFile, JSON.stringify({ ...review, entries: [{ ...review.entries[0], sourceSha256: `sha256:${"0".repeat(64)}` }] }));
-  await assert.rejects(plan(revision, reviewFile), /semantic_review_source_mismatch/);
+  await assert.rejects(plan(laterRevision, reviewFile), /semantic_review_source_mismatch/);
   await writeFile(reviewFile, JSON.stringify({ ...review, entries: [{ ...review.entries[0], readyToApply: true }] }));
-  await assert.rejects(plan(revision, reviewFile), /invalid_semantic_review/);
+  await assert.rejects(plan(laterRevision, reviewFile), /invalid_semantic_review/);
   await writeFile(file, "---\nsource_id: [SECRET_PARSE_MARKER\n---\n");
   await assert.rejects(plan(revision), /source_revision_or_cleanliness_changed/);
   const malformedRevision = await commit();
@@ -65,4 +74,8 @@ test("migration planning pins original bytes, remains read-only and redacts malf
     assert.equal(JSON.parse(failure.stdout).blockers[0].category, "invalid_source_metadata");
     return true;
   });
+  await writeFile(file, `${original}\nChanged original evidence.\n`);
+  const changedRevision = await commit();
+  await writeFile(reviewFile, JSON.stringify(review));
+  await assert.rejects(plan(changedRevision, reviewFile), /semantic_review_source_tree_changed/);
 });

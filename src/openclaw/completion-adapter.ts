@@ -50,6 +50,9 @@ export function parsePrivateAssistantDraft(value: unknown): string {
 
 export type CompletionAdapterPorts = {
   resourceScope(): Promise<string>;
+  prepareInput?(input: { runId: string; abortSignal: AbortSignal }): Promise<void>;
+  withFinalValidation?(input: Parameters<CompletionPorts["publishFinal"]>[0], publish: () => ReturnType<CompletionPorts["publishFinal"]>): ReturnType<CompletionPorts["publishFinal"]>;
+  validateDraft?(input: { runId: string; text: string; preparation: unknown; abortSignal: AbortSignal }): Promise<void>;
   describeDraft(runId: string, text: string, input: HostInputSnapshot, preparation: unknown): CompletionDraft;
   persist: CompletionPorts["persist"];
   settled(runId: string, result: CompletionResult | undefined): void;
@@ -120,6 +123,8 @@ export function registerCompletionAdapter(
           catch { throw new CompletionError("admission_store_unavailable", "admission"); }
           await admitCompletionOnce(admissionStore, { agentId, runId, sessionKey, resourceScope, prompt });
           if (abortSignal.aborted) throw new CompletionError("cancelled", "admission");
+          await ports.prepareInput?.({ runId, abortSignal });
+          if (abortSignal.aborted) throw new CompletionError("cancelled", "prepare");
           const generated = await api.runtime.agent.runEmbeddedAgent({
             agentId, sessionId, sessionKey, runId,
             senderId: sender.senderId, senderIsOwner: sender.senderIsOwner,
@@ -146,13 +151,20 @@ export function registerCompletionAdapter(
           }
           const originalInput = captureHostInput({ hostVersion: api.runtime.version, agentId, sessionId, sessionKey,
             recorder: ctx.userTurnTranscriptRecorder! });
-          return ports.describeDraft(runId, parsePrivateAssistantDraft(readCompletionOutput(runId)), originalInput, readCompletionPreparation(runId));
+          const text = parsePrivateAssistantDraft(readCompletionOutput(runId));
+          const prepared = readCompletionPreparation(runId);
+          await ports.validateDraft?.({ runId, text, preparation: prepared, abortSignal });
+          if (abortSignal.aborted) throw new CompletionError("cancelled", "generate");
+          return ports.describeDraft(runId, text, originalInput, prepared);
         },
         persist: ports.persist,
         async publishFinal(input) {
           // Admission is the irreversible send boundary; never re-send on unknown delivery.
-          queued = true;
-          return publishCompletionDraft({ ...input, dispatcher: ctx.dispatcher });
+          const publish = () => {
+            queued = true;
+            return publishCompletionDraft({ ...input, dispatcher: ctx.dispatcher });
+          };
+          return ports.withFinalValidation ? ports.withFinalValidation(input, publish) : publish();
         },
       });
       terminalOutcome = result.delivery.status === "confirmed" ? "completed" : "failed";

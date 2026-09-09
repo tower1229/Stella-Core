@@ -4,6 +4,7 @@ import { lstat, mkdir, readFile, realpath, rename, unlink, open } from "node:fs/
 import path from "node:path";
 import { promisify } from "node:util";
 import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin-sdk/file-lock";
+import { ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import { compileInitializationSource, InitializationSourceError } from "./initialization-source.js";
@@ -150,7 +151,9 @@ export class StellaInitializer {
     check(/^[a-f0-9]{40}$/.test(this.source.revision), "invalid_source_revision");
     const git = async (args: string[]) => (await run("git", ["-c", "core.fsmonitor=false", "-C", this.source.root, ...args])).stdout.trim();
     check(await git(["rev-parse", "HEAD"]) === this.source.revision, "source_revision_mismatch");
-    check(await git(["status", "--porcelain"]) === "", "source_dirty");
+    const status = await git(["status", "--porcelain"]);
+    check(status === "" || (status === "?? .stella-memory-transaction.json.lock" &&
+      await ownsMemoryMutationLock(this.source.root)), "source_dirty");
     const content = await read(this.source.root, this.source.recipePath);
     check(content, "materialization_required");
     let value: unknown;

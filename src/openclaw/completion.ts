@@ -35,6 +35,11 @@ export class CompletionError extends Error {
 
 type RunPermit = { request?: BoundTurnRequest; operationId: string; runId: string; active: boolean; abortSignal: AbortSignal; outputCount?: number; privateOutput?: unknown; preparation?: unknown };
 const permits = new AsyncLocalStorage<RunPermit>();
+const persistencePermits = new AsyncLocalStorage<{ runId: string; active: boolean; signal: AbortSignal }>();
+export function hasCompletionPersistencePermit(runId: string): boolean {
+  const permit = persistencePermits.getStore();
+  return Boolean(permit?.active && permit.runId === runId && !permit.signal.aborted);
+}
 const activeResources = new Set<string>();
 export function isCompletionResourceActive(scope: string): boolean {
   return activeResources.has(scope);
@@ -103,6 +108,8 @@ export function readCompletionRequest(runId: string, agentId: string, sessionId?
   }
   return request;
 }
+
+
 
 export function isCompletionDraftContext(): boolean {
   return permits.getStore() !== undefined;
@@ -204,7 +211,11 @@ export async function coordinateCompletion(input: {
         !["answer", "clarification", "collaboration", "action_advice", "outcome_ack"].includes(draft.responseKind) ||
         typeof draft.requiresCriticalPersistence !== "boolean") throw new CompletionError("invalid_draft", stage);
     stage = "persist";
-    const receipt = await ports.persist({ operationId: input.operationId, draft, responseKind: draft.responseKind, abortSignal: controller.signal });
+    const persistence = { runId: input.runId, active: true, signal: controller.signal };
+    let receipt: CompletionReceipt;
+    try {
+      receipt = await persistencePermits.run(persistence, () => ports.persist({ operationId: input.operationId, draft, responseKind: draft.responseKind, abortSignal: controller.signal }));
+    } finally { persistence.active = false; }
     if (controller.signal.aborted) throw new CompletionError("cancelled", stage);
     validateReceipt(receipt, input, draft);
     stage = "publish";

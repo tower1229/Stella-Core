@@ -12,6 +12,20 @@ const policy = {
 };
 const context: SourceAccessContext = { judgment: { scenarios: ["self_reflection"], trigger: "user_requested", topicRequested: true, topicExplicitlyNamed: true, presentation: "summary" }, quoteGrants: [] };
 
+test("v3 usage rules are versioned, bounded and never silently accepted by an older policy", () => {
+  const usageRules = { access: [{ id: "specific_topic", requirement: "Only the exact requested subject." }],
+    interpretation: [{ id: "dated", requirement: "Keep the observation in historical scope." }] };
+  const v3 = { ...policy, schemaVersion: "stella.source-policy/v3", usageRules };
+  assert.deepEqual(parseSourcePolicy(v3).usageRules, usageRules);
+  assert.throws(() => parseSourcePolicy({ ...policy, usageRules }), /source_policy_migration_required/);
+  assert.throws(() => parseSourcePolicy({ ...v3, usageRules: { ...usageRules, grant: true } }), /invalid_source_policy/);
+  assert.throws(() => parseSourcePolicy({ ...v3, usageRules: { ...usageRules, access: [...usageRules.access, ...usageRules.access] } }), /invalid_source_policy/);
+  assert.throws(() => assertSourcePolicyAccess(v3, purpose, context), /source_rule_context_required/);
+  const checked = { ...context, ruleChecks: { policyRef: { id: policy.id, version: objectVersion(v3) }, checks: [{ id: "specific_topic", satisfied: true }] } };
+  assert.doesNotThrow(() => assertSourcePolicyAccess(v3, purpose, checked));
+  assert.throws(() => assertSourcePolicyAccess({ ...v3, usageRules: { ...usageRules, interpretation: [] } }, purpose, checked), /source_rule_context_required/);
+});
+
 test("restricted sources remain usable for allowed purposes while every forbidden purpose is denied", () => {
   assert.doesNotThrow(() => assertSourcePolicyAccess(policy, purpose, context));
   for (const scenario of ["relationship_judgment", "current_state_inference", "unknown-purpose"]) {

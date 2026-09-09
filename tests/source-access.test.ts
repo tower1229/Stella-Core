@@ -11,7 +11,7 @@ import { createSourceAccessProvider, type SourceAccessTarget } from "../src/cang
 
 const purpose = { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "owner-direct" };
 const request = "请回顾我上次明确提到的那件合成事件。";
-async function fixture(t: { after(fn: () => Promise<void>): void }, permissions = true) {
+async function fixture(t: { after(fn: () => Promise<void>): void }, permissions = true, withRules = false) {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-source-access-"));
   t.after(() => rm(root, { force: true, recursive: true }));
   const catalog: MemoryCatalog = { schemaVersion: "stella.memory-catalog/v1", generationId: "one", parentGenerationId: null,
@@ -23,7 +23,8 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, permissions 
     catalog[group].push({ ...ref, status: "current", dependencies: [], locator: { path: file, sha256: bytesVersion(bytes) } });
     return ref;
   };
-  const policyRef = await put("policies", { schemaVersion: "stella.source-policy/v2", id: "policy", ownerId: "synthetic",
+  const policyRef = await put("policies", { schemaVersion: withRules ? "stella.source-policy/v3" : "stella.source-policy/v2", id: "policy", ownerId: "synthetic",
+    ...(withRules ? { usageRules: { access: [{ id: "specific_topic", requirement: "Only use for the source's exact requested topic." }], interpretation: [] } } : {}),
     readPurposes: permissions ? [purpose.readPurpose] : [], derivePurposes: [purpose.derivePurpose], deliveryScopes: [purpose.deliveryScope],
     retention: "retain", authorityEvidenceRefs: [], restrictions: { sensitivity: "sensitive", quotePolicy: "summarize_only",
       allowedScenarios: ["self_reflection"], forbiddenScenarios: ["relationship_judgment"] } });
@@ -36,6 +37,26 @@ const answer = (target: SourceAccessTarget, extra: Record<string, unknown> = {})
   requestHash: bytesVersion(request), ...target, applicable: true, scenarios: ["self_reflection"], topicRequested: true, topicExplicitlyNamed: true, ...extra,
 }) });
 const describe = async (_reader: CatalogReader, target: SourceAccessTarget) => ({ ...target, description: "Reviewed synthetic event topic, not original evidence." });
+
+test("v3 access requires every source-specific rule and cannot accept partial or invented checks", async t => {
+  const f = await fixture(t, true, true);
+  for (const [checks, category] of [
+    [undefined, /invalid_source_access_verdict/], [[], /source_rule_context_required/],
+    [[{ id: "other", satisfied: true }], /source_rule_context_required/],
+    [[{ id: "specific_topic", satisfied: false }], /source_rule_forbidden/],
+    [[{ id: "specific_topic", satisfied: true, quoteGrants: [] }], /invalid_source_access_verdict/],
+  ] as const) {
+    const provider = createSourceAccessProvider({ request, trigger: "user_requested", presentation: "summary", quoteGrants: [], describe,
+      complete: async ({ prompt }) => {
+        assert.match(prompt, /Only use for the source's exact requested topic/);
+        return answer(f.target, checks === undefined ? {} : { ruleChecks: checks });
+      } });
+    await assert.rejects(provider(f.reader, f.target, purpose), category);
+  }
+  const provider = createSourceAccessProvider({ request, trigger: "user_requested", presentation: "summary", quoteGrants: [], describe,
+    complete: async () => answer(f.target, { ruleChecks: [{ id: "specific_topic", satisfied: true }] }) });
+  assert.deepEqual((await provider(f.reader, f.target, purpose)).ruleChecks?.policyRef, f.target.policyRef);
+});
 
 test("one source's semantic verdict cannot authorize a second source sharing its policy", async t => {
   const f = await fixture(t);
@@ -180,5 +201,25 @@ test("personal metadata grant revocation during inference invalidates the result
       return answer(f.target);
     },
   });
+  await assert.rejects(access(f.reader, f.target, purpose), /personal_context_access_changed/);
+});
+
+test("persistence only revalidates prior exact-source decisions and never starts a new model judgment", async t => {
+  const f = await fixture(t);
+  const config = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic", requesterIds: ["owner-host-id"],
+    modelRefs: ["synthetic/model"], purpose, descriptors: [{ ...f.target, description: "Reviewed topic" }] };
+  await writeFile(path.join(f.root, "access.json"), JSON.stringify(config));
+  const binding = await loadPersonalContextAccess(f.root, "access.json");
+  let persistence = false, calls = 0;
+  const access = createPersonalContextAccess({ request: snapshotTurnRequest({ agentId: "main", sessionId: "session", sessionKey: "agent:main:test",
+    prompt: request, senderId: "owner-host-id", senderIsOwner: true, chatType: "direct" }, "run"), binding, modelRef: "synthetic/model",
+    assertRequestCurrent: () => {}, isPersistenceRevalidation: () => persistence,
+    complete: async () => { calls++; return answer(f.target); } });
+  await access(f.reader, f.target, purpose);
+  persistence = true;
+  await access(f.reader, f.target, purpose);
+  await assert.rejects(access(f.reader, f.other, purpose), /source_access_revalidation_receipt_required/);
+  assert.equal(calls, 1);
+  await writeFile(path.join(f.root, "access.json"), JSON.stringify({ ...config, modelRefs: ["revoked/model"] }));
   await assert.rejects(access(f.reader, f.target, purpose), /personal_context_access_changed/);
 });
