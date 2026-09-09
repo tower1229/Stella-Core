@@ -22,7 +22,7 @@ export function bytesVersion(bytes: string | Uint8Array): string {
 
 export function objectVersion(object: Record<string, unknown>): string {
   const { version: _version, locator: _locator, ...content } = object;
-  if (content.schemaVersion === "stella.memory-source/v1" && Array.isArray(content.payloads)) {
+  if (["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(content.schemaVersion)) && Array.isArray(content.payloads)) {
     content.payloads = content.payloads.map((payload: unknown) => {
       if (!isRecord(payload)) throw new Error("Invalid source payload");
       const { path: _path, revision: _revision, ...identity } = payload;

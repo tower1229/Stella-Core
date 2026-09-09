@@ -1,6 +1,6 @@
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js";
 import { parse as parseYaml } from "yaml";
-import { PERSONAL_CONTEXT_ADAPTER, loadPersonalContextAccess } from "../canghai/personal-context-access.js";
+import { PERSONAL_CONTEXT_ADAPTER, loadPersonalContextAccess, validatePersonalContextCatalog } from "../canghai/personal-context-access.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
@@ -77,6 +77,7 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       const processing = await loadPersonalContextAccess(loaded.canghaiRoot, personalContextAccessPath!);
       requireValue(processing.config.viewProcessingModelRefs?.length && canonicalJson(processing.config.purpose) === canonicalJson(value.purpose));
       for (const model of Object.values(profile.models)) requireValue(processing.config.viewProcessingModelRefs.includes(`${model.provider}/${model.model}`));
+      await validatePersonalContextCatalog(await CatalogReader.load(loaded.canghaiRoot, catalogPath), processing.config);
       await processing.assertCurrent();
     }
     const referenceBindings: PraxisRuntimeBinding["referenceBindings"] = [];
@@ -91,7 +92,7 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       purpose: value.purpose as PraxisRuntimeBinding["purpose"], referenceBindings };
   } catch (error) {
     if (error instanceof EpisodeV2Error) throw error;
-    if (error instanceof RuntimeProfileError) throw new EpisodeV2Error(error.category);
+    if (error instanceof RuntimeProfileError || error instanceof CatalogError) throw new EpisodeV2Error(error.category);
     throw new EpisodeV2Error("runtime_binding_migration_required");
   }
 }

@@ -154,7 +154,7 @@ export class CatalogReader {
   }
   async readPayload(sourceRef: VersionedRef, payloadSha256: string): Promise<{ bytes: Buffer; mediaType: string }> {
     const source = await this.read(sourceRef, "sources");
-    requireCondition(source.schemaVersion === "stella.memory-source/v1" && Array.isArray(source.payloads), "invalid_source");
+    requireCondition(["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(source.schemaVersion)) && Array.isArray(source.payloads), "invalid_source");
     const payloads = source.payloads.filter((item: unknown) => isRecord(item) && item.sha256 === payloadSha256);
     requireCondition(payloads.length === 1 && isRecord(payloads[0]), "payload_unavailable");
     const payload = payloads[0];

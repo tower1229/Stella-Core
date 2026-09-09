@@ -117,6 +117,14 @@ Host 适配器要求活跃请求中 SDK 确认的主人身份、私聊范围和�
 
 迁移规划器把既有结构化语义审查的 requiredChanges 映射到明确规则，并保留每份来源的原始 interpretation，不能只用通用规则替代特定上下文。未知规则显式标记不支持；分段、原件留存、框架占位排除和旧关系跟进投影迁移仍要求具体实现及证据，不能由模型返回合规替代。规划输出始终不是激活授权，逐来源规则复核、真实配置迁移及 full_memory 完整能力门禁仍须完成。
 
+2026-09-09 特殊来源接线：`stella.memory-source/v2` 必填 `accessSegments: [{payloadSha256,start,end,policyRef}]`，按 UTF-8 字节范围表达已语义审查的权限分段。每份文本 payload 必须从零至其声明长度连续完整覆盖，不重叠、不遗漏；最多 512 段，边界必须为有效 UTF-8。v1 不能携带此字段。版本身份包含分段及各策略引用，路径和历史 revision 仍只作 locator。该格式当前只支持文本，不据此声明媒体分段完成。
+
+Evidence 只能选取单个已审查片段之内的范围，并绑定该段的确切策略；与源级策略取交集，先验证再读取原文。跨段取文、换用宽松策略、通过原有整文件入口读取受限来源均显式失败。私人视图检查来源元数据后逐 Evidence 授权，不因一个受限片段而把同源的其他合法片段当成已授权或全部不可用。分段 Evidence 保持来源的同一个 independentOriginId，不增加独立证据计数；未经角色语义审查的导入继续标为 unknown。
+
+`prepareRepositorySource.reviewedSegments` 和 `scripts/prepare-reviewed-source-segments.mjs` 生成不改原文的迁移候选。脚本要求精确且干净的来源 revision、绑定原件的语义审查及当前 catalog；片段只可收窄隐私／引用规则，不新增用途或投递范围。候选包含替代的 Source／Evidence refs，写入私有文件，始终 `readyToActivate: false`；尚须与整体策略、描述、理解依赖和目录代际迁移一起发布。框架装载另检查 active IR 的来源注册状态必须是 active_source，IR 正文来源必须与激活记录一致；占位或未注册来源不得进入可执行框架。
+
+`scripts/prepare-source-catalog-migration.mjs` 合并整体 v3 策略与分段候选，生成新目录代际和迁移后的来源描述引用。它要求原件摘要、干净 revision、目录摘要及语义审查绑定一致，保留旧对象为 superseded，检查全部当前依赖闭合，不扩大已有处理权限。当前仅支持无 Understanding／OngoingWork／Change／Bundle／View 的首次导入；有派生状态时显式拒绝，不能丢弃理解后继续迁移。同版本对象可沿用已有 locator。输出及落库后的描述迁移文件仍不构成运行授权：片段专属描述、处理主体与模型授权、full_memory 行为验收必须另行完成。
+
 2026-09-08 真实 main 预检：`scripts/inspect-main-readiness.mjs` 只读核对本机 Gateway 初始化状态、角色模型、能力配置／验收声明和目录用途，输出私有 JSON，存在阻断返回退出码 2；它永远不生成业务验收通过凭据，不据声明文件放开门禁。本机已移除 DeepSeek fallback 并重启加载纠正接线，但 `full_memory` 仍被运行门禁拦截。源 revision `37fc834f5958fcba02be9209bf8420bc65583678` 下，100 条来源的用途集合未启用，11 项能力配置为占位、12 项能力验收未完成，四个角色模型与实际 Gemini 3.1 Pro 不符；主人输入归档与私人上下文访问绑定缺失。该次预检时 `loadPraxisRuntimeBinding` 仅接受 Alpha；上述后续增量补充了完整记忆绑定解码，但真实 main 的占位配置尚未迁移，真实业务验收并未执行。必须先实现完整记忆运行绑定及依赖能力，再完成来源约束迁移、角色模型统一与真实用例验收；不得把更换 profile 或删掉 blocker 当作完成。
 
 来源迁移工具允许复用绑定旧 revision 的语义审查，前提是旧／新提交的整个 `30_RAG` 文件树（路径、mode、blob）相同，且每条来源摘要与审查匹配。输出保留 `reviewedRevision` 和当前 `boundRevision`，不改写原审查，不因此授予用途或模型处理许可；任一来源变化须重新审查。真实目录核对已确认 100 条来源满足这一条件，实际策略与描述启用仍未执行。
@@ -407,3 +415,5 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 | M-14 | 空工作集、无开放 Episode 和有重要写作上下文两种恢复 | 空集合法；声明的重要前提、纠正及开放问题全部恢复 |
 
 上述测试验证结构和可观察行为，必要的语义评测只作诊断。社交判断和写作帮助的实际效果由主人真实使用反馈持续校准。
+
+2026-09-09 运行绑定补强：full_memory 的 `loadPraxisRuntimeBinding` 在装载处理授权时校验当前 Source 的父策略及每个片段策略都有精确版本的专属描述，拒绝缺失、过期或未由来源声明的描述，以及 owner 不一致。该检查不调用模型、不证明 Host 身份已收到真实请求，也不替代 full_memory 能力验收；处理授权只能绑定 Host 已配置的 owner、指定模型与用途，引用授权仍单独控制。

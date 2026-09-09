@@ -1,4 +1,5 @@
-import { CatalogError, readRepositoryBytes, validMemoryRef, type CatalogGroup } from "./catalog-reader.js";
+import { CatalogError, readRepositoryBytes, selectTextEvidence, validMemoryRef, type CatalogGroup } from "./catalog-reader.js";
+import { sourceSegments } from "./source-segments.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { stableId, type ArchiveObject } from "./host-input-archive.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
@@ -9,7 +10,9 @@ export const REPOSITORY_SOURCE_ADAPTER = "stella-repository-file/v1";
 export async function prepareRepositorySource(input: {
   root: string; collectionId: string; sourceId: string; relativePath: string;
   expectedSha256: string; capturedAt: string; policyRef: VersionedRef; objectRoot: string;
+  reviewedSegments?: Array<{ start: number; end: number; policyRef: VersionedRef }>;
 }): Promise<{ sourceRef: VersionedRef; evidenceRefs: VersionedRef[]; objects: ArchiveObject[] }> {
+  input = structuredClone(input);
   if (!input.collectionId || !input.sourceId || !validMemoryRef(input.policyRef) ||
     !/^sha256:[a-f0-9]{64}$/.test(input.expectedSha256) || !Number.isFinite(Date.parse(input.capturedAt)) ||
     !/(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(input.capturedAt) ||
@@ -39,16 +42,23 @@ export async function prepareRepositorySource(input: {
     upstreamSnapshot: input.expectedSha256, fromCursor: null, toCursor: input.expectedSha256,
     expectedCount: 1, retainedCount: 1, excludedByPolicyCount: 0, missingItems: [],
     checkedAt: input.capturedAt, completeForDeclaredScope: true }, []);
-  const sourceRef = add("sources", { schemaVersion: "stella.memory-source/v1", id: stableId("source", identity),
+  const sourceObject = { schemaVersion: input.reviewedSegments ? "stella.memory-source/v2" : "stella.memory-source/v1", id: stableId("source", identity),
     origin: { adapterId: REPOSITORY_SOURCE_ADAPTER, collectionId: input.collectionId, upstreamId: input.sourceId },
     payloads: [{ path: input.relativePath, mediaType: "text/plain", bytes: bytes.length, sha256: input.expectedSha256 }],
-    capturedAt: input.capturedAt, policyRef: input.policyRef, coverageRef }, [input.policyRef, coverageRef]);
-  const evidenceRefs = text.trim() ? [add("evidence", {
-    schemaVersion: "stella.memory-evidence/v1", id: stableId("evidence", `${identity}:unclassified-payload`), source: sourceRef,
-    payloadSha256: input.expectedSha256, selector: { kind: "utf8_bytes", value: `0:${bytes.length}` }, speakerId: null,
+    capturedAt: input.capturedAt, policyRef: input.policyRef, coverageRef,
+    ...(input.reviewedSegments ? { accessSegments: input.reviewedSegments.map(segment => ({ ...structuredClone(segment), payloadSha256: input.expectedSha256 })) } : {}) };
+  const segments = sourceSegments(sourceObject);
+  // Validate every boundary, including a segment that a later request will deny.
+  for (const segment of segments) selectTextEvidence(bytes, { kind: "utf8_bytes", value: `${segment.start}:${segment.end}` });
+  const dependencies = [input.policyRef, coverageRef, ...segments.map(segment => segment.policyRef)];
+  const sourceRef = add("sources", sourceObject, [...new Map(dependencies.map(ref => [canonicalJson(ref), ref])).values()]);
+  const slices = input.reviewedSegments ? segments : text.trim() ? [{ start: 0, end: bytes.length, policyRef: input.policyRef }] : [];
+  const evidenceRefs = slices.map(segment => add("evidence", {
+    schemaVersion: "stella.memory-evidence/v1", id: stableId("evidence", `${identity}:${input.reviewedSegments ? `segment:${segment.start}:${segment.end}` : "unclassified-payload"}`), source: sourceRef,
+    payloadSha256: input.expectedSha256, selector: { kind: "utf8_bytes", value: `${segment.start}:${segment.end}` }, speakerId: null,
     role: "unknown", kind: "unknown", occurredAt: null, authoredAt: null, capturedAt: input.capturedAt,
-    independentOriginId: sourceRef.id, derivedFrom: [], policyRef: input.policyRef,
-  }, [sourceRef, input.policyRef])] : [];
+    independentOriginId: sourceRef.id, derivedFrom: [], policyRef: segment.policyRef,
+  }, [sourceRef, segment.policyRef]));
   // The original bytes stay in place; a later writer must revalidate this digest before committing.
   return { sourceRef, evidenceRefs, objects };
 }

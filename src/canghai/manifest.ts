@@ -761,6 +761,19 @@ export async function loadConsciousness(
 
   const activeIrRegistryCheck = requireCheck("frameworks.activeIrRegistryRef");
   const activeIrRegistryText = await readBoundedDocument(activeIrRegistryCheck.absolutePath);
+  const sourceRegistry: unknown = parseYaml(frameworkSourceRegistryText);
+  const activeRegistry: unknown = parseYaml(activeIrRegistryText);
+  if (!isRecord(sourceRegistry) || !Array.isArray(sourceRegistry.sources) || !isRecord(activeRegistry) || !Array.isArray(activeRegistry.active)) {
+    throw new ConsciousnessLoadError(CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid, "framework_activation_registry_invalid");
+  }
+  for (const active of activeRegistry.active) {
+    const matches = isRecord(active) ? sourceRegistry.sources.filter(source => isRecord(source) && source.source_ref === active.source_ref) : [];
+    const source = matches[0];
+    if (!isRecord(active) || matches.length !== 1 || !isRecord(source) || source.status !== "active_source" ||
+        (active.source_id !== undefined && active.source_id !== source.id)) {
+      throw new ConsciousnessLoadError(CONSCIOUSNESS_FAILURE_CATEGORY.recordInvalid, "framework_source_not_executable");
+    }
+  }
   const activeIrRefs = requireRegistryRefs(activeIrRegistryText, "active", "ir_ref", "frameworks.active");
   for (const nested of activeIrRefs) {
     const check = await validateReference(root, nested.field, nested.ref, options !== undefined);
@@ -770,6 +783,11 @@ export async function loadConsciousness(
       const record = parseYaml(content) as unknown;
       await validateSchema("framework-ir", record);
       if (isRecord(record) && isRecord(record.source)) {
+        const registrations = activeRegistry.active.filter(active => isRecord(active) && active.ir_ref === nested.ref);
+        const registration = registrations[0];
+        if (registrations.length !== 1 || !isRecord(registration) || registration.ir_id !== record.id || registration.source_ref !== record.source.ref) {
+          throw new Error("framework_activation_source_mismatch");
+        }
         const sourceRef = requireString(record.source, "ref", `${nested.field}.source.ref`);
         const contentHash = requireString(
           record.source,

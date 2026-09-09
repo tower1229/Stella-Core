@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import { prepareRepositorySource } from '../src/canghai/repository-source.js';
+import { bytesVersion, canonicalJson, objectVersion } from '../src/canghai/content-version.js';
+import { parseMemoryCatalog } from '../src/canghai/catalog-reader.js';
+
+test('bootstrap catalog migration preserves denies and history, remaps descriptors, and rejects stale inputs', async t => {
+ const root = await mkdtemp(path.join(os.tmpdir(), 'stella-catalog-migration-'));
+ const privateFiles = await mkdtemp(path.join(os.tmpdir(), 'stella-catalog-plan-'));
+ t.after(async () => { await rm(root, { recursive: true, force: true }); await rm(privateFiles, { recursive: true, force: true }); });
+ const put = async (relative: string, bytes: string) => { await mkdir(path.dirname(path.join(root, relative)), { recursive: true }); await writeFile(path.join(root, relative), bytes); };
+ const policy = { schemaVersion: 'stella.source-policy/v2', id: 'policy', ownerId: 'owner', readPurposes: [], derivePurposes: [], deliveryScopes: ['owner-direct'], retention: 'retain', authorityEvidenceRefs: [],
+  restrictions: { sensitivity: 'private', quotePolicy: 'summarize_only', allowedScenarios: ['self_reflection'], forbiddenScenarios: [] } };
+ const policyRef = { id: policy.id, version: objectVersion(policy) }, payload = 'Synthetic original';
+ await put('original.txt', payload); await put('policy.json', canonicalJson(policy));
+ const imported = await prepareRepositorySource({ root, sourceId: 'synthetic', collectionId: 'synthetic', relativePath: 'original.txt', expectedSha256: bytesVersion(payload), capturedAt: '2026-09-01T00:00:00Z', policyRef, objectRoot: 'objects' });
+ const catalog = parseMemoryCatalog({ schemaVersion: 'stella.memory-catalog/v1', generationId: 'initial', parentGenerationId: null, sources: [], evidence: [], coverage: [], policies: [{ ...policyRef, status: 'current', dependencies: [], locator: { path: 'policy.json', sha256: bytesVersion(canonicalJson(policy)) } }], understandings: [], works: [], changes: [], bundles: [], views: [] });
+ for (const object of imported.objects) { catalog[object.group].push(object.entry); await put(object.entry.locator.path, object.bytes); }
+ const catalogPath = '50_PersonalAgent/stella/initialization/memory/catalog.json';
+ await put(catalogPath, canonicalJson(catalog));
+ const git = (...args: string[]) => execFileSync('git', ['-c', 'core.fsmonitor=false', '-C', root, ...args], { stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim();
+ git('init'); git('add', '.'); git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', '-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'synthetic fixture');
+ const revision = git('rev-parse', 'HEAD');
+ const semanticReview = { sha256: bytesVersion('synthetic review'), sourceBindingsVerified: true };
+ const plan = { schemaVersion: 'stella.source-policy-migration-plan/v1', sourceRevision: revision, semanticReview, plans: [{ sourceId: 'synthetic', source: { path: 'original.txt', sha256: bytesVersion(payload) }, restrictions: policy.restrictions, constraintImplementation: { usageRules: { access: [], interpretation: [{ id: 'historical', requirement: 'Preserve dated scope.' }] } } }] };
+ const planBytes = canonicalJson(plan), catalogHash = bytesVersion(canonicalJson(catalog));
+ const segments = { schemaVersion: 'stella.source-segmentation-candidate/v1', sourceRevision: revision, planSha256: bytesVersion(planBytes), catalogHash, proposals: [] };
+ const descriptions = { schemaVersion: 'stella.source-descriptor-migration-candidate/v1', semanticReview, catalogHash, readyToActivate: false, descriptors: [{ sourceRef: imported.sourceRef, policyRef, description: 'Synthetic private observation.' }] };
+ for (const [name, value] of Object.entries({ plan, segments, descriptions })) await writeFile(path.join(privateFiles, name), canonicalJson(value));
+ const run = (suffix: string) => execFileSync(process.execPath, ['scripts/prepare-source-catalog-migration.mjs', root, revision, ...['plan', 'segments', 'descriptions', suffix].map(name => path.join(privateFiles, name))], { stdio: ['ignore', 'pipe', 'pipe'] });
+ run('result');
+ const result = JSON.parse(await readFile(path.join(privateFiles, 'result'), 'utf8'));
+ const migrated = parseMemoryCatalog(result.catalog);
+ assert.equal(migrated.sources.filter(e => e.status === 'superseded').length, 1);
+ assert.equal(migrated.evidence.filter(e => e.status === 'current').length, 1);
+ assert.equal(result.descriptors[0].sourceRef.version, migrated.sources.find(e => e.status === 'current')?.version);
+ assert.notEqual(result.descriptors[0].policyRef.version, policyRef.version);
+ const migratedPolicy = result.objects.find((o: { group: string }) => o.group === 'policies').object;
+ assert.deepEqual(migratedPolicy.readPurposes, []); assert.deepEqual(migratedPolicy.derivePurposes, []);
+ assert.equal(result.processingAuthorityChanged, false); assert.equal(await readFile(path.join(root, 'original.txt'), 'utf8'), payload);
+ assert.equal(git('status', '--porcelain'), '');
+ await writeFile(path.join(privateFiles, 'segments'), canonicalJson({ ...segments, catalogHash: bytesVersion('stale') }));
+ assert.throws(() => run('stale'), /stale_catalog_plan/);
+ await writeFile(path.join(privateFiles, 'segments'), canonicalJson(segments));
+ await put('original.txt', 'changed');
+ assert.throws(() => run('dirty'), /source_revision_or_cleanliness_changed/);
+});

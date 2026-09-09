@@ -108,12 +108,13 @@ export async function preparePersonalViews(input: {
     if (visited.has(key(ref))) return;
     visited.add(key(ref));
     const object = await read(ref);
-    if (object.schemaVersion === "stella.memory-source/v1") {
+    if (["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(object.schemaVersion))) {
       check(validMemoryRef(object.policyRef) && validMemoryRef(object.coverageRef), "invalid_source");
       declared(ref, [object.policyRef, object.coverageRef]);
       const policy = await read(object.policyRef);
       check(policy.ownerId === input.ownerId, "personal_context_owner_mismatch");
-      await input.resolver.assertSourceAccess(ref, object.policyRef);
+      if (object.schemaVersion === "stella.memory-source/v2") await input.resolver.assertSourceMetadataAccess(ref, object.policyRef);
+      else await input.resolver.assertSourceAccess(ref, object.policyRef);
     } else if (object.schemaVersion === "stella.memory-evidence/v1") {
       check(validMemoryRef(object.source) && typeof object.payloadSha256 === "string", "invalid_evidence");
       await authorize(object.source, visited, originals);

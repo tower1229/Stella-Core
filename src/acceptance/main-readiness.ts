@@ -54,8 +54,10 @@ export async function inspectMainReadiness(input: {
   const counts = { sources: 0, policies: 0, policiesWithoutPurposes: 0, understandings: 0, works: 0 };
   if (profile.memory) {
     const reader = await CatalogReader.load(input.root, parseCangHaiRef(profile.memory.catalog_ref).relativePath);
-    counts.sources = reader.catalog.sources.length; counts.policies = reader.catalog.policies.length;
-    counts.understandings = reader.catalog.understandings.length; counts.works = reader.catalog.works.length;
+    counts.sources = reader.catalog.sources.filter(entry => entry.status === "current").length;
+    counts.policies = reader.catalog.policies.filter(entry => entry.status === "current").length;
+    counts.understandings = reader.catalog.understandings.filter(entry => entry.status === "current").length;
+    counts.works = reader.catalog.works.filter(entry => entry.status === "current").length;
     for (const ref of reader.catalog.policies.filter(entry => entry.status === "current")) {
       const policy = parseSourcePolicy(await reader.read(ref, "policies"));
       if (!policy.readPurposes.length || !policy.derivePurposes.length || !policy.deliveryScopes.length) counts.policiesWithoutPurposes++;

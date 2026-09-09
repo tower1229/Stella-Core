@@ -16,6 +16,22 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+test("active framework IR cannot promote an incomplete, unregistered or mismatched source", async () => {
+  const root = await createFixture();
+  try {
+    const registry = path.join(root, "50_PersonalAgent/stella/frameworks/source-registry.yaml");
+    const original = await readFile(registry, "utf8");
+    await writeFile(registry, original.replace("status: active_source", "status: incomplete_source"));
+    await assert.rejects(loadConsciousness(root), /framework_source_not_executable/);
+    await writeFile(registry, original.replace("    status: active_source\n", ""));
+    await assert.rejects(loadConsciousness(root), /framework_source_not_executable/);
+    await writeFile(registry, original);
+    const ir = path.join(root, "30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml");
+    await writeFile(ir, (await readFile(ir, "utf8")).replace("ref: path:30_RAG/frameworks/fixture.md", "ref: path:30_RAG/frameworks/other.md"));
+    await assert.rejects(loadConsciousness(root), /framework_activation_source_mismatch/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 async function createSymlinkOrSkip(
   context: TestContext,
   target: string,

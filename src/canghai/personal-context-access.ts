@@ -2,6 +2,7 @@ import { CatalogError, readRepositoryBytes, validMemoryRef, type CatalogReader }
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { createSourceAccessProvider, type SourceAccessDescriptor, type SourceAccessProvider } from "./source-access.js";
 import { assertSourcePolicyAccess, parseSourcePolicy, type PolicyPurpose, type SourceAccessContext } from "./source-policy.js";
+import { sourceSegments } from "./source-segments.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 
@@ -125,4 +126,27 @@ export function createPersonalContextAccess(input: {
       await reader.read(target.policyRef, "policies");
     }
   };
+}
+
+/** Validate descriptor coverage before granting a full-memory runtime binding.
+ * A whole-source description cannot stand in for a fragment's policy scope. */
+export async function validatePersonalContextCatalog(reader: CatalogReader, input: PersonalContextAccess): Promise<void> {
+  const config = parsePersonalContextAccess(input);
+  const descriptors = new Set(config.descriptors.map(d => canonicalJson([d.sourceRef, d.policyRef])));
+  const declared = new Set<string>();
+  for (const entry of reader.catalog.sources.filter(value => value.status === "current")) {
+    const sourceRef = { id: entry.id, version: entry.version };
+    const source = await reader.read(sourceRef, "sources");
+    check(validMemoryRef(source.policyRef), "personal_context_source_policy_missing");
+    for (const policyRef of [source.policyRef, ...sourceSegments(source).map(segment => segment.policyRef)]) {
+      const object = await reader.read(policyRef, "policies");
+      check(object.ownerId === config.ownerId, "personal_context_owner_mismatch");
+      const policy = parseSourcePolicy(object);
+      const key = canonicalJson([sourceRef, { id: policyRef.id, version: policyRef.version }]);
+      declared.add(key);
+      if (policy.restrictions) check(descriptors.has(key), "personal_context_descriptor_required");
+    }
+  }
+  for (const key of descriptors) check(declared.has(key), "personal_context_descriptor_not_current");
+  await reader.assertCurrent();
 }

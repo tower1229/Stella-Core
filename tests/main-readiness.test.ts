@@ -12,6 +12,10 @@ test("main preflight exposes model drift and runtime blockers without treating b
   const profile = parse(await readFile(path.join(root, profilePath), "utf8"));
   profile.contract_profile = "full_memory";
   await writeFile(path.join(root, profilePath), stringify(profile));
+  const catalogPath = path.join(root, "30_PersonalData/memory/catalog.json");
+  const catalog = JSON.parse(await readFile(catalogPath, "utf8"));
+  catalog.policies.push({ ...catalog.policies[0], version: `sha256:${"0".repeat(64)}`, status: "superseded" });
+  await writeFile(catalogPath, JSON.stringify(catalog));
   const result = await inspectMainReadiness({ root, profilePath, agentId: "stella", modelRef: "google/gemini-3.1-pro-preview",
     fallbackModelRefs: ["synthetic/fallback"], initialization: { scope: "host_bootstrap", state: "ready",
       runtime: { state: "blocked", blockers: ["full_memory_acceptance_unavailable"] } } });

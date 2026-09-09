@@ -4,6 +4,7 @@ import { isRecord } from "../shared/type-guards.js";
 import type { ActualSource, EpisodeV2, VersionedRef } from "./episode-v2.js";
 import { assertSourcePolicyAccess, parseSourcePolicy, type SourceUsageRule } from "../canghai/source-policy.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
+import { sourceSegments, assertEvidenceSegment } from "../canghai/source-segments.js";
 
 export type OriginalEvidence = {
   ref: VersionedRef; text: string; role: string; kind: string; independentOriginId: string;
@@ -31,6 +32,12 @@ export class EpisodeEvidenceResolver {
     check(purpose.readPurpose && purpose.derivePurpose && purpose.deliveryScope && timestamp(purpose.evidenceCutoff), "invalid_evidence_purpose");
   }
   async assertSourceAccess(sourceRef: VersionedRef, ref: VersionedRef): Promise<void> {
+    const source = await this.reader.read(sourceRef, "sources");
+    check(sourceSegments(source).length === 0, "segmented_source_requires_evidence");
+    await this.assertSourceMetadataAccess(sourceRef, ref);
+  }
+  /** Checks policy access only. It does not authorize whole-source payload use. */
+  async assertSourceMetadataAccess(sourceRef: VersionedRef, ref: VersionedRef): Promise<void> {
     const policy = await this.reader.read(ref, "policies");
     const restricted = Boolean(parseSourcePolicy(policy).restrictions);
     check(!restricted || typeof this.purpose.sourceAccess === "function", "source_access_context_required");
@@ -51,16 +58,20 @@ export class EpisodeEvidenceResolver {
       typeof evidence.independentOriginId === "string" && evidence.independentOriginId &&
       timestamp(evidence.occurredAt, true) && timestamp(evidence.authoredAt, true) && timestamp(evidence.capturedAt), "invalid_evidence");
     this.#dependencies(ref, [evidence.source, evidence.policyRef, ...evidence.derivedFrom]);
-    await this.assertSourceAccess(evidence.source, evidence.policyRef);
     const source = await this.reader.read(evidence.source, "sources");
-    check(source.schemaVersion === "stella.memory-source/v1" && isRecord(source.origin) &&
+    check(["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(source.schemaVersion)) && isRecord(source.origin) &&
       typeof source.origin.adapterId === "string" && source.origin.adapterId &&
       typeof source.origin.collectionId === "string" && source.origin.collectionId &&
       typeof source.origin.upstreamId === "string" && source.origin.upstreamId &&
       validMemoryRef(source.policyRef) && validMemoryRef(source.coverageRef) && timestamp(source.capturedAt), "invalid_source");
-    this.#dependencies(evidence.source, [source.policyRef, source.coverageRef]);
+    const segments = sourceSegments(source);
+    assertEvidenceSegment(segments, evidence);
+    this.#dependencies(evidence.source, [source.policyRef, source.coverageRef, ...segments.map(segment => segment.policyRef)]);
+    const sourceRef = evidence.source;
+    const authorize = (policyRef: VersionedRef) => segments.length ? this.assertSourceMetadataAccess(sourceRef, policyRef) : this.assertSourceAccess(sourceRef, policyRef);
+    await authorize(evidence.policyRef);
     // Shared policy objects still require a new judgment for each different source.
-    if (!includesRef([evidence.policyRef], source.policyRef)) await this.assertSourceAccess(evidence.source, source.policyRef);
+    if (!includesRef([evidence.policyRef], source.policyRef)) await authorize(source.policyRef);
     const coverage = await this.reader.read(source.coverageRef, "coverage");
     check(coverage.schemaVersion === "stella.archive-coverage/v1" && coverage.adapterId === source.origin.adapterId &&
       coverage.collectionId === source.origin.collectionId && isRecord(coverage.scope) &&

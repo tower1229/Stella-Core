@@ -174,7 +174,7 @@ Prefers reversible experiments.
   );
   await writeFile(
     path.join(root, "50_PersonalAgent/stella/frameworks/source-registry.yaml"),
-    "sources:\n  - id: framework_fixture\n    source_ref: path:30_RAG/frameworks/fixture.md\n",
+    "sources:\n  - id: framework_fixture\n    status: active_source\n    source_ref: path:30_RAG/frameworks/fixture.md\n",
     "utf8",
   );
   await writeFile(path.join(root, "30_RAG/frameworks/fixture.md"), "# Framework source\n", "utf8");
