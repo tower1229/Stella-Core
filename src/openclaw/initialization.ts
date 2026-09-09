@@ -110,6 +110,17 @@ export type InitializationPlan = {
 };
 type Receipt = { schemaVersion: "stella.initialization-receipt/v1"; scope: "host_files_and_skills" | "host_bootstrap"; operationId: string; sourceRevision: string; workspace: string;
   recipeHash: string; files: Array<{ target: string; hash: string }>; checkedAt: string; identityHash?: string };
+export type InitializationVerificationBinding = {
+  core: string; artifact: string; host: string; harness: string; source: string;
+  profile: string; policy: string; configuration: string; model: string; cases: string;
+  deployment: string; generation: string;
+};
+type VerificationReceipt = {
+  schemaVersion: "stella.initialization-verification/v1"; id: string;
+  scope: "host_bootstrap"; runtimeAdmission: false; operationId: string;
+  purpose: "verify_installed_bootstrap"; actorHash: string;
+  binding: InitializationVerificationBinding; checkedAt: string; expiresAt: string;
+};
 export type InitializationSource = { root: string; revision: string; recipePath: string; agentId: string; hostVersion: string;
   skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory" };
 export type InitializationPorts = {
@@ -251,6 +262,62 @@ export class StellaInitializer {
       check(bytesVersion(canonicalJson(await this.ports.readIdentity())) === expected, "host_identity_drift");
     }
     return receipt;
+  }
+
+  /** Recheck installed Host consumption without installation effects or runtime admission. */
+  async verifyInstalled(): Promise<Receipt> {
+    this.active();
+    const before = await this.assertCurrent();
+    const recipe = await this.recipe();
+    await this.ports.verify(recipe);
+    this.active();
+    const after = await this.assertCurrent();
+    check(canonicalJson(before) === canonicalJson(after), "initialization_changed_during_verification");
+    return after;
+  }
+
+  /** The authenticated Host supplies identity and dependencies, never model tool arguments. */
+  async verifyCapability(actorHash: string, capture: () => Promise<InitializationVerificationBinding>, signal?: AbortSignal): Promise<VerificationReceipt> {
+    check(digest(actorHash), "verification_actor_required");
+    const active = () => { this.active(); check(!signal?.aborted, "operation_cancelled"); };
+    active();
+    const started = Date.now();
+    const before = await capture();
+    active();
+    check(Object.keys(before).length === 12 && Object.values(before).every(digest), "invalid_verification_binding");
+    const installed = await this.verifyInstalled();
+    check(installed.scope === "host_bootstrap", "host_bootstrap_verification_required");
+    check(canonicalJson(await capture()) === canonicalJson(before), "verification_dependencies_changed");
+    active();
+    check(Date.now() - started < 60_000, "verification_expired");
+    const receipt: VerificationReceipt = { schemaVersion: "stella.initialization-verification/v1", id: `verify_${randomUUID()}`,
+      scope: "host_bootstrap", runtimeAdmission: false, operationId: installed.operationId,
+      purpose: "verify_installed_bootstrap", actorHash, binding: before,
+      checkedAt: new Date().toISOString(), expiresAt: new Date(started + 60_000).toISOString() };
+    await write(this.stateRoot, `verifications/${receipt.id}.json`, Buffer.from(canonicalJson(receipt)).toString("base64"));
+    try { active(); check(Date.now() < Date.parse(receipt.expiresAt), "verification_expired"); }
+    catch (error) { await unlink(await safeFile(this.stateRoot, `verifications/${receipt.id}.json`)); throw error; }
+    return receipt;
+  }
+
+  async assertCapabilityVerification(receipt: unknown, capture: () => Promise<InitializationVerificationBinding>, signal?: AbortSignal): Promise<void> {
+    check(isRecord(receipt) && typeof receipt.id === "string" && /^verify_[a-f0-9-]{36}$/.test(receipt.id), "invalid_verification_receipt");
+    const stored = await read(this.stateRoot, `verifications/${receipt.id}.json`);
+    check(stored && Buffer.from(stored, "base64").toString("utf8") === canonicalJson(receipt), "untrusted_verification_receipt");
+    const active = () => {
+      this.active(); check(!signal?.aborted, "operation_cancelled");
+      check(typeof receipt.expiresAt === "string" && Date.parse(receipt.expiresAt) > Date.now(), "verification_expired");
+    };
+    try {
+      active();
+      check(canonicalJson(receipt.binding) === canonicalJson(await capture()), "verification_dependencies_changed");
+      const installed = await this.assertCurrent();
+      check(receipt.operationId === installed.operationId, "verification_initialization_changed");
+      active();
+    } catch (error) {
+      await unlink(await safeFile(this.stateRoot, `verifications/${receipt.id}.json`));
+      throw error;
+    }
   }
 
   async assertSkillRead(input: unknown): Promise<void> {

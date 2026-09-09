@@ -248,6 +248,7 @@ let providerReceivedOriginalEvidence = false;
 let providerReceivedCorrection = false;
 let providerReceivedInitialization = false;
 let initializationInputEvidence;
+let initializationVerification;
 const skillReadProbe = !managed && !cancellationProbe;
 let providerReceivedSkillBody = false;
 let providerReceivedInitializationResult = false;
@@ -343,6 +344,23 @@ try {
   assert.equal(displayedAgents.agents.find((agent) => agent.id === "probe")?.identity?.name, "Synthetic Stella",
     "The Gateway must expose the initialized identity, not merely a workspace file");
   assert.equal((await client.request("stella.initialize", { action: "apply" })).state, "ready");
+  if (process.argv.includes("--initialization")) {
+    const checked = await client.request("stella.initialize", { action: "verify" });
+    assert.equal(checked.verification.schemaVersion, "stella.initialization-verification/v1");
+    assert.equal(checked.verification.scope, "host_bootstrap");
+    assert.equal(checked.verification.runtimeAdmission, false);
+    initializationVerification = checked.verification;
+    assert.equal(checked.runtime.state, "not_evaluated");
+    assert.ok(Object.values(checked.verification.binding).every(value => /^sha256:[a-f0-9]{64}$/.test(value)));
+    assert.equal(providerRequests, 0, "Restricted bootstrap verification must not invoke a model");
+    await assert.rejects(client.request("stella.initialize", { action: "verify", passed: true }));
+    const changedModule = path.join(coreDist, "src/openclaw/initialization-templates.js");
+    const originalModule = await readFile(changedModule);
+    try {
+      await writeFile(changedModule, Buffer.concat([originalModule, Buffer.from("\n// Synthetic installed-code drift\n")]));
+      await assert.rejects(client.request("stella.initialize", { action: "verify" }), /verification_code_reload_required/);
+    } finally { await writeFile(changedModule, originalModule); }
+  }
   let direct;
   try {
     direct = await run(process.execPath, [path.join(hostRoot, "openclaw.mjs"), "agent", "--agent", "probe", "--session-key", "agent:probe:direct", "--message", "Synthetic direct probe", "--json", "--timeout", "30"], { cwd: temp, env: gateway.env, timeout: 60_000 });
@@ -588,7 +606,8 @@ try {
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
     provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
     provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
-    initialization: { providerReceivedInitialization, hostIdentityVerified: true, skillBodyRead: skillReadProbe ? providerReceivedSkillBody : "not_exercised",
+    initialization: { providerReceivedInitialization, hostIdentityVerified: true, restrictedVerification: initializationVerification,
+      skillBodyRead: skillReadProbe ? providerReceivedSkillBody : "not_exercised",
       ownerRequestedReinitialization: skillReadProbe ? providerReceivedInitializationResult : "not_exercised", scope: "host_bootstrap" },
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
   assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");

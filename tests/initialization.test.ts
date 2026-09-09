@@ -64,6 +64,38 @@ test("initializes reviewed bootstrap and skills, preserving unrelated files", as
   assert.deepEqual(JSON.parse(await readFile(path.join(f.state, "operations", `${receipt.operationId}.json`), "utf8")), journal);
 });
 
+test("installed Host verification is read-only and cannot certify complete runtime capabilities", async (t) => {
+  let observed = false;
+  const f = await fixture(t, async () => { observed = true; });
+  const installed = await f.initializer.initialize();
+  observed = false;
+  const proof = await f.initializer.verifyInstalled();
+  assert.equal(observed, true);
+  assert.equal(proof.operationId, installed.operationId);
+  assert.equal(proof.scope, "host_files_and_skills");
+  assert.equal(await f.git(["status", "--porcelain"]), "");
+  assert.equal(f.fenced(), false);
+  await writeFile(path.join(f.workspace, "SOUL.md"), "Owner edit");
+  observed = false;
+  await assert.rejects(f.initializer.verifyInstalled(), /projection_drift/);
+  assert.equal(observed, false);
+  assert.equal(await readFile(path.join(f.workspace, "SOUL.md"), "utf8"), "Owner edit");
+});
+
+test("a Host verification result cannot survive cancellation or edits made during verification", async (t) => {
+  const f = await fixture(t);
+  await f.initializer.initialize();
+  const cancellation = new AbortController();
+  const cancelled = new StellaInitializer(f.workspace, f.state, f.config,
+    { ...f.ports, verify: async () => { cancellation.abort(); } }, cancellation.signal);
+  await assert.rejects(cancelled.verifyInstalled(), /operation_cancelled/);
+  const changed = new StellaInitializer(f.workspace, f.state, f.config, { ...f.ports,
+    verify: async () => { await writeFile(path.join(f.workspace, "SOUL.md"), "Concurrent owner edit"); },
+  });
+  await assert.rejects(changed.verifyInstalled(), /projection_drift/);
+  assert.equal(await readFile(path.join(f.workspace, "SOUL.md"), "utf8"), "Concurrent owner edit");
+});
+
 test("compiles public Core templates and pinned reviewed behavior without rewriting the source", async (t) => {
   const f = await fixture(t);
   const save = async (name: string, value: unknown) => {
@@ -102,6 +134,44 @@ test("compiles public Core templates and pinned reviewed behavior without rewrit
   assert.equal(await f.git(["status", "--porcelain"]), "");
   assert.equal(await readFile(path.join(f.source, "reviewed-soul.txt"), "utf8"), "Be precise. Ask about material unknowns.");
   assert.equal(receipt.scope, "host_bootstrap");
+  const binding = { core: bytesVersion("core"), artifact: bytesVersion("artifact"), host: bytesVersion("host"),
+    harness: bytesVersion("harness"), source: bytesVersion(f.config.revision), profile: bytesVersion("profile"),
+    policy: bytesVersion("policy"), configuration: bytesVersion("configuration"), model: bytesVersion("model"),
+    cases: bytesVersion("cases"), deployment: bytesVersion("deployment"), generation: bytesVersion("generation") };
+  const capture = async () => structuredClone(binding);
+  const proof = await f.initializer.verifyCapability(bytesVersion("authenticated-synthetic-operator"), capture);
+  assert.equal(proof.runtimeAdmission, false);
+  await f.initializer.assertCapabilityVerification(proof, capture);
+  const restarted = new StellaInitializer(f.workspace, f.state, f.config, f.ports);
+  await restarted.assertCapabilityVerification(proof, capture);
+  await assert.rejects(restarted.assertCapabilityVerification({ ...proof, runtimeAdmission: true }, capture), /untrusted_verification_receipt/);
+  for (const key of Object.keys(binding) as Array<keyof typeof binding>) {
+    const current = await restarted.verifyCapability(bytesVersion("operator"), capture);
+    await assert.rejects(restarted.assertCapabilityVerification(current, async () => ({ ...binding, [key]: bytesVersion("drift") })), /verification_dependencies_changed/);
+  }
+  const aborted = new AbortController(); aborted.abort();
+  await assert.rejects(f.initializer.verifyCapability(bytesVersion("operator"), capture, aborted.signal), /operation_cancelled/);
+  let captures = 0;
+  await assert.rejects(f.initializer.verifyCapability(bytesVersion("operator"), async () => {
+    captures++;
+    return { ...binding, generation: bytesVersion(String(captures)) };
+  }), /verification_dependencies_changed/);
+  const duringReadback = new AbortController();
+  await assert.rejects(restarted.assertCapabilityVerification(proof, async () => {
+    duringReadback.abort(); return binding;
+  }, duringReadback.signal), /operation_cancelled/);
+  await assert.rejects(restarted.assertCapabilityVerification(proof, capture), /untrusted_verification_receipt/);
+  const expiring = await restarted.verifyCapability(bytesVersion("operator"), capture);
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  try {
+    await assert.rejects(restarted.assertCapabilityVerification(expiring, async () => {
+      t.mock.timers.setTime(Date.parse(expiring.expiresAt) + 1); return binding;
+    }), /verification_expired/);
+  } finally { t.mock.timers.reset(); }
+  const beforeShutdown = await restarted.verifyCapability(bytesVersion("operator"), capture);
+  const stopped = new StellaInitializer(f.workspace, f.state, f.config, f.ports, aborted.signal);
+  await assert.rejects(stopped.assertCapabilityVerification(beforeShutdown, capture), /operation_cancelled/);
+  await assert.rejects(restarted.assertCapabilityVerification(beforeShutdown, capture), /untrusted_verification_receipt/);
   const expectedIdentity = await f.ports.readIdentity();
   const externalIdentity = { name: "External edit" };
   await f.ports.applyIdentity(expectedIdentity, externalIdentity, false);

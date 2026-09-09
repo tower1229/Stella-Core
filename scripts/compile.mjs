@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,3 +28,10 @@ await new Promise((resolve, reject) => {
     else reject(new Error(`TypeScript compiler failed (${signal ?? code})`));
   });
 });
+
+if (mode === "build") {
+  const git = (args) => execFileSync("git", args, { cwd: projectRoot, encoding: "utf8" }).trim();
+  await writeFile(path.join(projectRoot, "dist/build-identity.json"), JSON.stringify({
+    coreRevision: git(["rev-parse", "HEAD"]), sourceClean: git(["status", "--porcelain"]) === "",
+  }));
+}

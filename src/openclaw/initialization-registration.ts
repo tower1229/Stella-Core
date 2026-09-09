@@ -2,7 +2,7 @@ import path from "node:path";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { parse as parseYaml } from "yaml";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveAgentWorkspaceDir } from "openclaw/plugin-sdk/agent-runtime";
 import { parseCangHaiRef } from "../canghai/ref.js";
 import { readRepositoryBytes } from "../canghai/catalog-reader.js";
@@ -16,6 +16,7 @@ import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { completionOperationForRun, isCompletionResourceActive } from "./completion.js";
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportError } from "openclaw/plugin-sdk/gateway-runtime";
+import { captureInitializationVerificationBinding } from "./initialization-verification-binding.js";
 
 type Config = { canghaiRoot: string; recoveryRevision: string; manifestPath: string; agentId: string; initializationGatewayAccess?: "local_operator_read" };
 type Status = { state: "not_started" | "initializing" | "blocked" | "ready"; category?: string; operationId?: string; recipeHash?: string;
@@ -113,6 +114,35 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     }
   });
 
+  const verifyHost = async (materialization: Materialization, host?: { setup: true }) => {
+    const workspace = await realpath(resolveAgentWorkspaceDir(structuredClone(api.runtime.config.current()) as OpenClawConfig, config.agentId));
+    if (host?.setup) {
+      const setup = await api.runtime.agent.ensureAgentWorkspace({ dir: workspace, ensureBootstrapFiles: true });
+      if (await realpath(setup.dir) !== workspace || setup.bootstrapPending !== false) throw new InitializationError("host_setup_pending");
+    }
+
+    const skills = await request("skills.status", { agentId: config.agentId });
+    if (!isRecord(skills) || !Array.isArray(skills.skills) || typeof skills.workspaceDir !== "string" || await realpath(skills.workspaceDir) !== workspace) throw new InitializationError("host_skill_inventory_unavailable");
+    for (const name of materialization.skills) {
+      const text = await readFile(path.join(workspace, "skills", name, "SKILL.md"), "utf8");
+      const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+      const metadata: unknown = frontmatter ? parseYaml(frontmatter[1]!) : undefined;
+      if (!isRecord(metadata) || metadata.name !== name || typeof metadata.description !== "string") throw new InitializationError("invalid_skill_metadata");
+      const active = skills.skills.find((entry: unknown) => isRecord(entry) && entry.name === name);
+      if (!isRecord(active) || active.eligible !== true || active.disabled === true || active.blockedByAgentFilter === true ||
+        active.blockedByAllowlist === true || typeof active.filePath !== "string" ||
+        await realpath(active.filePath) !== path.join(workspace, "skills", name, "SKILL.md")) throw new InitializationError("skill_unavailable_or_shadowed");
+    }
+    for (const file of materialization.files.filter((file) => !file.target.startsWith("skills/"))) {
+      const observed = await request("agents.files.get", { agentId: config.agentId, name: file.target });
+      if (!isRecord(observed) || !isRecord(observed.file) || typeof observed.file.content !== "string" ||
+        bytesVersion(observed.file.content) !== file.sha256) throw new InitializationError("host_projection_mismatch");
+    }
+
+    await verifyInitializationContext({ workspace, agentId: config.agentId,
+      files: materialization.files, currentConfig: () => api.runtime.config.current() });
+  };
+
   const initialize = (): Promise<ScopedStatus> => {
     if (inflight) return inflight;
     inflight = (async () => {
@@ -136,35 +166,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         }, {
           fence: drain,
           readIdentity, applyIdentity,
-          verify: async (materialization: Materialization, host) => {
-            if (host?.setup) {
-              stage = "host_setup";
-              const setup = await api.runtime.agent.ensureAgentWorkspace({ dir: workspace, ensureBootstrapFiles: true });
-              if (await realpath(setup.dir) !== workspace || setup.bootstrapPending !== false) throw new InitializationError("host_setup_pending");
-            }
-            stage = "host_skills";
-            const skills = await request("skills.status", { agentId: config.agentId });
-            if (!isRecord(skills) || !Array.isArray(skills.skills) || skills.workspaceDir !== inventory.workspace) throw new InitializationError("host_skill_inventory_unavailable");
-            for (const name of materialization.skills) {
-              const text = await readFile(path.join(workspace, "skills", name, "SKILL.md"), "utf8");
-              const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-              const metadata: unknown = frontmatter ? parseYaml(frontmatter[1]!) : undefined;
-              if (!isRecord(metadata) || metadata.name !== name || typeof metadata.description !== "string") throw new InitializationError("invalid_skill_metadata");
-              const active = skills.skills.find((entry: unknown) => isRecord(entry) && entry.name === name);
-              if (!isRecord(active) || active.eligible !== true || active.disabled === true || active.blockedByAgentFilter === true ||
-                active.blockedByAllowlist === true || typeof active.filePath !== "string" ||
-                await realpath(active.filePath) !== path.join(workspace, "skills", name, "SKILL.md")) throw new InitializationError("skill_unavailable_or_shadowed");
-            }
-            for (const file of materialization.files.filter((file) => !file.target.startsWith("skills/"))) {
-              stage = "host_files";
-              const observed = await request("agents.files.get", { agentId: config.agentId, name: file.target });
-              if (!isRecord(observed) || !isRecord(observed.file) || typeof observed.file.content !== "string" ||
-                bytesVersion(observed.file.content) !== file.sha256) throw new InitializationError("host_projection_mismatch");
-            }
-            stage = "host_context";
-            await verifyInitializationContext({ workspace, agentId: config.agentId,
-              files: materialization.files, currentConfig: () => api.runtime.config.current() });
-          },
+          verify: verifyHost,
           release: async () => {},
         }, shutdown.signal);
         const receipt = await initializer.initialize();
@@ -193,7 +195,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         await realpath(path.join(stateDir ?? resolveStateDir(), "stella-core", "initialization", config.agentId)), {
           root: await realpath(config.canghaiRoot), revision: config.recoveryRevision,
           ...source, agentId: config.agentId, hostVersion: api.runtime.version,
-        }, { fence: unavailable, verify: unavailable, release: unavailable, readIdentity, applyIdentity: unavailable }, shutdown.signal);
+        }, { fence: unavailable, verify: verifyHost, release: unavailable, readIdentity, applyIdentity: unavailable }, shutdown.signal);
     }
     const current = api.runtime.config.current().plugins?.entries?.["stella-core"];
     if (current?.enabled !== true || current.config?.canghaiRoot !== config.canghaiRoot ||
@@ -307,20 +309,31 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     if (inflight) await inflight;
     if (!shutdown.signal.aborted && status.state !== "ready") await initialize();
   });
-  api.registerGatewayMethod("stella.initialize", async ({ params, client, respond }) => {
+  api.registerGatewayMethod("stella.initialize", async ({ params, client, req, signal, respond }) => {
     if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin")) {
       respond(false, undefined, { code: "INVALID_REQUEST", message: "Initialization requires operator.admin" }); return;
     }
     if (!isRecord(params) || typeof params.action !== "string" ||
-      !(Object.keys(params).length === 1 && ["apply", "status"].includes(params.action) ||
+      !(Object.keys(params).length === 1 && ["apply", "status", "verify"].includes(params.action) ||
         Object.keys(params).length === 2 && params.action === "rollback" && typeof params.operationId === "string" && /^init_[a-f0-9-]{36}$/.test(params.operationId))) {
-      respond(false, undefined, { code: "INVALID_REQUEST", message: "Expected action: apply, status, or rollback with operationId" }); return;
+      respond(false, undefined, { code: "INVALID_REQUEST", message: "Expected action: apply, status, verify, or rollback with operationId" }); return;
     }
     try {
+      if (params.action === "verify") {
+        if (!client.connId) throw new InitializationError("verification_actor_required");
+        await assertBootstrapReady();
+        const capture = () => captureInitializationVerificationBinding(api, config);
+        const actorHash = bytesVersion(canonicalJson({ connection: client.connId, request: req.id,
+          user: client.authenticatedUserId ?? null, role: client.connect.role }));
+        const proof = await initializer!.verifyCapability(actorHash, capture, signal);
+        await initializer!.assertCapabilityVerification(proof, capture, signal);
+        respond(true, { verification: proof, runtime: runtimeStatus() });
+        return;
+      }
       const result = params.action === "status" ? await inspect() : params.action === "rollback" ? await rollback(params.operationId as string) : await initialize();
       if (params.action === "apply" && result.state === "blocked") respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${result.category}` });
       else respond(true, result);
-    } catch (error) { respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${error instanceof InitializationError ? error.category : "rollback_failed"}` }); }
+    } catch (error) { respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category : params.action === "verify" ? "verification_failed" : "rollback_failed"}` }); }
   }, { scope: "operator.admin" });
   api.registerCommand({
     name: "stella-initialize", description: "初始化或重新核对 Stella 的运行文件与技能", requireAuth: true,
