@@ -42,10 +42,19 @@ export type CompiledInitializationSource = { materialization: Materialization; c
 
 /** Compile pinned, already-reviewed behavior. No model call or source mutation is permitted here. */
 export async function compileInitializationSource(root: string, document: unknown,
-  target: { agentId: string; hostVersion: string; skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory" }): Promise<CompiledInitializationSource> {
+  target: { agentId: string; hostVersion: string; skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory";
+    requiredCapabilities?: readonly string[] }): Promise<CompiledInitializationSource> {
   // Installing reviewed instructions is distinct from admitting a cognitive run.
-  // No full-memory acceptance adapter exists yet; never turn installation into that verdict.
-  const runtimeBlockers = new Set<string>(target.contractProfile === "full_memory" ? ["full_memory_acceptance_unavailable"] : []);
+  // Required capabilities stay blocked until constrained acceptance stores a current receipt.
+  const runtimeBlockers = new Set<string>();
+  if (target.contractProfile === "full_memory") {
+    const required = target.requiredCapabilities ?? [];
+    if (!required.length) runtimeBlockers.add("full_memory_acceptance_unavailable");
+    else for (const id of required) {
+      check(/^[a-z0-9][a-z0-9_-]*$/.test(id), "invalid_required_capability");
+      runtimeBlockers.add(`capability_acceptance_missing:${id}`);
+    }
+  }
   object(document, ["schema_version", "id", "host_adapter", "behavior_mapping_ref", "projection_recipes", "skill_bindings", "automation_declarations", "required_checks"]);
   check(document.schema_version === "stella.host-materialization/v1" && typeof document.id === "string" && document.id.trim(), "invalid_materialization_identity");
   object(document.host_adapter, ["id", "version", "host_version", "harness"]);

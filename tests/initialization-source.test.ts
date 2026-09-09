@@ -81,6 +81,18 @@ test("full-memory instructions can be installed without declaring runtime accept
   assert.deepEqual(result.runtimeBlockers, ["full_memory_acceptance_unavailable"]);
 });
 
+test("full-memory required capabilities become concrete acceptance blockers until receipts exist", async (t) => {
+  const f = await fixture(t);
+  const result = await compileInitializationSource(f.root, f.document, {
+    agentId: "probe", hostVersion: "2026.8.2", contractProfile: "full_memory",
+    requiredCapabilities: ["host_initialization", "memory_access"],
+  });
+  assert.deepEqual(result.runtimeBlockers, [
+    "capability_acceptance_missing:host_initialization",
+    "capability_acceptance_missing:memory_access",
+  ]);
+});
+
 test("installed skills report every unverified capability instead of disappearing", async (t) => {
   const f = await fixture(t);
   const binding = f.document.skill_bindings[0]!;

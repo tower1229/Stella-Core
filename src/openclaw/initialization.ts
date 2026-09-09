@@ -122,7 +122,7 @@ type VerificationReceipt = {
   binding: InitializationVerificationBinding; checkedAt: string; expiresAt: string;
 };
 export type InitializationSource = { root: string; revision: string; recipePath: string; agentId: string; hostVersion: string;
-  skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory" };
+  skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory"; requiredCapabilities?: readonly string[] };
 export type InitializationPorts = {
   /** Must fence all target runs, including after restart, until verify succeeds. */
   fence(): Promise<void>;

@@ -17,12 +17,24 @@ import { completionOperationForRun, isCompletionResourceActive } from "./complet
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportError } from "openclaw/plugin-sdk/gateway-runtime";
 import { captureInitializationVerificationBinding } from "./initialization-verification-binding.js";
+import {
+  acceptHostBootstrapCapability,
+  createFileCapabilityReceiptStore,
+  evaluateRuntimeCapabilityBlockers,
+  listCapabilityReceiptIds,
+} from "./capability-admission.js";
+import { capabilityReceiptLocator, invalidateCapabilityReceipt, type CapabilityVersionBinding } from "../acceptance/capability-receipt.js";
+import type { InitializationVerificationBinding } from "./initialization.js";
 
 type Config = { canghaiRoot: string; recoveryRevision: string; manifestPath: string; agentId: string; initializationGatewayAccess?: "local_operator_read" };
 type Status = { state: "not_started" | "initializing" | "blocked" | "ready"; category?: string; operationId?: string; recipeHash?: string;
   runtime?: { state: "blocked" | "not_evaluated"; blockers: string[] } };
 type ScopedStatus = Status & { scope: "host_bootstrap" };
 const scoped = (value: Status) => ({ ...value, scope: "host_bootstrap" as const });
+const toCapabilityBinding = (value: InitializationVerificationBinding): CapabilityVersionBinding => ({
+  core: value.core, artifact: value.artifact, host: value.host, harness: value.harness, source: value.source,
+  profile: value.profile, policy: value.policy, configuration: value.configuration, model: value.model, cases: value.cases,
+});
 
 async function materializationSource(config: Config) {
   const manifest: unknown = parseYaml((await readRepositoryBytes(config.canghaiRoot, config.manifestPath)).toString("utf8"));
@@ -41,7 +53,9 @@ async function materializationSource(config: Config) {
   if (!isRecord(document) || document.schema_version !== "stella.host-materialization/v1") throw new InitializationError("materialization_migration_required");
   const skillRegistryRef = isRecord(manifest.extensions) ? manifest.extensions.skillRegistryRef : undefined;
   if (skillRegistryRef !== undefined && typeof skillRegistryRef !== "string") throw new InitializationError("invalid_skill_registry_ref");
-  return { recipePath, contractProfile: profile.contract_profile, ...(skillRegistryRef ? { skillRegistryRef } : {}) };
+  const requiredCapabilities = profile.capabilities.filter(capability => capability.required).map(capability => capability.id);
+  return { recipePath, contractProfile: profile.contract_profile, requiredCapabilities,
+    ...(skillRegistryRef ? { skillRegistryRef } : {}) };
 }
 
 /** Registers effects only as a Host service or authenticated operation, never during plugin discovery. */
@@ -51,8 +65,20 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
   let initializer: StellaInitializer | undefined;
-  const runtimeStatus = (): NonNullable<Status["runtime"]> => {
-    const blockers = [...(initializer?.runtimeBlockers ?? [])];
+  const resolveRuntimeBlockers = async (signal?: AbortSignal) => {
+    if (!initializer) return [] as string[];
+    const store = createFileCapabilityReceiptStore(initializer.stateRoot);
+    const capture = async () => toCapabilityBinding(await captureInitializationVerificationBinding(api, config));
+    return evaluateRuntimeCapabilityBlockers({
+      compiledBlockers: initializer.runtimeBlockers,
+      store,
+      receiptIds: await listCapabilityReceiptIds(initializer.stateRoot),
+      captureBinding: capture,
+      signal,
+    });
+  };
+  const runtimeStatus = async (signal?: AbortSignal): Promise<NonNullable<Status["runtime"]>> => {
+    const blockers = await resolveRuntimeBlockers(signal);
     return { state: blockers.length ? "blocked" : "not_evaluated", blockers };
   };
   let reportHealth: (result: Status) => void = () => {};
@@ -171,7 +197,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         }, shutdown.signal);
         const receipt = await initializer.initialize();
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
-        status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: runtimeStatus() };
+        status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: await runtimeStatus() };
       } catch (error) {
         const category = error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category : `initialization_${stage}_failed`;
         const operationId = initializer ? await initializer.pendingOperationId().catch(() => undefined) : undefined;
@@ -209,12 +235,12 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     const receipt = await initializer.assertCurrent();
     await verifyInitializationContext({ workspace: receipt.workspace, agentId: config.agentId,
       files: receipt.files.map(file => ({ target: file.target, sha256: file.hash })), currentConfig: () => api.runtime.config.current() });
-    status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: runtimeStatus() };
+    status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: await runtimeStatus() };
   };
 
   const assertReady = async () => {
     await assertBootstrapReady();
-    if (initializer!.runtimeBlockers.length) throw new InitializationError("runtime_capabilities_unavailable");
+    if ((await resolveRuntimeBlockers()).length) throw new InitializationError("runtime_capabilities_unavailable");
   };
 
   const inspect = async (): Promise<ScopedStatus> => {
@@ -313,10 +339,15 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin")) {
       respond(false, undefined, { code: "INVALID_REQUEST", message: "Initialization requires operator.admin" }); return;
     }
+    const acceptCapability = isRecord(params) && params.action === "accept-capability" && Object.keys(params).length === 2 &&
+      typeof params.runId === "string" && params.runId.trim().length > 0;
+    const invalidateCapability = isRecord(params) && params.action === "invalidate-capability" && Object.keys(params).length === 2 &&
+      typeof params.receiptId === "string" && /^cap_[a-f0-9-]{36}$/.test(params.receiptId);
     if (!isRecord(params) || typeof params.action !== "string" ||
       !(Object.keys(params).length === 1 && ["apply", "status", "verify"].includes(params.action) ||
+        acceptCapability || invalidateCapability ||
         Object.keys(params).length === 2 && params.action === "rollback" && typeof params.operationId === "string" && /^init_[a-f0-9-]{36}$/.test(params.operationId))) {
-      respond(false, undefined, { code: "INVALID_REQUEST", message: "Expected action: apply, status, verify, or rollback with operationId" }); return;
+      respond(false, undefined, { code: "INVALID_REQUEST", message: "Expected action: apply, status, verify, accept-capability with runId, invalidate-capability with receiptId, or rollback with operationId" }); return;
     }
     try {
       if (params.action === "verify") {
@@ -327,13 +358,77 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
           user: client.authenticatedUserId ?? null, role: client.connect.role }));
         const proof = await initializer!.verifyCapability(actorHash, capture, signal);
         await initializer!.assertCapabilityVerification(proof, capture, signal);
-        respond(true, { verification: proof, runtime: runtimeStatus() });
+        respond(true, { verification: proof, runtime: await runtimeStatus(signal) });
+        return;
+      }
+      if (params.action === "accept-capability") {
+        if (!client.connId) throw new InitializationError("verification_actor_required");
+        // Constrained acceptance uses bootstrap readiness only; it must not require business admission.
+        await assertBootstrapReady();
+        await initializer!.bindRun(String(params.runId));
+        await initializer!.assertRun(String(params.runId));
+        const actorHash = bytesVersion(canonicalJson({ connection: client.connId, request: req.id,
+          user: client.authenticatedUserId ?? null, role: client.connect.role }));
+        const store = createFileCapabilityReceiptStore(initializer!.stateRoot);
+        const receipt = await acceptHostBootstrapCapability({
+          host: {
+            actorHash,
+            runId: String(params.runId),
+            purpose: { kind: "adapter_verification", capabilityId: "host_initialization" },
+            resourceScope: bytesVersion(canonicalJson({ agentId: config.agentId, workspace: initializer!.workspace })),
+          },
+          captureBinding: async () => toCapabilityBinding(await captureInitializationVerificationBinding(api, config)),
+          store,
+          ports: {
+            assertTrustedIdentity(hash) {
+              if (hash !== actorHash) throw new InitializationError("verification_actor_required");
+            },
+            async assertRunBound(runId) {
+              await initializer!.assertRun(runId);
+            },
+            async verifyInstalledBootstrap() {
+              return initializer!.verifyInstalled();
+            },
+          },
+          signal,
+        });
+        status = { ...status, runtime: await runtimeStatus(signal) };
+        respond(true, {
+          receipt: {
+            id: receipt.id,
+            capabilityId: receipt.capabilityId,
+            adapterId: receipt.adapterId,
+            result: receipt.result,
+            businessAdmission: receipt.businessAdmission,
+            mode: receipt.mode,
+            locator: capabilityReceiptLocator(receipt),
+            checkedAt: receipt.checkedAt,
+            expiresAt: receipt.expiresAt,
+          },
+          runtime: status.runtime,
+        });
+        return;
+      }
+      if (params.action === "invalidate-capability") {
+        await assertBootstrapReady();
+        const store = createFileCapabilityReceiptStore(initializer!.stateRoot);
+        const body = await store.read(String(params.receiptId));
+        if (!body) throw new InitializationError("capability_receipt_required");
+        const receipt = JSON.parse(body);
+        await invalidateCapabilityReceipt(receipt, store);
+        status = { ...status, runtime: await runtimeStatus(signal) };
+        respond(true, { invalidated: String(params.receiptId), runtime: status.runtime });
         return;
       }
       const result = params.action === "status" ? await inspect() : params.action === "rollback" ? await rollback(params.operationId as string) : await initialize();
       if (params.action === "apply" && result.state === "blocked") respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${result.category}` });
       else respond(true, result);
-    } catch (error) { respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category : params.action === "verify" ? "verification_failed" : "rollback_failed"}` }); }
+    } catch (error) {
+      const category = error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category
+        : error && typeof error === "object" && "category" in error && typeof error.category === "string" ? error.category
+        : params.action === "verify" ? "verification_failed" : params.action === "accept-capability" || params.action === "invalidate-capability" ? "capability_acceptance_failed" : "rollback_failed";
+      respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${category}` });
+    }
   }, { scope: "operator.admin" });
   api.registerCommand({
     name: "stella-initialize", description: "初始化或重新核对 Stella 的运行文件与技能", requireAuth: true,

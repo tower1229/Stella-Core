@@ -31,7 +31,9 @@ for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admi
   "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
   "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
   "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
-  "dist/src/acceptance/recovery-drill.js", "openclaw.plugin.json",
+  "dist/src/acceptance/recovery-drill.js", "dist/src/acceptance/capability-receipt.js",
+  "dist/src/acceptance/capability-acceptance.js", "dist/src/openclaw/capability-admission.js",
+  "openclaw.plugin.json",
   "schemas/consciousness-manifest.schema.json", "evaluation/praxis-social.synthetic.json"]) {
   assert.ok(files.includes(required), `packed plugin missing ${required}`);
 }
