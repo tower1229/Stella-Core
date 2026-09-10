@@ -167,12 +167,16 @@ test("cancelled completion and revoked admission both prevent late persist witho
   await assert.rejects(f.initializer.assertRun("run-cancel-late"), /stale_initialization_run/);
 });
 
-test("re-initialization invalidates previously bound runs even when projection bytes are unchanged", async (t) => {
+test("re-initialization that fences invalidates previously bound runs; idempotent verify does not", async (t) => {
   const f = await initFixture(t);
   await f.initializer.initialize();
   await f.initializer.bindRun("run-before-reinit");
   await f.initializer.assertRun("run-before-reinit");
+  // Content-identical re-check keeps the projection and does not retire live permits.
   await f.initializer.initialize();
+  await f.initializer.assertRun("run-before-reinit");
+  // Explicit maintenance revoke (correction/capability/init fence) retires old permits.
+  await f.initializer.revokeActiveRuns("initialization_fence");
   await assert.rejects(f.initializer.assertRun("run-before-reinit"), /stale_initialization_run/);
   await f.initializer.bindRun("run-after-reinit");
   await f.initializer.assertRun("run-after-reinit");

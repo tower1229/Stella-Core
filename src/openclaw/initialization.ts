@@ -545,8 +545,6 @@ export class StellaInitializer {
       try { await this.ports.verify(recipe, this.compiledIdentity ? { setup: true } : undefined); }
       catch (error) { await this.fence(); throw error; }
       this.active();
-      // Re-check without rewriting files still retires previously bound drafts and deliveries.
-      await bumpAdmissionEpoch(this.stateRoot, "initialization_revalidated");
       return previous;
     }
     return this.apply(await this.plan());
