@@ -9,6 +9,13 @@ import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import { compileInitializationSource, InitializationSourceError } from "./initialization-source.js";
 import type { HostIdentity } from "./initialization-templates.js";
+import {
+  assertRunAdmissionBinding,
+  bumpAdmissionEpoch,
+  readAdmissionEpoch,
+  writeRunAdmissionBinding,
+  RunAdmissionError,
+} from "./run-admission.js";
 
 const run = promisify(execFile);
 const bootstrap = ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"];
@@ -143,6 +150,7 @@ export class StellaInitializer {
   private active(): void { check(!this.signal?.aborted, "operation_cancelled"); }
   private async fence(): Promise<void> {
     await write(this.stateRoot, "fenced", Buffer.from("initialization pending\n").toString("base64"));
+    await bumpAdmissionEpoch(this.stateRoot, "initialization_fence");
     await this.ports.fence();
   }
 
@@ -472,16 +480,34 @@ export class StellaInitializer {
 
   async bindRun(runId: string): Promise<void> {
     const receipt = await this.assertCurrent();
-    const target = `runs/${bytesVersion(runId).slice(7)}.json`;
-    const value = Buffer.from(canonicalJson({ operationId: receipt.operationId })).toString("base64");
-    const location = await safeFile(this.stateRoot, target, true);
     try {
-      const file = await open(location, "wx", 0o600);
-      try { await file.writeFile(Buffer.from(value, "base64")); await file.sync(); }
-      finally { await file.close(); }
+      await writeRunAdmissionBinding(this.stateRoot, runId, {
+        schemaVersion: "stella.run-admission/v1",
+        operationId: receipt.operationId,
+        admissionEpoch: await readAdmissionEpoch(this.stateRoot),
+      });
     } catch (error) {
-      if (!isRecord(error) || error.code !== "EEXIST") throw error;
-      check(await read(this.stateRoot, target) === value, "stale_initialization_run");
+      if (error instanceof RunAdmissionError) throw new InitializationError(error.category);
+      throw error;
+    }
+  }
+
+  /** Invalidate every bound run. Optionally re-bind the live correcting run to the new epoch. */
+  async revokeActiveRuns(reason: string, options?: { retainRunId?: string }): Promise<void> {
+    this.active();
+    try {
+      const epoch = await bumpAdmissionEpoch(this.stateRoot, reason);
+      if (options?.retainRunId) {
+        const receipt = await this.assertCurrent();
+        await writeRunAdmissionBinding(this.stateRoot, options.retainRunId, {
+          schemaVersion: "stella.run-admission/v1",
+          operationId: receipt.operationId,
+          admissionEpoch: epoch,
+        }, "replace");
+      }
+    } catch (error) {
+      if (error instanceof RunAdmissionError) throw new InitializationError(error.category);
+      throw error;
     }
   }
 
@@ -495,8 +521,16 @@ export class StellaInitializer {
 
   async assertRun(runId: string): Promise<void> {
     const receipt = await this.assertCurrent();
-    const value = Buffer.from(canonicalJson({ operationId: receipt.operationId })).toString("base64");
-    check(await read(this.stateRoot, `runs/${bytesVersion(runId).slice(7)}.json`) === value, "stale_initialization_run");
+    try {
+      await assertRunAdmissionBinding(this.stateRoot, runId, {
+        schemaVersion: "stella.run-admission/v1",
+        operationId: receipt.operationId,
+        admissionEpoch: await readAdmissionEpoch(this.stateRoot),
+      });
+    } catch (error) {
+      if (error instanceof RunAdmissionError) throw new InitializationError(error.category);
+      throw error;
+    }
   }
 
   async initialize(): Promise<Receipt> {
@@ -511,6 +545,8 @@ export class StellaInitializer {
       try { await this.ports.verify(recipe, this.compiledIdentity ? { setup: true } : undefined); }
       catch (error) { await this.fence(); throw error; }
       this.active();
+      // Re-check without rewriting files still retires previously bound drafts and deliveries.
+      await bumpAdmissionEpoch(this.stateRoot, "initialization_revalidated");
       return previous;
     }
     return this.apply(await this.plan());

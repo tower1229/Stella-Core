@@ -132,3 +132,19 @@ node scripts/record-durable-write-evidence.mjs --evidence-directory /path/to/pri
 ```
 
 `managed_durable_write` 要求 Host 显式 remote／branch，manifest `durability.maxNormalRpoSeconds` 不得超过 profile `memory.archive_max_rpo_seconds`；不得把 RPO 悄悄放大。critical 未确认抛出，不生成完成收据；critical 已确认且 normal 仍 pending 时收据可为 `remote_pending`；normal 超限为 `archive_rpo_breached`。completion 对 critical draft 允许 `synchronized | remote_pending`（仍要求有 writeOperationIds）。阶段钩子覆盖 commit、recovery_pointer_cas、synchronize、view_publish；故障后按同一 operationId 接续，不覆盖并发编辑、不重复学习。实例绑定只携带 secret **引用**（`path:`），凭据正文不得进入资料预览或写入载荷。账本证据仅记 `synthetic_contract` + `implemented`（目标 `04`／`G-05`／`G-06`／`G-09`／`M-11`）；`implemented ≠ verified`，合成通过不等于 Exact Host／真实 main 已验证。
+
+### SPEC #6 撤销旧运行与迟到投递（Issue #10）
+
+工作项 06：初始化、纠正或撤权后旧运行不能继续写入或投递；超时／取消贯穿完成协调；重启保留 fence；维护期间 cron／事件不能绕过门禁；插件未加载或启动失败时仍能在 Host 配置层隔离完整 profile。
+
+**公开 Host seam**：`StellaInitializer.bindRun`／`assertRun`／`revokeActiveRuns`（持久 `admissionEpoch`）+ `coordinateCompletion` 迟到 persist／publish 复核 + `isolateHostProfile`／`assertHostProfileIsolated`（Host `tools.deny: ["*"]` 并卸下目标 Agent 的 cron 等 bindings；不写 prompt、不改 Host 私有数据库）+ `registerStellaInitialization` 维护 fence／release。
+
+```sh
+npm run build
+node scripts/compile.mjs test
+node --test .test-dist/tests/run-admission.test.js
+# 可选：向私人证据目录写入 synthetic_contract / implemented（不等于 Exact Host／real_main verified）
+node scripts/record-revoke-late-delivery-evidence.mjs --evidence-directory /path/to/private-evidence
+```
+
+纠正成功后 `revokeActiveRuns(..., { retainRunId })` 废止其他旧许可并保留当轮；能力 `invalidate-capability` 废止全部旧许可。初始化 fence／rollback 保留 durable `fenced` 与 Host isolation journal，重启后仍阻断 bind。账本证据仅记 `synthetic_contract` + `implemented`（目标 `06`／`G-05`／`G-08`／`I-07`／`I-08`／`I-12`／`C-08`）；`implemented ≠ verified`。

@@ -26,6 +26,12 @@ import {
 } from "./capability-admission.js";
 import { CapabilityReceiptError, capabilityReceiptLocator, invalidateCapabilityReceipt, type CapabilityVersionBinding } from "../acceptance/capability-receipt.js";
 import type { InitializationVerificationBinding } from "./initialization.js";
+import {
+  HostAdmissionIsolationError,
+  isolateHostProfile,
+  releaseHostProfileIsolation,
+  type HostAdmissionConfig,
+} from "./host-admission-isolation.js";
 
 type Config = { canghaiRoot: string; recoveryRevision: string; manifestPath: string; agentId: string; initializationGatewayAccess?: "local_operator_read" };
 type Status = { state: "not_started" | "initializing" | "blocked" | "ready"; category?: string; operationId?: string; recipeHash?: string;
@@ -124,6 +130,29 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       throw new InitializationError("active_turn_drain_required");
     }
   };
+  const isolationPorts = {
+    readConfig: (): HostAdmissionConfig => structuredClone(api.runtime.config.current()) as HostAdmissionConfig,
+    async mutateConfig(mutate: (draft: HostAdmissionConfig) => void) {
+      await api.runtime.config.mutateConfigFile({ afterWrite: { mode: "auto" }, mutate(draft) {
+        mutate(draft as HostAdmissionConfig);
+      } });
+    },
+  };
+  const fenceTarget = async (stateRoot: string) => {
+    await drain();
+    try { await isolateHostProfile(isolationPorts, config.agentId, "initialization_fence", stateRoot); }
+    catch (error) {
+      if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
+      throw error;
+    }
+  };
+  const releaseTarget = async (stateRoot: string) => {
+    try { await releaseHostProfileIsolation(isolationPorts, config.agentId, stateRoot); }
+    catch (error) {
+      if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
+      throw error;
+    }
+  };
   const request = requestHost ?? (async (method: string, params: Record<string, unknown>) => {
     if (config.initializationGatewayAccess !== "local_operator_read") throw new InitializationError("local_operator_read_authorization_required");
     if (api.config.gateway?.mode === "remote") throw new InitializationError("local_host_required");
@@ -188,14 +217,15 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         const localState = path.join(stateDir, "stella-core", "initialization", config.agentId);
         await mkdir(localState, { recursive: true, mode: 0o700 });
         stage = "transaction";
-        initializer = new StellaInitializer(workspace, await realpath(localState), {
+        const resolvedState = await realpath(localState);
+        initializer = new StellaInitializer(workspace, resolvedState, {
           root: await realpath(config.canghaiRoot), revision: config.recoveryRevision, ...source,
           agentId: config.agentId, hostVersion: api.runtime.version,
         }, {
-          fence: drain,
+          fence: async () => { await fenceTarget(resolvedState); },
           readIdentity, applyIdentity,
           verify: verifyHost,
-          release: async () => {},
+          release: async () => { await releaseTarget(resolvedState); },
         }, shutdown.signal);
         const receipt = await initializer.initialize();
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
@@ -258,11 +288,12 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     inflight = (async () => {
       status = { state: "initializing", operationId };
       try {
+        const recoveryState = await realpath(path.join(stateDir ?? resolveStateDir(), "stella-core", "initialization", config.agentId));
         const recovery = new StellaInitializer(await realpath(resolveAgentWorkspaceDir(api.config, config.agentId)),
-          await realpath(path.join(stateDir ?? resolveStateDir(), "stella-core", "initialization", config.agentId)), {
+          recoveryState, {
             root: config.canghaiRoot, revision: config.recoveryRevision, recipePath: "unused-for-rollback",
             agentId: config.agentId, hostVersion: api.runtime.version,
-          }, { fence: drain, release: async () => {}, readIdentity, applyIdentity,
+          }, { fence: async () => { await fenceTarget(recoveryState); }, release: async () => {}, readIdentity, applyIdentity,
             verify: async () => { throw new InitializationError("initialization_required"); } }, shutdown.signal);
         await recovery.rollback(operationId);
         status = { state: "blocked", category: "rolled_back_initialization_required", operationId };
@@ -423,6 +454,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         try { receipt = JSON.parse(body); }
         catch { throw new CapabilityReceiptError("invalid_capability_receipt"); }
         await invalidateCapabilityReceipt(receipt, store);
+        await initializer!.revokeActiveRuns("capability_invalidated");
         status = { ...status, runtime: await runtimeStatus(signal) };
         respond(true, { invalidated: String(params.receiptId), runtime: status.runtime });
         return;
@@ -466,5 +498,8 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   return { initialize, rollback, assertReady, async assertRun(runId: string) {
     await assertReady();
     await initializer!.assertRun(runId);
+  }, async revokeActiveRuns(reason: string, options?: { retainRunId?: string }) {
+    await assertBootstrapReady();
+    await initializer!.revokeActiveRuns(reason, options);
   }, status: () => scoped(status) };
 }

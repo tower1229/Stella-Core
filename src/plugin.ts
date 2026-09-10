@@ -59,6 +59,7 @@ import { loadOutcomeRecoveryBinding } from "./praxis/outcome-recovery-binding.js
 import { prepareQuestionEvidence } from "./praxis/question-evidence.js";
 import { prepareQuestionTransaction, recoverPendingQuestion } from "./praxis/question-transaction.js";
 import { registerStellaInitialization } from "./openclaw/initialization-registration.js";
+import { InitializationError } from "./openclaw/initialization.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 const STELLA_CORE_SYSTEM_CONTEXT =
@@ -424,9 +425,15 @@ export default definePluginEntry({
                 purpose: "stella-correction", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] }),
             }));
             await assertCurrent();
+            await initialization.revokeActiveRuns("correction_applied", { retainRunId: runId });
             corrections.set(runId, receipt);
           } catch (error) {
-            throw new CompletionError(error instanceof CatalogError || error instanceof MemoryTransactionError ? error.category : "correction_failed", "prepare");
+            throw new CompletionError(
+              error instanceof CatalogError || error instanceof MemoryTransactionError || error instanceof InitializationError
+                ? error.category
+                : "correction_failed",
+              "prepare",
+            );
           }
         });
       },
