@@ -151,7 +151,12 @@ export class StellaInitializer {
   private async fence(): Promise<void> {
     await write(this.stateRoot, "fenced", Buffer.from("initialization pending\n").toString("base64"));
     await bumpAdmissionEpoch(this.stateRoot, "initialization_fence");
-    await this.ports.fence();
+    try {
+      await this.ports.fence();
+    } catch (error) {
+      await unlink(await safeFile(this.stateRoot, "fenced")).catch(() => undefined);
+      throw error;
+    }
   }
 
   private async acquire(): Promise<{ release(): Promise<void> }> {

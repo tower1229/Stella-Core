@@ -165,6 +165,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       await isolateHostProfile(isolationPorts, config.agentId, "initialization_fence", stateRoot);
       await waitForIsolation(true);
     } catch (error) {
+      await releaseHostProfileIsolation(isolationPorts, config.agentId, stateRoot, { signal: shutdown.signal }).catch(() => undefined);
       if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
       throw error;
     }

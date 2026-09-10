@@ -233,13 +233,19 @@ test("Host-layer isolation blocks a full profile without plugin hooks, prompt te
     ],
   };
   const journal: unknown[] = [];
+  let delayIsolationVisibility = true;
   const ports: HostAdmissionIsolationPorts = {
     readConfig: () => structuredClone(config),
     async mutateConfig(mutate) {
       const draft = structuredClone(config);
       mutate(draft);
+      journal.push(structuredClone(draft));
+      if (delayIsolationVisibility) {
+        delayIsolationVisibility = false;
+        setTimeout(() => { config = draft; }, 150);
+        return;
+      }
       config = draft;
-      journal.push(structuredClone(config));
     },
   };
 

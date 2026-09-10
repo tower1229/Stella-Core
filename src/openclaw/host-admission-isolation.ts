@@ -125,9 +125,18 @@ export async function isolateHostProfile(
   check(typeof stateRoot === "string" && path.isAbsolute(stateRoot), "invalid_isolation_state");
   const existing = await readJournal(stateRoot);
   if (existing) {
-    assertHostProfileIsolated(ports.readConfig(), agentId);
     check(existing.agentId === agentId, "host_isolation_agent_conflict");
-    return;
+    const timeoutMs = 10_000;
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        assertHostProfileIsolated(ports.readConfig(), agentId);
+        return;
+      } catch (error) {
+        if (Date.now() >= deadline) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
   }
   const before = ports.readConfig();
   const entry = agentEntry(before, agentId);
@@ -148,7 +157,17 @@ export async function isolateHostProfile(
       draft.bindings = draft.bindings.filter((row) => row.agentId !== agentId);
     }
   });
-  assertHostProfileIsolated(ports.readConfig(), agentId);
+  const timeoutMs = 10_000;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      assertHostProfileIsolated(ports.readConfig(), agentId);
+      return;
+    } catch (error) {
+      if (Date.now() >= deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
 }
 
 export function assertHostProfileIsolated(config: HostAdmissionConfig, agentId: string): void {
