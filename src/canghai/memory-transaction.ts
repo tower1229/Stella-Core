@@ -100,6 +100,8 @@ type TransactionPorts = {
   validate(): Promise<void>;
   persist(paths: string[], operationId: string): Promise<void>;
   confirmPreviouslyCommitted(journalPath: string): Promise<void>;
+  /** Optional view publication gate after durable persist and before the fence is released. */
+  publishView?(): Promise<void>;
 };
 async function location(root: string, relative: string, create = false): Promise<string> {
   check(relative && !path.isAbsolute(relative) && !relative.includes("\\") && relative.split("/").every((part) =>
@@ -181,6 +183,8 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
       if (recorded === null) await writeNew(journal, intent);
       checkActive();
       await ports.persist(paths, plan.operationId);
+      checkActive();
+      await ports.publishView?.();
       checkActive();
       check(await text(marker) === intent, "memory_transaction_conflict");
       await unlink(marker);

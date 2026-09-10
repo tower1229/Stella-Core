@@ -8,6 +8,8 @@ export type CangHaiDurabilityPolicy = "sync_immediately" | "bounded_batch";
 
 type Schedule = (callback: () => void, delayMs: number) => unknown;
 
+export type CangHaiDurabilityStage = "commit" | "recovery_pointer_cas" | "synchronize";
+
 export type CangHaiDurabilityOptions = {
   root: string;
   remote: string;
@@ -18,6 +20,7 @@ export type CangHaiDurabilityOptions = {
   now?: () => number;
   schedule?: Schedule;
   onRevision?: (revision: string) => void | Promise<void>;
+  onStage?: (stage: CangHaiDurabilityStage) => void | Promise<void>;
 };
 
 export type CangHaiDurabilityDiagnostics = {
@@ -52,6 +55,7 @@ export class GitCangHaiDurability {
   readonly #now: () => number;
   readonly #schedule: Schedule;
   readonly #onRevision?: (revision: string) => void | Promise<void>;
+  readonly #onStage?: (stage: CangHaiDurabilityStage) => void | Promise<void>;
   #pendingNormalSince?: number;
   #synchronizedRevision?: string;
   #confirmedPointerRevision?: string;
@@ -94,6 +98,7 @@ export class GitCangHaiDurability {
       return timer;
     });
     this.#onRevision = options.onRevision;
+    this.#onStage = options.onStage;
   }
 
   async syncCritical(paths: string[], message: string): Promise<CangHaiDurabilityDiagnostics> {
@@ -193,6 +198,9 @@ export class GitCangHaiDurability {
       } catch (error) {
         throw new Error("CangHai durability commit failed", { cause: error });
       }
+      await this.#onStage?.("commit");
+    } else {
+      await this.#onStage?.("commit");
     }
     await this.#confirmRecoveryPointer();
   }
@@ -211,6 +219,7 @@ export class GitCangHaiDurability {
     const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
     const revision = stdout.trim();
     if (revision === this.#confirmedPointerRevision) return revision;
+    await this.#onStage?.("recovery_pointer_cas");
     await this.#onRevision?.(revision);
     this.#confirmedPointerRevision = revision;
     return revision;
@@ -219,6 +228,7 @@ export class GitCangHaiDurability {
   async #push(): Promise<void> {
     await this.#assertBranch();
     const revision = await this.#confirmRecoveryPointer();
+    await this.#onStage?.("synchronize");
     await execFileAsync("git", [
       "-C",
       this.#root,

@@ -114,3 +114,14 @@ node scripts/probe-capability-acceptance.mjs
 `runId` 是本次验收绑定的 Host run：`accept-capability` 先经 `bindRun` 写入初始化 state，再由适配器 `assertRun` 回读校验。只要求 bootstrap 就绪，不要求业务准入。适配器强制受限工具白名单（`read`／`stella_initialize`），仅允许 `observe`／`verify`，不能扩大资料读取或投递副作用。签发的 `stella.capability-receipt/v1` 固定 `businessAdmission: false`，默认 24h 内有效，并绑定 Core／产物／Host／harness／来源／profile／策略／配置／模型／用例摘要。业务准入只接受已落盘且校验通过的收据；伪造 `passed`、过期、依赖漂移、取消／失效均不能清除运行阻断。可用 `invalidate-capability` 显式失效。公开响应只返回 id、结果、locator 与时间，不含私人路径、账号或模型正文。
 
 预检（`inspectMainReadiness`）与交付账本**不读取** Host state 下的 `capability-receipts` 库；`hostCapabilityReceipts` 固定为 `not_inspected`。声明在 `acceptance_ref` 中的 `passed`、账本行以及 `stella.initialize verify` 的初始化验证收据都不能代替能力收据，也不能当作 Host 运行证明。`full_memory` 在 profile 声明了必需能力时，编译期按项写入 `capability_acceptance_missing:<id>`；未声明必需能力时仍保留 `full_memory_acceptance_unavailable`。单项收据只清除对应 `capability_acceptance_missing` 阻断，不清除 `skill_capability_unverified`，也不能自证整组 12 项能力已验收。
+
+### SPEC #6 显式记录持久写入（Issue #9）
+
+工作项 04：实例接入完整持久写入配置，本地提交／pointer／远端／恢复阶段如实报告。公开 seam 为 `resolveManagedDurabilityBinding` 与 `runManagedDurableRecord`（复用 `GitCangHaiDurability` 与 MemoryTransaction）：
+
+```sh
+npm run build
+node --test .test-dist/tests/managed-durable-write.test.js
+```
+
+`managed_durable_write` 要求 Host 显式 remote／branch，manifest `durability.maxNormalRpoSeconds` 不得超过 profile `memory.archive_max_rpo_seconds`；不得把 RPO 悄悄放大。critical 同步失败抛出，不生成完成收据；normal 在声明 RPO 内报告 `remote_pending`，超限为 `archive_rpo_breached`。completion 收据的 `persistenceStatus` 由 durability diagnostics 映射，不再在有写入时一律写 `synchronized`。阶段钩子覆盖 commit、recovery_pointer_cas、synchronize、view_publish；故障后按同一 operationId 接续，不覆盖并发编辑、不重复学习。实例绑定只携带 secret **引用**（`path:`），凭据正文不得进入资料预览或写入载荷。合成契约通过不等于 Exact Host／真实 main 已验证。

@@ -21,6 +21,12 @@ import {
 import { renderConsciousnessContext } from "./canghai/context.js";
 import { GitCangHaiDurability } from "./canghai/durability.js";
 import {
+  persistenceStatusFromDiagnostics,
+  resolveManagedDurabilityBinding,
+} from "./canghai/managed-durable-write.js";
+import { parseRuntimeProfile } from "./canghai/runtime-profile.js";
+import { parse as parseYaml } from "yaml";
+import {
   buildPraxisContextPacket,
   DEFAULT_MAX_PRAXIS_PACKET_CHARS,
   listSemanticRoutingCandidates,
@@ -229,17 +235,24 @@ export default definePluginEntry({
     });
     const ensureDurability = (loaded: LoadedConsciousness) => {
       if (config.dataMode === "managed_durable_write" && !durability) {
-        const policy = loaded.manifest.durability;
-        if (!policy?.criticalWritePolicy || !policy.normalWritePolicy) {
-          throw new Error("managed_durable_write requires manifest durability policies");
-        }
+        const profileDocument = loaded.bootstrapDocuments.find((document) => document.field === "identity.runtimeProfileRef");
+        if (!profileDocument) throw new Error("managed_durable_write requires a runtime profile");
+        const binding = resolveManagedDurabilityBinding({
+          dataMode: "managed_durable_write",
+          durabilityRemote: config.durabilityRemote!,
+          durabilityBranch: config.durabilityBranch!,
+          agentId: config.agentId,
+          recoveryRevision: config.recoveryRevision,
+          manifest: loaded.manifest,
+          profile: parseRuntimeProfile(parseYaml(profileDocument.content)),
+        });
         durability = new GitCangHaiDurability({
           root: loaded.canghaiRoot,
-          remote: config.durabilityRemote!,
-          branch: config.durabilityBranch!,
-          criticalWritePolicy: policy.criticalWritePolicy,
-          normalWritePolicy: policy.normalWritePolicy,
-          maxNormalRpoSeconds: policy.maxNormalRpoSeconds ?? 0,
+          remote: binding.remote,
+          branch: binding.branch,
+          criticalWritePolicy: binding.criticalWritePolicy,
+          normalWritePolicy: binding.normalWritePolicy,
+          maxNormalRpoSeconds: binding.maxNormalRpoSeconds,
           onRevision: async (revision) => {
             const previousRevision = config.recoveryRevision;
             await recoveryPointer.advance(previousRevision, revision);
@@ -453,11 +466,19 @@ export default definePluginEntry({
           generationId = persisted.generationId;
           writes.push(...persisted.writeOperationIds);
         }
+        let persistenceStatus: "not_required" | "local_committed" | "remote_pending" | "synchronized" = "not_required";
+        if (writes.length) {
+          if (!durability) throw new CompletionError("critical_durability_required", "persist");
+          persistenceStatus = persistenceStatusFromDiagnostics(
+            await durability.diagnostics(),
+            draft.requiresCriticalPersistence ? "critical" : "normal",
+          );
+        }
         return {
           schemaVersion: "stella.completion-receipt/v1", operationId, draftId: draft.draftId,
           draftHash: completionDraftHash(draft.text), responseKind: draft.responseKind, evidenceRef: draft.evidenceRef,
           observedRevision: revision, generationId,
-          writeOperationIds: writes, persistenceStatus: writes.length ? "synchronized" : "not_required",
+          writeOperationIds: writes, persistenceStatus,
           checkedAt: new Date().toISOString(),
         };
       },
