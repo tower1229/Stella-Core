@@ -101,14 +101,16 @@ node scripts/inspect-main-readiness.mjs --config <本机配置> --output <新的
 
 ### SPEC #6 受限能力验收（Issue #8）
 
-通过现有初始化协调器入口执行一个受控 Host 适配器，并签发能力收据：
+当前仅验收 `host_initialization`（适配器 `stella.openclaw-host-bootstrap`）。通过现有初始化协调器入口执行受控 Host 适配器并签发能力收据：
 
 ```sh
 npm run build
 # 先完成 bootstrap 初始化，再在 operator.admin 会话中：
 # stella.initialize { "action": "accept-capability", "runId": "<host-run-id>" }
+# Exact Host 探针（真实 Gateway；失败则 package 验收失败）：
+node scripts/probe-capability-acceptance.mjs
 ```
 
-`accept-capability` 只要求 bootstrap 就绪，不要求业务准入；调用时会把 `runId` 绑定到当前初始化收据，再由适配器回读校验。适配器仅允许 `observe`／`verify`，不能扩大资料读取或投递副作用。签发的 `stella.capability-receipt/v1` 固定 `businessAdmission: false`，默认 24h 内有效，并绑定 Core／产物／Host／harness／来源／profile／策略／配置／模型／用例摘要。业务准入只接受已落盘且校验通过的收据；伪造 `passed`、过期、依赖漂移、取消／失效均不能清除运行阻断。可用 `invalidate-capability` 显式失效。公开响应只返回 id、结果、locator 与时间，不含私人路径、账号或模型正文。
+`runId` 是本次验收绑定的 Host run：`accept-capability` 先经 `bindRun` 写入初始化 state，再由适配器 `assertRun` 回读校验。只要求 bootstrap 就绪，不要求业务准入。适配器强制受限工具白名单（`read`／`stella_initialize`），仅允许 `observe`／`verify`，不能扩大资料读取或投递副作用。签发的 `stella.capability-receipt/v1` 固定 `businessAdmission: false`，默认 24h 内有效，并绑定 Core／产物／Host／harness／来源／profile／策略／配置／模型／用例摘要。业务准入只接受已落盘且校验通过的收据；伪造 `passed`、过期、依赖漂移、取消／失效均不能清除运行阻断。可用 `invalidate-capability` 显式失效。公开响应只返回 id、结果、locator 与时间，不含私人路径、账号或模型正文。
 
-声明在 `acceptance_ref` 中的 `passed`、交付账本行以及 `stella.initialize verify` 的初始化验证收据都不能代替能力收据。`full_memory` 在 profile 声明了必需能力时，编译期按项写入 `capability_acceptance_missing:<id>`；未声明必需能力时仍保留 `full_memory_acceptance_unavailable`。单项收据只清除对应 `capability_acceptance_missing` 阻断，不清除 `skill_capability_unverified`，也不能自证整组 12 项能力已验收。
+预检（`inspectMainReadiness`）与交付账本**不读取** Host state 下的 `capability-receipts` 库；`hostCapabilityReceipts` 固定为 `not_inspected`。声明在 `acceptance_ref` 中的 `passed`、账本行以及 `stella.initialize verify` 的初始化验证收据都不能代替能力收据，也不能当作 Host 运行证明。`full_memory` 在 profile 声明了必需能力时，编译期按项写入 `capability_acceptance_missing:<id>`；未声明必需能力时仍保留 `full_memory_acceptance_unavailable`。单项收据只清除对应 `capability_acceptance_missing` 阻断，不清除 `skill_capability_unverified`，也不能自证整组 12 项能力已验收。

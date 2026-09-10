@@ -19,11 +19,12 @@ import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportErro
 import { captureInitializationVerificationBinding } from "./initialization-verification-binding.js";
 import {
   acceptHostBootstrapCapability,
+  assertConstrainedToolSurface,
   createFileCapabilityReceiptStore,
   evaluateRuntimeCapabilityBlockers,
   listCapabilityReceiptIds,
 } from "./capability-admission.js";
-import { capabilityReceiptLocator, invalidateCapabilityReceipt, type CapabilityVersionBinding } from "../acceptance/capability-receipt.js";
+import { CapabilityReceiptError, capabilityReceiptLocator, invalidateCapabilityReceipt, type CapabilityVersionBinding } from "../acceptance/capability-receipt.js";
 import type { InitializationVerificationBinding } from "./initialization.js";
 
 type Config = { canghaiRoot: string; recoveryRevision: string; manifestPath: string; agentId: string; initializationGatewayAccess?: "local_operator_read" };
@@ -69,13 +70,14 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     if (!initializer) return [] as string[];
     const store = createFileCapabilityReceiptStore(initializer.stateRoot);
     const capture = async () => toCapabilityBinding(await captureInitializationVerificationBinding(api, config));
-    return evaluateRuntimeCapabilityBlockers({
+    const evaluated = await evaluateRuntimeCapabilityBlockers({
       compiledBlockers: initializer.runtimeBlockers,
       store,
       receiptIds: await listCapabilityReceiptIds(initializer.stateRoot),
       captureBinding: capture,
       signal,
     });
+    return evaluated.blockers;
   };
   const runtimeStatus = async (signal?: AbortSignal): Promise<NonNullable<Status["runtime"]>> => {
     const blockers = await resolveRuntimeBlockers(signal);
@@ -386,6 +388,9 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
             async assertRunBound(runId) {
               await initializer!.assertRun(runId);
             },
+            assertConstrainedToolSurface(allowlist) {
+              assertConstrainedToolSurface(allowlist);
+            },
             async verifyInstalledBootstrap() {
               return initializer!.verifyInstalled();
             },
@@ -413,8 +418,10 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         await assertBootstrapReady();
         const store = createFileCapabilityReceiptStore(initializer!.stateRoot);
         const body = await store.read(String(params.receiptId));
-        if (!body) throw new InitializationError("capability_receipt_required");
-        const receipt = JSON.parse(body);
+        if (!body) throw new CapabilityReceiptError("capability_receipt_required");
+        let receipt: unknown;
+        try { receipt = JSON.parse(body); }
+        catch { throw new CapabilityReceiptError("invalid_capability_receipt"); }
         await invalidateCapabilityReceipt(receipt, store);
         status = { ...status, runtime: await runtimeStatus(signal) };
         respond(true, { invalidated: String(params.receiptId), runtime: status.runtime });
@@ -424,7 +431,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       if (params.action === "apply" && result.state === "blocked") respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${result.category}` });
       else respond(true, result);
     } catch (error) {
-      const category = error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category
+      const category = error instanceof InitializationError || error instanceof RuntimeProfileError || error instanceof CapabilityReceiptError ? error.category
         : error && typeof error === "object" && "category" in error && typeof error.category === "string" ? error.category
         : params.action === "verify" ? "verification_failed" : params.action === "accept-capability" || params.action === "invalidate-capability" ? "capability_acceptance_failed" : "rollback_failed";
       respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${category}` });

@@ -23,6 +23,8 @@ export const PRIVATE_DRAFT_HOST_POLICY = {
   allowEmptyAssistantReplyAsSilent: true,
   terminalReplyExpectation: "optional",
 } as const;
+/** Constrained private-draft tool surface: observe/verify only, never source expand or delivery tools. */
+export const CONSTRAINED_TOOL_EXECUTION_ALLOW = ["read", "stella_initialize"] as const;
 function claimRun(agentId: string, runId: string): boolean {
   const key = JSON.stringify([agentId, runId]);
   if (claimedRuns.has(key)) return false;
@@ -135,7 +137,7 @@ export function registerCompletionAdapter(
             // Preserve Host prompt/skill construction and the caller's policy.
             // Only these tools may execute before the private draft is committed.
             toolsAllow: event.toolsAllow,
-            toolExecutionAllow: ["read", "stella_initialize"],
+            toolExecutionAllow: [...CONSTRAINED_TOOL_EXECUTION_ALLOW],
             suppressLiveStreamOutput: true,
             ...PRIVATE_DRAFT_HOST_POLICY, deferTerminalLifecycle: true,
             userTurnTranscriptRecorder: ctx.userTurnTranscriptRecorder,

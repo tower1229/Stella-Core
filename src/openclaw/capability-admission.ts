@@ -10,6 +10,7 @@ import {
   type CapabilityVersionBinding,
 } from "../acceptance/capability-receipt.js";
 import { runConstrainedCapabilityAcceptance, type CapabilityAdapter } from "../acceptance/capability-acceptance.js";
+import { CONSTRAINED_TOOL_EXECUTION_ALLOW } from "./completion-adapter.js";
 import { isRecord } from "../shared/type-guards.js";
 
 function check(value: unknown, category: string): asserts value {
@@ -58,9 +59,21 @@ export async function listCapabilityReceiptIds(storeRoot: string): Promise<strin
   }
 }
 
+export type CapabilityReceiptDiagnostic = { id: string; category: string };
+export type RuntimeCapabilityBlockers = {
+  blockers: string[];
+  receiptDiagnostics: CapabilityReceiptDiagnostic[];
+};
+
+function diagnosticCategory(error: unknown): string {
+  if (error && typeof error === "object" && "category" in error && typeof error.category === "string") return error.category;
+  return "capability_receipt_unusable";
+}
+
 /**
  * Clear capability_acceptance_missing blockers only when a current stored receipt admits that capability.
  * Declared acceptance_ref passed strings never enter this path. Skill verification blockers stay separate.
+ * Failed receipts are fail-closed for admission but keep diagnostic categories.
  */
 export async function evaluateRuntimeCapabilityBlockers(input: {
   compiledBlockers: readonly string[];
@@ -68,21 +81,34 @@ export async function evaluateRuntimeCapabilityBlockers(input: {
   receiptIds: readonly string[];
   captureBinding: () => Promise<CapabilityVersionBinding>;
   signal?: AbortSignal;
-}): Promise<string[]> {
+}): Promise<RuntimeCapabilityBlockers> {
   const admitted = new Set<string>();
+  const receiptDiagnostics: CapabilityReceiptDiagnostic[] = [];
   for (const id of input.receiptIds) {
     const body = await input.store.read(id);
-    if (!body) continue;
+    if (!body) {
+      receiptDiagnostics.push({ id, category: "capability_receipt_required" });
+      continue;
+    }
     let receipt: unknown;
-    try { receipt = JSON.parse(body); } catch { continue; }
-    if (!isRecord(receipt) || typeof receipt.capabilityId !== "string") continue;
+    try { receipt = JSON.parse(body); }
+    catch {
+      receiptDiagnostics.push({ id, category: "invalid_capability_receipt" });
+      continue;
+    }
+    if (!isRecord(receipt) || typeof receipt.capabilityId !== "string") {
+      receiptDiagnostics.push({ id, category: "invalid_capability_receipt" });
+      continue;
+    }
     try {
       await admitBusinessCapability({
         capabilityId: receipt.capabilityId, receipt, captureBinding: input.captureBinding,
         store: input.store, signal: input.signal,
       });
       admitted.add(receipt.capabilityId);
-    } catch { /* expired, forged, drifted, or failed receipts cannot clear blockers */ }
+    } catch (error) {
+      receiptDiagnostics.push({ id, category: diagnosticCategory(error) });
+    }
   }
   const blockers = new Set<string>();
   for (const blocker of input.compiledBlockers) {
@@ -91,16 +117,24 @@ export async function evaluateRuntimeCapabilityBlockers(input: {
     if (missing?.[1] && admitted.has(missing[1])) continue;
     blockers.add(blocker);
   }
-  return [...blockers].sort();
+  return { blockers: [...blockers].sort(), receiptDiagnostics };
+}
+
+export function assertConstrainedToolSurface(allowlist: readonly string[]): void {
+  check(Array.isArray(allowlist) && allowlist.length > 0, "constrained_tool_surface_required");
+  check(allowlist.length === CONSTRAINED_TOOL_EXECUTION_ALLOW.length &&
+    CONSTRAINED_TOOL_EXECUTION_ALLOW.every((tool, index) => allowlist[index] === tool),
+  "constrained_acceptance_effect_forbidden");
 }
 
 /**
  * One real Host adapter: trusts Host-supplied identity/run/purpose, observes the installed bootstrap surface,
- * and never expands source-read or delivery permissions.
+ * asserts the constrained tool allowlist, and never expands source-read or delivery permissions.
  */
 export function createHostBootstrapCapabilityAdapter(ports: {
   assertTrustedIdentity(actorHash: string): void | Promise<void>;
   assertRunBound(runId: string): void | Promise<void>;
+  assertConstrainedToolSurface(allowlist: readonly string[]): void | Promise<void>;
   verifyInstalledBootstrap(): Promise<{ operationId: string }>;
 }): CapabilityAdapter {
   return {
@@ -112,9 +146,12 @@ export function createHostBootstrapCapabilityAdapter(ports: {
       check(mode === "constrained_acceptance", "constrained_acceptance_required");
       check(!signal?.aborted, "operation_cancelled");
       await ports.assertTrustedIdentity(host.actorHash);
+      check(!signal?.aborted, "operation_cancelled");
       await ports.assertRunBound(host.runId);
       check(host.purpose.kind === "adapter_verification" && host.purpose.capabilityId === "host_initialization",
         "capability_purpose_mismatch");
+      check(!signal?.aborted, "operation_cancelled");
+      await ports.assertConstrainedToolSurface([...CONSTRAINED_TOOL_EXECUTION_ALLOW]);
       check(!signal?.aborted, "operation_cancelled");
       const installed = await ports.verifyInstalledBootstrap();
       check(!signal?.aborted, "operation_cancelled");
@@ -127,6 +164,7 @@ export function createHostBootstrapCapabilityAdapter(ports: {
           operationId: installed.operationId,
           purpose: host.purpose,
           resourceScope: host.resourceScope,
+          toolExecutionAllow: CONSTRAINED_TOOL_EXECUTION_ALLOW,
         })),
       };
     },

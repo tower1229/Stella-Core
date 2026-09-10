@@ -181,7 +181,8 @@ function diagnoseBlockers(blockers: readonly string[]): PreflightDiagnostic[] {
     { category: "host_initialization_not_ready", workIds: ["31"], resolution: "Resolve the initialization coordinator stage and rerun its public status check." },
     { category: "invalid_host_runtime_status", workIds: ["02"], resolution: "Obtain a valid runtime status through the existing initialization coordinator." },
     { category: "runtime_acceptance_not_evaluated", workIds: ["02", "37"], resolution: "Execute the required capability acceptance and validate its current receipts." },
-    { category: "full_memory_acceptance_unavailable", workIds: ["02", "05"], resolution: "Implement and validate the full-memory capability acceptance adapter." },
+    { category: "full_memory_acceptance_unavailable", workIds: ["02", "05"],
+      resolution: "Declare required capabilities on the full_memory profile; empty requirements keep this blocker until each capability_acceptance_missing item can run constrained Host acceptance." },
     { category: "personal_context_access_binding_missing", workIds: ["03", "21"], resolution: "Configure the supported personal-context access binding and verify its authorization boundary." },
     { category: "owner_input_archive_binding_missing", workIds: ["04", "08"], resolution: "Configure the owner input archive binding and verify durable ingest." },
     { category: "source_purpose_migration_pending", workIds: ["11", "13"], resolution: "Complete the reviewed source-purpose migration and recheck authorization." },
@@ -193,7 +194,9 @@ function diagnoseBlockers(blockers: readonly string[]): PreflightDiagnostic[] {
     for (const kind of ["capability_configuration_missing", "capability_acceptance_missing", "skill_capability_unverified"]) {
       known.push({ category: `${kind}:${id}`, workIds: [String(19 + index).padStart(2, "0")],
         resolution: kind === "capability_configuration_missing" ? "Replace the placeholder with the actual adapter configuration and validate dependencies."
-          : "Run this capability's success and refusal cases on the current version and register validated evidence." });
+          : kind === "capability_acceptance_missing"
+            ? "Run constrained Host acceptance for this capability and keep a current capability receipt; declared acceptance_ref success is not Host proof."
+            : "Run this capability's success and refusal cases on the current version and register validated evidence." });
     }
   }
   const result = known.filter(item => blockers.includes(item.category));

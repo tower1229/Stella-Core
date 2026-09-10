@@ -131,7 +131,7 @@ export async function validateCapabilityReceipt(receipt: unknown,
   return receipt;
 }
 
-export async function invalidateCapabilityReceipt(receipt: CapabilityReceipt, store: CapabilityReceiptStore): Promise<void> {
+export async function invalidateCapabilityReceipt(receipt: unknown, store: CapabilityReceiptStore): Promise<void> {
   assertReceiptShape(receipt);
   const stored = await store.read(receipt.id);
   check(stored === canonicalJson(receipt), "untrusted_capability_receipt");

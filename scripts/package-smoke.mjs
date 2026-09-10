@@ -61,6 +61,20 @@ for (const flag of ["--initialization", "--correction", "--correction-recovery",
   probes.push({ flag, report });
   await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
 }
+process.stderr.write("Packed capability acceptance probe\n");
+const capabilityProbe = await run(process.execPath, [path.join(root, "scripts/probe-capability-acceptance.mjs")], {
+  cwd: consumer,
+  env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
+});
+const capabilityReport = JSON.parse(capabilityProbe.stdout);
+assert.equal(capabilityReport.host, hostVersion);
+assert.equal(capabilityReport.capabilityId, "host_initialization");
+assert.equal(capabilityReport.clearedOneBlocker, true);
+assert.equal(capabilityReport.businessAdmission, false);
+assert.equal(capabilityReport.invalidated, true);
+assert.equal(capabilityReport.visitorDenied, true);
+probes.push({ flag: "--capability-acceptance", report: capabilityReport });
+await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
 const receipt = {
   schemaVersion: "stella.package-main-smoke/v2", coreRevision, sourceClean: true,
   artifactSha256, packageIntegrity: packed.integrity, hostVersion,

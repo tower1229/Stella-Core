@@ -21,6 +21,7 @@ test("main preflight exposes model drift and runtime blockers without treating b
       runtime: { state: "blocked", blockers: ["full_memory_acceptance_unavailable"] } } });
   assert.equal(result.behavioralAcceptance, "not_executed");
   assert.equal(result.diagnosticOnly, true);
+  assert.equal(result.hostCapabilityReceipts, "not_inspected");
   assert.ok(result.blockers.includes("model_route_mismatch:main"));
   assert.ok(result.blockers.includes("personal_view_fallback_route_forbidden"));
   assert.ok(result.blockers.includes("full_memory_acceptance_unavailable"));
@@ -36,4 +37,5 @@ test("empty runtime blockers and declared receipt success never manufacture curr
   assert.ok(result.blockers.includes("runtime_acceptance_not_evaluated"));
   assert.ok(result.blockers.includes("full_memory_profile_required"));
   assert.equal(result.behavioralAcceptance, "not_executed");
+  assert.equal(result.hostCapabilityReceipts, "not_inspected");
 });

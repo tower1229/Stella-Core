@@ -67,6 +67,7 @@ export async function inspectMainReadiness(input: {
   } else blockers.add("memory_catalog_missing");
   if (bytesVersion(await readRepositoryBytes(input.root, input.profilePath)) !== bytesVersion(bytes)) throw new Error("profile_changed_during_inspection");
   return { schemaVersion: "stella.main-readiness/v1", scope: "real_main_preflight", diagnosticOnly: true,
-    behavioralAcceptance: "not_executed", agentId: input.agentId, contractProfile: profile.contract_profile,
+    behavioralAcceptance: "not_executed", hostCapabilityReceipts: "not_inspected" as const,
+    agentId: input.agentId, contractProfile: profile.contract_profile,
     modelRef: input.modelRef, profileSha256: bytesVersion(bytes), capabilities, counts, blockers: [...blockers].sort() };
 }

@@ -29,9 +29,7 @@ await new Promise((resolve, reject) => {
   });
 });
 
-if (mode === "build") {
-  const git = (args) => execFileSync("git", args, { cwd: projectRoot, encoding: "utf8" }).trim();
-  await writeFile(path.join(projectRoot, "dist/build-identity.json"), JSON.stringify({
-    coreRevision: git(["rev-parse", "HEAD"]), sourceClean: git(["status", "--porcelain"]) === "",
-  }));
-}
+const git = (args) => execFileSync("git", args, { cwd: projectRoot, encoding: "utf8" }).trim();
+await writeFile(path.join(projectRoot, settings.output, "build-identity.json"), JSON.stringify({
+  coreRevision: git(["rev-parse", "HEAD"]), sourceClean: git(["status", "--porcelain"]) === "",
+}));
