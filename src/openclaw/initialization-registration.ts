@@ -28,6 +28,7 @@ import { CapabilityReceiptError, capabilityReceiptLocator, invalidateCapabilityR
 import type { InitializationVerificationBinding } from "./initialization.js";
 import {
   HostAdmissionIsolationError,
+  assertHostProfileIsolated,
   isolateHostProfile,
   releaseHostProfileIsolation,
   type HostAdmissionConfig,
@@ -138,17 +139,40 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       } });
     },
   };
+  const waitForIsolation = async (expectIsolated: boolean) => {
+    const deadline = Date.now() + 10000;
+    for (;;) {
+      if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
+      try {
+        if (expectIsolated) assertHostProfileIsolated(isolationPorts.readConfig(), config.agentId);
+        else {
+          const tools = isolationPorts.readConfig().agents?.entries?.[config.agentId]?.tools;
+          if (Array.isArray(tools?.deny) && tools.deny.includes("*")) throw new HostAdmissionIsolationError("host_isolation_release_pending");
+        }
+        return;
+      } catch (error) {
+        if (Date.now() >= deadline) {
+          if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
+          throw error;
+        }
+        await delay(100, undefined, { signal: shutdown.signal });
+      }
+    }
+  };
   const fenceTarget = async (stateRoot: string) => {
     await drain();
-    try { await isolateHostProfile(isolationPorts, config.agentId, "initialization_fence", stateRoot); }
-    catch (error) {
+    try {
+      await isolateHostProfile(isolationPorts, config.agentId, "initialization_fence", stateRoot);
+      await waitForIsolation(true);
+    } catch (error) {
       if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
       throw error;
     }
   };
   const releaseTarget = async (stateRoot: string) => {
-    try { await releaseHostProfileIsolation(isolationPorts, config.agentId, stateRoot); }
-    catch (error) {
+    try {
+      await releaseHostProfileIsolation(isolationPorts, config.agentId, stateRoot, { signal: shutdown.signal });
+    } catch (error) {
       if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
       throw error;
     }

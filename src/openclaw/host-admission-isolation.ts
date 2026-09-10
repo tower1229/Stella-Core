@@ -163,6 +163,7 @@ export async function releaseHostProfileIsolation(
   ports: HostAdmissionIsolationPorts,
   agentId: string,
   stateRoot: string,
+  options?: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<void> {
   check(typeof agentId === "string" && /^[a-z0-9][a-z0-9_-]*$/.test(agentId), "invalid_agent_id");
   check(typeof stateRoot === "string" && path.isAbsolute(stateRoot), "invalid_isolation_state");
@@ -176,12 +177,21 @@ export async function releaseHostProfileIsolation(
     const restored = journal.removedBindings.map((row) => structuredClone(row));
     draft.bindings = [...(draft.bindings ?? []).filter((row) => row.agentId !== agentId), ...restored];
   });
-  await unlink(await safeFile(stateRoot, "host-isolation.json"));
-  const after = ports.readConfig();
-  check(canonicalJson(agentEntry(after, agentId).tools ?? null) === canonicalJson(journal.previousTools),
-    "host_isolation_release_conflict");
-  for (const binding of journal.removedBindings) {
-    check((after.bindings ?? []).some((row) => canonicalJson(row) === canonicalJson(binding)),
-      "host_isolation_release_conflict");
+  const timeoutMs = options?.timeoutMs ?? 10_000;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    options?.signal?.throwIfAborted();
+    const after = ports.readConfig();
+    const restoredTools = agentEntry(after, agentId).tools ?? null;
+    const denyCleared = !(Array.isArray(restoredTools?.deny) && restoredTools.deny.includes("*"));
+    const toolsMatch = journal.previousTools === null
+      ? denyCleared
+      : canonicalJson(restoredTools) === canonicalJson(journal.previousTools);
+    const bindingsMatch = journal.removedBindings.every((binding) =>
+      (after.bindings ?? []).some((row) => canonicalJson(row) === canonicalJson(binding)));
+    if (toolsMatch && bindingsMatch && denyCleared) break;
+    if (Date.now() >= deadline) throw new HostAdmissionIsolationError("host_isolation_release_conflict");
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  await unlink(await safeFile(stateRoot, "host-isolation.json"));
 }
