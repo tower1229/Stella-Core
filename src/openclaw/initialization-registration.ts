@@ -523,7 +523,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     await assertReady();
     await initializer!.assertRun(runId);
   }, async revokeActiveRuns(reason: string, options?: { retainRunId?: string }) {
-    await assertBootstrapReady();
-    await initializer!.revokeActiveRuns(reason, options);
+    if (!initializer) throw new InitializationError("initialization_required");
+    await initializer.revokeActiveRuns(reason, options);
   }, status: () => scoped(status) };
 }

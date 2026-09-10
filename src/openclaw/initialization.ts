@@ -498,7 +498,13 @@ export class StellaInitializer {
     try {
       const epoch = await bumpAdmissionEpoch(this.stateRoot, reason);
       if (options?.retainRunId) {
-        const receipt = await this.assertCurrent();
+        // Do not re-enter recipe()/source cleanliness here: correction may still hold
+        // transient workspace state while retiring sibling runs.
+        check(await read(this.stateRoot, "fenced") === null, "initialization_pending");
+        check(await read(this.stateRoot, "pending.json") === null, "initialization_pending");
+        check(await read(this.stateRoot, "rollback-pending.json") === null, "rollback_pending");
+        const receipt = await this.receipt();
+        check(receipt, "initialization_required");
         await writeRunAdmissionBinding(this.stateRoot, options.retainRunId, {
           schemaVersion: "stella.run-admission/v1",
           operationId: receipt.operationId,
