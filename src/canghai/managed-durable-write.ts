@@ -125,8 +125,10 @@ export function persistenceStatusFromDiagnostics(
   priority: "critical" | "normal",
 ): PersistenceStatus {
   if (priority === "critical") {
-    if (!diagnostics.criticalSynchronized || diagnostics.localRevision !== diagnostics.synchronizedRevision ||
-      diagnostics.lastErrorCategory === "stella_critical_sync_failed") {
+    // criticalSynchronized is cleared before a critical commit and set only after push confirmation.
+    // Later normal commits may advance HEAD without clearing that flag; they must not rewrite a
+    // confirmed critical completion into a false sync failure.
+    if (!diagnostics.criticalSynchronized || diagnostics.lastErrorCategory === "stella_critical_sync_failed") {
       throw new ManagedDurableWriteError("critical_sync_failed");
     }
     return "synchronized";

@@ -168,6 +168,16 @@ test("diagnostics map critical success to synchronized and normal pending to rem
     criticalSynchronized: true,
     normalWritePolicy: "bounded_batch",
     maxNormalRpoSeconds: 300,
+    observedNormalRpoSeconds: 0,
+    normalState: "current",
+    localRevision: "c".repeat(40),
+    synchronizedRevision: "b".repeat(40),
+  }, "critical"), "synchronized");
+  assert.equal(persistenceStatusFromDiagnostics({
+    criticalWritePolicy: "sync_immediately",
+    criticalSynchronized: true,
+    normalWritePolicy: "bounded_batch",
+    maxNormalRpoSeconds: 300,
     observedNormalRpoSeconds: 12,
     normalState: "pending",
     localRevision: "c".repeat(40),
