@@ -53,8 +53,24 @@ async function initFixture(t: { after(fn: () => Promise<void>): void }) {
   return {
     workspace, state, ports, fenced: () => fenced, config,
     initializer: new StellaInitializer(workspace, state, config, ports),
+    withSignal(signal: AbortSignal) {
+      return new StellaInitializer(workspace, state, config, ports, signal);
+    },
   };
 }
+
+test("retained revoke still works after registration shutdown abort", async (t) => {
+  const f = await initFixture(t);
+  const shutdown = new AbortController();
+  const initializer = f.withSignal(shutdown.signal);
+  await initializer.initialize();
+  await initializer.bindRun("run-live");
+  await initializer.bindRun("run-sibling");
+  shutdown.abort();
+  await initializer.revokeActiveRuns("correction_applied", { retainRunId: "run-live" });
+  await initializer.assertRun("run-live");
+  await assert.rejects(initializer.assertRun("run-sibling"), /stale_initialization_run/);
+});
 
 test("correction and capability revoke invalidate old runs; retained run can finish, late persist cannot", async (t) => {
   const f = await initFixture(t);

@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import { canonicalJson } from "../src/canghai/content-version.js";
-import { applyMemoryTransaction, assertMemoryTransactionReadable, withMemoryMutationLock, type MemoryTransactionPlan } from "../src/canghai/memory-transaction.js";
+import { applyMemoryTransaction, assertMemoryTransactionReadable, ownsMemoryMutationLock, withMemoryMutationLock, type MemoryTransactionPlan } from "../src/canghai/memory-transaction.js";
 
 async function fixture(t: { after(fn: () => Promise<void>): void }) {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-memory-transaction-"));
@@ -131,6 +131,21 @@ test("one Git commit contains the full transaction and pointer failure retries w
   await run("git", ["clone", "--quiet", "--branch", "main", remote, clone]);
   for (const file of plan.files) assert.equal(await readFile(path.join(clone, file.path), "utf8"), file.after);
   await (await CatalogReader.load(clone, "catalog.json")).assertCurrent();
+});
+
+test("applyMemoryTransaction publishes live lock ownership for concurrent initialization admission", async (t) => {
+  const { root, plan } = await fixture(t);
+  assert.equal(await ownsMemoryMutationLock(root), false);
+  let sawOwnership = false;
+  await applyMemoryTransaction(root, plan, {
+    async validate() {},
+    async persist() {
+      sawOwnership = await ownsMemoryMutationLock(root);
+    },
+    async confirmPreviouslyCommitted() {},
+  });
+  assert.equal(sawOwnership, true);
+  assert.equal(await ownsMemoryMutationLock(root), false);
 });
 
 test("a killed process leaves its transaction fenced but the exact intent can reclaim the dead owner's lock", { timeout: 30_000 }, async (t) => {

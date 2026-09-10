@@ -416,3 +416,19 @@ test("initialization accepts only its live delivery lock and still rejects unrel
   await writeFile(path.join(f.source, ".stella-memory-transaction.json.lock"), "unowned");
   await assert.rejects(f.initializer.initialize(), /source_dirty/);
 });
+
+test("initialization accepts live memory transaction marker with its owned lock", async (t) => {
+  const f = await fixture(t);
+  await withMemoryMutationLock(f.source, async () => {
+    await writeFile(path.join(f.source, ".stella-memory-transaction.json"),
+      JSON.stringify({ schemaVersion: "stella.memory-transaction/v1", operationId: "synthetic_live_tx" }));
+    await f.initializer.initialize();
+    await writeFile(path.join(f.source, "unexpected.txt"), "synthetic dirty source");
+    await assert.rejects(f.initializer.initialize(), /source_dirty/);
+    await rm(path.join(f.source, "unexpected.txt"));
+  });
+  await writeFile(path.join(f.source, ".stella-memory-transaction.json"),
+    JSON.stringify({ schemaVersion: "stella.memory-transaction/v1", operationId: "unowned_marker" }));
+  await writeFile(path.join(f.source, ".stella-memory-transaction.json.lock"), "unowned");
+  await assert.rejects(f.initializer.initialize(), /source_dirty/);
+});

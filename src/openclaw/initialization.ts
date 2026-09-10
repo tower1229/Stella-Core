@@ -4,7 +4,7 @@ import { lstat, mkdir, readFile, realpath, rename, unlink, open } from "node:fs/
 import path from "node:path";
 import { promisify } from "node:util";
 import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin-sdk/file-lock";
-import { ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
+import { isLiveMemoryMutationDirt, ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import { compileInitializationSource, InitializationSourceError } from "./initialization-source.js";
@@ -171,7 +171,7 @@ export class StellaInitializer {
     const git = async (args: string[]) => (await run("git", ["-c", "core.fsmonitor=false", "-C", this.source.root, ...args])).stdout.trim();
     check(await git(["rev-parse", "HEAD"]) === this.source.revision, "source_revision_mismatch");
     const status = await git(["status", "--porcelain"]);
-    check(status === "" || (status === "?? .stella-memory-transaction.json.lock" &&
+    check(status === "" || (isLiveMemoryMutationDirt(status) &&
       await ownsMemoryMutationLock(this.source.root)), "source_dirty");
     const content = await read(this.source.root, this.source.recipePath);
     check(content, "materialization_required");
@@ -494,7 +494,8 @@ export class StellaInitializer {
 
   /** Invalidate every bound run. Optionally re-bind the live correcting run to the new epoch. */
   async revokeActiveRuns(reason: string, options?: { retainRunId?: string }): Promise<void> {
-    this.active();
+    // Do not gate on this.signal: advancing the recovery pointer reloads Host config and can
+    // abort the registration shutdown while the live correcting turn still must retire siblings.
     try {
       const epoch = await bumpAdmissionEpoch(this.stateRoot, reason);
       if (options?.retainRunId) {

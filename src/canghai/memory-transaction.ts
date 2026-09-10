@@ -51,11 +51,24 @@ export async function assertMemoryTransactionReadable(root: string): Promise<voi
   check(owner?.active && owner.root === resolved && owner.intent === pending, "memory_transaction_pending");
 }
 
-/** Only an unchanged lock held by this live process may be excluded from source cleanliness. */
+/** True when this process still holds the exclusive memory-mutation lock for root. */
 export async function ownsMemoryMutationLock(root: string): Promise<boolean> {
   const held = readLocks.get(await realpath(root));
   return Boolean(held?.active &&
     await text(path.join(held.root, `${markerName}.lock`)) === held.bytes);
+}
+
+/**
+ * Git porcelain that is only the live memory-transaction fence.
+ * Recovery-pointer config reloads can re-enter initialization while persist still holds
+ * both the marker and lock; that must not be treated as unrelated source dirt.
+ */
+export function isLiveMemoryMutationDirt(status: string): boolean {
+  const lines = status.split(/\r?\n/).filter(Boolean).sort();
+  const lock = `?? ${markerName}.lock`;
+  const marker = `?? ${markerName}`;
+  return lines.length === 1 && lines[0] === lock
+    || lines.length === 2 && lines[0] === marker && lines[1] === lock;
 }
 
 export async function withMemoryMutationLock<T>(root: string, work: () => Promise<T>): Promise<T> {
@@ -150,7 +163,12 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
   const rootStat = await lstat(resolved);
   check(rootStat.isDirectory() && !rootStat.isSymbolicLink(), "unsafe_transaction_path");
   const lock = await acquireMutationLock(resolved);
+  const key = await realpath(resolved);
+  const held = { root: resolved, bytes: "", active: true };
   try {
+    held.bytes = (await text(path.join(resolved, `${markerName}.lock`)))!;
+    check(held.bytes !== null, "memory_lock_missing");
+    readLocks.set(key, held);
     const pending = await text(marker);
     check(pending === null || pending === intent, "memory_transaction_conflict");
     const journal = await location(resolved, plan.journalPath, true);
@@ -196,5 +214,9 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
       throw error;
     } finally { owner.active = false; }
     return { operationId: plan.operationId, journalPath: plan.journalPath, replayed: pending !== null };
-  } finally { await lock.release(); }
+  } finally {
+    held.active = false;
+    readLocks.delete(key);
+    await lock.release();
+  }
 }
