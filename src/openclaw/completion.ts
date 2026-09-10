@@ -161,7 +161,9 @@ function validateReceipt(receipt: CompletionReceipt, input: { operationId: strin
       !Number.isFinite(Date.parse(receipt.checkedAt)) ||
       !["not_required", "local_committed", "remote_pending", "synchronized"].includes(receipt.persistenceStatus) ||
       !Array.isArray(receipt.writeOperationIds) || receipt.writeOperationIds.some((id) => !id) ||
-      (draft.requiresCriticalPersistence && (receipt.persistenceStatus !== "synchronized" || receipt.writeOperationIds.length === 0))) {
+      (draft.requiresCriticalPersistence && (
+        !["synchronized", "remote_pending"].includes(receipt.persistenceStatus) ||
+        receipt.writeOperationIds.length === 0))) {
     throw new CompletionError("invalid_completion_receipt", "persist");
   }
 }

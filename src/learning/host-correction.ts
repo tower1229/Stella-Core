@@ -4,6 +4,7 @@ import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes } 
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { prepareHostInputArchive } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError } from "../canghai/memory-transaction.js";
+import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import type { HostInputSnapshot } from "../openclaw/host-input.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
@@ -70,6 +71,7 @@ export async function archiveCorrectionInput(input: {
     },
     persist: async paths => { await input.durability.syncCritical(paths, `stella archive ${operationId}`); },
     confirmPreviouslyCommitted: file => input.durability.confirmPreviouslyCommitted(file),
+    publishView: () => afterDurablePersistPublishView(reader.root),
   }, input.signal);
   await input.assertCurrent();
   const current = await CatalogReader.load(reader.root, reader.catalogPath);

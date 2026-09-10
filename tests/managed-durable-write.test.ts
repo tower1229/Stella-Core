@@ -144,11 +144,22 @@ test("managed binding rejects RPO that quietly exceeds the declared archive_max_
 test("managed binding keeps secret refs only and rejects credential material payloads", () => {
   const binding = resolveManagedDurabilityBinding(bindingInput());
   assert.ok(binding.secretRefs.every((ref) => ref.startsWith("path:")));
+  assert.doesNotThrow(() => resolveManagedDurabilityBinding(bindingInput({
+    materialPreview: { token: "path:50_PersonalAgent/stella/secrets/host-token.ref", note: "ref only" },
+  })));
   assert.throws(
     () => resolveManagedDurabilityBinding(bindingInput({
       materialPreview: { token: "sk-live-secret-value", note: "must not land in archive" },
     })),
     (error: unknown) => error instanceof ManagedDurableWriteError && error.category === "credentials_in_materials",
+  );
+});
+
+test("managed binding rejects missing profile memory archive RPO", () => {
+  const incomplete = { ...profile(), memory: undefined } as unknown as RuntimeProfile;
+  assert.throws(
+    () => resolveManagedDurabilityBinding(bindingInput({ profile: incomplete })),
+    (error: unknown) => error instanceof ManagedDurableWriteError && error.category === "archive_rpo_required",
   );
 });
 
@@ -173,6 +184,16 @@ test("diagnostics map critical success to synchronized and normal pending to rem
     localRevision: "c".repeat(40),
     synchronizedRevision: "b".repeat(40),
   }, "critical"), "synchronized");
+  assert.equal(persistenceStatusFromDiagnostics({
+    criticalWritePolicy: "sync_immediately",
+    criticalSynchronized: true,
+    normalWritePolicy: "bounded_batch",
+    maxNormalRpoSeconds: 300,
+    observedNormalRpoSeconds: 12,
+    normalState: "pending",
+    localRevision: "c".repeat(40),
+    synchronizedRevision: "b".repeat(40),
+  }, "critical"), "remote_pending");
   assert.equal(persistenceStatusFromDiagnostics({
     criticalWritePolicy: "sync_immediately",
     criticalSynchronized: true,
@@ -209,6 +230,20 @@ test("diagnostics map critical success to synchronized and normal pending to rem
     }, "critical"),
     (error: unknown) => error instanceof ManagedDurableWriteError && error.category === "critical_sync_failed",
   );
+});
+
+test("ManagedDurableWriteError maps to CompletionError category on persist", async () => {
+  const { CompletionError } = await import("../src/openclaw/completion.js");
+  const mapped = (error: unknown) => {
+    if (error instanceof ManagedDurableWriteError) {
+      return new CompletionError(error.category, "persist", { cause: error });
+    }
+    throw error;
+  };
+  const completionError = mapped(new ManagedDurableWriteError("archive_rpo_breached"));
+  assert.ok(completionError instanceof CompletionError);
+  assert.equal(completionError.category, "archive_rpo_breached");
+  assert.equal(completionError.stage, "persist");
 });
 
 test("authorized record survives scoped commit, pointer CAS, sync, read and restart with stable operator identity", async () => {
@@ -308,7 +343,8 @@ test("critical sync failure does not report completion", async () => {
       onStage: async (stage) => {
         if (stage === "synchronize") throw new Error("synthetic remote unavailable");
       },
-    }), (error: unknown) => error instanceof ManagedDurableWriteError && error.category === "critical_sync_failed");
+    }), (error: unknown) => error instanceof ManagedDurableWriteError &&
+      (error.category === "sync_failed" || error.category === "critical_sync_failed"));
   } finally {
     await rm(path.dirname(root), { recursive: true, force: true });
   }
@@ -382,13 +418,17 @@ test("faults at commit, CAS, sync and view publish recover without overwrite or 
       ]);
       assert.equal(log.trim().split("\n").filter(Boolean).length, 1);
 
+      const committedAfter = canonicalJson({ id: "change-1", learning: "once" });
+      assert.equal(await readFile(path.join(root, "learning/change.json"), "utf8"), committedAfter);
+      await writeFile(path.join(root, "learning/change.json"),
+        canonicalJson({ id: "change-1", learning: "racer" }), "utf8");
       await assert.rejects(applyMemoryTransaction(root, {
         ...plan,
         operationId: `${plan.operationId}_overwrite`,
         journalPath: `operations/${plan.operationId}_overwrite.json`,
         files: [{
           path: "learning/change.json",
-          before: null,
+          before: committedAfter,
           after: canonicalJson({ id: "change-1", learning: "duplicate" }),
         }],
       }, {

@@ -3,6 +3,7 @@ import { CatalogReader, readRepositoryBytes, type CatalogEntry, type MemoryCatal
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
+import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { EpisodeEvidenceResolver } from "./episode-evidence.js";
 import { episodeVersion } from "./episode-repository.js";
@@ -92,6 +93,7 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
         },
         async persist(paths, id) { await durability.syncCritical(paths, `close and evaluate ${id}`); },
         confirmPreviouslyCommitted: (file) => durability.confirmPreviouslyCommitted(file),
+        publishView: () => afterDurablePersistPublishView(reader.root),
       }, abortSignal);
       const diagnostics = await durability.diagnostics();
       if (!diagnostics.criticalSynchronized || diagnostics.localRevision !== diagnostics.synchronizedRevision) throw new EpisodeV2Error("critical_sync_failed");

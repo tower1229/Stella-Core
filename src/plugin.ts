@@ -21,6 +21,7 @@ import {
 import { renderConsciousnessContext } from "./canghai/context.js";
 import { GitCangHaiDurability } from "./canghai/durability.js";
 import {
+  ManagedDurableWriteError,
   persistenceStatusFromDiagnostics,
   resolveManagedDurabilityBinding,
 } from "./canghai/managed-durable-write.js";
@@ -469,10 +470,17 @@ export default definePluginEntry({
         let persistenceStatus: "not_required" | "local_committed" | "remote_pending" | "synchronized" = "not_required";
         if (writes.length) {
           if (!durability) throw new CompletionError("critical_durability_required", "persist");
-          persistenceStatus = persistenceStatusFromDiagnostics(
-            await durability.diagnostics(),
-            draft.requiresCriticalPersistence ? "critical" : "normal",
-          );
+          try {
+            persistenceStatus = persistenceStatusFromDiagnostics(
+              await durability.diagnostics(),
+              draft.requiresCriticalPersistence ? "critical" : "normal",
+            );
+          } catch (error) {
+            if (error instanceof ManagedDurableWriteError) {
+              throw new CompletionError(error.category, "persist", { cause: error });
+            }
+            throw error;
+          }
         }
         return {
           schemaVersion: "stella.completion-receipt/v1", operationId, draftId: draft.draftId,

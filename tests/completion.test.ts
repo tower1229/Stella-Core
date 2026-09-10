@@ -102,14 +102,27 @@ test("prepared context is isolated per run and unavailable outside active genera
   });
   assert.throws(() => recordCompletionPreparation(input.runId, preparation), CompletionError);
 });
-test("critical completion rejects mismatched, pending and empty-write receipts", async () => {
+test("critical completion rejects mismatched, non-confirmed and empty-write receipts", async () => {
   for (const change of [{ draftHash: "bad" }, { operationId: "other" }, { responseKind: "answer" as const },
-    { persistenceStatus: "remote_pending" as const }, { writeOperationIds: [] }]) {
+    { persistenceStatus: "local_committed" as const }, { writeOperationIds: [] }]) {
     const events: string[] = [];
     await assert.rejects(coordinateCompletion(input, { ...ports(events), async persist() { return { ...receipt, ...change }; } }),
       (error: unknown) => error instanceof CompletionError && error.category === "invalid_completion_receipt");
     assert.deepEqual(events, ["generate"]);
   }
+});
+
+test("critical completion accepts remote_pending when critical is confirmed and writes exist", async () => {
+  const events: string[] = [];
+  const result = await coordinateCompletion(input, {
+    ...ports(events),
+    async persist() {
+      events.push("persist");
+      return { ...receipt, persistenceStatus: "remote_pending" };
+    },
+  });
+  assert.deepEqual(events, ["generate", "persist", "publish"]);
+  assert.equal(result.receipt.persistenceStatus, "remote_pending");
 });
 
 test("completion binds response semantics chosen during generation without forcing critical writes", async () => {

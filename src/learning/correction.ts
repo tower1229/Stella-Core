@@ -4,6 +4,7 @@ import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, v
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
+import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { EpisodeEvidenceResolver, type OriginalEvidence, type EvidencePurpose } from "../praxis/episode-evidence.js";
 import { preparePersonalViews, validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
@@ -247,6 +248,7 @@ export async function prepareCorrection(input: {
         },
         async persist(paths, id) { await durability.syncCritical(paths, `stella correction ${id}`); },
         confirmPreviouslyCommitted: file => durability.confirmPreviouslyCommitted(file),
+        publishView: () => afterDurablePersistPublishView(reader.root),
       }, signal);
       const diagnostics = await durability.diagnostics();
       check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision, "critical_sync_failed");
@@ -364,6 +366,7 @@ export async function recoverCorrection(input: {
     },
     persist: async paths => { await input.durability.syncCritical(paths, `stella correction ${input.operationId}`); },
     confirmPreviouslyCommitted: file => input.durability.confirmPreviouslyCommitted(file),
+    publishView: () => afterDurablePersistPublishView(input.root),
   }, input.signal);
   const diagnostics = await input.durability.diagnostics();
   check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision, "critical_sync_failed");

@@ -1,17 +1,18 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { CangHaiDurabilityDiagnostics } from "./durability.js";
+import type { CangHaiDurabilityDiagnostics, CangHaiDurabilityStage } from "./durability.js";
 import { GitCangHaiDurability } from "./durability.js";
 import type { StellaConsciousnessManifest } from "./manifest.js";
 import {
   applyMemoryTransaction,
+  assertMemoryTransactionReadable,
   type MemoryTransactionPlan,
 } from "./memory-transaction.js";
 import type { RuntimeProfile } from "./runtime-profile.js";
 import type { PersistenceStatus } from "../openclaw/completion.js";
 import { isRecord } from "../shared/type-guards.js";
 
-export type DurableWriteStage = "commit" | "recovery_pointer_cas" | "synchronize" | "view_publish";
+export type DurableWriteStage = CangHaiDurabilityStage | "view_publish";
 
 export type ManagedDurabilityBinding = {
   remote: string;
@@ -44,7 +45,7 @@ export class ManagedDurableWriteError extends Error {
 }
 
 const SHA = /^[0-9a-f]{40}$/i;
-const SECRETISH = /(?:sk-|api[_-]?key|bearer\s+[a-z0-9._\-]+|password\s*[:=])/i;
+const SENSITIVE_KEY = /secret|password|token|credential/i;
 
 function check(value: unknown, category: string): asserts value {
   if (!value) throw new ManagedDurableWriteError(category);
@@ -65,21 +66,17 @@ function collectSecretRefs(manifest: StellaConsciousnessManifest, profile: Runti
   return [...refs].sort();
 }
 
-function assertNoCredentialsInMaterials(value: unknown, secretRefs: readonly string[]): void {
+/** Materials may only carry Host secret *refs* (`path:`), never secret values under sensitive keys. */
+export function assertNoCredentialsInMaterials(value: unknown): void {
   const visit = (node: unknown): void => {
-    if (typeof node === "string") {
-      check(!SECRETISH.test(node), "credentials_in_materials");
-      check(!secretRefs.some((ref) => node.includes(ref.slice("path:".length)) && /[=:].+/.test(node) && SECRETISH.test(node)),
-        "credentials_in_materials");
-      return;
-    }
+    if (typeof node === "string" || node === null || node === undefined) return;
     if (Array.isArray(node)) {
       for (const item of node) visit(item);
       return;
     }
     if (isRecord(node)) {
       for (const [key, item] of Object.entries(node)) {
-        check(!/secret|password|token|credential/i.test(key) || typeof item === "string" && item.startsWith("path:"),
+        check(!SENSITIVE_KEY.test(key) || typeof item === "string" && item.startsWith("path:"),
           "credentials_in_materials");
         visit(item);
       }
@@ -106,7 +103,7 @@ export function resolveManagedDurabilityBinding(input: ManagedDurabilityBindingI
   const maxNormalRpoSeconds = durability.maxNormalRpoSeconds!;
   if (maxNormalRpoSeconds > archiveMaxRpoSeconds) throw new ManagedDurableWriteError("archive_rpo_exceeded");
   const secretRefs = collectSecretRefs(input.manifest, input.profile);
-  if (input.materialPreview !== undefined) assertNoCredentialsInMaterials(input.materialPreview, secretRefs);
+  if (input.materialPreview !== undefined) assertNoCredentialsInMaterials(input.materialPreview);
   return {
     remote: input.durabilityRemote,
     branch: input.durabilityBranch,
@@ -119,19 +116,18 @@ export function resolveManagedDurabilityBinding(input: ManagedDurabilityBindingI
   };
 }
 
-/** Map durability diagnostics to the public completion persistence status. Critical failure and RPO breach throw. */
+/**
+ * Map durability diagnostics to the public completion persistence status.
+ * Critical must already be confirmed when required; normal may remain remote_pending within RPO.
+ */
 export function persistenceStatusFromDiagnostics(
   diagnostics: CangHaiDurabilityDiagnostics,
   priority: "critical" | "normal",
 ): PersistenceStatus {
   if (priority === "critical") {
-    // criticalSynchronized is cleared before a critical commit and set only after push confirmation.
-    // Later normal commits may advance HEAD without clearing that flag; they must not rewrite a
-    // confirmed critical completion into a false sync failure.
     if (!diagnostics.criticalSynchronized || diagnostics.lastErrorCategory === "stella_critical_sync_failed") {
       throw new ManagedDurableWriteError("critical_sync_failed");
     }
-    return "synchronized";
   }
   if (diagnostics.normalState === "breached" ||
     diagnostics.observedNormalRpoSeconds > diagnostics.maxNormalRpoSeconds) {
@@ -139,7 +135,17 @@ export function persistenceStatusFromDiagnostics(
   }
   if (diagnostics.normalState === "pending") return "remote_pending";
   if (diagnostics.localRevision === diagnostics.synchronizedRevision) return "synchronized";
+  if (priority === "critical" && diagnostics.criticalSynchronized) return "synchronized";
   return "local_committed";
+}
+
+/** After durable persist succeeds, confirm the generation fence is released before readers proceed. */
+export async function afterDurablePersistPublishView(root: string): Promise<void> {
+  try {
+    await assertMemoryTransactionReadable(root);
+  } catch (error) {
+    throw new ManagedDurableWriteError("view_publish_failed", { cause: error });
+  }
 }
 
 export type ManagedDurableRecordInput = {
@@ -179,7 +185,17 @@ async function createDurability(
     maxNormalRpoSeconds: input.binding.maxNormalRpoSeconds,
     ...(input.now ? { now: input.now } : {}),
     ...(input.schedule ? { schedule: input.schedule } : {}),
-    onStage: input.onStage,
+    onStage: async (stage) => {
+      try {
+        await input.onStage?.(stage);
+      } catch (error) {
+        if (error instanceof ManagedDurableWriteError) throw error;
+        const category = stage === "commit" ? "commit_failed"
+          : stage === "recovery_pointer_cas" ? "pointer_conflict"
+            : "sync_failed";
+        throw new ManagedDurableWriteError(category, { cause: error });
+      }
+    },
     onRevision: async (revision) => {
       await input.onRevision?.(expectedRevision.current, revision);
       expectedRevision.current = revision;
@@ -187,21 +203,27 @@ async function createDurability(
   });
 }
 
-async function publishView(onStage?: (stage: DurableWriteStage) => void | Promise<void>): Promise<void> {
-  try { await onStage?.("view_publish"); }
-  catch (error) {
+async function invokeViewPublish(
+  root: string,
+  onStage?: (stage: DurableWriteStage) => void | Promise<void>,
+): Promise<void> {
+  try {
+    await onStage?.("view_publish");
+    await afterDurablePersistPublishView(root);
+  } catch (error) {
+    if (error instanceof ManagedDurableWriteError) throw error;
     throw new ManagedDurableWriteError("view_publish_failed", { cause: error });
   }
 }
 
 /**
- * Public managed durable write seam: scoped commit → recovery pointer CAS → sync → view publish.
- * Reuses GitCangHaiDurability and MemoryTransaction; reports honest persistence status.
+ * Synthetic acceptance harness: scoped commit → recovery pointer CAS → sync → view publish.
+ * Host business writes continue to use GitCangHaiDurability + MemoryTransaction directly.
  */
 export async function runManagedDurableRecord(input: ManagedDurableRecordInput): Promise<ManagedDurableRecordResult> {
   check(input.operationId.trim() && input.message.trim() && input.paths.length > 0, "invalid_durable_record");
-  assertNoCredentialsInMaterials(input.writeFiles ?? {}, input.binding.secretRefs);
-  if (input.transaction) assertNoCredentialsInMaterials(input.transaction, input.binding.secretRefs);
+  assertNoCredentialsInMaterials(input.writeFiles ?? {});
+  if (input.transaction) assertNoCredentialsInMaterials(input.transaction);
   const expectedRevision = { current: input.binding.operatorIdentity.recoveryRevision };
   const durability = await createDurability(input, expectedRevision);
   let replayed = false;
@@ -212,12 +234,10 @@ export async function runManagedDurableRecord(input: ManagedDurableRecordInput):
       else await durability.recordNormal(paths, input.message);
     } catch (error) {
       if (error instanceof ManagedDurableWriteError) throw error;
-      const message = error instanceof Error ? `${error.message} ${error.cause instanceof Error ? error.cause.message : ""}` : "";
-      const category = /pointer|recovery pointer|recovery_pointer/i.test(message) ? "pointer_conflict"
-        : /commit/i.test(message) ? "commit_failed"
-          : input.priority === "critical" ? "critical_sync_failed"
-            : "sync_failed";
-      throw new ManagedDurableWriteError(category, { cause: error });
+      throw new ManagedDurableWriteError(
+        input.priority === "critical" ? "critical_sync_failed" : "sync_failed",
+        { cause: error },
+      );
     }
   };
 
@@ -230,7 +250,7 @@ export async function runManagedDurableRecord(input: ManagedDurableRecordInput):
           replayed = true;
           await durability.confirmPreviouslyCommitted(file);
         },
-        async publishView() { await publishView(input.onStage); },
+        async publishView() { await invokeViewPublish(input.root, input.onStage); },
       });
       replayed = result.replayed || replayed;
     } else {
@@ -243,10 +263,10 @@ export async function runManagedDurableRecord(input: ManagedDurableRecordInput):
       if (alreadyCurrent) {
         replayed = true;
         for (const relative of input.paths) await durability.confirmPreviouslyCommitted(relative);
-        await publishView(input.onStage);
+        await invokeViewPublish(input.root, input.onStage);
       } else {
         await persistPaths(input.paths);
-        await publishView(input.onStage);
+        await invokeViewPublish(input.root, input.onStage);
       }
     }
   } catch (error) {

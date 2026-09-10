@@ -117,11 +117,18 @@ node scripts/probe-capability-acceptance.mjs
 
 ### SPEC #6 显式记录持久写入（Issue #9）
 
-工作项 04：实例接入完整持久写入配置，本地提交／pointer／远端／恢复阶段如实报告。公开 seam 为 `resolveManagedDurabilityBinding` 与 `runManagedDurableRecord`（复用 `GitCangHaiDurability` 与 MemoryTransaction）：
+工作项 04：实例接入完整持久写入配置，本地提交／pointer／远端／恢复阶段如实报告。
+
+**公开 Host seam**：`resolveManagedDurabilityBinding`（绑定完整持久配置与 `archive_max_rpo_seconds`）+ diagnostics → completion 收据映射（`persistenceStatusFromDiagnostics`）+ 现有 `GitCangHaiDurability`／MemoryTransaction。生产业务写入不强制改道到 `runManagedDurableRecord`。
+
+**合成故障验收 harness**：`runManagedDurableRecord` 仅用于四阶段（commit／CAS／sync／view_publish）契约与恢复测试。
 
 ```sh
 npm run build
+node scripts/compile.mjs test
 node --test .test-dist/tests/managed-durable-write.test.js
+# 可选：向私人证据目录写入 synthetic_contract / implemented（不等于 Exact Host／real_main verified）
+node scripts/record-durable-write-evidence.mjs --evidence-directory /path/to/private-evidence
 ```
 
-`managed_durable_write` 要求 Host 显式 remote／branch，manifest `durability.maxNormalRpoSeconds` 不得超过 profile `memory.archive_max_rpo_seconds`；不得把 RPO 悄悄放大。critical 同步失败抛出，不生成完成收据；normal 在声明 RPO 内报告 `remote_pending`，超限为 `archive_rpo_breached`。completion 收据的 `persistenceStatus` 由 durability diagnostics 映射，不再在有写入时一律写 `synchronized`。阶段钩子覆盖 commit、recovery_pointer_cas、synchronize、view_publish；故障后按同一 operationId 接续，不覆盖并发编辑、不重复学习。实例绑定只携带 secret **引用**（`path:`），凭据正文不得进入资料预览或写入载荷。合成契约通过不等于 Exact Host／真实 main 已验证。
+`managed_durable_write` 要求 Host 显式 remote／branch，manifest `durability.maxNormalRpoSeconds` 不得超过 profile `memory.archive_max_rpo_seconds`；不得把 RPO 悄悄放大。critical 未确认抛出，不生成完成收据；critical 已确认且 normal 仍 pending 时收据可为 `remote_pending`；normal 超限为 `archive_rpo_breached`。completion 对 critical draft 允许 `synchronized | remote_pending`（仍要求有 writeOperationIds）。阶段钩子覆盖 commit、recovery_pointer_cas、synchronize、view_publish；故障后按同一 operationId 接续，不覆盖并发编辑、不重复学习。实例绑定只携带 secret **引用**（`path:`），凭据正文不得进入资料预览或写入载荷。账本证据仅记 `synthetic_contract` + `implemented`（目标 `04`／`G-05`／`G-06`／`G-09`／`M-11`）；`implemented ≠ verified`，合成通过不等于 Exact Host／真实 main 已验证。

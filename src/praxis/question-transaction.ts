@@ -3,6 +3,7 @@ import { CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef 
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
+import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { isRecord } from "../shared/type-guards.js";
 import { EpisodeV2Error, parseEpisodeV2, type VersionedRef } from "./episode-v2.js";
@@ -73,6 +74,7 @@ async function persist(input: { root: string; catalogPath: string; episodeRoot?:
     },
     async persist(paths, operationId) { await input.durability.syncCritical(paths, `preserve question evidence ${operationId}`); },
     confirmPreviouslyCommitted: (file) => input.durability.confirmPreviouslyCommitted(file),
+    publishView: () => afterDurablePersistPublishView(input.root),
   }, input.abortSignal);
   const diagnostics = await input.durability.diagnostics();
   if (!diagnostics.criticalSynchronized || diagnostics.localRevision !== diagnostics.synchronizedRevision) throw new EpisodeV2Error("critical_sync_failed");
