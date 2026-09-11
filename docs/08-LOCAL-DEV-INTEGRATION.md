@@ -148,3 +148,22 @@ node scripts/record-revoke-late-delivery-evidence.mjs --evidence-directory /path
 ```
 
 纠正成功后 `revokeActiveRuns(..., { retainRunId })` 废止其他旧许可并保留当轮；能力 `invalidate-capability` 废止全部旧许可；取消／超时终态废止当轮许可。初始化 fence／rollback 保留 durable `fenced` 与 Host isolation journal，重启后仍阻断 bind。账本证据仅记 `synthetic_contract` + `implemented`（目标 `06`／`G-05`／`G-08`／`I-07`／`I-08`／`I-12`／`C-08`）；其中 **G-08／C-08 仅旧-run／迟到投递切片**，**I-12 仅启动失败 Host 隔离 + 无 hook 可观察配置**，不等于整组验收或 Exact Host／real_main `verified`。
+
+### SPEC #6 安装后自动初始化及手动重试（Issue #11）
+
+工作项 31：插件正式安装后的 Host service／`gateway_start` 自动初始化指定 agent；用户手动 `/stella-initialize`、`stella_initialize`、`stella.initialize` 共用同一协调器、配方与成功标准，不走通用人格采访。Host 核对实际解析的 skill 正文／资源树与 config＋IDENTITY 身份；文件存在不能替代 Host `skills.status` 消费。重复执行幂等；能力未齐时 `scope: host_bootstrap` 可 ready，但 `runtime.blocked` 且不宣称 full_memory 运行就绪。
+
+**公开 Host seam**：`registerStellaInitialization`／`StellaInitializer.initialize`／`verifyHost`／`verifyInitializationContext`／`compileInitializationSource`。
+
+```sh
+npm run build
+node scripts/compile.mjs test
+node --test .test-dist/tests/initialization-install.test.js \
+  .test-dist/tests/initialization-source.test.js \
+  .test-dist/tests/initialization.test.js \
+  .test-dist/tests/initialization-context.test.js
+# 可选：向私人证据目录写入 synthetic_contract / implemented（不等于 Exact Host／real_main verified）
+node scripts/record-install-init-evidence.mjs --evidence-directory /path/to/private-evidence
+```
+
+账本证据仅记 `synthetic_contract` + `implemented`（目标 `31`／`I-01`／`I-02`／`I-03`／`I-05`／`C-01`／`C-09`）；其中 **I-02 UI／channel 仅 Host 配置身份与 Host 提供的 IDENTITY.md 交叉核对**，**不是各真实 channel 展示验收**；**C-01 为五份 bootstrap 不整篇重复 + 必需行为／skill 投影 + 诚实 runtime blockers**；**C-09 为文件可装载而能力不全时只报告实际阶段，重复初始化不伪造就绪**。`implemented ≠ verified`。

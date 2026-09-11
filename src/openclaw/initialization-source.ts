@@ -185,6 +185,9 @@ export async function compileInitializationSource(root: string, document: unknow
     contents.set(recipe.target, bytes);
     files.push({ target: recipe.target, source: `compiled/${recipe.target}`, sha256: bytesVersion(bytes), executable: false });
   }
+  const bootstrapBodies = BOOTSTRAP_TARGETS.map((target) => contents.get(target)?.toString("utf8").trim() ?? "");
+  check(bootstrapBodies.every((body) => body.length > 0), "required_bootstrap_missing");
+  check(new Set(bootstrapBodies).size === bootstrapBodies.length, "bootstrap_content_duplicated");
   check(Array.isArray(document.skill_bindings), "invalid_skill_bindings");
   const skills: string[] = [];
   const enabledSkills = new Set<string>(), boundSkills = new Set<string>();

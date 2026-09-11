@@ -221,21 +221,63 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     }
 
     const skills = await request("skills.status", { agentId: config.agentId });
-    if (!isRecord(skills) || !Array.isArray(skills.skills) || typeof skills.workspaceDir !== "string" || await realpath(skills.workspaceDir) !== workspace) throw new InitializationError("host_skill_inventory_unavailable");
+    if (!isRecord(skills) || !Array.isArray(skills.skills) || typeof skills.workspaceDir !== "string" || await realpath(skills.workspaceDir) !== workspace) {
+      throw new InitializationError("host_skill_inventory_unavailable");
+    }
     for (const name of materialization.skills) {
-      const text = await readFile(path.join(workspace, "skills", name, "SKILL.md"), "utf8");
-      const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-      const metadata: unknown = frontmatter ? parseYaml(frontmatter[1]!) : undefined;
-      if (!isRecord(metadata) || metadata.name !== name || typeof metadata.description !== "string") throw new InitializationError("invalid_skill_metadata");
       const active = skills.skills.find((entry: unknown) => isRecord(entry) && entry.name === name);
       if (!isRecord(active) || active.eligible !== true || active.disabled === true || active.blockedByAgentFilter === true ||
-        active.blockedByAllowlist === true || typeof active.filePath !== "string" ||
-        await realpath(active.filePath) !== path.join(workspace, "skills", name, "SKILL.md")) throw new InitializationError("skill_unavailable_or_shadowed");
+        active.blockedByAllowlist === true || typeof active.filePath !== "string") {
+        throw new InitializationError("skill_unavailable_or_shadowed");
+      }
+      let skillFile: string;
+      try { skillFile = await realpath(active.filePath); }
+      catch { throw new InitializationError("skill_unavailable_or_shadowed"); }
+      const expectedSkillFile = path.join(workspace, "skills", name, "SKILL.md");
+      if (skillFile !== expectedSkillFile) throw new InitializationError("skill_unavailable_or_shadowed");
+      const skillRoot = path.dirname(skillFile);
+      const skillFiles = materialization.files.filter((file) => file.target.startsWith(`skills/${name}/`));
+      if (!skillFiles.some((file) => file.target === `skills/${name}/SKILL.md`)) throw new InitializationError("skill_body_missing");
+      for (const file of skillFiles) {
+        const relative = file.target.slice(`skills/${name}/`.length);
+        if (!relative || relative.split("/").some((part) => part === "" || part === "." || part === "..")) {
+          throw new InitializationError("invalid_skill_tree");
+        }
+        let resolved: string;
+        try { resolved = await realpath(path.join(skillRoot, relative)); }
+        catch { throw new InitializationError("host_skill_content_mismatch"); }
+        const relativeResolved = path.relative(skillRoot, resolved).split(path.sep).join("/");
+        if (relativeResolved !== relative || relativeResolved.startsWith("..") || path.isAbsolute(relativeResolved)) {
+          throw new InitializationError("unsafe_skill_source");
+        }
+        const observed = await readFile(resolved);
+        if (bytesVersion(observed) !== file.sha256) throw new InitializationError("host_skill_content_mismatch");
+        if (relative === "SKILL.md") {
+          const text = observed.toString("utf8");
+          const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+          const metadata: unknown = frontmatter ? parseYaml(frontmatter[1]!) : undefined;
+          if (!isRecord(metadata) || metadata.name !== name || typeof metadata.description !== "string") {
+            throw new InitializationError("invalid_skill_metadata");
+          }
+        }
+      }
     }
     for (const file of materialization.files.filter((file) => !file.target.startsWith("skills/"))) {
       const observed = await request("agents.files.get", { agentId: config.agentId, name: file.target });
       if (!isRecord(observed) || !isRecord(observed.file) || typeof observed.file.content !== "string" ||
         bytesVersion(observed.file.content) !== file.sha256) throw new InitializationError("host_projection_mismatch");
+      if (file.target === "IDENTITY.md") {
+        const identity = await readIdentity();
+        if (identity?.name && !observed.file.content.includes(`- Name: ${identity.name}`)) {
+          throw new InitializationError("host_channel_identity_mismatch");
+        }
+        if (identity?.emoji && !observed.file.content.includes(`- Emoji: ${identity.emoji}`)) {
+          throw new InitializationError("host_channel_identity_mismatch");
+        }
+        if (identity?.theme && !observed.file.content.includes(`- Vibe: ${identity.theme}`)) {
+          throw new InitializationError("host_channel_identity_mismatch");
+        }
+      }
     }
 
     await verifyInitializationContext({ workspace, agentId: config.agentId,

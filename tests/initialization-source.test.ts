@@ -123,6 +123,26 @@ test("disabled automation declarations are retained but enabled jobs require a H
   { agentId: "probe", hostVersion: "2026.8.2" }), /source_pin_mismatch/);
 });
 
+test("bootstrap candidates cannot duplicate whole documents", async (t) => {
+  const f = await fixture(t);
+  const agents = f.document.projection_recipes.find((recipe) => recipe.target === "AGENTS.md")!;
+  const soul = f.document.projection_recipes.find((recipe) => recipe.target === "SOUL.md")!;
+  const agentsSource = agents.input_refs[0]!;
+  const soulSourcePath = soul.input_refs[0]!.ref.slice(5);
+  const duplicated = await readFile(path.join(f.root, agentsSource.ref.slice(5)));
+  await writeFile(path.join(f.root, soulSourcePath), duplicated);
+  soul.input_refs = [{ ref: soul.input_refs[0]!.ref, sha256: bytesVersion(duplicated) }];
+  const mappingPath = path.join(f.root, f.document.behavior_mapping_ref.ref.slice(5));
+  const mapping = JSON.parse(await readFile(mappingPath, "utf8"));
+  const soulEntry = mapping.entries.find((entry: { id: string }) => entry.id === "SOUL.md");
+  soulEntry.new_rule_refs = [{ ref: soul.input_refs[0]!.ref, sha256: soul.input_refs[0]!.sha256 }];
+  soulEntry.source = { ...soulEntry.source, sha256: soul.input_refs[0]!.sha256 };
+  const mappingBytes = canonicalJson(mapping);
+  await writeFile(mappingPath, mappingBytes);
+  f.document.behavior_mapping_ref = { ...f.document.behavior_mapping_ref, sha256: bytesVersion(mappingBytes) };
+  await assert.rejects(f.compile(), /bootstrap_content_duplicated/);
+});
+
 test("complete reviewed documents are rendered without a second template policy", async (t) => {
   const f = await fixture(t);
   const result = await f.compile();

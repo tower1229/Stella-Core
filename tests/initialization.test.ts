@@ -103,14 +103,29 @@ test("compiles public Core templates and pinned reviewed behavior without rewrit
     await writeFile(path.join(f.source, name), bytes);
     return { ref: `path:${name}`, sha256: bytesVersion(bytes) };
   };
-  const rule = await save("reviewed-soul.txt", "Be precise. Ask about material unknowns.");
+  const rules = Object.fromEntries(await Promise.all(
+    BOOTSTRAP_TARGETS.filter((target) => target !== "IDENTITY.md").map(async (target) => {
+      const stem = target.replace(/\.md$/i, "").toLowerCase();
+      const body = target === "SOUL.md"
+        ? "Be precise. Ask about material unknowns.\nSynthetic soul rules."
+        : `Be precise. Ask about material unknowns.\nSynthetic ${target} rules.`;
+      return [target, await save(`reviewed-${stem}.txt`, body)] as const;
+    }),
+  ));
   const exposure = { schema_version: "stella.projection-exposure/v1", id: "public-behavior", classification: "public_behavior",
     audiences: ["public"], targets: BOOTSTRAP_TARGETS };
   const exposureRef = await save("exposure.json", exposure);
-  const mapping = { schema_version: "stella.behavior-mapping/v1", id: "synthetic-mapping", entries: [{
-    id: "voice", source: { ref: "path:1.txt", sha256: f.recipe.files[1]!.sha256 }, role: "owner_behavior", status: "retained",
-    new_rule_refs: [rule], reason: "Synthetic reviewed voice", replacement_requirements: [] as string[], dependencies: [] as string[], required: true,
-  }] };
+  const mapping = { schema_version: "stella.behavior-mapping/v1", id: "synthetic-mapping", entries: [
+    ...Object.entries(rules).map(([target, rule]) => ({
+      id: target, source: { ref: `path:${target === "SOUL.md" ? "1.txt" : "0.txt"}`, sha256: f.recipe.files[target === "SOUL.md" ? 1 : 0]!.sha256 },
+      role: "owner_behavior", status: "retained", new_rule_refs: [rule], reason: `Synthetic reviewed ${target}`,
+      replacement_requirements: [] as string[], dependencies: [] as string[], required: true,
+    })),
+  ] as Array<{
+    id: string; source: { ref: string; sha256: string }; role: string; status: string;
+    new_rule_refs: Array<{ ref: string; sha256: string }>; reason: string;
+    replacement_requirements: string[]; dependencies: string[]; required: boolean;
+  }> };
   const mappingRef = await save("mapping.json", mapping);
   const displayIdentity = await save("display-identity.json", { schema_version: "stella.display-identity/v2", id: "unit-identity", name: "Unit Stella", emoji: "🧪" });
   mapping.entries.push({ id: "identity", source: { ref: "path:2.txt", sha256: f.recipe.files[2]!.sha256 }, role: "owner_behavior", status: "adapted",
@@ -119,8 +134,8 @@ test("compiles public Core templates and pinned reviewed behavior without rewrit
   const materialization = { schema_version: "stella.host-materialization/v1", id: "synthetic-instance",
     host_adapter: { id: "openclaw", version: "1", host_version: "2026.8.2", harness: "openclaw" }, behavior_mapping_ref: mappingRef,
     projection_recipes: BOOTSTRAP_TARGETS.map((target) => ({ target, template_version: INITIALIZATION_TEMPLATE_VERSION,
-      behavior_ids: target === "IDENTITY.md" ? ["identity"] : ["voice"],
-      input_refs: target === "IDENTITY.md" ? [displayIdentity] : [rule], exposure_policy_ref: exposureRef })),
+      behavior_ids: target === "IDENTITY.md" ? ["identity"] : [target],
+      input_refs: target === "IDENTITY.md" ? [displayIdentity] : [rules[target]!], exposure_policy_ref: exposureRef })),
     skill_bindings: [], automation_declarations: [], required_checks: ["host_files", "host_skills", "host_identity", "host_setup"],
   };
   await save("recipe.json", materialization);
@@ -132,7 +147,7 @@ test("compiles public Core templates and pinned reviewed behavior without rewrit
   assert.match(await readFile(path.join(f.workspace, "SOUL.md"), "utf8"), /Be precise\. Ask about material unknowns\./);
   assert.deepEqual(await f.ports.readIdentity(), { name: "Unit Stella", emoji: "🧪" });
   assert.equal(await f.git(["status", "--porcelain"]), "");
-  assert.equal(await readFile(path.join(f.source, "reviewed-soul.txt"), "utf8"), "Be precise. Ask about material unknowns.");
+  assert.equal(await readFile(path.join(f.source, "reviewed-soul.txt"), "utf8"), "Be precise. Ask about material unknowns.\nSynthetic soul rules.");
   assert.equal(receipt.scope, "host_bootstrap");
   const binding = { core: bytesVersion("core"), artifact: bytesVersion("artifact"), host: bytesVersion("host"),
     harness: bytesVersion("harness"), source: bytesVersion(f.config.revision), profile: bytesVersion("profile"),
