@@ -419,3 +419,5 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 2026-09-09 运行绑定补强：full_memory 的 `loadPraxisRuntimeBinding` 在装载处理授权时校验当前 Source 的父策略及每个片段策略都有精确版本的专属描述，拒绝缺失、过期或未由来源声明的描述，以及 owner 不一致。该检查不调用模型、不证明 Host 身份已收到真实请求，也不替代 full_memory 能力验收；处理授权只能绑定 Host 已配置的 owner、指定模型与用途，引用授权仍单独控制。
 
 2026-09-09 语义检索接入：`stella.semantic-retrieval/v1` 通过 pageSize／maxRounds／maxSelected／maxOriginalChars 声明执行预算；`retrieveCatalogEvidence` 每轮遍历当前目录的所有描述页，由结构化模型选择证据，并从已授权原件中继续提出检索意图。选中原件经既有权限及分段入口回读，再进入问答 EvidenceBundle 和独立解释校验。目录超过 64 条不再直接触发全读失败；所选证据、原文字符和轮数仍有明确上限，未完成时返回容量／预算错误。未选原件和访问排除不构成否定证据，遍历全部描述也不构成全库原文覆盖。仅受控 Host 归档可在 owner 正文处理授权下使用原件作为检索描述；其他来源缺描述必须失败。该实现不代表源发现、附件归档、全量同步或框架及外部技能能力已验收。
+
+2026-09-11 声明范围发现：`discoverDeclaredScope` 从 `stella.corpus-registry/v1` 枚举声明 include／exclude，经结构化模型选择跨目录线索，产出按 collection 对齐 adapter／collectionId 且含 `version` 的 ingest-ready Source／Archive Coverage 对象及可 `parseMemoryCatalog` 的目录预览；公开报告去掉私人路径与原文。记忆事务 pending 映射为 `index_not_ready`。该实现不写盘、不完成 ingest 状态机，也不表示全量同步或检索已验收。

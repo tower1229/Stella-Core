@@ -1,10 +1,19 @@
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
-import { CatalogError, readRepositoryBytes } from "./catalog-reader.js";
-import { bytesVersion, canonicalJson } from "./content-version.js";
-import { stableId } from "./host-input-archive.js";
+import {
+  CatalogError,
+  parseMemoryCatalog,
+  readRepositoryBytes,
+  type CatalogEntry,
+  type CatalogGroup,
+  type MemoryCatalog,
+} from "./catalog-reader.js";
+import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
+import { stableId, type ArchiveObject } from "./host-input-archive.js";
+import { assertMemoryTransactionReadable, MemoryTransactionError } from "./memory-transaction.js";
 import { parseCangHaiRef } from "./ref.js";
 
 export const DECLARED_SCOPE_DISCOVERY_ADAPTER = "stella-declared-scope-discovery/v1";
@@ -30,10 +39,13 @@ export type DiscoveredSource = {
   sha256: string;
   kind: "declared" | "related" | "attachment";
   discoveredVia: "declared_include" | "followed_clue";
+  coverageRef: VersionedRef;
+  policyRef: VersionedRef;
 };
 export type ArchiveCoverage = {
   schemaVersion: "stella.archive-coverage/v1";
   id: string;
+  version: string;
   adapterId: string;
   collectionId: string;
   scope: {
@@ -64,9 +76,17 @@ export type PublicDiscoveryReport = {
   sources: Array<{ sourceId: string; collectionId: string; discoveredVia: DiscoveredSource["discoveredVia"]; kind: DiscoveredSource["kind"] }>;
   category?: string;
 };
+export type DiscoverySuccess = {
+  status: "discovered" | "coverage_gap";
+  sources: DiscoveredSource[];
+  coverages: ArchiveCoverage[];
+  sourceRefs: VersionedRef[];
+  coverageRefs: VersionedRef[];
+  objects: ArchiveObject[];
+  catalogPreview: MemoryCatalog;
+};
 export type DiscoveryResult =
-  | { status: "discovered"; sources: DiscoveredSource[]; coverage: ArchiveCoverage; catalogPreview: { sources: Array<{ id: string; upstreamId: string; collectionId: string; locatorPath: string; sha256: string }> } }
-  | { status: "coverage_gap"; sources: DiscoveredSource[]; coverage: ArchiveCoverage; catalogPreview: { sources: [] } }
+  | DiscoverySuccess
   | { status: "not_ready"; category: "index_not_ready"; coverage: null }
   | { status: "fault"; category: "source_unavailable" | "invalid_corpus_registry" | "invalid_discovery_input"; coverage: null };
 
@@ -171,20 +191,6 @@ function sourceKind(locatorPath: string, via: DiscoveredSource["discoveredVia"])
   return "related";
 }
 
-function makeSource(input: {
-  adapterId: string; collectionId: string; locatorPath: string; sha256: string; discoveredVia: DiscoveredSource["discoveredVia"];
-}): DiscoveredSource {
-  const identity = canonicalJson([input.adapterId, input.collectionId, input.locatorPath]);
-  return {
-    sourceId: stableId("source", identity),
-    origin: { adapterId: input.adapterId, collectionId: input.collectionId, upstreamId: input.locatorPath },
-    locatorPath: input.locatorPath,
-    sha256: input.sha256,
-    kind: sourceKind(input.locatorPath, input.discoveredVia),
-    discoveredVia: input.discoveredVia,
-  };
-}
-
 export function parseCorpusRegistry(value: unknown): CorpusRegistry {
   check(isRecord(value) && value.schema_version === "stella.corpus-registry/v1" && typeof value.id === "string" && value.id &&
     Array.isArray(value.corpora) && (value.memory_catalog_ref === undefined || typeof value.memory_catalog_ref === "string"), "invalid_corpus_registry");
@@ -217,35 +223,47 @@ export function parseCorpusRegistry(value: unknown): CorpusRegistry {
   };
 }
 
-function buildCoverage(input: {
-  registryId: string;
-  roots: string[];
-  branches: string[];
-  expectedCount: number | null;
-  retainedCount: number;
-  missingItems: ArchiveCoverage["missingItems"];
-  checkedAt: string;
-  upstreamSnapshot: string;
-}): ArchiveCoverage {
-  const complete = input.expectedCount !== null && input.missingItems.length === 0 && input.retainedCount === input.expectedCount;
-  const identity = canonicalJson([DECLARED_SCOPE_DISCOVERY_ADAPTER, input.registryId, input.upstreamSnapshot]);
-  return {
-    schemaVersion: "stella.archive-coverage/v1",
-    id: stableId("coverage", identity),
-    adapterId: DECLARED_SCOPE_DISCOVERY_ADAPTER,
-    collectionId: input.registryId,
-    scope: { agentIds: [], roots: input.roots, branchPolicy: "declared_subset", declaredBranches: input.branches },
-    upstreamSnapshot: input.upstreamSnapshot,
-    fromCursor: null,
-    toCursor: input.upstreamSnapshot,
-    expectedCount: input.expectedCount,
-    retainedCount: input.retainedCount,
-    excludedByPolicyCount: 0,
-    missingItems: input.missingItems,
-    checkedAt: input.checkedAt,
-    completeForDeclaredScope: complete,
-  };
+async function loadPolicyRef(root: string, policyRefPath: string): Promise<VersionedRef> {
+  const relative = parseCangHaiRef(policyRefPath).relativePath;
+  const bytes = await readRepositoryBytes(root, relative);
+  const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  check(isRecord(value) && typeof value.id === "string" && value.id, "invalid_corpus_registry");
+  const { version: _version, ...body } = value;
+  return { id: String(value.id), version: objectVersion(body as Record<string, unknown>) };
 }
+
+function addObject(
+  objects: ArchiveObject[],
+  objectRoot: string,
+  group: CatalogGroup,
+  object: Record<string, unknown>,
+  dependencies: VersionedRef[],
+): VersionedRef {
+  const version = objectVersion(object);
+  const ref = { id: String(object.id), version };
+  const versioned = { ...object, version };
+  const bytes = canonicalJson(versioned);
+  const entry: CatalogEntry = {
+    ...ref,
+    status: "current",
+    dependencies,
+    locator: { path: `${objectRoot}/${encodeURIComponent(ref.id)}/${version.slice(7)}.json`, sha256: bytesVersion(bytes) },
+  };
+  objects.push({ group, ref, object: versioned, entry, bytes });
+  return ref;
+}
+
+type PendingSource = {
+  adapterId: string;
+  collectionId: string;
+  locatorPath: string;
+  sha256: string;
+  bytes: number;
+  mediaType: string;
+  discoveredVia: DiscoveredSource["discoveredVia"];
+  policyRef: VersionedRef;
+  rootRelative: string;
+};
 
 /** Discover materials from the declared corpus registry scope. Paths locate only; Source IDs stay stable. */
 export async function discoverDeclaredScope(input: {
@@ -253,17 +271,15 @@ export async function discoverDeclaredScope(input: {
   corpusRegistryRef: string;
   checkedAt: string;
   modelRef: string;
-  indexState?: "ready" | "rebuilding";
+  objectRoot?: string;
   complete(input: { prompt: string; maxTokens: number }): Promise<{ text: string; provider?: string; model?: string }>;
 }): Promise<DiscoveryResult> {
   if (!input.root || !/(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(input.checkedAt) || !Number.isFinite(Date.parse(input.checkedAt)) || !input.modelRef) {
     return { status: "fault", category: "invalid_discovery_input", coverage: null };
   }
-  if (input.indexState === "rebuilding") return { status: "not_ready", category: "index_not_ready", coverage: null };
   let registry: CorpusRegistry;
-  let registryPath: string;
   try {
-    registryPath = parseCangHaiRef(input.corpusRegistryRef).relativePath;
+    const registryPath = parseCangHaiRef(input.corpusRegistryRef).relativePath;
     const bytes = await readRepositoryBytes(input.root, registryPath);
     registry = parseCorpusRegistry(parseYaml(new TextDecoder("utf-8", { fatal: true }).decode(bytes)));
   } catch (error) {
@@ -273,15 +289,28 @@ export async function discoverDeclaredScope(input: {
     return { status: "fault", category: "source_unavailable", coverage: null };
   }
 
-  const sources = new Map<string, DiscoveredSource>();
-  const missingItems: ArchiveCoverage["missingItems"] = [];
-  const roots: string[] = [];
-  const branches: string[] = [];
+  if (registry.memory_catalog_ref) {
+    try {
+      await assertMemoryTransactionReadable(input.root);
+    } catch (error) {
+      if (error instanceof MemoryTransactionError && error.category === "memory_transaction_pending") {
+        return { status: "not_ready", category: "index_not_ready", coverage: null };
+      }
+      throw error;
+    }
+  }
+
+  const objectRoot = safeRepoRelative(input.objectRoot ?? "30_PersonalData/memory/discovery-preview");
+  const pending = new Map<string, PendingSource>();
+  const missingByCollection = new Map<string, ArchiveCoverage["missingItems"]>();
+  const clueTouched = new Set<string>();
+  const rootByCollection = new Map<string, string>();
   const clueCandidates: Array<{
     handle: string;
     fromUpstreamId: string;
     fromCollectionId: string;
     fromAdapterId: string;
+    fromPolicyRef: VersionedRef;
     clue: string;
     resolved?: string;
     token?: string;
@@ -290,21 +319,31 @@ export async function discoverDeclaredScope(input: {
   try {
     for (const corpus of registry.corpora) {
       const rootRelative = parseCangHaiRef(corpus.root_ref).relativePath;
-      roots.push(rootRelative);
-      branches.push(corpus.id);
+      rootByCollection.set(corpus.id, rootRelative);
+      missingByCollection.set(corpus.id, []);
+      const policyRef = await loadPolicyRef(input.root, corpus.policy_ref);
       const files = await listFiles(input.root, rootRelative);
       for (const file of files) {
-        const underRoot = file;
-        if (!matchesGlobs(underRoot, corpus.include) || matchesGlobs(underRoot, corpus.exclude)) continue;
-        const locatorPath = safeRepoRelative(`${rootRelative}/${underRoot}`);
+        if (!matchesGlobs(file, corpus.include) || matchesGlobs(file, corpus.exclude)) continue;
+        const locatorPath = safeRepoRelative(`${rootRelative}/${file}`);
         const bytes = await readRepositoryBytes(input.root, locatorPath);
-        sources.set(locatorPath, makeSource({
-          adapterId: corpus.adapter_id, collectionId: corpus.id, locatorPath,
-          sha256: bytesVersion(bytes), discoveredVia: "declared_include",
-        }));
+        let mediaType = "application/octet-stream";
         let text: string | null = null;
-        try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
-        catch { text = null; }
+        try {
+          text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+          mediaType = "text/plain";
+        } catch { text = null; }
+        pending.set(locatorPath, {
+          adapterId: corpus.adapter_id,
+          collectionId: corpus.id,
+          locatorPath,
+          sha256: bytesVersion(bytes),
+          bytes: bytes.length,
+          mediaType,
+          discoveredVia: "declared_include",
+          policyRef,
+          rootRelative,
+        });
         if (text === null) continue;
         for (const clue of extractStructuralClues(text)) {
           const resolved = resolveClue(locatorPath, clue);
@@ -312,20 +351,20 @@ export async function discoverDeclaredScope(input: {
           if (resolved.kind === "repo") {
             clueCandidates.push({
               handle, fromUpstreamId: locatorPath, fromCollectionId: corpus.id, fromAdapterId: corpus.adapter_id,
-              clue: "repo_relative_locator", resolved: resolved.path,
+              fromPolicyRef: policyRef, clue: "repo_relative_locator", resolved: resolved.path,
             });
           } else {
             clueCandidates.push({
               handle, fromUpstreamId: locatorPath, fromCollectionId: corpus.id, fromAdapterId: corpus.adapter_id,
-              clue: resolved.token, token: resolved.token,
+              fromPolicyRef: policyRef, clue: resolved.token, token: resolved.token,
             });
           }
         }
       }
     }
   } catch (error) {
-    if (error instanceof CatalogError && (error.category === "source_unavailable" || error.category === "unsafe_locator")) {
-      return { status: "fault", category: "source_unavailable", coverage: null };
+    if (error instanceof CatalogError && (error.category === "source_unavailable" || error.category === "unsafe_locator" || error.category === "invalid_corpus_registry")) {
+      return { status: "fault", category: error.category === "invalid_corpus_registry" ? "invalid_corpus_registry" : "source_unavailable", coverage: null };
     }
     throw error;
   }
@@ -355,8 +394,9 @@ export async function discoverDeclaredScope(input: {
       decision.selected.every((handle) => clueCandidates.some((candidate) => candidate.handle === handle)), "invalid_discovery_selection");
     for (const handle of decision.selected as string[]) {
       const candidate = clueCandidates.find((item) => item.handle === handle)!;
+      clueTouched.add(candidate.fromCollectionId);
       if (candidate.token) {
-        missingItems.push({
+        missingByCollection.get(candidate.fromCollectionId)!.push({
           upstreamId: `${candidate.fromUpstreamId}#${candidate.token}`,
           reason: candidate.token === "absolute_or_private_locator" ? "attachment_missing" : "source_unavailable",
           retryable: candidate.token === "absolute_or_private_locator",
@@ -364,21 +404,36 @@ export async function discoverDeclaredScope(input: {
         continue;
       }
       const locatorPath = candidate.resolved!;
-      if (sources.has(locatorPath)) continue;
+      if (pending.has(locatorPath)) continue;
       const owning = registry.corpora.find((corpus) => {
         const rootRelative = parseCangHaiRef(corpus.root_ref).relativePath;
         return locatorPath === rootRelative || locatorPath.startsWith(`${rootRelative}/`);
       });
-      // Outside every declared root: keep affiliation with the referring corpus that supplied the clue.
       const collectionId = owning?.id ?? candidate.fromCollectionId;
       const adapterId = owning?.adapter_id ?? candidate.fromAdapterId;
+      const policyRef = owning ? await loadPolicyRef(input.root, owning.policy_ref) : candidate.fromPolicyRef;
+      const rootRelative = owning ? parseCangHaiRef(owning.root_ref).relativePath : rootByCollection.get(candidate.fromCollectionId)!;
+      clueTouched.add(collectionId);
       try {
         const bytes = await readRepositoryBytes(input.root, locatorPath);
-        sources.set(locatorPath, makeSource({
-          adapterId, collectionId, locatorPath, sha256: bytesVersion(bytes), discoveredVia: "followed_clue",
-        }));
+        let mediaType = "application/octet-stream";
+        try {
+          new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+          mediaType = "text/plain";
+        } catch { /* binary */ }
+        pending.set(locatorPath, {
+          adapterId,
+          collectionId,
+          locatorPath,
+          sha256: bytesVersion(bytes),
+          bytes: bytes.length,
+          mediaType,
+          discoveredVia: "followed_clue",
+          policyRef,
+          rootRelative,
+        });
       } catch {
-        missingItems.push({
+        missingByCollection.get(collectionId)!.push({
           upstreamId: locatorPath,
           reason: sourceKind(locatorPath, "followed_clue") === "attachment" ? "attachment_missing" : "source_unavailable",
           retryable: true,
@@ -387,45 +442,164 @@ export async function discoverDeclaredScope(input: {
     }
   }
 
-  const ordered = [...sources.values()].sort((a, b) => a.locatorPath.localeCompare(b.locatorPath));
-  // Clue candidates mean related/attachment totals are not a closed upstream checklist.
-  const expectedCount = clueCandidates.length > 0 ? null : ordered.length;
-  const upstreamSnapshot = bytesVersion(canonicalJson({
-    registryId: registry.id,
-    sources: ordered.map((source) => ({ id: source.sourceId, sha256: source.sha256 })),
-    missing: missingItems,
-  }));
-  const coverage = buildCoverage({
-    registryId: registry.id,
-    roots,
-    branches,
-    expectedCount,
-    retainedCount: ordered.length,
-    missingItems,
-    checkedAt: input.checkedAt,
-    upstreamSnapshot,
-  });
-  if (ordered.length === 0 && missingItems.length === 0) {
-    return { status: "coverage_gap", sources: [], coverage, catalogPreview: { sources: [] } };
-  }
-  return {
-    status: "discovered",
-    sources: ordered,
-    coverage,
-    catalogPreview: {
-      sources: ordered.map((source) => ({
-        id: source.sourceId,
-        upstreamId: source.origin.upstreamId,
-        collectionId: source.origin.collectionId,
+  const orderedPending = [...pending.values()].sort((a, b) => a.locatorPath.localeCompare(b.locatorPath));
+  const objects: ArchiveObject[] = [];
+  const discovered: DiscoveredSource[] = [];
+  const coverages: ArchiveCoverage[] = [];
+  const sourceRefs: VersionedRef[] = [];
+  const coverageRefs: VersionedRef[] = [];
+  const catalog: MemoryCatalog = {
+    schemaVersion: "stella.memory-catalog/v1",
+    generationId: `discovery-preview_${registry.id}`,
+    parentGenerationId: null,
+    sources: [],
+    evidence: [],
+    policies: [],
+    understandings: [],
+    works: [],
+    changes: [],
+    bundles: [],
+    coverage: [],
+    views: [],
+  };
+
+  for (const corpus of registry.corpora) {
+    const collectionSources = orderedPending.filter((source) => source.collectionId === corpus.id);
+    const missingItems = missingByCollection.get(corpus.id) ?? [];
+    if (collectionSources.length === 0 && missingItems.length === 0 && !clueTouched.has(corpus.id)) continue;
+
+    const followed = clueTouched.has(corpus.id) || collectionSources.some((source) => source.discoveredVia === "followed_clue") || missingItems.length > 0;
+    const expectedCount = followed ? null : collectionSources.length;
+    const upstreamSnapshot = bytesVersion(canonicalJson({
+      collectionId: corpus.id,
+      sources: collectionSources.map((source) => ({ path: source.locatorPath, sha256: source.sha256 })),
+      missing: missingItems,
+    }));
+    const complete = expectedCount !== null && missingItems.length === 0 && collectionSources.length === expectedCount;
+    const coverageIdentity = canonicalJson([corpus.adapter_id, corpus.id, upstreamSnapshot]);
+    const coverageBody = {
+      schemaVersion: "stella.archive-coverage/v1",
+      id: stableId("coverage", coverageIdentity),
+      adapterId: corpus.adapter_id,
+      collectionId: corpus.id,
+      scope: {
+        agentIds: [],
+        roots: [rootByCollection.get(corpus.id)!],
+        branchPolicy: "declared_subset" as const,
+        declaredBranches: collectionSources.map((source) => source.locatorPath),
+      },
+      upstreamSnapshot,
+      fromCursor: null,
+      toCursor: upstreamSnapshot,
+      expectedCount,
+      retainedCount: collectionSources.length,
+      excludedByPolicyCount: 0,
+      missingItems,
+      checkedAt: input.checkedAt,
+      completeForDeclaredScope: complete,
+    };
+    const coverageRef = addObject(objects, objectRoot, "coverage", coverageBody, []);
+    const coverageObject = objects[objects.length - 1]!.object as unknown as ArchiveCoverage;
+    coverages.push(coverageObject);
+    coverageRefs.push(coverageRef);
+    catalog.coverage.push(objects[objects.length - 1]!.entry);
+
+    for (const source of collectionSources) {
+      const identity = canonicalJson([source.adapterId, source.collectionId, source.locatorPath]);
+      const sourceBody = {
+        schemaVersion: "stella.memory-source/v1",
+        id: stableId("source", identity),
+        origin: { adapterId: source.adapterId, collectionId: source.collectionId, upstreamId: source.locatorPath },
+        payloads: [{ path: source.locatorPath, mediaType: source.mediaType, bytes: source.bytes, sha256: source.sha256 }],
+        capturedAt: input.checkedAt,
+        policyRef: source.policyRef,
+        coverageRef,
+      };
+      const sourceRef = addObject(objects, objectRoot, "sources", sourceBody, [source.policyRef, coverageRef]);
+      sourceRefs.push(sourceRef);
+      catalog.sources.push(objects[objects.length - 1]!.entry);
+      discovered.push({
+        sourceId: sourceRef.id,
+        origin: { adapterId: source.adapterId, collectionId: source.collectionId, upstreamId: source.locatorPath },
         locatorPath: source.locatorPath,
         sha256: source.sha256,
-      })),
-    },
+        kind: sourceKind(source.locatorPath, source.discoveredVia),
+        discoveredVia: source.discoveredVia,
+        coverageRef,
+        policyRef: source.policyRef,
+      });
+    }
+  }
+
+  parseMemoryCatalog(catalog);
+
+  if (discovered.length === 0 && coverages.every((coverage) => coverage.missingItems.length === 0)) {
+    // Empty declared match across all corpora: synthesize one registry-level gap report per empty corpus.
+    if (registry.corpora.length === 0) {
+      return {
+        status: "coverage_gap",
+        sources: [],
+        coverages: [],
+        sourceRefs: [],
+        coverageRefs: [],
+        objects: [],
+        catalogPreview: catalog,
+      };
+    }
+    for (const corpus of registry.corpora) {
+      if (coverages.some((coverage) => coverage.collectionId === corpus.id)) continue;
+      const upstreamSnapshot = bytesVersion(canonicalJson({ collectionId: corpus.id, sources: [], missing: [] }));
+      const coverageBody = {
+        schemaVersion: "stella.archive-coverage/v1",
+        id: stableId("coverage", canonicalJson([corpus.adapter_id, corpus.id, upstreamSnapshot])),
+        adapterId: corpus.adapter_id,
+        collectionId: corpus.id,
+        scope: {
+          agentIds: [],
+          roots: [rootByCollection.get(corpus.id)!],
+          branchPolicy: "declared_subset" as const,
+          declaredBranches: [],
+        },
+        upstreamSnapshot,
+        fromCursor: null,
+        toCursor: upstreamSnapshot,
+        expectedCount: 0,
+        retainedCount: 0,
+        excludedByPolicyCount: 0,
+        missingItems: [],
+        checkedAt: input.checkedAt,
+        completeForDeclaredScope: true,
+      };
+      const coverageRef = addObject(objects, objectRoot, "coverage", coverageBody, []);
+      coverages.push(objects[objects.length - 1]!.object as unknown as ArchiveCoverage);
+      coverageRefs.push(coverageRef);
+      catalog.coverage.push(objects[objects.length - 1]!.entry);
+    }
+    parseMemoryCatalog(catalog);
+    return {
+      status: "coverage_gap",
+      sources: [],
+      coverages,
+      sourceRefs: [],
+      coverageRefs,
+      objects,
+      catalogPreview: catalog,
+    };
+  }
+
+  return {
+    status: "discovered",
+    sources: discovered,
+    coverages,
+    sourceRefs,
+    coverageRefs,
+    objects,
+    catalogPreview: catalog,
   };
 }
 
 /** Public receipt: stable ids and aggregate gap categories only. No private paths or original text. */
-export function toPublicDiscoveryReport(result: Exclude<DiscoveryResult, { status: "not_ready" } | { status: "fault" }> | DiscoveryResult): PublicDiscoveryReport {
+export function toPublicDiscoveryReport(result: DiscoveryResult): PublicDiscoveryReport {
   if (result.status === "not_ready" || result.status === "fault") {
     return {
       schemaVersion: "stella.declared-scope-discovery-report/v1",
@@ -441,20 +615,26 @@ export function toPublicDiscoveryReport(result: Exclude<DiscoveryResult, { statu
     };
   }
   const reasonCounts = new Map<string, { reason: string; count: number; retryable: boolean }>();
-  for (const item of result.coverage.missingItems) {
-    const key = `${item.reason}:${item.retryable}`;
-    const current = reasonCounts.get(key) ?? { reason: item.reason, count: 0, retryable: item.retryable };
-    current.count += 1;
-    reasonCounts.set(key, current);
+  for (const coverage of result.coverages) {
+    for (const item of coverage.missingItems) {
+      const key = `${item.reason}:${item.retryable}`;
+      const current = reasonCounts.get(key) ?? { reason: item.reason, count: 0, retryable: item.retryable };
+      current.count += 1;
+      reasonCounts.set(key, current);
+    }
   }
+  const expectedCounts = result.coverages.map((coverage) => coverage.expectedCount);
+  const expectedCount = expectedCounts.every((value) => value === null) ? null
+    : expectedCounts.every((value) => value !== null) ? expectedCounts.reduce((sum, value) => sum + (value ?? 0), 0)
+    : null;
   return {
     schemaVersion: "stella.declared-scope-discovery-report/v1",
     status: result.status,
-    adapterId: result.coverage.adapterId,
-    collectionId: result.coverage.collectionId,
-    discoveredCount: result.coverage.retainedCount,
-    expectedCount: result.coverage.expectedCount,
-    completeForDeclaredScope: result.coverage.completeForDeclaredScope,
+    adapterId: DECLARED_SCOPE_DISCOVERY_ADAPTER,
+    collectionId: result.coverages[0]?.collectionId ?? "unavailable",
+    discoveredCount: result.sources.length,
+    expectedCount,
+    completeForDeclaredScope: result.coverages.length > 0 && result.coverages.every((coverage) => coverage.completeForDeclaredScope),
     missingReasons: [...reasonCounts.values()],
     sources: result.sources.map((source) => ({
       sourceId: source.sourceId,

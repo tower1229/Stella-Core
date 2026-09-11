@@ -99,7 +99,7 @@ const summary = {
   issue: 12,
   environment: ENVIRONMENT,
   result: "implemented",
-  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main not claimed. Claims discovery slice of M-04/M-06/G-10 only; does not close M-05/M-07 retrieval judgments.",
+  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main not claimed. Claims discovery slice of M-04/M-06/G-10 only; does not close M-05/M-07. Catalog durable write / ingest state machine belongs to work 08.",
   targets: TARGETS,
   recordedAt,
   publicSeam: [
