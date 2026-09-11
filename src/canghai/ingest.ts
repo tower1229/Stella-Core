@@ -20,10 +20,12 @@ import {
   applyMemoryTransaction,
   readRecordedMemoryTransaction,
   MemoryTransactionError,
+  type MemoryFileChange,
   type MemoryTransactionPlan,
 } from "./memory-transaction.js";
 import { parseSourcePolicy } from "./source-policy.js";
 import { snapshotTurnRequest } from "../openclaw/turn-request.js";
+import type { TranscriptMessageExport } from "./transcript-archive.js";
 
 export const EXPLICIT_RECORD_ADAPTER = "stella-explicit-record/v1";
 
@@ -48,18 +50,41 @@ export const DEFAULT_RETENTION_GUARANTEES: HostRetentionGuarantees = {
   backup: false,
 };
 
+export type IngestItemRole = "owner" | "assistant" | "other" | "tool" | "external_author" | "unknown";
+export type IngestItemKind = "direct_observation" | "reported" | "inference" | "quotation" | "unknown";
+
+export type IngestAttachment = {
+  upstreamId: string;
+  mediaType: string;
+  fileName?: string | null;
+  /** Original bytes for the repository copy. Absent bytes with only an external URL are gaps. */
+  bytes?: Uint8Array | null;
+  externalUrl?: string | null;
+};
+
 export type IngestItem = {
   upstreamId: string;
-  role: "owner" | "assistant" | "other" | "unknown";
+  role: IngestItemRole;
   speakerId: string | null;
-  kind: "reported" | "unknown";
+  kind: IngestItemKind;
   text: string;
   capturedAt: string;
   occurredAt: string | null;
   authoredAt: string | null;
   parentUpstreamId: string | null;
+  editedFromUpstreamId?: string | null;
+  attachments?: IngestAttachment[];
   /** Opaque provenance envelope (Host event tree, etc.); never required for explicit records. */
   envelope?: Record<string, unknown>;
+};
+
+export type IngestCoveragePlan = {
+  branchPolicy: "all_retained" | "declared_subset";
+  declaredBranches: string[];
+  upstreamSnapshot: string;
+  fromCursor: string | null;
+  toCursor: string | null;
+  expectedCount: number | null;
 };
 
 export type IngestRequest = {
@@ -71,6 +96,8 @@ export type IngestRequest = {
   policyRef: VersionedRef;
   items: IngestItem[];
   purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
+  /** When set, one Archive Coverage binds the whole batch (transcript trees). */
+  coverage?: IngestCoveragePlan;
 };
 
 export type IngestDurabilityPort = {
@@ -196,7 +223,7 @@ export function prepareHostMessageItems(
   check(typeof snapshot.event.timestamp === "string" &&
     /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(snapshot.event.timestamp) &&
     Number.isFinite(Date.parse(snapshot.event.timestamp)), "invalid_input");
-  check(["owner", "assistant", "other", "unknown"].includes(speaker.role), "invalid_input");
+  check(["owner", "assistant", "other", "tool", "external_author", "unknown"].includes(speaker.role), "invalid_input");
   check(speaker.role !== "owner" || Boolean(speaker.id), "invalid_input");
   const message = isRecord(snapshot.event.message) ? snapshot.event.message : null;
   check(message && message.role === "user", "invalid_input");
@@ -221,6 +248,161 @@ export function prepareHostMessageItems(
       event: snapshot.event,
     },
   }];
+}
+
+function textFromTranscriptContent(content: TranscriptMessageExport["message"]["content"]): string {
+  if (typeof content === "string") return content;
+  check(Array.isArray(content) && content.length > 0, "invalid_input");
+  const texts: string[] = [];
+  for (const part of content) {
+    check(isRecord(part) && typeof part.type === "string", "invalid_input");
+    if (part.type === "text") {
+      check(typeof part.text === "string", "invalid_input");
+      texts.push(part.text);
+      continue;
+    }
+    // Non-text parts must be declared as attachments; never silently drop media from the archive.
+    check(false, "transcript_media_requires_attachment");
+  }
+  return texts.join("\n");
+}
+
+function mapTranscriptRole(
+  messageRole: string,
+  speaker: TranscriptMessageExport["speaker"],
+): { role: IngestItemRole; speakerId: string | null; kind: IngestItemKind } {
+  if (messageRole === "user") {
+    const role = speaker?.role ?? "unknown";
+    check(["owner", "other", "unknown", "external_author"].includes(role), "invalid_input");
+    check(role !== "owner" || Boolean(speaker?.id), "invalid_input");
+    return { role, speakerId: speaker?.id ?? null, kind: "reported" };
+  }
+  if (messageRole === "assistant") {
+    return { role: "assistant", speakerId: speaker?.id ?? null, kind: "inference" };
+  }
+  if (messageRole === "tool" || messageRole === "toolResult" || messageRole === "tool_result" ||
+    messageRole === "bashExecution") {
+    return { role: "tool", speakerId: speaker?.id ?? null, kind: "direct_observation" };
+  }
+  check(false, "unsupported_transcript_role");
+  return { role: "unknown", speakerId: null, kind: "unknown" };
+}
+
+function detectTranscriptKind(
+  message: TranscriptMessageExport,
+  mapped: IngestItemKind,
+): IngestItemKind {
+  if (message.kind) return message.kind;
+  const content = message.message.content;
+  if (Array.isArray(content) && content.some((part) => isRecord(part) && part.quotation === true)) {
+    return "quotation";
+  }
+  return mapped;
+}
+
+/** Host transcript tree → ingest items. Assistant/tool never become owner evidence. */
+export function prepareTranscriptItems(input: {
+  hostVersion: string;
+  agentId: string;
+  sessionId: string;
+  sessionKey: string;
+  messages: TranscriptMessageExport[];
+}): IngestItem[] {
+  check(input.hostVersion === "2026.8.2" && input.agentId.trim() && input.sessionId.trim() && input.sessionKey.trim(),
+    "invalid_input");
+  check(Array.isArray(input.messages) && input.messages.length > 0 && input.messages.length <= 32, "invalid_input");
+  const seen = new Set<string>();
+  const items: IngestItem[] = [];
+  for (const message of input.messages) {
+    check(message.upstreamId.trim() && !seen.has(message.upstreamId), "invalid_input");
+    seen.add(message.upstreamId);
+    check(typeof message.timestamp === "string" &&
+      /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(message.timestamp) &&
+      Number.isFinite(Date.parse(message.timestamp)), "invalid_input");
+    check(isRecord(message.message) && typeof message.message.role === "string", "invalid_input");
+    const mapped = mapTranscriptRole(message.message.role, message.speaker);
+    const text = textFromTranscriptContent(message.message.content);
+    const attachments = message.attachments ?? [];
+    check(text.trim().length > 0 || attachments.length > 0, "invalid_input");
+    for (const attachment of attachments) {
+      check(attachment.upstreamId.trim() && attachment.mediaType.trim(), "invalid_input");
+      const hasBytes = attachment.bytes != null && attachment.bytes.byteLength > 0;
+      check(hasBytes || Boolean(attachment.externalUrl), "invalid_input");
+    }
+    const event = message.event ?? {
+      type: "message",
+      id: message.upstreamId,
+      parentId: message.parentUpstreamId,
+      timestamp: message.timestamp,
+      ...(message.appendMode ? { appendMode: message.appendMode } : {}),
+      ...(message.editedFromUpstreamId ? { editedFromId: message.editedFromUpstreamId } : {}),
+      message: message.message,
+    };
+    items.push({
+      upstreamId: message.upstreamId,
+      role: mapped.role,
+      speakerId: mapped.speakerId,
+      kind: detectTranscriptKind(message, mapped.kind),
+      text: text || `[attachment:${attachments.map((item) => item.upstreamId).join(",")}]`,
+      capturedAt: message.timestamp,
+      occurredAt: null,
+      authoredAt: null,
+      parentUpstreamId: message.parentUpstreamId,
+      editedFromUpstreamId: message.editedFromUpstreamId ?? null,
+      attachments,
+      envelope: {
+        hostVersion: input.hostVersion,
+        agentId: input.agentId,
+        sessionId: input.sessionId,
+        sessionKey: input.sessionKey,
+        ...(message.appendMode ? { appendMode: message.appendMode } : {}),
+        ...(message.editedFromUpstreamId ? { editedFromUpstreamId: message.editedFromUpstreamId } : {}),
+        event,
+      },
+    });
+  }
+  return items;
+}
+
+/** Public transcript-tree entry: roles, branches, edits and attachments share unified ingest. */
+export async function ingestTranscript(input: {
+  operationId: string;
+  expectedRevision: string;
+  hostVersion: string;
+  agentId: string;
+  sessionId: string;
+  sessionKey: string;
+  messages: TranscriptMessageExport[];
+  branchPolicy: "all_retained" | "declared_subset";
+  declaredBranches: string[];
+  policyRef: VersionedRef;
+  purpose: IngestRequest["purpose"];
+}, ports: IngestPorts): Promise<IngestResult> {
+  const items = prepareTranscriptItems(input);
+  const fromCursor = items[0]?.parentUpstreamId ?? null;
+  const toCursor = items[items.length - 1]?.upstreamId ?? null;
+  return ingest({
+    operationId: input.operationId,
+    expectedRevision: input.expectedRevision,
+    adapterId: HOST_INPUT_ARCHIVE_ADAPTER,
+    collectionId: input.sessionId,
+    cursor: fromCursor,
+    policyRef: input.policyRef,
+    items,
+    purpose: input.purpose,
+    coverage: {
+      branchPolicy: input.branchPolicy,
+      declaredBranches: input.declaredBranches,
+      upstreamSnapshot: bytesVersion(canonicalJson({
+        agentId: input.agentId,
+        sessionId: input.sessionId,
+        upstreamIds: items.map((item) => item.upstreamId),
+      })),
+      fromCursor,
+      toCursor,
+      expectedCount: items.length,
+    },
+  }, ports);
 }
 
 /**
@@ -343,7 +525,7 @@ export function prepareExplicitRecordItems(input: {
   parentUpstreamId?: string | null;
 }): IngestItem[] {
   check(input.upstreamId.trim() && input.text.trim() && input.capturedAt.trim(), "invalid_input");
-  check(["owner", "assistant", "other", "unknown"].includes(input.role), "invalid_input");
+  check(["owner", "assistant", "other", "tool", "external_author", "unknown"].includes(input.role), "invalid_input");
   check(input.role !== "owner" || Boolean(input.speakerId), "invalid_input");
   check(/(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(input.capturedAt) && Number.isFinite(Date.parse(input.capturedAt)),
     "invalid_input");
@@ -380,8 +562,20 @@ function inputDigest(request: IngestRequest): string {
     collectionId: request.collectionId,
     cursor: request.cursor,
     policyRef: request.policyRef,
-    items: request.items,
+    items: request.items.map((item) => ({
+      ...item,
+      attachments: (item.attachments ?? []).map((attachment) => ({
+        upstreamId: attachment.upstreamId,
+        mediaType: attachment.mediaType,
+        fileName: attachment.fileName ?? null,
+        externalUrl: attachment.externalUrl ?? null,
+        bytesSha256: attachment.bytes != null && attachment.bytes.byteLength > 0
+          ? bytesVersion(Buffer.from(attachment.bytes))
+          : null,
+      })),
+    })),
     purpose: request.purpose,
+    coverage: request.coverage ?? null,
   }));
 }
 
@@ -403,11 +597,28 @@ async function readOptional(root: string, relative: string): Promise<string | nu
 }
 
 type BuiltIngestArchive = HostInputArchive & {
-  payloads: Array<{ path: string; bytes: string; sha256: string }>;
+  payloads: Array<MemoryFileChange & { sha256: string }>;
 };
+
+function extensionForMediaType(mediaType: string): string {
+  if (mediaType === "image/png") return "png";
+  if (mediaType === "image/jpeg") return "jpg";
+  if (mediaType === "application/pdf") return "pdf";
+  if (mediaType === "application/json") return "json";
+  return "bin";
+}
 
 function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: string): BuiltIngestArchive {
   check(request.items.length > 0 && request.items.length <= 32, "invalid_input");
+  if (request.coverage) {
+    check(request.coverage.branchPolicy === "all_retained" || request.coverage.branchPolicy === "declared_subset",
+      "invalid_input");
+    check(Array.isArray(request.coverage.declaredBranches), "invalid_input");
+    check(request.coverage.branchPolicy !== "declared_subset" || request.coverage.declaredBranches.length > 0,
+      "invalid_input");
+    check(request.coverage.branchPolicy !== "all_retained" || request.coverage.declaredBranches.length === 0,
+      "invalid_input");
+  }
   const objects: ArchiveObject[] = [];
   const add = (group: CatalogGroup, object: Record<string, unknown>, dependencies: VersionedRef[]): VersionedRef => {
     const version = objectVersion(object);
@@ -426,17 +637,36 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
 
   const sourceRefs: VersionedRef[] = [];
   const evidenceRefs: VersionedRef[] = [];
-  const payloads: HostInputArchive["payload"][] = [];
-  let coverageRef: VersionedRef | null = null;
+  const payloads: Array<MemoryFileChange & { sha256: string }> = [];
+  const missingItems: Array<{ upstreamId: string; reason: string; retryable: boolean }> = [];
+  type PendingItem = {
+    item: IngestItem;
+    identity: string;
+    agentIds: string[];
+    evidenceSelector: { kind: "json_pointer"; value: string };
+    sourceId: string;
+    payloadPath: string;
+    payloadHash: string;
+    payloadBytes: string;
+    presentAttachments: Array<{
+      upstreamId: string;
+      mediaType: string;
+      fileName: string | null;
+      sha256: string;
+      path: string;
+      bytes: number;
+    }>;
+  };
+  const pending: PendingItem[] = [];
 
   for (const item of request.items) {
     check(item.upstreamId.trim() && item.text.trim(), "invalid_input");
     check(/(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(item.capturedAt) && Number.isFinite(Date.parse(item.capturedAt)),
       "invalid_input");
-    check(["owner", "assistant", "other", "unknown"].includes(item.role), "invalid_input");
+    check(["owner", "assistant", "other", "tool", "external_author", "unknown"].includes(item.role), "invalid_input");
+    check(["direct_observation", "reported", "inference", "quotation", "unknown"].includes(item.kind), "invalid_input");
     check(item.role !== "owner" || Boolean(item.speakerId), "invalid_input");
 
-    // Host adapters keep stable IDs aligned with prepareHostInputArchive / prepareHostRequestArchive.
     let identity: string;
     let agentIds: string[] = [];
     let evidenceSelector = { kind: "json_pointer" as const, value: "/text" };
@@ -465,7 +695,38 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       identity = canonicalJson([request.adapterId, request.collectionId, item.upstreamId]);
     }
     const sourceId = stableId("source", identity);
-    const coverageId = stableId("coverage", identity);
+    const presentAttachments: PendingItem["presentAttachments"] = [];
+    for (const attachment of item.attachments ?? []) {
+      check(attachment.upstreamId.trim() && attachment.mediaType.trim(), "invalid_input");
+      const raw = attachment.bytes;
+      if (raw != null && raw.byteLength > 0) {
+        const bytes = Buffer.from(raw);
+        const sha256 = bytesVersion(bytes);
+        const pathName = `${payloadRoot}/${sourceId}/${sha256.slice(7)}.${extensionForMediaType(attachment.mediaType)}`;
+        payloads.push({
+          path: pathName,
+          before: null,
+          after: bytes.toString("base64"),
+          encoding: "base64",
+          sha256,
+        });
+        presentAttachments.push({
+          upstreamId: attachment.upstreamId,
+          mediaType: attachment.mediaType,
+          fileName: attachment.fileName ?? null,
+          sha256,
+          path: pathName,
+          bytes: bytes.byteLength,
+        });
+      } else {
+        missingItems.push({
+          upstreamId: attachment.upstreamId,
+          reason: "attachment_missing",
+          retryable: true,
+        });
+      }
+    }
+
     const payloadBody = item.envelope
       ? (request.adapterId === HOST_REQUEST_ARCHIVE_ADAPTER
         ? {
@@ -473,7 +734,33 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
           request: item.envelope.request,
           capturedAt: item.envelope.capturedAt,
         }
-        : { ...item.envelope, text: item.text, role: item.role, speakerId: item.speakerId })
+        : {
+          ...item.envelope,
+          text: item.text,
+          role: item.role,
+          speakerId: item.speakerId,
+          parentUpstreamId: item.parentUpstreamId,
+          editedFromUpstreamId: item.editedFromUpstreamId ?? null,
+          attachments: [
+            ...presentAttachments.map((attachment) => ({
+              upstreamId: attachment.upstreamId,
+              mediaType: attachment.mediaType,
+              fileName: attachment.fileName,
+              sha256: attachment.sha256,
+              bytes: attachment.bytes,
+            })),
+            ...(item.attachments ?? [])
+              .filter((attachment) => !(attachment.bytes != null && attachment.bytes.byteLength > 0))
+              .map((attachment) => ({
+                upstreamId: attachment.upstreamId,
+                mediaType: attachment.mediaType,
+                fileName: attachment.fileName ?? null,
+                sha256: null,
+                bytes: null,
+                externalUrl: attachment.externalUrl ?? null,
+              })),
+          ],
+        })
       : {
         adapterId: request.adapterId,
         collectionId: request.collectionId,
@@ -482,54 +769,121 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
         role: item.role,
         speakerId: item.speakerId,
         parentUpstreamId: item.parentUpstreamId,
+        editedFromUpstreamId: item.editedFromUpstreamId ?? null,
       };
     const payloadBytes = canonicalJson(payloadBody);
     const payloadHash = bytesVersion(payloadBytes);
-    const payload = {
-      path: `${payloadRoot}/${sourceId}/${payloadHash.slice(7)}.json`,
-      bytes: payloadBytes,
+    const payloadPath = `${payloadRoot}/${sourceId}/${payloadHash.slice(7)}.json`;
+    payloads.push({
+      path: payloadPath,
+      before: null,
+      after: payloadBytes,
       sha256: payloadHash,
-    };
-    payloads.push(payload);
+    });
+    pending.push({
+      item,
+      identity,
+      agentIds,
+      evidenceSelector,
+      sourceId,
+      payloadPath,
+      payloadHash,
+      payloadBytes,
+      presentAttachments,
+    });
+  }
 
-    coverageRef = add("coverage", {
+  let batchCoverageRef: VersionedRef | null = null;
+  if (request.coverage) {
+    const first = request.items[0]!;
+    let batchAgentIds: string[] = [];
+    if (request.adapterId === HOST_INPUT_ARCHIVE_ADAPTER) {
+      check(isRecord(first.envelope) && typeof first.envelope.agentId === "string" && first.envelope.agentId.trim(),
+        "invalid_input");
+      batchAgentIds = [first.envelope.agentId];
+    }
+    const complete = missingItems.length === 0 &&
+      (request.coverage.expectedCount === null || request.coverage.expectedCount === pending.length);
+    batchCoverageRef = add("coverage", {
       schemaVersion: "stella.archive-coverage/v1",
-      id: coverageId,
+      id: stableId("coverage", canonicalJson([
+        request.adapterId,
+        request.collectionId,
+        request.coverage.upstreamSnapshot,
+        request.coverage.fromCursor,
+        request.coverage.toCursor,
+      ])),
       adapterId: request.adapterId,
       collectionId: request.collectionId,
       scope: {
-        agentIds,
+        agentIds: batchAgentIds,
         roots: [],
-        branchPolicy: "declared_subset",
-        declaredBranches: [item.upstreamId],
+        branchPolicy: request.coverage.branchPolicy,
+        declaredBranches: request.coverage.declaredBranches,
       },
-      upstreamSnapshot: request.adapterId === HOST_REQUEST_ARCHIVE_ADAPTER && isRecord(item.envelope)
-        ? String(item.envelope.requestHash ?? bytesVersion(canonicalJson({ upstreamId: item.upstreamId, text: item.text })))
-        : bytesVersion(canonicalJson({ upstreamId: item.upstreamId, text: item.text })),
-      fromCursor: request.cursor,
-      toCursor: item.upstreamId,
-      expectedCount: 1,
-      retainedCount: 1,
+      upstreamSnapshot: request.coverage.upstreamSnapshot,
+      fromCursor: request.coverage.fromCursor,
+      toCursor: request.coverage.toCursor,
+      expectedCount: request.coverage.expectedCount,
+      retainedCount: pending.length,
       excludedByPolicyCount: 0,
-      missingItems: [],
-      checkedAt: item.capturedAt,
-      completeForDeclaredScope: true,
+      missingItems,
+      checkedAt: first.capturedAt,
+      completeForDeclaredScope: complete,
     }, []);
+  }
+
+  for (const entry of pending) {
+    const item = entry.item;
+    let coverageRef = batchCoverageRef;
+    if (!coverageRef) {
+      coverageRef = add("coverage", {
+        schemaVersion: "stella.archive-coverage/v1",
+        id: stableId("coverage", entry.identity),
+        adapterId: request.adapterId,
+        collectionId: request.collectionId,
+        scope: {
+          agentIds: entry.agentIds,
+          roots: [],
+          branchPolicy: "declared_subset",
+          declaredBranches: [item.upstreamId],
+        },
+        upstreamSnapshot: request.adapterId === HOST_REQUEST_ARCHIVE_ADAPTER && isRecord(item.envelope)
+          ? String(item.envelope.requestHash ?? bytesVersion(canonicalJson({ upstreamId: item.upstreamId, text: item.text })))
+          : bytesVersion(canonicalJson({ upstreamId: item.upstreamId, text: item.text })),
+        fromCursor: request.cursor,
+        toCursor: item.upstreamId,
+        expectedCount: 1,
+        retainedCount: 1,
+        excludedByPolicyCount: 0,
+        missingItems: [],
+        checkedAt: item.capturedAt,
+        completeForDeclaredScope: true,
+      }, []);
+    }
 
     const sourceRef = add("sources", {
       schemaVersion: "stella.memory-source/v1",
-      id: sourceId,
+      id: entry.sourceId,
       origin: {
         adapterId: request.adapterId,
         collectionId: request.collectionId,
         upstreamId: item.upstreamId,
       },
-      payloads: [{
-        path: payload.path,
-        mediaType: "application/json",
-        bytes: Buffer.byteLength(payloadBytes),
-        sha256: payloadHash,
-      }],
+      payloads: [
+        {
+          path: entry.payloadPath,
+          mediaType: "application/json",
+          bytes: Buffer.byteLength(entry.payloadBytes),
+          sha256: entry.payloadHash,
+        },
+        ...entry.presentAttachments.map((attachment) => ({
+          path: attachment.path,
+          mediaType: attachment.mediaType,
+          bytes: attachment.bytes,
+          sha256: attachment.sha256,
+        })),
+      ],
       capturedAt: item.capturedAt,
       policyRef: request.policyRef,
       coverageRef,
@@ -538,28 +892,53 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
 
     evidenceRefs.push(add("evidence", {
       schemaVersion: "stella.memory-evidence/v1",
-      id: stableId("evidence", identity),
+      id: stableId("evidence", entry.identity),
       source: sourceRef,
-      payloadSha256: payloadHash,
-      selector: evidenceSelector,
+      payloadSha256: entry.payloadHash,
+      selector: entry.evidenceSelector,
       speakerId: item.speakerId,
       role: item.role,
       kind: item.kind,
       occurredAt: item.occurredAt,
       authoredAt: item.authoredAt,
       capturedAt: item.capturedAt,
-      independentOriginId: sourceId,
+      independentOriginId: entry.sourceId,
       derivedFrom: [],
       policyRef: request.policyRef,
     }, [sourceRef, request.policyRef]));
+
+    for (const attachment of entry.presentAttachments) {
+      evidenceRefs.push(add("evidence", {
+        schemaVersion: "stella.memory-evidence/v1",
+        id: stableId("evidence", `${entry.identity}:attachment:${attachment.upstreamId}`),
+        source: sourceRef,
+        payloadSha256: attachment.sha256,
+        selector: { kind: "payload", value: "all" },
+        speakerId: item.speakerId,
+        role: item.role,
+        kind: item.kind === "quotation" ? "quotation" : "direct_observation",
+        occurredAt: item.occurredAt,
+        authoredAt: item.authoredAt,
+        capturedAt: item.capturedAt,
+        independentOriginId: entry.sourceId,
+        derivedFrom: [],
+        policyRef: request.policyRef,
+      }, [sourceRef, request.policyRef]));
+    }
   }
 
-  check(coverageRef && payloads.length > 0 && sourceRefs.length > 0 && evidenceRefs.length > 0, "invalid_input");
+  const coverageRef = batchCoverageRef ?? objects.filter((object) => object.group === "coverage").at(-1)?.ref ?? null;
+  const jsonPayload = payloads.find((payload) => payload.path.endsWith(".json"));
+  check(coverageRef && jsonPayload && sourceRefs.length > 0 && evidenceRefs.length > 0, "invalid_input");
   return {
     sourceRef: sourceRefs[0]!,
     evidenceRefs,
-    coverageRef: coverageRef!,
-    payload: payloads[0]!,
+    coverageRef,
+    payload: {
+      path: jsonPayload!.path,
+      bytes: jsonPayload!.after,
+      sha256: jsonPayload!.sha256,
+    },
     objects,
     payloads,
   };
@@ -730,7 +1109,12 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
       archive = buildArchive(request, relative(ports.objectRoot), relative(ports.payloadRoot));
       after = applyArchiveToCatalog(before, archive, request.operationId, digest);
       files.push(
-        ...archive.payloads.map((payload) => ({ path: payload.path, before: null as string | null, after: payload.bytes })),
+        ...archive.payloads.map((payload) => ({
+          path: payload.path,
+          before: null as string | null,
+          after: payload.after,
+          ...(payload.encoding === "base64" ? { encoding: "base64" as const } : {}),
+        })),
         ...archive.objects.map((object) => ({ path: object.entry.locator.path, before: null as string | null, after: object.bytes })),
       );
     } else {

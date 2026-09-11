@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Record synthetic_contract DeliveryEvidence for Issue #13 unified ingest.
+ * Record synthetic_contract DeliveryEvidence for Issue #14 transcript archive.
  * Writes result "implemented" only — does not claim Exact Host / real_main verified.
  *
  * Usage:
  *   npm run build && node scripts/compile.mjs test
- *   node scripts/record-ingest-evidence.mjs --evidence-directory /path/to/private-evidence
+ *   node scripts/record-transcript-archive-evidence.mjs --evidence-directory /path/to/private-evidence
  */
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -22,7 +22,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const git = async (...args) => (await execFileAsync("git", ["-C", root, ...args])).stdout.trim();
 
-const TARGETS = ["M-01", "M-02", "G-03", "G-06", "G-10"];
+const TARGETS = ["M-01", "M-02", "G-03"];
 const ENVIRONMENT = "synthetic_contract";
 
 const { values } = parseArgs({
@@ -49,8 +49,10 @@ await mkdir(evidenceDirectory, { recursive: true, mode: 0o700 });
 
 const modules = [
   path.join(root, "dist/src/canghai/ingest.js"),
+  path.join(root, "dist/src/canghai/transcript-archive.js"),
+  path.join(root, "dist/src/canghai/memory-transaction.js"),
 ];
-const testEntry = path.join(root, ".test-dist/tests/ingest.test.js");
+const testEntry = path.join(root, ".test-dist/tests/transcript-archive.test.js");
 try {
   for (const modulePath of modules) await readFile(modulePath);
   await readFile(testEntry);
@@ -65,7 +67,7 @@ const { stderr: testErr } = await execFileAsync(
 ).catch((error) => {
   process.stderr.write(error.stdout ?? "");
   process.stderr.write(error.stderr ?? "");
-  throw new Error("synthetic_ingest_failed");
+  throw new Error("synthetic_transcript_archive_failed");
 });
 if (testErr) process.stderr.write(testErr);
 
@@ -83,11 +85,11 @@ const version = {
     await readFile(fileURLToPath(import.meta.url)),
     await readFile(testEntry),
   ])),
-  source: hash("stella-core:issue-13:unified-ingest"),
-  profile: hash("synthetic-profile:unified-ingest"),
-  policy: hash("synthetic-policy:unified-ingest"),
-  configuration: hash("synthetic-config:unified-ingest"),
-  model: hash("none:deterministic-ingest"),
+  source: hash("stella-core:issue-14:transcript-archive"),
+  profile: hash("synthetic-profile:transcript-archive"),
+  policy: hash("synthetic-policy:transcript-archive"),
+  configuration: hash("synthetic-config:transcript-archive"),
+  model: hash("none:deterministic-transcript-archive"),
   cases: hash(JSON.stringify(deliveryCatalog)),
 };
 
@@ -95,26 +97,21 @@ const recordedAt = new Date().toISOString();
 const expiresAt = new Date(Date.parse(recordedAt) + expiresDays * 24 * 60 * 60 * 1000).toISOString();
 
 const summary = {
-  schemaVersion: "stella.ingest-evidence/v1",
-  issue: 13,
+  schemaVersion: "stella.transcript-archive-evidence/v1",
+  issue: 14,
   environment: ENVIRONMENT,
   result: "implemented",
-  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main not claimed. M-01/G-03 slice covers role/source distinguishability plus Host correction/advice entry wiring through ingest — not full dialogue trees or attachments (see Issue #14 / work 09). Also covers M-02/G-06/G-10 T07 slice (upstream identity versions, do_not_retain admission). Does not mark work 08 complete; five-entry ingest and resume coverage (10) remain open.",
+  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main not claimed. Work 09 / T08 covers full transcript roles (owner/assistant/quotation/tool/edit/branch), attachment originals in-repo with attachment_missing gaps visible on coverage/rebuild, entry↔transcript upstream identity dedup. Same-operationId attachment resume and Host cleanup remain work 10 (#16). M-02 claimed only for gap visibility + identity dedup slice, not full resume.",
   targets: TARGETS,
   recordedAt,
   publicSeam: [
+    "prepareTranscriptItems",
+    "ingestTranscript",
+    "rebuildConversationFromArchive",
     "ingest",
     "ingestHostMessage",
-    "ingestHostRequest",
-    "ingestExplicitRecord",
-    "prepareHostMessageItems",
-    "prepareHostRequestItems",
-    "prepareExplicitRecordItems",
-    "assertRetentionAdmission",
-    "archiveCorrectionInput",
-    "persistBoundAdvice",
   ],
-  syntheticHarness: "tests/ingest.test.ts;tests/correction.test.ts;tests/runtime-binding.test.ts",
+  syntheticHarness: "tests/transcript-archive.test.ts",
 };
 
 let manifest = [];
@@ -157,7 +154,7 @@ for (const target of TARGETS) {
 
 await writeFile(path.join(evidenceDirectory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
 process.stdout.write(`${JSON.stringify({
-  schemaVersion: "stella.ingest-evidence-report/v1",
+  schemaVersion: "stella.transcript-archive-evidence-report/v1",
   environment: ENVIRONMENT,
   result: "implemented",
   sourceClean: version.sourceClean,

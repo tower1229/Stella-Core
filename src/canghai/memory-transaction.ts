@@ -90,8 +90,45 @@ export async function withMemoryMutationLock<T>(root: string, work: () => Promis
   } finally { held.active = false; readLocks.delete(key); await lock.release(); }
 }
 
-export type MemoryFileChange = { path: string; before: string | null; after: string };
+export type MemoryFileEncoding = "utf8" | "base64";
+export type MemoryFileChange = {
+  path: string;
+  before: string | null;
+  after: string;
+  /** Default utf8. base64 stores original binary bytes in the journal without UTF-8 corruption. */
+  encoding?: MemoryFileEncoding;
+};
 export type MemoryTransactionPlan = { operationId: string; journalPath: string; files: MemoryFileChange[] };
+
+function normalizeEncoding(value: unknown): MemoryFileEncoding {
+  return value === "base64" ? "base64" : "utf8";
+}
+
+async function readEncoded(file: string, encoding: MemoryFileEncoding): Promise<string | null> {
+  if (encoding === "utf8") return text(file);
+  try {
+    const stat = await lstat(file);
+    check(stat.isFile() && !stat.isSymbolicLink() && stat.size <= 20 * 1024 * 1024, "unsafe_transaction_file");
+    return (await readFile(file)).toString("base64");
+  } catch (error) { if (missing(error)) return null; throw error; }
+}
+
+async function writeEncoded(file: string, content: string, encoding: MemoryFileEncoding): Promise<void> {
+  if (encoding === "utf8") {
+    await replace(file, content);
+    return;
+  }
+  const staging = path.join(path.dirname(file), `.transaction-${randomUUID()}.staging`);
+  try {
+    const handle = await open(staging, "wx", 0o600);
+    try {
+      await handle.writeFile(Buffer.from(content, "base64"));
+      await handle.sync();
+    } finally { await handle.close(); }
+    await rename(staging, file);
+  } finally { try { await unlink(staging); } catch (error) { if (!missing(error)) throw error; } }
+}
+
 export async function readRecordedMemoryTransaction(root: string, expectedOperationId: string, completedJournalPath?: string): Promise<MemoryTransactionPlan> {
   const pending = await text(await location(path.resolve(root), markerName));
   const bytes = pending ?? (completedJournalPath ? await text(await location(path.resolve(root), completedJournalPath)) : null);
@@ -100,11 +137,17 @@ export async function readRecordedMemoryTransaction(root: string, expectedOperat
   try { value = JSON.parse(bytes!); } catch { throw new MemoryTransactionError("invalid_transaction_journal"); }
   if (!isRecord(value) || value.schemaVersion !== "stella.memory-transaction/v1" || value.operationId !== expectedOperationId ||
       typeof value.journalPath !== "string" || !Array.isArray(value.files) || !value.files.every((file) =>
-        isRecord(file) && typeof file.path === "string" && (file.before === null || typeof file.before === "string") && typeof file.after === "string")) {
+        isRecord(file) && typeof file.path === "string" && (file.before === null || typeof file.before === "string") &&
+        typeof file.after === "string" && (file.encoding === undefined || file.encoding === "utf8" || file.encoding === "base64"))) {
     throw new MemoryTransactionError("invalid_transaction_journal");
   }
   const plan: MemoryTransactionPlan = { operationId: expectedOperationId, journalPath: value.journalPath,
-    files: value.files.map((file) => ({ path: file.path, before: file.before, after: file.after })) };
+    files: value.files.map((file) => ({
+      path: file.path,
+      before: file.before,
+      after: file.after,
+      ...(normalizeEncoding(file.encoding) === "base64" ? { encoding: "base64" as const } : {}),
+    })) };
   check(canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...plan, planHash: bytesVersion(canonicalJson(plan)) }) === bytes,
     "invalid_transaction_journal");
   return plan;
@@ -155,7 +198,8 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
   const paths = [...plan.files.map((file) => file.path), plan.journalPath];
   check(new Set(paths.map((file) => process.platform === "win32" ? file.toLowerCase() : file)).size === paths.length &&
     paths.every((file) => ![markerName, `${markerName}.lock`].includes(file.toLowerCase())), "transaction_path_collision");
-  check(plan.files.every((file) => (file.before === null || typeof file.before === "string") && typeof file.after === "string") &&
+  check(plan.files.every((file) => (file.before === null || typeof file.before === "string") && typeof file.after === "string" &&
+      (file.encoding === undefined || file.encoding === "utf8" || file.encoding === "base64")) &&
     Buffer.byteLength(canonicalJson(plan), "utf8") <= 16 * 1024 * 1024, "invalid_transaction_plan");
   const intent = canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...plan, planHash: bytesVersion(canonicalJson(plan)) });
   const marker = path.join(resolved, markerName);
@@ -182,7 +226,8 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
     const targets = await Promise.all(plan.files.map((file) => location(resolved, file.path, true)));
     for (let index = 0; index < plan.files.length; index++) {
       const file = plan.files[index]!;
-      const current = await text(targets[index]!);
+      const encoding = normalizeEncoding(file.encoding);
+      const current = await readEncoded(targets[index]!, encoding);
       check(current === file.before || pending !== null && current === file.after, "transaction_version_conflict");
     }
     if (pending === null) await writeNew(marker, intent);
@@ -194,9 +239,10 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
         checkActive();
         const file = plan.files[index]!;
         const target = targets[index]!;
-        const current = await text(target);
+        const encoding = normalizeEncoding(file.encoding);
+        const current = await readEncoded(target, encoding);
         check(current === file.before || current === file.after, "transaction_version_conflict");
-        if (current !== file.after) await replace(target, file.after);
+        if (current !== file.after) await writeEncoded(target, file.after, encoding);
       }
       if (recorded === null) await writeNew(journal, intent);
       checkActive();
