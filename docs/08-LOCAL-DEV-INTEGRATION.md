@@ -135,9 +135,9 @@ node scripts/record-durable-write-evidence.mjs --evidence-directory /path/to/pri
 
 ### SPEC #6 撤销旧运行与迟到投递（Issue #10）
 
-工作项 06：初始化、纠正或撤权后旧运行不能继续写入或投递；超时／取消贯穿完成协调；重启保留 fence；维护期间 cron／事件不能绕过门禁；插件未加载或启动失败时仍能在 Host 配置层隔离完整 profile。
+工作项 06：初始化、纠正或撤权后旧运行不能继续写入或投递；超时／取消贯穿完成协调并废止 admission；重启保留 fence；维护期间 cron／事件不能绕过门禁；首次／未就绪启动失败时在 Host 配置层隔离完整 profile（`tools.deny: ["*"]` + 卸 bindings；无 plugin hook 仍可从配置观察）。
 
-**公开 Host seam**：`StellaInitializer.bindRun`／`assertRun`／`revokeActiveRuns`（持久 `admissionEpoch`）+ `coordinateCompletion` 迟到 persist／publish 复核 + `isolateHostProfile`／`assertHostProfileIsolated`（Host `tools.deny: ["*"]` 并卸下目标 Agent 的 cron 等 bindings；不写 prompt、不改 Host 私有数据库）+ `registerStellaInitialization` 维护 fence／release。
+**公开 Host seam**：`StellaInitializer.bindRun`／`assertRun`／`revokeActiveRuns`（持久 `admissionEpoch`）+ `persist`／`withFinalValidation`／`reply_payload_sending` 的 `assertRun` + `isolateHostProfile`／`assertHostProfileIsolated` + `registerStellaInitialization` 维护 fence／release／启动失败隔离。
 
 ```sh
 npm run build
@@ -147,4 +147,4 @@ node --test .test-dist/tests/run-admission.test.js
 node scripts/record-revoke-late-delivery-evidence.mjs --evidence-directory /path/to/private-evidence
 ```
 
-纠正成功后 `revokeActiveRuns(..., { retainRunId })` 废止其他旧许可并保留当轮；能力 `invalidate-capability` 废止全部旧许可。初始化 fence／rollback 保留 durable `fenced` 与 Host isolation journal，重启后仍阻断 bind。账本证据仅记 `synthetic_contract` + `implemented`（目标 `06`／`G-05`／`G-08`／`I-07`／`I-08`／`I-12`／`C-08`）；`implemented ≠ verified`。
+纠正成功后 `revokeActiveRuns(..., { retainRunId })` 废止其他旧许可并保留当轮；能力 `invalidate-capability` 废止全部旧许可；取消／超时终态废止当轮许可。初始化 fence／rollback 保留 durable `fenced` 与 Host isolation journal，重启后仍阻断 bind。账本证据仅记 `synthetic_contract` + `implemented`（目标 `06`／`G-05`／`G-08`／`I-07`／`I-08`／`I-12`／`C-08`）；其中 **G-08／C-08 仅旧-run／迟到投递切片**，**I-12 仅启动失败 Host 隔离 + 无 hook 可观察配置**，不等于整组验收或 Exact Host／real_main `verified`。

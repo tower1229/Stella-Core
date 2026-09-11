@@ -151,12 +151,9 @@ export class StellaInitializer {
   private async fence(): Promise<void> {
     await write(this.stateRoot, "fenced", Buffer.from("initialization pending\n").toString("base64"));
     await bumpAdmissionEpoch(this.stateRoot, "initialization_fence");
-    try {
-      await this.ports.fence();
-    } catch (error) {
-      await unlink(await safeFile(this.stateRoot, "fenced")).catch(() => undefined);
-      throw error;
-    }
+    // Keep the durable fence if Host drain/isolation fails: active turns must remain gated
+    // (active_turn_drain_required) until the operator retries after the turn settles.
+    await this.ports.fence();
   }
 
   private async acquire(): Promise<{ release(): Promise<void> }> {

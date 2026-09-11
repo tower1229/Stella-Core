@@ -498,16 +498,33 @@ export default definePluginEntry({
         };
       },
       async withFinalValidation(input, publish) {
+        // Late revoke after persist must still stop irreversible send.
+        try { await initialization.assertRun(input.operationId); }
+        catch { throw new CompletionError("stale_initialization_run", "publish"); }
         const checkViews = completions.get(input.operationId)?.prepared.assertPersonalViewsForGeneration;
         if (!checkViews) return publish();
         return withMemoryMutationLock(config.canghaiRoot, async () => {
           input.abortSignal.throwIfAborted();
           await checkViews(input.receipt.generationId);
+          try { await initialization.assertRun(input.operationId); }
+          catch { throw new CompletionError("stale_initialization_run", "publish"); }
           input.abortSignal.throwIfAborted();
           return publish();
         });
       },
-      settled(runId) { completions.delete(runId); corrections.delete(runId); },
+      settled(runId, _result, failure) {
+        if (failure && (failure.category === "cancelled" || failure.category === "preparation_timeout"
+          || failure.category === "resource_exhausted")) {
+          void initialization.revokeActiveRuns(
+            failure.category === "cancelled" ? "cancelled_turn" : "completion_timeout",
+          ).catch((error: unknown) => {
+            api.logger.error(`Stella completion: revoke_after_${failure.category}_failed:${
+              error instanceof InitializationError ? error.category : "revoke_failed"}`);
+          });
+        }
+        completions.delete(runId);
+        corrections.delete(runId);
+      },
     });
 
     api.on(

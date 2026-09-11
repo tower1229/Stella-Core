@@ -57,7 +57,7 @@ export type CompletionAdapterPorts = {
   validateDraft?(input: { runId: string; text: string; preparation: unknown; abortSignal: AbortSignal }): Promise<void>;
   describeDraft(runId: string, text: string, input: HostInputSnapshot, preparation: unknown): CompletionDraft;
   persist: CompletionPorts["persist"];
-  settled(runId: string, result: CompletionResult | undefined): void;
+  settled(runId: string, result: CompletionResult | undefined, failure?: { category: string; stage: string }): void;
 };
 
 /** The Alpha text-only adapter uses the Host loop and the original Host session. */
@@ -74,6 +74,7 @@ export function registerCompletionAdapter(
     if (!sessionKey?.startsWith(`agent:${agentId}:`)) return;
     const runId = event.runId;
     let result: CompletionResult | undefined;
+    let failure: { category: string; stage: string } | undefined;
     let terminalOutcome: "completed" | "failed" = "failed";
     let terminalError: string | undefined;
     let queued = false;
@@ -175,9 +176,10 @@ export function registerCompletionAdapter(
         reason: `stella_delivery_${result.delivery.status}`,
       });
     } catch (error) {
-      const failure = error instanceof CompletionError ? error : new CompletionError("completion_failed", "admission");
-      api.logger.error(`Stella completion: ${failure.category}:${failure.stage}`);
-      terminalError = `Stella 未完成本轮请求（${failure.category}，阶段：${failure.stage}）。${queued ? "交付未确认，不自动重发。" : "未确认的业务回复没有发布。"}`;
+      const caught = error instanceof CompletionError ? error : new CompletionError("completion_failed", "admission");
+      failure = { category: caught.category, stage: caught.stage };
+      api.logger.error(`Stella completion: ${caught.category}:${caught.stage}`);
+      terminalError = `Stella 未完成本轮请求（${caught.category}，阶段：${caught.stage}）。${queued ? "交付未确认，不自动重发。" : "未确认的业务回复没有发布。"}`;
       // Claimed chat runs deliver failures through the Host's native chat/error terminal.
       if (!claimed && !queued && !ctx.abortSignal?.aborted && event.sendPolicy === "allow" && !event.suppressUserDelivery) {
         queued = ctx.dispatcher.sendFinalReply({
@@ -186,10 +188,10 @@ export function registerCompletionAdapter(
         ctx.dispatcher.markComplete();
         await ctx.dispatcher.waitForIdle();
       }
-      ctx.recordProcessed("error", { reason: `stella_${failure.category}` });
+      ctx.recordProcessed("error", { reason: `stella_${caught.category}` });
     } finally {
       if (claimed && runId) {
-        try { ports.settled(runId, result); } catch {
+        try { ports.settled(runId, result, failure); } catch {
           api.logger.error("Stella completion: cleanup_failed:settled");
         }
       }

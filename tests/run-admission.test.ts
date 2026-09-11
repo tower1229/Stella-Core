@@ -139,6 +139,49 @@ test("correction and capability revoke invalidate old runs; retained run can fin
   assert.equal(events.includes("publish"), false);
 });
 
+test("revoke after successful persist still blocks publish admission", async (t) => {
+  const f = await initFixture(t);
+  await f.initializer.initialize();
+  await f.initializer.bindRun("run-publish");
+  const events: string[] = [];
+  await assert.rejects(coordinateCompletion({
+    operationId: "op-publish",
+    runId: "run-publish",
+    timeoutMs: 5000,
+  }, {
+    async generateDraft() {
+      return {
+        draftId: "draft-publish", text: "Synthetic", evidenceRef: "bundle",
+        responseKind: "answer", requiresCriticalPersistence: false,
+      };
+    },
+    async persist({ draft }) {
+      events.push("persist");
+      await f.initializer.revokeActiveRuns("initialization_fence");
+      return {
+        schemaVersion: "stella.completion-receipt/v1",
+        operationId: "op-publish",
+        draftId: draft.draftId,
+        draftHash: completionDraftHash(draft.text),
+        responseKind: draft.responseKind,
+        evidenceRef: draft.evidenceRef,
+        writeOperationIds: [],
+        observedRevision: "a".repeat(40),
+        generationId: "generation-publish",
+        persistenceStatus: "not_required",
+        checkedAt: "2026-09-10T00:00:00Z",
+      };
+    },
+    async publishFinal(input) {
+      await f.initializer.assertRun(input.operationId);
+      events.push("publish");
+      return { deliveryId: "delivery-publish", status: "confirmed" };
+    },
+  }), (error: unknown) =>
+    error instanceof CompletionError || (error instanceof Error && /stale_initialization_run/.test(String(error))));
+  assert.deepEqual(events, ["persist"]);
+});
+
 test("cancelled completion and revoked admission both prevent late persist without silent success", async (t) => {
   const f = await initFixture(t);
   await f.initializer.initialize();
@@ -179,8 +222,32 @@ test("cancelled completion and revoked admission both prevent late persist witho
   await assert.rejects(pending, CompletionError);
   assert.equal(events.includes("persist"), false);
   assert.equal(events.includes("publish"), false);
+  // Mirrors plugin settled() revoke on cancelled / timeout terminal categories.
   await f.initializer.revokeActiveRuns("cancelled_turn");
   await assert.rejects(f.initializer.assertRun("run-cancel-late"), /stale_initialization_run/);
+});
+
+test("completion timeout reason retires admission like cancel", async (t) => {
+  const f = await initFixture(t);
+  await f.initializer.initialize();
+  await f.initializer.bindRun("run-timeout");
+  await assert.rejects(coordinateCompletion({
+    operationId: "op-timeout",
+    runId: "run-timeout",
+    timeoutMs: 20,
+  }, {
+    async generateDraft() {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return {
+        draftId: "draft-timeout", text: "late", evidenceRef: "bundle",
+        responseKind: "answer", requiresCriticalPersistence: false,
+      };
+    },
+    async persist() { throw new Error("Must not persist after timeout"); },
+    async publishFinal() { throw new Error("Must not publish after timeout"); },
+  }), CompletionError);
+  await f.initializer.revokeActiveRuns("completion_timeout");
+  await assert.rejects(f.initializer.assertRun("run-timeout"), /stale_initialization_run/);
 });
 
 test("re-initialization that fences invalidates previously bound runs; idempotent verify does not", async (t) => {
@@ -250,6 +317,7 @@ test("Host-layer isolation blocks a full profile without plugin hooks, prompt te
   };
 
   assert.throws(() => assertHostProfileIsolated(config, agentId), /host_profile_not_isolated/);
+  // Start-failure path (I-12) writes the same Host-config isolation; hooks are not required to observe it.
   await isolateHostProfile(ports, agentId, "plugin_start_failed", root);
   assertHostProfileIsolated(config, agentId);
   assert.deepEqual(config.agents.entries.stella?.tools?.deny, ["*"]);

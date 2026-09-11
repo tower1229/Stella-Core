@@ -139,16 +139,12 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       } });
     },
   };
-  const waitForIsolation = async (expectIsolated: boolean) => {
+  const waitForIsolation = async () => {
     const deadline = Date.now() + 10000;
     for (;;) {
       if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
       try {
-        if (expectIsolated) assertHostProfileIsolated(isolationPorts.readConfig(), config.agentId);
-        else {
-          const tools = isolationPorts.readConfig().agents?.entries?.[config.agentId]?.tools;
-          if (Array.isArray(tools?.deny) && tools.deny.includes("*")) throw new HostAdmissionIsolationError("host_isolation_release_pending");
-        }
+        assertHostProfileIsolated(isolationPorts.readConfig(), config.agentId);
         return;
       } catch (error) {
         if (Date.now() >= deadline) {
@@ -163,9 +159,19 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     await drain();
     try {
       await isolateHostProfile(isolationPorts, config.agentId, "initialization_fence", stateRoot);
-      await waitForIsolation(true);
+      await waitForIsolation();
     } catch (error) {
-      await releaseHostProfileIsolation(isolationPorts, config.agentId, stateRoot, { signal: shutdown.signal }).catch(() => undefined);
+      try {
+        await releaseHostProfileIsolation(isolationPorts, config.agentId, stateRoot, { signal: shutdown.signal });
+      } catch (releaseError) {
+        const releaseCategory = releaseError instanceof HostAdmissionIsolationError || releaseError instanceof InitializationError
+          ? releaseError.category : "host_isolation_release_failed";
+        api.logger.error(`Stella host isolation release after fence failure (${releaseCategory})`);
+        if (error instanceof HostAdmissionIsolationError) {
+          throw new InitializationError(`${error.category};${releaseCategory}`);
+        }
+        throw error;
+      }
       if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
       throw error;
     }
@@ -176,6 +182,17 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     } catch (error) {
       if (error instanceof HostAdmissionIsolationError) throw new InitializationError(error.category);
       throw error;
+    }
+  };
+  const isolateAfterStartFailure = async (reason: string) => {
+    stateDir ??= resolveStateDir();
+    const localState = path.join(stateDir, "stella-core", "initialization", config.agentId);
+    await mkdir(localState, { recursive: true, mode: 0o700 });
+    const resolvedState = await realpath(localState);
+    await isolateHostProfile(isolationPorts, config.agentId, reason, resolvedState);
+    await waitForIsolation();
+    if (initializer) {
+      await initializer.revokeActiveRuns("initialization_blocked");
     }
   };
   const request = requestHost ?? (async (method: string, params: Record<string, unknown>) => {
@@ -228,6 +245,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   const initialize = (): Promise<ScopedStatus> => {
     if (inflight) return inflight;
     inflight = (async () => {
+      const previouslyReady = status.state === "ready";
       status = { state: "initializing" };
       let stage = "configuration";
       try {
@@ -260,6 +278,18 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         const operationId = initializer ? await initializer.pendingOperationId().catch(() => undefined) : undefined;
         status = { state: "blocked", category, ...(operationId ? { operationId } : {}) };
         api.logger.error(`Stella initialization blocked (${category})`);
+        // First-start / not-ready failures isolate the Host profile (I-12). Concurrent
+        // re-init while already ready must not isolate — recovery-pointer reloads race live turns.
+        if (!previouslyReady) {
+          try {
+            await isolateAfterStartFailure(category === "gateway_stopping" ? "initialization_blocked" : "plugin_start_failed");
+          } catch (isolationError) {
+            const isolationCategory = isolationError instanceof HostAdmissionIsolationError
+              || isolationError instanceof InitializationError
+              ? isolationError.category : "host_isolation_failed";
+            api.logger.error(`Stella host isolation after start failure (${isolationCategory})`);
+          }
+        }
       }
       reportHealth(status);
       return scoped(status);
