@@ -1,5 +1,5 @@
 import path from "node:path";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import type { HostInputSnapshot } from "../openclaw/host-input.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -25,9 +25,18 @@ import {
 } from "./memory-transaction.js";
 import { parseSourcePolicy } from "./source-policy.js";
 import { snapshotTurnRequest } from "../openclaw/turn-request.js";
-import type { TranscriptMessageExport } from "./transcript-archive.js";
+import {
+  prepareTranscriptItems,
+  type IngestAttachment,
+  type IngestItemKind,
+  type IngestItemRole,
+  type TranscriptIngestItem,
+  type TranscriptMessageExport,
+} from "./transcript-archive.js";
 
 export const EXPLICIT_RECORD_ADAPTER = "stella-explicit-record/v1";
+export type { IngestAttachment, IngestItemKind, IngestItemRole, TranscriptMessageExport };
+export { prepareTranscriptItems };
 
 export type IngestPhase =
   | "received"
@@ -50,33 +59,7 @@ export const DEFAULT_RETENTION_GUARANTEES: HostRetentionGuarantees = {
   backup: false,
 };
 
-export type IngestItemRole = "owner" | "assistant" | "other" | "tool" | "external_author" | "unknown";
-export type IngestItemKind = "direct_observation" | "reported" | "inference" | "quotation" | "unknown";
-
-export type IngestAttachment = {
-  upstreamId: string;
-  mediaType: string;
-  fileName?: string | null;
-  /** Original bytes for the repository copy. Absent bytes with only an external URL are gaps. */
-  bytes?: Uint8Array | null;
-  externalUrl?: string | null;
-};
-
-export type IngestItem = {
-  upstreamId: string;
-  role: IngestItemRole;
-  speakerId: string | null;
-  kind: IngestItemKind;
-  text: string;
-  capturedAt: string;
-  occurredAt: string | null;
-  authoredAt: string | null;
-  parentUpstreamId: string | null;
-  editedFromUpstreamId?: string | null;
-  attachments?: IngestAttachment[];
-  /** Opaque provenance envelope (Host event tree, etc.); never required for explicit records. */
-  envelope?: Record<string, unknown>;
-};
+export type IngestItem = TranscriptIngestItem;
 
 export type IngestCoveragePlan = {
   branchPolicy: "all_retained" | "declared_subset";
@@ -250,120 +233,6 @@ export function prepareHostMessageItems(
   }];
 }
 
-function textFromTranscriptContent(content: TranscriptMessageExport["message"]["content"]): string {
-  if (typeof content === "string") return content;
-  check(Array.isArray(content) && content.length > 0, "invalid_input");
-  const texts: string[] = [];
-  for (const part of content) {
-    check(isRecord(part) && typeof part.type === "string", "invalid_input");
-    if (part.type === "text") {
-      check(typeof part.text === "string", "invalid_input");
-      texts.push(part.text);
-      continue;
-    }
-    // Non-text parts must be declared as attachments; never silently drop media from the archive.
-    check(false, "transcript_media_requires_attachment");
-  }
-  return texts.join("\n");
-}
-
-function mapTranscriptRole(
-  messageRole: string,
-  speaker: TranscriptMessageExport["speaker"],
-): { role: IngestItemRole; speakerId: string | null; kind: IngestItemKind } {
-  if (messageRole === "user") {
-    const role = speaker?.role ?? "unknown";
-    check(["owner", "other", "unknown", "external_author"].includes(role), "invalid_input");
-    check(role !== "owner" || Boolean(speaker?.id), "invalid_input");
-    return { role, speakerId: speaker?.id ?? null, kind: "reported" };
-  }
-  if (messageRole === "assistant") {
-    return { role: "assistant", speakerId: speaker?.id ?? null, kind: "inference" };
-  }
-  if (messageRole === "tool" || messageRole === "toolResult" || messageRole === "tool_result" ||
-    messageRole === "bashExecution") {
-    return { role: "tool", speakerId: speaker?.id ?? null, kind: "direct_observation" };
-  }
-  check(false, "unsupported_transcript_role");
-  return { role: "unknown", speakerId: null, kind: "unknown" };
-}
-
-function detectTranscriptKind(
-  message: TranscriptMessageExport,
-  mapped: IngestItemKind,
-): IngestItemKind {
-  if (message.kind) return message.kind;
-  const content = message.message.content;
-  if (Array.isArray(content) && content.some((part) => isRecord(part) && part.quotation === true)) {
-    return "quotation";
-  }
-  return mapped;
-}
-
-/** Host transcript tree → ingest items. Assistant/tool never become owner evidence. */
-export function prepareTranscriptItems(input: {
-  hostVersion: string;
-  agentId: string;
-  sessionId: string;
-  sessionKey: string;
-  messages: TranscriptMessageExport[];
-}): IngestItem[] {
-  check(input.hostVersion === "2026.8.2" && input.agentId.trim() && input.sessionId.trim() && input.sessionKey.trim(),
-    "invalid_input");
-  check(Array.isArray(input.messages) && input.messages.length > 0 && input.messages.length <= 32, "invalid_input");
-  const seen = new Set<string>();
-  const items: IngestItem[] = [];
-  for (const message of input.messages) {
-    check(message.upstreamId.trim() && !seen.has(message.upstreamId), "invalid_input");
-    seen.add(message.upstreamId);
-    check(typeof message.timestamp === "string" &&
-      /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(message.timestamp) &&
-      Number.isFinite(Date.parse(message.timestamp)), "invalid_input");
-    check(isRecord(message.message) && typeof message.message.role === "string", "invalid_input");
-    const mapped = mapTranscriptRole(message.message.role, message.speaker);
-    const text = textFromTranscriptContent(message.message.content);
-    const attachments = message.attachments ?? [];
-    check(text.trim().length > 0 || attachments.length > 0, "invalid_input");
-    for (const attachment of attachments) {
-      check(attachment.upstreamId.trim() && attachment.mediaType.trim(), "invalid_input");
-      const hasBytes = attachment.bytes != null && attachment.bytes.byteLength > 0;
-      check(hasBytes || Boolean(attachment.externalUrl), "invalid_input");
-    }
-    const event = message.event ?? {
-      type: "message",
-      id: message.upstreamId,
-      parentId: message.parentUpstreamId,
-      timestamp: message.timestamp,
-      ...(message.appendMode ? { appendMode: message.appendMode } : {}),
-      ...(message.editedFromUpstreamId ? { editedFromId: message.editedFromUpstreamId } : {}),
-      message: message.message,
-    };
-    items.push({
-      upstreamId: message.upstreamId,
-      role: mapped.role,
-      speakerId: mapped.speakerId,
-      kind: detectTranscriptKind(message, mapped.kind),
-      text: text || `[attachment:${attachments.map((item) => item.upstreamId).join(",")}]`,
-      capturedAt: message.timestamp,
-      occurredAt: null,
-      authoredAt: null,
-      parentUpstreamId: message.parentUpstreamId,
-      editedFromUpstreamId: message.editedFromUpstreamId ?? null,
-      attachments,
-      envelope: {
-        hostVersion: input.hostVersion,
-        agentId: input.agentId,
-        sessionId: input.sessionId,
-        sessionKey: input.sessionKey,
-        ...(message.appendMode ? { appendMode: message.appendMode } : {}),
-        ...(message.editedFromUpstreamId ? { editedFromUpstreamId: message.editedFromUpstreamId } : {}),
-        event,
-      },
-    });
-  }
-  return items;
-}
-
 /** Public transcript-tree entry: roles, branches, edits and attachments share unified ingest. */
 export async function ingestTranscript(input: {
   operationId: string;
@@ -378,7 +247,13 @@ export async function ingestTranscript(input: {
   policyRef: VersionedRef;
   purpose: IngestRequest["purpose"];
 }, ports: IngestPorts): Promise<IngestResult> {
-  const items = prepareTranscriptItems(input);
+  let items: IngestItem[];
+  try {
+    items = prepareTranscriptItems(input);
+  } catch (error) {
+    if (error instanceof CatalogError) throw new IngestError(error.category, { cause: error });
+    throw error;
+  }
   const fromCursor = items[0]?.parentUpstreamId ?? null;
   const toCursor = items[items.length - 1]?.upstreamId ?? null;
   return ingest({
@@ -397,6 +272,11 @@ export async function ingestTranscript(input: {
         agentId: input.agentId,
         sessionId: input.sessionId,
         upstreamIds: items.map((item) => item.upstreamId),
+        attachments: items.flatMap((item) => (item.attachments ?? []).map((attachment) => ({
+          upstreamId: attachment.upstreamId,
+          mediaType: attachment.mediaType,
+          hasExternalUrl: Boolean(attachment.externalUrl),
+        }))),
       })),
       fromCursor,
       toCursor,
@@ -563,20 +443,48 @@ function inputDigest(request: IngestRequest): string {
     cursor: request.cursor,
     policyRef: request.policyRef,
     items: request.items.map((item) => ({
-      ...item,
+      upstreamId: item.upstreamId,
+      role: item.role,
+      speakerId: item.speakerId,
+      kind: item.kind,
+      text: item.text,
+      capturedAt: item.capturedAt,
+      occurredAt: item.occurredAt,
+      authoredAt: item.authoredAt,
+      parentUpstreamId: item.parentUpstreamId,
+      editedFromUpstreamId: item.editedFromUpstreamId ?? null,
+      envelope: item.envelope ?? null,
+      // Digest binds the declared attachment manifest, not downloaded bytes (MEMORY-LIFECYCLE).
       attachments: (item.attachments ?? []).map((attachment) => ({
         upstreamId: attachment.upstreamId,
         mediaType: attachment.mediaType,
         fileName: attachment.fileName ?? null,
-        externalUrl: attachment.externalUrl ?? null,
-        bytesSha256: attachment.bytes != null && attachment.bytes.byteLength > 0
-          ? bytesVersion(Buffer.from(attachment.bytes))
-          : null,
+        hasExternalUrl: Boolean(attachment.externalUrl),
       })),
     })),
     purpose: request.purpose,
     coverage: request.coverage ?? null,
   }));
+}
+
+function transcriptStagePath(catalogPath: string, operationId: string): string {
+  return path.posix.join(path.posix.dirname(catalogPath), "operations", `${operationId}.transcript-stage.json`);
+}
+
+function classifyAttachmentGaps(items: IngestItem[]): Array<{ upstreamId: string; reason: string; retryable: boolean }> {
+  const gaps: Array<{ upstreamId: string; reason: string; retryable: boolean }> = [];
+  for (const item of items) {
+    for (const attachment of item.attachments ?? []) {
+      const hasBytes = attachment.bytes != null && attachment.bytes.byteLength > 0;
+      if (hasBytes) continue;
+      gaps.push({
+        upstreamId: attachment.upstreamId,
+        reason: "attachment_missing",
+        retryable: !attachment.externalUrl,
+      });
+    }
+  }
+  return gaps;
 }
 
 function operationPath(catalogPath: string, operationId: string): string {
@@ -719,10 +627,12 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
           bytes: bytes.byteLength,
         });
       } else {
+        // externalUrl-only = upstream original unavailable here (non-retryable).
+        // no bytes and no URL = declared pending fetch (retryable; blocked before local_committed).
         missingItems.push({
           upstreamId: attachment.upstreamId,
           reason: "attachment_missing",
-          retryable: true,
+          retryable: !attachment.externalUrl,
         });
       }
     }
@@ -791,6 +701,21 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       payloadBytes,
       presentAttachments,
     });
+  }
+
+  const declaredIds = new Set(
+    request.items.flatMap((item) => (item.attachments ?? []).map((attachment) => attachment.upstreamId)),
+  );
+  const accountedIds = new Set([
+    ...pending.flatMap((entry) => entry.presentAttachments.map((attachment) => attachment.upstreamId)),
+    ...missingItems.map((item) => item.upstreamId),
+  ]);
+  check([...declaredIds].every((id) => accountedIds.has(id)) &&
+    [...accountedIds].every((id) => declaredIds.has(id)), "attachment_manifest_mismatch");
+  for (const entry of pending) {
+    for (const attachment of entry.presentAttachments) {
+      check(entry.payloadBytes.includes(attachment.sha256), "attachment_manifest_mismatch");
+    }
   }
 
   let batchCoverageRef: VersionedRef | null = null;
@@ -930,6 +855,8 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
   const coverageRef = batchCoverageRef ?? objects.filter((object) => object.group === "coverage").at(-1)?.ref ?? null;
   const jsonPayload = payloads.find((payload) => payload.path.endsWith(".json"));
   check(coverageRef && jsonPayload && sourceRefs.length > 0 && evidenceRefs.length > 0, "invalid_input");
+  // op + phase + catalog accompany archive files inside the memory transaction (max 64).
+  check(objects.length + payloads.length + 3 <= 64, "attachment_batch_too_large");
   return {
     sourceRef: sourceRefs[0]!,
     evidenceRefs,
@@ -1101,6 +1028,21 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
     check(bytesVersion(catalogBytes) === reader.catalogHash ||
       bytesVersion(canonicalJson(before)) === reader.catalogHash, "stale_generation");
 
+    const retryableGaps = classifyAttachmentGaps(request.items).filter((item) => item.retryable);
+    if (retention === "retain" && retryableGaps.length > 0) {
+      const stageRelative = transcriptStagePath(reader.catalogPath, request.operationId);
+      const stageDir = path.join(reader.root, path.posix.dirname(stageRelative));
+      await mkdir(stageDir, { recursive: true, mode: 0o700 });
+      await writeFile(path.join(reader.root, stageRelative), canonicalJson({
+        schemaVersion: "stella.transcript-stage/v1",
+        operationId: request.operationId,
+        inputDigest: digest,
+        missingItems: retryableGaps,
+        checkedAt: request.items[0]!.capturedAt,
+      }), "utf8");
+      throw new IngestError("attachment_missing");
+    }
+
     let archive: BuiltIngestArchive | null = null;
     let after = before;
     const files: MemoryTransactionPlan["files"] = [];
@@ -1189,6 +1131,11 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
     check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision,
       "sync_failed");
     await emit(ports, "synchronized", observed);
+    try {
+      await unlink(path.join(reader.root, transcriptStagePath(reader.catalogPath, request.operationId)));
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    }
     return resultFromOperation(operation, diagnostics);
   } catch (error) {
     if (observed[observed.length - 1] !== "failed") {

@@ -9,6 +9,7 @@ import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import {
+  IngestError,
   ingestHostMessage,
   ingestTranscript,
   prepareTranscriptItems,
@@ -19,7 +20,9 @@ import {
   type TranscriptMessageExport,
 } from "../src/canghai/transcript-archive.js";
 import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import { captureHostTranscript } from "../src/openclaw/host-transcript.js";
 import { isRecord } from "../src/shared/type-guards.js";
+import { CatalogError } from "../src/canghai/catalog-reader.js";
 
 const run = promisify(execFile);
 const now = "2026-09-11T12:00:00Z";
@@ -307,7 +310,322 @@ test("attachment originals land in the repo copy; external URL alone is reported
   assert.equal(coverage.completeForDeclaredScope, false);
   assert.ok(Array.isArray(coverage.missingItems));
   assert.ok(coverage.missingItems.some((item: unknown) =>
-    isRecord(item) && item.upstreamId === "att-missing" && item.reason === "attachment_missing" && item.retryable === true));
+    isRecord(item) && item.upstreamId === "att-missing" && item.reason === "attachment_missing" && item.retryable === false));
+});
+
+test("unsupported transcript role and unassociable media fail closed", () => {
+  assert.throws(
+    () => prepareTranscriptItems({
+      hostVersion: "2026.8.2",
+      agentId: "synthetic",
+      sessionId: "session-role",
+      sessionKey: "agent:synthetic:role",
+      messages: [{
+        upstreamId: "msg-bad-role",
+        parentUpstreamId: null,
+        timestamp: now,
+        message: { role: "system", content: [{ type: "text", text: "系统消息。" }] },
+      }],
+    }),
+    (error: unknown) => error instanceof CatalogError && error.category === "unsupported_transcript_role",
+  );
+  assert.throws(
+    () => prepareTranscriptItems({
+      hostVersion: "2026.8.2",
+      agentId: "synthetic",
+      sessionId: "session-media",
+      sessionKey: "agent:synthetic:media",
+      messages: [{
+        upstreamId: "msg-bad-media",
+        parentUpstreamId: null,
+        timestamp: now,
+        message: {
+          role: "user",
+          content: [
+            { type: "text", text: "未知媒体。" },
+            { type: "audio", data: "AAAA" },
+          ],
+        },
+        speaker: { id: "owner-transcript", role: "owner" },
+      }],
+    }),
+    (error: unknown) => error instanceof CatalogError && error.category === "transcript_media_requires_attachment",
+  );
+});
+
+test("inline image content lifts into attachments and archives", async (t) => {
+  const repo = await gitRepo(t);
+  const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xaa]);
+  const result = await ingestTranscript({
+    operationId: "op-inline-image",
+    expectedRevision: repo.revision,
+    hostVersion: "2026.8.2",
+    agentId: "synthetic",
+    sessionId: "session-inline",
+    sessionKey: "agent:synthetic:inline",
+    messages: [{
+      upstreamId: "msg-inline",
+      parentUpstreamId: null,
+      timestamp: now,
+      message: {
+        role: "user",
+        content: [
+          { type: "text", text: "内联图。" },
+          { type: "image", mimeType: "image/png", data: Buffer.from(png).toString("base64") },
+        ],
+      },
+      speaker: { id: "owner-transcript", role: "owner" },
+    }],
+    branchPolicy: "declared_subset",
+    declaredBranches: ["msg-inline"],
+    policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, {
+    reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch),
+    retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects",
+    payloadRoot: "experience/conversations",
+  });
+  assert.equal(result.state, "synchronized");
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const source = await current.read(result.sourceRefs[0]!, "sources");
+  const media = (source.payloads as unknown[]).find((payload) => isRecord(payload) && payload.mediaType === "image/png");
+  assert.ok(isRecord(media));
+  const loaded = await current.readPayload(result.sourceRefs[0]!, String(media.sha256));
+  assert.deepEqual(Uint8Array.from(loaded.bytes), png);
+});
+
+test("declared pending attachment stages then resumes on same operationId without digest conflict", async (t) => {
+  const repo = await gitRepo(t);
+  const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x11, 0x22]);
+  const pendingMessage: TranscriptMessageExport = {
+    upstreamId: "msg-resume",
+    parentUpstreamId: null,
+    timestamp: now,
+    message: { role: "user", content: [{ type: "text", text: "待补附件。" }] },
+    speaker: { id: "owner-transcript", role: "owner" },
+    attachments: [{
+      upstreamId: "att-pending",
+      mediaType: "image/png",
+      fileName: "pending.png",
+    }],
+  };
+  await assert.rejects(
+    async () => ingestTranscript({
+      operationId: "op-resume-attach",
+      expectedRevision: repo.revision,
+      hostVersion: "2026.8.2",
+      agentId: "synthetic",
+      sessionId: "session-resume",
+      sessionKey: "agent:synthetic:resume",
+      messages: [pendingMessage],
+      branchPolicy: "declared_subset",
+      declaredBranches: ["msg-resume"],
+      policyRef: repo.policyRef,
+      purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    }, {
+      reader: await CatalogReader.load(repo.root, "catalog.json"),
+      durability: durability(repo.root, repo.remote, repo.branch),
+      retentionGuarantees: retainGuarantees,
+      objectRoot: "memory/objects",
+      payloadRoot: "experience/conversations",
+    }),
+    (error: unknown) => error instanceof IngestError && error.category === "attachment_missing",
+  );
+  const stagePath = path.join(repo.root, "operations", "op-resume-attach.transcript-stage.json");
+  const stage = JSON.parse(await readFile(stagePath, "utf8")) as Record<string, unknown>;
+  assert.equal(stage.schemaVersion, "stella.transcript-stage/v1");
+  assert.equal(stage.operationId, "op-resume-attach");
+  const catalogAfterFail = JSON.parse(await readFile(path.join(repo.root, "catalog.json"), "utf8")) as {
+    sources: unknown[];
+  };
+  assert.equal(catalogAfterFail.sources.length, 0);
+
+  const withBytes: TranscriptMessageExport = {
+    ...pendingMessage,
+    attachments: [{
+      upstreamId: "att-pending",
+      mediaType: "image/png",
+      fileName: "pending.png",
+      bytes: png,
+    }],
+  };
+  const revision = (await run("git", ["-C", repo.root, "rev-parse", "HEAD"])).stdout.trim();
+  const result = await ingestTranscript({
+    operationId: "op-resume-attach",
+    expectedRevision: revision,
+    hostVersion: "2026.8.2",
+    agentId: "synthetic",
+    sessionId: "session-resume",
+    sessionKey: "agent:synthetic:resume",
+    messages: [withBytes],
+    branchPolicy: "declared_subset",
+    declaredBranches: ["msg-resume"],
+    policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, {
+    reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch),
+    retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects",
+    payloadRoot: "experience/conversations",
+  });
+  assert.equal(result.state, "synchronized");
+  await assert.rejects(() => readFile(stagePath, "utf8"), (error: unknown) =>
+    error instanceof Error && "code" in error && error.code === "ENOENT");
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const coverage = await current.read(result.coverageRef!, "coverage");
+  assert.equal(coverage.completeForDeclaredScope, true);
+  assert.deepEqual(coverage.missingItems, []);
+});
+
+test("edit and side-branch provenance persist and rebuild", async (t) => {
+  const repo = await gitRepo(t);
+  const result = await ingestTranscript({
+    operationId: "op-edit-branch",
+    expectedRevision: repo.revision,
+    hostVersion: "2026.8.2",
+    agentId: "synthetic",
+    sessionId: "session-edit",
+    sessionKey: "agent:synthetic:edit",
+    messages: [
+      {
+        upstreamId: "msg-base",
+        parentUpstreamId: null,
+        timestamp: now,
+        message: { role: "user", content: [{ type: "text", text: "原文。" }] },
+        speaker: { id: "owner-transcript", role: "owner" },
+      },
+      {
+        upstreamId: "msg-edited",
+        parentUpstreamId: "msg-base",
+        editedFromUpstreamId: "msg-base",
+        timestamp: "2026-09-11T12:00:01Z",
+        message: { role: "user", content: [{ type: "text", text: "编辑后。" }] },
+        speaker: { id: "owner-transcript", role: "owner" },
+      },
+      {
+        upstreamId: "msg-side",
+        parentUpstreamId: "msg-base",
+        appendMode: "side",
+        timestamp: "2026-09-11T12:00:02Z",
+        message: { role: "assistant", content: [{ type: "text", text: "侧分支。" }] },
+      },
+    ],
+    branchPolicy: "all_retained",
+    declaredBranches: [],
+    policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, {
+    reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch),
+    retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects",
+    payloadRoot: "experience/conversations",
+  });
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const rebuilt = await rebuildConversationFromArchive({
+    reader: current,
+    coverageRef: result.coverageRef!,
+  });
+  const edited = rebuilt.messages.find((message) => message.upstreamId === "msg-edited");
+  assert.equal(edited?.editedFromUpstreamId, "msg-base");
+  let sawAppendMode = false;
+  for (const ref of result.sourceRefs) {
+    const source = await current.read(ref, "sources");
+    for (const payload of source.payloads as unknown[]) {
+      if (!isRecord(payload) || payload.mediaType !== "application/json" || typeof payload.sha256 !== "string") continue;
+      const loaded = await current.readPayload(ref, payload.sha256);
+      const body = JSON.parse(loaded.bytes.toString("utf8")) as unknown;
+      if (isRecord(body) && body.appendMode === "side") {
+        sawAppendMode = true;
+        assert.equal(body.text, "侧分支。");
+      }
+    }
+  }
+  assert.equal(sawAppendMode, true);
+});
+
+test("oversized attachment batch fails with attachment_batch_too_large", async (t) => {
+  const repo = await gitRepo(t);
+  const attachments = Array.from({ length: 62 }, (_, index) => ({
+    upstreamId: `att-bulk-${index}`,
+    mediaType: "application/octet-stream",
+    fileName: `bulk-${index}.bin`,
+    bytes: Uint8Array.from([index & 0xff]),
+  }));
+  await assert.rejects(
+    async () => ingestTranscript({
+      operationId: "op-batch-too-large",
+      expectedRevision: repo.revision,
+      hostVersion: "2026.8.2",
+      agentId: "synthetic",
+      sessionId: "session-bulk",
+      sessionKey: "agent:synthetic:bulk",
+      messages: [{
+        upstreamId: "msg-bulk",
+        parentUpstreamId: null,
+        timestamp: now,
+        message: { role: "user", content: [{ type: "text", text: "超大批。" }] },
+        speaker: { id: "owner-transcript", role: "owner" },
+        attachments,
+      }],
+      branchPolicy: "declared_subset",
+      declaredBranches: ["msg-bulk"],
+      policyRef: repo.policyRef,
+      purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    }, {
+      reader: await CatalogReader.load(repo.root, "catalog.json"),
+      durability: durability(repo.root, repo.remote, repo.branch),
+      retentionGuarantees: retainGuarantees,
+      objectRoot: "memory/objects",
+      payloadRoot: "experience/conversations",
+    }),
+    (error: unknown) => error instanceof IngestError && error.category === "attachment_batch_too_large",
+  );
+});
+
+test("captureHostTranscript exports message tree from injected Host events", () => {
+  const events = [
+    {
+      type: "message",
+      id: "host-msg-1",
+      parentId: null,
+      timestamp: now,
+      message: { role: "user", content: [{ type: "text", text: "Host 导出。" }] },
+    },
+    {
+      type: "message",
+      id: "host-msg-2",
+      parentId: "host-msg-1",
+      timestamp: "2026-09-11T12:00:01Z",
+      appendMode: "side",
+      message: { role: "assistant", content: [{ type: "text", text: "Host 侧分支。" }] },
+    },
+    { type: "compaction", id: "ignore-me" },
+  ];
+  const exported = captureHostTranscript({
+    hostVersion: "2026.8.2",
+    agentId: "synthetic",
+    sessionId: "session-host",
+    sessionKey: "agent:synthetic:host",
+    storePath: "/tmp/stella-synthetic-store.sqlite",
+    ownerSpeaker: { id: "owner-transcript", role: "owner" },
+  }, () => events as never);
+  assert.equal(exported.length, 2);
+  assert.equal(exported[0]!.upstreamId, "host-msg-1");
+  assert.equal(exported[0]!.speaker?.role, "owner");
+  assert.equal(exported[1]!.appendMode, "side");
+  const prepared = prepareTranscriptItems({
+    hostVersion: "2026.8.2",
+    agentId: "synthetic",
+    sessionId: "session-host",
+    sessionKey: "agent:synthetic:host",
+    messages: exported,
+  });
+  assert.equal(prepared[0]!.role, "owner");
+  assert.equal(prepared[1]!.envelope?.appendMode, "side");
 });
 
 test("entry ingest and transcript share upstream identity; rebuild reports missing attachments", async (t) => {

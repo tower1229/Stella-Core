@@ -174,7 +174,7 @@ received → staged → validated → local_committed → synchronized
 
 `staged` 位于非检索暂存区。校验全部原件、引用、使用策略和内容摘要后才发布。`local_committed` 表示本地归档成立；声明的必需内容未齐不能进入此状态。`synchronized` 才是远端可恢复的归档点。正常归档可在明确 RPO 内等待同步，但不得将其称为无服务器丢失风险的恢复点。
 
-一批中缺少附件时保留暂存及 `attachment_missing`，补齐后以相同 operationId 重试；不能把文字部分当作整批完成。大批量由 adapter 明确划分可独立完成的小批，每批有自己的范围与 cursor。上游已不可取得的缺口记录在 coverage 中，不虚构补齐。
+一批中缺少附件时按缺口分流：上游仅剩外部链接、无可下载字节时记入 `attachment_missing`（`retryable: false`），可同步但 `completeForDeclaredScope=false`；声明待补传（有 upstreamId／mediaType、无字节、无外链）时保留暂存意图并以相同类别失败关闭，不得进入 `local_committed`。补齐后以相同 operationId 重试；不能把文字部分当作整批完成。`inputDigest` 绑定上游快照与声明清单（不含已下载字节）。大批量由 adapter 明确划分可独立完成的小批，每批有自己的范围与 cursor。上游已不可取得的缺口记录在 coverage 中，不虚构补齐。
 
 ### 五类入口的必要行为
 
@@ -424,6 +424,6 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 
 2026-09-11 统一 ingest 入口：公开 `ingest`／`ingestHostMessage`／`ingestExplicitRecord` 贯通 `received → staged → validated → local_committed → synchronized`；Host 消息与显式记录共用合同。`stella.memory-operation/v1` 完整校验后以 inputDigest 幂等，残缺 journal 失败关闭；新写入核对 expectedRevision 与当前 HEAD。以 adapter＋collection＋upstreamId 识别事件，编辑产生新 Source Version，同内容不同事件分别保留。`do_not_retain` 在 Host transcript／暂存／备份保证缺失时于落盘前返回 `retention_guarantee_unavailable`；获准后只写无内容操作状态。
 
-2026-09-11 完整 transcript／附件归档（工作项 09）：公开 `prepareTranscriptItems`／`ingestTranscript`／`rebuildConversationFromArchive`。同一 Host 会话可归档用户／助手／引用／工具／编辑与侧分支，证据 role／kind 区分且助手／工具不变成主人证据；附件原件以仓库内 payload 留存，仅有外部链接时写入 `attachment_missing` 且 `completeForDeclaredScope=false`。入口 `ingestHostMessage` 与后续 transcript 共用 adapter＋collection＋upstreamId，重复导入不增加独立 Source 身份。续传清单与 Host 清理协调仍属工作项 10；synthetic_contract 下 implemented ≠ verified。
+2026-09-11 完整 transcript／附件归档（工作项 09）：公开 `prepareTranscriptItems`／`ingestTranscript`／`rebuildConversationFromArchive`／`captureHostTranscript`。同一 Host 会话可归档用户／助手／引用／工具／编辑与侧分支；content 内联媒体升为 attachments。证据 role／kind 区分且助手／工具不变成主人证据。附件原件以仓库内 payload 留存。缺件分流：仅外部链接且无字节 → `attachment_missing`（`retryable: false`）可同步但 `completeForDeclaredScope=false`；声明待补传（无字节无外链）→ 写 `operations/{op}.transcript-stage.json` 后以 `attachment_missing` 失败，不得 `local_committed`；`inputDigest` 绑定声明清单不含已下载字节，同 operationId 补齐后可完成。入口与 transcript 共用 adapter＋collection＋upstreamId。续传游标／Host 清理协调仍属工作项 10；synthetic_contract 下 implemented ≠ verified。
 
-2026-09-11 生产 Host 纠正／建议入口已接 ingest：`archiveCorrectionInput`（消息与 request）与 `persistBoundAdvice` 走 `ingestHostMessage`／`ingestHostRequest`；Host Source 稳定身份与 `prepareHostInputArchive`／`prepareHostRequestArchive` 对齐（含 agentId）；`persistHostInputArchive` 同步做 retention 准入。阶段 journal 写入 `operations/{operationId}.phase.json`（无私人原文）。仍 ≠ Exact Host／real_main verified；完整对话树／附件与续传另票。
+2026-09-11 生产 Host 纠正／建议入口已接 ingest：`archiveCorrectionInput`（消息与 request）与 `persistBoundAdvice` 走 `ingestHostMessage`／`ingestHostRequest`；Host Source 稳定身份与 `prepareHostInputArchive`／`prepareHostRequestArchive` 对齐（含 agentId）；`persistHostInputArchive` 同步做 retention 准入。阶段 journal 写入 `operations/{operationId}.phase.json`（无私人原文）。仍 ≠ Exact Host／real_main verified；工作项 10 续传清单与 Host 清理另票。
