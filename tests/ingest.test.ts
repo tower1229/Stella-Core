@@ -18,7 +18,9 @@ import {
   prepareHostMessageItems,
   type HostRetentionGuarantees,
 } from "../src/canghai/ingest.js";
-import { HOST_INPUT_ARCHIVE_ADAPTER } from "../src/canghai/host-input-archive.js";
+import { HOST_INPUT_ARCHIVE_ADAPTER, prepareHostInputArchive } from "../src/canghai/host-input-archive.js";
+import { persistHostInputArchive } from "../src/canghai/archive-writer.js";
+import { CatalogError } from "../src/canghai/catalog-reader.js";
 import { isRecord } from "../src/shared/type-guards.js";
 import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
 
@@ -363,6 +365,197 @@ test("admitted do_not_retain records content-free operation status without paylo
   );
   assert.doesNotMatch(operationBytes, /不得留存的原文/);
   assert.match(operationBytes, /do_not_retain/);
+});
+
+test("prepareHostInputArchive and ingestHostMessage share the same sourceRef.id", async (t) => {
+  const repo = await gitRepo(t);
+  const host = snapshot();
+  const prepared = prepareHostInputArchive(host, {
+    policyRef: repo.policyRef,
+    objectRoot: "memory/objects",
+    payloadRoot: "experience/conversations",
+    speaker: { id: "owner-ingest", role: "owner" },
+  });
+  const result = await ingestHostMessage({
+    operationId: "op-identity-align",
+    expectedRevision: repo.revision,
+    snapshot: host,
+    speaker: { id: "owner-ingest", role: "owner" },
+    policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, {
+    reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch),
+    retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects",
+    payloadRoot: "experience/conversations",
+  });
+  assert.equal(result.sourceRefs[0]!.id, prepared.sourceRef.id);
+});
+
+test("G-03 role slice: assistant/unknown evidence is not owner; owner text stays recoverable", async (t) => {
+  const repo = await gitRepo(t);
+  const ports = {
+    durability: durability(repo.root, repo.remote, repo.branch),
+    retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects",
+    payloadRoot: "experience/conversations",
+  };
+  const ownerHost = snapshot({ entryId: "role-owner", text: "主人原话。" });
+  const owner = await ingestHostMessage({
+    operationId: "op-role-owner",
+    expectedRevision: repo.revision,
+    snapshot: ownerHost,
+    speaker: { id: "owner-ingest", role: "owner" },
+    policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, { ...ports, reader: await CatalogReader.load(repo.root, "catalog.json") });
+  const assistantHost = snapshot({ entryId: "role-assistant", text: "助手可见原文。" });
+  const assistant = await ingestHostMessage({
+    operationId: "op-role-assistant",
+    expectedRevision: (await run("git", ["-C", repo.root, "rev-parse", "HEAD"])).stdout.trim(),
+    snapshot: assistantHost,
+    speaker: { id: "assistant-1", role: "assistant" },
+    policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, { ...ports, reader: await CatalogReader.load(repo.root, "catalog.json") });
+  const unknownHost = snapshot({ entryId: "role-unknown", text: "身份未辨原文。" });
+  const unknown = await ingestHostMessage({
+    operationId: "op-role-unknown",
+    expectedRevision: (await run("git", ["-C", repo.root, "rev-parse", "HEAD"])).stdout.trim(),
+    snapshot: unknownHost,
+    speaker: { id: null, role: "unknown" },
+    policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, { ...ports, reader: await CatalogReader.load(repo.root, "catalog.json") });
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const ownerEvidence = await current.read(owner.evidenceRefs[0]!, "evidence");
+  const assistantEvidence = await current.read(assistant.evidenceRefs[0]!, "evidence");
+  const unknownEvidence = await current.read(unknown.evidenceRefs[0]!, "evidence");
+  assert.equal(ownerEvidence.role, "owner");
+  assert.equal(assistantEvidence.role, "assistant");
+  assert.notEqual(assistantEvidence.role, "owner");
+  assert.equal(unknownEvidence.role, "unknown");
+  assert.notEqual(unknownEvidence.role, "owner");
+  const ownerSource = await current.read(owner.sourceRefs[0]!, "sources");
+  assert.ok(Array.isArray(ownerSource.payloads) && isRecord(ownerSource.payloads[0]));
+  const payload = await current.readPayload(owner.sourceRefs[0]!, String(ownerSource.payloads[0].sha256));
+  assert.match(payload.bytes.toString("utf8"), /主人原话。/);
+});
+
+test("archiveCorrectionInput walks ingest phases and retries without new evidence", async (t) => {
+  const { archiveCorrectionInput } = await import("../src/learning/host-correction.js");
+  const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
+  const repo = await gitRepo(t);
+  const text = "纠正入口原话。";
+  const host = snapshot({ entryId: "correction-message", text });
+  const bound = snapshotTurnRequest({
+    agentId: host.agentId,
+    sessionId: host.sessionId,
+    sessionKey: host.sessionKey,
+    prompt: text,
+    senderId: "owner-ingest",
+    senderIsOwner: true,
+    chatType: "direct",
+  }, "correction-run-1");
+  const portsBase = {
+    request: bound,
+    original: host,
+    ownerId: "owner-ingest",
+    reader: await CatalogReader.load(repo.root, "catalog.json"),
+    archive: { policyRef: repo.policyRef, objectRoot: "memory/objects", payloadRoot: "experience/conversations" },
+    purpose: {
+      readPurpose: "alpha",
+      derivePurpose: "alpha",
+      deliveryScope: "synthetic",
+      evidenceCutoff: now,
+      trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] },
+    },
+    durability: durability(repo.root, repo.remote, repo.branch),
+    signal: new AbortController().signal,
+    assertCurrent: async () => {},
+    retentionGuarantees: retainGuarantees,
+  };
+  const first = await archiveCorrectionInput(portsBase);
+  assert.equal(first.evidenceRefs.length, 1);
+  assert.equal((await first.resolver.readEvidence(first.evidenceRefs[0]!)).text, text);
+  const phasePath = path.join(repo.root, "operations", `${first.operationId}.phase.json`);
+  const phase = JSON.parse(await readFile(phasePath, "utf8"));
+  assert.equal(phase.schemaVersion, "stella.ingest-phase/v1");
+  assert.equal(phase.phase, "synchronized");
+  const op = JSON.parse(await readFile(path.join(repo.root, "operations", `${first.operationId}.json`), "utf8"));
+  assert.equal(op.schemaVersion, "stella.memory-operation/v1");
+  assert.equal(op.kind, "ingest");
+  const beforeCount = (await CatalogReader.load(repo.root, "catalog.json")).catalog.evidence.length;
+  const second = await archiveCorrectionInput({
+    ...portsBase,
+    reader: await CatalogReader.load(repo.root, "catalog.json"),
+  });
+  assert.deepEqual(second.evidenceRefs, first.evidenceRefs);
+  assert.equal((await CatalogReader.load(repo.root, "catalog.json")).catalog.evidence.length, beforeCount);
+});
+
+test("archiveCorrectionInput and persistHostInputArchive block do_not_retain before any disk write", async (t) => {
+  const { archiveCorrectionInput } = await import("../src/learning/host-correction.js");
+  const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
+  const repo = await gitRepo(t, "do_not_retain");
+  const before = await run("git", ["-C", repo.root, "rev-parse", "HEAD"]);
+  const listingBefore = await readdir(repo.root, { recursive: true });
+  const text = "不得落盘的纠正原文。";
+  const host = snapshot({ entryId: "dnr-correction", text });
+  const bound = snapshotTurnRequest({
+    agentId: host.agentId,
+    sessionId: host.sessionId,
+    sessionKey: host.sessionKey,
+    prompt: text,
+    senderId: "owner-ingest",
+    senderIsOwner: true,
+    chatType: "direct",
+  }, "correction-dnr-run");
+  const dnrReader = await CatalogReader.load(repo.root, "catalog.json");
+  await assert.rejects(
+    () => archiveCorrectionInput({
+      request: bound,
+      original: host,
+      ownerId: "owner-ingest",
+      reader: dnrReader,
+      archive: { policyRef: repo.policyRef, objectRoot: "memory/objects", payloadRoot: "experience/conversations" },
+      purpose: {
+        readPurpose: "alpha",
+        derivePurpose: "alpha",
+        deliveryScope: "synthetic",
+        evidenceCutoff: now,
+        trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] },
+      },
+      durability: durability(repo.root, repo.remote, repo.branch),
+      signal: new AbortController().signal,
+      assertCurrent: async () => {},
+    }),
+    (error: unknown) => error instanceof CatalogError && error.category === "retention_guarantee_unavailable",
+  );
+  const archive = prepareHostInputArchive(host, {
+    policyRef: repo.policyRef,
+    objectRoot: "memory/objects",
+    payloadRoot: "experience/conversations",
+    speaker: { id: "owner-ingest", role: "owner" },
+  });
+  const ports = {
+    async persist() { throw new Error("persist must not run"); },
+    async confirmPreviouslyCommitted() { throw new Error("confirm must not run"); },
+  };
+  const writerReader = await CatalogReader.load(repo.root, "catalog.json");
+  await assert.rejects(
+    () => persistHostInputArchive({
+      reader: writerReader,
+      archive,
+      operationId: "op-writer-dnr",
+      purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    }, ports),
+    (error: unknown) => error instanceof CatalogError && error.category === "retention_guarantee_unavailable",
+  );
+  const after = await run("git", ["-C", repo.root, "rev-parse", "HEAD"]);
+  assert.equal(after.stdout, before.stdout);
+  assert.deepEqual((await readdir(repo.root, { recursive: true })).sort(), listingBefore.sort());
 });
 
 test("new ingest rejects stale expectedRevision; corrupt operation replay fails closed", async (t) => {

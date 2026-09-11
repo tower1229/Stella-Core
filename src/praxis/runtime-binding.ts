@@ -9,8 +9,13 @@ import type { LoadedConsciousness } from "../canghai/manifest.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { loadRuntimeProfileResources } from "../canghai/runtime-profile-resources.js";
-import { HOST_INPUT_ARCHIVE_ADAPTER, prepareHostInputArchive } from "../canghai/host-input-archive.js";
-import { persistHostInputArchive } from "../canghai/archive-writer.js";
+import { HOST_INPUT_ARCHIVE_ADAPTER } from "../canghai/host-input-archive.js";
+import {
+  DEFAULT_RETENTION_GUARANTEES,
+  ingestHostMessage,
+  IngestError,
+  type HostRetentionGuarantees,
+} from "../canghai/ingest.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import type { HostInputSnapshot } from "../openclaw/host-input.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -144,21 +149,50 @@ export async function persistBoundAdvice(input: {
   target: { kind: "new"; episode: Omit<EpisodeV2, "historicalInputRefs"> } | { kind: "revision"; selected: EpisodeSnapshot };
   inputRefs: VersionedRef[]; decision: NonNullable<EpisodeV2["decision"]>; abortSignal: AbortSignal;
   complete: ConstructorParameters<typeof EpisodeEvidenceResolver>[2];
+  retentionGuarantees?: HostRetentionGuarantees;
 }): Promise<{ revision: string; generationId: string; catalogHash: string; episodeRef: VersionedRef; writeOperationIds: string[] }> {
   const checkActive = () => { if (input.abortSignal.aborted) throw new EpisodeV2Error("operation_cancelled"); };
   checkActive();
   const operationId = `op_${bytesVersion(input.operationId).slice(7)}`;
   // A Host user-role message alone does not identify the owner.
-  const archive = prepareHostInputArchive(input.original, { ...input.binding.archive, speaker: { id: null, role: "unknown" } });
-  const archived = await persistHostInputArchive({ reader: input.runtime.evidence.reader, archive, operationId: `${operationId}-archive`, purpose: input.binding.purpose }, {
-    persist: async (paths, id) => { checkActive(); await input.durability.syncCritical(paths, `stella: archive ${id}`); },
-    confirmPreviouslyCommitted: (file) => input.durability.confirmPreviouslyCommitted(file),
-  });
+  const expectedRevision = (await input.durability.diagnostics()).localRevision;
+  let archived;
+  try {
+    archived = await ingestHostMessage({
+      operationId: `${operationId}-archive`,
+      expectedRevision,
+      snapshot: input.original,
+      speaker: { id: null, role: "unknown" },
+      policyRef: input.binding.archive.policyRef,
+      purpose: input.binding.purpose,
+    }, {
+      reader: input.runtime.evidence.reader,
+      durability: input.durability,
+      retentionGuarantees: input.retentionGuarantees ?? DEFAULT_RETENTION_GUARANTEES,
+      objectRoot: input.binding.archive.objectRoot,
+      payloadRoot: input.binding.archive.payloadRoot,
+      signal: input.abortSignal,
+    });
+  } catch (error) {
+    if (error instanceof IngestError) {
+      // Preserve operational failure causes (pointer/sync) for Host recovery diagnostics.
+      if (error.category === "persistence_failed" && error.cause instanceof Error) throw error.cause;
+      throw new EpisodeV2Error(error.category);
+    }
+    throw error;
+  }
   checkActive();
+  check(archived.state === "synchronized" && archived.sourceRefs.length === 1, "critical_sync_failed");
+  const sourceRef = archived.sourceRefs[0]!;
+  const archivedCatalog = await CatalogReader.load(
+    input.runtime.evidence.reader.root,
+    input.runtime.evidence.reader.catalogPath,
+  );
+  const generationId = archivedCatalog.catalog.generationId;
   const runtime = await createBoundPraxisRuntime(input.loaded, input.binding, input.complete,
     async ({ paths, operationId: id }) => { checkActive(); await input.durability.syncCritical(paths, `stella: preserve ${id}`); },
     input.runtime.evidence.purpose.sourceAccess);
-  const inputRefs = [...new Map([...input.inputRefs, archived.sourceRef].map((ref) => [`${ref.id}@${ref.version}`, ref])).values()];
+  const inputRefs = [...new Map([...input.inputRefs, sourceRef].map((ref) => [`${ref.id}@${ref.version}`, ref])).values()];
   const recordedAt = String(input.original.event.timestamp);
   const decision = { ...input.decision, inputRefs };
   const recommended = input.target.kind === "new"
@@ -170,8 +204,12 @@ export async function persistBoundAdvice(input: {
   checkActive();
   const diagnostics = await input.durability.diagnostics();
   if (!diagnostics.criticalSynchronized || diagnostics.localRevision !== diagnostics.synchronizedRevision) throw new EpisodeV2Error("critical_sync_failed");
-  return { revision: diagnostics.localRevision, generationId: archived.generationId,
+  return { revision: diagnostics.localRevision, generationId,
     catalogHash: runtime.evidence.reader.catalogHash, episodeRef: { id: recommended.episode.id, version: recommended.version },
     writeOperationIds: [`${operationId}-archive`, ...(input.target.kind === "new"
       ? [`${operationId}-open`, `${operationId}-recommend`] : [`${operationId}-revise`])] };
+}
+
+function check(value: unknown, category: string): asserts value {
+  if (!value) throw new EpisodeV2Error(category);
 }

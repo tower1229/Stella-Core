@@ -99,18 +99,22 @@ const summary = {
   issue: 13,
   environment: ENVIRONMENT,
   result: "implemented",
-  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main not claimed. Claims T07 slice of M-01 / M-02 / G-03 / G-06 / G-10 only (Host+explicit ingest state machine, upstream identity versions, do_not_retain admission). Does not mark work 08 complete; five-entry ingest, transcript archive (09), and resume coverage (10) remain open.",
+  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main not claimed. M-01/G-03 slice covers role/source distinguishability plus Host correction/advice entry wiring through ingest — not full dialogue trees or attachments. Also covers M-02/G-06/G-10 T07 slice (upstream identity versions, do_not_retain admission). Does not mark work 08 complete; five-entry ingest, transcript archive (09), and resume coverage (10) remain open.",
   targets: TARGETS,
   recordedAt,
   publicSeam: [
     "ingest",
     "ingestHostMessage",
+    "ingestHostRequest",
     "ingestExplicitRecord",
     "prepareHostMessageItems",
+    "prepareHostRequestItems",
     "prepareExplicitRecordItems",
     "assertRetentionAdmission",
+    "archiveCorrectionInput",
+    "persistBoundAdvice",
   ],
-  syntheticHarness: "tests/ingest.test.ts",
+  syntheticHarness: "tests/ingest.test.ts;tests/correction.test.ts;tests/runtime-binding.test.ts",
 };
 
 let manifest = [];

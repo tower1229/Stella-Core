@@ -5,6 +5,12 @@ import { isRecord } from "../shared/type-guards.js";
 import { CatalogError, CatalogReader, parseMemoryCatalog, validMemoryRef, type MemoryCatalog } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import type { HostInputArchive } from "./host-input-archive.js";
+import {
+  assertRetentionAdmission,
+  DEFAULT_RETENTION_GUARANTEES,
+  IngestError,
+  type HostRetentionGuarantees,
+} from "./ingest.js";
 import { withMemoryMutationLock } from "./memory-transaction.js";
 
 type ArchiveWriterPorts = {
@@ -51,15 +57,18 @@ async function publishFile(file: string, bytes: string, replace = false): Promis
 export async function persistHostInputArchive(input: {
   reader: CatalogReader; archive: HostInputArchive; operationId: string;
   purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
+  retentionGuarantees?: HostRetentionGuarantees;
 }, ports: ArchiveWriterPorts): Promise<{ generationId: string; sourceRef: HostInputArchive["sourceRef"]; evidenceRefs: HostInputArchive["evidenceRefs"] }> {
   const frozen = { ...input, archive: JSON.parse(canonicalJson(input.archive)) as HostInputArchive,
-    purpose: { ...input.purpose } };
+    purpose: { ...input.purpose },
+    retentionGuarantees: input.retentionGuarantees ?? DEFAULT_RETENTION_GUARANTEES };
   return withMemoryMutationLock(input.reader.root, () => persistArchive(frozen, ports));
 }
 
 async function persistArchive(input: {
   reader: CatalogReader; archive: HostInputArchive; operationId: string;
   purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
+  retentionGuarantees: HostRetentionGuarantees;
 }, ports: ArchiveWriterPorts): Promise<{ generationId: string; sourceRef: HostInputArchive["sourceRef"]; evidenceRefs: HostInputArchive["evidenceRefs"] }> {
   requireValue(/^[a-zA-Z][a-zA-Z0-9_-]{0,199}$/.test(input.operationId), "invalid_archive_operation_id");
   const archive: HostInputArchive = JSON.parse(canonicalJson(input.archive));
@@ -76,19 +85,26 @@ async function persistArchive(input: {
   const lockPath = await location(reader.root, `${reader.catalogPath}.write-lock`);
   requireValue(await optionalText(lockPath) === undefined, "legacy_archive_lock_requires_recovery");
   {
-    const operationPath = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${input.operationId}.json`);
-    const operationFile = await location(reader.root, operationPath, true);
-    const expectedPaths = [reader.catalogPath, operationPath, archive.payload.path, ...archive.objects.map((object) => object.entry.locator.path)];
-    const recorded = await optionalText(operationFile);
     const current = await CatalogReader.load(reader.root, reader.catalogPath);
     for (const object of archive.objects) {
       if (!validMemoryRef(object.object.policyRef)) continue;
       const policy = await current.read(object.object.policyRef, "policies");
+      // Admit retention before any payload publish or operations directory creation.
+      try { assertRetentionAdmission(policy, input.retentionGuarantees); }
+      catch (error) {
+        if (error instanceof IngestError) throw new CatalogError(error.category);
+        throw error;
+      }
+      // This writer only materializes retain payloads; admitted do_not_retain must use ingest.
       requireValue(policy.schemaVersion === "stella.source-policy/v1" && policy.retention === "retain" &&
         Array.isArray(policy.readPurposes) && policy.readPurposes.includes(input.purpose.readPurpose) &&
         Array.isArray(policy.derivePurposes) && policy.derivePurposes.includes(input.purpose.derivePurpose) &&
         Array.isArray(policy.deliveryScopes) && policy.deliveryScopes.includes(input.purpose.deliveryScope), "archive_permission_denied");
     }
+    const operationPath = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${input.operationId}.json`);
+    const operationFile = await location(reader.root, operationPath, true);
+    const expectedPaths = [reader.catalogPath, operationPath, archive.payload.path, ...archive.objects.map((object) => object.entry.locator.path)];
+    const recorded = await optionalText(operationFile);
     let intent: Intent;
     if (recorded !== undefined) {
       const parsed: unknown = JSON.parse(recorded);

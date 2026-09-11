@@ -14,6 +14,7 @@ import {
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import type { CangHaiDurabilityDiagnostics } from "./durability.js";
 import { HOST_INPUT_ARCHIVE_ADAPTER, stableId, type ArchiveObject, type HostInputArchive } from "./host-input-archive.js";
+import { HOST_REQUEST_ARCHIVE_ADAPTER, type HostRequestSnapshot } from "./host-request-archive.js";
 import { afterDurablePersistPublishView } from "./managed-durable-write.js";
 import {
   applyMemoryTransaction,
@@ -22,6 +23,7 @@ import {
   type MemoryTransactionPlan,
 } from "./memory-transaction.js";
 import { parseSourcePolicy } from "./source-policy.js";
+import { snapshotTurnRequest } from "../openclaw/turn-request.js";
 
 export const EXPLICIT_RECORD_ADAPTER = "stella-explicit-record/v1";
 
@@ -37,6 +39,13 @@ export type HostRetentionGuarantees = {
   transcript: boolean;
   staging: boolean;
   backup: boolean;
+};
+
+/** Fail-closed: do_not_retain requires explicit Host surface guarantees before any disk write. */
+export const DEFAULT_RETENTION_GUARANTEES: HostRetentionGuarantees = {
+  transcript: false,
+  staging: false,
+  backup: false,
 };
 
 export type IngestItem = {
@@ -84,6 +93,7 @@ export type IngestResult = {
   operationId: string;
   state: IngestPhase;
   sourceRefs: VersionedRef[];
+  evidenceRefs: VersionedRef[];
   coverageRef: VersionedRef | null;
   durability: {
     localRevision: string;
@@ -113,6 +123,7 @@ type MemoryOperation = {
   collectionId: string;
   coverageRef: VersionedRef | null;
   sourceRefs: VersionedRef[];
+  evidenceRefs: VersionedRef[];
   resultState: "synchronized";
 };
 
@@ -140,10 +151,11 @@ function parseMemoryOperation(value: unknown): MemoryOperation {
     "invalid_record");
   check(value.coverageRef === null || validRef(value.coverageRef), "invalid_record");
   check(Array.isArray(value.sourceRefs) && value.sourceRefs.every(validRef), "invalid_record");
+  check(Array.isArray(value.evidenceRefs) && value.evidenceRefs.every(validRef), "invalid_record");
   check(value.resultState === "synchronized", "invalid_record");
   check(value.retention === "do_not_retain"
-    ? value.sourceRefs.length === 0 && value.coverageRef === null && value.targetRefs.length === 0
-    : value.sourceRefs.length > 0,
+    ? value.sourceRefs.length === 0 && value.evidenceRefs.length === 0 && value.coverageRef === null && value.targetRefs.length === 0
+    : value.sourceRefs.length > 0 && value.evidenceRefs.length > 0,
   "invalid_record");
   return {
     schemaVersion: "stella.memory-operation/v1",
@@ -159,6 +171,7 @@ function parseMemoryOperation(value: unknown): MemoryOperation {
     collectionId: value.collectionId,
     coverageRef: value.coverageRef === null ? null : { id: value.coverageRef.id, version: value.coverageRef.version },
     sourceRefs: value.sourceRefs.map((ref) => ({ id: ref.id, version: ref.version })),
+    evidenceRefs: value.evidenceRefs.map((ref) => ({ id: ref.id, version: ref.version })),
     resultState: "synchronized",
   };
 }
@@ -230,6 +243,62 @@ export async function ingestHostMessage(input: {
     cursor: input.snapshot.parentId,
     policyRef: input.policyRef,
     items: prepareHostMessageItems(input.snapshot, input.speaker),
+    purpose: input.purpose,
+  }, ports);
+}
+
+/** Host request body → ingest items (transcript not yet reliable). */
+export function prepareHostRequestItems(
+  snapshot: HostRequestSnapshot,
+  ownerId: string,
+): IngestItem[] {
+  const request = snapshotTurnRequest(snapshot.request, snapshot.request.runId);
+  check(snapshot.schemaVersion === "stella.host-request-snapshot/v1", "invalid_input");
+  check(canonicalJson(request) === canonicalJson(snapshot.request), "invalid_input");
+  check(request.senderIsOwner && request.senderId && request.chatType === "direct" && ownerId.trim(), "invalid_input");
+  check(/(?:Z|[+-]\d{2}:\d{2})$/.test(snapshot.capturedAt) && Number.isFinite(Date.parse(snapshot.capturedAt)),
+    "invalid_input");
+  return [{
+    upstreamId: request.runId,
+    role: "owner",
+    speakerId: ownerId,
+    kind: "reported",
+    text: request.prompt,
+    capturedAt: snapshot.capturedAt,
+    occurredAt: null,
+    authoredAt: null,
+    parentUpstreamId: null,
+    envelope: {
+      agentId: request.agentId,
+      sessionKey: request.sessionKey,
+      runId: request.runId,
+      requestHash: request.requestHash,
+      request,
+      schemaVersion: snapshot.schemaVersion,
+      capturedAt: snapshot.capturedAt,
+    },
+  }];
+}
+
+/** Public Host-request entry into the same ingest state machine. */
+export async function ingestHostRequest(input: {
+  operationId: string;
+  expectedRevision: string;
+  snapshot: HostRequestSnapshot;
+  ownerId: string;
+  policyRef: VersionedRef;
+  purpose: IngestRequest["purpose"];
+}, ports: IngestPorts): Promise<IngestResult> {
+  const items = prepareHostRequestItems(input.snapshot, input.ownerId);
+  const request = snapshotTurnRequest(input.snapshot.request, input.snapshot.request.runId);
+  return ingest({
+    operationId: input.operationId,
+    expectedRevision: input.expectedRevision,
+    adapterId: HOST_REQUEST_ARCHIVE_ADAPTER,
+    collectionId: request.sessionKey,
+    cursor: null,
+    policyRef: input.policyRef,
+    items,
     purpose: input.purpose,
   }, ports);
 }
@@ -367,11 +436,44 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
     check(["owner", "assistant", "other", "unknown"].includes(item.role), "invalid_input");
     check(item.role !== "owner" || Boolean(item.speakerId), "invalid_input");
 
-    const identity = canonicalJson([request.adapterId, request.collectionId, item.upstreamId]);
+    // Host adapters keep stable IDs aligned with prepareHostInputArchive / prepareHostRequestArchive.
+    let identity: string;
+    let agentIds: string[] = [];
+    let evidenceSelector = { kind: "json_pointer" as const, value: "/text" };
+    if (request.adapterId === HOST_INPUT_ARCHIVE_ADAPTER) {
+      check(isRecord(item.envelope) && typeof item.envelope.agentId === "string" && item.envelope.agentId.trim() &&
+        typeof item.envelope.sessionId === "string", "invalid_input");
+      identity = canonicalJson([
+        HOST_INPUT_ARCHIVE_ADAPTER,
+        item.envelope.agentId,
+        item.envelope.sessionId,
+        item.upstreamId,
+      ]);
+      agentIds = [item.envelope.agentId];
+    } else if (request.adapterId === HOST_REQUEST_ARCHIVE_ADAPTER) {
+      check(isRecord(item.envelope) && typeof item.envelope.agentId === "string" && item.envelope.agentId.trim() &&
+        typeof item.envelope.sessionKey === "string", "invalid_input");
+      identity = canonicalJson([
+        HOST_REQUEST_ARCHIVE_ADAPTER,
+        item.envelope.agentId,
+        item.envelope.sessionKey,
+        item.upstreamId,
+      ]);
+      agentIds = [item.envelope.agentId];
+      evidenceSelector = { kind: "json_pointer", value: "/request/prompt" };
+    } else {
+      identity = canonicalJson([request.adapterId, request.collectionId, item.upstreamId]);
+    }
     const sourceId = stableId("source", identity);
     const coverageId = stableId("coverage", identity);
     const payloadBody = item.envelope
-      ? { ...item.envelope, text: item.text, role: item.role, speakerId: item.speakerId }
+      ? (request.adapterId === HOST_REQUEST_ARCHIVE_ADAPTER
+        ? {
+          schemaVersion: item.envelope.schemaVersion,
+          request: item.envelope.request,
+          capturedAt: item.envelope.capturedAt,
+        }
+        : { ...item.envelope, text: item.text, role: item.role, speakerId: item.speakerId })
       : {
         adapterId: request.adapterId,
         collectionId: request.collectionId,
@@ -390,24 +492,20 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
     };
     payloads.push(payload);
 
-    const agentId = request.adapterId === HOST_INPUT_ARCHIVE_ADAPTER && isRecord(item.envelope)
-      ? item.envelope.agentId
-      : null;
-    check(request.adapterId !== HOST_INPUT_ARCHIVE_ADAPTER || typeof agentId === "string" && agentId.trim(),
-      "invalid_input");
-
     coverageRef = add("coverage", {
       schemaVersion: "stella.archive-coverage/v1",
       id: coverageId,
       adapterId: request.adapterId,
       collectionId: request.collectionId,
       scope: {
-        agentIds: typeof agentId === "string" ? [agentId] : [],
+        agentIds,
         roots: [],
         branchPolicy: "declared_subset",
         declaredBranches: [item.upstreamId],
       },
-      upstreamSnapshot: bytesVersion(canonicalJson({ upstreamId: item.upstreamId, text: item.text })),
+      upstreamSnapshot: request.adapterId === HOST_REQUEST_ARCHIVE_ADAPTER && isRecord(item.envelope)
+        ? String(item.envelope.requestHash ?? bytesVersion(canonicalJson({ upstreamId: item.upstreamId, text: item.text })))
+        : bytesVersion(canonicalJson({ upstreamId: item.upstreamId, text: item.text })),
       fromCursor: request.cursor,
       toCursor: item.upstreamId,
       expectedCount: 1,
@@ -443,7 +541,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       id: stableId("evidence", identity),
       source: sourceRef,
       payloadSha256: payloadHash,
-      selector: { kind: "json_pointer", value: "/text" },
+      selector: evidenceSelector,
       speakerId: item.speakerId,
       role: item.role,
       kind: item.kind,
@@ -504,6 +602,7 @@ function resultFromOperation(
     operationId: operation.id,
     state: operation.resultState,
     sourceRefs: operation.sourceRefs,
+    evidenceRefs: operation.evidenceRefs,
     coverageRef: operation.coverageRef,
     durability: {
       localRevision: diagnostics.localRevision,
@@ -511,6 +610,10 @@ function resultFromOperation(
       rpoStatus: diagnostics.normalState,
     },
   };
+}
+
+function phaseJournalPath(catalogPath: string, operationId: string): string {
+  return path.posix.join(path.posix.dirname(catalogPath), "operations", `${operationId}.phase.json`);
 }
 
 /**
@@ -529,15 +632,62 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
     await emit(ports, "received", observed);
 
     const reader = ports.reader;
-    const policy = await reader.read(request.policyRef, "policies");
-    const retention = assertRetentionAdmission(policy, ports.retentionGuarantees);
-    check(Array.isArray(policy.readPurposes) && policy.readPurposes.includes(request.purpose.readPurpose) &&
-      Array.isArray(policy.derivePurposes) && policy.derivePurposes.includes(request.purpose.derivePurpose) &&
-      Array.isArray(policy.deliveryScopes) && policy.deliveryScopes.includes(request.purpose.deliveryScope),
-    "permission_denied");
-
     const digest = inputDigest(request);
     const opRelative = operationPath(reader.catalogPath, request.operationId);
+    const journalRelative = transactionPath(reader.catalogPath, request.operationId);
+
+    // Pending fence or completed journal must resume before any assertCurrent catalog read:
+    // a failed critical sync leaves the marker while caller expectedRevision may already have advanced.
+    let recorded: MemoryTransactionPlan | undefined;
+    try {
+      recorded = await readRecordedMemoryTransaction(reader.root, request.operationId, journalRelative);
+    } catch (error) {
+      const missingJournal = error instanceof Error && "code" in error && error.code === "ENOENT";
+      const pendingMissing = error instanceof MemoryTransactionError && error.category === "pending_transaction_not_found";
+      if (!missingJournal && !pendingMissing) {
+        throw error instanceof IngestError ? error : new IngestError("persistence_failed", { cause: error });
+      }
+    }
+    if (recorded) {
+      const operationAfter = recorded.files.find((file) => file.path === opRelative)?.after;
+      check(typeof operationAfter === "string", "invalid_record");
+      let existing: unknown;
+      try { existing = JSON.parse(operationAfter); }
+      catch { throw new IngestError("invalid_record"); }
+      const operation = parseMemoryOperation(existing);
+      check(operation.id === request.operationId && operation.inputDigest === digest, "idempotency_conflict");
+      const catalogChange = recorded.files.find((file) => file.path === reader.catalogPath);
+      check(catalogChange && typeof catalogChange.before === "string", "invalid_record");
+      await emit(ports, "staged", observed);
+      await emit(ports, "validated", observed);
+      await applyMemoryTransaction(reader.root, recorded, {
+        async validate() {
+          const current = await CatalogReader.load(reader.root, reader.catalogPath);
+          check([bytesVersion(catalogChange.before!), bytesVersion(catalogChange.after)].includes(current.catalogHash),
+            "stale_generation");
+          const livePolicy = await current.read(request.policyRef, "policies");
+          assertRetentionAdmission(livePolicy, ports.retentionGuarantees);
+          check(Array.isArray(livePolicy.readPurposes) && livePolicy.readPurposes.includes(request.purpose.readPurpose) &&
+            Array.isArray(livePolicy.derivePurposes) && livePolicy.derivePurposes.includes(request.purpose.derivePurpose) &&
+            Array.isArray(livePolicy.deliveryScopes) && livePolicy.deliveryScopes.includes(request.purpose.deliveryScope),
+          "permission_denied");
+          await current.assertCurrent();
+        },
+        persist: async (paths) => {
+          await ports.durability.syncCritical(paths, `stella ingest ${request.operationId}`);
+        },
+        confirmPreviouslyCommitted: (file) => ports.durability.confirmPreviouslyCommitted(file),
+        publishView: () => afterDurablePersistPublishView(reader.root),
+      }, ports.signal);
+      await emit(ports, "local_committed", observed);
+      const diagnostics = await ports.durability.diagnostics();
+      check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision,
+        "sync_failed");
+      await emit(ports, "synchronized", observed);
+      return resultFromOperation(operation, diagnostics);
+    }
+
+    // Completed operation without a pending fence: idempotent confirm (also fails closed on corrupt journals).
     const existingBytes = await readOptional(reader.root, opRelative);
     if (existingBytes !== null) {
       let existing: unknown;
@@ -553,6 +703,14 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
       await emit(ports, "synchronized", observed);
       return resultFromOperation(operation, await ports.durability.diagnostics());
     }
+
+    // Fresh write: catalog has no pending fence, so assertCurrent-backed reads are safe.
+    const policy = await reader.read(request.policyRef, "policies");
+    const retention = assertRetentionAdmission(policy, ports.retentionGuarantees);
+    check(Array.isArray(policy.readPurposes) && policy.readPurposes.includes(request.purpose.readPurpose) &&
+      Array.isArray(policy.derivePurposes) && policy.derivePurposes.includes(request.purpose.derivePurpose) &&
+      Array.isArray(policy.deliveryScopes) && policy.deliveryScopes.includes(request.purpose.deliveryScope),
+    "permission_denied");
 
     const head = await ports.durability.diagnostics();
     check(head.localRevision.toLowerCase() === request.expectedRevision.toLowerCase(), "write_conflict");
@@ -598,15 +756,23 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
       collectionId: request.collectionId,
       coverageRef: archive?.coverageRef ?? null,
       sourceRefs: archive ? [...new Map(archive.objects.filter((o) => o.group === "sources").map((o) => [o.ref.id, o.ref])).values()] : [],
+      evidenceRefs: archive ? archive.evidenceRefs : [],
       resultState: "synchronized",
     };
     // Ensure operation bytes never carry private item text for do_not_retain.
     const operationBytes = canonicalJson(operation);
     check(retention === "retain" || !request.items.some((item) => operationBytes.includes(item.text)),
       "retention_payload_leak");
+    const phaseBytes = canonicalJson({
+      schemaVersion: "stella.ingest-phase/v1",
+      operationId: request.operationId,
+      phase: "synchronized",
+      retention,
+    });
 
     files.push(
       { path: opRelative, before: null, after: operationBytes },
+      { path: phaseJournalPath(reader.catalogPath, request.operationId), before: null, after: phaseBytes },
       { path: reader.catalogPath, before: catalogBytes, after: canonicalJson(after) },
     );
 
@@ -614,21 +780,9 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
 
     const plan: MemoryTransactionPlan = {
       operationId: request.operationId,
-      journalPath: transactionPath(reader.catalogPath, request.operationId),
+      journalPath: journalRelative,
       files,
     };
-
-    let recorded;
-    try {
-      recorded = await readRecordedMemoryTransaction(reader.root, request.operationId, plan.journalPath);
-    } catch (error) {
-      const missingJournal = error instanceof Error && "code" in error && error.code === "ENOENT";
-      const pendingMissing = error instanceof MemoryTransactionError && error.category === "pending_transaction_not_found";
-      if (!missingJournal && !pendingMissing) {
-        throw error instanceof IngestError ? error : new IngestError("persistence_failed", { cause: error });
-      }
-    }
-    if (recorded) check(canonicalJson(recorded) === canonicalJson(plan), "idempotency_conflict");
 
     await applyMemoryTransaction(reader.root, plan, {
       async validate() {

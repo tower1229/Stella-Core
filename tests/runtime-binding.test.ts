@@ -168,6 +168,11 @@ test("bound v2 advice archives original input, resumes pointer failure, and rest
   assert.equal(restoredEpisode.episode.actual, undefined);
   assert.equal(restoredEpisode.episode.outcome, undefined);
   assert.equal(restoredEpisode.episode.learning, undefined);
+  const ingestOp = JSON.parse(await readFile(path.join(restored, "30_PersonalData/memory/operations",
+    `${result.writeOperationIds[0]}.json`), "utf8"));
+  assert.equal(ingestOp.schemaVersion, "stella.memory-operation/v1");
+  assert.equal(ingestOp.kind, "ingest");
+  assert.equal(ingestOp.adapterId, "openclaw-transcript-2026.8.2");
   // Current Alpha consumes authoritative documents/catalog and immutable Episode
   // versions directly; legacy derived targets have no runtime data consumer.
   const candidates = listSemanticRoutingCandidates(restoredLoaded, memory.openEpisodes);
@@ -179,6 +184,51 @@ test("bound v2 advice archives original input, resumes pointer failure, and rest
   assert.deepEqual(await directRuntime.listMemory(), memory);
   assert.deepEqual(listSemanticRoutingCandidates(directLoaded, memory.openEpisodes), candidates);
   assert.deepEqual(await directRuntime.repository.read(episode.id), restoredEpisode);
+});
+
+test("persistBoundAdvice blocks do_not_retain without Host guarantees before any archive write", async (t) => {
+  const { objectVersion, bytesVersion, canonicalJson } = await import("../src/canghai/content-version.js");
+  const { EpisodeV2Error } = await import("../src/praxis/episode-v2.js");
+  const root = await createFixture();
+  const temp = await mkdtemp(path.join(os.tmpdir(), "stella-v2-dnr-"));
+  t.after(async () => { await rm(root, { recursive: true, force: true }); await rm(temp, { recursive: true, force: true }); });
+  const policyPath = path.join(root, "30_PersonalData/memory/policy.json");
+  const catalogPath = path.join(root, "30_PersonalData/memory/catalog.json");
+  const bindingPath = path.join(root, "50_PersonalAgent/stella/praxis-binding.json");
+  const basePolicy = JSON.parse(await readFile(policyPath, "utf8"));
+  const dnrPolicy = { ...basePolicy, retention: "do_not_retain" };
+  const policyRef = { id: dnrPolicy.id, version: objectVersion(dnrPolicy) };
+  const policyBytes = canonicalJson(dnrPolicy);
+  await writeFile(policyPath, policyBytes);
+  const catalog = JSON.parse(await readFile(catalogPath, "utf8"));
+  catalog.policies = [{ ...policyRef, status: "current", dependencies: [],
+    locator: { path: "30_PersonalData/memory/policy.json", sha256: bytesVersion(policyBytes) } }];
+  await writeFile(catalogPath, canonicalJson(catalog));
+  const bindingJson = JSON.parse(await readFile(bindingPath, "utf8"));
+  bindingJson.archive.policyRef = policyRef;
+  await writeFile(bindingPath, canonicalJson(bindingJson));
+  const revision = await initializeFixtureRepository(root);
+  const remote = path.join(temp, "remote.git");
+  await run("git", ["init", "--bare", "--quiet", remote]);
+  await run("git", ["-C", root, "remote", "add", "origin", remote]);
+  await run("git", ["-C", root, "push", "origin", "HEAD:refs/heads/main"]);
+  const durability = new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
+    normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0 });
+  const loaded = await loadConsciousness(root);
+  const binding = await loadPraxisRuntimeBinding(loaded);
+  const runtime = await createBoundPraxisRuntime(loaded, binding, complete, async () => { throw new Error("Read runtime must not write"); });
+  const listingBefore = await (await import("node:fs/promises")).readdir(path.join(root, "30_PersonalData"), { recursive: true });
+  await assert.rejects(
+    () => persistBoundAdvice({
+      loaded, binding, runtime, durability, complete, operationId: "fixture-dnr", original,
+      target: { kind: "new", episode }, inputRefs: [],
+      decision: { recommendation: "must not persist", rationale: [] }, abortSignal: new AbortController().signal,
+    }),
+    (error: unknown) => error instanceof EpisodeV2Error && error.category === "retention_guarantee_unavailable",
+  );
+  assert.equal((await run("git", ["-C", root, "rev-parse", "HEAD"])).stdout.trim(), revision);
+  const listingAfter = await (await import("node:fs/promises")).readdir(path.join(root, "30_PersonalData"), { recursive: true });
+  assert.deepEqual(listingAfter.sort(), listingBefore.sort());
 });
 
 test("full-memory uses its explicit lifecycle binding and requires private processing for every model role", async t => {
