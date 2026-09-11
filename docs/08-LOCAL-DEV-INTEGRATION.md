@@ -159,6 +159,7 @@ node scripts/record-revoke-late-delivery-evidence.mjs --evidence-directory /path
 npm run build
 node scripts/compile.mjs test
 node --test .test-dist/tests/initialization-install.test.js \
+  .test-dist/tests/initialization-host-skills.test.js \
   .test-dist/tests/initialization-source.test.js \
   .test-dist/tests/initialization.test.js \
   .test-dist/tests/initialization-context.test.js
@@ -166,4 +167,4 @@ node --test .test-dist/tests/initialization-install.test.js \
 node scripts/record-install-init-evidence.mjs --evidence-directory /path/to/private-evidence
 ```
 
-账本证据仅记 `synthetic_contract` + `implemented`（目标 `31`／`I-01`／`I-02`／`I-03`／`I-05`／`C-01`／`C-09`）；其中 **I-02 UI／channel 仅 Host 配置身份与 Host 提供的 IDENTITY.md 交叉核对**，**不是各真实 channel 展示验收**；**C-01 为五份 bootstrap 不整篇重复 + 必需行为／skill 投影 + 诚实 runtime blockers**；**C-09 为文件可装载而能力不全时只报告实际阶段，重复初始化不伪造就绪**。`implemented ≠ verified`。
+账本证据仅记 `synthetic_contract` + `implemented`（目标 `31`／`I-01`／`I-02`／`I-03`／`I-05`／`C-01`／`C-09`）；其中 **I-02 UI／channel 仅 Host 配置身份与 Host 提供的 IDENTITY.md 字段交叉核对**，**不是各真实 channel 展示验收**；**C-01 为五份 bootstrap 不整篇重复 + 必需行为／skill 投影 + 诚实 runtime blockers**；**C-09 仅 runtime 诚实切片**（`host_bootstrap` 可 ready 且 `runtime.blocked` 时不伪造 full_memory 就绪；重复 init 不发明就绪），**不证明自动化任务去重**。`implemented ≠ verified`。

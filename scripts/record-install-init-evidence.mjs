@@ -50,11 +50,13 @@ await mkdir(evidenceDirectory, { recursive: true, mode: 0o700 });
 const modules = [
   path.join(root, "dist/src/openclaw/initialization-registration.js"),
   path.join(root, "dist/src/openclaw/initialization-source.js"),
+  path.join(root, "dist/src/openclaw/initialization-host-skills.js"),
   path.join(root, "dist/src/openclaw/initialization.js"),
   path.join(root, "dist/src/openclaw/initialization-context.js"),
 ];
 const testEntries = [
   path.join(root, ".test-dist/tests/initialization-install.test.js"),
+  path.join(root, ".test-dist/tests/initialization-host-skills.test.js"),
   path.join(root, ".test-dist/tests/initialization-source.test.js"),
   path.join(root, ".test-dist/tests/initialization.test.js"),
   path.join(root, ".test-dist/tests/initialization-context.test.js"),
@@ -107,7 +109,7 @@ const summary = {
   issue: 11,
   environment: ENVIRONMENT,
   result: "implemented",
-  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main / channel display not claimed. C-01 = bootstrap non-duplication + required behavior/skill projection + honest runtime blockers. C-09 = host_bootstrap ready with runtime.blocked when capabilities incomplete; repeat init does not invent readiness or duplicate tasks. I-02 UI/channel = Host config identity crossed with Host-served IDENTITY.md, not live channel surfaces.",
+  note: "synthetic_contract only; implemented ≠ verified; Exact Host / real_main / channel display not claimed. C-01 = bootstrap non-duplication + required behavior/skill projection + honest runtime blockers. C-09 = runtime-honesty slice only (host_bootstrap ready with runtime.blocked when capabilities incomplete; repeat init does not invent readiness); does not prove automation task dedupe. I-02 UI/channel = Host config identity crossed with Host-served IDENTITY.md fields, not live channel surfaces.",
   targets: TARGETS,
   recordedAt,
   testSummary: testOutput.trim().split("\n").slice(-30),
@@ -123,6 +125,7 @@ const summary = {
   ],
   syntheticHarness: [
     "tests/initialization-install.test.ts",
+    "tests/initialization-host-skills.test.ts",
     "tests/initialization-source.test.ts",
     "tests/initialization.test.ts",
     "tests/initialization-context.test.ts",

@@ -24,9 +24,8 @@ type SkillStatus = {
 
 async function installFixture(t: { after(fn: () => Promise<void>): void }, options?: {
   skillStatuses?: SkillStatus[];
-  skillContentOverrides?: Record<string, string>;
 }) {
-  const root = await realpath(await mkdtempCompat());
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-install-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const source = path.join(root, "source");
   const workspace = path.join(root, "workspace");
@@ -103,6 +102,7 @@ async function installFixture(t: { after(fn: () => Promise<void>): void }, optio
     eligible: true,
     filePath: defaultSkillPath,
   }];
+  let getFile: (name: string) => Promise<string> = async (name) => readFile(path.join(workspace, name), "utf8");
   const api = {
     config: hostConfig,
     runtime: {
@@ -126,7 +126,7 @@ async function installFixture(t: { after(fn: () => Promise<void>): void }, optio
             return { workspaceDir: workspace, skills: skillStatuses };
           }
           if (method === "agents.files.get") {
-            return { file: { content: await readFile(path.join(workspace, params.name!), "utf8") } };
+            return { file: { content: await getFile(params.name!) } };
           }
           throw new Error("unexpected Host method");
         },
@@ -144,16 +144,12 @@ async function installFixture(t: { after(fn: () => Promise<void>): void }, optio
     api.runtime.gateway.request(method, params));
   return {
     source, workspace, state, pluginConfig, hostConfig, api, hooks, service, command, initialization, git,
-    skillRoot: path.join(workspace, "skills/stella-initialization-probe"),
+    setGetFile(next: (name: string) => Promise<string>) { getFile = next; },
     async start() {
       await service!.start({ config: api.config, stateDir: state, logger: api.logger } as never);
       await hooks.get("gateway_start")!({}, {});
     },
   };
-}
-
-async function mkdtempCompat() {
-  return mkdtemp(path.join(os.tmpdir(), "stella-install-"));
 }
 
 test("formal Host service install and manual retry share one coordinator, recipe, and success criteria", async (t) => {
@@ -198,7 +194,23 @@ test("Host-resolved skill body and resources must match the recipe; file presenc
   await writeFile(path.join(f.workspace, "skills/stella-initialization-probe/reference.txt"), "Tampered resource on disk\n");
   const retry = await f.initialization.initialize();
   assert.equal(retry.state, "blocked");
-  assert.match(String(retry.category), /host_skill_content_mismatch|projection_drift/);
+  assert.equal(retry.category, "projection_drift");
+});
+
+test("Host-served IDENTITY must match config identity fields after install", async (t) => {
+  const f = await installFixture(t);
+  await f.start();
+  assert.equal(f.initialization.status().state, "ready");
+  const onDisk = await readFile(path.join(f.workspace, "IDENTITY.md"), "utf8");
+  f.setGetFile(async (name) => {
+    if (name === "IDENTITY.md") {
+      return onDisk.replace("- Name: Synthetic Stella", "- Name: Impostor");
+    }
+    return readFile(path.join(f.workspace, name), "utf8");
+  });
+  const retry = await f.initialization.initialize();
+  assert.equal(retry.state, "blocked");
+  assert.equal(retry.category, "host_channel_identity_mismatch");
 });
 
 test("repeat initialization keeps the same receipt and does not claim full_memory when runtime is blocked", async (t) => {

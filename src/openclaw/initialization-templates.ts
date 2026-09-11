@@ -21,3 +21,20 @@ export function renderDisplayIdentity(identity: DisplayIdentity): string {
   return renderInitializationTemplate("IDENTITY.md", ["# Identity\n\n" + fields
     .filter((entry) => entry[1] !== undefined).map(([key, value]) => `- ${key}: ${value}`).join("\n")]);
 }
+
+/** Parse Host-served IDENTITY.md display fields produced by renderDisplayIdentity. */
+export function parseDisplayIdentityFields(content: string): HostIdentity & { role?: string } {
+  const fields: HostIdentity & { role?: string } = {};
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^- (Name|Role|Vibe|Emoji|Avatar): (.+)$/);
+    if (!match) continue;
+    const key = match[1]!;
+    const value = match[2]!;
+    if (key === "Name") fields.name = value;
+    else if (key === "Role") fields.role = value;
+    else if (key === "Vibe") fields.theme = value;
+    else if (key === "Emoji") fields.emoji = value;
+    else fields.avatar = value;
+  }
+  return fields;
+}
