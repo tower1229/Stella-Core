@@ -1,3 +1,4 @@
+import { manifestForItems } from "./archive-integrity.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -35,6 +36,8 @@ export type MaterialIngestRequest = {
   collectionId: string;
   entry: "files" | "skill" | "external" | "repository";
   snapshotId: string;
+  resumeKey?: string;
+  coverage?: IngestRequest["coverage"];
   materials: MaterialImport[];
   policyRef: VersionedRef;
   purpose: IngestRequest["purpose"];
@@ -86,9 +89,10 @@ export async function ingestMaterials(input: MaterialIngestRequest, ports: Inges
     };
   });
   return ingest({ operationId: input.operationId, expectedRevision: input.expectedRevision,
-    adapterId: MATERIAL_ADAPTER, collectionId: input.collectionId, cursor: null,
+    adapterId: MATERIAL_ADAPTER, collectionId: input.collectionId, cursor: input.coverage?.fromCursor ?? null,
+    ...(input.resumeKey ? { resumeKey: input.resumeKey } : {}),
     policyRef: input.policyRef, purpose: input.purpose, items,
-    coverage: { branchPolicy: "declared_subset", declaredBranches: items.map(item => item.upstreamId),
+    coverage: input.coverage ?? { manifest: manifestForItems(items), branchPolicy: "declared_subset", declaredBranches: items.map(item => item.upstreamId),
       upstreamSnapshot: input.snapshotId, fromCursor: null, toCursor: input.snapshotId, expectedCount: items.length },
   }, ports);
 }

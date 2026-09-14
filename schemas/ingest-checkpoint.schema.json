@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stella.example/schemas/ingest-checkpoint.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "resumeKey",
+    "adapterId",
+    "collectionId",
+    "upstreamSnapshot",
+    "operationId",
+    "fromCursor",
+    "cursor",
+    "coverageRef"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "stella.ingest-checkpoint/v1"
+    },
+    "resumeKey": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,199}$"
+    },
+    "adapterId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "collectionId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "upstreamSnapshot": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "operationId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,199}$"
+    },
+    "fromCursor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "coverageRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}
