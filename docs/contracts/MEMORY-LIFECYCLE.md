@@ -450,4 +450,12 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 
 `verifyArchiveCoverage` 通过 CatalogReader 逐项核对正文、附件真实字节、事件关联和当前留存资格，支持脱离原运行主机与外部附件存储的完整 Git 副本。`coordinateArchiveCleanup` 在既有 mutation lock 内重新确认同步、清单、原件及干净 Git revision；缺 Host cleanup port、取消、缺项、同步失败或陈旧 snapshot／cursor 均阻断。Host port 必须对 snapshot 做比较、按 operation ID 幂等处理，仅释放本次明确列出的 event IDs，并返回匹配收据；不得把此结果解释为可按 cursor 批量清理其他事件。Host 调用失败保留结果未知类别，不猜测成功。
 
-旧 Coverage v1 缺 manifest 时仍可作历史记录读取，但不能用于新清理确认。升级时应先用原始 ingest 请求恢复旧 pending 事务，再以新的 operation ID 和上游清单重新核验导入；禁止向旧 Coverage 填入 `retainedCount` 推造清单或伪造 checkpoint。本增量包含新格式结构校验、同一接口的恢复及拒绝案例、独立 Git 副本读取验证；仅为 synthetic_contract 实现证据。尚未接入并验证真实 Host 的自动清理拦截／积压监测，不启用完整留存能力，不构成 Exact Host、真实 main 或自然反馈验收。
+旧 Coverage v1 缺 manifest 时仍可作历史记录读取，但不能用于新清理确认。升级时应先用原始 ingest 请求恢复旧 pending 事务，再以新的 operation ID 和上游清单重新核验导入；禁止向旧 Coverage 填入 `retainedCount` 推造清单或伪造 checkpoint。本增量包含新格式结构校验、同一接口的恢复及拒绝案例、独立 Git 副本读取验证。
+
+本机 OpenClaw 2026.8.2 接线采用合同允许的 `hold_and_monitor` 模式：在插件配置显式启用 `archiveRetention: "hold_and_monitor"`，同时使用 `managed_durable_write` 并将 Host `session.maintenance.mode` 设为 `warn`。生产插件启动 `stella-archive-retention` 服务，每 60 秒经公开 session SDK 扫描配置 Agent 的 live generation 原始 message events；经 CatalogReader 核验 manifest、原件、附件及当前留存策略，再检查干净 Git HEAD 与配置远端分支一致。`stella.archiveRetention` 仅供本机 `operator.admin` 查询，并立即重新检查。不访问私人 SQLite、不从 active-branch history 的截断输出推断覆盖。
+
+Host stateDir 中只保留已观察事件的摘要；积压不会因会话被外部删除或 Gateway 重启而消失，原件消失单独计数。扫描失败、未同步、损坏、超限及服务失效均明确阻断；未知计数返回 null，不伪装为零。监测最多 128 个 live session、4096 个累计观察事件和每次 4 MiB 原始事件，超过边界阻断而不截断。配置不再为 warn、监测出错或超过两次周期未完成，会加入初始化 coordinator 的 runtime blockers；积压通过 Host service health 报告。监测本身不代办批量导入，也不签发归档确认。
+
+`hold_and_monitor` 约束原生 maintenance，不授权 `sessions.delete`、管理员 `--enforce` 或其他插件自带清理。公开 SDK 的 session 删除可能连带历史 generations，且未暴露逐事件快照比较删除，因此不把它适配成 `releaseArchived`。服务返回 `scope: observed_message_events`、`fullRetention: false`：未枚举的历史 generations、非 message 事件及未被完整覆盖的外部附件仍不能签发全 Host 完整留存能力。开启普通原生自动删除前，仍须有能保护完整声明范围的 Host 删除门禁。
+
+`scripts/probe-archive-retention.mjs` 使用显式 `STELLA_PROBE_HOST_ROOT` 启动隔离合成 Agent 的真实 Gateway，测试生产插件、原生维护保留、Host opaque cursor、真实 Git 传输中断、重放去重、原件与附件独立 clone 恢复、定时积压发现、重启及配置失效；`npm run test:host-archive` 可重跑。本机安装与 npm packed consumer 分别生成绑定源码／Host／harness 摘要的 receipt；它们是 real local Host 上的 synthetic 数据证据，不是私人 main、全历史留存或自然反馈验收。

@@ -58,6 +58,7 @@ import { recoverPendingOutcome } from "./praxis/outcome-recovery.js";
 import { loadOutcomeRecoveryBinding } from "./praxis/outcome-recovery-binding.js";
 import { prepareQuestionEvidence } from "./praxis/question-evidence.js";
 import { prepareQuestionTransaction, recoverPendingQuestion } from "./praxis/question-transaction.js";
+import { registerArchiveRetention } from "./openclaw/archive-retention-registration.js";
 import { registerStellaInitialization } from "./openclaw/initialization-registration.js";
 import { InitializationError } from "./openclaw/initialization.js";
 
@@ -72,6 +73,7 @@ type StellaCoreConfig = {
   recoveryRevision: string;
   dataMode: StellaDataMode;
   initializationGatewayAccess?: "local_operator_read";
+  archiveRetention?: "hold_and_monitor";
   durabilityRemote?: string;
   durabilityBranch?: string;
 };
@@ -117,7 +119,11 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
     throw new Error("managed_durable_write requires config.durabilityBranch");
   }
 
+  if (config.archiveRetention !== undefined && config.archiveRetention !== "hold_and_monitor") {
+    throw new Error("Stella Core config.archiveRetention must be hold_and_monitor");
+  }
   return {
+    ...(config.archiveRetention === "hold_and_monitor" ? { archiveRetention: "hold_and_monitor" as const } : {}),
     canghaiRoot: config.canghaiRoot,
     manifestPath:
       typeof config.manifestPath === "string" && config.manifestPath.trim()
@@ -220,9 +226,14 @@ export default definePluginEntry({
 
   register(api) {
     const config = parsePluginConfig(api.pluginConfig);
-    const initialization = registerStellaInitialization(api, config);
-    registerCompletionTranscriptGuard(api, config.agentId);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
+    const archiveRetention = registerArchiveRetention(api, config, async () => {
+      const loaded = await consciousness.load();
+      const binding = await loadPraxisRuntimeBinding(loaded);
+      return CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
+    });
+    const initialization = registerStellaInitialization(api, config, undefined, async () => archiveRetention.blockers());
+    registerCompletionTranscriptGuard(api, config.agentId);
     const completeModel = (params: Parameters<typeof api.runtime.llm.complete>[0]) =>
       completeWithPreparationSignal((signal) => api.runtime.llm.complete({ ...params, ...(signal ? { signal } : {}) }));
     const classifySemantically = createSemanticRouter(
