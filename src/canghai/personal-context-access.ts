@@ -1,9 +1,10 @@
 import { CatalogError, readRepositoryBytes, validMemoryRef, type CatalogReader } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
-import { createSourceAccessProvider, type SourceAccessDescriptor, type SourceAccessProvider } from "./source-access.js";
+import { createSourceAccessProvider, sourceAccessKey, type SourceAccessDescriptor, type SourceAccessProvider } from "./source-access.js";
 import { assertSourcePolicyAccess, parseSourcePolicy, type PolicyPurpose, type SourceAccessContext } from "./source-policy.js";
-import { sourceSegments } from "./source-segments.js";
+import { sourceSegments, segmentLocator, validSegmentLocator } from "./source-segments.js";
 import { isRecord } from "../shared/type-guards.js";
+import type { VersionedRef } from "../praxis/episode-v2.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 
 export const PERSONAL_CONTEXT_ADAPTER = "stella.personal-context-access";
@@ -39,12 +40,13 @@ export function parsePersonalContextAccess(value: unknown): PersonalContextAcces
   }
   const seen = new Set<string>();
   for (const descriptor of value.descriptors) {
-    if (!isRecord(descriptor) || Object.keys(descriptor).sort().join() !== "description,policyRef,sourceRef" ||
+    if (!isRecord(descriptor) || Object.keys(descriptor).sort().join() !== (descriptor.segment === undefined ? "description,policyRef,sourceRef" : "description,policyRef,segment,sourceRef") ||
         !validMemoryRef(descriptor.sourceRef) || !validMemoryRef(descriptor.policyRef) ||
+        descriptor.segment !== undefined && !validSegmentLocator(descriptor.segment) ||
         !text(descriptor.description) || descriptor.description.length > 8_000) {
       throw new CatalogError("invalid_personal_context_descriptor");
     }
-    const key = canonicalJson([descriptor.sourceRef, descriptor.policyRef]);
+    const key = sourceAccessKey(descriptor as SourceAccessDescriptor);
     check(!seen.has(key), "duplicate_personal_context_descriptor"); seen.add(key);
   }
   return structuredClone(value) as PersonalContextAccess;
@@ -93,7 +95,7 @@ export function createPersonalContextAccess(input: {
       const policyObject = await reader.read(target.policyRef, "policies");
       check(policyObject.ownerId === config.ownerId, "personal_context_owner_mismatch");
       parseSourcePolicy(policyObject);
-      const descriptor = config.descriptors.find(d => canonicalJson([d.sourceRef, d.policyRef]) === canonicalJson([target.sourceRef, target.policyRef]));
+      const descriptor = config.descriptors.find(d => sourceAccessKey(d) === sourceAccessKey(target));
       check(descriptor, "personal_context_descriptor_required");
       return structuredClone(descriptor);
     },
@@ -107,7 +109,7 @@ export function createPersonalContextAccess(input: {
     check(canonicalJson({ readPurpose: purpose.readPurpose, derivePurpose: purpose.derivePurpose, deliveryScope: purpose.deliveryScope }) ===
       canonicalJson(config.purpose), "personal_context_purpose_mismatch");
     try {
-      const key = canonicalJson([target.sourceRef, target.policyRef, config.purpose]);
+      const key = canonicalJson([sourceAccessKey(target), config.purpose]);
       if (input.isPersistenceRevalidation?.()) {
         const decision = decisions.get(key);
         check(decision, "source_access_revalidation_receipt_required");
@@ -132,19 +134,25 @@ export function createPersonalContextAccess(input: {
  * A whole-source description cannot stand in for a fragment's policy scope. */
 export async function validatePersonalContextCatalog(reader: CatalogReader, input: PersonalContextAccess): Promise<void> {
   const config = parsePersonalContextAccess(input);
-  const descriptors = new Set(config.descriptors.map(d => canonicalJson([d.sourceRef, d.policyRef])));
+  const descriptors = new Set(config.descriptors.map(sourceAccessKey));
   const declared = new Set<string>();
   for (const entry of reader.catalog.sources.filter(value => value.status === "current")) {
     const sourceRef = { id: entry.id, version: entry.version };
     const source = await reader.read(sourceRef, "sources");
     check(validMemoryRef(source.policyRef), "personal_context_source_policy_missing");
-    for (const policyRef of [source.policyRef, ...sourceSegments(source).map(segment => segment.policyRef)]) {
-      const object = await reader.read(policyRef, "policies");
+    const segments = sourceSegments(source);
+    const targets = segments.length ? segments.flatMap(segment =>
+      [segment.policyRef, source.policyRef as VersionedRef].map(policyRef =>
+        ({ sourceRef, policyRef, segment: segmentLocator(segment), fragmentPolicy: true }))) : [{ sourceRef, policyRef: source.policyRef, fragmentPolicy: false }];
+    for (const target of targets) {
+      const object = await reader.read(target.policyRef, "policies");
       check(object.ownerId === config.ownerId, "personal_context_owner_mismatch");
       const policy = parseSourcePolicy(object);
-      const key = canonicalJson([sourceRef, { id: policyRef.id, version: policyRef.version }]);
+      const key = sourceAccessKey(target);
       declared.add(key);
-      if (policy.restrictions) check(descriptors.has(key), "personal_context_descriptor_required");
+      if (target.fragmentPolicy)
+        check(descriptors.has(key), "personal_context_segment_descriptor_required");
+      else if (policy.restrictions) check(descriptors.has(key), "personal_context_descriptor_required");
     }
   }
   for (const key of descriptors) check(declared.has(key), "personal_context_descriptor_not_current");

@@ -6,7 +6,7 @@ import { objectVersion, canonicalJson, bytesVersion } from "../src/canghai/conte
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
 import type { VersionedRef } from "../src/praxis/episode-v2.js";
 
-export async function personalMemoryFixture(t: { after(fn: () => Promise<void>): void }, interpretationRules = false) {
+export async function personalMemoryFixture(t: { after(fn: () => Promise<void>): void }, interpretationRules = false, segmented = false) {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-personal-views-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const catalog: MemoryCatalog = { schemaVersion: "stella.memory-catalog/v1", generationId: "one", parentGenerationId: null,
@@ -30,12 +30,13 @@ export async function personalMemoryFixture(t: { after(fn: () => Promise<void>):
     missingItems: [], checkedAt: now, completeForDeclaredScope: true });
   const payload = JSON.stringify({ report: "我希望这篇文章保留疑问，不要替我加上励志结尾。" });
   await writeFile(path.join(root, "payload.json"), payload);
-  const source = await put("sources", { schemaVersion: "stella.memory-source/v1", id: "source",
+  const source = await put("sources", { schemaVersion: segmented ? "stella.memory-source/v2" : "stella.memory-source/v1", id: "source",
+    ...(segmented ? { accessSegments: [{ payloadSha256: bytesVersion(payload), start: 0, end: Buffer.byteLength(payload), policyRef: policy }] } : {}),
     origin: { adapterId: "synthetic", collectionId: "one", upstreamId: "one" },
     payloads: [{ path: "payload.json", mediaType: "application/json", bytes: Buffer.byteLength(payload), sha256: bytesVersion(payload) }],
     capturedAt: now, policyRef: policy, coverageRef: coverage }, [policy, coverage]);
   const evidence = await put("evidence", { schemaVersion: "stella.memory-evidence/v1", id: "evidence", source,
-    payloadSha256: bytesVersion(payload), selector: { kind: "json_pointer", value: "/report" },
+    payloadSha256: bytesVersion(payload), selector: segmented ? { kind: "utf8_bytes", value: `0:${Buffer.byteLength(payload)}` } : { kind: "json_pointer", value: "/report" },
     role: "owner", speakerId: "owner", kind: "reported", independentOriginId: "one", derivedFrom: [],
     occurredAt: null, authoredAt: now, capturedAt: now, policyRef: policy }, [source, policy]);
   const understanding = await put("understandings", { schemaVersion: "stella.understanding/v1", id: "understanding",

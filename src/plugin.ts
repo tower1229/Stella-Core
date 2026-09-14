@@ -1,3 +1,4 @@
+import { createFragmentReadTool, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "./openclaw/fragment-read-tool.js";
 import type { SourceAccessDescriptor } from "./canghai/source-access.js";
 import { recoverCorrection } from "./learning/correction.js";
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "./canghai/host-request-archive.js";
@@ -42,7 +43,7 @@ import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-r
 import type { CortexRoute } from "./routing/router.js";
 import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
 import { registerCompletionAdapter } from "./openclaw/completion-adapter.js";
-import { CompletionError, readCompletionRequest, hasCompletionPersistencePermit, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
+import { CompletionError, readActiveCompletionRequest, readCompletionRequest, hasCompletionPersistencePermit, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
   type CompletionDraft } from "./openclaw/completion.js";
 import { canonicalJson, bytesVersion } from "./canghai/content-version.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, resolveBoundInputRefs, persistBoundAdvice } from "./praxis/runtime-binding.js";
@@ -185,6 +186,7 @@ class ConsciousnessLoader {
 }
 
 type PreparedTurn = {
+  fragmentTool?: ReturnType<typeof createFragmentReadTool>;
   outcome: "ready" | "blocked";
   category?: string;
   message?: string;
@@ -319,6 +321,21 @@ export default definePluginEntry({
       }, sourceAccess);
       return { runtime, binding, viewProcessing };
     };
+
+    api.registerTool(ctx => ctx.agentId !== config.agentId ? null : {
+      name: FRAGMENT_READ_TOOL, label: "Stella source fragments",
+      description: "Memory skills: list admitted fragment descriptions, then read an exact handle with its Evidence citation. Never read the source file directly. Unavailable fragments require a new retrieval request.",
+      parameters: FRAGMENT_READ_PARAMETERS,
+      async execute(id, input, signal) {
+        const request = readActiveCompletionRequest(config.agentId, ctx.sessionId, ctx.sessionKey);
+        if (!ctx.sessionId || !ctx.sessionKey || ctx.senderIsOwner !== true || ctx.requesterSenderId !== request.senderId || request.chatType !== "direct")
+          throw new CatalogError("fragment_request_binding_required");
+        await initialization.assertRun(request.runId);
+        const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
+        if (prepared?.outcome !== "ready" || !prepared.fragmentTool) throw new CatalogError("fragment_reader_unavailable");
+        return prepared.fragmentTool.execute(id, input, signal);
+      },
+    }, { names: [FRAGMENT_READ_TOOL] });
 
     api.registerGatewayMethod("stella.recoverCorrection", async ({ params, client, respond, signal }) => {
       try {
@@ -724,8 +741,16 @@ export default definePluginEntry({
               complete: ({ prompt, maxTokens, signal }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
                 purpose: "stella-source-output", temperature: 0, maxTokens, signal, messages: [{ role: "user", content: prompt }] }),
             }) : undefined;
+            const fragmentTool = viewProcessing ? createFragmentReadTool({ resolver: runtime.evidence,
+              descriptors: viewProcessing.descriptors, originals: outputOriginals,
+              assertCurrent: async () => {
+                readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
+                await initialization.assertRun(runId);
+                await viewProcessing.assertCurrent();
+              },
+            }) : undefined;
             recordCompletionPreparation(runId, {
-              outcome: "ready", checkSourceOutput, route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
+              fragmentTool, outcome: "ready", checkSourceOutput, route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
               generationId: memory.generationId, persistRecommendation, evidenceRef,
               ...(personalViews ? { assertPersonalViewsCurrent: personalViews.assertCurrent,
                 assertPersonalViewsForGeneration: personalViews.assertCurrentForGeneration } : {}),

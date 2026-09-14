@@ -93,6 +93,7 @@ export async function preparePersonalViews(input: {
   const snapshots = new Map<string, { ref: VersionedRef; body: string }>();
   const payloads = new Map<string, { source: VersionedRef; sha256: string }>();
   const candidates: Candidate[] = [];
+  const segmentedSources = new Set<string>();
   const exclusions: SourceAccessExclusions = {};
   const read = async (ref: VersionedRef) => {
     const object = await reader.read(ref);
@@ -113,8 +114,11 @@ export async function preparePersonalViews(input: {
       declared(ref, [object.policyRef, object.coverageRef]);
       const policy = await read(object.policyRef);
       check(policy.ownerId === input.ownerId, "personal_context_owner_mismatch");
-      if (object.schemaVersion === "stella.memory-source/v2") await input.resolver.assertSourceMetadataAccess(ref, object.policyRef);
-      else await input.resolver.assertSourceAccess(ref, object.policyRef);
+      if (object.schemaVersion === "stella.memory-source/v2") segmentedSources.add(key(ref));
+      // A segmented Source is metadata, not an authorization target. Its
+      // applicable parent and fragment policies are checked together below by
+      // readEvidence, with the exact fragment description and locator.
+      if (object.schemaVersion === "stella.memory-source/v1") await input.resolver.assertSourceAccess(ref, object.policyRef);
     } else if (object.schemaVersion === "stella.memory-evidence/v1") {
       check(validMemoryRef(object.source) && typeof object.payloadSha256 === "string", "invalid_evidence");
       await authorize(object.source, visited, originals);
@@ -171,7 +175,17 @@ export async function preparePersonalViews(input: {
       if (group === "understandings" && object.status === "retired" ||
           group === "works" && ["completed", "abandoned"].includes(String(object.status))) continue;
       const originals = new Map<string, OriginalEvidence>();
-      try { await authorize(ref, new Set(), originals); }
+      try {
+        const visited = new Set<string>();
+        await authorize(ref, visited, originals);
+        const covered = new Set<string>();
+        for (const original of originals.values()) {
+          const evidence = await reader.read(original.ref, "evidence");
+          check(validMemoryRef(evidence.source), "invalid_evidence");
+          covered.add(key(evidence.source));
+        }
+        check([...visited].every(source => !segmentedSources.has(source) || covered.has(source)), "segmented_source_requires_evidence");
+      }
       catch (error) {
         const category = error instanceof CatalogError ? SOURCE_ACCESS_EXCLUSION_CATEGORIES.find(value => value === error.category) : undefined;
         if (!category) throw error;

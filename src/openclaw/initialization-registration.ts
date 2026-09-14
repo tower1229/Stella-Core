@@ -1,3 +1,4 @@
+import { FRAGMENT_READ_TOOL } from "./fragment-read-tool.js";
 import path from "node:path";
 import { mkdir, realpath } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
@@ -402,7 +403,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       if (!ctx.runId) throw new InitializationError("stale_initialization_run");
       await initializer!.assertRun(ctx.runId);
       if (event.toolName === "read") await initializer!.assertSkillRead(event.params);
-      else if (event.toolName !== "stella_initialize") throw new InitializationError("private_draft_tool_forbidden");
+      else if (event.toolName !== "stella_initialize" && event.toolName !== FRAGMENT_READ_TOOL) throw new InitializationError("private_draft_tool_forbidden");
     }
     catch (error) { return { block: true, blockReason: error instanceof InitializationError ? error.category : "Stella initialization is not current" }; }
   }, { priority: 2000, timeoutMs: 15000 });

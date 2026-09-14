@@ -97,6 +97,13 @@ export function completionOperationForRun(runId: string | undefined): string | u
   return hasCompletionRunPermit(runId) ? permits.getStore()?.operationId : undefined;
 }
 
+/** Tool factories lack runId; resolve it only from the active Host completion scope. */
+export function readActiveCompletionRequest(agentId: string, sessionId?: string, sessionKey?: string): BoundTurnRequest {
+  const permit = permits.getStore();
+  if (!permit || permit.abortSignal.aborted) throw new CompletionError("invalid_run_permit", "generate");
+  return readCompletionRequest(permit.runId, agentId, sessionId, sessionKey);
+}
+
 /** Current run only; no session cache and no model-supplied identity. */
 export function readCompletionRequest(runId: string, agentId: string, sessionId?: string, sessionKey?: string): BoundTurnRequest {
   if (!hasCompletionRunPermit(runId)) throw new CompletionError("invalid_run_permit", "prepare");

@@ -4,7 +4,7 @@ import { isRecord } from "../shared/type-guards.js";
 import type { ActualSource, EpisodeV2, VersionedRef } from "./episode-v2.js";
 import { assertSourcePolicyAccess, parseSourcePolicy, type SourceUsageRule } from "../canghai/source-policy.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
-import { sourceSegments, assertEvidenceSegment } from "../canghai/source-segments.js";
+import { sourceSegments, assertEvidenceSegment, segmentLocator, type SegmentLocator } from "../canghai/source-segments.js";
 
 export type OriginalEvidence = {
   ref: VersionedRef; text: string; role: string; kind: string; independentOriginId: string;
@@ -37,11 +37,11 @@ export class EpisodeEvidenceResolver {
     await this.assertSourceMetadataAccess(sourceRef, ref);
   }
   /** Checks policy access only. It does not authorize whole-source payload use. */
-  async assertSourceMetadataAccess(sourceRef: VersionedRef, ref: VersionedRef): Promise<void> {
+  async assertSourceMetadataAccess(sourceRef: VersionedRef, ref: VersionedRef, segment?: SegmentLocator): Promise<void> {
     const policy = await this.reader.read(ref, "policies");
-    const restricted = Boolean(parseSourcePolicy(policy).restrictions);
+    const restricted = Boolean(parseSourcePolicy(policy).restrictions) || segment !== undefined;
     check(!restricted || typeof this.purpose.sourceAccess === "function", "source_access_context_required");
-    const context = restricted ? await this.purpose.sourceAccess!(this.reader, { sourceRef, policyRef: ref }, this.purpose) : undefined;
+    const context = restricted ? await this.purpose.sourceAccess!(this.reader, { sourceRef, policyRef: ref, ...(segment ? { segment } : {}) }, this.purpose) : undefined;
     assertSourcePolicyAccess(await this.reader.read(ref, "policies"), this.purpose, context);
   }
   #dependencies(ref: VersionedRef, dependencies: VersionedRef[]): void {
@@ -65,10 +65,10 @@ export class EpisodeEvidenceResolver {
       typeof source.origin.upstreamId === "string" && source.origin.upstreamId &&
       validMemoryRef(source.policyRef) && validMemoryRef(source.coverageRef) && timestamp(source.capturedAt), "invalid_source");
     const segments = sourceSegments(source);
-    assertEvidenceSegment(segments, evidence);
+    const segment = assertEvidenceSegment(segments, evidence);
     this.#dependencies(evidence.source, [source.policyRef, source.coverageRef, ...segments.map(segment => segment.policyRef)]);
     const sourceRef = evidence.source;
-    const authorize = (policyRef: VersionedRef) => segments.length ? this.assertSourceMetadataAccess(sourceRef, policyRef) : this.assertSourceAccess(sourceRef, policyRef);
+    const authorize = (policyRef: VersionedRef) => segments.length ? this.assertSourceMetadataAccess(sourceRef, policyRef, segment && segmentLocator(segment)) : this.assertSourceAccess(sourceRef, policyRef);
     await authorize(evidence.policyRef);
     // Shared policy objects still require a new judgment for each different source.
     if (!includesRef([evidence.policyRef], source.policyRef)) await authorize(source.policyRef);

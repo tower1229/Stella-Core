@@ -441,3 +441,14 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 导入由 adapter 提供结构化作者／生产者身份，不从正文推断。未审查混合旧资料为 unknown；生成产物及其原件 Evidence 均为 assistant／inference，保留 skill 的确切版本与 `derivedFrom`。派生证据验证父片段后沿用其独立来源标记；多来源按既有 origin 分别关联，不新增独立观察。原件元数据不产生作者表达 Evidence。当前只允许与输入 Evidence／Source 相同策略的派生，跨策略交集尚无规划器时显式拒绝。外部接口只返回摘要时必须声明原文不可得，coverage 保留非重试 `attachment_missing`，不报告完整原文留存。每批最多 32 项，仍受统一事务文件容量约束，超限失败而不截断。
 
 仓库入口只实现同步流程中的文件接入段：调用方显式提供稳定 upstream ID、文件映射、已提交 revision 和摘要；文件更新／移动仍沿用该身份。完整变更发现、删除传播及派生理解重评由后续 synchronize 工作项完成，不能把本入口当作全库同步验收。这里只使用公开合成资料，未核查私人 Stella 1.0，因此没有将测试资产作为沧海 dev 的历史证据。上述覆盖为 synthetic_contract；不签发 Exact Host、real_main 或自然反馈验证，也不替代父票整组 M／G 验收。
+
+
+### 2026-09-14 片段描述与 skill 原文回读（Issue #17）
+
+`stella.personal-context-access/v1` 的 descriptor 对分段 Source 必须额外携带 `segment: {payloadSha256,start,end}`，精确匹配一个已审查片段。每段均须有描述，哪怕多个片段使用同一策略；父策略也须对每段绑定描述。未分段来源保留原格式。旧分段配置缺少 locator 时显式报 `personal_context_segment_descriptor_required`，不能自动复制整文件描述作为迁移。迁移需对当前 Source／Policy／片段重新审查描述并更新既有处理许可；描述不准确的语义问题仍需审查和真实使用验证，结构检查不证明准确性。
+
+检索按片段描述选择 Evidence；逐来源语义判断回传确切片段 locator，持久化复核按 Source／Policy／片段／用途区分收据。原文、学习及输出检查继续经过 `EpisodeEvidenceResolver`，Evidence 不得跨段或换用其他段策略，父策略与片段策略取交集。缺描述、缺策略、失效代际和模型故障不转换成开放权限。
+
+Host 工具 `stella_read_fragment` 供已审查 skill 使用：`{action:"list"}` 返回本轮已纳入认知及输出校验的片段描述、范围、策略和 Evidence Ref；`{action:"read",handle:"F1"}` 重新授权并回读该 Evidence 原文。句柄仅在当前活跃主人私聊有效，不接受路径、偏移或额外用途；尚未纳入本轮取证的资料须发起新的检索请求，不扩大已持久化证据集合。工具调用前后核验请求、初始化、处理许可、目录和原文；原生 `read` 仍只允许已初始化的 skill 文件，不能绕读个人来源文件。
+
+`probe-main-plugin.mjs --fragment-skill` 通过真实 OpenClaw `chat.send`、实际 skill 文件读取与工具调用，验证描述列出、获准原文回读、整文件绕读拒绝及邻段不进入模型输入；该探针使用合成资料、注入语义结果和 loopback 模型，纳入打包 smoke。它不签发完整 memory_access 准入，不代表真实 main 私人行为、自然反馈或 C-07／M-04 全组验收完成。

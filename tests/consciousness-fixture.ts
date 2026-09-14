@@ -9,7 +9,7 @@ import { isRecord } from "../src/shared/type-guards.js";
 
 const execFileAsync = promisify(execFile);
 
-export async function prepareInitializationFixture(root: string, agentId: string) {
+export async function prepareInitializationFixture(root: string, agentId: string, skillInstructions = "No private data.") {
   const prefix = "50_PersonalAgent/stella";
   const profilePath = path.join(root, prefix, "runtime-profile.yaml");
   const profile: unknown = parse(await readFile(profilePath, "utf8"));
@@ -27,7 +27,7 @@ export async function prepareInitializationFixture(root: string, agentId: string
     await writeFile(path.join(root, source), content);
     files.push({ target, source, sha256: bytesVersion(content), executable: false });
   }
-  const skill = "---\nname: stella-initialization-probe\ndescription: Synthetic initialization acceptance only.\n---\nNo private data.\n";
+  const skill = `---\nname: stella-initialization-probe\ndescription: Synthetic initialization acceptance only.\n---\n${skillInstructions}\n`;
   const skillRoot = `${prefix}/host/skills/stella-initialization-probe`;
   await mkdir(path.join(root, skillRoot), { recursive: true });
   const skillSource = `${skillRoot}/SKILL.md`;

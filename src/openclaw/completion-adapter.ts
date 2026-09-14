@@ -1,3 +1,4 @@
+import { FRAGMENT_READ_TOOL } from "./fragment-read-tool.js";
 import { randomUUID } from "node:crypto";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveAgentWorkspaceDir, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
@@ -24,7 +25,7 @@ export const PRIVATE_DRAFT_HOST_POLICY = {
   terminalReplyExpectation: "optional",
 } as const;
 /** Constrained private-draft tool surface: observe/verify only, never source expand or delivery tools. */
-export const CONSTRAINED_TOOL_EXECUTION_ALLOW = ["read", "stella_initialize"] as const;
+export const CONSTRAINED_TOOL_EXECUTION_ALLOW = ["read", "stella_initialize", FRAGMENT_READ_TOOL] as const;
 function claimRun(agentId: string, runId: string): boolean {
   const key = JSON.stringify([agentId, runId]);
   if (claimedRuns.has(key)) return false;

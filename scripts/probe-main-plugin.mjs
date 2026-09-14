@@ -19,7 +19,8 @@ const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf
 assert.equal(host.version, "2026.8.2");
 const outputRejectionProbe = process.argv.includes("--correction-output-rejected");
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
-const correctionProbe = outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
+const fragmentProbe = process.argv.includes("--fragment-skill");
+const correctionProbe = fragmentProbe || outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
 const admissionReplayProbe = process.argv.includes("--admission-replay");
 const preparationCancellationProbe = process.argv.includes("--cancel-preparation");
@@ -134,7 +135,7 @@ if (outcomeProbe || questionProbe || adviceRevisionProbe) {
     learning: { disposition: "propose_strategy", rationale: "Synthetic local candidate based on this report", evidenceRefs: archived.evidenceRefs,
       strategy: { statement: "Confirm specific time for a weekend invitation", scope: { workIds: [], contexts: ["weekend invitation"], domains: ["social"], global: false } } } };
 }
-await prepareInitializationFixture(canghaiRoot, "probe");
+await prepareInitializationFixture(canghaiRoot, "probe", fragmentProbe ? "No private data. Use stella_read_fragment to list descriptions, then read an exact fragment handle and cite its Evidence ref. Never read source files." : undefined);
 if (correctionProbe) {
   const prefix = "50_PersonalAgent/stella";
   const file = path.join(canghaiRoot, prefix, "runtime-profile.yaml");
@@ -145,6 +146,43 @@ if (correctionProbe) {
   await writeFile(path.join(canghaiRoot, prefix, "personal-access.json"), JSON.stringify({ schemaVersion: "stella.personal-context-access/v1",
     ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: ["stella-smoke/probe"], viewProcessingModelRefs: ["stella-smoke/probe"], operatorRecovery: true,
     purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, descriptors: [] }));
+}
+
+let fragmentOriginalPath;
+if (fragmentProbe) {
+  const { prepareRepositorySource } = await import(buildModule("src/canghai/repository-source.js"));
+  const { canonicalJson, bytesVersion, objectVersion } = await import(buildModule("src/canghai/content-version.js"));
+  const catalogFile = path.join(canghaiRoot, "30_PersonalData/memory/catalog.json");
+  const catalog = JSON.parse(await readFile(catalogFile, "utf8"));
+  const base = { schemaVersion: "stella.source-policy/v1", id: "fragment-open", ownerId: "owner-fixture",
+    readPurposes: ["alpha_praxis"], derivePurposes: ["alpha_praxis"], deliveryScopes: ["host-chat"], retention: "retain", authorityEvidenceRefs: [] };
+  const policies = [base, { ...base, id: "fragment-denied", readPurposes: [] }];
+  const refs = [];
+  for (const policy of policies) {
+    const ref = { id: policy.id, version: objectVersion(policy) }, file = `30_PersonalData/memory/${policy.id}.json`, body = canonicalJson(policy);
+    await writeFile(path.join(canghaiRoot, file), body);
+    catalog.policies.push({ ...ref, status: "current", dependencies: [], locator: { path: file, sha256: bytesVersion(body) } }); refs.push(ref);
+  }
+  const allowed = "SYNTHETIC_ALLOWED_FRAGMENT\n", denied = "SYNTHETIC_DENIED_NEIGHBOR\n", payload = allowed + denied;
+  fragmentOriginalPath = path.join(canghaiRoot, "30_PersonalData/memory/fragments.txt");
+  await writeFile(fragmentOriginalPath, payload);
+  const imported = await prepareRepositorySource({ root: canghaiRoot, collectionId: "fragment-probe", sourceId: "mixed",
+    relativePath: "30_PersonalData/memory/fragments.txt", expectedSha256: bytesVersion(payload), capturedAt: "2026-09-01T00:00:00Z", policyRef: refs[0],
+    objectRoot: "30_PersonalData/memory/objects", reviewedSegments: [{ start: 0, end: Buffer.byteLength(allowed), policyRef: refs[0] },
+      { start: Buffer.byteLength(allowed), end: Buffer.byteLength(payload), policyRef: refs[1] }] });
+  for (const object of imported.objects) {
+    await mkdir(path.dirname(path.join(canghaiRoot, object.entry.locator.path)), { recursive: true });
+    await writeFile(path.join(canghaiRoot, object.entry.locator.path), object.bytes); catalog[object.group].push(object.entry);
+  }
+  await writeFile(catalogFile, canonicalJson(catalog));
+  const accessFile = path.join(canghaiRoot, "50_PersonalAgent/stella/personal-access.json");
+  const access = JSON.parse(await readFile(accessFile, "utf8"));
+  access.descriptors = refs.map((policyRef, index) => ({ sourceRef: imported.sourceRef, policyRef,
+    description: index ? "Synthetic unavailable neighboring fragment" : "Synthetic permitted observation fragment",
+    segment: { payloadSha256: bytesVersion(payload), start: index ? Buffer.byteLength(allowed) : 0,
+      end: index ? Buffer.byteLength(payload) : Buffer.byteLength(allowed) } }));
+  access.descriptors.push({ ...access.descriptors[1], policyRef: refs[0] });
+  await writeFile(accessFile, canonicalJson(access));
 }
 
 const revision = await initializeFixtureRepository(canghaiRoot);
@@ -197,6 +235,11 @@ export default { ...main, register(api) {
   }, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
     async complete(params) {
       if (${preparationCancellationProbe}) return api.runtime.llm.complete(params);
+      if (${fragmentProbe} && params.purpose === 'stella-source-access') {
+        const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
+        return { provider: 'stella-smoke', model: 'probe', text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
+          policyRef: value.policyRef, segment: value.segment, applicable: true, scenarios: ['synthetic'], topicRequested: true, topicExplicitlyNamed: true }) };
+      }
       if (${correctionProbe} && params.purpose === 'stella-source-output') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
         return { provider: 'stella-smoke', model: 'probe', text: JSON.stringify({ requestHash: value.requestHash,
@@ -253,13 +296,14 @@ const skillReadProbe = !managed && !cancellationProbe;
 let providerReceivedSkillBody = false;
 let providerReceivedInitializationResult = false;
 let observedSkillResult;
+const fragmentChecks = { allowedRead: false, descriptionListed: false, skillBodyRead: false, deniedNeighborAbsent: true, wholeFileBlocked: false, unavailableHandleBlocked: false };
 const provider = createServer(async (request, response) => {
   providerRequests++;
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
   const requestBody = Buffer.concat(chunks).toString('utf8');
   const parsedRequest = JSON.parse(requestBody);
-  if (skillReadProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
+  if (skillReadProbe || fragmentProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
   observedSkillResult = parsedRequest.messages?.filter((message) => message.role === "tool");
   providerReceivedSkillBody ||= parsedRequest.messages?.some((message) => message.role === "tool" &&
     JSON.stringify(message.content).includes("No private data.")) === true;
@@ -273,6 +317,29 @@ const provider = createServer(async (request, response) => {
     requestBody.includes("stella.evidence-bundle/v1");
   if (cancellationProbe) { providerArrived.resolve(); await providerRelease.promise; }
   response.setHeader("content-type", "application/json");
+  if (fragmentProbe) {
+    fragmentChecks.deniedNeighborAbsent &&= !requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR");
+    const steps = [
+      ["read", { path: path.join(workspace, "skills/stella-initialization-probe/SKILL.md") }],
+      ["stella_read_fragment", { action: "list" }],
+      ["stella_read_fragment", { action: "read", handle: "F1" }],
+      ["read", { path: fragmentOriginalPath }],
+      ["stella_read_fragment", { action: "read", handle: "F2" }],
+    ];
+    if (providerRequests <= steps.length) {
+      const [name, args] = steps[providerRequests - 1];
+      response.end(JSON.stringify({ id: "fragment-probe", object: "chat.completion", created: 1, model: "probe",
+        choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: `fragment-${providerRequests}`, type: "function",
+          function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: "tool_calls" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+      return;
+    }
+    const results = parsedRequest.messages.filter(message => message.role === "tool").map(message => JSON.stringify(message.content)).join("\n");
+    fragmentChecks.skillBodyRead = results.includes("stella_read_fragment");
+    fragmentChecks.descriptionListed = results.includes("Synthetic permitted observation fragment");
+    fragmentChecks.allowedRead = results.includes("SYNTHETIC_ALLOWED_FRAGMENT");
+    fragmentChecks.wholeFileBlocked = results.includes("skill_read_forbidden") || results.includes("unsafe_path");
+    fragmentChecks.unavailableHandleBlocked = results.includes("fragment_handle_not_available");
+  }
   if (skillReadProbe && providerRequests === 1) {
     response.end(JSON.stringify({ id: "synthetic-skill-read", object: "chat.completion", created: 1, model: "probe",
       choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: "synthetic-read", type: "function",
@@ -300,7 +367,7 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
   plugins: { allow: ["stella-core"], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true,
     llm: { allowAgentIdOverride: true }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}) } } } },
-  tools: { allow: ["read", "stella_initialize"] },
+  tools: { allow: ["read", "stella_initialize", ...(fragmentProbe ? ["stella_read_fragment"] : [])] },
 }));
 const env = { ...process.env, OPENCLAW_STATE_DIR: state, OPENCLAW_CONFIG_PATH: configPath };
 delete env.NODE_OPTIONS;
@@ -482,7 +549,7 @@ try {
     const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
     assert.equal(reader.catalog.understandings.length, 1);
     assert.equal(reader.catalog.changes.length, 1);
-    assert.equal(reader.catalog.sources.length, 1);
+    assert.equal(reader.catalog.sources.length, fragmentProbe ? 2 : 1);
     assert.equal(reader.catalog.bundles.length, 1);
     assert.equal(providerReceivedCorrection, true, "Final Host prompt must contain the newly synchronized understanding");
     const localRevision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
@@ -594,6 +661,7 @@ try {
       duplicateUserMessages: 0, hostRejectionNotices: notices.length, duplicateFinals: 0,
       businessRevisionUnchanged: true };
   }
+  if (fragmentProbe) assert.ok(Object.values(fragmentChecks).every(Boolean), JSON.stringify(fragmentChecks));
   const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: correctionProbe ? "synthetic Host input custody and learning before final generation; injected semantic judgments" : cancellationProbe
     ? `synthetic managed ${preparationCancellationProbe ? "preparation" : "generation"} cancelled through chat.abort; no business write or late answer delivery`
     : outcomeProbe
@@ -602,16 +670,17 @@ try {
     : managed
     ? "synthetic managed no-prediction advice; actual main v2 archive, Episode writes, OpenClaw pointer and local bare remote; structured router injected"
     : "synthetic read-only ordinary turn; structured router injected; actual main registration and completion adapter",
+    ...(fragmentProbe ? { fragmentSkill: fragmentChecks } : {}),
     terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
     provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
     provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
     initialization: { providerReceivedInitialization, hostIdentityVerified: true, restrictedVerification: initializationVerification,
-      skillBodyRead: skillReadProbe ? providerReceivedSkillBody : "not_exercised",
+      skillBodyRead: fragmentProbe ? fragmentChecks.skillBodyRead : skillReadProbe ? providerReceivedSkillBody : "not_exercised",
       ownerRequestedReinitialization: skillReadProbe ? providerReceivedInitializationResult : "not_exercised", scope: "host_bootstrap" },
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
   assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");
-  assert.equal(report.providerRequests, correctionRecoveryProbe ? 0 : skillReadProbe ? 3 : 1);
+  assert.equal(report.providerRequests, correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : 1);
   if (skillReadProbe) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
   if (skillReadProbe) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
   if (!preparationCancellationProbe && !correctionRecoveryProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
