@@ -427,3 +427,17 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 2026-09-11 完整 transcript／附件归档（工作项 09）：公开 `prepareTranscriptItems`／`ingestTranscript`／`rebuildConversationFromArchive`／`captureHostTranscript`。同一 Host 会话可归档用户／助手／引用／工具／编辑与侧分支；content 内联媒体升为 attachments。证据 role／kind 区分且助手／工具不变成主人证据。附件原件以仓库内 payload 留存。缺件分流：仅外部链接且无字节 → `attachment_missing`（`retryable: false`）可同步但 `completeForDeclaredScope=false`；声明待补传（无字节无外链）→ 写 `operations/{op}.transcript-stage.json` 后以 `attachment_missing` 失败，不得 `local_committed`；`inputDigest` 绑定声明清单不含已下载字节，同 operationId 补齐后可完成。入口与 transcript 共用 adapter＋collection＋upstreamId。续传游标／Host 清理协调仍属工作项 10；synthetic_contract 下 implemented ≠ verified。
 
 2026-09-11 生产 Host 纠正／建议入口已接 ingest：`archiveCorrectionInput`（消息与 request）与 `persistBoundAdvice` 走 `ingestHostMessage`／`ingestHostRequest`；Host Source 稳定身份与 `prepareHostInputArchive`／`prepareHostRequestArchive` 对齐（含 agentId）；`persistHostInputArchive` 同步做 retention 准入。阶段 journal 写入 `operations/{operationId}.phase.json`（无私人原文）。仍 ≠ Exact Host／real_main verified；工作项 10 续传清单与 Host 清理另票。
+
+2026-09-14 T09／Issue #15 入口覆盖映射（工作项 08）：
+
+| 合同入口 | 公开接入边界 | 合成契约案例（`tests/ingest.test.ts`，对话附件另见 `tests/transcript-archive.test.ts`） |
+| --- | --- | --- |
+| 日常对话 | `ingestHostMessage`／`ingestHostRequest`／`ingestTranscript` → `ingest` | 原话角色、重复事件与编辑、损坏操作／缺失附件；沿用 T07／T08 |
+| 显式记录及旧 skills | `ingestExplicitRecord`；`ingestMaterials(entry: skill)` → `ingest` | 原话与生成产物分开；skill 版本、原件、输入 Evidence；重复、损坏／缺失、不留存拒绝 |
+| 文件、媒体和批量历史 | `ingestMaterials(entry: files)` → `ingest` | 原始字节回读、unknown 归属、二进制／空文件、重复、损坏／缺失、不留存拒绝 |
+| 仓库／Obsidian 修改 | `synchronizeRepositoryImports` → `ingestMaterials` → `ingest` | 扫描显式映射文件的固定 Git tree／blob，核对当前原件；不移动原文件；重复、变更／缺失拒绝 |
+| 授权外部资料／自主研究 | `ingestMaterials(entry: external)` → `ingest` | 原内容、来源 URL 和个人关联；仅摘要时记录原文缺口；重复、损坏／缺失、不留存拒绝 |
+
+导入由 adapter 提供结构化作者／生产者身份，不从正文推断。未审查混合旧资料为 unknown；生成产物及其原件 Evidence 均为 assistant／inference，保留 skill 的确切版本与 `derivedFrom`。派生证据验证父片段后沿用其独立来源标记；多来源按既有 origin 分别关联，不新增独立观察。原件元数据不产生作者表达 Evidence。当前只允许与输入 Evidence／Source 相同策略的派生，跨策略交集尚无规划器时显式拒绝。外部接口只返回摘要时必须声明原文不可得，coverage 保留非重试 `attachment_missing`，不报告完整原文留存。每批最多 32 项，仍受统一事务文件容量约束，超限失败而不截断。
+
+仓库入口只实现同步流程中的文件接入段：调用方显式提供稳定 upstream ID、文件映射、已提交 revision 和摘要；文件更新／移动仍沿用该身份。完整变更发现、删除传播及派生理解重评由后续 synchronize 工作项完成，不能把本入口当作全库同步验收。这里只使用公开合成资料，未核查私人 Stella 1.0，因此没有将测试资产作为沧海 dev 的历史证据。上述覆盖为 synthetic_contract；不签发 Exact Host、real_main 或自然反馈验证，也不替代父票整组 M／G 验收。

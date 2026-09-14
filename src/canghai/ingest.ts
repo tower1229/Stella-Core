@@ -7,6 +7,8 @@ import {
   CatalogError,
   CatalogReader,
   parseMemoryCatalog,
+  readRepositoryBytes,
+  selectTextEvidence,
   type CatalogEntry,
   type CatalogGroup,
   type MemoryCatalog,
@@ -454,12 +456,15 @@ function inputDigest(request: IngestRequest): string {
       parentUpstreamId: item.parentUpstreamId,
       editedFromUpstreamId: item.editedFromUpstreamId ?? null,
       envelope: item.envelope ?? null,
+      ...(item.derivedFrom === undefined ? {} : { derivedFrom: item.derivedFrom }),
+      ...(item.textIsEvidence === undefined ? {} : { textIsEvidence: item.textIsEvidence }),
       // Digest binds the declared attachment manifest, not downloaded bytes (MEMORY-LIFECYCLE).
       attachments: (item.attachments ?? []).map((attachment) => ({
         upstreamId: attachment.upstreamId,
         mediaType: attachment.mediaType,
         fileName: attachment.fileName ?? null,
         hasExternalUrl: Boolean(attachment.externalUrl),
+        ...(attachment.evidenceKind === undefined ? {} : { evidenceKind: attachment.evidenceKind }),
       })),
     })),
     purpose: request.purpose,
@@ -475,7 +480,7 @@ function classifyAttachmentGaps(items: IngestItem[]): Array<{ upstreamId: string
   const gaps: Array<{ upstreamId: string; reason: string; retryable: boolean }> = [];
   for (const item of items) {
     for (const attachment of item.attachments ?? []) {
-      const hasBytes = attachment.bytes != null && attachment.bytes.byteLength > 0;
+      const hasBytes = attachment.bytes != null && attachment.bytes.byteLength >= 0;
       if (hasBytes) continue;
       gaps.push({
         upstreamId: attachment.upstreamId,
@@ -516,7 +521,8 @@ function extensionForMediaType(mediaType: string): string {
   return "bin";
 }
 
-function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: string): BuiltIngestArchive {
+function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: string,
+  derivedOrigins: Map<string, string[]>): BuiltIngestArchive {
   check(request.items.length > 0 && request.items.length <= 32, "invalid_input");
   if (request.coverage) {
     check(request.coverage.branchPolicy === "all_retained" || request.coverage.branchPolicy === "declared_subset",
@@ -563,6 +569,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       sha256: string;
       path: string;
       bytes: number;
+      evidenceKind?: IngestItemKind;
     }>;
   };
   const pending: PendingItem[] = [];
@@ -607,7 +614,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
     for (const attachment of item.attachments ?? []) {
       check(attachment.upstreamId.trim() && attachment.mediaType.trim(), "invalid_input");
       const raw = attachment.bytes;
-      if (raw != null && raw.byteLength > 0) {
+      if (raw != null && raw.byteLength >= 0) {
         const bytes = Buffer.from(raw);
         const sha256 = bytesVersion(bytes);
         const pathName = `${payloadRoot}/${sourceId}/${sha256.slice(7)}.${extensionForMediaType(attachment.mediaType)}`;
@@ -625,6 +632,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
           sha256,
           path: pathName,
           bytes: bytes.byteLength,
+          ...(attachment.evidenceKind ? { evidenceKind: attachment.evidenceKind } : {}),
         });
       } else {
         // externalUrl-only = upstream original unavailable here (non-retryable).
@@ -660,7 +668,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
               bytes: attachment.bytes,
             })),
             ...(item.attachments ?? [])
-              .filter((attachment) => !(attachment.bytes != null && attachment.bytes.byteLength > 0))
+              .filter((attachment) => !(attachment.bytes != null && attachment.bytes.byteLength >= 0))
               .map((attachment) => ({
                 upstreamId: attachment.upstreamId,
                 mediaType: attachment.mediaType,
@@ -815,7 +823,16 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
     }, [request.policyRef, coverageRef]);
     sourceRefs.push(sourceRef);
 
-    evidenceRefs.push(add("evidence", {
+    const addEvidence = (object: Record<string, unknown>) => {
+      const origins = derivedOrigins.get(item.upstreamId) ?? [entry.sourceId];
+      for (const origin of origins) {
+        evidenceRefs.push(add("evidence", { ...object,
+          id: item.derivedFrom?.length ? stableId("evidence", `${String(object.id)}:origin:${origin}`) : object.id,
+          independentOriginId: origin,
+        }, [sourceRef, request.policyRef, ...(item.derivedFrom ?? [])]));
+      }
+    };
+    if (item.textIsEvidence !== false) addEvidence({
       schemaVersion: "stella.memory-evidence/v1",
       id: stableId("evidence", entry.identity),
       source: sourceRef,
@@ -828,12 +845,12 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       authoredAt: item.authoredAt,
       capturedAt: item.capturedAt,
       independentOriginId: entry.sourceId,
-      derivedFrom: [],
+      derivedFrom: item.derivedFrom ?? [],
       policyRef: request.policyRef,
-    }, [sourceRef, request.policyRef]));
+    });
 
     for (const attachment of entry.presentAttachments) {
-      evidenceRefs.push(add("evidence", {
+      addEvidence({
         schemaVersion: "stella.memory-evidence/v1",
         id: stableId("evidence", `${entry.identity}:attachment:${attachment.upstreamId}`),
         source: sourceRef,
@@ -841,14 +858,14 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
         selector: { kind: "payload", value: "all" },
         speakerId: item.speakerId,
         role: item.role,
-        kind: item.kind === "quotation" ? "quotation" : "direct_observation",
+        kind: attachment.evidenceKind ?? (item.kind === "quotation" ? "quotation" : "direct_observation"),
         occurredAt: item.occurredAt,
         authoredAt: item.authoredAt,
         capturedAt: item.capturedAt,
         independentOriginId: entry.sourceId,
-        derivedFrom: [],
+        derivedFrom: item.derivedFrom ?? [],
         policyRef: request.policyRef,
-      }, [sourceRef, request.policyRef]));
+      });
     }
   }
 
@@ -922,6 +939,32 @@ function phaseJournalPath(catalogPath: string, operationId: string): string {
   return path.posix.join(path.posix.dirname(catalogPath), "operations", `${operationId}.phase.json`);
 }
 
+async function validateDerivedEvidence(request: IngestRequest, reader: CatalogReader): Promise<Map<string, string[]>> {
+  const origins = new Map<string, string[]>();
+  for (const item of request.items) {
+    const itemOrigins = new Set<string>();
+    for (const ref of item.derivedFrom ?? []) {
+      check(validRef(ref), "invalid_derivation_reference");
+      const evidence = await reader.read(ref, "evidence");
+      check(validRef(evidence.source), "invalid_derivation_reference");
+      const source = await reader.read(evidence.source, "sources");
+      // Cross-policy derivation requires a policy intersection planner. Never broaden it implicitly.
+      check(canonicalJson(evidence.policyRef) === canonicalJson(request.policyRef) &&
+        canonicalJson(source.policyRef) === canonicalJson(request.policyRef), "derivation_policy_mismatch");
+      check(typeof evidence.payloadSha256 === "string", "invalid_derivation_reference");
+      const payload = await reader.readPayload(evidence.source, evidence.payloadSha256);
+      check(isRecord(evidence.selector) && typeof evidence.selector.kind === "string" &&
+        typeof evidence.selector.value === "string", "invalid_derivation_reference");
+      if (evidence.selector.kind === "payload") check(evidence.selector.value === "all", "invalid_selector");
+      else selectTextEvidence(payload.bytes, { kind: evidence.selector.kind, value: evidence.selector.value });
+      check(typeof evidence.independentOriginId === "string" && evidence.independentOriginId.trim(), "invalid_derivation_reference");
+      itemOrigins.add(evidence.independentOriginId);
+    }
+    if (itemOrigins.size) origins.set(item.upstreamId, [...itemOrigins].sort());
+  }
+  return origins;
+}
+
 /**
  * Unified Memory Lifecycle ingest: Host messages and explicit records share one state machine.
  * Retries with the same operationId and input digest do not create independent evidence.
@@ -978,6 +1021,7 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
             Array.isArray(livePolicy.deliveryScopes) && livePolicy.deliveryScopes.includes(request.purpose.deliveryScope),
           "permission_denied");
           await current.assertCurrent();
+          await validateDerivedEvidence(request, current);
         },
         persist: async (paths) => {
           await ports.durability.syncCritical(paths, `stella ingest ${request.operationId}`);
@@ -1020,6 +1064,7 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
 
     const head = await ports.durability.diagnostics();
     check(head.localRevision.toLowerCase() === request.expectedRevision.toLowerCase(), "write_conflict");
+    const derivedOrigins = await validateDerivedEvidence(request, reader);
 
     await emit(ports, "staged", observed);
 
@@ -1048,7 +1093,7 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
     const files: MemoryTransactionPlan["files"] = [];
 
     if (retention === "retain") {
-      archive = buildArchive(request, relative(ports.objectRoot), relative(ports.payloadRoot));
+      archive = buildArchive(request, relative(ports.objectRoot), relative(ports.payloadRoot), derivedOrigins);
       after = applyArchiveToCatalog(before, archive, request.operationId, digest);
       files.push(
         ...archive.payloads.map((payload) => ({
@@ -1059,6 +1104,19 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
         })),
         ...archive.objects.map((object) => ({ path: object.entry.locator.path, before: null as string | null, after: object.bytes })),
       );
+      // A new import operation may refer to originals/objects already archived by another operation.
+      // Preserve identical immutable files, but never overwrite a conflicting existing byte sequence.
+      for (const file of files) {
+        let existing: Buffer;
+        try { existing = await readRepositoryBytes(reader.root, file.path); }
+        catch (error) {
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") continue;
+          throw error;
+        }
+        const encoded = existing.toString(file.encoding === "base64" ? "base64" : "utf8");
+        check(encoded === file.after, "archive_payload_conflict");
+        file.before = encoded;
+      }
     } else {
       // Admitted do_not_retain: only content-free operation status may land on disk.
       after = parseMemoryCatalog({
@@ -1118,6 +1176,7 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
         const livePolicy = await current.read(request.policyRef, "policies");
         assertRetentionAdmission(livePolicy, ports.retentionGuarantees);
         await current.assertCurrent();
+        await validateDerivedEvidence(request, current);
       },
       persist: async (paths) => {
         await ports.durability.syncCritical(paths, `stella ingest ${request.operationId}`);

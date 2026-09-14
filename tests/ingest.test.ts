@@ -23,9 +23,244 @@ import { persistHostInputArchive } from "../src/canghai/archive-writer.js";
 import { CatalogError } from "../src/canghai/catalog-reader.js";
 import { isRecord } from "../src/shared/type-guards.js";
 import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import { ingestMaterials, synchronizeRepositoryImports, type MaterialImport } from "../src/canghai/material-ingest.js";
 
 const run = promisify(execFile);
 const now = "2026-09-11T00:00:00Z";
+
+test("file import retains exact original bytes, unknown authorship and idempotent source identity", async (t) => {
+  const repo = await gitRepo(t);
+  const original = Buffer.from("旧资料\r\n混合原话与未审查分析。\r\n");
+  const material: MaterialImport = {
+    upstreamId: "legacy-1", capturedAt: now, provenance: { type: "unknown" },
+    original: { mediaType: "text/plain", bytes: original, sha256: bytesVersion(original) },
+  };
+  const input = { operationId: "op-files", expectedRevision: repo.revision, collectionId: "legacy",
+    entry: "files" as const, snapshotId: "export-1", materials: [material], policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" } };
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const result = await ingestMaterials(input, ports);
+  assert.equal(result.state, "synchronized");
+  assert.equal(result.evidenceRefs.length, 1, "archive metadata is not an additional author statement");
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  assert.deepEqual((await current.readPayload(result.sourceRefs[0]!, bytesVersion(original))).bytes, original);
+  for (const ref of result.evidenceRefs) {
+    const evidence = await current.read(ref, "evidence");
+    assert.equal(evidence.role, "unknown");
+    assert.equal(evidence.kind, "unknown");
+    assert.equal(evidence.speakerId, null);
+  }
+  const repeated = await ingestMaterials(input, { ...ports, reader: current });
+  assert.deepEqual(repeated.sourceRefs, result.sourceRefs);
+  const newOperation = await ingestMaterials({ ...input, operationId: "op-files-again",
+    expectedRevision: repeated.durability.localRevision }, { ...ports, reader: current });
+  assert.deepEqual(newOperation.sourceRefs, result.sourceRefs);
+  assert.equal((await CatalogReader.load(repo.root, "catalog.json")).catalog.sources.length, 1);
+});
+
+test("skill product retains model attribution, skill version and source evidence without becoming owner words", async (t) => {
+  const repo = await gitRepo(t);
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const purpose = { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" };
+  const record = await ingestExplicitRecord({ operationId: "skill-input", expectedRevision: repo.revision,
+    collectionId: "answers", record: { upstreamId: "answer-1", text: "我还没有决定。", role: "owner",
+      speakerId: "owner-ingest", capturedAt: now }, policyRef: repo.policyRef, purpose }, ports);
+  const original = Buffer.from("模型提出的候选解释。");
+  const input = { operationId: "skill-output", expectedRevision: record.durability.localRevision,
+    collectionId: "skill-results", entry: "skill" as const, snapshotId: "invocation-1", policyRef: repo.policyRef, purpose,
+    materials: [{ upstreamId: "product-1", capturedAt: now, provenance: { type: "generated" as const, producerId: "model-test" },
+      original: { bytes: original, sha256: bytesVersion(original), mediaType: "text/plain" },
+      skill: { id: "understand-owner", version: bytesVersion("skill-body") }, derivedFrom: record.evidenceRefs }] };
+  const result = await ingestMaterials(input, { ...ports, reader: await CatalogReader.load(repo.root, "catalog.json") });
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  for (const ref of result.evidenceRefs) {
+    const evidence = await current.read(ref, "evidence");
+    assert.equal(evidence.role, "assistant");
+    assert.equal(evidence.kind, "inference");
+    assert.equal(evidence.speakerId, "model-test");
+    assert.deepEqual(evidence.derivedFrom, record.evidenceRefs);
+    const parent = await current.read(record.evidenceRefs[0]!, "evidence");
+    assert.equal(evidence.independentOriginId, parent.independentOriginId);
+  }
+  const source = await current.read(result.sourceRefs[0]!, "sources");
+  assert.ok(Array.isArray(source.payloads) && isRecord(source.payloads[0]));
+  const metadata = JSON.parse((await current.readPayload(result.sourceRefs[0]!, String(source.payloads[0].sha256))).bytes.toString());
+  assert.deepEqual(metadata.skill, input.materials[0]!.skill);
+  assert.deepEqual((await ingestMaterials(input, { ...ports, reader: current })).sourceRefs, result.sourceRefs);
+});
+
+test("external research keeps available originals and marks summary-only imports incomplete", async (t) => {
+  const repo = await gitRepo(t);
+  const input = { operationId: "external-summary", expectedRevision: repo.revision,
+    collectionId: "research", entry: "external" as const, snapshotId: "research-1", policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    materials: [{ upstreamId: "page-1", capturedAt: now,
+      provenance: { type: "generated" as const, producerId: "research-tool" }, original: null,
+      summary: "工具返回的摘要。", sourceUrl: "https://example.org/source", personalRelation: "用于主人提出的研究问题" }] };
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const result = await ingestMaterials(input, ports);
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const coverage = await current.read(result.coverageRef!, "coverage");
+  assert.equal(coverage.completeForDeclaredScope, false);
+  assert.deepEqual(coverage.missingItems, [{ upstreamId: "page-1#original", reason: "attachment_missing", retryable: false }]);
+  const evidence = await current.read(result.evidenceRefs[0]!, "evidence");
+  assert.equal(evidence.role, "assistant");
+  assert.equal(evidence.kind, "inference");
+  assert.deepEqual((await ingestMaterials(input, { ...ports, reader: current })).sourceRefs, result.sourceRefs);
+  const original = Buffer.from("外部作者实际原文。");
+  const retained = await ingestMaterials({ ...input, operationId: "external-original", expectedRevision: result.durability.localRevision,
+    snapshotId: "research-2", materials: [{ ...input.materials[0]!, upstreamId: "page-2", summary: undefined,
+      provenance: { type: "authored", authorId: "external-writer", role: "external_author" },
+      original: { bytes: original, sha256: bytesVersion(original), mediaType: "text/plain" } }] },
+  { ...ports, reader: current });
+  const updated = await CatalogReader.load(repo.root, "catalog.json");
+  assert.deepEqual((await updated.readPayload(retained.sourceRefs[0]!, bytesVersion(original))).bytes, original);
+  assert.equal((await updated.read(retained.coverageRef!, "coverage")).completeForDeclaredScope, true);
+});
+
+test("repository synchronization ingests a committed original in place and rejects changed or missing sources", async (t) => {
+  const repo = await gitRepo(t);
+  const original = Buffer.from("Obsidian 原件\r\n");
+  await mkdir(path.join(repo.root, "notes"));
+  await writeFile(path.join(repo.root, "notes", "draft.md"), original);
+  await run("git", ["-C", repo.root, "add", "notes"]);
+  await run("git", ["-C", repo.root, "commit", "--quiet", "-m", "add source"]);
+  await run("git", ["-C", repo.root, "push", "--quiet", "origin", `HEAD:refs/heads/${repo.branch}`]);
+  const revision = (await run("git", ["-C", repo.root, "rev-parse", "HEAD"])).stdout.trim();
+  const input = { operationId: "repository-import", expectedRevision: revision, sourceRevision: revision,
+    collectionId: "notes", capturedAt: now, policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    files: [{ upstreamId: "stable-draft", relativePath: "notes/draft.md", mediaType: "text/markdown",
+      sha256: bytesVersion(original), provenance: { type: "unknown" as const } }] };
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const result = await synchronizeRepositoryImports(input, ports);
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  assert.deepEqual((await current.readPayload(result.sourceRefs[0]!, bytesVersion(original))).bytes, original);
+  assert.deepEqual(await readFile(path.join(repo.root, "notes/draft.md")), original);
+  assert.deepEqual((await synchronizeRepositoryImports(input, { ...ports, reader: current })).sourceRefs, result.sourceRefs);
+  await writeFile(path.join(repo.root, "notes/draft.md"), "changed");
+  await assert.rejects(synchronizeRepositoryImports(input, { ...ports, reader: current }), /repository_source_changed/);
+  await rm(path.join(repo.root, "notes/draft.md"));
+  await assert.rejects(synchronizeRepositoryImports(input, { ...ports, reader: current }), /source_unavailable/);
+});
+
+for (const entry of ["files", "skill", "external"] as const) {
+  test(`${entry} rejects damaged or absent original and preserves retention admission`, async (t) => {
+    const repo = await gitRepo(t, "do_not_retain");
+    const bytes = Buffer.from("不得留存的原件");
+    const input = { operationId: `denied-${entry}`, expectedRevision: repo.revision, entry,
+      collectionId: "imports", snapshotId: "snapshot-1", policyRef: repo.policyRef,
+      purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+      materials: [{ upstreamId: "item-1", capturedAt: now, provenance: { type: "unknown" as const },
+        skill: { id: "skill-1", version: bytesVersion("skill") },
+        sourceUrl: "https://example.org/original", personalRelation: "用户请求",
+        original: { bytes, sha256: bytesVersion(bytes), mediaType: "application/octet-stream" } }] };
+    const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+      durability: durability(repo.root, repo.remote, repo.branch),
+      retentionGuarantees: { transcript: false, staging: false, backup: false },
+      objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+    await assert.rejects(ingestMaterials({ ...input, materials: [{ ...input.materials[0]!,
+      original: { ...input.materials[0]!.original, bytes: Buffer.from("corrupted") } }] }, ports), /material_original_mismatch/);
+    await assert.rejects(ingestMaterials({ ...input, materials: [{ ...input.materials[0]!, original: null }] }, ports), /material_original_missing/);
+    await assert.rejects(ingestMaterials(input, ports), /retention_guarantee_unavailable/);
+    assert.equal((await run("git", ["-C", repo.root, "status", "--porcelain"])).stdout, "");
+    const retained = await ingestMaterials(input, { ...ports, retentionGuarantees: retainGuarantees });
+    assert.deepEqual(retained.sourceRefs, []);
+    assert.equal((await CatalogReader.load(repo.root, "catalog.json")).catalog.sources.length, 0);
+  });
+}
+
+test("file batch preserves empty and binary originals; invalid attribution is explicitly rejected", async (t) => {
+  const repo = await gitRepo(t);
+  const input = { operationId: "binary-import", expectedRevision: repo.revision, entry: "files" as const,
+    collectionId: "binary", snapshotId: "binary-snapshot", policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    materials: [Buffer.alloc(0), Buffer.from([0xff, 0xfe, 0, 1])].map((bytes, index) => ({
+      upstreamId: `binary-${index}`, capturedAt: now, provenance: { type: "unknown" as const },
+      original: { bytes, sha256: bytesVersion(bytes), mediaType: "application/octet-stream" },
+    })) };
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  await assert.rejects(ingestMaterials({ ...input, materials: [{ ...input.materials[0]!,
+    provenance: { type: "generated", producerId: "" } }] }, ports), /invalid_material_provenance/);
+  const result = await ingestMaterials(input, ports);
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  for (let index = 0; index < input.materials.length; index++) {
+    const original = input.materials[index]!.original;
+    assert.deepEqual((await current.readPayload(result.sourceRefs[index]!, original.sha256)).bytes, original.bytes);
+  }
+  assert.equal((await current.read(result.coverageRef!, "coverage")).completeForDeclaredScope, true);
+});
+
+test("multi-source skill derivation preserves exactly the parent's independent origins and rejects unavailable evidence", async (t) => {
+  const repo = await gitRepo(t);
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const purpose = { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" };
+  const parents = await ingest({ operationId: "parents", expectedRevision: repo.revision, adapterId: EXPLICIT_RECORD_ADAPTER,
+    collectionId: "parents", cursor: null, policyRef: repo.policyRef, purpose,
+    items: ["first", "second"].flatMap(upstreamId => prepareExplicitRecordItems({ upstreamId, text: upstreamId,
+      role: "owner", speakerId: "owner-ingest", capturedAt: now })) }, ports);
+  const original = Buffer.from("两条资料的模型总结");
+  const input = { operationId: "multi-product", expectedRevision: parents.durability.localRevision,
+    collectionId: "skill", entry: "skill" as const, snapshotId: "invocation-multi", policyRef: repo.policyRef, purpose,
+    materials: [{ upstreamId: "product", capturedAt: now, provenance: { type: "generated" as const, producerId: "model" },
+      skill: { id: "summarizer", version: bytesVersion("skill") }, derivedFrom: parents.evidenceRefs,
+      original: { bytes: original, sha256: bytesVersion(original), mediaType: "text/plain" } }] };
+  const before = await CatalogReader.load(repo.root, "catalog.json");
+  await assert.rejects(ingestMaterials({ ...input, materials: [{ ...input.materials[0]!,
+    derivedFrom: [{ id: "missing-evidence", version: bytesVersion("missing") }] }] }, { ...ports, reader: before }));
+  assert.equal((await run("git", ["-C", repo.root, "status", "--porcelain"])).stdout, "");
+  const product = await ingestMaterials(input, { ...ports, reader: before });
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const parentOrigins = await Promise.all(parents.evidenceRefs.map(async ref => (await current.read(ref, "evidence")).independentOriginId));
+  const productOrigins = await Promise.all(product.evidenceRefs.map(async ref => (await current.read(ref, "evidence")).independentOriginId));
+  assert.deepEqual(productOrigins.sort(), parentOrigins.sort());
+});
+
+test("skill import rejects a hash-valid parent evidence whose original fragment is absent", async (t) => {
+  const repo = await gitRepo(t);
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const purpose = { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" };
+  const parent = await ingestExplicitRecord({ operationId: "parent", expectedRevision: repo.revision,
+    collectionId: "parent", record: { upstreamId: "record", text: "真实片段", role: "owner", speakerId: "owner-ingest",
+      capturedAt: now }, policyRef: repo.policyRef, purpose }, ports);
+  // Import fixture: structurally valid, correctly hashed Evidence, but invalid source selector.
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const evidence = await current.read(parent.evidenceRefs[0]!, "evidence");
+  const malformed: Record<string, unknown> = { ...evidence, selector: { kind: "json_pointer", value: "/missing" } };
+  malformed.version = objectVersion(malformed);
+  const entry = current.catalog.evidence[0]!;
+  entry.version = String(malformed.version);
+  entry.locator.sha256 = bytesVersion(canonicalJson(malformed));
+  await writeFile(path.join(repo.root, entry.locator.path), canonicalJson(malformed));
+  await writeFile(path.join(repo.root, "catalog.json"), canonicalJson(current.catalog));
+  await run("git", ["-C", repo.root, "add", "."]);
+  await run("git", ["-C", repo.root, "commit", "--quiet", "-m", "malformed fragment fixture"]);
+  await run("git", ["-C", repo.root, "push", "--quiet", "origin", `HEAD:refs/heads/${repo.branch}`]);
+  const revision = (await run("git", ["-C", repo.root, "rev-parse", "HEAD"])).stdout.trim();
+  const original = Buffer.from("候选模型解释");
+  await assert.rejects(ingestMaterials({ operationId: "bad-fragment", expectedRevision: revision, entry: "skill",
+    collectionId: "skill", snapshotId: "invocation", policyRef: repo.policyRef, purpose,
+    materials: [{ upstreamId: "product", capturedAt: now, provenance: { type: "generated", producerId: "model" },
+      original: { bytes: original, sha256: bytesVersion(original), mediaType: "text/plain" },
+      skill: { id: "summarizer", version: bytesVersion("skill") }, derivedFrom: [{ id: entry.id, version: entry.version }] }] },
+  { ...ports, reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch) }), /selector_unavailable/);
+  assert.equal((await run("git", ["-C", repo.root, "status", "--porcelain"])).stdout, "");
+});
 
 const policy = {
   schemaVersion: "stella.source-policy/v1",

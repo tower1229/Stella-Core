@@ -25,6 +25,8 @@ export type IngestAttachment = {
   bytes?: Uint8Array | null;
   /** External URL without bytes = non-retryable upstream gap. */
   externalUrl?: string | null;
+  /** Preserve the epistemic status of imported originals, including unknown and model inference. */
+  evidenceKind?: IngestItemKind;
 };
 
 export type TranscriptMessageExport = {
@@ -56,6 +58,9 @@ export type TranscriptIngestItem = {
   editedFromUpstreamId?: string | null;
   attachments?: IngestAttachment[];
   envelope?: Record<string, unknown>;
+  derivedFrom?: VersionedRef[];
+  /** False when text contains archive metadata rather than source expression. */
+  textIsEvidence?: boolean;
 };
 
 const check: (value: unknown, category: string) => asserts value = (value, category) => {
