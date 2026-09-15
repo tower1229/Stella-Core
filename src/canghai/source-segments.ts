@@ -2,6 +2,7 @@ import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 
+export type SegmentLocator = { payloadSha256: string; start: number; end: number };
 export type SourceSegment = { payloadSha256: string; start: number; end: number; policyRef: VersionedRef };
 function check(value: unknown, category = "invalid_source_segments"): asserts value {
   if (!value) throw new CatalogError(category);
@@ -38,7 +39,7 @@ export function sourceSegments(source: Record<string, unknown>): SourceSegment[]
   return segments;
 }
 
-export function assertEvidenceSegment(segments: SourceSegment[], evidence: Record<string, unknown>): void {
+export function assertEvidenceSegment(segments: SourceSegment[], evidence: Record<string, unknown>): SourceSegment | undefined {
   if (!segments.length) return;
   check(isRecord(evidence.selector) && Object.keys(evidence.selector).sort().join() === "kind,value" &&
     evidence.selector.kind === "utf8_bytes" && typeof evidence.selector.value === "string" &&
@@ -46,6 +47,18 @@ export function assertEvidenceSegment(segments: SourceSegment[], evidence: Recor
   const [start, end] = evidence.selector.value.split(":").map(Number);
   check(Number.isSafeInteger(start) && Number.isSafeInteger(end) && start! < end! && validMemoryRef(evidence.policyRef), "evidence_segment_required");
   const policyRef = evidence.policyRef;
-  check(segments.some(segment => segment.payloadSha256 === evidence.payloadSha256 && start! >= segment.start && end! <= segment.end &&
-    segment.policyRef.id === policyRef.id && segment.policyRef.version === policyRef.version), "evidence_segment_policy_mismatch");
+  const selected = segments.find(segment => segment.payloadSha256 === evidence.payloadSha256 && start! >= segment.start && end! <= segment.end &&
+    segment.policyRef.id === policyRef.id && segment.policyRef.version === policyRef.version);
+  check(selected, "evidence_segment_policy_mismatch");
+  return selected;
+}
+
+export function segmentLocator(segment: SegmentLocator): SegmentLocator {
+  return { payloadSha256: segment.payloadSha256, start: segment.start, end: segment.end };
+}
+
+export function validSegmentLocator(value: unknown): value is SegmentLocator {
+  return isRecord(value) && Object.keys(value).sort().join() === "end,payloadSha256,start" &&
+    typeof value.payloadSha256 === "string" && /^sha256:[a-f0-9]{64}$/.test(value.payloadSha256) &&
+    Number.isSafeInteger(value.start) && Number.isSafeInteger(value.end) && Number(value.start) >= 0 && Number(value.end) > Number(value.start);
 }

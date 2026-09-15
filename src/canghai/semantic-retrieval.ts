@@ -2,11 +2,13 @@ import { HOST_REQUEST_ARCHIVE_ADAPTER } from "./host-request-archive.js";
 import { HOST_INPUT_ARCHIVE_ADAPTER } from "./host-input-archive.js";
 import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { canonicalJson } from "./content-version.js";
-import type { SourceAccessDescriptor } from "./source-access.js";
+import { sourceAccessKey, type SourceAccessDescriptor } from "./source-access.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { EpisodeEvidenceResolver, OriginalEvidence } from "../praxis/episode-evidence.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "../praxis/evidence-bundle.js";
+
+import { sourceSegments, assertEvidenceSegment, segmentLocator } from "./source-segments.js";
 
 export type SemanticRetrievalConfig = { schemaVersion: "stella.semantic-retrieval/v1"; pageSize: number; maxRounds: number; maxSelected: number; maxOriginalChars: number };
 const check: (value: unknown, category: string) => asserts value = (value, category) => { if (!value) throw new CatalogError(category); };
@@ -38,14 +40,17 @@ export async function retrieveCatalogEvidence(input: {
     if (entry.status !== "current" || !reader.eligible(entry)) continue;
     const evidence = await reader.read(entry, "evidence");
     check(validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef), "invalid_evidence");
-    const found = descriptors.filter(d => key(d.sourceRef) === key(evidence.source as VersionedRef) && key(d.policyRef) === key(evidence.policyRef as VersionedRef));
+    const source = await reader.read(evidence.source, "sources");
+    const segment = assertEvidenceSegment(sourceSegments(source), evidence);
+    const target = { sourceRef: evidence.source, policyRef: evidence.policyRef, ...(segment ? { segment: segmentLocator(segment) } : {}) };
+    const found = descriptors.filter(d => sourceAccessKey(d) === sourceAccessKey(target));
     check(found.length <= 1, "retrieval_descriptor_required");
     let description = found[0]?.description;
     if (!description) {
       // Host archives have no source-authored description. Their exact original
       // is eligible only through the explicit owner body-processing grant and
       // the ordinary evidence resolver; repository sources cannot use this path.
-      const source = await reader.read(evidence.source, "sources");
+      check(!segment, "retrieval_descriptor_required");
       const policy = await reader.read(evidence.policyRef, "policies");
       check(isRecord(source.origin) && [HOST_REQUEST_ARCHIVE_ADAPTER, HOST_INPUT_ARCHIVE_ADAPTER].includes(String(source.origin.adapterId)) &&
         policy.schemaVersion === "stella.source-policy/v1" && policy.ownerId === input.ownerId, "retrieval_descriptor_required");

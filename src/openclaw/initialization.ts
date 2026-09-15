@@ -171,10 +171,18 @@ export class StellaInitializer {
   private async recipe(): Promise<Materialization> {
     check(/^[a-f0-9]{40}$/.test(this.source.revision), "invalid_source_revision");
     const git = async (args: string[]) => (await run("git", ["-c", "core.fsmonitor=false", "-C", this.source.root, ...args])).stdout.trim();
-    check(await git(["rev-parse", "HEAD"]) === this.source.revision, "source_revision_mismatch");
-    const status = await git(["status", "--porcelain"]);
-    check(status === "" || (isLiveMemoryMutationDirt(status) &&
-      await ownsMemoryMutationLock(this.source.root)), "source_dirty");
+    for (let attempt = 0; ; attempt++) {
+      check(await git(["rev-parse", "HEAD"]) === this.source.revision, "source_revision_mismatch");
+      const status = await git(["status", "--porcelain"]);
+      if (status === "") break;
+      // Git can observe the fence immediately before its owner releases it, or
+      // before this process registers a newly acquired lock. Re-sample the full
+      // binding instead of combining an old porcelain result with new ownership.
+      check(isLiveMemoryMutationDirt(status), "source_dirty");
+      if (await ownsMemoryMutationLock(this.source.root)) break;
+      check(attempt < 2, "source_dirty");
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
     const content = await read(this.source.root, this.source.recipePath);
     check(content, "materialization_required");
     let value: unknown;

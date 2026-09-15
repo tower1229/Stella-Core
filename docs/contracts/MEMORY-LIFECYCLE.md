@@ -459,3 +459,16 @@ Host stateDir 中只保留已观察事件的摘要；积压不会因会话被外
 `hold_and_monitor` 约束原生 maintenance，不授权 `sessions.delete`、管理员 `--enforce` 或其他插件自带清理。公开 SDK 的 session 删除可能连带历史 generations，且未暴露逐事件快照比较删除，因此不把它适配成 `releaseArchived`。服务返回 `scope: observed_message_events`、`fullRetention: false`：未枚举的历史 generations、非 message 事件及未被完整覆盖的外部附件仍不能签发全 Host 完整留存能力。开启普通原生自动删除前，仍须有能保护完整声明范围的 Host 删除门禁。
 
 `scripts/probe-archive-retention.mjs` 使用显式 `STELLA_PROBE_HOST_ROOT` 启动隔离合成 Agent 的真实 Gateway，测试生产插件、原生维护保留、Host opaque cursor、真实 Git 传输中断、重放去重、原件与附件独立 clone 恢复、定时积压发现、重启及配置失效；`npm run test:host-archive` 可重跑。本机安装与 npm packed consumer 分别生成绑定源码／Host／harness 摘要的 receipt；它们是 real local Host 上的 synthetic 数据证据，不是私人 main、全历史留存或自然反馈验收。
+
+
+### 2026-09-14 片段描述与 skill 原文回读（Issue #17）
+
+`stella.personal-context-access/v1` 的 descriptor 对分段 Source 必须额外携带 `segment: {payloadSha256,start,end}`，精确匹配一个已审查片段。每段均须有描述，哪怕多个片段使用同一策略；父策略也须对每段绑定描述。未分段来源保留原格式。旧分段配置缺少 locator 时显式报 `personal_context_segment_descriptor_required`，不能自动复制整文件描述作为迁移。迁移需对当前 Source／Policy／片段重新审查描述并更新既有处理许可；描述不准确的语义问题仍需审查和真实使用验证，结构检查不证明准确性。
+
+检索按片段描述选择 Evidence；逐来源语义判断回传确切片段 locator，持久化复核按 Source／Policy／片段／用途区分收据。原文、学习及输出检查继续经过 `EpisodeEvidenceResolver`，Evidence 不得跨段或换用其他段策略，父策略与片段策略取交集。缺描述、缺策略、失效代际和模型故障不转换成开放权限。
+
+Host 工具 `stella_read_fragment` 供已审查 skill 使用：`{action:"list"}` 返回本轮已纳入认知及输出校验的片段描述、范围、策略和 Evidence Ref；`{action:"read",handle:"F1"}` 重新授权并回读该 Evidence 原文。句柄仅在当前活跃主人私聊有效，不接受路径、偏移或额外用途；尚未纳入本轮取证的资料须发起新的检索请求，不扩大已持久化证据集合。工具调用前后核验请求、初始化、处理许可、目录和原文；原生 `read` 仍只允许已初始化的 skill 文件，不能绕读个人来源文件。
+
+`probe-main-plugin.mjs --fragment-skill` 通过真实 OpenClaw `chat.send`、实际 skill 文件读取与工具调用，验证描述列出、获准原文回读、整文件绕读拒绝及邻段不进入模型输入；该探针使用合成资料、注入语义结果和 loopback 模型，纳入打包 smoke。它不签发完整 memory_access 准入，不代表真实 main 私人行为、自然反馈或 C-07／M-04 全组验收完成。
+
+`--fragment-live` 使用显式 `STELLA_LIVE_HOST_CONFIG` 中的 Google 连接，在隔离 OpenClaw 和合成资料上运行 Gemini 的片段访问／输出语义判断及原生 skill／tool 选择；路由和纠正准备仍注入合成结果。断言允许回读、整文件和邻段拒绝、模型输入无禁读片段及最终 Evidence 引用。它不修改日常 main，不扩展私人资料授权；与完整 profile、私人行为及自然反馈分别记录。片段授权判断保留严格 JSON 和精确绑定验证，输出预算为有界 8192 tokens，模型失败不降级。

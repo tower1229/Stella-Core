@@ -29,6 +29,7 @@ for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admi
   "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
   "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
   "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
+  "dist/src/openclaw/fragment-read-tool.js",
   "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
   "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
   "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
@@ -50,7 +51,7 @@ const packageRoot = path.join(consumer, "node_modules/@tower1229/stella-core");
 const hostRoot = path.join(consumer, "node_modules/openclaw");
 assert.equal(JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8")).version, hostVersion);
 const probes = [];
-for (const flag of ["--initialization", "--correction", "--correction-recovery", "--correction-output-rejected", "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
+for (const flag of ["--initialization", "--fragment-skill", "--correction", "--correction-recovery", "--correction-output-rejected", "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
   "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery"]) {
   process.stderr.write(`Packed main probe: ${flag}\n`);
   const result = await run(process.execPath, [path.join(root, "scripts/probe-main-plugin.mjs"), flag], {

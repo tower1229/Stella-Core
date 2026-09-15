@@ -40,7 +40,11 @@ export function hasCompletionPersistencePermit(runId: string): boolean {
   const permit = persistencePermits.getStore();
   return Boolean(permit?.active && permit.runId === runId && !permit.signal.aborted);
 }
-const activeResources = new Set<string>();
+// Host reloads can evaluate a fresh module while the previous registration drains.
+// Share resource occupancy only; execution permits remain local to their run.
+const activeResourcesKey = Symbol.for("stella-core.completion-active-resources/v1");
+const processScope = globalThis as typeof globalThis & { [activeResourcesKey]?: Set<string> };
+const activeResources = processScope[activeResourcesKey] ??= new Set<string>();
 export function isCompletionResourceActive(scope: string): boolean {
   return activeResources.has(scope);
 }
@@ -95,6 +99,13 @@ export function hasCompletionRunPermit(runId: string | undefined): boolean {
 
 export function completionOperationForRun(runId: string | undefined): string | undefined {
   return hasCompletionRunPermit(runId) ? permits.getStore()?.operationId : undefined;
+}
+
+/** Tool factories lack runId; resolve it only from the active Host completion scope. */
+export function readActiveCompletionRequest(agentId: string, sessionId?: string, sessionKey?: string): BoundTurnRequest {
+  const permit = permits.getStore();
+  if (!permit || permit.abortSignal.aborted) throw new CompletionError("invalid_run_permit", "generate");
+  return readCompletionRequest(permit.runId, agentId, sessionId, sessionKey);
 }
 
 /** Current run only; no session cache and no model-supplied identity. */

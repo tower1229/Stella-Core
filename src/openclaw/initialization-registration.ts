@@ -1,3 +1,4 @@
+import { FRAGMENT_READ_TOOL } from "./fragment-read-tool.js";
 import path from "node:path";
 import { mkdir, realpath } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
@@ -6,6 +7,7 @@ import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plug
 import { resolveAgentWorkspaceDir } from "openclaw/plugin-sdk/agent-runtime";
 import { parseCangHaiRef } from "../canghai/ref.js";
 import { readRepositoryBytes } from "../canghai/catalog-reader.js";
+import { ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
 import { isRecord } from "../shared/type-guards.js";
 import { InitializationError, StellaInitializer, type Materialization } from "./initialization.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
@@ -14,7 +16,7 @@ import { verifyInitializationContext } from "./initialization-context.js";
 import { assertHostChannelIdentity, verifyHostSkillTree } from "./initialization-host-skills.js";
 import { Type } from "typebox";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
-import { completionOperationForRun, isCompletionResourceActive } from "./completion.js";
+import { completionOperationForRun, isCompletionResourceActive, PREPARATION_TIMEOUT_MS } from "./completion.js";
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportError } from "openclaw/plugin-sdk/gateway-runtime";
 import { captureInitializationVerificationBinding } from "./initialization-verification-binding.js";
@@ -74,6 +76,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   let status: Status = { state: "not_started" };
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
+  let waitingForMemoryIdle = false;
   let initializer: StellaInitializer | undefined;
   const resolveRuntimeBlockers = async (signal?: AbortSignal) => {
     if (!initializer) return [] as string[];
@@ -258,13 +261,31 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       files: materialization.files, currentConfig: () => api.runtime.config.current() });
   };
 
-  const initialize = (): Promise<ScopedStatus> => {
+  const initialize = (deferForWriter = false): Promise<ScopedStatus> => {
+    if (inflight && waitingForMemoryIdle && !deferForWriter) {
+      return Promise.reject(new InitializationError("initialization_in_progress"));
+    }
     if (inflight) return inflight;
     inflight = (async () => {
       const previouslyReady = status.state === "ready";
-      status = { state: "initializing" };
       let stage = "configuration";
       try {
+        if (deferForWriter) {
+          stage = "memory_idle";
+          waitingForMemoryIdle = true;
+          const root = await realpath(config.canghaiRoot);
+          const resourceScope = process.platform === "win32" ? root.toLowerCase() : root;
+          const deadline = Date.now() + PREPARATION_TIMEOUT_MS * 2;
+          while (isCompletionResourceActive(resourceScope) || await ownsMemoryMutationLock(root)) {
+            if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
+            if (Date.now() >= deadline) throw new InitializationError("memory_transaction_in_progress");
+            await delay(25, undefined, { signal: shutdown.signal });
+          }
+          waitingForMemoryIdle = false;
+        }
+        if (deferForWriter && shutdown.signal.aborted) return scoped(status);
+        stage = "configuration";
+        status = { state: "initializing" };
         stateDir ??= resolveStateDir();
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
         const source = await materializationSource(config);
@@ -290,6 +311,9 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
         status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: await runtimeStatus() };
       } catch (error) {
+        // A registration retired while only waiting has performed no startup
+        // effects. It must not isolate the replacement or revoke the live writer.
+        if (stage === "memory_idle" && shutdown.signal.aborted) return scoped(status);
         const category = error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category : `initialization_${stage}_failed`;
         const operationId = initializer ? await initializer.pendingOperationId().catch(() => undefined) : undefined;
         status = { state: "blocked", category, ...(operationId ? { operationId } : {}) };
@@ -309,7 +333,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       }
       reportHealth(status);
       return scoped(status);
-    })().finally(() => { inflight = undefined; });
+    })().finally(() => { waitingForMemoryIdle = false; inflight = undefined; });
     return inflight;
   };
 
@@ -403,7 +427,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       if (!ctx.runId) throw new InitializationError("stale_initialization_run");
       await initializer!.assertRun(ctx.runId);
       if (event.toolName === "read") await initializer!.assertSkillRead(event.params);
-      else if (event.toolName !== "stella_initialize") throw new InitializationError("private_draft_tool_forbidden");
+      else if (event.toolName !== "stella_initialize" && event.toolName !== FRAGMENT_READ_TOOL) throw new InitializationError("private_draft_tool_forbidden");
     }
     catch (error) { return { block: true, blockReason: error instanceof InitializationError ? error.category : "Stella initialization is not current" }; }
   }, { priority: 2000, timeoutMs: 15000 });
@@ -428,7 +452,8 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         else ctx.serviceHealth?.clearFailure();
       };
       // Do not await a loopback request while the Host is still starting its listener.
-      void initialize();
+      // Recovery-pointer reloads must not inspect another live write mid-publication.
+      void initialize(true);
     },
     stop() { shutdown.abort(); reportHealth = () => {}; status = { state: "blocked", category: "gateway_stopping" }; },
   });
@@ -437,7 +462,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     // A service-start request can still be failing when this event arrives.
     // Join it first so the ready listener gets its own initialization attempt.
     if (inflight) await inflight;
-    if (!shutdown.signal.aborted && status.state !== "ready") await initialize();
+    if (!shutdown.signal.aborted && status.state !== "ready") await initialize(true);
   });
   api.registerGatewayMethod("stella.initialize", async ({ params, client, req, signal, respond }) => {
     if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin")) {
