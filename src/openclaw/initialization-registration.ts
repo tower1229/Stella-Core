@@ -7,6 +7,7 @@ import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plug
 import { resolveAgentWorkspaceDir } from "openclaw/plugin-sdk/agent-runtime";
 import { parseCangHaiRef } from "../canghai/ref.js";
 import { readRepositoryBytes } from "../canghai/catalog-reader.js";
+import { ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
 import { isRecord } from "../shared/type-guards.js";
 import { InitializationError, StellaInitializer, type Materialization } from "./initialization.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
@@ -259,13 +260,24 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       files: materialization.files, currentConfig: () => api.runtime.config.current() });
   };
 
-  const initialize = (): Promise<ScopedStatus> => {
+  const initialize = (deferForWriter = false): Promise<ScopedStatus> => {
     if (inflight) return inflight;
     inflight = (async () => {
       const previouslyReady = status.state === "ready";
-      status = { state: "initializing" };
       let stage = "configuration";
       try {
+        if (deferForWriter) {
+          stage = "memory_idle";
+          const deadline = Date.now() + 15000;
+          while (await ownsMemoryMutationLock(config.canghaiRoot)) {
+            if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
+            if (Date.now() >= deadline) throw new InitializationError("memory_transaction_in_progress");
+            await delay(25, undefined, { signal: shutdown.signal });
+          }
+        }
+        if (deferForWriter && shutdown.signal.aborted) return scoped(status);
+        stage = "configuration";
+        status = { state: "initializing" };
         stateDir ??= resolveStateDir();
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
         const source = await materializationSource(config);
@@ -291,6 +303,9 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
         status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: await runtimeStatus() };
       } catch (error) {
+        // A registration retired while only waiting has performed no startup
+        // effects. It must not isolate the replacement or revoke the live writer.
+        if (stage === "memory_idle" && shutdown.signal.aborted) return scoped(status);
         const category = error instanceof InitializationError || error instanceof RuntimeProfileError ? error.category : `initialization_${stage}_failed`;
         const operationId = initializer ? await initializer.pendingOperationId().catch(() => undefined) : undefined;
         status = { state: "blocked", category, ...(operationId ? { operationId } : {}) };
@@ -429,7 +444,8 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         else ctx.serviceHealth?.clearFailure();
       };
       // Do not await a loopback request while the Host is still starting its listener.
-      void initialize();
+      // Recovery-pointer reloads must not inspect another live write mid-publication.
+      void initialize(true);
     },
     stop() { shutdown.abort(); reportHealth = () => {}; status = { state: "blocked", category: "gateway_stopping" }; },
   });
@@ -438,7 +454,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     // A service-start request can still be failing when this event arrives.
     // Join it first so the ready listener gets its own initialization attempt.
     if (inflight) await inflight;
-    if (!shutdown.signal.aborted && status.state !== "ready") await initialize();
+    if (!shutdown.signal.aborted && status.state !== "ready") await initialize(true);
   });
   api.registerGatewayMethod("stella.initialize", async ({ params, client, req, signal, respond }) => {
     if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin")) {

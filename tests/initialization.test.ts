@@ -337,10 +337,31 @@ test("Host service initializes on startup; manual entry shares the same transact
   const context = { agentId: "stella", runId: "test-run" };
   assert.equal((await hooks.get("before_agent_run")!({}, context) as { outcome: string }).outcome, "block");
   assert.equal(await hooks.get("before_agent_run")!({}, { agentId: "other" }), undefined);
-  await service!.start({ config: api.config, stateDir: f.state, logger: api.logger } as never);
+  await withMemoryMutationLock(f.source, async () => {
+    await writeFile(path.join(f.source, "in-flight-write.txt"), "uncommitted synthetic transaction");
+    await service!.start({ config: api.config, stateDir: f.state, logger: api.logger } as never);
+    await new Promise(resolve => setTimeout(resolve, 40));
+    assert.equal(inventoryRequests, 0, "Automatic initialization must wait for this process's writer before touching Host state");
+    await rm(path.join(f.source, "in-flight-write.txt"));
+  });
   await hooks.get("gateway_start")!({}, {});
   assert.equal(inventoryRequests, 2);
   assert.equal(initialization.status().state, "ready");
+  const originalHooks = new Map(hooks), originalService = service, originalCommand = command,
+    originalTool = registeredTool, originalToolOptions = toolOptions;
+  const retiring = registerStellaInitialization(api as never, pluginConfig,
+    (method, params) => api.runtime.gateway.request(method, params));
+  const beforeRetirement = JSON.stringify(hostConfig);
+  await withMemoryMutationLock(f.source, async () => {
+    await service!.start({ config: api.config, stateDir: f.state, logger: api.logger } as never);
+    await new Promise(resolve => setTimeout(resolve, 40));
+    await service!.stop!({ config: api.config, stateDir: f.state, logger: api.logger } as never);
+    await hooks.get("gateway_start")!({}, {});
+    assert.equal(retiring.status().category, "gateway_stopping");
+    assert.equal(JSON.stringify(hostConfig), beforeRetirement, "Retired startup must not isolate the replacement Host");
+  });
+  hooks.clear(); for (const [name, handler] of originalHooks) hooks.set(name, handler);
+  service = originalService; command = originalCommand; registeredTool = originalTool; toolOptions = originalToolOptions;
   assert.equal(hostConfig.agents?.entries?.stella?.identity?.name, "Synthetic Stella");
   assert.equal(hostConfig.agents?.entries?.other?.identity?.name, "Keep other identity");
   hostConfig.agents!.entries!.stella!.bootstrapMaxChars = 100;
