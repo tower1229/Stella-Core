@@ -40,7 +40,11 @@ export function hasCompletionPersistencePermit(runId: string): boolean {
   const permit = persistencePermits.getStore();
   return Boolean(permit?.active && permit.runId === runId && !permit.signal.aborted);
 }
-const activeResources = new Set<string>();
+// Host reloads can evaluate a fresh module while the previous registration drains.
+// Share resource occupancy only; execution permits remain local to their run.
+const activeResourcesKey = Symbol.for("stella-core.completion-active-resources/v1");
+const processScope = globalThis as typeof globalThis & { [activeResourcesKey]?: Set<string> };
+const activeResources = processScope[activeResourcesKey] ??= new Set<string>();
 export function isCompletionResourceActive(scope: string): boolean {
   return activeResources.has(scope);
 }

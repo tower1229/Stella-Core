@@ -343,3 +343,25 @@ test("persistence revalidation permission is isolated from prompt access and exp
   } });
   assert.equal(late(), false);
 });
+
+
+test("reloaded completion modules observe the same active resource until the run drains", async () => {
+  const reloaded = await import(new URL("../src/openclaw/completion.js?reload-observation", import.meta.url).href) as typeof import("../src/openclaw/completion.js");
+  let started!: () => void;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  const abort = new AbortController();
+  const resourceScope = "synthetic-reload-resource";
+  const running = coordinateCompletion({ operationId: resourceScope, runId: resourceScope, resourceScope, timeoutMs: 5000, abortSignal: abort.signal }, {
+    generateDraft: ({ abortSignal }) => new Promise((_resolve, reject) => {
+      abortSignal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }); started();
+    }),
+    async persist() { throw new Error("Must not persist"); },
+    async publishFinal() { throw new Error("Must not publish"); },
+  });
+  const cancelled = assert.rejects(running, /cancelled/);
+  await ready;
+  try { assert.equal(reloaded.isCompletionResourceActive(resourceScope), true); }
+  finally { abort.abort(); await cancelled; }
+  await delay(0);
+  assert.equal(reloaded.isCompletionResourceActive(resourceScope), false);
+});

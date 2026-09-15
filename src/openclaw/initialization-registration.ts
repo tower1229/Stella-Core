@@ -16,7 +16,7 @@ import { verifyInitializationContext } from "./initialization-context.js";
 import { assertHostChannelIdentity, verifyHostSkillTree } from "./initialization-host-skills.js";
 import { Type } from "typebox";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
-import { completionOperationForRun, isCompletionResourceActive } from "./completion.js";
+import { completionOperationForRun, isCompletionResourceActive, PREPARATION_TIMEOUT_MS } from "./completion.js";
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportError } from "openclaw/plugin-sdk/gateway-runtime";
 import { captureInitializationVerificationBinding } from "./initialization-verification-binding.js";
@@ -76,6 +76,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   let status: Status = { state: "not_started" };
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
+  let waitingForMemoryIdle = false;
   let initializer: StellaInitializer | undefined;
   const resolveRuntimeBlockers = async (signal?: AbortSignal) => {
     if (!initializer) return [] as string[];
@@ -261,6 +262,9 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   };
 
   const initialize = (deferForWriter = false): Promise<ScopedStatus> => {
+    if (inflight && waitingForMemoryIdle && !deferForWriter) {
+      return Promise.reject(new InitializationError("initialization_in_progress"));
+    }
     if (inflight) return inflight;
     inflight = (async () => {
       const previouslyReady = status.state === "ready";
@@ -268,12 +272,16 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       try {
         if (deferForWriter) {
           stage = "memory_idle";
-          const deadline = Date.now() + 15000;
-          while (await ownsMemoryMutationLock(config.canghaiRoot)) {
+          waitingForMemoryIdle = true;
+          const root = await realpath(config.canghaiRoot);
+          const resourceScope = process.platform === "win32" ? root.toLowerCase() : root;
+          const deadline = Date.now() + PREPARATION_TIMEOUT_MS * 2;
+          while (isCompletionResourceActive(resourceScope) || await ownsMemoryMutationLock(root)) {
             if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
             if (Date.now() >= deadline) throw new InitializationError("memory_transaction_in_progress");
             await delay(25, undefined, { signal: shutdown.signal });
           }
+          waitingForMemoryIdle = false;
         }
         if (deferForWriter && shutdown.signal.aborted) return scoped(status);
         stage = "configuration";
@@ -325,7 +333,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       }
       reportHealth(status);
       return scoped(status);
-    })().finally(() => { inflight = undefined; });
+    })().finally(() => { waitingForMemoryIdle = false; inflight = undefined; });
     return inflight;
   };
 

@@ -352,14 +352,33 @@ test("Host service initializes on startup; manual entry shares the same transact
   const retiring = registerStellaInitialization(api as never, pluginConfig,
     (method, params) => api.runtime.gateway.request(method, params));
   const beforeRetirement = JSON.stringify(hostConfig);
-  await withMemoryMutationLock(f.source, async () => {
+  let markRetiringTurn!: () => void;
+  const retiringTurnStarted = new Promise<void>(resolve => { markRetiringTurn = resolve; });
+  const retiringAbort = new AbortController();
+  const retiringTurn = coordinateCompletion({ operationId: "reload-overlap", runId: "reload-overlap",
+    resourceScope: f.source, timeoutMs: 10000, abortSignal: retiringAbort.signal }, {
+    generateDraft: ({ abortSignal }) => new Promise((_resolve, reject) => {
+      abortSignal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
+      markRetiringTurn();
+    }),
+    async persist() { throw new Error("No persistence in retired startup test"); },
+    async publishFinal() { throw new Error("No publication in retired startup test"); },
+  });
+  const retiringCancelled = assert.rejects(retiringTurn, /cancelled/);
+  await retiringTurnStarted;
+  try {
     await service!.start({ config: api.config, stateDir: f.state, logger: api.logger } as never);
     await new Promise(resolve => setTimeout(resolve, 40));
+    assert.equal(retiring.status().state, "not_started", "Reload must wait between the live turn's write phases too");
+    await assert.rejects(Promise.race([
+      retiring.initialize(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("manual initialization joined its own drain")), 200)),
+    ]), /initialization_in_progress/);
     await service!.stop!({ config: api.config, stateDir: f.state, logger: api.logger } as never);
     await hooks.get("gateway_start")!({}, {});
     assert.equal(retiring.status().category, "gateway_stopping");
     assert.equal(JSON.stringify(hostConfig), beforeRetirement, "Retired startup must not isolate the replacement Host");
-  });
+  } finally { retiringAbort.abort(); await retiringCancelled; }
   hooks.clear(); for (const [name, handler] of originalHooks) hooks.set(name, handler);
   service = originalService; command = originalCommand; registeredTool = originalTool; toolOptions = originalToolOptions;
   assert.equal(hostConfig.agents?.entries?.stella?.identity?.name, "Synthetic Stella");
