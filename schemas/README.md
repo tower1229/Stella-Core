@@ -9,3 +9,5 @@ npm run check:schemas 编译全部已登记 Schema。v2 契约测试验证真实
 [Memory Lifecycle](../docs/contracts/MEMORY-LIFECYCLE.md)和 [Portable Registries](../docs/contracts/PORTABLE-REGISTRIES.md)中的新增格式具有规范性字段定义，其机器 Schema／adapter 校验仍待实现；不得将旧四个 Schema 的成功当作这些契约通过。
 
 所有示例和测试使用合成数据，禁止复制私人资料。
+
+Issue #16 增加 [Archive Manifest v1](archive-manifest.schema.json) 与 [Ingest Checkpoint v1](ingest-checkpoint.schema.json)。运行时还校验事件唯一性、正文／附件摘要、游标衔接、事务恢复、同步及清理资格。旧 Coverage 缺声明清单时不能用于新清理确认；升级流程见 Memory Lifecycle 的工作项 10 增量。

@@ -27,7 +27,9 @@ const files = packed.files.map((entry) => entry.path);
 for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admission.js",
   "dist/src/openclaw/initialization.js", "dist/src/openclaw/initialization-registration.js",
   "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
-  "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/fragment-read-tool.js",
+  "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
+  "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
+  "dist/src/openclaw/fragment-read-tool.js",
   "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
   "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
   "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
@@ -74,6 +76,19 @@ assert.equal(capabilityReport.businessAdmission, false);
 assert.equal(capabilityReport.invalidated, true);
 assert.equal(capabilityReport.visitorDenied, true);
 probes.push({ flag: "--capability-acceptance", report: capabilityReport });
+await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
+process.stderr.write("Packed archive retention probe\n");
+const archiveProbe = await run(process.execPath, [path.join(root, "scripts/probe-archive-retention.mjs")], {
+  cwd: consumer,
+  env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
+});
+const archiveReport = JSON.parse(archiveProbe.stdout);
+assert.equal(archiveReport.hostVersion, hostVersion);
+assert.equal(archiveReport.sourceRevision, coreRevision);
+assert.equal(archiveReport.sourceClean, true);
+assert.equal(archiveReport.installedArtifactTested, true);
+assert.equal(archiveReport.probes.length, 8);
+probes.push({ flag: "--archive-retention", report: archiveReport });
 await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
 const receipt = {
   schemaVersion: "stella.package-main-smoke/v2", coreRevision, sourceClean: true,

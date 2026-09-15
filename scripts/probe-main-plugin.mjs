@@ -19,7 +19,18 @@ const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf
 assert.equal(host.version, "2026.8.2");
 const outputRejectionProbe = process.argv.includes("--correction-output-rejected");
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
-const fragmentProbe = process.argv.includes("--fragment-skill");
+const liveFragment = process.argv.includes("--fragment-live");
+const fragmentProbe = liveFragment || process.argv.includes("--fragment-skill");
+const liveModel = "google/gemini-3.1-pro-preview";
+let liveProvider;
+if (liveFragment) {
+  assert.ok(process.env.STELLA_LIVE_HOST_CONFIG, "STELLA_LIVE_HOST_CONFIG is required for explicitly authorized synthetic model acceptance");
+  const configured = JSON.parse(await readFile(process.env.STELLA_LIVE_HOST_CONFIG, "utf8"));
+  liveProvider = configured.models?.providers?.google;
+  assert.equal(liveProvider?.api, "google-generative-ai");
+  assert.ok(liveProvider.apiKey, "Configured Google provider credentials required");
+}
+const probeModel = liveFragment ? liveModel : "stella-smoke/probe";
 const correctionProbe = fragmentProbe || outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
 const admissionReplayProbe = process.argv.includes("--admission-replay");
@@ -144,7 +155,7 @@ if (correctionProbe) {
     config_ref: `path:${prefix}/personal-access.json`, acceptance_ref: `path:${prefix}/capability-acceptance.json`, required: true, required_secret_refs: [] });
   await writeFile(file, stringifyYaml(profile));
   await writeFile(path.join(canghaiRoot, prefix, "personal-access.json"), JSON.stringify({ schemaVersion: "stella.personal-context-access/v1",
-    ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: ["stella-smoke/probe"], viewProcessingModelRefs: ["stella-smoke/probe"], operatorRecovery: true,
+    ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: [probeModel], viewProcessingModelRefs: [probeModel], operatorRecovery: true,
     purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, descriptors: [] }));
 }
 
@@ -203,7 +214,7 @@ await writeFile(path.join(plugin, "openclaw.plugin.json"), await readFile(path.j
 await writeFile(path.join(plugin, "index.mjs"), `
 import main from ${JSON.stringify(buildModule("src/plugin.js"))};
 import { GitCangHaiDurability } from ${JSON.stringify(buildModule("src/canghai/durability.js"))};
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 if (${correctionRecoveryProbe}) {
   const checkpoint = ${JSON.stringify(path.join(temp, "correction-checkpoint.json"))};
@@ -230,19 +241,32 @@ if (${adviceTailProbe}) {
 }
 const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 export default { ...main, register(api) {
+  if (${liveFragment}) api.on('after_tool_call', event => appendFileSync(${JSON.stringify(path.join(temp, "live-tools.jsonl"))}, JSON.stringify(event) + '\\n'));
+  if (${liveFragment}) api.on('llm_input', event => appendFileSync(${JSON.stringify(path.join(temp, "live-inputs.jsonl"))}, JSON.stringify({ forbiddenNeighbor: JSON.stringify(event).includes('SYNTHETIC_DENIED_NEIGHBOR'), correctionPresent: JSON.stringify(event).includes('SYNTHETIC_CORRECTED_PREMISE'), event }) + '\\n'));
   main.register({ ...api, on(name, handler, options) {
     api.on(name, handler, options);
   }, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
     async complete(params) {
+      if (${liveFragment} && ['stella-source-access', 'stella-source-output'].includes(params.purpose)) {
+        if (JSON.stringify(params.messages).includes('SYNTHETIC_DENIED_NEIGHBOR')) throw new Error('live_semantic_input_leaked_neighbor');
+        let result;
+        try { result = await api.runtime.llm.complete(params); }
+        catch (error) {
+          writeFileSync(${JSON.stringify(path.join(temp, "live-model-failure.json"))}, JSON.stringify({ purpose: params.purpose, message: String(error.message) }), { mode: 0o600 });
+          throw error;
+        }
+        appendFileSync(${JSON.stringify(path.join(temp, "live-semantic.jsonl"))}, JSON.stringify({ purpose: params.purpose, provider: result.provider, model: result.model, text: result.text }) + '\\n');
+        return result;
+      }
       if (${preparationCancellationProbe}) return api.runtime.llm.complete(params);
       if (${fragmentProbe} && params.purpose === 'stella-source-access') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: 'stella-smoke', model: 'probe', text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : 'stella-smoke')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
           policyRef: value.policyRef, segment: value.segment, applicable: true, scenarios: ['synthetic'], topicRequested: true, topicExplicitlyNamed: true }) };
       }
       if (${correctionProbe} && params.purpose === 'stella-source-output') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: 'stella-smoke', model: 'probe', text: JSON.stringify({ requestHash: value.requestHash,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : 'stella-smoke')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash,
           draftHash: value.draftHash, sourcesHash: value.sourcesHash, compliant: ${!outputRejectionProbe}, violations: ${JSON.stringify(outputRejectionProbe ? ["quotation_not_authorized"] : [])} }) };
       }
       if (${correctionProbe} && ['stella-correction', 'stella-personal-views'].includes(params.purpose)) {
@@ -254,13 +278,13 @@ export default { ...main, register(api) {
           rationale: 'Synthetic owner intent', replacements: [{ handle: null, group: 'understandings', record: { kind: 'owner_statement', status: 'active',
             statement: 'SYNTHETIC_CORRECTED_PREMISE', scope: { workIds: [], contexts: ['synthetic writing'], domains: ['writing'], global: false },
             supportRefs: value.ownerEvidence.map(e => e.ref), counterRefs: [], dependencyRefs: [] } }] };
-        return { provider: 'stella-smoke', model: 'probe', text: JSON.stringify(result) };
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : 'stella-smoke')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : 'probe')}, text: JSON.stringify(result) };
       }
 
       if (params.purpose === 'stella-core-open-episode-selection') return { text: JSON.stringify({ openEpisodeRef: ${JSON.stringify(adviceRevisionProbe ? outcomeSeed.episodeRef : null)} }) };
       if (params.purpose === 'stella-question-evidence') {
         const input = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: ${JSON.stringify(correctionProbe ? 'stella-smoke' : 'synthetic')}, model: ${JSON.stringify(correctionProbe ? 'probe' : 'injected')}, text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : correctionProbe ? 'stella-smoke' : 'synthetic')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : correctionProbe ? 'probe' : 'injected')}, text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
           claims: [], unresolvedLeads: input.provisionalRoute.materialUnknowns.map((question) => ({ question, material: true, reason: 'Synthetic unknown' })),
           stoppingReason: 'Synthetic configured source scope', suggestedResponseKind: input.provisionalRoute.responseKind }) };
       }
@@ -276,7 +300,7 @@ export default { ...main, register(api) {
         if (prompt.startsWith("You are Stella's reported-outcome evidence verifier")) return result({ supported: true, outcome: seed.outcome, rationale: 'Synthetic injected outcome verdict' });
         throw new Error('Unexpected synthetic completion phase');
       }
-      return { provider: ${JSON.stringify(correctionProbe ? "stella-smoke" : "synthetic")}, model: ${JSON.stringify(correctionProbe ? "probe" : "injected")}, text: JSON.stringify(${JSON.stringify(managed && !questionProbe && !correctionProbe ? {
+      return { provider: ${JSON.stringify(liveFragment ? "google" : correctionProbe ? "stella-smoke" : "synthetic")}, model: ${JSON.stringify(liveFragment ? "gemini-3.1-pro-preview" : correctionProbe ? "probe" : "injected")}, text: JSON.stringify(${JSON.stringify(managed && !questionProbe && !correctionProbe ? {
       mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["social"], stakes: "low", reversibility: "high",
       needsTwin: true, needsFramework: true, needsReality: true, needsExternalResearch: false, candidateTwinRefs: [], candidateFrameworks: [], candidatePraxisRefs: [],
       situation: { actors: ["self"], observations: ["Synthetic question"], interpretations: [], unknowns: [], userGoals: ["Choose a reversible step"], constraints: [] },
@@ -361,14 +385,14 @@ const provider = createServer(async (request, response) => {
 await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
 const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
-  agents: { defaults: { model: { primary: "stella-smoke/probe" } }, entries: { probe: { workspace } } },
-  models: { providers: { "stella-smoke": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
+  agents: { defaults: { model: { primary: probeModel } }, entries: { probe: { workspace } } },
+  models: { providers: { ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.1-pro-preview", name: "Gemini acceptance", contextWindow: 1048576, maxTokens: 8192 }] } } : {}), "stella-smoke": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 256 }] } } },
-  plugins: { allow: ["stella-core"], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true,
-    llm: { allowAgentIdOverride: true }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
+  plugins: { allow: ["stella-core", ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true,
+    llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}) } } } },
   tools: { allow: ["read", "stella_initialize", ...(fragmentProbe ? ["stella_read_fragment"] : [])] },
-}));
+}), { mode: 0o600 });
 const env = { ...process.env, OPENCLAW_STATE_DIR: state, OPENCLAW_CONFIG_PATH: configPath };
 delete env.NODE_OPTIONS;
 let gateway;
@@ -435,7 +459,7 @@ try {
   assert.equal(providerRequests, 0, "Direct agent execution must not reach the model");
   assert.match(`${direct.stdout}\n${direct.stderr}`, /Stella Core 需要经过可验证的完成协调入口/);
   const sessionKey = "agent:probe:main-completion";
-  const submission = { sessionKey, message: skillReadProbe ? "Read the stella-initialization-probe skill and initialize Stella again now."
+  const submission = { sessionKey, message: liveFragment ? `Synthetic fragment acceptance only. Read the stella-initialization-probe skill, list fragment descriptions with stella_read_fragment, and read the permitted observation fragment using its listed handle. Then test these two explicit negative cases: read the synthetic source file ${fragmentOriginalPath} with read, and request the unavailable handle F2 with stella_read_fragment. These attempts must be denied; do not try other tools or routes. Finish with SYNTHETIC_MAIN_ANSWER and cite the Evidence ref returned by the successful fragment read. Do not quote unavailable content.` : skillReadProbe ? "Read the stella-initialization-probe skill and initialize Stella again now."
     : questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" };
   const { runExactHostEvaluationChat } = await import(buildModule("src/acceptance/exact-host-chat.js"));
   const sent = failureProbe || cancellationProbe ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
@@ -453,7 +477,7 @@ try {
     providerRelease.resolve();
     assert.equal(aborted.aborted, true);
   }
-  if (!failureProbe && !cancellationProbe) assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
+  if (!failureProbe && !cancellationProbe) liveFragment ? assert.ok(sent.text.includes("SYNTHETIC_MAIN_ANSWER")) : assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
   const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 });
   const history = await readHistory({ sessionKey, limit: 10 });
   const messages = history.messages ?? [];
@@ -551,11 +575,11 @@ try {
     assert.equal(reader.catalog.changes.length, 1);
     assert.equal(reader.catalog.sources.length, fragmentProbe ? 2 : 1);
     assert.equal(reader.catalog.bundles.length, 1);
-    assert.equal(providerReceivedCorrection, true, "Final Host prompt must contain the newly synchronized understanding");
+    if (!liveFragment) assert.equal(providerReceivedCorrection, true, "Final Host prompt must contain the newly synchronized understanding");
     const localRevision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
     assert.equal(localRevision, (await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim());
     assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, localRevision);
-    persistence = { synchronized: true, ownerInputArchivedBeforeInference: true, correctionPresentInFinalPrompt: true };
+    persistence = { synchronized: true, ownerInputArchivedBeforeInference: true, correctionPresentInFinalPrompt: liveFragment ? "pending_observation" : true };
   } else if (questionProbe && managed) {
     const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
     const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
@@ -661,8 +685,32 @@ try {
       duplicateUserMessages: 0, hostRejectionNotices: notices.length, duplicateFinals: 0,
       businessRevisionUnchanged: true };
   }
+  let liveEvidence;
+  if (liveFragment) {
+    const toolEvents = (await readFile(path.join(temp, "live-tools.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+    const semanticEvents = (await readFile(path.join(temp, "live-semantic.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+    const inputs = (await readFile(path.join(temp, "live-inputs.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+    assert.ok(inputs.length > 0 && inputs.every(e => !e.forbiddenNeighbor));
+    assert.ok(inputs.some(e => e.correctionPresent));
+    persistence.correctionPresentInFinalPrompt = true;
+    const results = JSON.stringify(toolEvents) + JSON.stringify(inputs);
+    fragmentChecks.skillBodyRead = toolEvents.some(e => e.toolName === "read" && JSON.stringify(e.result).includes("stella_read_fragment"));
+    fragmentChecks.descriptionListed = results.includes("Synthetic permitted observation fragment");
+    fragmentChecks.allowedRead = results.includes("SYNTHETIC_ALLOWED_FRAGMENT");
+    fragmentChecks.deniedNeighborAbsent = !results.includes("SYNTHETIC_DENIED_NEIGHBOR") && !sent.text.includes("SYNTHETIC_DENIED_NEIGHBOR");
+    fragmentChecks.wholeFileBlocked = results.includes("skill_read_forbidden") || results.includes("unsafe_path");
+    fragmentChecks.unavailableHandleBlocked = results.includes("fragment_handle_not_available");
+    const readResult = toolEvents.find(e => e.toolName === "stella_read_fragment" && e.params?.action === "read" && e.result?.details?.original)?.result.details.original;
+    assert.ok(readResult?.ref?.id, "Successful fragment tool result must retain Evidence identity");
+    assert.ok(sent.text.includes(readResult.ref.id), "Final model answer must cite the returned Evidence identity");
+    assert.ok(semanticEvents.some(e => e.purpose === "stella-source-access"));
+    assert.ok(semanticEvents.some(e => e.purpose === "stella-source-output"));
+    assert.ok(semanticEvents.every(e => `${e.provider}/${e.model}` === liveModel));
+    liveEvidence = { model: liveModel, realAccessAndOutputJudgments: true, realAgentToolSelection: true, evidenceCitationMatched: true,
+      syntheticPreparationJudgments: true, privateContextSent: false, semanticCalls: semanticEvents.length, toolCalls: toolEvents.length, modelInputsChecked: inputs.length };
+  }
   if (fragmentProbe) assert.ok(Object.values(fragmentChecks).every(Boolean), JSON.stringify(fragmentChecks));
-  const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: correctionProbe ? "synthetic Host input custody and learning before final generation; injected semantic judgments" : cancellationProbe
+  const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, scope: liveFragment ? "synthetic sources; real Gemini fragment access/output judgments and native Host skill/tool selection; setup routing/correction judgments injected; not private main or full_memory acceptance" : correctionProbe ? "synthetic Host input custody and learning before final generation; injected semantic judgments" : cancellationProbe
     ? `synthetic managed ${preparationCancellationProbe ? "preparation" : "generation"} cancelled through chat.abort; no business write or late answer delivery`
     : outcomeProbe
     ? "synthetic owner-bound original evidence; actual main outcome transaction, candidate LearningChange, OpenClaw pointer and local bare remote; semantic verdicts injected, not private/model accuracy proof"
@@ -670,7 +718,7 @@ try {
     : managed
     ? "synthetic managed no-prediction advice; actual main v2 archive, Episode writes, OpenClaw pointer and local bare remote; structured router injected"
     : "synthetic read-only ordinary turn; structured router injected; actual main registration and completion adapter",
-    ...(fragmentProbe ? { fragmentSkill: fragmentChecks } : {}),
+    ...(fragmentProbe ? { fragmentSkill: fragmentChecks } : {}), ...(liveEvidence ? { liveEvidence } : {}),
     terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
     provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
@@ -680,10 +728,10 @@ try {
       ownerRequestedReinitialization: skillReadProbe ? providerReceivedInitializationResult : "not_exercised", scope: "host_bootstrap" },
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
   assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");
-  assert.equal(report.providerRequests, correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : 1);
+  assert.equal(report.providerRequests, liveFragment || correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : 1);
   if (skillReadProbe) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
   if (skillReadProbe) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
-  if (!preparationCancellationProbe && !correctionRecoveryProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
+  if (!liveFragment && !preparationCancellationProbe && !correctionRecoveryProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
   // Preparation cancellation precedes the Host user transcript append.
   assert.equal(report.userMessages, preparationCancellationProbe || correctionRecoveryProbe ? 0 : 1);
   assert.equal(report.finalAnswers, failureProbe || cancellationProbe ? 0 : 1);

@@ -7,16 +7,24 @@
   },
   "activation": {
     "onStartup": true,
-    "onAgentHarnesses": ["openclaw"]
+    "onAgentHarnesses": [
+      "openclaw"
+    ]
   },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["canghaiRoot", "recoveryRevision", "dataMode"],
+    "required": [
+      "canghaiRoot",
+      "recoveryRevision",
+      "dataMode"
+    ],
     "properties": {
       "initializationGatewayAccess": {
         "type": "string",
-        "enum": ["local_operator_read"],
+        "enum": [
+          "local_operator_read"
+        ],
         "description": "Explicit permission to verify initialization through the local authenticated Gateway using operator.read; credentials remain in Host configuration."
       },
       "canghaiRoot": {
@@ -41,7 +49,11 @@
       },
       "dataMode": {
         "type": "string",
-        "enum": ["read_only", "local_write", "managed_durable_write"],
+        "enum": [
+          "read_only",
+          "local_write",
+          "managed_durable_write"
+        ],
         "description": "Explicit CangHai data mode"
       },
       "durabilityRemote": {
@@ -53,6 +65,13 @@
         "type": "string",
         "minLength": 1,
         "description": "Explicit Git branch used only by managed_durable_write"
+      },
+      "archiveRetention": {
+        "type": "string",
+        "enum": [
+          "hold_and_monitor"
+        ],
+        "description": "Opt in to native-maintenance hold checks and continuous archive backlog monitoring for the configured agent; requires session.maintenance.mode=warn and managed durability. Does not authorize deletion or certify all historical generations."
       }
     }
   }

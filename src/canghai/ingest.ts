@@ -35,6 +35,8 @@ import {
   type TranscriptIngestItem,
   type TranscriptMessageExport,
 } from "./transcript-archive.js";
+import { inspectManifestItems, parseArchiveManifest, type ArchiveManifest } from "./archive-integrity.js";
+import { prepareCheckpoint } from "./ingest-progress.js";
 
 export const EXPLICIT_RECORD_ADAPTER = "stella-explicit-record/v1";
 export type { IngestAttachment, IngestItemKind, IngestItemRole, TranscriptMessageExport };
@@ -70,6 +72,7 @@ export type IngestCoveragePlan = {
   fromCursor: string | null;
   toCursor: string | null;
   expectedCount: number | null;
+  manifest?: ArchiveManifest;
 };
 
 export type IngestRequest = {
@@ -78,6 +81,7 @@ export type IngestRequest = {
   adapterId: string;
   collectionId: string;
   cursor: string | null;
+  resumeKey?: string;
   policyRef: VersionedRef;
   items: IngestItem[];
   purpose: { readPurpose: string; derivePurpose: string; deliveryScope: string };
@@ -246,6 +250,8 @@ export async function ingestTranscript(input: {
   messages: TranscriptMessageExport[];
   branchPolicy: "all_retained" | "declared_subset";
   declaredBranches: string[];
+  resumeKey?: string;
+  coverage?: IngestCoveragePlan;
   policyRef: VersionedRef;
   purpose: IngestRequest["purpose"];
 }, ports: IngestPorts): Promise<IngestResult> {
@@ -256,7 +262,7 @@ export async function ingestTranscript(input: {
     if (error instanceof CatalogError) throw new IngestError(error.category, { cause: error });
     throw error;
   }
-  const fromCursor = items[0]?.parentUpstreamId ?? null;
+  const fromCursor = input.coverage?.fromCursor ?? null;
   const toCursor = items[items.length - 1]?.upstreamId ?? null;
   return ingest({
     operationId: input.operationId,
@@ -264,10 +270,11 @@ export async function ingestTranscript(input: {
     adapterId: HOST_INPUT_ARCHIVE_ADAPTER,
     collectionId: input.sessionId,
     cursor: fromCursor,
+    ...(input.resumeKey ? { resumeKey: input.resumeKey } : {}),
     policyRef: input.policyRef,
     items,
     purpose: input.purpose,
-    coverage: {
+    coverage: input.coverage ?? {
       branchPolicy: input.branchPolicy,
       declaredBranches: input.declaredBranches,
       upstreamSnapshot: bytesVersion(canonicalJson({
@@ -438,42 +445,65 @@ export function assertRetentionAdmission(
   return "do_not_retain";
 }
 
+function inputItemDeclaration(item: IngestItem) {
+  return {
+    upstreamId: item.upstreamId,
+    role: item.role,
+    speakerId: item.speakerId,
+    kind: item.kind,
+    text: item.text,
+    capturedAt: item.capturedAt,
+    occurredAt: item.occurredAt,
+    authoredAt: item.authoredAt,
+    parentUpstreamId: item.parentUpstreamId,
+    editedFromUpstreamId: item.editedFromUpstreamId ?? null,
+    envelope: item.envelope ?? null,
+    ...(item.derivedFrom === undefined ? {} : { derivedFrom: item.derivedFrom }),
+    ...(item.textIsEvidence === undefined ? {} : { textIsEvidence: item.textIsEvidence }),
+    // Digest binds the declared attachment manifest, not downloaded bytes (MEMORY-LIFECYCLE).
+    attachments: (item.attachments ?? []).map((attachment) => ({
+      upstreamId: attachment.upstreamId,
+      mediaType: attachment.mediaType,
+      fileName: attachment.fileName ?? null,
+      hasExternalUrl: Boolean(attachment.externalUrl),
+      ...(attachment.evidenceKind === undefined ? {} : { evidenceKind: attachment.evidenceKind }),
+    })),
+  };
+}
+
 function inputDigest(request: IngestRequest): string {
   return bytesVersion(canonicalJson({
     adapterId: request.adapterId,
     collectionId: request.collectionId,
     cursor: request.cursor,
     policyRef: request.policyRef,
-    items: request.items.map((item) => ({
-      upstreamId: item.upstreamId,
-      role: item.role,
-      speakerId: item.speakerId,
-      kind: item.kind,
-      text: item.text,
-      capturedAt: item.capturedAt,
-      occurredAt: item.occurredAt,
-      authoredAt: item.authoredAt,
-      parentUpstreamId: item.parentUpstreamId,
-      editedFromUpstreamId: item.editedFromUpstreamId ?? null,
-      envelope: item.envelope ?? null,
-      ...(item.derivedFrom === undefined ? {} : { derivedFrom: item.derivedFrom }),
-      ...(item.textIsEvidence === undefined ? {} : { textIsEvidence: item.textIsEvidence }),
-      // Digest binds the declared attachment manifest, not downloaded bytes (MEMORY-LIFECYCLE).
-      attachments: (item.attachments ?? []).map((attachment) => ({
-        upstreamId: attachment.upstreamId,
-        mediaType: attachment.mediaType,
-        fileName: attachment.fileName ?? null,
-        hasExternalUrl: Boolean(attachment.externalUrl),
-        ...(attachment.evidenceKind === undefined ? {} : { evidenceKind: attachment.evidenceKind }),
-      })),
-    })),
+    items: request.items.map(inputItemDeclaration),
     purpose: request.purpose,
     coverage: request.coverage ?? null,
+    ...(request.resumeKey ? { resumeKey: request.resumeKey } : {}),
   }));
+}
+
+function receivedDeclarations(items: IngestItem[]) {
+  return items.map(item => {
+    const declaration = inputItemDeclaration(item);
+    return { upstreamId: item.upstreamId,
+      metadataDigest: bytesVersion(canonicalJson({ ...declaration, attachments: [] })),
+      attachments: declaration.attachments.map(attachment => ({ upstreamId: attachment.upstreamId,
+        metadataDigest: bytesVersion(canonicalJson(attachment)) })),
+    };
+  });
 }
 
 function transcriptStagePath(catalogPath: string, operationId: string): string {
   return path.posix.join(path.posix.dirname(catalogPath), "operations", `${operationId}.transcript-stage.json`);
+}
+
+async function clearTranscriptStage(root: string, catalogPath: string, operationId: string): Promise<void> {
+  try { await unlink(path.join(root, transcriptStagePath(catalogPath, operationId))); }
+  catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
 }
 
 function classifyAttachmentGaps(items: IngestItem[]): Array<{ upstreamId: string; reason: string; retryable: boolean }> {
@@ -528,6 +558,13 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
     check(request.coverage.branchPolicy === "all_retained" || request.coverage.branchPolicy === "declared_subset",
       "invalid_input");
     check(Array.isArray(request.coverage.declaredBranches), "invalid_input");
+    check(request.coverage.expectedCount === null || Number.isSafeInteger(request.coverage.expectedCount) &&
+      request.coverage.expectedCount >= 0, "invalid_input");
+    if (request.coverage.manifest) {
+      parseArchiveManifest(request.coverage.manifest);
+      check(request.coverage.expectedCount === null || request.coverage.expectedCount === request.coverage.manifest.items.length,
+        "archive_manifest_count_mismatch");
+    }
     check(request.coverage.branchPolicy !== "declared_subset" || request.coverage.declaredBranches.length > 0,
       "invalid_input");
     check(request.coverage.branchPolicy !== "all_retained" || request.coverage.declaredBranches.length === 0,
@@ -552,7 +589,8 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
   const sourceRefs: VersionedRef[] = [];
   const evidenceRefs: VersionedRef[] = [];
   const payloads: Array<MemoryFileChange & { sha256: string }> = [];
-  const missingItems: Array<{ upstreamId: string; reason: string; retryable: boolean }> = [];
+  const missingItems: Array<{ upstreamId: string; reason: string; retryable: boolean }> = request.coverage?.manifest
+    ? inspectManifestItems(request.coverage.manifest, request.items) : [];
   type PendingItem = {
     item: IngestItem;
     identity: string;
@@ -637,7 +675,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       } else {
         // externalUrl-only = upstream original unavailable here (non-retryable).
         // no bytes and no URL = declared pending fetch (retryable; blocked before local_committed).
-        missingItems.push({
+        if (!missingItems.some(gap => gap.upstreamId === attachment.upstreamId && gap.reason === "attachment_missing")) missingItems.push({
           upstreamId: attachment.upstreamId,
           reason: "attachment_missing",
           retryable: !attachment.externalUrl,
@@ -645,6 +683,25 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       }
     }
 
+    const attachmentManifest = [
+      ...presentAttachments.map((attachment) => ({
+        upstreamId: attachment.upstreamId,
+        mediaType: attachment.mediaType,
+        fileName: attachment.fileName,
+        sha256: attachment.sha256,
+        bytes: attachment.bytes,
+      })),
+      ...(item.attachments ?? [])
+        .filter((attachment) => !(attachment.bytes != null && attachment.bytes.byteLength >= 0))
+        .map((attachment) => ({
+          upstreamId: attachment.upstreamId,
+          mediaType: attachment.mediaType,
+          fileName: attachment.fileName ?? null,
+          sha256: null,
+          bytes: null,
+          externalUrl: attachment.externalUrl ?? null,
+        })),
+    ];
     const payloadBody = item.envelope
       ? (request.adapterId === HOST_REQUEST_ARCHIVE_ADAPTER
         ? {
@@ -659,27 +716,10 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
           speakerId: item.speakerId,
           parentUpstreamId: item.parentUpstreamId,
           editedFromUpstreamId: item.editedFromUpstreamId ?? null,
-          attachments: [
-            ...presentAttachments.map((attachment) => ({
-              upstreamId: attachment.upstreamId,
-              mediaType: attachment.mediaType,
-              fileName: attachment.fileName,
-              sha256: attachment.sha256,
-              bytes: attachment.bytes,
-            })),
-            ...(item.attachments ?? [])
-              .filter((attachment) => !(attachment.bytes != null && attachment.bytes.byteLength >= 0))
-              .map((attachment) => ({
-                upstreamId: attachment.upstreamId,
-                mediaType: attachment.mediaType,
-                fileName: attachment.fileName ?? null,
-                sha256: null,
-                bytes: null,
-                externalUrl: attachment.externalUrl ?? null,
-              })),
-          ],
+          attachments: attachmentManifest,
         })
       : {
+        attachments: attachmentManifest,
         adapterId: request.adapterId,
         collectionId: request.collectionId,
         upstreamId: item.upstreamId,
@@ -719,7 +759,8 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
     ...missingItems.map((item) => item.upstreamId),
   ]);
   check([...declaredIds].every((id) => accountedIds.has(id)) &&
-    [...accountedIds].every((id) => declaredIds.has(id)), "attachment_manifest_mismatch");
+    [...accountedIds].every((id) => declaredIds.has(id) || request.coverage?.manifest?.items.some(item =>
+      item.upstreamId === id || item.attachments.some(attachment => attachment.upstreamId === id))), "attachment_manifest_mismatch");
   for (const entry of pending) {
     for (const attachment of entry.presentAttachments) {
       check(entry.payloadBytes.includes(attachment.sha256), "attachment_manifest_mismatch");
@@ -735,8 +776,8 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
         "invalid_input");
       batchAgentIds = [first.envelope.agentId];
     }
-    const complete = missingItems.length === 0 &&
-      (request.coverage.expectedCount === null || request.coverage.expectedCount === pending.length);
+    const complete = Boolean(request.coverage.manifest) && missingItems.length === 0 &&
+      request.coverage.expectedCount !== null && request.coverage.expectedCount === pending.length;
     batchCoverageRef = add("coverage", {
       schemaVersion: "stella.archive-coverage/v1",
       id: stableId("coverage", canonicalJson([
@@ -763,6 +804,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
       missingItems,
       checkedAt: first.capturedAt,
       completeForDeclaredScope: complete,
+      ...(request.coverage.manifest ? { manifest: request.coverage.manifest } : {}),
     }, []);
   }
 
@@ -770,6 +812,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
     const item = entry.item;
     let coverageRef = batchCoverageRef;
     if (!coverageRef) {
+      const itemGaps = classifyAttachmentGaps([item]);
       coverageRef = add("coverage", {
         schemaVersion: "stella.archive-coverage/v1",
         id: stableId("coverage", entry.identity),
@@ -789,9 +832,9 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
         expectedCount: 1,
         retainedCount: 1,
         excludedByPolicyCount: 0,
-        missingItems: [],
+        missingItems: itemGaps,
         checkedAt: item.capturedAt,
-        completeForDeclaredScope: true,
+        completeForDeclaredScope: itemGaps.length === 0,
       }, []);
     }
 
@@ -873,7 +916,7 @@ function buildArchive(request: IngestRequest, objectRoot: string, payloadRoot: s
   const jsonPayload = payloads.find((payload) => payload.path.endsWith(".json"));
   check(coverageRef && jsonPayload && sourceRefs.length > 0 && evidenceRefs.length > 0, "invalid_input");
   // op + phase + catalog accompany archive files inside the memory transaction (max 64).
-  check(objects.length + payloads.length + 3 <= 64, "attachment_batch_too_large");
+  check(objects.length + payloads.length + (request.resumeKey ? 4 : 3) <= 64, "attachment_batch_too_large");
   return {
     sourceRef: sourceRefs[0]!,
     evidenceRefs,
@@ -970,12 +1013,14 @@ async function validateDerivedEvidence(request: IngestRequest, reader: CatalogRe
  * Retries with the same operationId and input digest do not create independent evidence.
  */
 export async function ingest(request: IngestRequest, ports: IngestPorts): Promise<IngestResult> {
+  request = structuredClone(request);
   const observed: IngestPhase[] = [];
   try {
     check(/^[a-zA-Z][a-zA-Z0-9_-]{0,199}$/.test(request.operationId), "invalid_input");
     check(request.adapterId.trim() && request.collectionId.trim(), "invalid_input");
     check(/^[0-9a-f]{40}$/i.test(request.expectedRevision), "invalid_input");
     check(Array.isArray(request.items) && request.items.length > 0, "invalid_input");
+    if (request.coverage?.manifest) inspectManifestItems(request.coverage.manifest, request.items);
     relative(ports.objectRoot);
     relative(ports.payloadRoot);
     await emit(ports, "received", observed);
@@ -1034,6 +1079,7 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
       check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision,
         "sync_failed");
       await emit(ports, "synchronized", observed);
+      await clearTranscriptStage(reader.root, reader.catalogPath, request.operationId);
       return resultFromOperation(operation, diagnostics);
     }
 
@@ -1051,6 +1097,7 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
       await emit(ports, "validated", observed);
       await emit(ports, "local_committed", observed);
       await emit(ports, "synchronized", observed);
+      await clearTranscriptStage(reader.root, reader.catalogPath, request.operationId);
       return resultFromOperation(operation, await ports.durability.diagnostics());
     }
 
@@ -1073,13 +1120,41 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
     check(bytesVersion(catalogBytes) === reader.catalogHash ||
       bytesVersion(canonicalJson(before)) === reader.catalogHash, "stale_generation");
 
-    const retryableGaps = classifyAttachmentGaps(request.items).filter((item) => item.retryable);
+    const stageRelative = transcriptStagePath(reader.catalogPath, request.operationId);
+    const staged = await readOptional(reader.root, stageRelative);
+    if (staged !== null) {
+      const intent: unknown = JSON.parse(staged);
+      check(isRecord(intent) && intent.operationId === request.operationId &&
+        ["stella.transcript-stage/v1", "stella.transcript-stage/v2"].includes(String(intent.schemaVersion)), "idempotency_conflict");
+      if (intent.schemaVersion === "stella.transcript-stage/v1" || !request.coverage?.manifest) {
+        // Without an independent manifest, only the original input declaration may resume.
+        check(intent.inputDigest === digest, "idempotency_conflict");
+      } else {
+        check(intent.schemaVersion === "stella.transcript-stage/v2" &&
+          intent.declarationDigest === inputDigest({ ...request, items: [] }) && Array.isArray(intent.arrivals),
+        "idempotency_conflict");
+        const arrivals = receivedDeclarations(request.items);
+        for (const prior of intent.arrivals) {
+          check(isRecord(prior) && typeof prior.upstreamId === "string" && typeof prior.metadataDigest === "string" &&
+            Array.isArray(prior.attachments), "invalid_record");
+          const current = arrivals.find(item => item.upstreamId === prior.upstreamId);
+          check(current && current.metadataDigest === prior.metadataDigest && prior.attachments.every(attachment =>
+            isRecord(attachment) && current.attachments.some(value => canonicalJson(value) === canonicalJson(attachment))),
+          "idempotency_conflict");
+        }
+      }
+    }
+    const retryableGaps = (request.coverage?.manifest
+      ? inspectManifestItems(request.coverage.manifest, request.items)
+      : classifyAttachmentGaps(request.items)).filter((item) => item.retryable);
     if (retention === "retain" && retryableGaps.length > 0) {
       const stageRelative = transcriptStagePath(reader.catalogPath, request.operationId);
       const stageDir = path.join(reader.root, path.posix.dirname(stageRelative));
       await mkdir(stageDir, { recursive: true, mode: 0o700 });
       await writeFile(path.join(reader.root, stageRelative), canonicalJson({
-        schemaVersion: "stella.transcript-stage/v1",
+        schemaVersion: "stella.transcript-stage/v2",
+        declarationDigest: inputDigest({ ...request, items: [] }),
+        arrivals: receivedDeclarations(request.items),
         operationId: request.operationId,
         inputDigest: digest,
         missingItems: retryableGaps,
@@ -1125,6 +1200,9 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
         generationId: `generation_${bytesVersion(`${reader.catalogHash}:${digest}:${request.operationId}`).slice(7)}`,
       });
     }
+
+    const checkpoint = await prepareCheckpoint(request, { coverageRef: archive?.coverageRef ?? null }, ports);
+    if (checkpoint) files.push(checkpoint);
 
     const operation: MemoryOperation = {
       schemaVersion: "stella.memory-operation/v1",
@@ -1190,11 +1268,7 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
     check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision,
       "sync_failed");
     await emit(ports, "synchronized", observed);
-    try {
-      await unlink(path.join(reader.root, transcriptStagePath(reader.catalogPath, request.operationId)));
-    } catch (error) {
-      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
-    }
+    await clearTranscriptStage(reader.root, reader.catalogPath, request.operationId);
     return resultFromOperation(operation, diagnostics);
   } catch (error) {
     if (observed[observed.length - 1] !== "failed") {
