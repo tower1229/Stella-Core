@@ -447,3 +447,48 @@ test("initialization accepts live memory transaction marker with its owned lock"
   await writeFile(path.join(f.source, ".stella-memory-transaction.json.lock"), "unowned");
   await assert.rejects(f.initializer.initialize(), /source_dirty/);
 });
+
+test("initialization rechecks a transaction fence released after Git observed it", async (t) => {
+  const f = await fixture(t);
+  const control = await mkdtemp(path.join(os.tmpdir(), "stella-git-observation-"));
+  const originalPath = process.env.PATH;
+  const realGit = (await exec("which", ["git"])).stdout.trim();
+  t.after(async () => { process.env.PATH = originalPath; await rm(control, { recursive: true, force: true }); });
+  const observed = path.join(control, "observed"), resume = path.join(control, "resume");
+  await writeFile(path.join(control, "git"), `#!${process.execPath}
+const { execFileSync } = require('node:child_process');
+const { writeFileSync, existsSync } = require('node:fs');
+const args = process.argv.slice(2);
+const output = execFileSync(${JSON.stringify(realGit)}, args);
+if (args.includes('--porcelain') && !existsSync(${JSON.stringify(observed)})) {
+  writeFileSync(${JSON.stringify(observed)}, output);
+  const deadline = Date.now() + 5000;
+  while (!existsSync(${JSON.stringify(resume)})) {
+    if (Date.now() > deadline) process.exit(2);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+  }
+}
+process.stdout.write(output);
+`, { mode: 0o755 });
+  process.env.PATH = `${control}${path.delimiter}${originalPath}`;
+  let enter!: () => void, unlock!: () => void;
+  const entered = new Promise<void>(resolve => { enter = resolve; });
+  const release = new Promise<void>(resolve => { unlock = resolve; });
+  const writer = withMemoryMutationLock(f.source, async () => { enter(); await release; });
+  await entered;
+  const planned = f.initializer.plan();
+  // The shim holds Git's real status output while the actual owner releases its lock.
+  let captured = "";
+  try {
+    const deadline = Date.now() + 5000;
+    while (!captured) {
+      captured = await readFile(observed, "utf8").catch(() => "");
+      if (Date.now() > deadline) throw new Error("git_observation_timeout");
+      if (!captured) await new Promise(resolve => setTimeout(resolve, 5));
+    }
+  } finally {
+    unlock(); await writer; await writeFile(resume, "continue");
+  }
+  assert.match(captured, /\.stella-memory-transaction\.json\.lock/);
+  assert.equal((await planned).sourceRevision, f.config.revision);
+});
