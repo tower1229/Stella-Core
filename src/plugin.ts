@@ -211,6 +211,7 @@ type PreparedTurn = {
   generationId?: string;
   deployment?: string;
   processingAuthority?: ProcessingAuthority;
+  boundRequest?: BoundTurnRequest;
   evidenceRef?: string;
   checkSourceOutput?: (text: string, signal: AbortSignal) => Promise<unknown>;
   assertPersonalViewsCurrent?: () => Promise<void>;
@@ -520,8 +521,9 @@ export default definePluginEntry({
         if (!pending || pending.draft !== draft || abortSignal.aborted) throw new CompletionError("invalid_prepared_completion", "persist");
         if (pending.prepared.processingAuthority) {
           try {
-            const liveRequest = readCompletionRequest(operationId, config.agentId,
-              pending.prepared.processingAuthority.sessionId, pending.prepared.processingAuthority.sessionKey);
+            // Persist runs outside the generate ALS permit; reuse the prepare-bound request.
+            const liveRequest = pending.prepared.boundRequest;
+            if (!liveRequest) throw new CatalogError("processing_request_binding_required");
             assertProcessingAuthority(pending.prepared.processingAuthority, {
               request: liveRequest,
               modelRef: pending.prepared.processingAuthority.modelRef,
@@ -530,7 +532,12 @@ export default definePluginEntry({
               purpose: pending.prepared.processingAuthority.purpose,
             });
           } catch (error) {
-            throw new CompletionError(error instanceof CatalogError ? error.category : "processing_authority_failed", "persist");
+            throw new CompletionError(
+              error instanceof CatalogError ? error.category
+                : error instanceof CompletionError ? error.category
+                  : "processing_authority_failed",
+              "persist",
+            );
           }
         }
         await pending.prepared.assertPersonalViewsCurrent?.();
@@ -848,7 +855,7 @@ export default definePluginEntry({
             }) : undefined;
             recordCompletionPreparation(runId, {
               fragmentTool, outcome: "ready", checkSourceOutput, route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
-              generationId: memory.generationId, deployment, processingAuthority, persistRecommendation, evidenceRef,
+              generationId: memory.generationId, deployment, processingAuthority, boundRequest: request, persistRecommendation, evidenceRef,
               ...(personalViews ? { assertPersonalViewsCurrent: personalViews.assertCurrent,
                 assertPersonalViewsForGeneration: personalViews.assertCurrentForGeneration } : {}),
             } satisfies PreparedTurn);
