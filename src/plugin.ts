@@ -640,17 +640,6 @@ export default definePluginEntry({
               audience,
             });
             if (audience.audience !== "owner_direct") throw new CatalogError("private_context_audience_forbidden");
-            if (viewProcessing) {
-              const seenPolicies = new Set<string>();
-              for (const descriptor of viewProcessing.descriptors) {
-                const key = canonicalJson(descriptor.policyRef);
-                if (seenPolicies.has(key)) continue;
-                seenPolicies.add(key);
-                const policyObject = await runtime.evidence.reader.read(descriptor.policyRef, "policies");
-                assertProcessingStage(processingAuthority, policyObject, "read");
-                assertProcessingStage(processingAuthority, policyObject, "derive");
-              }
-            }
             const personalViews = viewProcessing ? await preparePersonalViews({
               requestId: runId, question: request.prompt, ownerId: viewProcessing.ownerId, modelRef: viewProcessing.modelRef,
               audience: audience.audience,
@@ -828,14 +817,19 @@ export default definePluginEntry({
               materialUnknowns: route.materialUnknowns,
             })}`.trim();
             const checkSourceOutput = viewProcessing ? await (async () => {
-              if (viewProcessing.descriptors.length) {
-                const seen = new Set<string>();
-                for (const descriptor of viewProcessing.descriptors) {
-                  const key = canonicalJson(descriptor.policyRef);
+              const seen = new Set<string>();
+              for (const original of outputOriginals) {
+                const evidence = await runtime.evidence.reader.read(original.ref, "evidence");
+                const policyRefs = [evidence.policyRef];
+                const source = await runtime.evidence.reader.read(evidence.source as { id: string; version: string }, "sources");
+                if (source.policyRef) policyRefs.push(source.policyRef as { id: string; version: string });
+                for (const policyRef of policyRefs) {
+                  if (!policyRef || typeof policyRef !== "object") continue;
+                  const key = canonicalJson(policyRef);
                   if (seen.has(key)) continue;
                   seen.add(key);
                   assertProcessingStage(processingAuthority,
-                    await runtime.evidence.reader.read(descriptor.policyRef, "policies"), "deliver");
+                    await runtime.evidence.reader.read(policyRef as { id: string; version: string }, "policies"), "deliver");
                 }
               }
               return prepareSourceOutputCheck({
