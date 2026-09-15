@@ -256,6 +256,27 @@ export default definePluginEntry({
     const deploymentDigest = (recoveryRevision: string) => resolveDeploymentDigest({
       agentId: config.agentId, recoveryRevision, pluginSource: requirePluginSource(),
     });
+    const resolveLiveModelRef = (): string => {
+      const cfg = structuredClone(api.runtime.config.current()) as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"];
+      const selected = resolveDefaultModelForAgent({ cfg, agentId: config.agentId });
+      return `${selected.provider}/${selected.model}`;
+    };
+    const assertPreparedProcessingAuthority = async (
+      prepared: PreparedTurn,
+      request: BoundTurnRequest,
+    ): Promise<void> => {
+      if (!prepared.processingAuthority) throw new CatalogError("processing_authority_required");
+      const loaded = await consciousness.load();
+      const binding = await loadPraxisRuntimeBinding(loaded);
+      const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
+      assertProcessingAuthority(prepared.processingAuthority, {
+        request,
+        modelRef: resolveLiveModelRef(),
+        deployment: deploymentDigest(loaded.recoveryRevision ?? config.recoveryRevision),
+        generationId: reader.catalog.generationId,
+        purpose: binding.purpose,
+      });
+    };
     const classifySemantically = createSemanticRouter(
       (params) => completeModel({ ...params, agentId: config.agentId }),
     );
@@ -364,13 +385,7 @@ export default definePluginEntry({
         await initialization.assertRun(request.runId);
         const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
         if (prepared?.outcome !== "ready" || !prepared.fragmentTool) throw new CatalogError("fragment_reader_unavailable");
-        if (prepared.processingAuthority) {
-          assertProcessingAuthority(prepared.processingAuthority, {
-            request, modelRef: prepared.processingAuthority.modelRef,
-            deployment: deploymentDigest(prepared.revision ?? config.recoveryRevision),
-            generationId: prepared.processingAuthority.generationId,
-          });
-        }
+        await assertPreparedProcessingAuthority(prepared, request);
         return prepared.fragmentTool.execute(id, input, signal);
       },
     }, { names: [FRAGMENT_READ_TOOL] });
@@ -519,26 +534,18 @@ export default definePluginEntry({
         catch { throw new CompletionError("stale_initialization_run", "persist"); }
         const pending = completions.get(operationId);
         if (!pending || pending.draft !== draft || abortSignal.aborted) throw new CompletionError("invalid_prepared_completion", "persist");
-        if (pending.prepared.processingAuthority) {
-          try {
-            // Persist runs outside the generate ALS permit; reuse the prepare-bound request.
-            const liveRequest = pending.prepared.boundRequest;
-            if (!liveRequest) throw new CatalogError("processing_request_binding_required");
-            assertProcessingAuthority(pending.prepared.processingAuthority, {
-              request: liveRequest,
-              modelRef: pending.prepared.processingAuthority.modelRef,
-              deployment: deploymentDigest(pending.prepared.revision!),
-              generationId: pending.prepared.generationId!,
-              purpose: pending.prepared.processingAuthority.purpose,
-            });
-          } catch (error) {
-            throw new CompletionError(
-              error instanceof CatalogError ? error.category
-                : error instanceof CompletionError ? error.category
-                  : "processing_authority_failed",
-              "persist",
-            );
-          }
+        try {
+          // Persist runs outside the generate ALS permit; reuse the prepare-bound request.
+          const liveRequest = pending.prepared.boundRequest;
+          if (!liveRequest) throw new CatalogError("processing_request_binding_required");
+          await assertPreparedProcessingAuthority(pending.prepared, liveRequest);
+        } catch (error) {
+          throw new CompletionError(
+            error instanceof CatalogError ? error.category
+              : error instanceof CompletionError ? error.category
+                : "processing_authority_failed",
+            "persist",
+          );
         }
         await pending.prepared.assertPersonalViewsCurrent?.();
         let revision = pending.prepared.revision!;

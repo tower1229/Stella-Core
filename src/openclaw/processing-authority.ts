@@ -100,7 +100,7 @@ export function assertProcessingAuthority(
     modelRef: string;
     deployment: string;
     generationId: string;
-    purpose?: PolicyPurpose;
+    purpose: PolicyPurpose;
   },
 ): void {
   check(authority.schemaVersion === "stella.processing-authority/v1", "invalid_processing_authority");
@@ -113,9 +113,7 @@ export function assertProcessingAuthority(
   check(current.modelRef === authority.modelRef, "processing_model_mismatch");
   check(current.deployment === authority.deployment, "processing_deployment_mismatch");
   check(current.generationId === authority.generationId, "processing_generation_mismatch");
-  if (current.purpose) {
-    check(canonicalJson(current.purpose) === canonicalJson(authority.purpose), "processing_purpose_mismatch");
-  }
+  check(canonicalJson(current.purpose) === canonicalJson(authority.purpose), "processing_purpose_mismatch");
   const live = resolveTurnAudience(current.request);
   check(live.audience === authority.audience && live.privateContextAllowed === authority.privateContextAllowed,
     "processing_audience_mismatch");
@@ -133,9 +131,8 @@ export function assertProcessingStage(
 ): void {
   check(PROCESSING_STAGES.includes(stage), "invalid_processing_stage");
   parseSourcePolicy(policy);
-  if (stage === "read" || stage === "derive" || stage === "learn" || stage === "deliver") {
-    check(authority.privateContextAllowed, "private_context_audience_forbidden");
-  }
+  // Private-context stages never admit non-owner audiences; quote is private output too.
+  check(authority.privateContextAllowed, "private_context_audience_forbidden");
   if (stage === "read") {
     assertPurposeAxes(policy, { readPurpose: authority.purpose.readPurpose });
     return;

@@ -111,15 +111,15 @@ test("bindProcessingAuthority freezes trusted user audience purpose model sessio
     request, modelRef: "synthetic/model", deployment, generationId: "generation_one", purpose,
   });
   assert.throws(() => assertProcessingAuthority(authority, {
-    request, modelRef: "other/model", deployment, generationId: "generation_one",
+    request, modelRef: "other/model", deployment, generationId: "generation_one", purpose,
   }), /processing_model_mismatch/);
   assert.throws(() => assertProcessingAuthority(authority, {
     request, modelRef: "synthetic/model", deployment: resolveDeploymentDigest({
       agentId: "stella", recoveryRevision: revision, pluginSource: "other",
-    }), generationId: "generation_one",
+    }), generationId: "generation_one", purpose,
   }), /processing_deployment_mismatch/);
   assert.throws(() => assertProcessingAuthority(authority, {
-    request, modelRef: "synthetic/model", deployment, generationId: "generation_two",
+    request, modelRef: "synthetic/model", deployment, generationId: "generation_two", purpose,
   }), /processing_generation_mismatch/);
 });
 
@@ -166,8 +166,14 @@ test("denied audiences cannot pass processing stages that load private material"
   assert.equal(authority.audience, "cron");
   assert.equal(authority.privateContextAllowed, false);
   const full = policy({});
-  for (const stage of ["read", "derive", "learn", "deliver"] as const) {
-    assert.throws(() => assertProcessingStage(authority, full, stage), /private_context_audience_forbidden/);
+  for (const stage of ["read", "derive", "learn", "quote", "deliver"] as const) {
+    assert.throws(() => assertProcessingStage(authority, full, stage, stage === "quote" ? {
+      judgment: {
+        scenarios: ["self_reflection"], trigger: "user_requested", topicRequested: true,
+        topicExplicitlyNamed: true, presentation: "quote",
+      },
+      quoteGrants: [],
+    } : undefined), /private_context_audience_forbidden/);
   }
 });
 
@@ -181,12 +187,12 @@ test("authority remains valid for concurrent runs until generation or deployment
     deployment, generationId: "generation_live",
   });
   assertProcessingAuthority(first, {
-    request: ownerDirect("run-a"), modelRef: "synthetic/model", deployment, generationId: "generation_live",
+    request: ownerDirect("run-a"), modelRef: "synthetic/model", deployment, generationId: "generation_live", purpose,
   });
   assertProcessingAuthority(second, {
-    request: ownerDirect("run-b"), modelRef: "synthetic/model", deployment, generationId: "generation_live",
+    request: ownerDirect("run-b"), modelRef: "synthetic/model", deployment, generationId: "generation_live", purpose,
   });
   assert.throws(() => assertProcessingAuthority(first, {
-    request: ownerDirect("run-a"), modelRef: "synthetic/model", deployment, generationId: "generation_next",
+    request: ownerDirect("run-a"), modelRef: "synthetic/model", deployment, generationId: "generation_next", purpose,
   }), /processing_generation_mismatch/);
 });
