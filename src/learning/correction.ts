@@ -58,7 +58,7 @@ export async function prepareCorrection(input: {
   }
   check(ownerEvidence.map(value => value.text).join("\n") === input.request, "correction_request_evidence_mismatch");
   const inventory = await preparePersonalViews({ ...input, requestId: input.operationId, question: input.request,
-    selection: "all_authorized", complete: input.complete });
+    audience: "owner_direct", selection: "all_authorized", complete: input.complete });
   const candidates = inventory.view.memory;
   const requestHash = bytesVersion(input.request);
   const shape = {
@@ -232,7 +232,7 @@ export async function prepareCorrection(input: {
       check(canonicalJson(await resolver.readEvidence(evidence.ref)) === canonicalJson(evidence), "correction_evidence_changed");
     }
     await preparePersonalViews({ ...input, requestId: input.operationId, question: input.request, resolver,
-      selection: "all_authorized", complete: input.complete });
+      audience: "owner_direct", selection: "all_authorized", complete: input.complete });
     for (const old of changed) check(![...after.understandings, ...after.works].some(entry => key(entry) === old && entry.status === "current"), "stale_correction_target");
   }, { allowWorkChanges: true });
   await verify(reader); await inventory.assertCurrent(); await input.assertProcessingCurrent();
@@ -360,7 +360,7 @@ export async function recoverCorrection(input: {
         }
         check(bytesVersion(originals.join("\n")) === receipt.requestHash, "correction_request_evidence_mismatch");
         await preparePersonalViews({ resolver, requestId: input.operationId, question: originals.join("\n"), ownerId: input.ownerId, modelRef: input.modelRef,
-          selection: "all_authorized", assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
+          audience: "owner_direct", selection: "all_authorized", assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
       }, { allowWorkChanges: true });
       await input.assertProcessingCurrent();
     },

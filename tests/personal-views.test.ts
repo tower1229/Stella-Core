@@ -17,7 +17,8 @@ function selector(view: "user" | "memory" | "omit" = "memory") {
       selections: value.candidates.map(item => ({ handle: item.handle, view })) }) };
   };
 }
-const request = { requestId: "run", question: "继续这篇文章", ownerId: "owner", modelRef: "synthetic/model", assertProcessingCurrent: async () => {} };
+const request = { requestId: "run", question: "继续这篇文章", ownerId: "owner", modelRef: "synthetic/model",
+  audience: "owner_direct" as const, assertProcessingCurrent: async () => {} };
 
 test("request-local writing views preserve corrections, candidates, scope and unresolved questions", async t => {
   const f = await fixture(t);

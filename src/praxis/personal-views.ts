@@ -82,13 +82,15 @@ type Candidate = { handle: string; ref: VersionedRef; group: "understandings" | 
 /** Request-local projections. No writes, no cached persona, no model-authored rewrites. */
 export async function preparePersonalViews(input: {
   requestId: string; question: string; ownerId: string; modelRef: string;
+  audience: "owner_direct";
   resolver: EpisodeEvidenceResolver;
   selection?: "model" | "all_authorized";
   assertProcessingCurrent: () => Promise<void>;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
 }) {
   const reader = input.resolver.reader;
-  check(text(input.requestId) && text(input.question) && text(input.ownerId) && text(input.modelRef), "invalid_personal_view_request");
+  check(text(input.requestId) && text(input.question) && text(input.ownerId) && text(input.modelRef) &&
+    input.audience === "owner_direct", "invalid_personal_view_request");
   await input.assertProcessingCurrent();
   const snapshots = new Map<string, { ref: VersionedRef; body: string }>();
   const payloads = new Map<string, { source: VersionedRef; sha256: string }>();
@@ -246,7 +248,7 @@ export async function preparePersonalViews(input: {
     } else if (selection.view === "memory") memory.push(candidate);
   }
   const view = { schemaVersion: "stella.personal-views/v1", requestId: input.requestId, requestHash,
-    generationId: reader.catalog.generationId, audience: "owner_direct", exclusions,
+    generationId: reader.catalog.generationId, audience: input.audience, exclusions,
     coverage: "Authorized current catalog understandings and active/paused work; not full archive coverage.",
     user, memory };
   const context = [

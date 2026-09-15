@@ -65,11 +65,53 @@ export function parseSourcePolicy(value: unknown) {
     deliveryScopes: value.deliveryScopes, retention: value.retention, restrictions, ...(usageRules ? { usageRules } : {}) };
 }
 
+/** Check only the purpose axes the caller supplies. Empty axes are invalid. */
+export function assertPurposeAxes(
+  value: unknown,
+  axes: { readPurpose?: string; derivePurpose?: string; deliveryScope?: string },
+): void {
+  const policy = parseSourcePolicy(value);
+  const requested = [axes.readPurpose !== undefined, axes.derivePurpose !== undefined, axes.deliveryScope !== undefined]
+    .filter(Boolean).length;
+  check(requested > 0, "invalid_purpose_axes");
+  if (axes.readPurpose !== undefined) {
+    check(typeof axes.readPurpose === "string" && axes.readPurpose.trim() &&
+      policy.readPurposes.includes(axes.readPurpose), "permission_denied");
+  }
+  if (axes.derivePurpose !== undefined) {
+    check(typeof axes.derivePurpose === "string" && axes.derivePurpose.trim() &&
+      policy.derivePurposes.includes(axes.derivePurpose), "permission_denied");
+  }
+  if (axes.deliveryScope !== undefined) {
+    check(typeof axes.deliveryScope === "string" && axes.deliveryScope.trim() &&
+      policy.deliveryScopes.includes(axes.deliveryScope), "permission_denied");
+  }
+}
+
+/** Quote presentation checks only. Does not grant read/derive/delivery. */
+export function assertQuoteCapability(value: unknown, context?: SourceAccessContext): void {
+  const policy = parseSourcePolicy(value);
+  if (!policy.restrictions) {
+    check(context && isRecord(context.judgment) && context.judgment.presentation === "quote", "source_access_context_required");
+    return;
+  }
+  check(context && isRecord(context.judgment) && texts(context.judgment.scenarios) && context.judgment.scenarios.length > 0 &&
+    ["user_requested", "proactive"].includes(context.judgment.trigger) && typeof context.judgment.topicRequested === "boolean" && typeof context.judgment.topicExplicitlyNamed === "boolean" &&
+    context.judgment.presentation === "quote" && Array.isArray(context.quoteGrants) && context.quoteGrants.every(validMemoryRef),
+  "source_access_context_required");
+  const { restrictions } = policy, { judgment } = context;
+  check(restrictions.quotePolicy !== "never_quote", "source_quote_forbidden");
+  check(restrictions.sensitivity !== "semi-private" || judgment.trigger === "user_requested", "source_trigger_forbidden");
+  check(restrictions.quotePolicy !== "internal_summary_preferred" || judgment.trigger === "user_requested", "source_trigger_forbidden");
+  if (["summarize_only", "confirm_before_use"].includes(restrictions.quotePolicy)) {
+    check(context.quoteGrants.some((grant) => grant.id === policy.id && grant.version === policy.version), "source_quote_authorization_required");
+  }
+}
+
 /** Fail before loading payload bytes. Source and evidence policies must both pass. */
 export function assertSourcePolicyAccess(value: unknown, purpose: PolicyPurpose, context?: SourceAccessContext): void {
+  assertPurposeAxes(value, purpose);
   const policy = parseSourcePolicy(value);
-  check(policy.readPurposes.includes(purpose.readPurpose) && policy.derivePurposes.includes(purpose.derivePurpose) &&
-    policy.deliveryScopes.includes(purpose.deliveryScope), "permission_denied");
   if (!policy.restrictions) return;
   check(context && isRecord(context.judgment) && texts(context.judgment.scenarios) && context.judgment.scenarios.length > 0 &&
     ["user_requested", "proactive"].includes(context.judgment.trigger) && typeof context.judgment.topicRequested === "boolean" && typeof context.judgment.topicExplicitlyNamed === "boolean" &&
@@ -93,12 +135,5 @@ export function assertSourcePolicyAccess(value: unknown, purpose: PolicyPurpose,
   if (restrictions.sensitivity === "work-private") {
     check(judgment.scenarios.every((scenario) => ["technical_writing", "technical_collaboration", "work_decision"].includes(scenario)), "source_scenario_forbidden");
   }
-  if (judgment.presentation === "quote") {
-    check(restrictions.quotePolicy !== "never_quote", "source_quote_forbidden");
-    check(restrictions.sensitivity !== "semi-private" || judgment.trigger === "user_requested", "source_trigger_forbidden");
-    check(restrictions.quotePolicy !== "internal_summary_preferred" || judgment.trigger === "user_requested", "source_trigger_forbidden");
-    if (["summarize_only", "confirm_before_use"].includes(restrictions.quotePolicy)) {
-      check(context.quoteGrants.some((grant) => grant.id === policy.id && grant.version === policy.version), "source_quote_authorization_required");
-    }
-  }
+  if (judgment.presentation === "quote") assertQuoteCapability(value, context);
 }

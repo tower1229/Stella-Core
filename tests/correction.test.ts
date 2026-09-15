@@ -84,7 +84,7 @@ test("owner correction synchronizes immutable work and change, then fresh reader
   assert.equal(calls(), 2, "persistence retries must not regenerate semantic changes");
   assert.equal(receipt.revision, (await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim());
   const fresh = await preparePersonalViews({ requestId: "new-session", question: request, ownerId: "owner", modelRef: "synthetic/model",
-    resolver: await f.resolver(), selection: "all_authorized", assertProcessingCurrent: async () => {}, complete: input.complete });
+    audience: "owner_direct", resolver: await f.resolver(), selection: "all_authorized", assertProcessingCurrent: async () => {}, complete: input.complete });
   const work = fresh.view.memory.find(item => item.group === "works")!.record;
   assert.equal(work.goal, "保留疑问，先检查论证");
   assert.equal(work.status, "active");
@@ -180,7 +180,7 @@ test("Host correction archives exact owner input before inference and restores a
   assert.equal(result.writeOperationIds.length, 2);
   const fresh = new (await import("../src/praxis/episode-evidence.js")).EpisodeEvidenceResolver(await CatalogReader.load(f.root, "catalog.json"), purpose, input.complete);
   const views = await preparePersonalViews({ resolver: fresh, requestId: "next-session", question: request, ownerId: "owner", modelRef: input.modelRef,
-    selection: "all_authorized", assertProcessingCurrent: async () => {}, complete: input.complete });
+    audience: "owner_direct", selection: "all_authorized", assertProcessingCurrent: async () => {}, complete: input.complete });
   assert.equal(views.view.memory.find(item => item.group === "works")!.record.goal, "保留疑问，先检查论证");
   await views.assertCurrentForGeneration(result.generationId);
   const archivedSource = await fresh.reader.read((await fresh.reader.read(restored.evidenceRefs[0]!, "evidence")).source as { id: string; version: string }, "sources");

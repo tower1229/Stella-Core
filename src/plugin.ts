@@ -11,6 +11,14 @@ import { preparePersonalViews } from "./praxis/personal-views.js";
 import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import { createPersonalContextAccess, loadPersonalContextAccess } from "./canghai/personal-context-access.js";
 import type { BoundTurnRequest } from "./openclaw/turn-request.js";
+import { assertPrivateContextAudience, resolveTurnAudience } from "./openclaw/turn-audience.js";
+import {
+  assertProcessingAuthority,
+  assertProcessingStage,
+  bindProcessingAuthority,
+  resolveDeploymentDigest,
+  type ProcessingAuthority,
+} from "./openclaw/processing-authority.js";
 import { realpath } from "node:fs/promises";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
@@ -201,6 +209,8 @@ type PreparedTurn = {
   context?: string;
   revision?: string;
   generationId?: string;
+  deployment?: string;
+  processingAuthority?: ProcessingAuthority;
   evidenceRef?: string;
   checkSourceOutput?: (text: string, signal: AbortSignal) => Promise<unknown>;
   assertPersonalViewsCurrent?: () => Promise<void>;
@@ -238,6 +248,13 @@ export default definePluginEntry({
     registerCompletionTranscriptGuard(api, config.agentId);
     const completeModel = (params: Parameters<typeof api.runtime.llm.complete>[0]) =>
       completeWithPreparationSignal((signal) => api.runtime.llm.complete({ ...params, ...(signal ? { signal } : {}) }));
+    const requirePluginSource = (): string => {
+      if (typeof api.source !== "string" || !api.source.trim()) throw new CatalogError("plugin_source_binding_required");
+      return api.source;
+    };
+    const deploymentDigest = (recoveryRevision: string) => resolveDeploymentDigest({
+      agentId: config.agentId, recoveryRevision, pluginSource: requirePluginSource(),
+    });
     const classifySemantically = createSemanticRouter(
       (params) => completeModel({ ...params, agentId: config.agentId }),
     );
@@ -339,11 +356,20 @@ export default definePluginEntry({
       parameters: FRAGMENT_READ_PARAMETERS,
       async execute(id, input, signal) {
         const request = readActiveCompletionRequest(config.agentId, ctx.sessionId, ctx.sessionKey);
-        if (!ctx.sessionId || !ctx.sessionKey || ctx.senderIsOwner !== true || ctx.requesterSenderId !== request.senderId || request.chatType !== "direct")
+        if (!ctx.sessionId || !ctx.sessionKey || ctx.requesterSenderId !== request.senderId) {
           throw new CatalogError("fragment_request_binding_required");
+        }
+        assertPrivateContextAudience(resolveTurnAudience(request));
         await initialization.assertRun(request.runId);
         const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
         if (prepared?.outcome !== "ready" || !prepared.fragmentTool) throw new CatalogError("fragment_reader_unavailable");
+        if (prepared.processingAuthority) {
+          assertProcessingAuthority(prepared.processingAuthority, {
+            request, modelRef: prepared.processingAuthority.modelRef,
+            deployment: deploymentDigest(prepared.revision ?? config.recoveryRevision),
+            generationId: prepared.processingAuthority.generationId,
+          });
+        }
         return prepared.fragmentTool.execute(id, input, signal);
       },
     }, { names: [FRAGMENT_READ_TOOL] });
@@ -492,6 +518,21 @@ export default definePluginEntry({
         catch { throw new CompletionError("stale_initialization_run", "persist"); }
         const pending = completions.get(operationId);
         if (!pending || pending.draft !== draft || abortSignal.aborted) throw new CompletionError("invalid_prepared_completion", "persist");
+        if (pending.prepared.processingAuthority) {
+          try {
+            const liveRequest = readCompletionRequest(operationId, config.agentId,
+              pending.prepared.processingAuthority.sessionId, pending.prepared.processingAuthority.sessionKey);
+            assertProcessingAuthority(pending.prepared.processingAuthority, {
+              request: liveRequest,
+              modelRef: pending.prepared.processingAuthority.modelRef,
+              deployment: deploymentDigest(pending.prepared.revision!),
+              generationId: pending.prepared.generationId!,
+              purpose: pending.prepared.processingAuthority.purpose,
+            });
+          } catch (error) {
+            throw new CompletionError(error instanceof CatalogError ? error.category : "processing_authority_failed", "persist");
+          }
+        }
         await pending.prepared.assertPersonalViewsCurrent?.();
         let revision = pending.prepared.revision!;
         let generationId = pending.prepared.generationId!;
@@ -565,18 +606,51 @@ export default definePluginEntry({
           return await runCompletionPreparation(runId, async () => {
             const request = readCompletionRequest(runId, config.agentId, ctx.sessionId, ctx.sessionKey);
             // This path loads personal cognitive context, not just public bootstrap rules.
-            if (!request.senderIsOwner || !request.senderId || request.chatType !== "direct") {
-              throw new CompletionError("private_context_owner_direct_required", "prepare");
+            const audience = resolveTurnAudience(request);
+            try { assertPrivateContextAudience(audience); }
+            catch (error) {
+              throw new CompletionError(
+                error instanceof CatalogError ? error.category : "private_context_gate_failed",
+                "prepare",
+              );
             }
             const loaded = await consciousness.load();
             const { runtime, binding, viewProcessing } = await createRuntime(loaded, request);
+            const deployment = deploymentDigest(loaded.recoveryRevision ?? config.recoveryRevision);
+            const memory = await runtime.listMemory();
+            const resolveModelRef = () => {
+              const cfg = structuredClone(api.runtime.config.current()) as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"];
+              const selected = resolveDefaultModelForAgent({ cfg, agentId: config.agentId });
+              return `${selected.provider}/${selected.model}`;
+            };
+            const processingAuthority = bindProcessingAuthority({
+              request,
+              ownerId: viewProcessing?.ownerId ?? request.senderId!,
+              purpose: binding.purpose,
+              modelRef: viewProcessing?.modelRef ?? resolveModelRef(),
+              deployment,
+              generationId: memory.generationId,
+              audience,
+            });
+            if (audience.audience !== "owner_direct") throw new CatalogError("private_context_audience_forbidden");
+            if (viewProcessing) {
+              const seenPolicies = new Set<string>();
+              for (const descriptor of viewProcessing.descriptors) {
+                const key = canonicalJson(descriptor.policyRef);
+                if (seenPolicies.has(key)) continue;
+                seenPolicies.add(key);
+                const policyObject = await runtime.evidence.reader.read(descriptor.policyRef, "policies");
+                assertProcessingStage(processingAuthority, policyObject, "read");
+                assertProcessingStage(processingAuthority, policyObject, "derive");
+              }
+            }
             const personalViews = viewProcessing ? await preparePersonalViews({
               requestId: runId, question: request.prompt, ownerId: viewProcessing.ownerId, modelRef: viewProcessing.modelRef,
+              audience: audience.audience,
               resolver: runtime.evidence, assertProcessingCurrent: viewProcessing.assertCurrent,
               complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
                 purpose: "stella-personal-views", maxTokens, temperature: 0, messages: [{ role: "user", content: prompt }] }),
             }) : undefined;
-            const memory = await runtime.listMemory();
             if (loaded.praxisPlaybookItems.length) throw new EpisodeV2Error("legacy_learning_migration_required");
             const loadedForTurn: LoadedConsciousness = {
               ...loaded,
@@ -746,12 +820,24 @@ export default definePluginEntry({
               responseKind: route.responseKind, evidenceStatus: route.evidenceStatus,
               materialUnknowns: route.materialUnknowns,
             })}`.trim();
-            const checkSourceOutput = viewProcessing ? await prepareSourceOutputCheck({
-              question: request.prompt, originals: outputOriginals, resolver: runtime.evidence, modelRef: viewProcessing.modelRef,
-              assertCurrent: viewProcessing.assertCurrent,
-              complete: ({ prompt, maxTokens, signal }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
-                purpose: "stella-source-output", temperature: 0, maxTokens, signal, messages: [{ role: "user", content: prompt }] }),
-            }) : undefined;
+            const checkSourceOutput = viewProcessing ? await (async () => {
+              if (viewProcessing.descriptors.length) {
+                const seen = new Set<string>();
+                for (const descriptor of viewProcessing.descriptors) {
+                  const key = canonicalJson(descriptor.policyRef);
+                  if (seen.has(key)) continue;
+                  seen.add(key);
+                  assertProcessingStage(processingAuthority,
+                    await runtime.evidence.reader.read(descriptor.policyRef, "policies"), "deliver");
+                }
+              }
+              return prepareSourceOutputCheck({
+                question: request.prompt, originals: outputOriginals, resolver: runtime.evidence, modelRef: viewProcessing.modelRef,
+                assertCurrent: viewProcessing.assertCurrent,
+                complete: ({ prompt, maxTokens, signal }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
+                  purpose: "stella-source-output", temperature: 0, maxTokens, signal, messages: [{ role: "user", content: prompt }] }),
+              });
+            })() : undefined;
             const fragmentTool = viewProcessing ? createFragmentReadTool({ resolver: runtime.evidence,
               descriptors: viewProcessing.descriptors, originals: outputOriginals,
               assertCurrent: async () => {
@@ -762,7 +848,7 @@ export default definePluginEntry({
             }) : undefined;
             recordCompletionPreparation(runId, {
               fragmentTool, outcome: "ready", checkSourceOutput, route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
-              generationId: memory.generationId, persistRecommendation, evidenceRef,
+              generationId: memory.generationId, deployment, processingAuthority, persistRecommendation, evidenceRef,
               ...(personalViews ? { assertPersonalViewsCurrent: personalViews.assertCurrent,
                 assertPersonalViewsForGeneration: personalViews.assertCurrentForGeneration } : {}),
             } satisfies PreparedTurn);

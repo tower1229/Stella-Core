@@ -205,7 +205,8 @@ test("restricted parent policies authorize personal views through their evidence
         segment: value.segment, applicable: true, scenarios: ["writing"], topicRequested: true, topicExplicitlyNamed: true }) };
     } });
   const resolver = new EpisodeEvidenceResolver(base.reader, { ...base.purpose, sourceAccess: access }, base.complete);
-  const views = await preparePersonalViews({ requestId: "view", question: "Continue writing", ownerId: "owner", modelRef: "synthetic/model", resolver,
+  const views = await preparePersonalViews({ requestId: "view", question: "Continue writing", ownerId: "owner", modelRef: "synthetic/model",
+    audience: "owner_direct", resolver,
     assertProcessingCurrent: async () => {}, complete: async ({ prompt }) => {
       const value = JSON.parse(prompt.split("\n").at(-1)!);
       assert.equal(value.candidates.length, 2);
