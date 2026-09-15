@@ -17,6 +17,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "check:schemas": "node scripts/check-schemas.mjs",
     "test": "node scripts/compile.mjs build && node scripts/compile.mjs test && node --test .test-dist/tests/*.test.js",
+    "test:host-archive": "node scripts/compile.mjs build && node scripts/compile.mjs test && node scripts/probe-archive-retention.mjs",
     "test:package": "node scripts/compile.mjs test && node scripts/compile.mjs build && node scripts/package-smoke.mjs",
     "recover:private": "npm run build --silent && node scripts/run-private-recovery.mjs",
     "praxis:private": "npm run build --silent && node scripts/run-private-praxis-loop.mjs",

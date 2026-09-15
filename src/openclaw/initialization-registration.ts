@@ -69,7 +69,8 @@ async function materializationSource(config: Config) {
 
 /** Registers effects only as a Host service or authenticated operation, never during plugin discovery. */
 export function registerStellaInitialization(api: OpenClawPluginApi, config: Config,
-  requestHost?: (method: string, params: Record<string, unknown>) => Promise<unknown>) {
+  requestHost?: (method: string, params: Record<string, unknown>) => Promise<unknown>,
+  additionalRuntimeBlockers: () => Promise<string[]> = async () => []) {
   let status: Status = { state: "not_started" };
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
@@ -85,7 +86,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       captureBinding: capture,
       signal,
     });
-    return evaluated.blockers;
+    return [...new Set([...evaluated.blockers, ...await additionalRuntimeBlockers()])];
   };
   const runtimeStatus = async (signal?: AbortSignal): Promise<NonNullable<Status["runtime"]>> => {
     const blockers = await resolveRuntimeBlockers(signal);

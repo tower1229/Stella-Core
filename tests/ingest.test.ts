@@ -24,9 +24,242 @@ import { CatalogError } from "../src/canghai/catalog-reader.js";
 import { isRecord } from "../src/shared/type-guards.js";
 import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
 import { ingestMaterials, synchronizeRepositoryImports, type MaterialImport } from "../src/canghai/material-ingest.js";
+import { type ArchiveManifest } from "../src/canghai/archive-integrity.js";
+import { resumeIngestCursor } from "../src/canghai/ingest-progress.js";
+import { coordinateArchiveCleanup, verifyArchiveCoverage, type ArchiveCleanupRequest } from "../src/canghai/archive-cleanup.js";
 
 const run = promisify(execFile);
 const now = "2026-09-11T00:00:00Z";
+
+test("unknown upstream total cannot certify complete archive coverage", async (t) => {
+  const repo = await gitRepo(t);
+  const result = await ingest({ operationId: "unknown-total", expectedRevision: repo.revision,
+    adapterId: EXPLICIT_RECORD_ADAPTER, collectionId: "unknown", cursor: null,
+    policyRef: repo.policyRef, purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    items: prepareExplicitRecordItems({ upstreamId: "event-1", text: "same", role: "owner",
+      speakerId: "owner-ingest", capturedAt: now }),
+    coverage: { branchPolicy: "all_retained", declaredBranches: [], upstreamSnapshot: "snapshot-unknown",
+      fromCursor: null, toCursor: "cursor-1", expectedCount: null },
+  }, { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" });
+  const reader = await CatalogReader.load(repo.root, "catalog.json");
+  const coverage = await reader.read(result.coverageRef!, "coverage");
+  assert.equal(coverage.expectedCount, null);
+  assert.equal(coverage.completeForDeclaredScope, false);
+});
+
+test("declared upstream manifest detects omitted events even when received count matches", async (t) => {
+  const repo = await gitRepo(t);
+  const manifest: ArchiveManifest = { schemaVersion: "stella.archive-manifest/v1", items: [
+    { upstreamId: "event-1", textSha256: bytesVersion("same"), attachments: [] },
+    { upstreamId: "event-lost", textSha256: null, attachments: [], unavailable: true },
+  ] };
+  const coverage = { branchPolicy: "all_retained" as const, declaredBranches: [], upstreamSnapshot: "declared-snapshot",
+    fromCursor: null, toCursor: "cursor-1", expectedCount: 2, manifest };
+  const result = await ingest({ operationId: "missing-event", expectedRevision: repo.revision,
+    adapterId: EXPLICIT_RECORD_ADAPTER, collectionId: "declared", cursor: null, policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" }, coverage,
+    items: prepareExplicitRecordItems({ upstreamId: "event-1", text: "same", role: "owner",
+      speakerId: "owner-ingest", capturedAt: now }),
+  }, { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" });
+  const reader = await CatalogReader.load(repo.root, "catalog.json");
+  const recorded = await reader.read(result.coverageRef!, "coverage");
+  assert.equal(recorded.completeForDeclaredScope, false);
+  assert.deepEqual(recorded.missingItems, [{ upstreamId: "event-lost", reason: "source_missing", retryable: false }]);
+});
+
+test("interrupted import resumes the persisted input cursor and retains same-content independent events", async (t) => {
+  const repo = await gitRepo(t);
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const page = (operationId: string, eventId: string, fromCursor: string | null, toCursor: string, expectedRevision: string) => ({
+    operationId, expectedRevision, resumeKey: "import-one", adapterId: EXPLICIT_RECORD_ADAPTER,
+    collectionId: "stream", cursor: fromCursor, policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    items: prepareExplicitRecordItems({ upstreamId: eventId, text: "identical text", role: "owner",
+      speakerId: "owner-ingest", capturedAt: now }),
+    coverage: { branchPolicy: "all_retained" as const, declaredBranches: [], upstreamSnapshot: "fixed-snapshot",
+      fromCursor, toCursor, expectedCount: 1,
+      manifest: { schemaVersion: "stella.archive-manifest/v1" as const,
+        items: [{ upstreamId: eventId, textSha256: bytesVersion("identical text"), attachments: [] }] } },
+  });
+  assert.deepEqual(await resumeIngestCursor("import-one", ports), { state: "new", cursor: null, operationId: null });
+  const firstPage = page("page-one", "event-one", null, "cursor-one", repo.revision);
+  await assert.rejects(ingest(firstPage, { ...ports, durability: {
+    syncCritical: async () => { throw new Error("synthetic sync interruption"); },
+    confirmPreviouslyCommitted: file => ports.durability.confirmPreviouslyCommitted(file),
+    diagnostics: () => ports.durability.diagnostics(),
+  } }), /persistence_failed/);
+  const restarted = { ...ports, reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch) };
+  assert.deepEqual(await resumeIngestCursor("import-one", restarted), { state: "pending", cursor: null, operationId: "page-one" });
+  await rm(path.join(repo.root, "operations/import-one.ingest-checkpoint.json"));
+  assert.deepEqual(await resumeIngestCursor("import-one", restarted),
+    { state: "pending", cursor: null, operationId: "page-one" }, "partial file replacement must recover from the durable transaction intent");
+  const first = await ingest(firstPage, restarted);
+  const resumed = { ...restarted, reader: await CatalogReader.load(repo.root, "catalog.json") };
+  assert.deepEqual(await resumeIngestCursor("import-one", resumed),
+    { state: "synchronized", cursor: "cursor-one", operationId: "page-one" });
+  const second = await ingest(page("page-two", "event-two", "cursor-one", "cursor-two", first.durability.localRevision), resumed);
+  const after = { ...resumed, reader: await CatalogReader.load(repo.root, "catalog.json") };
+  assert.equal(after.reader.catalog.sources.length, 2);
+  assert.equal(after.reader.catalog.evidence.length, 2);
+  assert.notEqual(first.sourceRefs[0]!.id, second.sourceRefs[0]!.id);
+  await ingest(firstPage, after);
+  assert.equal((await resumeIngestCursor("import-one", after)).cursor, "cursor-two", "replay must not rewind newer progress");
+  await assert.rejects(ingest(page("skip-page", "event-three", "wrong-cursor", "cursor-three", second.durability.localRevision), after),
+    /invalid_ingest_checkpoint/);
+});
+
+test("cleanup waits for synchronized verified originals and isolated clone restores the declared attachment", async (t) => {
+  const repo = await gitRepo(t);
+  const original = Buffer.from([1, 2, 3, 4, 0, 255]);
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const result = await ingest({ operationId: "cleanup-page", expectedRevision: repo.revision,
+    resumeKey: "cleanup-stream", adapterId: EXPLICIT_RECORD_ADAPTER, collectionId: "cleanup-events", cursor: null,
+    policyRef: repo.policyRef, purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    items: [{ ...prepareExplicitRecordItems({ upstreamId: "event-1", text: "original", role: "owner",
+      speakerId: "owner-ingest", capturedAt: now })[0]!,
+      attachments: [{ upstreamId: "attachment-1", mediaType: "application/octet-stream", bytes: original }] }],
+    coverage: { branchPolicy: "all_retained", declaredBranches: [], upstreamSnapshot: "cleanup-snapshot",
+      fromCursor: null, toCursor: "end", expectedCount: 1,
+      manifest: { schemaVersion: "stella.archive-manifest/v1", items: [{ upstreamId: "event-1",
+        textSha256: bytesVersion("original"), attachments: [{ upstreamId: "attachment-1", sha256: bytesVersion(original) }] }] } },
+  }, ports);
+  const reader = await CatalogReader.load(repo.root, "catalog.json");
+  const input = { resumeKey: "cleanup-stream", expectedCursor: "end", upstreamSnapshot: "cleanup-snapshot" };
+  const calls: ArchiveCleanupRequest[] = [];
+  const cleanup = { releaseArchived: async (request: ArchiveCleanupRequest) => {
+    calls.push(request);
+    return { state: "released" as const, operationId: request.operationId,
+      upstreamSnapshot: request.upstreamSnapshot, eventIds: request.eventIds };
+  } };
+  await assert.rejects(coordinateArchiveCleanup(input, { ...ports, reader }), /host_cleanup_coordination_unavailable/);
+  await assert.rejects(coordinateArchiveCleanup({ ...input, expectedCursor: "old" }, { ...ports, reader, cleanup }), /archive_cleanup_stale/);
+  const blockedSync = { ...ports, reader, cleanup, durability: {
+    syncCritical: (paths: string[], message: string) => ports.durability.syncCritical(paths, message),
+    confirmPreviouslyCommitted: async () => { throw new Error("synthetic sync failure"); },
+    diagnostics: () => ports.durability.diagnostics(),
+  } };
+  await assert.rejects(coordinateArchiveCleanup(input, blockedSync), /synthetic sync failure/);
+  assert.equal(calls.length, 0);
+  const clone = path.join(path.dirname(repo.root), "isolated-copy");
+  await run("git", ["clone", "--quiet", "--branch", repo.branch, repo.remote, clone]);
+  await run("git", ["-C", clone, "remote", "remove", "origin"]);
+  const isolated = await CatalogReader.load(clone, "catalog.json");
+  assert.deepEqual(await verifyArchiveCoverage(isolated, result.coverageRef!), { eventIds: ["event-1"] });
+  assert.deepEqual((await isolated.readPayload(result.sourceRefs[0]!, bytesVersion(original))).bytes, original);
+  const receipt = await coordinateArchiveCleanup(input, { ...ports, reader, cleanup });
+  assert.deepEqual(receipt.eventIds, ["event-1"]);
+  assert.equal(receipt.archiveRevision, result.durability.localRevision);
+  assert.equal(calls.length, 1);
+  const cancelled = new AbortController();
+  cancelled.abort();
+  await assert.rejects(coordinateArchiveCleanup(input, { ...ports, reader, cleanup, signal: cancelled.signal }), /archive_cleanup_cancelled/);
+  const source = await reader.read(result.sourceRefs[0]!, "sources");
+  assert.ok(Array.isArray(source.payloads));
+  const attachment = source.payloads.find(value => isRecord(value) && value.sha256 === bytesVersion(original));
+  assert.ok(isRecord(attachment) && typeof attachment.path === "string");
+  await rm(path.join(repo.root, attachment.path));
+  await assert.rejects(coordinateArchiveCleanup(input, { ...ports, reader, cleanup }), /source_unavailable/);
+  assert.equal(calls.length, 1, "missing originals must not release Host events");
+  await rm(path.join(clone, attachment.path));
+  await assert.rejects(verifyArchiveCoverage(isolated, result.coverageRef!), /source_unavailable/);
+});
+
+test("unavailable declared attachments and unknown totals never authorize Host cleanup", async (t) => {
+  for (const scenario of ["unknown-total", "missing-attachment", "wrong-attachment-digest", "missing-manifest"] as const) {
+    await t.test(scenario, async (t) => {
+      const repo = await gitRepo(t);
+      const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+        durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+        objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+      const manifest: ArchiveManifest = { schemaVersion: "stella.archive-manifest/v1", items: [{ upstreamId: "event-1",
+        textSha256: bytesVersion("original"), attachments: scenario === "missing-attachment" || scenario === "wrong-attachment-digest"
+          ? [{ upstreamId: "missing-file", sha256: bytesVersion("expected original"), unavailable: true }] : [] }] };
+      const request = { operationId: "incomplete-page", expectedRevision: repo.revision, resumeKey: "incomplete-stream",
+        adapterId: EXPLICIT_RECORD_ADAPTER, collectionId: "events", cursor: null, policyRef: repo.policyRef,
+        purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+        items: [{ ...prepareExplicitRecordItems({ upstreamId: "event-1", text: "original", role: "owner",
+          speakerId: "owner-ingest", capturedAt: now })[0]!,
+          ...(scenario === "wrong-attachment-digest" ? { attachments: [{ upstreamId: "missing-file",
+            mediaType: "application/octet-stream", bytes: Buffer.from("different bytes") }] } : {}) }],
+        coverage: { branchPolicy: "all_retained" as const, declaredBranches: [], upstreamSnapshot: "incomplete-snapshot",
+          fromCursor: null, toCursor: "end", expectedCount: scenario === "unknown-total" ? null : 1,
+          ...(scenario === "missing-manifest" ? {} : { manifest }) },
+      };
+      if (scenario === "wrong-attachment-digest" || scenario === "missing-manifest") {
+        await assert.rejects(ingest(request, ports), /invalid_archive_manifest|invalid_ingest_checkpoint/);
+        assert.equal((await CatalogReader.load(repo.root, "catalog.json")).catalog.sources.length, 0);
+        return;
+      }
+      const result = await ingest(request, ports);
+      const reader = await CatalogReader.load(repo.root, "catalog.json");
+      assert.equal((await reader.read(result.coverageRef!, "coverage")).completeForDeclaredScope, false);
+      let released = false;
+      await assert.rejects(coordinateArchiveCleanup({ resumeKey: "incomplete-stream", expectedCursor: "end",
+        upstreamSnapshot: "incomplete-snapshot" }, { ...ports, reader, cleanup: { releaseArchived: async () => {
+          released = true;
+          throw new Error("must not be called");
+        } } }), /archive_incomplete/);
+      assert.equal(released, false);
+    });
+  }
+});
+
+test("same manifest resumes a wholly absent event and attachment without permitting earlier metadata changes", async (t) => {
+  const repo = await gitRepo(t);
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const firstItem = prepareExplicitRecordItems({ upstreamId: "event-first", text: "first", role: "owner",
+    speakerId: "owner-ingest", capturedAt: now })[0]!;
+  const secondItem = prepareExplicitRecordItems({ upstreamId: "event-second", text: "second", role: "owner",
+    speakerId: "owner-ingest", capturedAt: now })[0]!;
+  const request = { operationId: "absent-arrivals", expectedRevision: repo.revision, resumeKey: "arrivals-stream",
+    adapterId: EXPLICIT_RECORD_ADAPTER, collectionId: "arrivals", cursor: null, policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" }, items: [firstItem],
+    coverage: { branchPolicy: "all_retained" as const, declaredBranches: [], upstreamSnapshot: "arrival-snapshot",
+      fromCursor: null, toCursor: "end", expectedCount: 2,
+      manifest: { schemaVersion: "stella.archive-manifest/v1" as const, items: [
+        { upstreamId: "event-first", textSha256: bytesVersion("first"), attachments: [{ upstreamId: "file", sha256: bytesVersion("file bytes") }] },
+        { upstreamId: "event-second", textSha256: bytesVersion("second"), attachments: [] },
+      ] } },
+  };
+  await assert.rejects(ingest(request, ports), /attachment_missing/);
+  const complete = { ...request, items: [{ ...firstItem,
+    attachments: [{ upstreamId: "file", mediaType: "text/plain", bytes: Buffer.from("file bytes") }] }, secondItem] };
+  await assert.rejects(ingest({ ...complete, items: [{ ...complete.items[0]!, speakerId: "someone-else" }, secondItem] }, ports), /idempotency_conflict/);
+  const result = await ingest(complete, ports);
+  const reader = await CatalogReader.load(repo.root, "catalog.json");
+  assert.equal((await reader.read(result.coverageRef!, "coverage")).completeForDeclaredScope, true);
+  assert.equal(reader.catalog.sources.length, 2);
+  assert.deepEqual((await ingest(complete, { ...ports, reader })).evidenceRefs, result.evidenceRefs);
+});
+
+test("without an independent manifest a pending retry cannot add undeclared events", async (t) => {
+  const repo = await gitRepo(t);
+  const ports = { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/imports" };
+  const item = prepareExplicitRecordItems({ upstreamId: "event-first", text: "first", role: "owner",
+    speakerId: "owner-ingest", capturedAt: now })[0]!;
+  const request = { operationId: "fixed-legacy-input", expectedRevision: repo.revision,
+    adapterId: EXPLICIT_RECORD_ADAPTER, collectionId: "legacy", cursor: null, policyRef: repo.policyRef,
+    purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+    items: [{ ...item, attachments: [{ upstreamId: "file", mediaType: "text/plain" }] }],
+  };
+  await assert.rejects(ingest(request, ports), /attachment_missing/);
+  const filled = { ...item, attachments: [{ upstreamId: "file", mediaType: "text/plain", bytes: Buffer.from("original") }] };
+  await assert.rejects(ingest({ ...request, items: [filled, { ...item, upstreamId: "undeclared-event" }] }, ports), /idempotency_conflict/);
+  assert.equal((await ingest({ ...request, items: [filled] }, ports)).state, "synchronized");
+});
 
 test("file import retains exact original bytes, unknown authorship and idempotent source identity", async (t) => {
   const repo = await gitRepo(t);

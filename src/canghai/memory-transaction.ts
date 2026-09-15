@@ -129,19 +129,21 @@ async function writeEncoded(file: string, content: string, encoding: MemoryFileE
   } finally { try { await unlink(staging); } catch (error) { if (!missing(error)) throw error; } }
 }
 
-export async function readRecordedMemoryTransaction(root: string, expectedOperationId: string, completedJournalPath?: string): Promise<MemoryTransactionPlan> {
+export async function readRecordedMemoryTransaction(root: string, expectedOperationId?: string, completedJournalPath?: string): Promise<MemoryTransactionPlan> {
   const pending = await text(await location(path.resolve(root), markerName));
   const bytes = pending ?? (completedJournalPath ? await text(await location(path.resolve(root), completedJournalPath)) : null);
   check(bytes !== null, "pending_transaction_not_found");
   let value: unknown;
   try { value = JSON.parse(bytes!); } catch { throw new MemoryTransactionError("invalid_transaction_journal"); }
-  if (!isRecord(value) || value.schemaVersion !== "stella.memory-transaction/v1" || value.operationId !== expectedOperationId ||
+  if (!isRecord(value) || value.schemaVersion !== "stella.memory-transaction/v1" ||
+      typeof value.operationId !== "string" || !/^[a-zA-Z][a-zA-Z0-9_-]{0,199}$/.test(value.operationId) ||
+      (expectedOperationId !== undefined && value.operationId !== expectedOperationId) ||
       typeof value.journalPath !== "string" || !Array.isArray(value.files) || !value.files.every((file) =>
         isRecord(file) && typeof file.path === "string" && (file.before === null || typeof file.before === "string") &&
         typeof file.after === "string" && (file.encoding === undefined || file.encoding === "utf8" || file.encoding === "base64"))) {
     throw new MemoryTransactionError("invalid_transaction_journal");
   }
-  const plan: MemoryTransactionPlan = { operationId: expectedOperationId, journalPath: value.journalPath,
+  const plan: MemoryTransactionPlan = { operationId: value.operationId, journalPath: value.journalPath,
     files: value.files.map((file) => ({
       path: file.path,
       before: file.before,

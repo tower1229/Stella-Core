@@ -205,7 +205,7 @@ test("M-01 transcript ingest archives roles without promoting assistant text to 
   const coverage = await current.read(result.coverageRef!, "coverage");
   assert.ok(isRecord(coverage.scope));
   assert.equal(coverage.scope.branchPolicy, "all_retained");
-  assert.equal(coverage.completeForDeclaredScope, true);
+  assert.equal(coverage.completeForDeclaredScope, false, "received messages alone do not prove the full retained Host scope");
   assert.deepEqual(coverage.missingItems, []);
   const roles = [];
   for (const ref of result.evidenceRefs) {
@@ -222,6 +222,25 @@ test("M-01 transcript ingest archives roles without promoting assistant text to 
   assert.ok(kinds.includes("quotation"));
   assert.ok(kinds.includes("inference"));
   assert.ok(kinds.includes("direct_observation"));
+});
+
+test("independent upstream declaration certifies a transcript batch with exact retained text", async (t) => {
+  const repo = await gitRepo(t);
+  const result = await ingestTranscript({ operationId: "declared-transcript", expectedRevision: repo.revision,
+    hostVersion: "2026.8.2", agentId: "synthetic", sessionId: "declared-session", sessionKey: "agent:synthetic:declared",
+    messages: [dialogue()[0]!], branchPolicy: "all_retained", declaredBranches: [], resumeKey: "declared-import",
+    coverage: { branchPolicy: "all_retained", declaredBranches: [], upstreamSnapshot: "host-snapshot-declared",
+      fromCursor: null, toCursor: "host-cursor-one", expectedCount: 1,
+      manifest: { schemaVersion: "stella.archive-manifest/v1", items: [{ upstreamId: "msg-owner-1",
+        textSha256: bytesVersion("主人原话。"), attachments: [] }] } },
+    policyRef: repo.policyRef, purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" },
+  }, { reader: await CatalogReader.load(repo.root, "catalog.json"),
+    durability: durability(repo.root, repo.remote, repo.branch), retentionGuarantees: retainGuarantees,
+    objectRoot: "memory/objects", payloadRoot: "experience/conversations" });
+  const current = await CatalogReader.load(repo.root, "catalog.json");
+  const restored = await rebuildConversationFromArchive({ reader: current, coverageRef: result.coverageRef! });
+  assert.equal(restored.completeForDeclaredScope, true);
+  assert.equal(restored.messages[0]!.text, "主人原话。");
 });
 
 test("attachment originals land in the repo copy; external URL alone is reported missing", async (t) => {
@@ -435,7 +454,7 @@ test("declared pending attachment stages then resumes on same operationId withou
   );
   const stagePath = path.join(repo.root, "operations", "op-resume-attach.transcript-stage.json");
   const stage = JSON.parse(await readFile(stagePath, "utf8")) as Record<string, unknown>;
-  assert.equal(stage.schemaVersion, "stella.transcript-stage/v1");
+  assert.equal(stage.schemaVersion, "stella.transcript-stage/v2");
   assert.equal(stage.operationId, "op-resume-attach");
   const catalogAfterFail = JSON.parse(await readFile(path.join(repo.root, "catalog.json"), "utf8")) as {
     sources: unknown[];
@@ -476,7 +495,7 @@ test("declared pending attachment stages then resumes on same operationId withou
     error instanceof Error && "code" in error && error.code === "ENOENT");
   const current = await CatalogReader.load(repo.root, "catalog.json");
   const coverage = await current.read(result.coverageRef!, "coverage");
-  assert.equal(coverage.completeForDeclaredScope, true);
+  assert.equal(coverage.completeForDeclaredScope, false, "no independent upstream manifest supplied");
   assert.deepEqual(coverage.missingItems, []);
 });
 

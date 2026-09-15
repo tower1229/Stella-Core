@@ -441,3 +441,21 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 导入由 adapter 提供结构化作者／生产者身份，不从正文推断。未审查混合旧资料为 unknown；生成产物及其原件 Evidence 均为 assistant／inference，保留 skill 的确切版本与 `derivedFrom`。派生证据验证父片段后沿用其独立来源标记；多来源按既有 origin 分别关联，不新增独立观察。原件元数据不产生作者表达 Evidence。当前只允许与输入 Evidence／Source 相同策略的派生，跨策略交集尚无规划器时显式拒绝。外部接口只返回摘要时必须声明原文不可得，coverage 保留非重试 `attachment_missing`，不报告完整原文留存。每批最多 32 项，仍受统一事务文件容量约束，超限失败而不截断。
 
 仓库入口只实现同步流程中的文件接入段：调用方显式提供稳定 upstream ID、文件映射、已提交 revision 和摘要；文件更新／移动仍沿用该身份。完整变更发现、删除传播及派生理解重评由后续 synchronize 工作项完成，不能把本入口当作全库同步验收。这里只使用公开合成资料，未核查私人 Stella 1.0，因此没有将测试资产作为沧海 dev 的历史证据。上述覆盖为 synthetic_contract；不签发 Exact Host、real_main 或自然反馈验证，也不替代父票整组 M／G 验收。
+
+2026-09-14 工作项 10（Issue #16）增量：`ingest` 接受 `resumeKey` 及由 adapter 声明的 `coverage.manifest`。`stella.archive-manifest/v1` 按上游事件 ID 列出正文摘要与附件 ID／摘要；未知摘要用 null，不可追回的缺项需显式 `unavailable: true`。未知总量、缺清单、正文缺失及附件缺口均不能签发完整归档。materials 入口可生成调用方明确选定资料批次的清单；transcript 及分页导入必须传入上游声明的范围和清单，缺省 Coverage 保持不完整，不能把收到的某页反推成全库清单。
+
+暂存采用 `stella.transcript-stage/v2`：声明摘要固定来源、范围、策略及完整清单；已收到的事件和附件元数据分别绑定摘要，允许此前完全缺失的项按同一清单到达，但不能改写此前作者或事件元数据。旧 v1 暂存仅接受原始输入的严格重放，不静默升级其声明。
+
+`stella.ingest-checkpoint/v1` 与归档对象、catalog 同一 MemoryTransaction 写入 `operations/{resumeKey}.ingest-checkpoint.json`，绑定 adapter、collection、snapshot、operation、前后 cursor 和 Coverage 引用。`resumeIngestCursor` 在事务 pending 时读取持久意图，返回待重试 operation 和输入 cursor；即使 checkpoint 尚未替换也不跳过该页。正常恢复会经既有 durability 重新确认远端同步后返回输出 cursor，故该接口可能重试既有 push。下一页必须承接同一来源快照的当前 cursor；重放旧操作不会回退后续进度。adapter 按返回的 operation／cursor 重新取得相同页并调用 `ingest`，语义角色仍由上游身份或已有结构化解释提供。
+
+`verifyArchiveCoverage` 通过 CatalogReader 逐项核对正文、附件真实字节、事件关联和当前留存资格，支持脱离原运行主机与外部附件存储的完整 Git 副本。`coordinateArchiveCleanup` 在既有 mutation lock 内重新确认同步、清单、原件及干净 Git revision；缺 Host cleanup port、取消、缺项、同步失败或陈旧 snapshot／cursor 均阻断。Host port 必须对 snapshot 做比较、按 operation ID 幂等处理，仅释放本次明确列出的 event IDs，并返回匹配收据；不得把此结果解释为可按 cursor 批量清理其他事件。Host 调用失败保留结果未知类别，不猜测成功。
+
+旧 Coverage v1 缺 manifest 时仍可作历史记录读取，但不能用于新清理确认。升级时应先用原始 ingest 请求恢复旧 pending 事务，再以新的 operation ID 和上游清单重新核验导入；禁止向旧 Coverage 填入 `retainedCount` 推造清单或伪造 checkpoint。本增量包含新格式结构校验、同一接口的恢复及拒绝案例、独立 Git 副本读取验证。
+
+本机 OpenClaw 2026.8.2 接线采用合同允许的 `hold_and_monitor` 模式：在插件配置显式启用 `archiveRetention: "hold_and_monitor"`，同时使用 `managed_durable_write` 并将 Host `session.maintenance.mode` 设为 `warn`。生产插件启动 `stella-archive-retention` 服务，每 60 秒经公开 session SDK 扫描配置 Agent 的 live generation 原始 message events；经 CatalogReader 核验 manifest、原件、附件及当前留存策略，再检查干净 Git HEAD 与配置远端分支一致。`stella.archiveRetention` 仅供本机 `operator.admin` 查询，并立即重新检查。不访问私人 SQLite、不从 active-branch history 的截断输出推断覆盖。
+
+Host stateDir 中只保留已观察事件的摘要；积压不会因会话被外部删除或 Gateway 重启而消失，原件消失单独计数。扫描失败、未同步、损坏、超限及服务失效均明确阻断；未知计数返回 null，不伪装为零。监测最多 128 个 live session、4096 个累计观察事件和每次 4 MiB 原始事件，超过边界阻断而不截断。配置不再为 warn、监测出错或超过两次周期未完成，会加入初始化 coordinator 的 runtime blockers；积压通过 Host service health 报告。监测本身不代办批量导入，也不签发归档确认。
+
+`hold_and_monitor` 约束原生 maintenance，不授权 `sessions.delete`、管理员 `--enforce` 或其他插件自带清理。公开 SDK 的 session 删除可能连带历史 generations，且未暴露逐事件快照比较删除，因此不把它适配成 `releaseArchived`。服务返回 `scope: observed_message_events`、`fullRetention: false`：未枚举的历史 generations、非 message 事件及未被完整覆盖的外部附件仍不能签发全 Host 完整留存能力。开启普通原生自动删除前，仍须有能保护完整声明范围的 Host 删除门禁。
+
+`scripts/probe-archive-retention.mjs` 使用显式 `STELLA_PROBE_HOST_ROOT` 启动隔离合成 Agent 的真实 Gateway，测试生产插件、原生维护保留、Host opaque cursor、真实 Git 传输中断、重放去重、原件与附件独立 clone 恢复、定时积压发现、重启及配置失效；`npm run test:host-archive` 可重跑。本机安装与 npm packed consumer 分别生成绑定源码／Host／harness 摘要的 receipt；它们是 real local Host 上的 synthetic 数据证据，不是私人 main、全历史留存或自然反馈验收。
