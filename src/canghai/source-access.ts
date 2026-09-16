@@ -111,7 +111,8 @@ export function createSourceAccessProvider(input: {
     await reader.read(bound.sourceRef, "sources");
     const currentPolicy = await reader.read(bound.policyRef, "policies");
     assertSourcePolicyAccess(currentPolicy, use, context);
-    if (input.processingAuthority && presentation === "quote") {
+    if (presentation === "quote") {
+      check(input.processingAuthority, "processing_authority_required");
       assertProcessingStage(input.processingAuthority, currentPolicy, "quote", context);
     }
     active();
