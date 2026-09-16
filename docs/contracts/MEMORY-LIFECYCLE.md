@@ -99,6 +99,10 @@ Host 适配器要求活跃请求中 SDK 确认的主人身份、私聊范围和�
 
 2026-09-08 纠正事务增量：`src/learning/correction.ts` 的 `prepareCorrection` 接收已归档、可校验身份的主人原话，以结构化模型生成更新方案并独立复核。宿主固定对象身份、时间、版本、LearningChange 和新代际；模型不能引入未读引用或跳过依赖受影响的理解／事项。当前采用完整批次同步：有访问排除而无法证明影响范围完整时拒绝更新；不实现中间代或后台重评，也不取消后续分批同步的产品要求。修订、旧版本失效、LearningChange 和目录通过现有 MemoryTransaction 一起发布，critical 同步失败保持读取屏障。同实例重试及 `recoverCorrection` 的日志恢复均复用已确认事务，不重新生成修订或重发回答；恢复再次核查计划路径与变更范围、证据及当前处理许可。
 
+2026-09-16 写作纠正入口补强（Issue #20／T14，工作项 14）：Host 经公开 `learn` 协调已归档原话的提案、持久化及重放。同 operationId 重试绑定 requestHash 和确切 evidenceRefs，返回原 Learning Change，不再次调用纠正模型；冲突、撤权、原件失效或同步失败明确拒绝。恢复操作记录升级为 `stella-correction/v2`，额外保存 clarification，使未决问题在重启后保持；LearningChange 正文仍为 v1。旧操作 v1 的 update／no_change 可按原日志恢复，旧 needs_clarification 因缺失问题正文明确返回 `correction_clarification_unavailable`，不得猜造问题或把它作为纠正完成。
+
+`tests/correction.test.ts` 在公开学习、Host 接入和请求视图边界覆盖：事项与有范围理解同批更新、旧视图失效、旧判断版本与修订依据保留、Host 原话归档及重放、新会话只认可协作而未采纳结尾、关键同步失败后恢复及澄清重放权限。与既有 `--correction`／`--correction-recovery`／`--correction-output-rejected` Host 探针配合验证当轮生成前持久化和失败阻断。合成语义结果只证明契约执行；不等于真实 main、自然反馈、C-04／C-06 或 M-08／M-09 全组 verified，其他 Host 摘要治理与分批重评仍按对应工作项验收。
+
 2026-09-08 Host 接线增量：启用私人视图处理且使用 managed_durable_write 的请求，在生成回答前执行 `prepareInput`。先验证初始化门禁和活跃主人请求，将完成协调器已绑定的原始请求归档为 `openclaw-reply-dispatch-2026.8.2` 来源（Host 此时尚未可靠提交 transcript），保留准确请求体、身份和 run 绑定；capturedAt 只表示接收观察时间，不伪造 transcript 事件、admission receipt 或 authoredAt，再由 `archiveCorrectionInput` 将原文、Source／Evidence／Coverage 与目录放入一个 MemoryTransaction，完成 critical 后才调用纠正模型。`applyHostCorrection` 的新代际随后用于当轮视图和取证；完成收据包含归档及纠正操作。只读模式不执行这一写入路径。归档或纠正失败时不生成／投递成功回答，事务屏障保护未完成发布。
 
 生成权限结束后，完成协调器只在 persist 阶段授予同 run 的来源复核权限；不得重新读取原始请求或发起新的来源判断。复核只接受本次已成功判断的确切 Source／Policy／用途，重查许可文件和当前对象，缺收据、撤销、取消或来源变化均失败。最终投递在仓库 mutation lock 内复核当轮所用视图、原文与收据 generation；允许本轮持久化新增不影响所用材料的对象，不允许使用过时理解。该锁协调 Core 写入，不阻止仓库外部进程直接改文件。初始化检查只排除当前进程持有且字节未变的确切锁文件，其他脏改仍阻断投递。

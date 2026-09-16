@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { personalMemoryFixture } from "./personal-memory-fixture.js";
 import { ownerDirectAuthority } from "./processing-authority-fixture.js";
-import { prepareCorrection, recoverCorrection } from "../src/learning/correction.js";
+import { learn, prepareCorrection, recoverCorrection } from "../src/learning/correction.js";
 import { preparePersonalViews } from "../src/praxis/personal-views.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import { CatalogReader } from "../src/canghai/catalog-reader.js";
@@ -32,6 +32,85 @@ async function setup(t: Parameters<typeof personalMemoryFixture>[0], interpretat
     } };
   return { f, input, calls: () => calls };
 }
+
+async function learningDurability(t: Parameters<typeof personalMemoryFixture>[0], root: string) {
+  const run = promisify(execFile), remote = await mkdtemp(path.join(os.tmpdir(), "stella-learning-remote-"));
+  t.after(() => rm(remote, { recursive: true, force: true }));
+  await run("git", ["init", "--quiet", "--initial-branch=main", root]);
+  const git = (...args: string[]) => run("git", ["-c", "core.fsmonitor=false", "-C", root, ...args]);
+  await git("config", "user.name", "Synthetic Test"); await git("config", "user.email", "synthetic@example.invalid");
+  await git("add", "."); await git("commit", "--quiet", "-m", "Synthetic writing baseline");
+  await run("git", ["init", "--bare", "--quiet", remote]);
+  await git("remote", "add", "origin", remote); await git("push", "origin", "main");
+  const restart = () => new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
+    normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0 });
+  return { restart, git };
+}
+
+test("writing correction updates work and scoped understanding atomically and preserves their historical judgments", async t => {
+  const { f, input } = await setup(t);
+  const { restart, git } = await learningDurability(t, f.root);
+  const old = await preparePersonalViews({ ...input, requestId: "before", question: request,
+    audience: "owner_direct", selection: "all_authorized" });
+  const complete: typeof input.complete = async args => {
+    const result = await input.complete(args), proposal = JSON.parse(result.text);
+    if (proposal.replacements) {
+      const data = JSON.parse(args.prompt.split("\n").at(-1)!);
+      const previous = data.candidates.find((item: { group: string }) => item.group === "understandings");
+      proposal.replacements.push({ handle: previous.handle, group: "understandings", record: {
+        kind: "owner_statement", status: "active", statement: "这篇文章先检查论证，仍保留疑问。",
+        scope: { workIds: ["work"], contexts: [], domains: ["writing"], global: false },
+        supportRefs: [f.evidence], counterRefs: [], dependencyRefs: [],
+      } });
+    }
+    return { ...result, text: JSON.stringify(proposal) };
+  };
+  const result = await learn({ ...input, complete, durability: restart(), signal: new AbortController().signal });
+  await assert.rejects(old.assertCurrent(), /stale_generation/);
+  for (const requestId of ["current-turn", "next-turn", "new-session", "restarted"]) {
+    const fresh = await preparePersonalViews({ ...input, resolver: await f.resolver(), requestId, question: request,
+      audience: "owner_direct", selection: "all_authorized" });
+    assert.equal(fresh.view.memory.find(item => item.group === "works")!.record.goal, "保留疑问，先检查论证");
+    const understanding = fresh.view.memory.find(item => item.group === "understandings")!.record;
+    assert.equal(understanding.statement, "这篇文章先检查论证，仍保留疑问。");
+    assert.deepEqual(understanding.scope, { workIds: ["work"], contexts: [], domains: ["writing"], global: false });
+    assert.equal(fresh.view.user.length, 0);
+  }
+  const reader = (await f.resolver()).reader;
+  const change = await reader.read(result.changeRef, "changes");
+  assert.equal((change.changes as unknown[]).length, 2);
+  assert.deepEqual(change.inputRefs, [f.evidence]);
+  assert.deepEqual(await reader.read(f.workRef, "works", "historical"), f.work);
+  assert.equal((await reader.read(f.understanding, "understandings", "historical")).statement, "本篇文章保留未决问题。");
+  const revision = (await git("rev-parse", "HEAD")).stdout;
+  await assert.rejects(learn({ ...input, request: "another request", resolver: await f.resolver(),
+    durability: restart(), signal: new AbortController().signal }), /correction_operation_conflict/);
+  const replay = await learn({ ...input, resolver: await f.resolver(), durability: restart(), signal: new AbortController().signal,
+    complete: async () => { throw new Error("Replay must not call the model"); } });
+  assert.deepEqual(replay, result);
+  assert.equal((await git("rev-parse", "HEAD")).stdout, revision);
+  assert.equal((await git("status", "--porcelain")).stdout, "");
+});
+
+test("clarification survives learning restart and replay still enforces processing permission", async t => {
+  const { f, input } = await setup(t);
+  const { restart } = await learningDurability(t, f.root);
+  const complete: typeof input.complete = async args => {
+    const result = await input.complete(args), proposal = JSON.parse(result.text);
+    if (proposal.replacements) Object.assign(proposal, { disposition: "needs_clarification", replacements: [], clarification: "你希望保留哪一个未决问题？" });
+    return { ...result, text: JSON.stringify(proposal) };
+  };
+  const first = await learn({ ...input, complete, durability: restart(), signal: new AbortController().signal });
+  const replay = await learn({ ...input, resolver: await f.resolver(), durability: restart(), signal: new AbortController().signal,
+    complete: async () => { throw new Error("Replay must preserve the recorded question"); } });
+  assert.deepEqual(replay, first);
+  assert.equal(replay.clarification, "你希望保留哪一个未决问题？");
+  assert.equal(replay.disposition, "needs_clarification");
+  assert.deepEqual(await (await f.resolver()).reader.read(f.workRef, "works"), f.work);
+  await assert.rejects(learn({ ...input, resolver: await f.resolver(), durability: restart(), signal: new AbortController().signal,
+    processingAuthority: ownerDirectAuthority({ purpose: { readPurpose: "retrieve", derivePurpose: "forbidden", deliveryScope: "synthetic/model" } }) }),
+  /permission_denied/);
+});
 
 test("v3 source constraints reach correction verification and rejected learning never becomes a transaction", async t => {
   const { f, input } = await setup(t, true);
@@ -148,6 +227,7 @@ test("Host correction archives exact owner input before inference and restores a
   const { f, input, calls } = await setup(t);
   const { archiveCorrectionInput, applyHostCorrection } = await import("../src/learning/host-correction.js");
   const { HOST_INPUT_ARCHIVE_ADAPTER } = await import("../src/canghai/host-input-archive.js");
+  const { HOST_REQUEST_ARCHIVE_ADAPTER } = await import("../src/canghai/host-request-archive.js");
   const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
   const { readFile } = await import("node:fs/promises");
   const run = promisify(execFile), remote = await mkdtemp(path.join(os.tmpdir(), "stella-host-correction-remote-"));
@@ -166,7 +246,7 @@ test("Host correction archives exact owner input before inference and restores a
     sessionKey: bound.sessionKey, entryId: "original-message", logicalTurnId: "logical-turn", generation: "host-generation", rawSeq: 1,
     parentId: null, text: request, event: { type: "message", id: "original-message", parentId: null, timestamp: input.recordedAt,
       message: { role: "user", content: request } } };
-  const purpose = { ...input.resolver.purpose, trustedAdapters: { ...input.resolver.purpose.trustedAdapters, user_report: ["synthetic", HOST_INPUT_ARCHIVE_ADAPTER] } };
+  const purpose = { ...input.resolver.purpose, trustedAdapters: { ...input.resolver.purpose.trustedAdapters, user_report: ["synthetic", HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER] } };
   const params = { request: bound, original, ownerId: "owner", reader: input.resolver.reader,
     archive: { policyRef: { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version }, objectRoot: "objects", payloadRoot: "originals" },
     purpose, durability, signal: new AbortController().signal, assertCurrent: async () => {}, modelRef: input.modelRef,
@@ -181,6 +261,9 @@ test("Host correction archives exact owner input before inference and restores a
   const result = await applyHostCorrection(params);
   assert.equal(result.disposition, "update"); assert.equal(calls(), 2);
   assert.equal(result.writeOperationIds.length, 2);
+  const replay = await applyHostCorrection({ ...params, reader: await CatalogReader.load(f.root, "catalog.json") });
+  assert.deepEqual(replay, result, "Host retries return the recorded correction without a second learning");
+  assert.equal(calls(), 2);
   const fresh = new (await import("../src/praxis/episode-evidence.js")).EpisodeEvidenceResolver(await CatalogReader.load(f.root, "catalog.json"), purpose, input.complete);
   const views = await preparePersonalViews({ resolver: fresh, requestId: "next-session", question: request, ownerId: "owner", modelRef: input.modelRef,
     audience: "owner_direct", selection: "all_authorized", processingAuthority: input.processingAuthority,
@@ -190,6 +273,32 @@ test("Host correction archives exact owner input before inference and restores a
   const archivedSource = await fresh.reader.read((await fresh.reader.read(restored.evidenceRefs[0]!, "evidence")).source as { id: string; version: string }, "sources");
   const payload = archivedSource.payloads as Array<{ path: string }>;
   assert.deepEqual(JSON.parse(await readFile(path.join(f.root, payload[0]!.path), "utf8")).event, original.event);
+  const approval = "这种一起检查论证的方式很有帮助，但候选结尾我还没有决定采用，文章也没有写完。";
+  const approvalRequest = snapshotTurnRequest({ agentId: "main", sessionId: "another-session", sessionKey: "agent:main:writing-next",
+    prompt: approval, senderId: "trusted-sender", senderIsOwner: true, chatType: "direct" }, "writing_approval");
+  const approved = await applyHostCorrection({ ...params, reader: fresh.reader, request: approvalRequest,
+    original: { schemaVersion: "stella.host-request-snapshot/v1", request: approvalRequest, capturedAt: input.recordedAt },
+    complete: async ({ prompt }) => {
+      const data = JSON.parse(prompt.split("\n").at(-1)!);
+      if (data.proposalHash) return { provider: "synthetic", model: "model", text: JSON.stringify({ requestHash: data.requestHash, proposalHash: data.proposalHash, valid: true }) };
+      assert.equal(data.ownerEvidence[0].text, approval);
+      return { provider: "synthetic", model: "model", text: JSON.stringify({ requestHash: data.requestHash, disposition: "update", clarification: null,
+        reviewedHandles: data.candidates.map((item: { handle: string }) => item.handle), rationale: "只认可本篇文章的协作方式。",
+        replacements: [{ handle: null, group: "understandings", record: { kind: "owner_statement", status: "active",
+          statement: "本篇文章一起检查论证的协作方式有帮助；未采纳结尾。", scope: { workIds: ["work"], contexts: [], domains: ["writing"], global: false },
+          supportRefs: data.ownerEvidence.map((item: { ref: unknown }) => item.ref), counterRefs: [], dependencyRefs: [] } }] }) };
+    } });
+  const afterApproval = new (await import("../src/praxis/episode-evidence.js")).EpisodeEvidenceResolver(await CatalogReader.load(f.root, "catalog.json"), purpose, input.complete);
+  const resumed = await preparePersonalViews({ ...input, resolver: afterApproval, requestId: "resume-writing", question: "继续梳理文章",
+    audience: "owner_direct", selection: "all_authorized" });
+  const resumedWork = resumed.view.memory.find(item => item.group === "works")!.record;
+  assert.equal(resumedWork.status, "active");
+  assert.deepEqual(resumedWork.candidateIdeas, f.work.candidateIdeas);
+  assert.deepEqual(resumedWork.openQuestions, f.work.openQuestions);
+  assert.equal(resumedWork.nextStep, null);
+  const approvalChange = await afterApproval.reader.read(approved.changeRef, "changes");
+  assert.equal((approvalChange.targetRefs as unknown[]).length, 1);
+  assert.equal(resumed.view.memory.length, 3, "work plus two scoped understandings, no fabricated outcome");
   assert.equal((await git("status", "--porcelain")).stdout.trim(), "");
 });
 

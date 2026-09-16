@@ -14,7 +14,7 @@ import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 import type { ProcessingAuthority } from "../openclaw/processing-authority.js";
 import { EpisodeEvidenceResolver } from "../praxis/episode-evidence.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
-import { prepareCorrection } from "./correction.js";
+import { learn, prepareCorrection } from "./correction.js";
 import type { HostRequestSnapshot } from "../canghai/host-request-archive.js";
 
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
@@ -104,12 +104,10 @@ export async function applyHostCorrection(input: Parameters<typeof archiveCorrec
 }) {
   assertPrivateContextAudience(resolveTurnAudience(input.request));
   const archived = await archiveCorrectionInput(input);
-  const correction = await prepareCorrection({ operationId: input.request.runId, request: input.request.prompt,
+  const receipt = await learn({ operationId: input.request.runId, request: input.request.prompt,
     ownerId: input.ownerId, modelRef: input.modelRef, recordedAt: input.original.schemaVersion === "stella.host-request-snapshot/v1" ? input.original.capturedAt : String(input.original.event.timestamp),
     evidenceRefs: archived.evidenceRefs, resolver: archived.resolver, objectRoot: input.archive.objectRoot,
     processingAuthority: input.processingAuthority,
-    assertProcessingCurrent: input.assertCurrent, complete: input.complete });
-  const receipt = await correction.persist(input.durability, input.signal);
-  return { ...receipt, writeOperationIds: [archived.operationId, receipt.operationId], disposition: correction.disposition,
-    clarification: correction.clarification };
+    assertProcessingCurrent: input.assertCurrent, complete: input.complete, durability: input.durability, signal: input.signal });
+  return { ...receipt, writeOperationIds: [archived.operationId, receipt.operationId] };
 }

@@ -3,7 +3,7 @@ import { verifySourceInterpretation } from "../canghai/source-interpretation.js"
 import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogEntry } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
-import { applyMemoryTransaction, readRecordedMemoryTransaction, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
+import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
 import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
@@ -13,6 +13,7 @@ import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
 
 const VERSION = "stella-correction/v1";
+const RECEIPT_VERSION = "stella-correction/v2";
 const key = (ref: VersionedRef) => canonicalJson({ id: ref.id, version: ref.version });
 const unique = (refs: VersionedRef[]) => [...new Map(refs.map(ref => [key(ref), { id: ref.id, version: ref.version }])).values()];
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
@@ -27,6 +28,34 @@ const editable = {
 type Group = keyof typeof editable;
 type Replacement = { handle: string | null; group: Group; record: Record<string, unknown> };
 type Complete = (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
+
+/** Public learning boundary: replay the approved operation, never infer a second change. */
+export async function learn(input: Parameters<typeof prepareCorrection>[0] & {
+  durability: GitCangHaiDurability; signal: AbortSignal;
+}) {
+  input.signal.throwIfAborted();
+  await input.assertProcessingCurrent();
+  const operationId = `learn_${bytesVersion(input.operationId).slice(7)}`;
+  const reader = input.resolver.reader;
+  const journal = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.transaction.json`);
+  let recorded = false;
+  try {
+    await readRecordedMemoryTransaction(reader.root, operationId, journal);
+    recorded = true;
+  } catch (error) {
+    if (!(error instanceof MemoryTransactionError && error.category === "pending_transaction_not_found") &&
+      !(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+  if (recorded) {
+    const { replyResent: _replyResent, ...receipt } = await recoverCorrection({ ...input,
+      root: reader.root, catalogPath: reader.catalogPath, purpose: input.resolver.purpose, operationId,
+      requestBinding: { requestHash: bytesVersion(input.request), evidenceRefs: input.evidenceRefs } });
+    return receipt;
+  }
+  const prepared = await prepareCorrection(input);
+  return { ...await prepared.persist(input.durability, input.signal),
+    disposition: prepared.disposition, clarification: prepared.clarification };
+}
 
 /** Receives already archived, authenticated owner evidence. It cannot synthesize a Host message. */
 export async function prepareCorrection(input: {
@@ -233,7 +262,7 @@ export async function prepareCorrection(input: {
   after.parentGenerationId = reader.catalog.generationId;
   after.generationId = `generation_${bytesVersion(canonicalJson({ operationId, before: reader.catalogHash, changeRef })).slice(7)}`;
   files.push({ path: path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.correction.json`), before: null,
-    after: canonicalJson({ schemaVersion: VERSION, operationId, requestHash, changeRef,
+    after: canonicalJson({ schemaVersion: RECEIPT_VERSION, operationId, requestHash, changeRef, clarification: proposal.clarification,
       ownerId: input.ownerId, modelRef: input.modelRef, evidenceCutoff: input.resolver.purpose.evidenceCutoff }) });
   files.push({ path: reader.catalogPath, before, after: canonicalJson(after) });
   const plan: MemoryTransactionPlan = { operationId, journalPath, files };
@@ -273,6 +302,7 @@ export async function recoverCorrection(input: {
   root: string; operationId: string; catalogPath: string; objectRoot: string; ownerId: string; modelRef: string;
   purpose: EvidencePurpose; durability: GitCangHaiDurability; signal: AbortSignal; assertProcessingCurrent: () => Promise<void>;
   processingAuthority: ProcessingAuthority;
+  requestBinding?: { requestHash: string; evidenceRefs: VersionedRef[] };
 }) {
   const invalid = "invalid_correction_transaction";
   check(/^learn_[a-f0-9]{64}$/.test(input.operationId), invalid);
@@ -283,8 +313,9 @@ export async function recoverCorrection(input: {
   const receiptFile = plan.files.find(file => file.path === `${operations}/${input.operationId}.correction.json`);
   check(catalogFile?.before && receiptFile?.before === null, invalid);
   const receipt: unknown = JSON.parse(receiptFile.after);
-  check(isRecord(receipt) && exact(receipt, ["schemaVersion", "operationId", "requestHash", "changeRef", "ownerId", "modelRef", "evidenceCutoff"]) &&
-    receipt.schemaVersion === VERSION && receipt.operationId === input.operationId && validMemoryRef(receipt.changeRef) &&
+  check(isRecord(receipt) && exact(receipt, ["schemaVersion", "operationId", "requestHash", "changeRef", "ownerId", "modelRef", "evidenceCutoff",
+    ...(receipt.schemaVersion === RECEIPT_VERSION ? ["clarification"] : [])]) &&
+    [VERSION, RECEIPT_VERSION].includes(String(receipt.schemaVersion)) && receipt.operationId === input.operationId && validMemoryRef(receipt.changeRef) &&
     receipt.ownerId === input.ownerId && receipt.modelRef === input.modelRef && typeof receipt.evidenceCutoff === "string" &&
     Number.isFinite(Date.parse(receipt.evidenceCutoff)), invalid);
   const before = parseMemoryCatalog(JSON.parse(catalogFile.before));
@@ -305,6 +336,12 @@ export async function recoverCorrection(input: {
     change.targetRefs.length === change.changes.length && change.targetRefs.length === objects.length - 1 &&
     (change.disposition === "update" ? change.targetRefs.length > 0 : change.targetRefs.length === 0), invalid);
   const inputRefs = change.inputRefs;
+  const disposition = change.disposition as "update" | "no_change" | "needs_clarification";
+  const clarification = receipt.schemaVersion === VERSION ? null : receipt.clarification;
+  check(disposition === "needs_clarification" ? text(clarification) : clarification === null,
+    "correction_clarification_unavailable");
+  if (input.requestBinding) check(input.requestBinding.requestHash === receipt.requestHash &&
+    canonicalJson(input.requestBinding.evidenceRefs) === canonicalJson(inputRefs), "correction_operation_conflict");
   const affected = new Set<string>();
   for (const row of change.changes) {
     check(isRecord(row) && exact(row, ["kind", "before", "after", "supportRefs", "counterRefs"]) && validMemoryRef(row.after) &&
@@ -354,6 +391,23 @@ export async function recoverCorrection(input: {
   expected.generationId = `generation_${bytesVersion(canonicalJson({ operationId: input.operationId, before: bytesVersion(catalogFile.before), changeRef: receipt.changeRef })).slice(7)}`;
   check(canonicalJson(expected) === canonicalJson(after), invalid);
   const purpose = { ...input.purpose, evidenceCutoff: new Date(Math.min(Date.parse(input.purpose.evidenceCutoff), Date.parse(receipt.evidenceCutoff))).toISOString() };
+  const validateOriginals = async (reader: CatalogReader) => {
+    check(input.processingAuthority.privateContextAllowed && input.processingAuthority.audience === "owner_direct",
+      "private_context_audience_forbidden");
+    const noInference = async (): Promise<never> => { throw new CatalogError("correction_recovery_model_forbidden"); };
+    const resolver = new EpisodeEvidenceResolver(reader, purpose, noInference);
+    const originals: string[] = [];
+    for (const ref of inputRefs) {
+      const evidence = await resolver.readEvidence(ref), stored = await reader.read(ref, "evidence");
+      check(evidence.role === "owner" && stored.speakerId === input.ownerId && ["reported", "direct_observation"].includes(evidence.kind) &&
+        purpose.trustedAdapters.user_report.includes(evidence.sourceAdapterId), "correction_owner_evidence_required");
+      check(validMemoryRef(stored.policyRef), "invalid_evidence");
+      assertProcessingStage(input.processingAuthority, await reader.read(stored.policyRef, "policies"), "learn");
+      originals.push(evidence.text);
+    }
+    check(bytesVersion(originals.join("\n")) === receipt.requestHash, "correction_request_evidence_mismatch");
+    return { resolver, originals, noInference };
+  };
   await input.assertProcessingCurrent();
   await applyMemoryTransaction(input.root, plan, {
     async validate() {
@@ -361,16 +415,7 @@ export async function recoverCorrection(input: {
       const current = await CatalogReader.load(input.root, input.catalogPath);
       check([bytesVersion(catalogFile.before!), bytesVersion(catalogFile.after)].includes(current.catalogHash), "stale_generation");
       await current.validatePreview(after, objects.map(file => ({ path: file.path, bytes: file.after })), async preview => {
-        const noInference = async (): Promise<never> => { throw new CatalogError("correction_recovery_model_forbidden"); };
-        const resolver = new EpisodeEvidenceResolver(preview, purpose, noInference);
-        const originals: string[] = [];
-        for (const ref of inputRefs) {
-          const evidence = await resolver.readEvidence(ref), stored = await preview.read(ref, "evidence");
-          check(evidence.role === "owner" && stored.speakerId === input.ownerId && ["reported", "direct_observation"].includes(evidence.kind) &&
-            purpose.trustedAdapters.user_report.includes(evidence.sourceAdapterId), "correction_owner_evidence_required");
-          originals.push(evidence.text);
-        }
-        check(bytesVersion(originals.join("\n")) === receipt.requestHash, "correction_request_evidence_mismatch");
+        const { resolver, originals, noInference } = await validateOriginals(preview);
         await preparePersonalViews({ resolver, requestId: input.operationId, question: originals.join("\n"), ownerId: input.ownerId, modelRef: input.modelRef,
           audience: "owner_direct", selection: "all_authorized", processingAuthority: input.processingAuthority,
           assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
@@ -378,10 +423,18 @@ export async function recoverCorrection(input: {
       await input.assertProcessingCurrent();
     },
     persist: async paths => { await input.durability.syncCritical(paths, `stella correction ${input.operationId}`); },
-    confirmPreviouslyCommitted: file => input.durability.confirmPreviouslyCommitted(file),
+    confirmPreviouslyCommitted: async file => {
+      await input.assertProcessingCurrent();
+      const current = await CatalogReader.load(input.root, input.catalogPath);
+      await validateOriginals(current);
+      await current.assertCurrent();
+      await input.assertProcessingCurrent();
+      await input.durability.confirmPreviouslyCommitted(file);
+    },
     publishView: () => afterDurablePersistPublishView(input.root),
   }, input.signal);
   const diagnostics = await input.durability.diagnostics();
   check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision, "critical_sync_failed");
-  return { operationId: input.operationId, changeRef: receipt.changeRef, generationId: after.generationId, revision: diagnostics.localRevision, replyResent: false };
+  return { operationId: input.operationId, changeRef: receipt.changeRef, generationId: after.generationId, revision: diagnostics.localRevision,
+    disposition, clarification, replyResent: false };
 }
