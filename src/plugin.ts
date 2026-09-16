@@ -11,6 +11,7 @@ import { preparePersonalViews } from "./praxis/personal-views.js";
 import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import { createPersonalContextAccess, loadPersonalContextAccess } from "./canghai/personal-context-access.js";
 import type { BoundTurnRequest } from "./openclaw/turn-request.js";
+import { snapshotTurnRequest } from "./openclaw/turn-request.js";
 import { assertPrivateContextAudience, resolveTurnAudience } from "./openclaw/turn-audience.js";
 import {
   assertProcessingAuthority,
@@ -316,7 +317,11 @@ export default definePluginEntry({
         });
       }
     };
-    const createRuntime = async (loaded: LoadedConsciousness, request?: BoundTurnRequest) => {
+    const createRuntime = async (
+      loaded: LoadedConsciousness,
+      request?: BoundTurnRequest,
+      processingAuthority?: ProcessingAuthority,
+    ) => {
       ensureDurability(loaded);
       const binding = await loadPraxisRuntimeBinding(loaded);
       let sourceAccess;
@@ -324,26 +329,19 @@ export default definePluginEntry({
       if (binding.personalContextAccessPath) {
         if (!request) throw new CatalogError("personal_context_active_request_required");
         const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
-        const resolveModel = () => {
-          // The SDK resolver accepts a mutable config type but only reads it.
-          // Clone the Host readonly snapshot before crossing that SDK boundary.
-          const cfg = structuredClone(api.runtime.config.current()) as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"];
-          const selected = resolveDefaultModelForAgent({ cfg, agentId: config.agentId });
-          return `${selected.provider}/${selected.model}`;
-        };
-        const modelRef = resolveModel();
+        const modelRef = resolveLiveModelRef();
         const assertRequestCurrent = () => {
           if (!hasCompletionPersistencePermit(request.runId)) {
             const current = readCompletionRequest(request.runId, request.agentId, request.sessionId, request.sessionKey);
             if (current.requestHash !== request.requestHash) throw new CatalogError("personal_context_request_mismatch");
           }
-          if (resolveModel() !== modelRef) throw new CatalogError("personal_context_model_changed");
+          if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
         };
         if (processing.config.viewProcessingModelRefs) {
           if (!processing.config.viewProcessingModelRefs.includes(modelRef)) throw new CatalogError("personal_view_model_forbidden");
           const assertCurrent = async () => {
             await processing.assertCurrent();
-            if (resolveModel() !== modelRef) throw new CatalogError("personal_context_model_changed");
+            if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
             const cfg = api.runtime.config.current();
             const models = [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model,
               cfg.agents?.list?.find(agent => agent.id === config.agentId)?.model];
@@ -356,6 +354,7 @@ export default definePluginEntry({
         }
         sourceAccess = createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
           isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId),
+          ...(processingAuthority ? { processingAuthority } : {}),
           complete: async ({ prompt, maxTokens }) => {
             const result = await completeModel({ agentId: config.agentId, model: modelRef,
               purpose: "stella-source-access", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] });
@@ -370,6 +369,26 @@ export default definePluginEntry({
         else await durability.recordNormal(paths, `stella: learn ${operationId}`);
       }, sourceAccess);
       return { runtime, binding, viewProcessing };
+    };
+
+    const bindTurnProcessingAuthority = async (
+      request: BoundTurnRequest,
+      loaded: LoadedConsciousness,
+      binding: Awaited<ReturnType<typeof loadPraxisRuntimeBinding>>,
+      ownerId: string,
+      modelRef: string,
+      audience = resolveTurnAudience(request),
+    ) => {
+      const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
+      return bindProcessingAuthority({
+        request,
+        ownerId,
+        purpose: binding.purpose,
+        modelRef,
+        deployment: deploymentDigest(loaded.recoveryRevision ?? config.recoveryRevision),
+        generationId: reader.catalog.generationId,
+        audience,
+      });
     };
 
     api.registerTool(ctx => ctx.agentId !== config.agentId ? null : {
@@ -405,12 +424,7 @@ export default definePluginEntry({
         if (processing.config.operatorRecovery !== true || !processing.config.requesterIds.includes(client.connect.client.id)) {
           throw new CatalogError("operator_recovery_grant_required");
         }
-        const resolveModel = () => {
-          const cfg = structuredClone(api.runtime.config.current()) as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"];
-          const selected = resolveDefaultModelForAgent({ cfg, agentId: config.agentId });
-          return `${selected.provider}/${selected.model}`;
-        };
-        const modelRef = resolveModel();
+        const modelRef = resolveLiveModelRef();
         if (!processing.config.viewProcessingModelRefs?.includes(modelRef)) throw new CatalogError("personal_view_model_forbidden");
         const abortSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(300_000)]) : AbortSignal.timeout(300_000);
         const assertProcessingCurrent = async () => {
@@ -418,14 +432,29 @@ export default definePluginEntry({
           const current = api.runtime.config.current().plugins?.entries?.["stella-core"];
           if (current?.enabled !== true || current.config?.canghaiRoot !== config.canghaiRoot || current.config.agentId !== config.agentId ||
             (current.config.manifestPath ?? "50_PersonalAgent/stella/manifest.yaml") !== config.manifestPath) throw new CatalogError("recovery_host_binding_changed");
-          if (resolveModel() !== modelRef) throw new CatalogError("personal_context_model_changed");
+          if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
         };
         ensureDurability(loaded);
+        const recoveryAuthority = await bindTurnProcessingAuthority(
+          snapshotTurnRequest({
+            agentId: config.agentId,
+            sessionId: "operator-recovery",
+            sessionKey: `agent:${config.agentId}:main`,
+            prompt: `recover:${params.operationId}`,
+            senderId: processing.config.ownerId,
+            senderIsOwner: true,
+            chatType: "direct",
+          }, params.operationId),
+          loaded,
+          binding,
+          processing.config.ownerId,
+          modelRef,
+        );
         const result = await recoverCorrection({ root: loaded.canghaiRoot, operationId: params.operationId,
           catalogPath: binding.catalogPath, objectRoot: binding.archive.objectRoot, ownerId: processing.config.ownerId, modelRef,
           purpose: { ...binding.purpose, evidenceCutoff: new Date().toISOString(),
             trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } },
-          durability: durability!, signal: abortSignal, assertProcessingCurrent });
+          durability: durability!, signal: abortSignal, assertProcessingCurrent, processingAuthority: recoveryAuthority });
         respond(true, result);
       } catch (error) {
         const category = error instanceof CompletionError || error instanceof CatalogError || error instanceof EpisodeV2Error || error instanceof MemoryTransactionError
@@ -475,8 +504,18 @@ export default definePluginEntry({
         if (config.dataMode !== "managed_durable_write") return;
         await runCompletionPreparation(runId, async () => {
           const request = readCompletionRequest(runId, config.agentId);
+          const audience = resolveTurnAudience(request);
+          assertPrivateContextAudience(audience);
           const loaded = await consciousness.load();
-          const { runtime, binding, viewProcessing } = await createRuntime(loaded, request);
+          const binding = await loadPraxisRuntimeBinding(loaded);
+          if (!binding.personalContextAccessPath) return;
+          const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
+          const modelRef = resolveLiveModelRef();
+          if (!processing.config.viewProcessingModelRefs?.includes(modelRef)) throw new CatalogError("personal_view_model_forbidden");
+          const processingAuthority = await bindTurnProcessingAuthority(
+            request, loaded, binding, processing.config.ownerId, modelRef, audience,
+          );
+          const { runtime, viewProcessing } = await createRuntime(loaded, request, processingAuthority);
           if (!viewProcessing) return;
           await initialization.assertReady();
           const original = { schemaVersion: "stella.host-request-snapshot/v1" as const, request, capturedAt: new Date().toISOString() };
@@ -491,6 +530,7 @@ export default definePluginEntry({
               reader: runtime.evidence.reader, archive: binding.archive,
               purpose: { ...runtime.evidence.purpose, evidenceCutoff: new Date().toISOString() },
               durability: durability!, signal: signal ? AbortSignal.any([signal, abortSignal]) : abortSignal, assertCurrent, modelRef: viewProcessing.modelRef,
+              processingAuthority,
               complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
                 purpose: "stella-correction", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] }),
             }));
@@ -629,27 +669,30 @@ export default definePluginEntry({
               );
             }
             const loaded = await consciousness.load();
-            const { runtime, binding, viewProcessing } = await createRuntime(loaded, request);
-            const deployment = deploymentDigest(loaded.recoveryRevision ?? config.recoveryRevision);
+            const binding = await loadPraxisRuntimeBinding(loaded);
+            const modelRef = resolveLiveModelRef();
+            let ownerId = request.senderId!;
+            if (binding.personalContextAccessPath) {
+              const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
+              ownerId = processing.config.ownerId;
+              if (processing.config.viewProcessingModelRefs &&
+                !processing.config.viewProcessingModelRefs.includes(modelRef)) {
+                throw new CatalogError("personal_view_model_forbidden");
+              }
+            }
+            const processingAuthority = await bindTurnProcessingAuthority(
+              request, loaded, binding, ownerId, modelRef, audience,
+            );
+            const { runtime, viewProcessing } = await createRuntime(loaded, request, processingAuthority);
+            const deployment = processingAuthority.deployment;
             const memory = await runtime.listMemory();
-            const resolveModelRef = () => {
-              const cfg = structuredClone(api.runtime.config.current()) as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"];
-              const selected = resolveDefaultModelForAgent({ cfg, agentId: config.agentId });
-              return `${selected.provider}/${selected.model}`;
-            };
-            const processingAuthority = bindProcessingAuthority({
-              request,
-              ownerId: viewProcessing?.ownerId ?? request.senderId!,
-              purpose: binding.purpose,
-              modelRef: viewProcessing?.modelRef ?? resolveModelRef(),
-              deployment,
-              generationId: memory.generationId,
-              audience,
-            });
-            if (audience.audience !== "owner_direct") throw new CatalogError("private_context_audience_forbidden");
+            if (memory.generationId !== processingAuthority.generationId) {
+              throw new CatalogError("processing_generation_mismatch");
+            }
             const personalViews = viewProcessing ? await preparePersonalViews({
               requestId: runId, question: request.prompt, ownerId: viewProcessing.ownerId, modelRef: viewProcessing.modelRef,
               audience: audience.audience,
+              processingAuthority,
               resolver: runtime.evidence, assertProcessingCurrent: viewProcessing.assertCurrent,
               complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
                 purpose: "stella-personal-views", maxTokens, temperature: 0, messages: [{ role: "user", content: prompt }] }),
@@ -848,6 +891,7 @@ export default definePluginEntry({
             })() : undefined;
             const fragmentTool = viewProcessing ? createFragmentReadTool({ resolver: runtime.evidence,
               descriptors: viewProcessing.descriptors, originals: outputOriginals,
+              processingAuthority,
               assertCurrent: async () => {
                 readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
                 await initialization.assertRun(runId);

@@ -119,6 +119,25 @@ export function assertProcessingAuthority(
     "processing_audience_mismatch");
 }
 
+const STAGE_AXES = {
+  read: (purpose: PolicyPurpose) => ({ readPurpose: purpose.readPurpose }),
+  derive: (purpose: PolicyPurpose) => ({
+    readPurpose: purpose.readPurpose,
+    derivePurpose: purpose.derivePurpose,
+  }),
+  // Learn shares purpose axes with derive; write intent is enforced by the learn path.
+  learn: (purpose: PolicyPurpose) => ({
+    readPurpose: purpose.readPurpose,
+    derivePurpose: purpose.derivePurpose,
+  }),
+  quote: (purpose: PolicyPurpose) => ({ readPurpose: purpose.readPurpose }),
+  deliver: (purpose: PolicyPurpose) => ({
+    readPurpose: purpose.readPurpose,
+    derivePurpose: purpose.derivePurpose,
+    deliveryScope: purpose.deliveryScope,
+  }),
+} as const satisfies Record<ProcessingStage, (purpose: PolicyPurpose) => Partial<PolicyPurpose>>;
+
 /**
  * Stage-scoped purpose / quote checks. Full conjunction remains
  * assertSourcePolicyAccess for callers that need every axis at once.
@@ -133,25 +152,6 @@ export function assertProcessingStage(
   parseSourcePolicy(policy);
   // Private-context stages never admit non-owner audiences; quote is private output too.
   check(authority.privateContextAllowed, "private_context_audience_forbidden");
-  if (stage === "read") {
-    assertPurposeAxes(policy, { readPurpose: authority.purpose.readPurpose });
-    return;
-  }
-  if (stage === "derive" || stage === "learn") {
-    assertPurposeAxes(policy, {
-      readPurpose: authority.purpose.readPurpose,
-      derivePurpose: authority.purpose.derivePurpose,
-    });
-    return;
-  }
-  if (stage === "quote") {
-    assertPurposeAxes(policy, { readPurpose: authority.purpose.readPurpose });
-    assertQuoteCapability(policy, context);
-    return;
-  }
-  assertPurposeAxes(policy, {
-    readPurpose: authority.purpose.readPurpose,
-    derivePurpose: authority.purpose.derivePurpose,
-    deliveryScope: authority.purpose.deliveryScope,
-  });
+  assertPurposeAxes(policy, STAGE_AXES[stage](authority.purpose));
+  if (stage === "quote") assertQuoteCapability(policy, context);
 }

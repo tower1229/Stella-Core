@@ -45,6 +45,10 @@ export function resolveTurnAudience(request: BoundTurnRequest): TurnAudienceDeci
 }
 
 /** Parent-task summary text cannot expand a denied audience into private access. */
-export function assertPrivateContextAudience(decision: TurnAudienceDecision): void {
-  if (!decision.privateContextAllowed) throw new CatalogError("private_context_audience_forbidden");
+export function assertPrivateContextAudience(
+  decision: TurnAudienceDecision,
+): asserts decision is TurnAudienceDecision & { audience: "owner_direct"; privateContextAllowed: true } {
+  if (decision.audience !== "owner_direct" || !decision.privateContextAllowed) {
+    throw new CatalogError("private_context_audience_forbidden");
+  }
 }

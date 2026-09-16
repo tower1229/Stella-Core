@@ -6,6 +6,7 @@ import { sourceSegments, segmentLocator, validSegmentLocator } from "./source-se
 import { isRecord } from "../shared/type-guards.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
+import type { ProcessingAuthority } from "../openclaw/processing-authority.js";
 
 export const PERSONAL_CONTEXT_ADAPTER = "stella.personal-context-access";
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
@@ -71,6 +72,7 @@ export function createPersonalContextAccess(input: {
   binding: Awaited<ReturnType<typeof loadPersonalContextAccess>>;
   assertRequestCurrent: () => void;
   isPersistenceRevalidation?: () => boolean;
+  processingAuthority?: ProcessingAuthority;
   complete: (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
   signal?: AbortSignal;
 }): SourceAccessProvider {
@@ -90,6 +92,7 @@ export function createPersonalContextAccess(input: {
   };
   const provider = createSourceAccessProvider({ request: request.prompt, trigger: "user_requested", presentation: "summary", quoteGrants: [],
     signal: input.signal,
+    ...(input.processingAuthority ? { processingAuthority: input.processingAuthority } : {}),
     describe: async (reader, target) => {
       await current(reader);
       const policyObject = await reader.read(target.policyRef, "policies");

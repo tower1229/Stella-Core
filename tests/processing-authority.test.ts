@@ -196,3 +196,29 @@ test("authority remains valid for concurrent runs until generation or deployment
     request: ownerDirect("run-a"), modelRef: "synthetic/model", deployment, generationId: "generation_next", purpose,
   }), /processing_generation_mismatch/);
 });
+
+test("plugin gate order: revoked run blocks before processing stage continues", async () => {
+  let admitted = true;
+  const assertRun = async () => {
+    if (!admitted) throw new CatalogError("stale_initialization_run");
+  };
+  const request = ownerDirect("run-revoke");
+  const authority = bindProcessingAuthority({
+    request, ownerId: "owner", purpose, modelRef: "synthetic/model",
+    deployment, generationId: "generation_revoke",
+  });
+  const full = policy({});
+  await assertRun();
+  assertProcessingAuthority(authority, {
+    request, modelRef: "synthetic/model", deployment, generationId: "generation_revoke", purpose,
+  });
+  assertProcessingStage(authority, full, "read");
+  admitted = false;
+  await assert.rejects(assertRun(), /stale_initialization_run/);
+  // Frozen authority facts may still match; production must call assertRun first.
+  assertProcessingStage(authority, full, "deliver");
+  await assert.rejects(async () => {
+    await assertRun();
+    assertProcessingStage(authority, full, "deliver");
+  }, /stale_initialization_run/);
+});

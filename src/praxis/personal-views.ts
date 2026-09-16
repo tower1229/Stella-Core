@@ -1,6 +1,7 @@
 import { CatalogError, CatalogReader, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson, bytesVersion } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
+import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
 import type { EpisodeEvidenceResolver, OriginalEvidence } from "./episode-evidence.js";
 import type { VersionedRef } from "./episode-v2.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "./evidence-bundle.js";
@@ -83,6 +84,7 @@ type Candidate = { handle: string; ref: VersionedRef; group: "understandings" | 
 export async function preparePersonalViews(input: {
   requestId: string; question: string; ownerId: string; modelRef: string;
   audience: "owner_direct";
+  processingAuthority: ProcessingAuthority;
   resolver: EpisodeEvidenceResolver;
   selection?: "model" | "all_authorized";
   assertProcessingCurrent: () => Promise<void>;
@@ -116,6 +118,7 @@ export async function preparePersonalViews(input: {
       declared(ref, [object.policyRef, object.coverageRef]);
       const policy = await read(object.policyRef);
       check(policy.ownerId === input.ownerId, "personal_context_owner_mismatch");
+      assertProcessingStage(input.processingAuthority, policy, "derive");
       if (object.schemaVersion === "stella.memory-source/v2") segmentedSources.add(key(ref));
       // A segmented Source is metadata, not an authorization target. Its
       // applicable parent and fragment policies are checked together below by

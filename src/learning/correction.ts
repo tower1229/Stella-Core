@@ -6,6 +6,7 @@ import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
 import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
+import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
 import { EpisodeEvidenceResolver, type OriginalEvidence, type EvidencePurpose } from "../praxis/episode-evidence.js";
 import { preparePersonalViews, validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
@@ -31,6 +32,7 @@ type Complete = (input: { prompt: string; maxTokens: number }) => Promise<{ text
 export async function prepareCorrection(input: {
   operationId: string; request: string; ownerId: string; modelRef: string; recordedAt: string;
   evidenceRefs: VersionedRef[]; resolver: EpisodeEvidenceResolver; objectRoot: string;
+  processingAuthority: ProcessingAuthority;
   assertProcessingCurrent: () => Promise<void>; complete: Complete;
 }) {
   input = { ...input, evidenceRefs: structuredClone(input.evidenceRefs) };
@@ -38,6 +40,8 @@ export async function prepareCorrection(input: {
     text(input.request) && refs(input.evidenceRefs) && input.evidenceRefs.length > 0 &&
     text(input.recordedAt) && /(?:Z|[+-]\d{2}:\d{2})$/.test(input.recordedAt) && Number.isFinite(Date.parse(input.recordedAt)),
     "invalid_correction_request");
+  check(input.processingAuthority.privateContextAllowed && input.processingAuthority.audience === "owner_direct",
+    "private_context_audience_forbidden");
   const reader = input.resolver.reader;
   const operationId = `learn_${bytesVersion(input.operationId).slice(7)}`;
   const journalPath = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.transaction.json`);
@@ -46,6 +50,7 @@ export async function prepareCorrection(input: {
   await input.assertProcessingCurrent();
   const ownerEvidence: OriginalEvidence[] = [];
   const ownerSourceRefs: VersionedRef[] = [];
+  const seenLearnPolicies = new Set<string>();
   for (const ref of input.evidenceRefs) {
     const evidence = await input.resolver.readEvidence(ref);
     const stored = await reader.read(ref, "evidence");
@@ -55,6 +60,12 @@ export async function prepareCorrection(input: {
     ownerEvidence.push(evidence);
     check(validMemoryRef(stored.source), "invalid_evidence");
     ownerSourceRefs.push(stored.source);
+    check(validMemoryRef(stored.policyRef), "invalid_evidence");
+    const policyKey = canonicalJson(stored.policyRef);
+    if (!seenLearnPolicies.has(policyKey)) {
+      seenLearnPolicies.add(policyKey);
+      assertProcessingStage(input.processingAuthority, await reader.read(stored.policyRef, "policies"), "learn");
+    }
   }
   check(ownerEvidence.map(value => value.text).join("\n") === input.request, "correction_request_evidence_mismatch");
   const inventory = await preparePersonalViews({ ...input, requestId: input.operationId, question: input.request,
@@ -261,6 +272,7 @@ export async function prepareCorrection(input: {
 export async function recoverCorrection(input: {
   root: string; operationId: string; catalogPath: string; objectRoot: string; ownerId: string; modelRef: string;
   purpose: EvidencePurpose; durability: GitCangHaiDurability; signal: AbortSignal; assertProcessingCurrent: () => Promise<void>;
+  processingAuthority: ProcessingAuthority;
 }) {
   const invalid = "invalid_correction_transaction";
   check(/^learn_[a-f0-9]{64}$/.test(input.operationId), invalid);
@@ -360,7 +372,8 @@ export async function recoverCorrection(input: {
         }
         check(bytesVersion(originals.join("\n")) === receipt.requestHash, "correction_request_evidence_mismatch");
         await preparePersonalViews({ resolver, requestId: input.operationId, question: originals.join("\n"), ownerId: input.ownerId, modelRef: input.modelRef,
-          audience: "owner_direct", selection: "all_authorized", assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
+          audience: "owner_direct", selection: "all_authorized", processingAuthority: input.processingAuthority,
+          assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
       }, { allowWorkChanges: true });
       await input.assertProcessingCurrent();
     },

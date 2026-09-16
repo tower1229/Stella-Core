@@ -151,9 +151,11 @@ node scripts/record-revoke-late-delivery-evidence.mjs --evidence-directory /path
 
 ### SPEC #6 全流程处理与输出授权（Issue #18）
 
-工作项 13、21（本票切片）：材料经阅读／推导／学习／引用／投递时分别校验权限；绑定可信用户、受众、用途、模型、会话、run、deployment 与 Memory Generation。主人私聊以外的非主人 direct／群聊／channel／子 Agent／cron 在加载私人上下文前 deny-without-load；父任务摘要不能扩大权限；可读但禁推导／引用／投递有分阶段断言；运行中撤权复用既有 `assertRun`／`revokeActiveRuns`。
+工作项 13、21（本票切片）：材料经阅读／推导／学习／引用／投递时分别校验权限；绑定可信用户、受众、用途、模型、会话、run、deployment 与 Memory Generation。主人私聊以外的非主人 direct／群聊／channel／子 Agent／cron 在加载私人上下文前 deny-without-load；父任务摘要不能扩大权限。
 
-**公开 Host／Core seam**：`resolveTurnAudience`／`assertPrivateContextAudience`／`bindProcessingAuthority`／`assertProcessingAuthority`／`assertProcessingStage`／`assertPurposeAxes`／`assertQuoteCapability` + `preparePersonalViews.audience` + plugin `before_prompt_build`／fragment tool 门禁 + 既有 `bindRun`／`assertRun`／`revokeActiveRuns`。
+**生产接线（公开 seam）**：prepare 先 `bindProcessingAuthority`，再创建 PCA／views。fragment list／read → `assertProcessingStage(read)`；`preparePersonalViews` → `derive`；`prepareCorrection` 对已归档主人证据 policy → `learn`；`createSourceAccessProvider` 在 `presentation=quote` 时 → `quote`；output originals → `deliver`。既有合取 `assertSourcePolicyAccess` 仍为底线。运行中撤权复用 `assertRun`／`revokeActiveRuns`（plugin 门序：先 assertRun，再 authority／stage）；合证为 initializer + authority 门序单测，非 Exact Host。
+
+**公开 Host／Core seam**：`resolveTurnAudience`／`assertPrivateContextAudience`／`bindProcessingAuthority`／`assertProcessingAuthority`／`assertProcessingStage`／`assertPurposeAxes`／`assertQuoteCapability` + `preparePersonalViews.audience`／`processingAuthority` + plugin `before_prompt_build`／fragment tool 门禁 + 既有 `bindRun`／`assertRun`／`revokeActiveRuns`。
 
 ```sh
 npm run build

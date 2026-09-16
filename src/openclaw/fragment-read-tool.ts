@@ -5,6 +5,7 @@ import { sourceAccessKey, type SourceAccessDescriptor } from "../canghai/source-
 import { assertEvidenceSegment, segmentLocator, sourceSegments } from "../canghai/source-segments.js";
 import type { EpisodeEvidenceResolver, OriginalEvidence } from "../praxis/episode-evidence.js";
 import { isRecord } from "../shared/type-guards.js";
+import { assertProcessingStage, type ProcessingAuthority } from "./processing-authority.js";
 
 export const FRAGMENT_READ_TOOL = "stella_read_fragment";
 export const FRAGMENT_READ_PARAMETERS = Type.Union([
@@ -17,6 +18,7 @@ function check(value: unknown, category: string): asserts value { if (!value) th
  * checks. Handles reveal no filesystem paths and cannot expand the evidence set. */
 export function createFragmentReadTool(input: {
   resolver: EpisodeEvidenceResolver; descriptors: SourceAccessDescriptor[]; originals: OriginalEvidence[];
+  processingAuthority: ProcessingAuthority;
   assertCurrent(): Promise<void>;
 }) {
   const originals = [...new Map(input.originals.map(original => [canonicalJson(original.ref), structuredClone(original)])).values()];
@@ -35,12 +37,20 @@ export function createFragmentReadTool(input: {
       check(isRecord(request) && (request.action === "list" && Object.keys(request).join() === "action" ||
         request.action === "read" && Object.keys(request).sort().join() === "action,handle" && typeof request.handle === "string"), "invalid_fragment_request");
       const fragments = [];
+      const seenPolicies = new Set<string>();
       for (const original of originals) {
         const evidence = await input.resolver.reader.read(original.ref, "evidence");
         check(validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef), "invalid_evidence");
         const source = await input.resolver.reader.read(evidence.source, "sources");
         const segment = assertEvidenceSegment(sourceSegments(source), evidence);
         if (!segment) continue;
+        for (const policyRef of [evidence.policyRef, source.policyRef].filter(validMemoryRef)) {
+          const key = canonicalJson(policyRef);
+          if (seenPolicies.has(key)) continue;
+          seenPolicies.add(key);
+          assertProcessingStage(input.processingAuthority,
+            await input.resolver.reader.read(policyRef, "policies"), "read");
+        }
         const target = { sourceRef: evidence.source, policyRef: evidence.policyRef, segment: segmentLocator(segment) };
         const matched = descriptors.filter(descriptor => sourceAccessKey(descriptor) === sourceAccessKey(target));
         check(matched.length === 1 && matched[0]!.description.trim(), "fragment_descriptor_required");
