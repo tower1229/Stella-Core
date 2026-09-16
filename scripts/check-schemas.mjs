@@ -7,6 +7,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const schemaFiles = [
   "archive-manifest.schema.json",
   "ingest-checkpoint.schema.json",
+  "retrieval-checkpoint.schema.json",
   "consciousness-manifest.schema.json",
   "framework-ir.schema.json",
   "praxis-episode.schema.json",

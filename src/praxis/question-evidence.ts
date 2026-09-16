@@ -56,8 +56,20 @@ export async function prepareQuestionEvidence(input: {
   checkActive();
   await reader.assertCurrent();
   const originals: OriginalEvidence[] = [];
-  const retrieval = input.retrieval ? await retrieveCatalogEvidence({ ...input.retrieval, question: input.question,
+  const retrievalResult = input.retrieval ? await retrieveCatalogEvidence({ ...input.retrieval, question: input.question,
     resolver: input.resolver, complete: input.complete, abortSignal: input.abortSignal }) : undefined;
+  if (retrievalResult?.status === "resource_exhausted") {
+    throw Object.assign(new CatalogError("resource_exhausted"), {
+      retrieval: {
+        refs: retrievalResult.refs,
+        exclusions: retrievalResult.exclusions,
+        coverage: retrievalResult.coverage,
+        nextIntents: retrievalResult.nextIntents,
+        deniedRefKeys: retrievalResult.deniedRefKeys,
+      },
+    });
+  }
+  const retrieval = retrievalResult?.status === "complete" ? retrievalResult : undefined;
   const excludedByAccess: SourceAccessExclusions = { ...retrieval?.exclusions };
   const selected = retrieval ? new Set(retrieval.refs.map(ref => canonicalJson(ref))) : undefined;
   const coverage = new Map<string, { ref: VersionedRef; record: Record<string, unknown> }>();

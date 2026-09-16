@@ -62,6 +62,7 @@ import { prepareEvidenceBoundOutcome } from "./praxis/outcome-preparation.js";
 import { prepareOutcomeTransaction } from "./praxis/outcome-transaction.js";
 import { MemoryTransactionError, withMemoryMutationLock } from "./canghai/memory-transaction.js";
 import { CatalogError, CatalogReader } from "./canghai/catalog-reader.js";
+import { isRecord } from "./shared/type-guards.js";
 import { EpisodeEvidenceResolver } from "./praxis/episode-evidence.js";
 import { parseCangHaiRef } from "./canghai/ref.js";
 import { recoverPendingOutcome } from "./praxis/outcome-recovery.js";
@@ -749,21 +750,36 @@ export default definePluginEntry({
               canonicalJson({ disposition: correction.disposition, clarification: correction.clarification, changeRef: correction.changeRef }),
             ].filter(Boolean).join("\n");
             if (route.mode !== "outcome") {
-              const retrieved = await prepareQuestionEvidence({ requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
-                question: request.prompt, route, priorContext: [appendContext, personalViews?.context].filter(Boolean).join("\n"), resolver: runtime.evidence,
-                ...(binding.semanticRetrieval && viewProcessing ? { retrieval: { config: binding.semanticRetrieval,
-                  descriptors: viewProcessing.descriptors, modelRef: viewProcessing.modelRef, ownerId: viewProcessing.ownerId, assertProcessingCurrent: viewProcessing.assertCurrent } } : {}),
-                complete: async (input) => {
-                  await viewProcessing?.assertCurrent();
-                  const result = await completeModel({ agentId: config.agentId,
-                    ...(viewProcessing ? { model: viewProcessing.modelRef } : {}), purpose: "stella-question-evidence",
-                    maxTokens: input.maxTokens, temperature: 0, messages: [{ role: "user", content: input.prompt }] });
-                  if (viewProcessing && `${result.provider}/${result.model}` !== viewProcessing.modelRef) {
-                    throw new CatalogError("personal_view_model_mismatch");
-                  }
-                  return result;
-                },
-              });
+              let retrieved: Awaited<ReturnType<typeof prepareQuestionEvidence>>;
+              try {
+                retrieved = await prepareQuestionEvidence({ requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
+                  question: request.prompt, route, priorContext: [appendContext, personalViews?.context].filter(Boolean).join("\n"), resolver: runtime.evidence,
+                  ...(binding.semanticRetrieval && viewProcessing ? { retrieval: { config: binding.semanticRetrieval,
+                    descriptors: viewProcessing.descriptors, modelRef: viewProcessing.modelRef, ownerId: viewProcessing.ownerId, assertProcessingCurrent: viewProcessing.assertCurrent } } : {}),
+                  complete: async (input) => {
+                    await viewProcessing?.assertCurrent();
+                    const result = await completeModel({ agentId: config.agentId,
+                      ...(viewProcessing ? { model: viewProcessing.modelRef } : {}), purpose: "stella-question-evidence",
+                      maxTokens: input.maxTokens, temperature: 0, messages: [{ role: "user", content: input.prompt }] });
+                    if (viewProcessing && `${result.provider}/${result.model}` !== viewProcessing.modelRef) {
+                      throw new CatalogError("personal_view_model_mismatch");
+                    }
+                    return result;
+                  },
+                });
+              } catch (error) {
+                if (error instanceof CatalogError && error.category === "resource_exhausted") {
+                  const progress = "retrieval" in error && isRecord(error.retrieval) ? error.retrieval : null;
+                  api.logger.info(`Stella retrieval budget exhausted without claiming completeness: ${canonicalJson({
+                    selectedCount: Array.isArray(progress?.refs) ? progress.refs.length : null,
+                    nextIntentCount: Array.isArray(progress?.nextIntents) ? progress.nextIntents.length : null,
+                    rounds: isRecord(progress?.coverage) ? progress.coverage.rounds : null,
+                    pagesReviewed: isRecord(progress?.coverage) ? progress.coverage.pagesReviewed : null,
+                  })}`);
+                  throw new CompletionError("resource_exhausted", "prepare");
+                }
+                throw error;
+              }
               outputOriginals.push(...retrieved.originalEvidence);
               api.logger.info(`Stella evidence assessment attempts: ${JSON.stringify(retrieved.modelOutput.attempts.map(({ sha256, category }) => ({ sha256, category })))}`);
               if (retrieved.bundle.suggestedResponseKind === "action_advice" && route.mode !== "praxis" && route.mode !== "deep_praxis") {

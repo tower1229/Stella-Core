@@ -7,11 +7,40 @@ import { isRecord } from "../shared/type-guards.js";
 import type { EpisodeEvidenceResolver, OriginalEvidence } from "../praxis/episode-evidence.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "../praxis/evidence-bundle.js";
-
 import { sourceSegments, assertEvidenceSegment, segmentLocator } from "./source-segments.js";
 
-export type SemanticRetrievalConfig = { schemaVersion: "stella.semantic-retrieval/v1"; pageSize: number; maxRounds: number; maxSelected: number; maxOriginalChars: number };
-const check: (value: unknown, category: string) => asserts value = (value, category) => { if (!value) throw new CatalogError(category); };
+export type SemanticRetrievalConfig = {
+  schemaVersion: "stella.semantic-retrieval/v1";
+  pageSize: number;
+  maxRounds: number;
+  maxSelected: number;
+  maxOriginalChars: number;
+};
+export type RetrievalCoverage = {
+  scope: "configured_catalog_only";
+  descriptorCount: number;
+  pagesReviewed: number;
+  rounds: number;
+  readCount: number;
+  descriptorOriginalReadCount: number;
+  totalOriginalReadCount: number;
+  notSelectedCount: number;
+  reason: string;
+};
+export type RetrieveCatalogResult =
+  | { status: "complete"; refs: VersionedRef[]; exclusions: SourceAccessExclusions; coverage: RetrievalCoverage }
+  | {
+    status: "resource_exhausted";
+    refs: VersionedRef[];
+    exclusions: SourceAccessExclusions;
+    coverage: RetrievalCoverage;
+    nextIntents: string[];
+    deniedRefKeys: string[];
+  };
+
+const check: (value: unknown, category: string) => asserts value = (value, category) => {
+  if (!value) throw new CatalogError(category);
+};
 export function parseSemanticRetrievalConfig(value: unknown): SemanticRetrievalConfig {
   check(isRecord(value) && Object.keys(value).sort().join() === "maxOriginalChars,maxRounds,maxSelected,pageSize,schemaVersion" &&
     value.schemaVersion === "stella.semantic-retrieval/v1", "invalid_semantic_retrieval_config");
@@ -21,15 +50,38 @@ export function parseSemanticRetrievalConfig(value: unknown): SemanticRetrievalC
 }
 const key = (ref: VersionedRef) => canonicalJson({ id: ref.id, version: ref.version });
 
+function temporallyEligible(evidence: Record<string, unknown>, purpose: EpisodeEvidenceResolver["purpose"]): boolean {
+  const observedTime = (typeof evidence.authoredAt === "string" ? evidence.authoredAt : null) ?? evidence.capturedAt;
+  if (typeof observedTime !== "string" || Date.parse(observedTime) > Date.parse(purpose.evidenceCutoff)) return false;
+  if (evidence.occurredAt !== null && typeof evidence.occurredAt === "string" &&
+    Date.parse(evidence.occurredAt) > Date.parse(purpose.evidenceCutoff)) return false;
+  if (purpose.eventWindow) {
+    if (typeof evidence.occurredAt !== "string") return false;
+    const from = purpose.eventWindow.from;
+    if (from != null && Date.parse(evidence.occurredAt) < Date.parse(from)) return false;
+    if (Date.parse(evidence.occurredAt) > Date.parse(purpose.eventWindow.to)) return false;
+  }
+  return true;
+}
+
 /** Review every descriptor page on every round; only the LLM selects relevance.
  * Metadata processing must already be granted by the active owner/model binding.
- * Selected originals still pass the ordinary source access and segment gates. */
+ * Selected originals still pass the ordinary source access and segment gates.
+ * Budget exhaustion returns a continuable progress snapshot instead of pretending completeness. */
 export async function retrieveCatalogEvidence(input: {
   question: string; resolver: EpisodeEvidenceResolver; descriptors: SourceAccessDescriptor[]; modelRef: string; ownerId: string;
   config: SemanticRetrievalConfig; assertProcessingCurrent(): Promise<void>;
   complete(input: { prompt: string; maxTokens: number }): Promise<{ text: string; provider?: string; model?: string }>;
   abortSignal?: AbortSignal;
-}) {
+  resume?: {
+    intents: string[];
+    selectedRefs: VersionedRef[];
+    deniedRefKeys: string[];
+    roundsCompleted: number;
+    pagesReviewed: number;
+    exclusions: SourceAccessExclusions;
+  };
+}): Promise<RetrieveCatalogResult> {
   const config = parseSemanticRetrievalConfig(input.config), reader = input.resolver.reader;
   const descriptors = structuredClone(input.descriptors);
   const current = async () => { check(!input.abortSignal?.aborted, "operation_cancelled"); await input.assertProcessingCurrent(); await reader.assertCurrent(); };
@@ -40,6 +92,7 @@ export async function retrieveCatalogEvidence(input: {
     if (entry.status !== "current" || !reader.eligible(entry)) continue;
     const evidence = await reader.read(entry, "evidence");
     check(validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef), "invalid_evidence");
+    if (!temporallyEligible(evidence, input.resolver.purpose)) continue;
     const source = await reader.read(evidence.source, "sources");
     const segment = assertEvidenceSegment(sourceSegments(source), evidence);
     const target = { sourceRef: evidence.source, policyRef: evidence.policyRef, ...(segment ? { segment: segmentLocator(segment) } : {}) };
@@ -63,7 +116,32 @@ export async function retrieveCatalogEvidence(input: {
     candidates.push({ handle: `E${candidates.length + 1}`, ref: { id: entry.id, version: entry.version }, description });
   }
   check(candidates.length <= 4096, "retrieval_catalog_capacity_exhausted");
-  const originals = new Map<string, OriginalEvidence>(), denied = new Set<string>(), exclusions: SourceAccessExclusions = {};
+  if (candidates.length === 0) {
+    return {
+      status: "complete",
+      refs: [],
+      exclusions: { ...(input.resume?.exclusions ?? {}) },
+      coverage: {
+        scope: "configured_catalog_only", descriptorCount: 0, pagesReviewed: input.resume?.pagesReviewed ?? 0,
+        rounds: input.resume?.roundsCompleted ?? 0, readCount: 0, descriptorOriginalReadCount: 0,
+        totalOriginalReadCount: 0, notSelectedCount: 0, reason: "no_temporally_eligible_evidence",
+      },
+    };
+  }
+  const originals = new Map<string, OriginalEvidence>(), denied = new Set<string>(), exclusions: SourceAccessExclusions = { ...(input.resume?.exclusions ?? {}) };
+  const deniedRefKeys = new Set<string>(input.resume?.deniedRefKeys ?? []);
+  if (input.resume) {
+    for (const ref of input.resume.selectedRefs) {
+      const candidate = candidates.find(item => key(item.ref) === key(ref));
+      check(candidate, "invalid_retrieval_checkpoint");
+      await current();
+      originals.set(candidate.handle, await input.resolver.readEvidence(ref));
+    }
+    for (const deniedKey of deniedRefKeys) {
+      const candidate = candidates.find(item => key(item.ref) === deniedKey);
+      if (candidate) denied.add(candidate.handle);
+    }
+  }
   const json = async (prompt: string): Promise<Record<string, unknown>> => {
     await current(); check(prompt.length <= 160000, "retrieval_prompt_capacity_exhausted");
     const result = await input.complete({ prompt, maxTokens: 4096 });
@@ -71,8 +149,10 @@ export async function retrieveCatalogEvidence(input: {
     let value: unknown; try { value = JSON.parse(result.text); } catch { throw new CatalogError("invalid_retrieval_json"); }
     check(isRecord(value), "invalid_retrieval_decision"); return value;
   };
-  let intents = [input.question], pagesReviewed = 0;
-  for (let round = 0; round < config.maxRounds; round++) {
+  let intents = input.resume?.intents?.length ? [...input.resume.intents] : [input.question];
+  let pagesReviewed = input.resume?.pagesReviewed ?? 0;
+  const startRound = input.resume?.roundsCompleted ?? 0;
+  for (let round = startRound; round < config.maxRounds; round++) {
     for (let offset = 0; offset < candidates.length; offset += config.pageSize) {
       const page = candidates.slice(offset, offset + config.pageSize);
       const selected = await json([
@@ -92,7 +172,7 @@ export async function retrieveCatalogEvidence(input: {
         catch (error) {
           const category = error instanceof CatalogError ? SOURCE_ACCESS_EXCLUSION_CATEGORIES.find(c => c === error.category) : undefined;
           if (!category) throw error;
-          denied.add(handle); exclusions[category] = (exclusions[category] ?? 0) + 1;
+          denied.add(handle); deniedRefKeys.add(key(candidate.ref)); exclusions[category] = (exclusions[category] ?? 0) + 1;
         }
         check(canonicalJson([...originals.values()]).length <= config.maxOriginalChars, "retrieval_original_capacity_exhausted");
       }
@@ -107,15 +187,40 @@ export async function retrieveCatalogEvidence(input: {
       typeof review.reason === "string" && review.reason.trim() && Array.isArray(review.nextIntents) && review.nextIntents.length <= 8 &&
       review.nextIntents.every(v => typeof v === "string" && v.trim() && v.length <= 2000) &&
       (review.stopped ? review.nextIntents.length === 0 : review.nextIntents.length > 0), "invalid_retrieval_review");
+    const coverage = {
+      scope: "configured_catalog_only" as const, descriptorCount: candidates.length, pagesReviewed, rounds: round + 1,
+      readCount: originals.size, descriptorOriginalReadCount: descriptorOriginals.size,
+      totalOriginalReadCount: new Set([...descriptorOriginals.keys(), ...[...originals.values()].map(o => key(o.ref))]).size,
+      notSelectedCount: candidates.length - originals.size - denied.size, reason: review.reason,
+    };
     if (review.stopped) {
       for (const original of [...descriptorOriginals.values(), ...originals.values()]) check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "stale_evidence");
       await current();
-      return { refs: [...originals.values()].map(o => o.ref), exclusions,
-        coverage: { scope: "configured_catalog_only", descriptorCount: candidates.length, pagesReviewed, rounds: round + 1,
-          readCount: originals.size, descriptorOriginalReadCount: descriptorOriginals.size,
-          totalOriginalReadCount: new Set([...descriptorOriginals.keys(), ...[...originals.values()].map(o => key(o.ref))]).size, notSelectedCount: candidates.length - originals.size - denied.size, reason: review.reason } };
+      return { status: "complete", refs: [...originals.values()].map(o => o.ref), exclusions, coverage };
     }
     intents = review.nextIntents as string[];
+    if (round + 1 >= config.maxRounds) {
+      return {
+        status: "resource_exhausted",
+        refs: [...originals.values()].map(o => o.ref),
+        exclusions,
+        coverage: { ...coverage, reason: "retrieval_round_budget_exhausted" },
+        nextIntents: intents,
+        deniedRefKeys: [...deniedRefKeys],
+      };
+    }
   }
-  throw new CatalogError("retrieval_round_budget_exhausted");
+  return {
+    status: "resource_exhausted",
+    refs: [...originals.values()].map(o => o.ref),
+    exclusions,
+    coverage: {
+      scope: "configured_catalog_only", descriptorCount: candidates.length, pagesReviewed, rounds: startRound,
+      readCount: originals.size, descriptorOriginalReadCount: descriptorOriginals.size,
+      totalOriginalReadCount: new Set([...descriptorOriginals.keys(), ...[...originals.values()].map(o => key(o.ref))]).size,
+      notSelectedCount: candidates.length - originals.size - denied.size, reason: "retrieval_round_budget_exhausted",
+    },
+    nextIntents: intents,
+    deniedRefKeys: [...deniedRefKeys],
+  };
 }

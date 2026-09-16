@@ -12,9 +12,12 @@ export type OriginalEvidence = {
   coverageComplete: boolean;
   usageConstraints?: Array<{ policyRef: VersionedRef; rules: SourceUsageRule[] }>;
 };
+export type EventWindow = { from?: string | null; to: string };
 export type EvidencePurpose = {
   sourceAccess?: SourceAccessProvider;
   readPurpose: string; derivePurpose: string; deliveryScope: string; evidenceCutoff: string;
+  /** Optional fact-validity window; distinct from evidenceCutoff (known-by / recorded time). */
+  eventWindow?: EventWindow;
   trustedAdapters: Record<ActualSource, readonly string[]>;
 };
 type Actual = NonNullable<EpisodeV2["actual"]>;
@@ -87,7 +90,14 @@ export class EpisodeEvidenceResolver {
       Number(coverage.retainedCount) + Number(coverage.excludedByPolicyCount) === coverage.expectedCount, "unproven_archive_completeness");
     const observedTime = evidence.authoredAt ?? evidence.capturedAt;
     check(typeof observedTime === "string" && Date.parse(observedTime) <= Date.parse(this.purpose.evidenceCutoff), "evidence_after_cutoff");
+    // An event that had not occurred by knownBy cannot support a historical recorded judgment.
     check(evidence.occurredAt === null || Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.evidenceCutoff), "evidence_after_cutoff");
+    if (this.purpose.eventWindow) {
+      check(typeof evidence.occurredAt === "string", "evidence_outside_event_window");
+      const from = this.purpose.eventWindow.from;
+      check(from == null || Date.parse(evidence.occurredAt) >= Date.parse(from), "evidence_outside_event_window");
+      check(Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.eventWindow.to), "evidence_outside_event_window");
+    }
     const payload = await this.reader.readPayload(evidence.source, evidence.payloadSha256);
     await this.reader.read(evidence.policyRef, "policies");
     if (!includesRef([evidence.policyRef], source.policyRef)) await this.reader.read(source.policyRef, "policies");
