@@ -204,13 +204,17 @@ do_not_retain 同样约束 Host transcript、暂存和备份。输入 admission 
 
 ### 接口
 
-`retrieve({ requestId, question, workId?, revision, generationId, purpose, temporalScope, requiredCapabilities, resourceBudget })`
+目录多轮检索（可续查）与 Host 问答 EvidenceBundle 评估分两阶段：
 
-- `temporalScope` 为 `current` 或 `{ knownBy, eventWindow? }`；历史回放同时限制当时已可取得的证据与事件发生范围，不能把后来报道的旧事件当作当时已知。
+1. **`retrieve`／`resumeRetrieve`**：`retrieve({ requestId, question, workId?, revision, generationId, purpose, temporalScope, requiredCapabilities, resourceBudget })` 返回 `RetrieveResult`（`complete`｜`resource_exhausted`＋`stella.retrieval-checkpoint/v1`｜`coverage_gap`｜`not_ready`｜`fault`）。公开报告经 `toPublicRetrieveReport` 去掉原文与线索。
+2. **Host prepare（`prepareQuestionEvidence`）**：在 semantic retrieval 开启时内部调用 `retrieve`／`resumeRetrieve` 选中原件，再由结构化 LLM 产出 **`EvidenceBundle`**（见下）。
+
+- `temporalScope` 为 `current` 或 `{ knownBy, eventWindow? }`；须由结构化 LLM 判定（`classifyQuestionTemporalScope`），禁止词面路由。历史回放同时限制当时已可取得的证据与事件发生范围，不能把后来报道的旧事件当作当时已知。
 - `resourceBudget` 明示每次模型、读取和总任务的上限及取消标识，用于资源治理；容量上限不是证据充分性的标准。
 - `requiredCapabilities` 根据问题语义和 scope 选择，基础候选搜索可复用 Host FTS／向量召回；最后的语义选择、证据判断不得用词面排序替代。
+- 预算耗尽时 Host prepare 以 `resource_exhausted` **blocked** 停止且不假称查全；`operations/retrieval-{sha256(sessionKey)}.retrieval-checkpoint.json` 持久化 checkpoint（`local_write`／`managed_durable_write`）。**同 session 内用户再次发送相同问题**（`questionDigest` 匹配）自动 `resumeRetrieve` 并须提高 `maxRounds`；`read_only` 仅内存 blocked 可观测。
 
-成功结果为 `EvidenceBundle`：
+`EvidenceBundle`（问答评估成功形态）：
 
 ```ts
 type EvidenceBundle = {
@@ -418,10 +422,14 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 
 2026-09-09 运行绑定补强：full_memory 的 `loadPraxisRuntimeBinding` 在装载处理授权时校验当前 Source 的父策略及每个片段策略都有精确版本的专属描述，拒绝缺失、过期或未由来源声明的描述，以及 owner 不一致。该检查不调用模型、不证明 Host 身份已收到真实请求，也不替代 full_memory 能力验收；处理授权只能绑定 Host 已配置的 owner、指定模型与用途，引用授权仍单独控制。
 
+2026-09-16 Host 检索接线修订（Issue #19 续）：`prepareQuestionEvidence` 经公开 `retrieve`／`resumeRetrieve`；`classifyQuestionTemporalScope` 结构化 LLM 判定时序；预算耗尽 blocked＋`stella.retrieval-checkpoint/v1` 写入 `operations/retrieval-{sha256(sessionKey)}.retrieval-checkpoint.json`（可写模式）；同 session 相同 `questionDigest` 自动续查。仍不等于 Exact Host／#35 verified。
+
+2026-09-16 可接续多轮记忆查证（Issue #19 / T13）：公开 `retrieve`／`resumeRetrieve` 接入 `temporalScope`（`current` | `{ knownBy, eventWindow? }`），获知时间（`evidenceCutoff`／`evidence_after_cutoff`）与事实有效窗（`eventWindow`／`evidence_outside_event_window`）分闸；`retrieveCatalogEvidence` 预算耗尽返回 `resource_exhausted`＋`stella.retrieval-checkpoint/v1`（须显式提高 maxRounds 续查并重验授权／原件），Host prepare 路径经 `prepareQuestionEvidence` 暴露可观察耗尽且不假称查全。空目录／时序滤空／索引重建／来源故障分别报告 `coverage_gap`／`not_ready`／`fault`；公开报告去掉原文与线索。`retrieve` 本阶段交付目录多轮与可续查状态；成功 EvidenceBundle 仍由 `prepareQuestionEvidence` 组装。`memory_access`／`semantic_retrieval` 提供 constrained acceptance 适配器签发成功／拒绝版本收据（`businessAdmission=false`）。认领切片：G-01、M-04～M-07 及工作项 12／19／22 的 synthetic_contract `implemented`；G-03 仍走既有评估路径；不等于 Exact Host／real_main／能力关闭行 verified。
+
 2026-09-16 全流程处理授权接线修订（Issue #18 / T12）：prepare 先绑定 `ProcessingAuthority` 再创建 PCA。生产分阶段：fragment → read；personal-views → derive；correction 已消费证据 → learn；source-access 仅当 `presentation=quote` → quote；output → deliver。可读不等于可推导／引用／投递（seam + 消费点）。父任务摘要不能扩大子 Agent 权限。撤权合证为 assertRun 先于 stage 的门序，非 Exact Host。账本仅 `synthetic_contract`＋`implemented`。
 2026-09-15 全流程处理授权（Issue #18 / T12）：`resolveTurnAudience` 在加载 PCA／私人视图前按 Host 绑定身份与 sessionKey（子 Agent／cron）判定受众；仅 `owner_direct` 允许私人上下文。`bindProcessingAuthority` 冻结用户／受众／用途／模型／会话／run／deployment／Memory Generation。账本仅 `synthetic_contract`＋`implemented`，不等于 Exact Host／real_main／native Codex verified。
 
-2026-09-09 语义检索接入：`stella.semantic-retrieval/v1` 通过 pageSize／maxRounds／maxSelected／maxOriginalChars 声明执行预算；`retrieveCatalogEvidence` 每轮遍历当前目录的所有描述页，由结构化模型选择证据，并从已授权原件中继续提出检索意图。选中原件经既有权限及分段入口回读，再进入问答 EvidenceBundle 和独立解释校验。目录超过 64 条不再直接触发全读失败；所选证据、原文字符和轮数仍有明确上限，未完成时返回容量／预算错误。未选原件和访问排除不构成否定证据，遍历全部描述也不构成全库原文覆盖。仅受控 Host 归档可在 owner 正文处理授权下使用原件作为检索描述；其他来源缺描述必须失败。该实现不代表源发现、附件归档、全量同步或框架及外部技能能力已验收。
+2026-09-09 语义检索接入：`stella.semantic-retrieval/v1` 通过 pageSize／maxRounds／maxSelected／maxOriginalChars 声明执行预算；`retrieveCatalogEvidence` 每轮遍历当前目录的所有描述页，由结构化模型选择证据，并从已授权原件中继续提出检索意图。选中原件经既有权限及分段入口回读，再进入问答 EvidenceBundle 和独立解释校验。目录超过 64 条不再直接触发全读失败；所选证据、原文字符和轮数仍有明确上限；轮次预算耗尽时返回可接续状态（见 2026-09-16 T13），不得报告完整成功。未选原件和访问排除不构成否定证据，遍历全部描述也不构成全库原文覆盖。仅受控 Host 归档可在 owner 正文处理授权下使用原件作为检索描述；其他来源缺描述必须失败。该实现不代表源发现、附件归档、全量同步或框架及外部技能能力已验收。
 
 2026-09-11 声明范围发现：`discoverDeclaredScope` 从 `stella.corpus-registry/v1` 枚举声明 include／exclude，经结构化模型选择跨目录线索，产出按 collection 对齐 adapter／collectionId 且含 `version` 的 ingest-ready Source／Archive Coverage 对象及可 `parseMemoryCatalog` 的目录预览；公开报告去掉私人路径与原文。记忆事务 pending 映射为 `index_not_ready`。该实现不写盘、不完成 ingest 状态机，也不表示全量同步或检索已验收。
 
@@ -448,6 +456,8 @@ D-056 将上述整批同步流程细化为允许分批重评，但不允许半�
 2026-09-14 工作项 10（Issue #16）增量：`ingest` 接受 `resumeKey` 及由 adapter 声明的 `coverage.manifest`。`stella.archive-manifest/v1` 按上游事件 ID 列出正文摘要与附件 ID／摘要；未知摘要用 null，不可追回的缺项需显式 `unavailable: true`。未知总量、缺清单、正文缺失及附件缺口均不能签发完整归档。materials 入口可生成调用方明确选定资料批次的清单；transcript 及分页导入必须传入上游声明的范围和清单，缺省 Coverage 保持不完整，不能把收到的某页反推成全库清单。
 
 暂存采用 `stella.transcript-stage/v2`：声明摘要固定来源、范围、策略及完整清单；已收到的事件和附件元数据分别绑定摘要，允许此前完全缺失的项按同一清单到达，但不能改写此前作者或事件元数据。旧 v1 暂存仅接受原始输入的严格重放，不静默升级其声明。
+
+`stella.retrieval-checkpoint/v1` 在检索预算耗尽时写入 `operations/retrieval-{sha256(sessionKey)}.retrieval-checkpoint.json`（与 ingest checkpoint 同目录约定；可写模式经 durability 提交），绑定 requestId、revision、generationId、questionDigest、temporalScope、已选 Ref、nextIntents 与 semantic 配置；续查须重验授权与 generation，且 `maxRounds` 须大于已完成的轮次。
 
 `stella.ingest-checkpoint/v1` 与归档对象、catalog 同一 MemoryTransaction 写入 `operations/{resumeKey}.ingest-checkpoint.json`，绑定 adapter、collection、snapshot、operation、前后 cursor 和 Coverage 引用。`resumeIngestCursor` 在事务 pending 时读取持久意图，返回待重试 operation 和输入 cursor；即使 checkpoint 尚未替换也不跳过该页。正常恢复会经既有 durability 重新确认远端同步后返回输出 cursor，故该接口可能重试既有 push。下一页必须承接同一来源快照的当前 cursor；重放旧操作不会回退后续进度。adapter 按返回的 operation／cursor 重新取得相同页并调用 `ingest`，语义角色仍由上游身份或已有结构化解释提供。
 

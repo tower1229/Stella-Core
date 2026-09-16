@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stella.example/schemas/retrieval-checkpoint.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "revision",
+    "generationId",
+    "questionDigest",
+    "nextIntents",
+    "selectedRefs",
+    "deniedRefKeys",
+    "roundsCompleted",
+    "pagesReviewed",
+    "modelRef",
+    "temporalScope",
+    "config",
+    "exclusions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "stella.retrieval-checkpoint/v1"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "generationId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "questionDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "nextIntents": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "selectedRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "deniedRefKeys": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "roundsCompleted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pagesReviewed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "modelRef": {
+      "type": "string",
+      "minLength": 3,
+      "pattern": ".+/.+"
+    },
+    "temporalScope": {
+      "oneOf": [
+        { "const": "current" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["knownBy"],
+          "properties": {
+            "knownBy": { "type": "string", "format": "date-time" },
+            "eventWindow": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["to"],
+              "properties": {
+                "from": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+                "to": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "pageSize", "maxRounds", "maxSelected", "maxOriginalChars"],
+      "properties": {
+        "schemaVersion": { "const": "stella.semantic-retrieval/v1" },
+        "pageSize": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "maxRounds": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "maxSelected": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "maxOriginalChars": { "type": "integer", "minimum": 1, "maximum": 96000 }
+      }
+    },
+    "exclusions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  }
+}

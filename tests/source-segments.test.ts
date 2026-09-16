@@ -195,6 +195,7 @@ test("shared-policy fragments use their own descriptions and cannot reuse a neig
       assert.equal(data.originals[0].original.text, "Different context.\n");
       return { provider: "synthetic", model: "model", text: '{"stopped":true,"nextIntents":[],"reason":"Selected original reviewed"}' };
     } });
+  assert.equal(retrieved.status, "complete");
   assert.deepEqual(retrieved.refs, [imported.evidenceRefs[1]]);
 });
 

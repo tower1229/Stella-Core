@@ -19,6 +19,7 @@ import {
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import type { HostInputSnapshot } from "../openclaw/host-input.js";
 import { isRecord } from "../shared/type-guards.js";
+import { resolveTemporalPurpose, type TemporalScope } from "../canghai/retrieve.js";
 import { EpisodeEvidenceResolver } from "./episode-evidence.js";
 import { EpisodeRepository, type EpisodeRepositoryPorts, type EpisodeSnapshot } from "./episode-repository.js";
 import { PraxisRuntimeMemory } from "./runtime-memory.js";
@@ -114,11 +115,16 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
 
 export async function createBoundPraxisRuntime(loaded: LoadedConsciousness, binding: PraxisRuntimeBinding,
   complete: ConstructorParameters<typeof EpisodeEvidenceResolver>[2], persist: EpisodeRepositoryPorts["persist"],
-  sourceAccess?: SourceAccessProvider): Promise<PraxisRuntimeMemory> {
+  sourceAccess?: SourceAccessProvider, temporalScope: TemporalScope = "current", now = new Date().toISOString()): Promise<PraxisRuntimeMemory> {
   const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
-  const resolver = new EpisodeEvidenceResolver(reader, { ...binding.purpose, evidenceCutoff: new Date().toISOString(),
+  const evidencePurpose = resolveTemporalPurpose({
+    readPurpose: binding.purpose.readPurpose,
+    derivePurpose: binding.purpose.derivePurpose,
+    deliveryScope: binding.purpose.deliveryScope,
+    trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] },
     ...(sourceAccess ? { sourceAccess } : {}),
-    trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, complete);
+  }, temporalScope, now);
+  const resolver = new EpisodeEvidenceResolver(reader, evidencePurpose, complete);
   return new PraxisRuntimeMemory(new EpisodeRepository(loaded.canghaiRoot, relativeRef(loaded.manifest.praxis.episodeRootRef), {
     resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
     resolveLearning: (ref) => resolver.resolveLearning(ref), verifyActionEvidence: (actual) => resolver.verifyActionEvidence(actual),

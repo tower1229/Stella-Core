@@ -45,11 +45,14 @@ test("semantic retrieval searches beyond 64 entries and follows original-driven 
     if (reviews === 2) assert.equal(data.originals[1].original.text, "Synthetic observation 65");
     return { provider: "synthetic", model: "model", text: JSON.stringify({ stopped: reviews === 2, nextIntents: reviews === 2 ? [] : ["Check the later counterevidence"], reason: "Synthetic bounded decision" }) };
   } });
+  assert.equal(result.status, "complete");
   assert.equal(pages, 10); assert.equal(result.refs.length, 2); assert.equal(result.coverage.notSelectedCount, 63);
   assert.equal(result.coverage.scope, "configured_catalog_only");
   await assert.rejects(retrieveCatalogEvidence({ ...input, complete: async () => ({ provider: "synthetic", model: "model", text: '{"selected":["E65"]}' }) }), /invalid_retrieval_selection/);
   await assert.rejects(retrieveCatalogEvidence({ ...input, complete: async () => ({ provider: "other", model: "model", text: '{"selected":[]}' }) }), /retrieval_model_mismatch/);
-  await assert.rejects(retrieveCatalogEvidence({ ...input, config: { ...config, maxRounds: 1 }, complete: async ({ prompt }) => ({ provider: "synthetic", model: "model", text: JSON.stringify(prompt.startsWith("Select") ? { selected: [] } : { stopped: false, nextIntents: ["Unresolved lead"], reason: "More context needed" }) }) }), /retrieval_round_budget_exhausted/);
+  const exhausted = await retrieveCatalogEvidence({ ...input, config: { ...config, maxRounds: 1 }, complete: async ({ prompt }) => ({ provider: "synthetic", model: "model", text: JSON.stringify(prompt.startsWith("Select") ? { selected: [] } : { stopped: false, nextIntents: ["Unresolved lead"], reason: "More context needed" }) }) });
+  assert.equal(exhausted.status, "resource_exhausted");
+  if (exhausted.status === "resource_exhausted") assert.deepEqual(exhausted.nextIntents, ["Unresolved lead"]);
   await assert.rejects(retrieveCatalogEvidence({ ...input, descriptors: [], complete: async () => { throw new Error("Must fail before model"); } }), /retrieval_descriptor_required/);
   const readEvidence = resolver.readEvidence.bind(resolver);
   let selectedReads = 0;
@@ -84,6 +87,7 @@ test("semantic retrieval searches beyond 64 entries and follows original-driven 
     }
     return { provider: "synthetic", model: "model", text: JSON.stringify({ stopped: true, nextIntents: [], reason: "Synthetic bounded stop" }) };
   } });
+  assert.equal(archivedResult.status, "complete");
   assert.deepEqual(archivedResult.refs, archive.evidenceRefs);
   assert.equal(archivedResult.coverage.descriptorOriginalReadCount, 1);
   assert.equal(archivedResult.coverage.totalOriginalReadCount, 1);

@@ -12,9 +12,12 @@ export type OriginalEvidence = {
   coverageComplete: boolean;
   usageConstraints?: Array<{ policyRef: VersionedRef; rules: SourceUsageRule[] }>;
 };
+export type EventWindow = { from?: string | null; to: string };
 export type EvidencePurpose = {
   sourceAccess?: SourceAccessProvider;
   readPurpose: string; derivePurpose: string; deliveryScope: string; evidenceCutoff: string;
+  /** Optional fact-validity window; distinct from evidenceCutoff (known-by / recorded time). */
+  eventWindow?: EventWindow;
   trustedAdapters: Record<ActualSource, readonly string[]>;
 };
 type Actual = NonNullable<EpisodeV2["actual"]>;
@@ -24,6 +27,24 @@ function timestamp(value: unknown, nullable = false): value is string | null {
 }
 function refs(value: unknown): value is VersionedRef[] { return Array.isArray(value) && value.every(validMemoryRef); }
 function includesRef(values: VersionedRef[], ref: VersionedRef): boolean { return values.some((value) => value.id === ref.id && value.version === ref.version); }
+
+/** Catalog pre-filter and readEvidence share the same known-by / event-window gates. */
+export function evidenceTemporallyEligible(
+  evidence: Record<string, unknown>,
+  purpose: Pick<EvidencePurpose, "evidenceCutoff" | "eventWindow">,
+): boolean {
+  const observedTime = (typeof evidence.authoredAt === "string" ? evidence.authoredAt : null) ?? evidence.capturedAt;
+  if (typeof observedTime !== "string" || Date.parse(observedTime) > Date.parse(purpose.evidenceCutoff)) return false;
+  if (evidence.occurredAt !== null && typeof evidence.occurredAt === "string" &&
+    Date.parse(evidence.occurredAt) > Date.parse(purpose.evidenceCutoff)) return false;
+  if (purpose.eventWindow) {
+    if (typeof evidence.occurredAt !== "string") return false;
+    const from = purpose.eventWindow.from;
+    if (from != null && Date.parse(evidence.occurredAt) < Date.parse(from)) return false;
+    if (Date.parse(evidence.occurredAt) > Date.parse(purpose.eventWindow.to)) return false;
+  }
+  return true;
+}
 
 /** Structural provenance gates precede, but never replace, the model's semantic action judgment. */
 export class EpisodeEvidenceResolver {
@@ -87,7 +108,14 @@ export class EpisodeEvidenceResolver {
       Number(coverage.retainedCount) + Number(coverage.excludedByPolicyCount) === coverage.expectedCount, "unproven_archive_completeness");
     const observedTime = evidence.authoredAt ?? evidence.capturedAt;
     check(typeof observedTime === "string" && Date.parse(observedTime) <= Date.parse(this.purpose.evidenceCutoff), "evidence_after_cutoff");
+    // An event that had not occurred by knownBy cannot support a historical recorded judgment.
     check(evidence.occurredAt === null || Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.evidenceCutoff), "evidence_after_cutoff");
+    if (this.purpose.eventWindow) {
+      check(typeof evidence.occurredAt === "string", "evidence_outside_event_window");
+      const from = this.purpose.eventWindow.from;
+      check(from == null || Date.parse(evidence.occurredAt) >= Date.parse(from), "evidence_outside_event_window");
+      check(Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.eventWindow.to), "evidence_outside_event_window");
+    }
     const payload = await this.reader.readPayload(evidence.source, evidence.payloadSha256);
     await this.reader.read(evidence.policyRef, "policies");
     if (!includesRef([evidence.policyRef], source.policyRef)) await this.reader.read(source.policyRef, "policies");

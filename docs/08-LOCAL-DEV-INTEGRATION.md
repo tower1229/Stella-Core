@@ -167,6 +167,26 @@ node scripts/record-processing-authority-evidence.mjs --evidence-directory /path
 
 账本证据仅记 `synthetic_contract` + `implemented`（目标 `13`／`21`／`G-08`／`G-10`／`I-10`／`C-07`）；其中 **G-08／G-10／I-10／C-07 仅处理授权受众与分阶段切片**，**工作项 21 仅 Core 受众／引用边界切片**（Host 记忆／摘要治理仍属后续票），不等于整组验收或 Exact Host／real_main／native Codex `verified`。
 
+### SPEC #6 可接续的多轮记忆查证（Issue #19）
+
+工作项 12、19、22（本票切片）：跨资料跟随线索读取原文与反证；`temporalScope` 区分获知时间与事实有效时间；预算耗尽保留 checkpoint 并可提高轮次续查；空结果／未就绪／来源故障分别报告。为 `memory_access`／`semantic_retrieval` 产出 constrained 成功／拒绝版本收据。
+
+**公开 seam**：`retrieve`／`resumeRetrieve`／`resolveTemporalPurpose`／`parseRetrievalCheckpoint`／`toPublicRetrieveReport`／`retrieveCatalogEvidence`／`retrieval-progress`（checkpoint 路径与持久化）／`classifyQuestionTemporalScope`＋`createMemoryAccessCapabilityAdapter`／`createSemanticRetrievalCapabilityAdapter`（含 default verify 切片）。
+
+Host prepare：semantic retrieval 开启时 `prepareQuestionEvidence` 走 `retrieve`；预算耗尽 → `recordCompletionPreparation` `blocked`＋`retrievalCheckpoint`（`read_only` 不 durable）；同 session **相同 prompt** 自动 load checkpoint 并 `resumeRetrieve`。
+
+```sh
+npm run build
+node scripts/compile.mjs test
+node --test .test-dist/tests/retrieve.test.js .test-dist/tests/semantic-retrieval.test.js \
+  .test-dist/tests/retrieval-progress.test.js .test-dist/tests/temporal-scope.test.js \
+  .test-dist/tests/question-evidence.test.js
+# 可选：向私人证据目录写入 synthetic_contract / implemented（不等于 Exact Host／real_main verified）
+node scripts/record-retrieve-evidence.mjs --evidence-directory /path/to/private-evidence
+```
+
+账本证据仅记 `synthetic_contract` + `implemented`（目标 `12`／`19`／`22`／`G-01`／`M-04`／`M-05`／`M-06`／`M-07`）；其中 **G-01／M-04～M-07 仅多轮语义取证、反证、时序与失败分类切片**，**G-03 仍由既有 question-evidence 角色／性质路径承载、本 harness 不单独签发**，**工作项 19／22 仅 Core constrained receipt 切片**（完整能力关闭与真实 Host／模型仍属 #35），不等于整组验收或 Exact Host／real_main `verified`。公开 `retrieve` 是目录多轮／可续查阶段；EvidenceBundle 评估仍由 `prepareQuestionEvidence` 完成。
+
 ### SPEC #6 安装后自动初始化及手动重试（Issue #11）
 
 工作项 31：插件正式安装后的 Host service／`gateway_start` 自动初始化指定 agent；用户手动 `/stella-initialize`、`stella_initialize`、`stella.initialize` 共用同一协调器、配方与成功标准，不走通用人格采访。Host 核对实际解析的 skill 正文／资源树与 config＋IDENTITY 身份；文件存在不能替代 Host `skills.status` 消费。重复执行幂等；能力未齐时 `scope: host_bootstrap` 可 ready，但 `runtime.blocked` 且不宣称 full_memory 运行就绪。
