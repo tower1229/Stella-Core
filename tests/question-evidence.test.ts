@@ -167,3 +167,49 @@ test("question evidence cancels before a structural correction and rejects chang
   } }), /stale_generation/);
   assert.equal(calls, 1);
 });
+
+test("prepareQuestionEvidence throws schema retrieval checkpoint when semantic budget exhausts", async (t) => {
+  const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+  const path = await import("node:path");
+  const os = await import("node:os");
+  const { CatalogReader, parseMemoryCatalog, CatalogError } = await import("../src/canghai/catalog-reader.js");
+  const { bytesVersion, canonicalJson, objectVersion } = await import("../src/canghai/content-version.js");
+  const { prepareRepositorySource } = await import("../src/canghai/repository-source.js");
+  const { EpisodeEvidenceResolver } = await import("../src/praxis/episode-evidence.js");
+  const { parseRetrievalCheckpoint } = await import("../src/canghai/retrieve.js");
+  const root = await mkdtemp(path.join(os.tmpdir(), "stella-pqe-retrieve-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const put = async (file: string, bytes: string) => {
+    await mkdir(path.dirname(path.join(root, file)), { recursive: true });
+    await writeFile(path.join(root, file), bytes);
+  };
+  const policy = { schemaVersion: "stella.source-policy/v1", id: "policy", ownerId: "owner", readPurposes: ["read"], derivePurposes: ["derive"], deliveryScopes: ["direct"], retention: "retain", authorityEvidenceRefs: [] };
+  const policyRef = { id: policy.id, version: objectVersion(policy) };
+  await put("policy.json", canonicalJson(policy));
+  const catalog = parseMemoryCatalog({ schemaVersion: "stella.memory-catalog/v1", generationId: "one", parentGenerationId: null,
+    sources: [], evidence: [], coverage: [], understandings: [], works: [], changes: [], bundles: [], views: [],
+    policies: [{ ...policyRef, status: "current", dependencies: [], locator: { path: "policy.json", sha256: bytesVersion(canonicalJson(policy)) } }] });
+  const bytes = "Counterevidence text";
+  await put("original-1.txt", bytes);
+  const imported = await prepareRepositorySource({ root, collectionId: "fixture", sourceId: "1", relativePath: "original-1.txt",
+    expectedSha256: bytesVersion(bytes), capturedAt: "2026-08-01T00:00:00Z", objectRoot: "objects", policyRef });
+  for (const object of imported.objects) { await put(object.entry.locator.path, object.bytes); catalog[object.group].push(object.entry); }
+  await put("catalog.json", canonicalJson(catalog));
+  const reader = await CatalogReader.load(root, "catalog.json");
+  const resolver = new EpisodeEvidenceResolver(reader, { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
+    evidenceCutoff: "2026-09-09T00:00:00Z", trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No judgment"); });
+  const descriptors = [{ sourceRef: imported.sourceRef, policyRef, description: "desc" }];
+  const retrievalConfig = { schemaVersion: "stella.semantic-retrieval/v1" as const, pageSize: 16, maxRounds: 1, maxSelected: 4, maxOriginalChars: 96000 };
+  await assert.rejects(prepareQuestionEvidence({ requestId: "exhaust", revision: "a".repeat(40), question: "Need more", route, priorContext: "",
+    resolver, temporalScope: "current",
+    retrieval: { descriptors, modelRef: "synthetic/model", ownerId: "owner", config: retrievalConfig, assertProcessingCurrent: async () => {} },
+    complete: async ({ prompt }) => {
+      const data = JSON.parse(prompt.split("\n").at(-1)!);
+      if (data.candidates) return { provider: "synthetic", model: "model", text: JSON.stringify({ selected: [] }) };
+      return { provider: "synthetic", model: "model", text: JSON.stringify({ stopped: false, nextIntents: ["More"], reason: "Need more" }) };
+    },
+  }), (error: unknown) => {
+    if (!(error instanceof CatalogError) || error.category !== "resource_exhausted") return false;
+    return "checkpoint" in error && parseRetrievalCheckpoint((error as { checkpoint: unknown }).checkpoint).schemaVersion === "stella.retrieval-checkpoint/v1";
+  });
+});

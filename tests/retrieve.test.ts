@@ -17,6 +17,8 @@ import {
 import type { SourceAccessDescriptor } from "../src/canghai/source-access.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
 import {
+  createDefaultMemoryAccessVerify,
+  createDefaultSemanticRetrievalVerify,
   createMemoryAccessCapabilityAdapter,
   createSemanticRetrievalCapabilityAdapter,
 } from "../src/acceptance/retrieval-capability.js";
@@ -261,6 +263,54 @@ test("retrieve distinguishes empty coverage gap, not-ready and source fault", as
   assert.equal(fault.category, "source_unavailable");
 });
 
+test("retrieve maps stale_generation to generation_mismatch fault", async (t) => {
+  const { descriptors, reader } = await catalogFixture(t, [
+    { id: "1", bytes: "One fact", description: "fact",
+      occurredAt: "2026-08-01T00:00:00Z", authoredAt: "2026-08-01T00:00:00Z", capturedAt: "2026-08-01T00:00:00Z" },
+  ]);
+  const purpose = resolveTemporalPurpose(
+    { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
+      trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
+    "current",
+  );
+  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No action judgment"); });
+  const assertCurrent = reader.assertCurrent.bind(reader);
+  reader.assertCurrent = async () => { throw new CatalogError("stale_generation"); };
+  const fault = await retrieve({
+    requestId: "stale", question: "Anything?", revision: "a".repeat(40), generationId: reader.catalog.generationId,
+    temporalScope: "current", purpose, requiredCapabilities: ["semantic_retrieval"],
+    resourceBudget: { config }, resolver, descriptors, ownerId: "owner", modelRef: "synthetic/model",
+    assertProcessingCurrent: async () => {},
+    complete: async () => { throw new Error("Must not call model"); },
+  });
+  reader.assertCurrent = assertCurrent;
+  assert.equal(fault.status, "fault");
+  if (fault.status !== "fault") return;
+  assert.equal(fault.category, "generation_mismatch");
+});
+
+test("retrieve reports coverage_gap when temporal scope filters all candidates", async (t) => {
+  const { descriptors, reader } = await catalogFixture(t, [
+    { id: "later", bytes: "September only", description: "later",
+      occurredAt: "2026-09-01T00:00:00Z", authoredAt: "2026-09-01T00:00:00Z", capturedAt: "2026-09-01T00:00:00Z" },
+  ]);
+  const temporalScope = { knownBy: "2026-07-31T00:00:00Z" };
+  const purpose = resolveTemporalPurpose(
+    { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
+      trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
+    temporalScope,
+  );
+  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No action judgment"); });
+  const gap = await retrieve({
+    requestId: "gap", question: "July?", revision: "a".repeat(40), generationId: reader.catalog.generationId,
+    temporalScope, purpose, requiredCapabilities: ["semantic_retrieval"],
+    resourceBudget: { config }, resolver, descriptors, ownerId: "owner", modelRef: "synthetic/model",
+    assertProcessingCurrent: async () => {},
+    complete: async () => { throw new Error("Must not call model"); },
+  });
+  assert.equal(gap.status, "coverage_gap");
+});
+
 test("memory_access and semantic_retrieval constrained adapters issue passed and failed version receipts", async () => {
   const store = createMemoryCapabilityReceiptStore();
   const binding = (): CapabilityVersionBinding => ({
@@ -292,4 +342,16 @@ test("memory_access and semantic_retrieval constrained adapters issue passed and
   });
   assert.equal(failed.capabilityId, "semantic_retrieval");
   assert.equal(failed.result, "failed");
+});
+
+test("default constrained capability verify hooks run retrieve and read slices", async () => {
+  const host = (capabilityId: string) => ({
+    actorHash: bytesVersion("operator"), runId: "verify_run",
+    purpose: { kind: "adapter_verification" as const, capabilityId },
+    resourceScope: bytesVersion("scope"),
+  });
+  const memory = await createDefaultMemoryAccessVerify()({ mode: "constrained_acceptance", host: host("memory_access") });
+  assert.equal(memory.outcome, "passed");
+  const semantic = await createDefaultSemanticRetrievalVerify()({ mode: "constrained_acceptance", host: host("semantic_retrieval") });
+  assert.equal(semantic.outcome, "passed");
 });

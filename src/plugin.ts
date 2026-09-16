@@ -68,6 +68,14 @@ import { parseCangHaiRef } from "./canghai/ref.js";
 import { recoverPendingOutcome } from "./praxis/outcome-recovery.js";
 import { loadOutcomeRecoveryBinding } from "./praxis/outcome-recovery-binding.js";
 import { prepareQuestionEvidence } from "./praxis/question-evidence.js";
+import { classifyQuestionTemporalScope } from "./praxis/temporal-scope.js";
+import {
+  clearRetrievalCheckpoint,
+  loadRetrievalCheckpoint,
+  persistRetrievalCheckpoint,
+  retrievalResumeKey,
+} from "./canghai/retrieval-progress.js";
+import { parseRetrievalCheckpoint, type RetrievalCheckpoint, type TemporalScope } from "./canghai/retrieve.js";
 import { prepareQuestionTransaction, recoverPendingQuestion } from "./praxis/question-transaction.js";
 import { registerArchiveRetention } from "./openclaw/archive-retention-registration.js";
 import { registerStellaInitialization } from "./openclaw/initialization-registration.js";
@@ -221,6 +229,7 @@ type PreparedTurn = {
   assertPersonalViewsCurrent?: () => Promise<void>;
   assertPersonalViewsForGeneration?: (generationId: string) => Promise<void>;
   persistRecommendation?: (text: string, abortSignal: AbortSignal, original: HostInputSnapshot) => Promise<{ revision: string; generationId: string; writeOperationIds: string[] }>;
+  retrievalCheckpoint?: RetrievalCheckpoint;
 };
 
 function renderTwinContext(loaded: LoadedConsciousness, route: CortexRoute): string {
@@ -330,6 +339,8 @@ export default definePluginEntry({
       loaded: LoadedConsciousness,
       request?: BoundTurnRequest,
       processingAuthority?: ProcessingAuthority,
+      temporalScope: TemporalScope = "current",
+      turnNow = new Date().toISOString(),
     ) => {
       ensureDurability(loaded);
       const binding = await loadPraxisRuntimeBinding(loaded);
@@ -376,7 +387,7 @@ export default definePluginEntry({
         if (!durability || config.dataMode !== "managed_durable_write") throw new CompletionError("critical_durability_required", "persist");
         if (priority === "critical") await durability.syncCritical(paths, `stella: preserve ${operationId}`);
         else await durability.recordNormal(paths, `stella: learn ${operationId}`);
-      }, sourceAccess);
+      }, sourceAccess, temporalScope, turnNow);
       return { runtime, binding, viewProcessing };
     };
 
@@ -695,7 +706,39 @@ export default definePluginEntry({
             const processingAuthority = await bindTurnProcessingAuthority(
               request, loaded, binding, ownerId, modelRef, audience,
             );
-            const { runtime, viewProcessing } = await createRuntime(loaded, request, processingAuthority);
+            const turnNow = new Date().toISOString();
+            let temporalScope: TemporalScope = "current";
+            let retrievalCheckpoint: RetrievalCheckpoint | undefined;
+            const semanticPrepare = Boolean(binding.semanticRetrieval && binding.personalContextAccessPath);
+            if (semanticPrepare) {
+              const catalogReader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
+              const resumeKey = retrievalResumeKey(request.sessionKey);
+              const stored = await loadRetrievalCheckpoint(catalogReader, resumeKey);
+              const questionDigest = bytesVersion(request.prompt);
+              if (stored?.value.questionDigest === questionDigest) {
+                const checkpoint = parseRetrievalCheckpoint(stored.value);
+                if (checkpoint.revision !== (loaded.recoveryRevision ?? config.recoveryRevision) ||
+                  checkpoint.generationId !== catalogReader.catalog.generationId ||
+                  checkpoint.modelRef !== modelRef ||
+                  binding.semanticRetrieval!.maxRounds <= checkpoint.roundsCompleted) {
+                  throw new CatalogError("invalid_retrieval_checkpoint");
+                }
+                retrievalCheckpoint = checkpoint;
+                temporalScope = checkpoint.temporalScope;
+              } else {
+                temporalScope = await classifyQuestionTemporalScope({
+                  question: request.prompt,
+                  now: turnNow,
+                  complete: async ({ prompt, maxTokens }) => {
+                    const result = await completeModel({ agentId: config.agentId, model: modelRef,
+                      purpose: "stella-temporal-scope", maxTokens, temperature: 0, messages: [{ role: "user", content: prompt }] });
+                    if (`${result.provider}/${result.model}` !== modelRef) throw new CatalogError("personal_view_model_mismatch");
+                    return result;
+                  },
+                });
+              }
+            }
+            const { runtime, viewProcessing } = await createRuntime(loaded, request, processingAuthority, temporalScope, turnNow);
             const deployment = processingAuthority.deployment;
             const memory = await runtime.listMemory();
             if (memory.generationId !== processingAuthority.generationId) {
@@ -754,7 +797,8 @@ export default definePluginEntry({
               try {
                 retrieved = await prepareQuestionEvidence({ requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
                   question: request.prompt, route, priorContext: [appendContext, personalViews?.context].filter(Boolean).join("\n"), resolver: runtime.evidence,
-                  ...(binding.semanticRetrieval && viewProcessing ? { retrieval: { config: binding.semanticRetrieval,
+                  ...(binding.semanticRetrieval && viewProcessing ? { temporalScope, ...(retrievalCheckpoint ? { checkpoint: retrievalCheckpoint } : {}),
+                    retrieval: { config: binding.semanticRetrieval,
                     descriptors: viewProcessing.descriptors, modelRef: viewProcessing.modelRef, ownerId: viewProcessing.ownerId, assertProcessingCurrent: viewProcessing.assertCurrent } } : {}),
                   complete: async (input) => {
                     await viewProcessing?.assertCurrent();
@@ -768,17 +812,42 @@ export default definePluginEntry({
                   },
                 });
               } catch (error) {
-                if (error instanceof CatalogError && error.category === "resource_exhausted") {
-                  const progress = "retrieval" in error && isRecord(error.retrieval) ? error.retrieval : null;
+                if (error instanceof CatalogError && error.category === "resource_exhausted" &&
+                  "checkpoint" in error && error.checkpoint) {
+                  const checkpoint = parseRetrievalCheckpoint(error.checkpoint);
                   api.logger.info(`Stella retrieval budget exhausted without claiming completeness: ${canonicalJson({
-                    selectedCount: Array.isArray(progress?.refs) ? progress.refs.length : null,
-                    nextIntentCount: Array.isArray(progress?.nextIntents) ? progress.nextIntents.length : null,
-                    rounds: isRecord(progress?.coverage) ? progress.coverage.rounds : null,
-                    pagesReviewed: isRecord(progress?.coverage) ? progress.coverage.pagesReviewed : null,
+                    selectedCount: checkpoint.selectedRefs.length,
+                    nextIntentCount: checkpoint.nextIntents.length,
+                    rounds: checkpoint.roundsCompleted,
+                    pagesReviewed: checkpoint.pagesReviewed,
                   })}`);
-                  throw new CompletionError("resource_exhausted", "prepare");
+                  if (semanticPrepare) {
+                    const catalogReader = runtime.evidence.reader;
+                    await persistRetrievalCheckpoint({
+                      reader: catalogReader,
+                      resumeKey: retrievalResumeKey(request.sessionKey),
+                      checkpoint,
+                      dataMode: config.dataMode,
+                      ...(durability ? { durability } : {}),
+                    });
+                  }
+                  recordCompletionPreparation(runId, {
+                    outcome: "blocked",
+                    category: "resource_exhausted",
+                    retrievalCheckpoint: checkpoint,
+                    message: "记忆检索在预算内尚未查全，已保留可续查进度；请用相同问题再次发起以继续检索，或调整检索轮次配置后重试。",
+                    revision: loaded.recoveryRevision ?? config.recoveryRevision,
+                    generationId: memory.generationId,
+                    deployment,
+                    processingAuthority,
+                    boundRequest: request,
+                  });
+                  return;
                 }
                 throw error;
+              }
+              if (semanticPrepare) {
+                await clearRetrievalCheckpoint(runtime.evidence.reader, retrievalResumeKey(request.sessionKey));
               }
               outputOriginals.push(...retrieved.originalEvidence);
               api.logger.info(`Stella evidence assessment attempts: ${JSON.stringify(retrieved.modelOutput.attempts.map(({ sha256, category }) => ({ sha256, category })))}`);

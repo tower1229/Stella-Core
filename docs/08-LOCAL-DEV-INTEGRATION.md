@@ -171,12 +171,16 @@ node scripts/record-processing-authority-evidence.mjs --evidence-directory /path
 
 工作项 12、19、22（本票切片）：跨资料跟随线索读取原文与反证；`temporalScope` 区分获知时间与事实有效时间；预算耗尽保留 checkpoint 并可提高轮次续查；空结果／未就绪／来源故障分别报告。为 `memory_access`／`semantic_retrieval` 产出 constrained 成功／拒绝版本收据。
 
-**公开 seam**：`retrieve`／`resumeRetrieve`／`resolveTemporalPurpose`／`parseRetrievalCheckpoint`／`toPublicRetrieveReport`／`retrieveCatalogEvidence`＋`createMemoryAccessCapabilityAdapter`／`createSemanticRetrievalCapabilityAdapter`。
+**公开 seam**：`retrieve`／`resumeRetrieve`／`resolveTemporalPurpose`／`parseRetrievalCheckpoint`／`toPublicRetrieveReport`／`retrieveCatalogEvidence`／`retrieval-progress`（checkpoint 路径与持久化）／`classifyQuestionTemporalScope`＋`createMemoryAccessCapabilityAdapter`／`createSemanticRetrievalCapabilityAdapter`（含 default verify 切片）。
+
+Host prepare：semantic retrieval 开启时 `prepareQuestionEvidence` 走 `retrieve`；预算耗尽 → `recordCompletionPreparation` `blocked`＋`retrievalCheckpoint`（`read_only` 不 durable）；同 session **相同 prompt** 自动 load checkpoint 并 `resumeRetrieve`。
 
 ```sh
 npm run build
 node scripts/compile.mjs test
-node --test .test-dist/tests/retrieve.test.js .test-dist/tests/semantic-retrieval.test.js
+node --test .test-dist/tests/retrieve.test.js .test-dist/tests/semantic-retrieval.test.js \
+  .test-dist/tests/retrieval-progress.test.js .test-dist/tests/temporal-scope.test.js \
+  .test-dist/tests/question-evidence.test.js
 # 可选：向私人证据目录写入 synthetic_contract / implemented（不等于 Exact Host／real_main verified）
 node scripts/record-retrieve-evidence.mjs --evidence-directory /path/to/private-evidence
 ```

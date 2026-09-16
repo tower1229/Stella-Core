@@ -189,6 +189,9 @@ export async function retrieve(input: RetrieveWiring): Promise<RetrieveResult> {
       if (error instanceof CatalogError && error.category === "source_unavailable") {
         return { status: "fault", category: "source_unavailable", requestId: input.requestId, generationId: input.generationId };
       }
+      if (error instanceof CatalogError && error.category === "stale_generation") {
+        return { status: "fault", category: "generation_mismatch", requestId: input.requestId, generationId: input.generationId };
+      }
       throw error;
     }
   }
@@ -211,27 +214,41 @@ export async function retrieve(input: RetrieveWiring): Promise<RetrieveResult> {
   }
 
   await input.assertProcessingCurrent();
-  const result = await retrieveCatalogEvidence({
-    question: input.question,
-    resolver: input.resolver,
-    descriptors: input.descriptors,
-    modelRef: input.modelRef,
-    ownerId: input.ownerId,
-    config,
-    assertProcessingCurrent: input.assertProcessingCurrent,
-    complete: input.complete,
-    abortSignal: input.resourceBudget.abortSignal,
-    ...(checkpoint ? {
-      resume: {
-        intents: checkpoint.nextIntents,
-        selectedRefs: checkpoint.selectedRefs,
-        deniedRefKeys: checkpoint.deniedRefKeys,
-        roundsCompleted: checkpoint.roundsCompleted,
-        pagesReviewed: checkpoint.pagesReviewed,
-        exclusions: checkpoint.exclusions,
-      },
-    } : {}),
-  });
+  let result: RetrieveCatalogResult;
+  try {
+    result = await retrieveCatalogEvidence({
+      question: input.question,
+      resolver: input.resolver,
+      descriptors: input.descriptors,
+      modelRef: input.modelRef,
+      ownerId: input.ownerId,
+      config,
+      assertProcessingCurrent: input.assertProcessingCurrent,
+      complete: input.complete,
+      abortSignal: input.resourceBudget.abortSignal,
+      ...(checkpoint ? {
+        resume: {
+          intents: checkpoint.nextIntents,
+          selectedRefs: checkpoint.selectedRefs,
+          deniedRefKeys: checkpoint.deniedRefKeys,
+          roundsCompleted: checkpoint.roundsCompleted,
+          pagesReviewed: checkpoint.pagesReviewed,
+          exclusions: checkpoint.exclusions,
+        },
+      } : {}),
+    });
+  } catch (error) {
+    if (error instanceof MemoryTransactionError && error.category === "memory_transaction_pending") {
+      return { status: "not_ready", category: "index_not_ready", requestId: input.requestId, generationId: input.generationId };
+    }
+    if (error instanceof CatalogError && error.category === "stale_generation") {
+      return { status: "fault", category: "generation_mismatch", requestId: input.requestId, generationId: input.generationId };
+    }
+    if (error instanceof CatalogError && error.category === "source_unavailable") {
+      return { status: "fault", category: "source_unavailable", requestId: input.requestId, generationId: input.generationId };
+    }
+    throw error;
+  }
 
   if (result.status === "resource_exhausted") {
     return {

@@ -50,12 +50,16 @@ await mkdir(evidenceDirectory, { recursive: true, mode: 0o700 });
 const modules = [
   path.join(root, "dist/src/canghai/retrieve.js"),
   path.join(root, "dist/src/canghai/semantic-retrieval.js"),
+  path.join(root, "dist/src/canghai/retrieval-progress.js"),
   path.join(root, "dist/src/praxis/episode-evidence.js"),
+  path.join(root, "dist/src/praxis/temporal-scope.js"),
   path.join(root, "dist/src/acceptance/retrieval-capability.js"),
 ];
 const testEntries = [
   path.join(root, ".test-dist/tests/retrieve.test.js"),
   path.join(root, ".test-dist/tests/semantic-retrieval.test.js"),
+  path.join(root, ".test-dist/tests/retrieval-progress.test.js"),
+  path.join(root, ".test-dist/tests/temporal-scope.test.js"),
 ];
 try {
   for (const modulePath of modules) await readFile(modulePath);
@@ -118,6 +122,10 @@ const summary = {
     "retrieveCatalogEvidence",
     "createMemoryAccessCapabilityAdapter",
     "createSemanticRetrievalCapabilityAdapter",
+    "createDefaultMemoryAccessVerify",
+    "createDefaultSemanticRetrievalVerify",
+    "classifyQuestionTemporalScope",
+    "persistRetrievalCheckpoint",
   ],
   syntheticHarness: "tests/retrieve.test.ts",
 };

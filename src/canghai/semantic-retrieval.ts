@@ -4,7 +4,7 @@ import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { canonicalJson } from "./content-version.js";
 import { sourceAccessKey, type SourceAccessDescriptor } from "./source-access.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { EpisodeEvidenceResolver, OriginalEvidence } from "../praxis/episode-evidence.js";
+import { evidenceTemporallyEligible, type EpisodeEvidenceResolver, type OriginalEvidence } from "../praxis/episode-evidence.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "../praxis/evidence-bundle.js";
 import { sourceSegments, assertEvidenceSegment, segmentLocator } from "./source-segments.js";
@@ -50,20 +50,6 @@ export function parseSemanticRetrievalConfig(value: unknown): SemanticRetrievalC
 }
 const key = (ref: VersionedRef) => canonicalJson({ id: ref.id, version: ref.version });
 
-function temporallyEligible(evidence: Record<string, unknown>, purpose: EpisodeEvidenceResolver["purpose"]): boolean {
-  const observedTime = (typeof evidence.authoredAt === "string" ? evidence.authoredAt : null) ?? evidence.capturedAt;
-  if (typeof observedTime !== "string" || Date.parse(observedTime) > Date.parse(purpose.evidenceCutoff)) return false;
-  if (evidence.occurredAt !== null && typeof evidence.occurredAt === "string" &&
-    Date.parse(evidence.occurredAt) > Date.parse(purpose.evidenceCutoff)) return false;
-  if (purpose.eventWindow) {
-    if (typeof evidence.occurredAt !== "string") return false;
-    const from = purpose.eventWindow.from;
-    if (from != null && Date.parse(evidence.occurredAt) < Date.parse(from)) return false;
-    if (Date.parse(evidence.occurredAt) > Date.parse(purpose.eventWindow.to)) return false;
-  }
-  return true;
-}
-
 /** Review every descriptor page on every round; only the LLM selects relevance.
  * Metadata processing must already be granted by the active owner/model binding.
  * Selected originals still pass the ordinary source access and segment gates.
@@ -92,7 +78,7 @@ export async function retrieveCatalogEvidence(input: {
     if (entry.status !== "current" || !reader.eligible(entry)) continue;
     const evidence = await reader.read(entry, "evidence");
     check(validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef), "invalid_evidence");
-    if (!temporallyEligible(evidence, input.resolver.purpose)) continue;
+    if (!evidenceTemporallyEligible(evidence, input.resolver.purpose)) continue;
     const source = await reader.read(evidence.source, "sources");
     const segment = assertEvidenceSegment(sourceSegments(source), evidence);
     const target = { sourceRef: evidence.source, policyRef: evidence.policyRef, ...(segment ? { segment: segmentLocator(segment) } : {}) };

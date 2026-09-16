@@ -28,6 +28,24 @@ function timestamp(value: unknown, nullable = false): value is string | null {
 function refs(value: unknown): value is VersionedRef[] { return Array.isArray(value) && value.every(validMemoryRef); }
 function includesRef(values: VersionedRef[], ref: VersionedRef): boolean { return values.some((value) => value.id === ref.id && value.version === ref.version); }
 
+/** Catalog pre-filter and readEvidence share the same known-by / event-window gates. */
+export function evidenceTemporallyEligible(
+  evidence: Record<string, unknown>,
+  purpose: Pick<EvidencePurpose, "evidenceCutoff" | "eventWindow">,
+): boolean {
+  const observedTime = (typeof evidence.authoredAt === "string" ? evidence.authoredAt : null) ?? evidence.capturedAt;
+  if (typeof observedTime !== "string" || Date.parse(observedTime) > Date.parse(purpose.evidenceCutoff)) return false;
+  if (evidence.occurredAt !== null && typeof evidence.occurredAt === "string" &&
+    Date.parse(evidence.occurredAt) > Date.parse(purpose.evidenceCutoff)) return false;
+  if (purpose.eventWindow) {
+    if (typeof evidence.occurredAt !== "string") return false;
+    const from = purpose.eventWindow.from;
+    if (from != null && Date.parse(evidence.occurredAt) < Date.parse(from)) return false;
+    if (Date.parse(evidence.occurredAt) > Date.parse(purpose.eventWindow.to)) return false;
+  }
+  return true;
+}
+
 /** Structural provenance gates precede, but never replace, the model's semantic action judgment. */
 export class EpisodeEvidenceResolver {
   constructor(readonly reader: CatalogReader, readonly purpose: EvidencePurpose,

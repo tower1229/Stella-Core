@@ -1,4 +1,10 @@
-import { retrieveCatalogEvidence } from "../canghai/semantic-retrieval.js";
+import {
+  retrieve,
+  resumeRetrieve,
+  type RetrievalCheckpoint,
+  type TemporalScope,
+} from "../canghai/retrieve.js";
+import type { RetrieveCatalogResult } from "../canghai/semantic-retrieval.js";
 import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
 import { verifySourceInterpretation } from "../canghai/source-interpretation.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
@@ -48,7 +54,15 @@ export async function prepareQuestionEvidence(input: {
   resolver: EpisodeEvidenceResolver;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
   abortSignal?: AbortSignal;
-  retrieval?: Pick<Parameters<typeof retrieveCatalogEvidence>[0], "descriptors" | "modelRef" | "ownerId" | "config" | "assertProcessingCurrent">;
+  retrieval?: {
+    descriptors: import("../canghai/source-access.js").SourceAccessDescriptor[];
+    modelRef: string;
+    ownerId: string;
+    config: import("../canghai/semantic-retrieval.js").SemanticRetrievalConfig;
+    assertProcessingCurrent(): Promise<void>;
+  };
+  temporalScope?: TemporalScope;
+  checkpoint?: RetrievalCheckpoint;
 }) {
   check(input.route.mode !== "outcome", "question_evidence_scope_mismatch");
   const reader = input.resolver.reader;
@@ -56,20 +70,41 @@ export async function prepareQuestionEvidence(input: {
   checkActive();
   await reader.assertCurrent();
   const originals: OriginalEvidence[] = [];
-  const retrievalResult = input.retrieval ? await retrieveCatalogEvidence({ ...input.retrieval, question: input.question,
-    resolver: input.resolver, complete: input.complete, abortSignal: input.abortSignal }) : undefined;
-  if (retrievalResult?.status === "resource_exhausted") {
-    throw Object.assign(new CatalogError("resource_exhausted"), {
-      retrieval: {
-        refs: retrievalResult.refs,
-        exclusions: retrievalResult.exclusions,
-        coverage: retrievalResult.coverage,
-        nextIntents: retrievalResult.nextIntents,
-        deniedRefKeys: retrievalResult.deniedRefKeys,
-      },
-    });
+  let retrieval: Extract<RetrieveCatalogResult, { status: "complete" }> | undefined;
+  if (input.retrieval) {
+    const temporalScope = input.temporalScope ?? "current";
+    const wiring = {
+      question: input.question,
+      revision: input.revision,
+      requestId: input.requestId,
+      generationId: reader.catalog.generationId,
+      temporalScope,
+      purpose: input.resolver.purpose,
+      requiredCapabilities: ["semantic_retrieval"] as string[],
+      resourceBudget: { config: input.retrieval.config, ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}) },
+      resolver: input.resolver,
+      descriptors: input.retrieval.descriptors,
+      ownerId: input.retrieval.ownerId,
+      modelRef: input.retrieval.modelRef,
+      assertProcessingCurrent: input.retrieval.assertProcessingCurrent,
+      complete: input.complete,
+    };
+    const retrieved = input.checkpoint
+      ? await resumeRetrieve({ ...wiring, checkpoint: input.checkpoint })
+      : await retrieve(wiring);
+    if (retrieved.status === "resource_exhausted") {
+      throw Object.assign(new CatalogError("resource_exhausted"), { checkpoint: retrieved.checkpoint });
+    }
+    if (retrieved.status === "coverage_gap") throw new CatalogError("coverage_gap");
+    if (retrieved.status === "not_ready") throw new CatalogError(retrieved.category);
+    if (retrieved.status === "fault") throw new CatalogError(retrieved.category);
+    retrieval = {
+      status: "complete",
+      refs: retrieved.refs,
+      exclusions: retrieved.exclusions,
+      coverage: retrieved.coverage,
+    };
   }
-  const retrieval = retrievalResult?.status === "complete" ? retrievalResult : undefined;
   const excludedByAccess: SourceAccessExclusions = { ...retrieval?.exclusions };
   const selected = retrieval ? new Set(retrieval.refs.map(ref => canonicalJson(ref))) : undefined;
   const coverage = new Map<string, { ref: VersionedRef; record: Record<string, unknown> }>();
