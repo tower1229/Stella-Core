@@ -1,6 +1,7 @@
 import { CatalogError, CatalogReader, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson, bytesVersion } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
+import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
 import type { EpisodeEvidenceResolver, OriginalEvidence } from "./episode-evidence.js";
 import type { VersionedRef } from "./episode-v2.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "./evidence-bundle.js";
@@ -82,13 +83,16 @@ type Candidate = { handle: string; ref: VersionedRef; group: "understandings" | 
 /** Request-local projections. No writes, no cached persona, no model-authored rewrites. */
 export async function preparePersonalViews(input: {
   requestId: string; question: string; ownerId: string; modelRef: string;
+  audience: "owner_direct";
+  processingAuthority: ProcessingAuthority;
   resolver: EpisodeEvidenceResolver;
   selection?: "model" | "all_authorized";
   assertProcessingCurrent: () => Promise<void>;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
 }) {
   const reader = input.resolver.reader;
-  check(text(input.requestId) && text(input.question) && text(input.ownerId) && text(input.modelRef), "invalid_personal_view_request");
+  check(text(input.requestId) && text(input.question) && text(input.ownerId) && text(input.modelRef) &&
+    input.audience === "owner_direct", "invalid_personal_view_request");
   await input.assertProcessingCurrent();
   const snapshots = new Map<string, { ref: VersionedRef; body: string }>();
   const payloads = new Map<string, { source: VersionedRef; sha256: string }>();
@@ -114,6 +118,7 @@ export async function preparePersonalViews(input: {
       declared(ref, [object.policyRef, object.coverageRef]);
       const policy = await read(object.policyRef);
       check(policy.ownerId === input.ownerId, "personal_context_owner_mismatch");
+      assertProcessingStage(input.processingAuthority, policy, "derive");
       if (object.schemaVersion === "stella.memory-source/v2") segmentedSources.add(key(ref));
       // A segmented Source is metadata, not an authorization target. Its
       // applicable parent and fragment policies are checked together below by
@@ -246,7 +251,7 @@ export async function preparePersonalViews(input: {
     } else if (selection.view === "memory") memory.push(candidate);
   }
   const view = { schemaVersion: "stella.personal-views/v1", requestId: input.requestId, requestHash,
-    generationId: reader.catalog.generationId, audience: "owner_direct", exclusions,
+    generationId: reader.catalog.generationId, audience: input.audience, exclusions,
     coverage: "Authorized current catalog understandings and active/paused work; not full archive coverage.",
     user, memory };
   const context = [

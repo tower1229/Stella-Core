@@ -9,6 +9,7 @@ import { preparePersonalViews } from "../src/praxis/personal-views.js";
 import type { VersionedRef } from "../src/praxis/episode-v2.js";
 
 import { personalMemoryFixture as fixture } from "./personal-memory-fixture.js";
+import { ownerDirectAuthority } from "./processing-authority-fixture.js";
 
 function selector(view: "user" | "memory" | "omit" = "memory") {
   return async ({ prompt }: { prompt: string }) => {
@@ -17,7 +18,8 @@ function selector(view: "user" | "memory" | "omit" = "memory") {
       selections: value.candidates.map(item => ({ handle: item.handle, view })) }) };
   };
 }
-const request = { requestId: "run", question: "继续这篇文章", ownerId: "owner", modelRef: "synthetic/model", assertProcessingCurrent: async () => {} };
+const request = { requestId: "run", question: "继续这篇文章", ownerId: "owner", modelRef: "synthetic/model",
+  audience: "owner_direct" as const, processingAuthority: ownerDirectAuthority(), assertProcessingCurrent: async () => {} };
 
 test("request-local writing views preserve corrections, candidates, scope and unresolved questions", async t => {
   const f = await fixture(t);

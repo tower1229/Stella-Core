@@ -79,6 +79,9 @@ test("denied purposes and missing quote grants stop before metadata or model dis
     describe: async (...args) => { calls++; return describe(...args); }, complete: async () => { calls++; return answer(g.target); } });
   await assert.rejects(quoting(g.reader, g.target, purpose), /source_quote_authorization_required/);
   assert.equal(calls, 0);
+  const granted = createSourceAccessProvider({ request, trigger: "user_requested", presentation: "quote",
+    quoteGrants: [g.target.policyRef], describe, complete: async () => answer(g.target) });
+  await assert.rejects(granted(g.reader, g.target, purpose), /processing_authority_required/);
 });
 
 test("model output cannot override Host trigger, presentation or quote authority", async t => {

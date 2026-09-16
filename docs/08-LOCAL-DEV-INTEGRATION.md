@@ -149,6 +149,24 @@ node scripts/record-revoke-late-delivery-evidence.mjs --evidence-directory /path
 
 纠正成功后 `revokeActiveRuns(..., { retainRunId })` 废止其他旧许可并保留当轮；能力 `invalidate-capability` 废止全部旧许可；取消／超时终态废止当轮许可。初始化 fence／rollback 保留 durable `fenced` 与 Host isolation journal，重启后仍阻断 bind。账本证据仅记 `synthetic_contract` + `implemented`（目标 `06`／`G-05`／`G-08`／`I-07`／`I-08`／`I-12`／`C-08`）；其中 **G-08／C-08 仅旧-run／迟到投递切片**，**I-12 仅启动失败 Host 隔离 + 无 hook 可观察配置**，不等于整组验收或 Exact Host／real_main `verified`。
 
+### SPEC #6 全流程处理与输出授权（Issue #18）
+
+工作项 13、21（本票切片）：材料经阅读／推导／学习／引用／投递时分别校验权限；绑定可信用户、受众、用途、模型、会话、run、deployment 与 Memory Generation。主人私聊以外的非主人 direct／群聊／channel／子 Agent／cron 在加载私人上下文前 deny-without-load；父任务摘要不能扩大权限。
+
+**生产接线（公开 seam）**：prepare 先 `bindProcessingAuthority`，再创建 PCA／views。fragment list／read → `assertProcessingStage(read)`；`preparePersonalViews` → `derive`；`prepareCorrection` 对已归档主人证据 policy → `learn`；`createSourceAccessProvider` 在 `presentation=quote` 时 → `quote`；output originals → `deliver`。既有合取 `assertSourcePolicyAccess` 仍为底线。运行中撤权复用 `assertRun`／`revokeActiveRuns`（plugin 门序：先 assertRun，再 authority／stage）；合证为 initializer + authority 门序单测，非 Exact Host。
+
+**公开 Host／Core seam**：`resolveTurnAudience`／`assertPrivateContextAudience`／`bindProcessingAuthority`／`assertProcessingAuthority`／`assertProcessingStage`／`assertPurposeAxes`／`assertQuoteCapability` + `preparePersonalViews.audience`／`processingAuthority` + plugin `before_prompt_build`／fragment tool 门禁 + 既有 `bindRun`／`assertRun`／`revokeActiveRuns`。
+
+```sh
+npm run build
+node scripts/compile.mjs test
+node --test .test-dist/tests/processing-authority.test.js
+# 可选：向私人证据目录写入 synthetic_contract / implemented（不等于 Exact Host／real_main verified）
+node scripts/record-processing-authority-evidence.mjs --evidence-directory /path/to/private-evidence
+```
+
+账本证据仅记 `synthetic_contract` + `implemented`（目标 `13`／`21`／`G-08`／`G-10`／`I-10`／`C-07`）；其中 **G-08／G-10／I-10／C-07 仅处理授权受众与分阶段切片**，**工作项 21 仅 Core 受众／引用边界切片**（Host 记忆／摘要治理仍属后续票），不等于整组验收或 Exact Host／real_main／native Codex `verified`。
+
 ### SPEC #6 安装后自动初始化及手动重试（Issue #11）
 
 工作项 31：插件正式安装后的 Host service／`gateway_start` 自动初始化指定 agent；用户手动 `/stella-initialize`、`stella_initialize`、`stella.initialize` 共用同一协调器、配方与成功标准，不走通用人格采访。Host 核对实际解析的 skill 正文／资源树与 config＋IDENTITY 身份；文件存在不能替代 Host `skills.status` 消费。重复执行幂等；能力未齐时 `scope: host_bootstrap` 可 ready，但 `runtime.blocked` 且不宣称 full_memory 运行就绪。

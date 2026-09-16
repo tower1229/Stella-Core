@@ -27,6 +27,8 @@ export async function prepareSourceOutputCheck(input: {
     check(validMemoryRef(source.policyRef), "invalid_output_source");
     const policies = await Promise.all([evidence.policyRef, source.policyRef].map(async ref => ({ ref,
       policy: outputPolicy(await reader.read(ref, "policies")) })));
+    // Summary-only adapter. Quote-stage assertProcessingStage lives in source-access
+    // when presentation === "quote".
     records.push({ original, policies, presentation: "summary", quoteGrants: [] });
   }
   const requestHash = bytesVersion(input.question), sourcesHash = bytesVersion(canonicalJson(records));

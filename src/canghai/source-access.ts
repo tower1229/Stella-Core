@@ -3,6 +3,7 @@ import { bytesVersion, canonicalJson } from "./content-version.js";
 import { assertSourcePolicyAccess, parseSourcePolicy, type PolicyPurpose, type SourceAccessContext } from "./source-policy.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
+import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
 
 import { sourceSegments, segmentLocator, validSegmentLocator, type SegmentLocator } from "./source-segments.js";
 
@@ -25,6 +26,7 @@ export function createSourceAccessProvider(input: {
   describe: (reader: CatalogReader, target: SourceAccessTarget) => Promise<SourceAccessDescriptor>;
   complete: (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
   signal?: AbortSignal;
+  processingAuthority?: ProcessingAuthority;
 }): SourceAccessProvider {
   check(typeof input.request === "string" && input.request.trim() && input.request.length <= 16_000 &&
     ["user_requested", "proactive"].includes(input.trigger) && ["summary", "quote"].includes(input.presentation) &&
@@ -109,6 +111,10 @@ export function createSourceAccessProvider(input: {
     await reader.read(bound.sourceRef, "sources");
     const currentPolicy = await reader.read(bound.policyRef, "policies");
     assertSourcePolicyAccess(currentPolicy, use, context);
+    if (presentation === "quote") {
+      check(input.processingAuthority, "processing_authority_required");
+      assertProcessingStage(input.processingAuthority, currentPolicy, "quote", context);
+    }
     active();
     return context;
   };

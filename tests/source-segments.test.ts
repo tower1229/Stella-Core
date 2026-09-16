@@ -10,6 +10,7 @@ import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader
 import { validatePersonalContextCatalog, type PersonalContextAccess } from "../src/canghai/personal-context-access.js";
 import { createFragmentReadTool } from "../src/openclaw/fragment-read-tool.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { ownerDirectAuthority } from "./processing-authority-fixture.js";
 
 test("reviewed segments preserve originals and independent origin while enforcing narrower fragment policy before payload access", async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-segments-"));
@@ -71,7 +72,11 @@ test("reviewed segments preserve originals and independent origin while enforcin
   await assert.rejects(noContext.readEvidence(imported.evidenceRefs[0]!), /source_access_context_required/);
   const ordinary = await resolver.readEvidence(imported.evidenceRefs[0]!);
   assert.equal(ordinary.text, "一般观察。\n"); assert.equal(ordinary.role, "unknown");
-  const tool = createFragmentReadTool({ resolver, descriptors: processing.descriptors, originals: [ordinary], assertCurrent: async () => {} });
+  const tool = createFragmentReadTool({ resolver, descriptors: processing.descriptors, originals: [ordinary],
+    processingAuthority: ownerDirectAuthority({
+      purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "owner-direct" },
+    }),
+    assertCurrent: async () => {} });
   const listed = await tool.execute("list", { action: "list" });
   assert.equal(JSON.stringify(listed).includes("医疗记录"), false);
   assert.equal(JSON.stringify(listed).includes("source.txt"), false);
@@ -122,6 +127,9 @@ test("reviewed segments preserve originals and independent origin while enforcin
   const noModel = async (): Promise<never> => { throw new Error("Unauthorized content must not reach inference"); };
   await assert.rejects(prepareCorrection({ operationId: "forged", request: "Correction", ownerId: "owner", modelRef: "synthetic/model",
     recordedAt: "2026-09-02T00:00:00Z", evidenceRefs: [wholeRef], resolver: forgedResolver, objectRoot: "objects",
+    processingAuthority: ownerDirectAuthority({
+      purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "owner-direct" },
+    }),
     assertProcessingCurrent: async () => {}, complete: noModel }), /evidence_segment_policy_mismatch/);
   await assert.rejects(prepareSourceOutputCheck({ question: "Quote this", originals: [{ ...ordinary, ref: wholeRef }], resolver: forgedResolver,
     modelRef: "synthetic/model", assertCurrent: async () => {}, complete: noModel }), /evidence_segment_policy_mismatch/);
@@ -205,7 +213,10 @@ test("restricted parent policies authorize personal views through their evidence
         segment: value.segment, applicable: true, scenarios: ["writing"], topicRequested: true, topicExplicitlyNamed: true }) };
     } });
   const resolver = new EpisodeEvidenceResolver(base.reader, { ...base.purpose, sourceAccess: access }, base.complete);
-  const views = await preparePersonalViews({ requestId: "view", question: "Continue writing", ownerId: "owner", modelRef: "synthetic/model", resolver,
+  const views = await preparePersonalViews({ requestId: "view", question: "Continue writing", ownerId: "owner", modelRef: "synthetic/model",
+    audience: "owner_direct", processingAuthority: ownerDirectAuthority({
+      purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model" },
+    }), resolver,
     assertProcessingCurrent: async () => {}, complete: async ({ prompt }) => {
       const value = JSON.parse(prompt.split("\n").at(-1)!);
       assert.equal(value.candidates.length, 2);

@@ -6,6 +6,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { personalMemoryFixture } from "./personal-memory-fixture.js";
+import { ownerDirectAuthority } from "./processing-authority-fixture.js";
 import { prepareCorrection, recoverCorrection } from "../src/learning/correction.js";
 import { preparePersonalViews } from "../src/praxis/personal-views.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
@@ -18,6 +19,7 @@ async function setup(t: Parameters<typeof personalMemoryFixture>[0], interpretat
   let calls = 0;
   const input = { operationId: "correction_test", request, revision: "a".repeat(40), ownerId: "owner", modelRef: "synthetic/model",
     recordedAt: "2026-09-03T00:00:00Z", evidenceRefs: [f.evidence], resolver: await f.resolver(), objectRoot: "objects",
+    processingAuthority: ownerDirectAuthority({ purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model" } }),
     assertProcessingCurrent: async () => {}, complete: async ({ prompt }: { prompt: string }) => {
       calls++;
       const data = JSON.parse(prompt.split("\n").at(-1)!);
@@ -79,12 +81,12 @@ test("owner correction synchronizes immutable work and change, then fresh reader
     normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0, onRevision: async () => {} });
   const receipt = await recoverCorrection({ root: f.root, operationId: result.plan.operationId, catalogPath: "catalog.json", objectRoot: "objects",
     ownerId: "owner", modelRef: "synthetic/model", purpose: input.resolver.purpose, durability: restartedDurability,
-    signal: new AbortController().signal, assertProcessingCurrent: async () => {} });
+    signal: new AbortController().signal, assertProcessingCurrent: async () => {}, processingAuthority: input.processingAuthority });
   await result.persist(durability, new AbortController().signal);
   assert.equal(calls(), 2, "persistence retries must not regenerate semantic changes");
   assert.equal(receipt.revision, (await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim());
   const fresh = await preparePersonalViews({ requestId: "new-session", question: request, ownerId: "owner", modelRef: "synthetic/model",
-    resolver: await f.resolver(), selection: "all_authorized", assertProcessingCurrent: async () => {}, complete: input.complete });
+    audience: "owner_direct", processingAuthority: input.processingAuthority, resolver: await f.resolver(), selection: "all_authorized", assertProcessingCurrent: async () => {}, complete: input.complete });
   const work = fresh.view.memory.find(item => item.group === "works")!.record;
   assert.equal(work.goal, "保留疑问，先检查论证");
   assert.equal(work.status, "active");
@@ -167,8 +169,9 @@ test("Host correction archives exact owner input before inference and restores a
   const purpose = { ...input.resolver.purpose, trustedAdapters: { ...input.resolver.purpose.trustedAdapters, user_report: ["synthetic", HOST_INPUT_ARCHIVE_ADAPTER] } };
   const params = { request: bound, original, ownerId: "owner", reader: input.resolver.reader,
     archive: { policyRef: { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version }, objectRoot: "objects", payloadRoot: "originals" },
-    purpose, durability, signal: new AbortController().signal, assertCurrent: async () => {}, modelRef: input.modelRef, complete: input.complete };
-  await assert.rejects(applyHostCorrection({ ...params, request: { ...bound, senderIsOwner: false } }), /correction_host_request_mismatch/);
+    purpose, durability, signal: new AbortController().signal, assertCurrent: async () => {}, modelRef: input.modelRef,
+    processingAuthority: input.processingAuthority, complete: input.complete };
+  await assert.rejects(applyHostCorrection({ ...params, request: { ...bound, senderIsOwner: false } }), /correction_host_request_mismatch|private_context_audience_forbidden/);
   await assert.rejects(applyHostCorrection(params), /Synthetic custody pointer failure/);
   assert.equal(calls(), 0, "No inference before critical input custody");
   await assert.rejects((await CatalogReader.load(f.root, "catalog.json")).assertCurrent(), /memory_transaction_pending/);
@@ -180,7 +183,8 @@ test("Host correction archives exact owner input before inference and restores a
   assert.equal(result.writeOperationIds.length, 2);
   const fresh = new (await import("../src/praxis/episode-evidence.js")).EpisodeEvidenceResolver(await CatalogReader.load(f.root, "catalog.json"), purpose, input.complete);
   const views = await preparePersonalViews({ resolver: fresh, requestId: "next-session", question: request, ownerId: "owner", modelRef: input.modelRef,
-    selection: "all_authorized", assertProcessingCurrent: async () => {}, complete: input.complete });
+    audience: "owner_direct", selection: "all_authorized", processingAuthority: input.processingAuthority,
+    assertProcessingCurrent: async () => {}, complete: input.complete });
   assert.equal(views.view.memory.find(item => item.group === "works")!.record.goal, "保留疑问，先检查论证");
   await views.assertCurrentForGeneration(result.generationId);
   const archivedSource = await fresh.reader.read((await fresh.reader.read(restored.evidenceRefs[0]!, "evidence")).source as { id: string; version: string }, "sources");
