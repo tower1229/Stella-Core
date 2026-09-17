@@ -293,7 +293,7 @@ export async function discoverDeclaredScope(input: {
     try {
       await assertMemoryTransactionReadable(input.root);
     } catch (error) {
-      if (error instanceof MemoryTransactionError && error.category === "memory_transaction_pending") {
+      if (error instanceof MemoryTransactionError && ["memory_transaction_pending", "source_synchronization_pending"].includes(error.category)) {
         return { status: "not_ready", category: "index_not_ready", coverage: null };
       }
       throw error;
@@ -643,4 +643,23 @@ export function toPublicDiscoveryReport(result: DiscoveryResult): PublicDiscover
       kind: source.kind,
     })),
   };
+}
+
+/** Structural enumeration shared with synchronization; does not classify contents or grant model access. */
+export async function enumerateDeclaredFiles(root: string, corpusRegistryRef: string) {
+  const registryPath = parseCangHaiRef(corpusRegistryRef).relativePath;
+  const registry = parseCorpusRegistry(parseYaml((await readRepositoryBytes(root, registryPath)).toString("utf8")));
+  const files: Array<{ path: string; policyRef: VersionedRef; adapterId: string; collectionId: string }> = [];
+  for (const corpus of registry.corpora) {
+    const relative = parseCangHaiRef(corpus.root_ref).relativePath;
+    const policyRef = await loadPolicyRef(root, corpus.policy_ref);
+    for (const file of await listFiles(root, relative)) {
+      if (matchesGlobs(file, corpus.include) && !matchesGlobs(file, corpus.exclude)) {
+        const locator = `${relative}/${file}`;
+        check(!files.some(entry => entry.path === locator), "ambiguous_source_scope");
+        files.push({ path: locator, policyRef, adapterId: corpus.adapter_id, collectionId: corpus.id });
+      }
+    }
+  }
+  return files;
 }

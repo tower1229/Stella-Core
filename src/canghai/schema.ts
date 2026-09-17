@@ -4,6 +4,7 @@ import { Ajv2020, type ErrorObject, type ValidateFunction } from "ajv/dist/2020.
 import { parse as parseYaml } from "yaml";
 
 type SchemaName =
+  | "source-synchronization"
   | "consciousness-manifest"
   | "framework-ir"
   | "praxis-episode"
@@ -11,6 +12,7 @@ type SchemaName =
   | "twin-hypothesis";
 
 const schemaFileByName: Record<SchemaName, string> = {
+  "source-synchronization": "source-synchronization.schema.json",
   "consciousness-manifest": "consciousness-manifest.schema.json",
   "framework-ir": "framework-ir.schema.json",
   "praxis-episode": "praxis-episode.schema.json",

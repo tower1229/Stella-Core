@@ -76,7 +76,7 @@ export async function readRepositoryBytes(root: string, relativePath: string): P
 export class CatalogReader {
   readonly #plannedObjects = new Map<string, Buffer>();
   readonly #entries = new Map<string, { group: CatalogGroup; entry: CatalogEntry }>();
-  private constructor(readonly root: string, readonly catalogPath: string, readonly catalog: MemoryCatalog, readonly catalogHash: string) {
+  private constructor(readonly root: string, readonly catalogPath: string, readonly catalog: MemoryCatalog, readonly catalogHash: string, private readonly synchronizationHash?: string) {
     for (const group of groups) for (const entry of catalog[group]) this.#entries.set(key(entry), { group, entry });
   }
   static async load(root: string, catalogPath: string): Promise<CatalogReader> {
@@ -85,8 +85,21 @@ export class CatalogReader {
       return new CatalogReader(path.resolve(root), safeRelative(catalogPath), parseMemoryCatalog(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))), bytesVersion(bytes));
     } catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("catalog_unavailable"); }
   }
+  /** Synchronization-only snapshot. The exact durable fence and live catalog remain bound on every read. */
+  static async synchronizationPreview(root: string, catalogPath: string, catalog: MemoryCatalog,
+    objects: Array<{ path: string; bytes: string }>, synchronizationHash: string): Promise<CatalogReader> {
+    const current = await CatalogReader.load(root, catalogPath);
+    const preview = new CatalogReader(current.root, current.catalogPath, parseMemoryCatalog(structuredClone(catalog)), current.catalogHash, synchronizationHash);
+    for (const object of objects) {
+      const entries = groups.flatMap(group => catalog[group]);
+      requireCondition(entries.some(entry => entry.locator.path === object.path && entry.locator.sha256 === bytesVersion(object.bytes)), "invalid_preview_object");
+      preview.#plannedObjects.set(safeRelative(object.path), Buffer.from(object.bytes));
+    }
+    await preview.assertCurrent();
+    return preview;
+  }
   async assertCurrent(): Promise<void> {
-    await assertMemoryTransactionReadable(this.root);
+    await assertMemoryTransactionReadable(this.root, this.synchronizationHash);
     try { requireCondition(bytesVersion(await readRepositoryBytes(this.root, this.catalogPath)) === this.catalogHash, "stale_generation"); }
     catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("catalog_unavailable"); }
   }

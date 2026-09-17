@@ -11,3 +11,5 @@ npm run check:schemas 编译全部已登记 Schema。v2 契约测试验证真实
 所有示例和测试使用合成数据，禁止复制私人资料。
 
 Issue #16 增加 [Archive Manifest v1](archive-manifest.schema.json) 与 [Ingest Checkpoint v1](ingest-checkpoint.schema.json)。运行时还校验事件唯一性、正文／附件摘要、游标衔接、事务恢复、同步及清理资格。旧 Coverage 缺声明清单时不能用于新清理确认；升级流程见 Memory Lifecycle 的工作项 10 增量。
+
+`source-synchronization.schema.json` 校验来源同步的 pending／completed 持久读取屏障。无该文件的既有仓库无需迁移；首次 synchronize 在当前目录代际上创建，未知或损坏版本阻断读取，不自动降级。

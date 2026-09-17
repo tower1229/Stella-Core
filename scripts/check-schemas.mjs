@@ -8,6 +8,7 @@ const schemaFiles = [
   "archive-manifest.schema.json",
   "ingest-checkpoint.schema.json",
   "retrieval-checkpoint.schema.json",
+  "source-synchronization.schema.json",
   "consciousness-manifest.schema.json",
   "framework-ir.schema.json",
   "praxis-episode.schema.json",

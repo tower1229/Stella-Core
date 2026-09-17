@@ -4,6 +4,7 @@ import { lstat, mkdir, open, readFile, realpath, rename, unlink } from "node:fs/
 import path from "node:path";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin-sdk/file-lock";
+import { validateSchema } from "./schema.js";
 import { isRecord } from "../shared/type-guards.js";
 
 const markerName = ".stella-memory-transaction.json";
@@ -43,8 +44,16 @@ async function text(file: string): Promise<string | null> {
 }
 
 /** A failed publication remains fenced on disk, including after a process restart. */
-export async function assertMemoryTransactionReadable(root: string): Promise<void> {
+export async function assertMemoryTransactionReadable(root: string, synchronizationHash?: string): Promise<void> {
   const resolved = path.resolve(root);
+  const synchronization = await text(path.join(resolved, ".stella-source-synchronization.json"));
+  if (synchronization !== null) {
+    let state: unknown;
+    try { state = JSON.parse(synchronization); } catch { throw new MemoryTransactionError("invalid_synchronization_state"); }
+    try { await validateSchema("source-synchronization", state); }
+    catch { throw new MemoryTransactionError("invalid_synchronization_state"); }
+    check(isRecord(state) && state.phase === "completed" || synchronizationHash === bytesVersion(synchronization), "source_synchronization_pending");
+  }
   const pending = await text(path.join(resolved, markerName));
   if (pending === null) return;
   const owner = owners.getStore();

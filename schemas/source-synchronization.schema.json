@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stella source synchronization fence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "phase",
+    "operationId",
+    "inputDigest",
+    "request",
+    "affectedIds"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "stella.source-synchronization/v1"
+    },
+    "phase": {
+      "enum": [
+        "pending",
+        "completed"
+      ]
+    },
+    "operationId": {
+      "type": "string",
+      "pattern": "^sync_[a-f0-9]{64}$"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "fromRevision",
+        "toRevision",
+        "expectedGenerationId"
+      ],
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fromRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "toRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "expectedGenerationId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "affectedIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expectedGenerationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "removedSourceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "disposition",
+          "record"
+        ],
+        "properties": {
+          "ref": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "version"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            }
+          },
+          "disposition": {
+            "enum": [
+              "withdraw",
+              "replace"
+            ]
+          },
+          "record": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "phase": {
+            "const": "pending"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "expectedGenerationId"
+        ],
+        "properties": {
+          "expectedGenerationId": {}
+        }
+      },
+      "else": {
+        "required": [
+          "generationId",
+          "removedSourceIds",
+          "decisions"
+        ],
+        "properties": {
+          "generationId": {},
+          "removedSourceIds": {},
+          "decisions": {}
+        }
+      }
+    }
+  ]
+}

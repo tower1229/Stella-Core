@@ -183,7 +183,7 @@ export async function retrieve(input: RetrieveWiring): Promise<RetrieveResult> {
       await assertMemoryTransactionReadable(input.resolver.reader.root);
       await input.resolver.reader.assertCurrent();
     } catch (error) {
-      if (error instanceof MemoryTransactionError && error.category === "memory_transaction_pending") {
+      if (error instanceof MemoryTransactionError && ["memory_transaction_pending", "source_synchronization_pending"].includes(error.category)) {
         return { status: "not_ready", category: "index_not_ready", requestId: input.requestId, generationId: input.generationId };
       }
       if (error instanceof CatalogError && error.category === "source_unavailable") {
@@ -238,7 +238,7 @@ export async function retrieve(input: RetrieveWiring): Promise<RetrieveResult> {
       } : {}),
     });
   } catch (error) {
-    if (error instanceof MemoryTransactionError && error.category === "memory_transaction_pending") {
+    if (error instanceof MemoryTransactionError && ["memory_transaction_pending", "source_synchronization_pending"].includes(error.category)) {
       return { status: "not_ready", category: "index_not_ready", requestId: input.requestId, generationId: input.generationId };
     }
     if (error instanceof CatalogError && error.category === "stale_generation") {

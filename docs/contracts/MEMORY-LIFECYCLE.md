@@ -489,3 +489,11 @@ Host 工具 `stella_read_fragment` 供已审查 skill 使用：`{action:"list"}`
 `probe-main-plugin.mjs --fragment-skill` 通过真实 OpenClaw `chat.send`、实际 skill 文件读取与工具调用，验证描述列出、获准原文回读、整文件绕读拒绝及邻段不进入模型输入；该探针使用合成资料、注入语义结果和 loopback 模型，纳入打包 smoke。它不签发完整 memory_access 准入，不代表真实 main 私人行为、自然反馈或 C-07／M-04 全组验收完成。
 
 `--fragment-live` 使用显式 `STELLA_LIVE_HOST_CONFIG` 中的 Google 连接，在隔离 OpenClaw 和合成资料上运行 Gemini 的片段访问／输出语义判断及原生 skill／tool 选择；路由和纠正准备仍注入合成结果。断言允许回读、整文件和邻段拒绝、模型输入无禁读片段及最终 Evidence 引用。它不修改日常 main，不扩展私人资料授权；与完整 profile、私人行为及自然反馈分别记录。片段授权判断保留严格 JSON 和精确绑定验证，输出预算为有界 8192 tokens，模型失败不降级。
+
+2026-09-17 来源同步入口（Issue #21／T15）：`src/canghai/synchronize.ts` 提供显式 fromRevision／toRevision／expectedGenerationId 的整批 `synchronize`。先经 MemoryTransaction critical 提交 `stella.memory-operation/v1` 意图和仓库级 `stella.source-synchronization/v1` 读取屏障，再进行结构化重评、独立语义复核和新代际发布；缺省全局屏蔽是保守完整集合，不代表 T16 的自洽中间代。目录对象正文与持久依赖共同确定传播范围，新资料通过现有 corpus registry 的声明范围枚举；新增来源没有旧依赖边时保守重评全部当前理解及事项。普通 retrieve 将屏障报告为 index_not_ready，不把待同步解释为空记忆。
+
+Source 和 Policy 保留稳定 ID 及历史语义版本；唯一的完全相同内容移动只更新定位，多个同内容移动无法唯一对应时返回 ambiguous_source_move。Policy 的当前定位保留主人维护文件，历史版本另行封存。当前 Source 即使使用历史 Git payload 定位，所声明路径发生删除后仍撤销当前资格。撤销或删除来源的旧理解正文不进入重评模型；旧正文仅在确切版本、完整依赖和分段授权均仍有效时提供为待核对解释。模型只能在当前授权证据范围内替换或撤回，不能仅重绑旧 hash、改变既有范围或写回主人原文。
+
+重启复用已批准的事务，不重跑已记录的语义重评；critical commit／pointer／push 失败保持读取屏障。并发未提交文件或提交变化返回 write_conflict，不暂存主人编辑。尚未进入最终发布事务的 pending 操作可由新 operationId 接管：fromRevision 与原待同步基线相同、expectedGenerationId 相同、toRevision 为已提交的最新后继；旧屏障保留至新操作发布，不重新启用旧理解。目标提交需满足已有 durability 的显式远端协调要求。回退到已封存的相同内容可复用该版本，不能重复建立对象身份。
+
+本实现仍使用现有适配器边界：改变 v2 分段原文而未重新审定片段权限时返回 source_segment_reassessment_required；新增二进制媒体缺少证据适配器时返回 source_evidence_adapter_required；非空声明 views 尚无对应重建适配器时返回 required_view_adapter_unavailable。上述路径保持 pending，不能称同步完成。Host 全部摘要治理、分批重评、真实 main 和自然反馈分别由后续工作验收；本票测试仅提供 synchronize／当前读取／历史校验及本地合成远端故障的契约证据，不能覆盖 G-07、M-10、M-11、C-08 整组或证明真实模型质量。
