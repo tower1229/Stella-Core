@@ -422,15 +422,18 @@ async function readHistory(params) {
     }
   }
 }
-try {
-  gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
-  await connectObserver();
+async function waitForInitializationReady() {
   let initializationStatus = await client.request("stella.initialize", { action: "status" });
   for (let attempt = 0; initializationStatus.state === "initializing" && attempt < 100; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 200));
     initializationStatus = await client.request("stella.initialize", { action: "status" });
   }
   assert.equal(initializationStatus.state, "ready", JSON.stringify(initializationStatus));
+}
+try {
+  gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+  await connectObserver();
+  await waitForInitializationReady();
   const displayedAgents = await client.request("agents.list", {});
   assert.equal(displayedAgents.agents.find((agent) => agent.id === "probe")?.identity?.name, "Synthetic Stella",
     "The Gateway must expose the initialized identity, not merely a workspace file");
@@ -651,6 +654,7 @@ try {
     await gateway.stop();
     gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
     await connectObserver();
+    await waitForInitializationReady();
     const replay = await client.request("chat.send", submission);
     const replayTerminal = await client.request("agent.wait", { runId: replay.runId, timeoutMs: 60_000 });
     assert.equal(replay.runId, sent.runId);
