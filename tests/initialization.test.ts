@@ -403,7 +403,7 @@ test("Host service initializes on startup; manual entry shares the same transact
   const installed = await initialization.initialize();
   assert.equal(installed.state, "ready");
   assert.equal(installed.scope, "host_bootstrap");
-  assert.deepEqual(installed.runtime, { state: "blocked", blockers: ["full_memory_acceptance_unavailable"] });
+  assert.deepEqual(installed.runtime, { state: "blocked", blockers: ["full_memory_acceptance_unavailable", "host_memory_consumption_unverifiable"] });
   await assert.rejects(initialization.assertReady(), /runtime_capabilities_unavailable/);
   assert.equal((await hooks.get("before_agent_run")!({}, context) as { category: string }).category, "runtime_capabilities_unavailable");
   const inspected = JSON.parse((await command!.handler({ agentId: "stella", args: "status" } as never)).text!);

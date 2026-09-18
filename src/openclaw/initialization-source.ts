@@ -7,6 +7,7 @@ import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import { BOOTSTRAP_TARGETS, renderInitializationTemplate, renderDisplayIdentity, INITIALIZATION_TEMPLATE_VERSION, type BootstrapTarget, type HostIdentity } from "./initialization-templates.js";
 import type { Materialization } from "./initialization.js";
+import { hostMemoryRuntimeBlockers } from "./host-memory.js";
 
 export class InitializationSourceError extends Error {
   constructor(readonly category: string) { super(`Stella initialization source: ${category}`); }
@@ -55,6 +56,7 @@ export async function compileInitializationSource(root: string, document: unknow
       runtimeBlockers.add(`capability_acceptance_missing:${id}`);
     }
   }
+  for (const blocker of hostMemoryRuntimeBlockers(target.contractProfile)) runtimeBlockers.add(blocker);
   object(document, ["schema_version", "id", "host_adapter", "behavior_mapping_ref", "projection_recipes", "skill_bindings", "automation_declarations", "required_checks"]);
   check(document.schema_version === "stella.host-materialization/v1" && typeof document.id === "string" && document.id.trim(), "invalid_materialization_identity");
   object(document.host_adapter, ["id", "version", "host_version", "harness"]);

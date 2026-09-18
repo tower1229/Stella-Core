@@ -269,6 +269,26 @@ type EvidenceBundle = {
 
 最终回复或行动前复核相关 Ref 和授权仍有效。若仓库已变更，按变更集合判断是否影响当前包；有关变化返回 `stale_generation` 并重做受影响部分，无关变化可记录复核后的 revision。不能在同一成功结果中无标记混用不同代的理解。
 
+#### 2026-09-18 T17 消费门禁及剩余 Host 缺口
+
+Core 在 `before_agent_run` 实际准入时重新检查准备时绑定的请求、模型、Memory Generation、同步 fence 和适用个人视图。准备完成不再自动获得准入；失败锁定本次运行，不因重试准入而恢复旧上下文。
+
+固定 OpenClaw `2026.8.2` 的入口核查如下。此表是适配缺口清单，不是 Host 全入口验收收据：
+
+| 入口 | 当前证据与限制 |
+| --- | --- |
+| Core 当轮 USER／MEMORY 投影 | 已有来源授权、依赖资格和代际验证；本次补消费准入复核 |
+| 静态 bootstrap／运行文件 | 初始化校验受审正文和 Host loader；没有逐次最终消费的来源与代际证明 |
+| session replay／旧会话／父任务摘要 | `before_agent_run` 提供隔离的 messages 快照，但没有逐片段来源、代际与授权绑定 |
+| 会话压缩及压缩后重试 | before/after compaction 观察点不等于每次模型调用前可阻断的来源检查 |
+| Host memory provider／检索索引 | memory prompt preparation/supplement 不提供完整来源资格与代际证明 |
+| Active Memory／Dreaming 摘要 | 没有接通受验证的来源、代际和受众消费适配器 |
+| context engine／原生 harness／prompt cache | 没有覆盖全部最终模型输入的版本绑定及拒绝过时内容的行为证据 |
+
+因此 `full_memory` 独立保留 `host_memory_consumption_unverifiable`，初始化 runtime 状态、已有初始化状态复核及业务准备均不得将其消除。能力收据、空会话、新会话、重启和 `/new` 都不能作为清除此阻塞的依据。不得删除旧会话、关闭记忆或清空历史后宣称语义等价成功，也不得降为 Alpha 来通过完整验收。Alpha 未新增此完整 profile 门禁，不代表其 Host 原生入口已满足完整记忆契约。
+
+单元测试仅证明上述消费准入检查和拒绝未验证完整 profile；固定 Host capability 探针仅证明初始化 runtime 阻塞在有效 bootstrap 收据签发后仍保留且不调用模型。它们不证明真实 main、`/new`、重启、Active Memory、Dreaming 的成功消费或自然反馈。T17／Issue #23 仍需可信的 Host 逐入口清单、最终消费适配器，以及各生命周期和受众的真实执行证据；`source_access_context` 的最终消费验收仍未关闭。
+
 ## 4. 交互学习
 
 ### 输入与目标

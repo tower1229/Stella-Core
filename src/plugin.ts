@@ -61,7 +61,7 @@ import type { HostInputSnapshot } from "./openclaw/host-input.js";
 import { prepareEvidenceBoundOutcome } from "./praxis/outcome-preparation.js";
 import { prepareOutcomeTransaction } from "./praxis/outcome-transaction.js";
 import { MemoryTransactionError, withMemoryMutationLock } from "./canghai/memory-transaction.js";
-import { CatalogError, CatalogReader } from "./canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, readRepositoryBytes } from "./canghai/catalog-reader.js";
 import { isRecord } from "./shared/type-guards.js";
 import { EpisodeEvidenceResolver } from "./praxis/episode-evidence.js";
 import { parseCangHaiRef } from "./canghai/ref.js";
@@ -80,6 +80,7 @@ import { prepareQuestionTransaction, recoverPendingQuestion } from "./praxis/que
 import { registerArchiveRetention } from "./openclaw/archive-retention-registration.js";
 import { registerStellaInitialization } from "./openclaw/initialization-registration.js";
 import { InitializationError } from "./openclaw/initialization.js";
+import { assertHostMemoryConsumptionSupported } from "./openclaw/host-memory.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 const STELLA_CORE_SYSTEM_CONTEXT =
@@ -281,8 +282,10 @@ export default definePluginEntry({
       if (!prepared.processingAuthority) throw new CatalogError("processing_authority_required");
       if (!prepared.deployment || !prepared.generationId) throw new CatalogError("processing_authority_required");
       const loaded = await consciousness.load();
+      await assertHostMemoryProfile(loaded);
       const binding = await loadPraxisRuntimeBinding(loaded);
       const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
+      await reader.assertCurrent();
       // Generation may only match the prepare-frozen id; live recoveryRevision can
       // advance via onRevision without invalidating this run's bound deployment.
       if (reader.catalog.generationId !== prepared.generationId) {
@@ -295,6 +298,14 @@ export default definePluginEntry({
         generationId: prepared.generationId,
         purpose: binding.purpose,
       });
+    };
+    const assertHostMemoryProfile = async (loaded: LoadedConsciousness): Promise<void> => {
+      const document = loaded.bootstrapDocuments.find(value => value.field === "identity.runtimeProfileRef");
+      if (!document) throw new CatalogError("runtime_profile_required");
+      assertHostMemoryConsumptionSupported(parseRuntimeProfile(parseYaml(document.content)));
+      // A cached consciousness snapshot cannot hide an owner profile change.
+      const live = await readRepositoryBytes(loaded.canghaiRoot, parseCangHaiRef(document.ref).relativePath);
+      assertHostMemoryConsumptionSupported(parseRuntimeProfile(parseYaml(live.toString("utf8"))));
     };
     const classifySemantically = createSemanticRouter(
       (params) => completeModel({ ...params, agentId: config.agentId }),
@@ -527,6 +538,7 @@ export default definePluginEntry({
           const audience = resolveTurnAudience(request);
           assertPrivateContextAudience(audience);
           const loaded = await consciousness.load();
+          await assertHostMemoryProfile(loaded);
           const binding = await loadPraxisRuntimeBinding(loaded);
           if (!binding.personalContextAccessPath) return;
           const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
@@ -692,6 +704,7 @@ export default definePluginEntry({
               );
             }
             const loaded = await consciousness.load();
+            await assertHostMemoryProfile(loaded);
             const binding = await loadPraxisRuntimeBinding(loaded);
             const modelRef = resolveLiveModelRef();
             let ownerId = request.senderId!;
@@ -1056,8 +1069,21 @@ export default definePluginEntry({
         } as const;
         const prepared = readCompletionPreparation(ctx.runId!) as PreparedTurn | undefined;
         if (prepared?.outcome === "ready" && !prepared.admitted) {
+          // Preparation is not consumption: a correction or source synchronization
+          // may have fenced these inputs while the Host assembled its prompt.
           prepared.admitted = true;
-          return { outcome: "pass" } as const;
+          try {
+            const request = readCompletionRequest(ctx.runId!, config.agentId, ctx.sessionId, ctx.sessionKey);
+            await assertPreparedProcessingAuthority(prepared, request);
+            await prepared.assertPersonalViewsCurrent?.();
+            return { outcome: "pass" } as const;
+          } catch (error) {
+            const category = error instanceof CatalogError || error instanceof CompletionError ||
+              error instanceof MemoryTransactionError ? error.category : "host_memory_validation_failed";
+            prepared.outcome = "blocked";
+            prepared.category = category;
+            prepared.message = "Stella Core 的记忆或授权已变化，已停止本轮执行。";
+          }
         }
         const category = prepared?.category ?? "stella_turn_preparation_unavailable";
         return {

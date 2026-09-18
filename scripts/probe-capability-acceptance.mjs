@@ -66,7 +66,9 @@ import main from ${JSON.stringify(buildModule("src/plugin.js"))};
 export default main;
 `);
 
+let modelCalls = 0;
 const provider = createServer((_request, response) => {
+  modelCalls++;
   response.statusCode = 500;
   response.end("capability acceptance must not call a model");
 });
@@ -133,6 +135,7 @@ try {
   assert.deepEqual(status.runtime?.blockers?.sort(), [
     "capability_acceptance_missing:host_initialization",
     "capability_acceptance_missing:memory_access",
+    "host_memory_consumption_unverifiable",
   ].sort());
 
   assert.equal((await admin.request("stella.initialize", { action: "apply" })).state, "ready");
@@ -151,7 +154,7 @@ try {
   assert.equal(accepted.receipt.businessAdmission, false);
   assert.equal(accepted.receipt.mode, "constrained_acceptance");
   assert.match(accepted.receipt.id, /^cap_[a-f0-9-]{36}$/);
-  assert.deepEqual(accepted.runtime.blockers, ["capability_acceptance_missing:memory_access"]);
+  assert.deepEqual(accepted.runtime.blockers, ["capability_acceptance_missing:memory_access", "host_memory_consumption_unverifiable"]);
   const publicJson = JSON.stringify(accepted);
   assert.ok(!publicJson.includes(canghaiRoot));
   assert.ok(!publicJson.includes("/Users/"));
@@ -164,8 +167,10 @@ try {
   assert.deepEqual(invalidated.runtime.blockers.sort(), [
     "capability_acceptance_missing:host_initialization",
     "capability_acceptance_missing:memory_access",
+    "host_memory_consumption_unverifiable",
   ].sort());
 
+  assert.equal(modelCalls, 0);
   const report = {
     schemaVersion: "stella.capability-acceptance-probe/v1",
     host: host.version,
@@ -176,6 +181,8 @@ try {
     businessAdmission: false,
     invalidated: true,
     visitorDenied: true,
+    hostMemoryConsumption: "blocked_unverifiable",
+    modelCalls,
   };
   await writeFile(path.join(temp, "capability-acceptance-probe.json"), JSON.stringify(report, null, 2));
   process.stdout.write(`${JSON.stringify(report)}\n`);

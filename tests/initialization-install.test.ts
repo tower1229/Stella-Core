@@ -240,7 +240,7 @@ test("repeat initialization keeps the same receipt and does not claim full_memor
   const installed = await f.initialization.initialize();
   assert.equal(installed.state, "ready");
   assert.equal(installed.scope, "host_bootstrap");
-  assert.deepEqual(installed.runtime, { state: "blocked", blockers: ["full_memory_acceptance_unavailable"] });
+  assert.deepEqual(installed.runtime, { state: "blocked", blockers: ["full_memory_acceptance_unavailable", "host_memory_consumption_unverifiable"] });
   await assert.rejects(f.initialization.assertReady(), /runtime_capabilities_unavailable/);
   const again = await f.initialization.initialize();
   assert.deepEqual(again.runtime, installed.runtime);

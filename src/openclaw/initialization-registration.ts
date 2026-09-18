@@ -13,6 +13,7 @@ import { InitializationError, StellaInitializer, type Materialization } from "./
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import type { HostIdentity } from "./initialization-templates.js";
 import { verifyInitializationContext } from "./initialization-context.js";
+import { hostMemoryRuntimeBlockers } from "./host-memory.js";
 import { assertHostChannelIdentity, verifyHostSkillTree } from "./initialization-host-skills.js";
 import { Type } from "typebox";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
@@ -89,7 +90,11 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       captureBinding: capture,
       signal,
     });
-    return [...new Set([...evaluated.blockers, ...await additionalRuntimeBlockers()])];
+    // Existing initialization journals predate newly identified Host gaps.
+    // Recompute this boundary from the live profile, never from an old receipt.
+    const source = await materializationSource(config);
+    return [...new Set([...evaluated.blockers, ...hostMemoryRuntimeBlockers(source.contractProfile),
+      ...await additionalRuntimeBlockers()])];
   };
   const runtimeStatus = async (signal?: AbortSignal): Promise<NonNullable<Status["runtime"]>> => {
     const blockers = await resolveRuntimeBlockers(signal);

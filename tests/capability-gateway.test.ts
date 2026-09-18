@@ -139,6 +139,7 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
     blockers: [
       "capability_acceptance_missing:host_initialization",
       "capability_acceptance_missing:memory_access",
+      "host_memory_consumption_unverifiable",
     ],
   });
   await assert.rejects(initialization.assertReady(), /runtime_capabilities_unavailable/);
@@ -159,6 +160,7 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
   assert.deepEqual(initialization.status().runtime?.blockers, [
     "capability_acceptance_missing:host_initialization",
     "capability_acceptance_missing:memory_access",
+    "host_memory_consumption_unverifiable",
   ]);
 
   const runId = "run_capability_accept";
@@ -177,7 +179,7 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
   assert.equal(payload.receipt.businessAdmission, false);
   assert.equal(payload.receipt.mode, "constrained_acceptance");
   assert.match(payload.receipt.id, /^cap_[a-f0-9-]{36}$/);
-  assert.deepEqual(payload.runtime.blockers, ["capability_acceptance_missing:memory_access"]);
+  assert.deepEqual(payload.runtime.blockers, ["capability_acceptance_missing:memory_access", "host_memory_consumption_unverifiable"]);
   assert.equal(payload.runtime.state, "blocked");
   await assert.rejects(initialization.assertReady(), /runtime_capabilities_unavailable/);
 
@@ -190,7 +192,7 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
   const again = await invokeGateway(gatewayHandler!, { action: "accept-capability", runId }, { reqId: "req-capability-2" });
   assert.equal(again.ok, true, JSON.stringify(again));
   const againPayload = again.payload as { receipt: { id: string }; runtime: { blockers: string[] } };
-  assert.deepEqual(againPayload.runtime.blockers, ["capability_acceptance_missing:memory_access"]);
+  assert.deepEqual(againPayload.runtime.blockers, ["capability_acceptance_missing:memory_access", "host_memory_consumption_unverifiable"]);
   assert.notEqual(againPayload.receipt.id, payload.receipt.id);
 
   const badInvalidate = await invokeGateway(gatewayHandler!, {
@@ -222,6 +224,7 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
   assert.deepEqual((afterInvalidate.payload as { runtime: { blockers: string[] } }).runtime.blockers, [
     "capability_acceptance_missing:host_initialization",
     "capability_acceptance_missing:memory_access",
+    "host_memory_consumption_unverifiable",
   ]);
   await assert.rejects(initialization.assertReady(), /runtime_capabilities_unavailable/);
 

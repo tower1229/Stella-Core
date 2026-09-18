@@ -78,7 +78,7 @@ test("full-memory instructions can be installed without declaring runtime accept
     agentId: "probe", hostVersion: "2026.8.2", contractProfile: "full_memory",
   });
   assert.equal(result.materialization.files.length, 6);
-  assert.deepEqual(result.runtimeBlockers, ["full_memory_acceptance_unavailable"]);
+  assert.deepEqual(result.runtimeBlockers, ["full_memory_acceptance_unavailable", "host_memory_consumption_unverifiable"]);
 });
 
 test("full-memory required capabilities become concrete acceptance blockers until receipts exist", async (t) => {
@@ -90,6 +90,7 @@ test("full-memory required capabilities become concrete acceptance blockers unti
   assert.deepEqual(result.runtimeBlockers, [
     "capability_acceptance_missing:host_initialization",
     "capability_acceptance_missing:memory_access",
+    "host_memory_consumption_unverifiable",
   ]);
 });
 

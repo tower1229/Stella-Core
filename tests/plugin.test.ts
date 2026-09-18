@@ -179,12 +179,13 @@ const hostRequest = (prompt: string, sessionKey = "agent:stella:test") => ({
 type PromptResult = { prependSystemContext?: string; appendContext?: string };
 async function preparedRun(hooks: Map<string, HookHandler>, runId: string, prompt: string,
   verify: (value: PromptResult | undefined, gate: unknown, context: HookContext) => void | Promise<void>,
-  admissionHooks = hooks, request: HostTurnRequest = hostRequest(prompt)): Promise<void> {
+  admissionHooks = hooks, request: HostTurnRequest = hostRequest(prompt), beforeAdmission?: () => Promise<void>): Promise<void> {
   await coordinateCompletion({ operationId: runId, runId, request, timeoutMs: 10_000 }, {
     async generateDraft() {
       const context = { agentId: "stella", runId, sessionKey: request.sessionKey, sessionId: request.sessionId };
       const event = { prompt, messages: [] };
       const result = await requireHook(hooks, "before_prompt_build")(event, context) as PromptResult | undefined;
+      await beforeAdmission?.();
       const gate = await requireHook(admissionHooks, "before_agent_run")(event, context);
       await verify(result, gate, context);
       return { draftId: runId, text: "synthetic", evidenceRef: "synthetic", responseKind: "answer", requiresCriticalPersistence: false };
@@ -199,6 +200,41 @@ async function preparedRun(hooks: Map<string, HookHandler>, runId: string, promp
   });
 }
 
+test("a generation changed after preparation cannot enter the Host model", async () => {
+  const root = await createFixture();
+  try {
+    const hooks = registerPlugin(root, await initializeFixtureRepository(root));
+    await preparedRun(hooks, "generation-before-consumption", "synthetic question", (prompt, gate) => {
+      assert.ok(prompt?.prependSystemContext);
+      assert.deepEqual(gate, { outcome: "block", category: "processing_generation_mismatch",
+        reason: "Stella turn admission failed (processing_generation_mismatch)",
+        message: "Stella Core 的记忆或授权已变化，已停止本轮执行。" });
+    }, hooks, hostRequest("synthetic question"), async () => {
+      const file = path.join(root, "30_PersonalData/memory/catalog.json");
+      const catalog = JSON.parse(await readFile(file, "utf8")) as MemoryCatalog;
+      catalog.parentGenerationId = catalog.generationId;
+      catalog.generationId = "synthetic-next-generation";
+      await writeFile(file, canonicalJson(catalog));
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("a cached Alpha profile cannot bypass the full-memory consumption blocker", async () => {
+  const root = await createFixture();
+  try {
+    const hooks = registerPlugin(root, await initializeFixtureRepository(root));
+    await preparedRun(hooks, "profile-before-consumption", "synthetic question", (prompt, gate) => {
+      assert.ok(prompt?.prependSystemContext);
+      assert.equal((gate as { category: string }).category, "host_memory_consumption_unverifiable");
+    }, hooks, hostRequest("synthetic question"), async () => {
+      const file = path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml");
+      const profile = parseYaml(await readFile(file, "utf8")) as Record<string, unknown>;
+      profile.contract_profile = "full_memory";
+      await writeFile(file, stringifyYaml(profile));
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("main plugin registers coordinated completion and removes soft critical writers", async () => {
   const root = await createFixture();
   try {
@@ -206,6 +242,24 @@ test("main plugin registers coordinated completion and removes soft critical wri
     assert.ok(hooks.has("reply_dispatch"));
     assert.ok(hooks.has("llm_output"));
     for (const name of ["after_tool_call", "before_agent_finalize", "agent_end"]) assert.equal(hooks.has(name), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("full-memory cannot consume even an empty Host session without verifiable memory ingress", async () => {
+  const root = await createFixture();
+  try {
+    const file = path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml");
+    const profile = parseYaml(await readFile(file, "utf8")) as Record<string, unknown>;
+    profile.contract_profile = "full_memory";
+    await writeFile(file, stringifyYaml(profile));
+    const revision = await initializeFixtureRepository(root);
+    for (const session of ["main", "new-session", "old-session"]) {
+      const hooks = registerPlugin(root, revision, async () => { assert.fail("Unverified Host inputs must not reach a model"); });
+      await preparedRun(hooks, `full-memory-${session}`, "synthetic question", (prompt, gate) => {
+        assert.equal(prompt, undefined);
+        assert.equal((gate as { category: string }).category, "host_memory_consumption_unverifiable");
+      }, hooks, hostRequest("synthetic question", `agent:stella:${session}`));
+    }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

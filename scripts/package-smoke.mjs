@@ -28,6 +28,7 @@ for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admi
   "dist/src/openclaw/initialization.js", "dist/src/openclaw/initialization-registration.js",
   "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
   "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
+  "dist/src/openclaw/host-memory.js",
   "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
   "dist/src/openclaw/fragment-read-tool.js",
   "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
@@ -75,6 +76,8 @@ assert.equal(capabilityReport.clearedOneBlocker, true);
 assert.equal(capabilityReport.businessAdmission, false);
 assert.equal(capabilityReport.invalidated, true);
 assert.equal(capabilityReport.visitorDenied, true);
+assert.equal(capabilityReport.hostMemoryConsumption, "blocked_unverifiable");
+assert.equal(capabilityReport.modelCalls, 0);
 probes.push({ flag: "--capability-acceptance", report: capabilityReport });
 await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
 process.stderr.write("Packed archive retention probe\n");

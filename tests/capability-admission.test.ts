@@ -91,6 +91,7 @@ test("validated receipts clear only matching acceptance blockers; skill gates st
     "capability_acceptance_missing:memory_access",
     "skill_capability_unverified:host_initialization",
     "full_memory_acceptance_unavailable",
+    "host_memory_consumption_unverifiable",
   ];
   assert.deepEqual((await evaluateRuntimeCapabilityBlockers({
     compiledBlockers: compiled, store, receiptIds: [], captureBinding: capture,
@@ -110,6 +111,7 @@ test("validated receipts clear only matching acceptance blockers; skill gates st
   assert.deepEqual(evaluated.blockers, [
     "capability_acceptance_missing:memory_access",
     "full_memory_acceptance_unavailable",
+    "host_memory_consumption_unverifiable",
     "skill_capability_unverified:host_initialization",
   ]);
   assert.equal(evaluated.receiptDiagnostics.length, 0);
