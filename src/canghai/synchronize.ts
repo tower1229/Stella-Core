@@ -15,9 +15,16 @@ import { stableId } from "./host-input-archive.js";
 import { verifySourceInterpretation } from "./source-interpretation.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES } from "../praxis/evidence-bundle.js";
 
+import { migrateSynchronizationState, type ReassessmentProgress } from "./synchronization-state.js";
+
 const fencePath = ".stella-source-synchronization.json";
-const version = "stella.source-synchronization/v1";
-export type SynchronizeRequest = { operationId: string; fromRevision: string; toRevision: string; expectedGenerationId: string };
+const version = "stella.source-synchronization/v2";
+export type SynchronizeRequest = {
+  operationId: string; fromRevision: string; toRevision: string; expectedGenerationId: string;
+  /** Exact caller-selected targets; semantic selection belongs to the calling LLM. Omit for all. */
+  targetIds?: string[];
+  currentWorkId?: string;
+};
 export type SynchronizePorts = {
   root: string; catalogPath: string; objectRoot: string; durability: IngestDurabilityPort;
   ownerId: string; modelRef: string; purpose: EvidencePurpose; processingAuthority: ProcessingAuthority;
@@ -48,11 +55,16 @@ async function recorded(root: string, operationId: string, journalPath: string) 
   }
 }
 
-/** Whole-batch source synchronization. The durable fence is retained until a coherent generation is published. */
+/** Publish one coherent batch; pending cognition remains excluded across subsequent batches. */
 export async function synchronize(request: SynchronizeRequest, ports: SynchronizePorts) {
   request = structuredClone(request);
   check(/^[a-zA-Z][a-zA-Z0-9_-]{0,100}$/.test(request.operationId) && request.expectedGenerationId &&
     /^[a-f0-9]{40}$/.test(request.fromRevision) && /^[a-f0-9]{40}$/.test(request.toRevision), "invalid_synchronization_request");
+  check(request.targetIds === undefined || Array.isArray(request.targetIds) && request.targetIds.length > 0 &&
+    request.targetIds.every(id => typeof id === "string" && id.length > 0) && new Set(request.targetIds).size === request.targetIds.length,
+    "invalid_synchronization_request");
+  check(request.currentWorkId === undefined || typeof request.currentWorkId === "string" && request.currentWorkId.length > 0,
+    "invalid_synchronization_request");
   for (const file of [ports.catalogPath, ports.objectRoot]) check(file && file.split("/").every(part => part && ![".", "..", ".git"].includes(part) && !part.includes(":") && !part.includes("\\")), "unsafe_locator");
   const active = async () => { ports.signal?.throwIfAborted(); await ports.assertProcessingCurrent(); };
   await active();
@@ -67,11 +79,31 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   const original = await baseline(ports.root, request.fromRevision, ports.catalogPath);
   check(original.catalog.generationId === request.expectedGenerationId, "stale_generation");
   check((await blob(ports.root, request.toRevision, ports.catalogPath))?.toString("utf8") === original.bytes, "concurrent_catalog_change");
-  const affectedIds = [...new Set(catalogGroups.flatMap(group => original.catalog[group].filter(entry => entry.status === "current").map(entry => entry.id)))];
-  const pending = canonicalJson({ schemaVersion: version, phase: "pending", operationId: id, inputDigest: digest,
-    request, affectedIds, expectedGenerationId: request.expectedGenerationId });
+  const priorBytes = await blob(ports.root, request.fromRevision, fencePath);
+  const prior = priorBytes ? await migrateSynchronizationState(record(priorBytes)) : null;
+  // A later explicit correction can supersede a pending version; never restore that old target.
+  const inheritedRefs = prior?.phase === "partial" ? prior.pendingRefs.filter(ref => {
+    const entries = original.catalog.understandings.concat(original.catalog.works);
+    check(entries.some(entry => refKey(entry) === refKey(ref) && entry.status !== "current"), "invalid_synchronization_progress");
+    return !entries.some(entry => entry.id === ref.id && entry.status === "current");
+  }) : [];
+  const progress: ReassessmentProgress = {
+    parentOperationId: prior?.phase === "partial" ? prior.parentOperationId : request.operationId,
+    batchOperationIds: [...(prior?.phase === "partial" ? prior.batchOperationIds : []), request.operationId],
+    pendingRefs: inheritedRefs, completedIds: prior?.phase === "partial"
+      ? [...new Set([...prior.completedIds, ...prior.pendingRefs.filter(ref => !inheritedRefs.some(pending => pending.id === ref.id)).map(ref => ref.id)])]
+      : [], currentWorkReady: false,
+  };
+  check(new Set(progress.batchOperationIds).size === progress.batchOperationIds.length, "idempotency_conflict");
+  const affectedIds = [...new Set([...(prior?.phase === "partial" ? prior.affectedIds : []), ...catalogGroups.flatMap(group => original.catalog[group].filter(entry => entry.status === "current").map(entry => entry.id))])];
+  // A pure continuation has no newly invalid sources. Its existing coherent generation
+  // stays readable while the model works; the actual file transaction still fences reads.
+  const continuingSnapshot = prior?.phase === "partial" && inheritedRefs.length > 0 && request.fromRevision === request.toRevision;
+  let pending = canonicalJson({ schemaVersion: version, phase: continuingSnapshot ? "partial" : "pending", operationId: id, inputDigest: digest,
+    request, affectedIds, expectedGenerationId: request.expectedGenerationId, ...progress,
+    ...(continuingSnapshot ? { generationId: original.catalog.generationId, removedSourceIds: [], decisions: [] } : {}) });
   await validateSchema("source-synchronization", JSON.parse(pending));
-  const fenceHash = bytesVersion(pending);
+  let fenceHash = bytesVersion(pending);
   const assertTree = async (revision: string, allowed: string[] = []) => {
     await active();
     check((await git(ports.root, "rev-parse", "HEAD")).trim() === revision, "write_conflict");
@@ -126,6 +158,12 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
     block = { operationId: `${id}_block`, journalPath: blockJournal, files: [{ path: fencePath, before: previous, after: pending },
       { path: `${operations}/${id}.synchronize.json`, before: null, after: operation }] };
   }
+  const recordedFence = block.files[0]?.after;
+  if (recordedFence && record(Buffer.from(recordedFence)).schemaVersion === "stella.source-synchronization/v1") {
+    check(canonicalJson(await migrateSynchronizationState(record(Buffer.from(recordedFence)))) ===
+      canonicalJson(JSON.parse(pending)), "idempotency_conflict");
+    pending = recordedFence; fenceHash = bytesVersion(pending);
+  }
   check(block.files.length === 2 && block.files[1]?.path === `${operations}/${id}.synchronize.json` &&
     record(Buffer.from(block.files[1].after)).inputDigest === digest && block.files[0]?.path === fencePath && block.files[0].after === pending, "idempotency_conflict");
   // A completed final stage supersedes this operation's pending fence; do not restore it.
@@ -134,12 +172,16 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   check(blockRevision, "synchronization_block_missing");
   const readReceipt = async () => {
     const state = record(Buffer.from((await optionalFile(ports.root, fencePath)) ?? "null"));
-    check(state.phase === "completed" && state.inputDigest === digest && state.operationId === id &&
+    check(["completed", "partial"].includes(String(state.phase)) && state.inputDigest === digest && state.operationId === id &&
       typeof state.generationId === "string" && Array.isArray(state.affectedIds) && state.affectedIds.every(x => typeof x === "string") &&
       Array.isArray(state.removedSourceIds) && state.removedSourceIds.every(x => typeof x === "string"), "invalid_synchronization_state");
+    const normalized = await migrateSynchronizationState(state);
     const durability = await ports.durability.diagnostics();
     check(durability.criticalSynchronized && durability.localRevision === durability.synchronizedRevision, "critical_sync_failed");
-    return { operationId: request.operationId, fromRevision: request.fromRevision, resultingRevision: durability.localRevision,
+    return { phase: normalized.phase, parentOperationId: normalized.parentOperationId,
+      batchOperationIds: normalized.batchOperationIds, pendingIds: normalized.pendingRefs.map(ref => ref.id),
+      completedIds: normalized.completedIds, currentWorkReady: normalized.currentWorkReady,
+      operationId: request.operationId, fromRevision: request.fromRevision, resultingRevision: durability.localRevision,
       generationId: state.generationId, affectedIds: state.affectedIds as string[], removedSourceIds: state.removedSourceIds as string[],
       viewReceipts: [{ kind: "catalog", generationId: state.generationId }], durability };
   };
@@ -183,7 +225,13 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
     }
   }
   check(plan.catalog.views.length === 0, "required_view_adapter_unavailable");
-  const targets = original.catalog.understandings.concat(original.catalog.works).filter(entry => entry.status === "current" && plan.changed.has(refKey(entry)));
+  const allTargets = original.catalog.understandings.concat(original.catalog.works).filter(entry =>
+    entry.status === "current" && plan.changed.has(refKey(entry)) || inheritedRefs.some(ref => refKey(ref) === refKey(entry)));
+  const targets = allTargets.filter(entry => !request.targetIds || request.targetIds.includes(entry.id));
+  check(!request.targetIds || request.targetIds.every(id => targets.some(entry => entry.id === id)), "invalid_batch_target");
+  const pendingRefs = allTargets.filter(entry => !targets.includes(entry)).map(entry => ({ id: entry.id, version: entry.version }));
+  for (const ref of pendingRefs) check(!plan.catalog.understandings.concat(plan.catalog.works).some(entry => entry.id === ref.id && entry.status === "current"),
+    "pending_target_current");
   const snapshot = () => CatalogReader.synchronizationPreview(ports.root, ports.catalogPath, plan.catalog,
     plan.files.map(file => ({ path: file.path, bytes: file.after })), fenceHash);
   const reader = await snapshot();
@@ -250,6 +298,10 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
     return { ref: { id: ref.id, version: ref.version },
       group: original.catalog.works.some(entry => refKey(entry) === refKey(ref)) ? "works" : "understandings",
       kind: old.kind,
+      currentSourceRefs: [...new Map(evidence.map(item => {
+        const source = plan.objects.get(refKey(item.ref))!.source as VersionedRef;
+        return [refKey(source), source] as const;
+      })).values()],
       currentEvidenceRefs: evidence.filter(item => {
         const dependencies = new Set<string>();
         const visit = (ref: VersionedRef) => {
@@ -309,14 +361,29 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   plan.catalog.parentGenerationId = original.catalog.generationId;
   plan.catalog.generationId = `generation_${bytesVersion(canonicalJson({ digest, catalog: plan.catalog })).slice(7)}`;
   const preview = await snapshot();
-  await preparePersonalViews({ resolver: new EpisodeEvidenceResolver(preview, ports.purpose, ports.complete), requestId: id,
+  const personal = await preparePersonalViews({ resolver: new EpisodeEvidenceResolver(preview, ports.purpose, ports.complete), requestId: id,
     question: "Verify synchronized current understanding", ownerId: ports.ownerId, modelRef: ports.modelRef, audience: "owner_direct",
     selection: "all_authorized", processingAuthority: ports.processingAuthority, assertProcessingCurrent: active, complete: ports.complete });
+  let currentWorkReady = false;
+  if (request.currentWorkId) {
+    const workId = request.currentWorkId;
+    const work = personal.view.memory.find(item => item.group === "works" && item.ref.id === workId);
+    check(work, "current_work_not_ready");
+    // Scope is structured domain data, not a natural-language relevance heuristic.
+    check(!pendingRefs.some(ref => {
+      const object = original.objects.get(refKey(ref));
+      return ref.id === workId || isRecord(object?.scope) && Array.isArray(object.scope.workIds) && object.scope.workIds.includes(workId);
+    }), "current_work_reassessment_pending");
+    currentWorkReady = true;
+  }
   await assertCurrent();
-  const finished = canonicalJson({ schemaVersion: version, phase: "completed", operationId: id, inputDigest: digest,
-    request, generationId: plan.catalog.generationId, affectedIds: [...new Set(catalogGroups.flatMap(group => original.catalog[group].filter(entry => plan.changed.has(refKey(entry))).map(entry => entry.id)))],
+  const finished = canonicalJson({ schemaVersion: version, phase: pendingRefs.length ? "partial" : "completed", operationId: id, inputDigest: digest,
+    ...progress, pendingRefs, currentWorkReady,
+    completedIds: [...new Set([...progress.completedIds.filter(id => !allTargets.some(entry => entry.id === id)), ...targets.map(entry => entry.id)])],
+    request, generationId: plan.catalog.generationId, affectedIds: [...new Set([...(prior?.phase === "partial" ? prior.affectedIds : []), ...allTargets.map(entry => entry.id),
+      ...catalogGroups.flatMap(group => original.catalog[group].filter(entry => plan.changed.has(refKey(entry))).map(entry => entry.id))])],
     removedSourceIds: plan.removedSourceIds, decisions: proposal.decisions });
-  await validateSchema("source-synchronization", JSON.parse(finished));
+  await migrateSynchronizationState(JSON.parse(finished));
   const newFiles = [];
   for (const file of plan.files) {
     const existing = await optionalFile(ports.root, file.path);

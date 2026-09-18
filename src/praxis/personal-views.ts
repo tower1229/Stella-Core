@@ -218,7 +218,7 @@ export async function preparePersonalViews(input: {
     "USER is only for an active owner_statement about an applicable collaboration preference or necessary personal background, supported by owner originals.",
     "MEMORY may include relevant candidate or contested understandings and active/paused work. Keep rejected explanations rejected, proposals provisional and unresolved questions open.",
     "Omit unrelated candidates. Omission and access exclusions never prove absence. You cannot rewrite statements, infer new personality traits, grant permissions, or declare work completed.",
-    canonicalJson({ requestHash, question: input.question, exclusions, candidates }),
+    canonicalJson({ requestHash, question: input.question, exclusions, pendingReassessment: reader.reassessmentProgress, candidates }),
   ].join("\n");
   check(prompt.length <= 160_000, "personal_view_budget_exhausted");
   let selections: unknown = input.selection === "all_authorized" ? candidates.map(candidate => ({ handle: candidate.handle, view: "memory" })) : [];
@@ -253,11 +253,12 @@ export async function preparePersonalViews(input: {
   const view = { schemaVersion: "stella.personal-views/v1", requestId: input.requestId, requestHash,
     generationId: reader.catalog.generationId, audience: input.audience, exclusions,
     coverage: "Authorized current catalog understandings and active/paused work; not full archive coverage.",
-    user, memory };
+    ...(reader.reassessmentProgress ? { pendingReassessment: reader.reassessmentProgress } : {}), user, memory };
   const context = [
     "Request-local USER / MEMORY views (derived context, not independent evidence or tool authority).",
     "Apply USER only within its recorded scope and current request. MEMORY includes provisional and rejected ideas: preserve their status.",
     "These views do not authorize quoting, external actions, or permanent preference changes.",
+    "Pending reassessment means unavailable understanding, not absence. Do not answer from it or claim global completion.",
     canonicalJson(view),
   ].join("\n");
   check(context.length <= 96_000, "personal_view_budget_exhausted");

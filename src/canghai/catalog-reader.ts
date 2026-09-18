@@ -6,6 +6,7 @@ import { isRecord } from "../shared/type-guards.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { assertMemoryTransactionReadable } from "./memory-transaction.js";
+import { migrateSynchronizationState, type SynchronizationState } from "./synchronization-state.js";
 
 const run = promisify(execFile);
 const groups = ["sources", "evidence", "policies", "understandings", "works", "changes", "bundles", "coverage"] as const;
@@ -74,6 +75,7 @@ export async function readRepositoryBytes(root: string, relativePath: string): P
 
 /** Reads a fixed catalog snapshot; it never treats older Git content as current evidence. */
 export class CatalogReader {
+  #reassessment: SynchronizationState | null = null;
   readonly #plannedObjects = new Map<string, Buffer>();
   readonly #entries = new Map<string, { group: CatalogGroup; entry: CatalogEntry }>();
   private constructor(readonly root: string, readonly catalogPath: string, readonly catalog: MemoryCatalog, readonly catalogHash: string, private readonly synchronizationHash?: string) {
@@ -82,7 +84,14 @@ export class CatalogReader {
   static async load(root: string, catalogPath: string): Promise<CatalogReader> {
     try {
       const bytes = await readRepositoryBytes(path.resolve(root), catalogPath);
-      return new CatalogReader(path.resolve(root), safeRelative(catalogPath), parseMemoryCatalog(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))), bytesVersion(bytes));
+      const reader = new CatalogReader(path.resolve(root), safeRelative(catalogPath), parseMemoryCatalog(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))), bytesVersion(bytes));
+      try {
+        const state = await readRepositoryBytes(root, ".stella-source-synchronization.json");
+        reader.#reassessment = await migrateSynchronizationState(JSON.parse(state.toString("utf8")));
+      } catch (error) {
+        if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+      }
+      return reader;
     } catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("catalog_unavailable"); }
   }
   /** Synchronization-only snapshot. The exact durable fence and live catalog remain bound on every read. */
@@ -100,6 +109,9 @@ export class CatalogReader {
   }
   async assertCurrent(): Promise<void> {
     await assertMemoryTransactionReadable(this.root, this.synchronizationHash);
+    if (!this.synchronizationHash && this.#reassessment?.phase === "partial") {
+      for (const ref of this.#reassessment.pendingRefs) requireCondition(this.entry(ref).status === "superseded", "invalid_synchronization_progress");
+    }
     try { requireCondition(bytesVersion(await readRepositoryBytes(this.root, this.catalogPath)) === this.catalogHash, "stale_generation"); }
     catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("catalog_unavailable"); }
   }
@@ -140,8 +152,16 @@ export class CatalogReader {
   }
   currentRef(id: string, group: CatalogGroup): VersionedRef {
     const entry = this.catalog[group].find((item) => item.id === id && item.status === "current");
+    if (!entry && this.reassessmentProgress?.pendingIds.includes(id)) throw new CatalogError("reassessment_pending");
     requireCondition(entry, "reference_unavailable");
     return { id: entry.id, version: entry.version };
+  }
+  get reassessmentProgress(): { parentOperationId: string; pendingIds: string[] } | null {
+    const state = this.#reassessment;
+    if (state?.phase !== "partial") return null;
+    const pendingIds = state.pendingRefs.filter(ref => ![...this.catalog.works, ...this.catalog.understandings]
+      .some(entry => entry.id === ref.id && entry.status === "current")).map(ref => ref.id);
+    return pendingIds.length ? { parentOperationId: state.parentOperationId, pendingIds } : null;
   }
   eligible(ref: VersionedRef, seen = new Set<string>()): boolean {
     const entry = this.entry(ref);
@@ -153,6 +173,7 @@ export class CatalogReader {
   async read(ref: VersionedRef, group?: CatalogGroup, mode: "current" | "historical" = "current"): Promise<Record<string, unknown>> {
     await this.assertCurrent();
     const entry = this.entry(ref, group);
+    if (mode === "current" && this.reassessmentProgress?.pendingIds.includes(ref.id)) throw new CatalogError("reassessment_pending");
     requireCondition(entry.status !== "removed", "source_removed");
     if (mode === "current") requireCondition(this.eligible(ref), "evidence_not_currently_eligible");
     try {

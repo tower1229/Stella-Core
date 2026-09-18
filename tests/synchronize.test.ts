@@ -300,3 +300,192 @@ test("policy formatting followed by repeated content restoration retains live au
     assert.deepEqual((await reader.read(reader.currentRef("policy", "policies"))).readPurposes, index % 2 === 0 ? [] : ["retrieve"]);
   }
 });
+
+async function stagedSetup(t: Parameters<typeof personalMemoryFixture>[0]) {
+  const s = await setup(t);
+  const other = await s.f.put("works", { ...s.f.work, id: "other_work" }, [s.f.source, s.f.evidence]);
+  await s.f.save(); await s.git("add", "."); await s.git("commit", "--quiet", "-m", "second affected work");
+  const fromRevision = await s.git("rev-parse", "HEAD");
+  await writeFile(path.join(s.f.root, "payload.json"), JSON.stringify({ report: "继续核对问题，保留作者原意。" }));
+  await s.git("add", "payload.json"); await s.git("commit", "--quiet", "-m", "revise shared source");
+  const request = { ...await s.request(), fromRevision, targetIds: ["understanding", "work"], currentWorkId: "work" };
+  const verify = s.ports.complete;
+  s.ports.complete = async args => {
+    const data = JSON.parse(args.prompt.split("\n").at(-1)!);
+    if (data.proposalHash) return verify(args);
+    return { provider: "synthetic", model: "model", text: JSON.stringify({ bindingHash: data.bindingHash,
+      rationale: "Continue the corrected work with independently supported premises.",
+      decisions: data.targets.map((target: { ref: unknown; group: string; currentSourceRefs: unknown[] }) => ({ ref: target.ref, disposition: "replace",
+        record: target.group === "understandings" ? { schemaVersion: "stella.understanding/v1", status: "contested",
+          statement: "继续核对问题。", supportRefs: [data.evidence[0].ref], counterRefs: [], dependencyRefs: [] }
+          : { schemaVersion: "stella.ongoing-work/v1", status: "active", goal: "继续核对问题", sourceRefs: target.currentSourceRefs,
+            confirmedPremises: [{ id: "p", text: "保留作者原意", evidenceRefs: [data.evidence[0].ref], acceptance: "confirmed" }],
+            candidateIdeas: [], rejectedInterpretations: [], openQuestions: [], nextStep: null } })) }) };
+  };
+  return { ...s, request, other };
+}
+
+test("a coherent batch keeps corrected work readable while other affected work is durably pending", async t => {
+  const { f, ports, request, other, git } = await stagedSetup(t);
+  const receipt = await synchronize(request, ports);
+  assert.partialDeepStrictEqual(receipt, { phase: "partial", currentWorkReady: true, pendingIds: ["other_work"] });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal((await reader.read(reader.currentRef("work", "works"))).goal, "继续核对问题");
+  await assert.rejects(reader.read(other), /reassessment_pending/);
+  assert.equal(await git("status", "--porcelain"), "");
+});
+
+test("restart resumes the remaining batch and replay does not create another learning change", async t => {
+  const { f, ports, request, git, restart } = await stagedSetup(t);
+  const first = await synchronize(request, ports);
+  const revision = await git("rev-parse", "HEAD");
+  const next = { operationId: "second_batch", fromRevision: revision, toRevision: revision, expectedGenerationId: first.generationId };
+  const result = await synchronize(next, { ...ports, durability: restart() });
+  assert.partialDeepStrictEqual(result, { phase: "completed", parentOperationId: "sync_test",
+    batchOperationIds: ["sync_test", "second_batch"], pendingIds: [], completedIds: ["understanding", "work", "other_work"] });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal((await reader.read(reader.currentRef("other_work", "works"))).goal, "继续核对问题");
+  const replay = await synchronize(next, { ...ports, durability: restart(), complete: async () => { throw new Error("must not relearn"); } });
+  assert.deepEqual(replay, result);
+  assert.equal(await git("rev-parse", "HEAD"), result.resultingRevision);
+  assert.equal(reader.catalog.changes.filter(entry => entry.status === "current").length, 2);
+});
+
+test("request views and retrieve expose pending reassessment instead of treating omitted work as absent", async t => {
+  const { f, ports, request } = await stagedSetup(t);
+  const first = await synchronize(request, ports);
+  const { preparePersonalViews } = await import("../src/praxis/personal-views.js");
+  const resolver = await f.resolver();
+  const personal = await preparePersonalViews({ resolver, requestId: "next_turn", question: "继续当前文章",
+    ownerId: "owner", modelRef: ports.modelRef, audience: "owner_direct", selection: "all_authorized",
+    processingAuthority: ports.processingAuthority, assertProcessingCurrent: ports.assertProcessingCurrent, complete: ports.complete });
+  assert.partialDeepStrictEqual(personal.view, { pendingReassessment: { parentOperationId: "sync_test", pendingIds: ["other_work"] } });
+  const { retrieve } = await import("../src/canghai/retrieve.js");
+  const result = await retrieve({ requestId: "next_turn", question: "继续当前文章", revision: first.resultingRevision,
+    generationId: first.generationId, temporalScope: "current", purpose: resolver.purpose,
+    requiredCapabilities: ["semantic_retrieval"], resourceBudget: { config: { schemaVersion: "stella.semantic-retrieval/v1",
+      pageSize: 16, maxRounds: 2, maxSelected: 4, maxOriginalChars: 96000 } }, resolver, descriptors: [{ sourceRef: resolver.reader.currentRef("source", "sources"),
+      policyRef: resolver.reader.currentRef("policy", "policies"), description: "当前文章材料" }], ownerId: "owner",
+    modelRef: ports.modelRef, assertProcessingCurrent: ports.assertProcessingCurrent, complete: async ({ prompt }) => {
+      const data = JSON.parse(prompt.split("\n").at(-1)!);
+      return { provider: "synthetic", model: "model", text: JSON.stringify(data.candidates ? { selected: ["E1"] }
+        : { stopped: true, nextIntents: [], reason: "Current original read; other work is still pending." }) };
+    } });
+  assert.equal(result.status, "complete");
+  assert.partialDeepStrictEqual(result, { pendingReassessment: { parentOperationId: "sync_test", pendingIds: ["other_work"] } });
+});
+
+test("a newer source revision reopens completed dependencies without dropping an older pending work", async t => {
+  const { f, ports, request, git, restart } = await stagedSetup(t);
+  const first = await synchronize(request, ports);
+  const fromRevision = await git("rev-parse", "HEAD");
+  await writeFile(path.join(f.root, "payload.json"), JSON.stringify({ report: "主人最新纠正：继续追问论证。" }));
+  await git("add", "payload.json"); await git("commit", "--quiet", "-m", "newer correction between batches"); await git("push", "origin", "main");
+  const next = { operationId: "new_revision_batch", fromRevision, toRevision: await git("rev-parse", "HEAD"),
+    expectedGenerationId: first.generationId, targetIds: ["other_work"] };
+  const second = await synchronize(next, { ...ports, durability: restart(), complete: async args => {
+    if (args.prompt.startsWith("Reevaluate")) assert.match(args.prompt, /主人最新纠正/);
+    return ports.complete(args);
+  } });
+  assert.partialDeepStrictEqual(second, { phase: "partial", parentOperationId: "sync_test", pendingIds: ["understanding", "work"], completedIds: ["other_work"] });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.throws(() => reader.currentRef("work", "works"), /reassessment_pending/);
+  assert.equal((await reader.read(reader.currentRef("other_work", "works"))).goal, "继续核对问题");
+  const revision = await git("rev-parse", "HEAD");
+  const last = await synchronize({ operationId: "last_batch", fromRevision: revision, toRevision: revision,
+    expectedGenerationId: second.generationId }, { ...ports, durability: restart() });
+  assert.partialDeepStrictEqual(last, { phase: "completed", pendingIds: [] });
+});
+
+test("partial generation critical push failure fences reads and restart reuses approved learning", async t => {
+  const { f, ports, request, git, restart } = await stagedSetup(t);
+  let pushes = 0;
+  const durability = new GitCangHaiDurability({ root: f.root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
+    normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0, onStage: stage => {
+      if (stage === "synchronize" && ++pushes === 2) throw new Error("injected partial push failure");
+    } });
+  await assert.rejects(synchronize(request, { ...ports, durability }), /synchronization failed/);
+  await assert.rejects((await CatalogReader.load(f.root, "catalog.json")).read(f.workRef), /memory_transaction_pending/);
+  const result = await synchronize(request, { ...ports, durability: restart(), complete: async () => { throw new Error("must reuse approved batch"); } });
+  assert.partialDeepStrictEqual(result, { phase: "partial", currentWorkReady: true, pendingIds: ["other_work"] });
+  assert.equal(await git("status", "--porcelain"), "");
+});
+
+test("a current work cannot be declared ready while its scoped understanding is still pending", async t => {
+  const { ports, request, f } = await stagedSetup(t);
+  await assert.rejects(synchronize({ ...request, targetIds: ["work"] }, ports), /current_work_reassessment_pending/);
+  await assert.rejects((await CatalogReader.load(f.root, "catalog.json")).read(f.workRef), /source_synchronization_pending/);
+});
+
+test("legacy v1 pending state stays fenced and is explicitly migrated by a new synchronization", async t => {
+  const { f, ports, request, git } = await setup(t);
+  await rm(path.join(f.root, "payload.json")); await git("add", "-u"); await git("commit", "--quiet", "-m", "legacy source deletion");
+  const input = await request();
+  await writeFile(path.join(f.root, ".stella-source-synchronization.json"), JSON.stringify({
+    schemaVersion: "stella.source-synchronization/v1", phase: "pending", operationId: `sync_${"a".repeat(64)}`,
+    inputDigest: `sha256:${"b".repeat(64)}`, request: { ...input, operationId: "legacy_operation" },
+    affectedIds: ["work", "understanding"], expectedGenerationId: "one" }));
+  await git("add", ".stella-source-synchronization.json"); await git("commit", "--quiet", "-m", "legacy pending fence"); await git("push", "origin", "main");
+  await assert.rejects((await CatalogReader.load(f.root, "catalog.json")).read(f.workRef), /source_synchronization_pending/);
+  const result = await synchronize({ ...input, toRevision: await git("rev-parse", "HEAD") }, ports);
+  assert.equal(result.phase, "completed");
+  assert.equal(JSON.parse(await readFile(path.join(f.root, ".stella-source-synchronization.json"), "utf8")).schemaVersion,
+    "stella.source-synchronization/v2");
+});
+
+test("invalid persisted partial progress cannot authorize ordinary reads", async t => {
+  const { f, ports, request } = await stagedSetup(t);
+  await synchronize(request, ports);
+  const file = path.join(f.root, ".stella-source-synchronization.json");
+  const state = JSON.parse(await readFile(file, "utf8"));
+  state.completedIds.push("other_work");
+  await writeFile(file, JSON.stringify(state));
+  await assert.rejects(CatalogReader.load(f.root, "catalog.json"), /catalog_unavailable/);
+});
+
+test("background reassessment interruption does not block an already corrected work", async t => {
+  const { f, ports, request, git, restart } = await stagedSetup(t);
+  const first = await synchronize(request, ports);
+  const revision = await git("rev-parse", "HEAD");
+  const next = { operationId: "background_batch", fromRevision: revision, toRevision: revision, expectedGenerationId: first.generationId };
+  let observed = false;
+  await assert.rejects(synchronize(next, { ...ports, durability: restart(), complete: async () => {
+    const reader = await CatalogReader.load(f.root, "catalog.json");
+    assert.equal((await reader.read(reader.currentRef("work", "works"))).goal, "继续核对问题");
+    observed = true;
+    throw new Error("interrupted background model");
+  } }), /synchronization_model_failed/);
+  assert.equal(observed, true);
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal((await reader.read(reader.currentRef("work", "works"))).goal, "继续核对问题");
+  await assert.rejects(reader.read(f.workRef), /evidence_not_currently_eligible/);
+  const result = await synchronize(next, { ...ports, durability: restart() });
+  assert.equal(result.phase, "completed");
+});
+
+test("a later persisted correction resolves a pending identity without being learned or overwritten again", async t => {
+  const { f, ports, request, git, restart, other } = await stagedSetup(t);
+  const first = await synchronize(request, ports);
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  Object.assign(f.catalog, reader.catalog);
+  const work = await reader.read(reader.currentRef("work", "works"));
+  const { version: _version, ...body } = work;
+  const correction = await f.put("works", { ...body, id: "other_work", goal: "主人更晚的已保存纠正", lastAppliedChangeId: "later_change" },
+    reader.entry(reader.currentRef("work", "works")).dependencies);
+  const evidenceRef = reader.currentRef("evidence", "evidence");
+  await f.put("changes", { schemaVersion: "stella.learning-change/v1", id: "later_change", operationId: "later_correction",
+    algorithmVersion: "synthetic", modelRef: ports.modelRef, promptVersion: "one", inputRefs: [evidenceRef], targetRefs: [correction],
+    changes: [{ kind: "revise", before: other,
+      after: correction, supportRefs: [evidenceRef], counterRefs: [] }], disposition: "update", rationale: "A later persisted owner correction." }, [evidenceRef, correction]);
+  f.catalog.parentGenerationId = first.generationId;
+  f.catalog.generationId = "later_owner_correction";
+  await f.save(); await git("add", "."); await git("commit", "--quiet", "-m", "later authoritative correction"); await git("push", "origin", "main");
+  const revision = await git("rev-parse", "HEAD");
+  const result = await synchronize({ operationId: "reconcile_later_correction", fromRevision: revision, toRevision: revision,
+    expectedGenerationId: "later_owner_correction" }, { ...ports, durability: restart(), complete: async () => { throw new Error("do not relearn a newer correction"); } });
+  assert.partialDeepStrictEqual(result, { phase: "completed", completedIds: ["understanding", "work", "other_work"], pendingIds: [] });
+  assert.deepEqual((await CatalogReader.load(f.root, "catalog.json")).currentRef("other_work", "works"), correction);
+  const head = await git("rev-parse", "HEAD");
+  await assert.rejects(synchronize(request, { ...ports, durability: restart() }), /write_conflict/);
+  assert.equal(await git("rev-parse", "HEAD"), head);
+});

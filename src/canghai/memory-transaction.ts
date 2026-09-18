@@ -4,8 +4,8 @@ import { lstat, mkdir, open, readFile, realpath, rename, unlink } from "node:fs/
 import path from "node:path";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin-sdk/file-lock";
-import { validateSchema } from "./schema.js";
 import { isRecord } from "../shared/type-guards.js";
+import { migrateSynchronizationState } from "./synchronization-state.js";
 
 const markerName = ".stella-memory-transaction.json";
 // OpenClaw can reload the plugin registration when its recovery pointer changes.
@@ -50,9 +50,9 @@ export async function assertMemoryTransactionReadable(root: string, synchronizat
   if (synchronization !== null) {
     let state: unknown;
     try { state = JSON.parse(synchronization); } catch { throw new MemoryTransactionError("invalid_synchronization_state"); }
-    try { await validateSchema("source-synchronization", state); }
+    try { state = await migrateSynchronizationState(state); }
     catch { throw new MemoryTransactionError("invalid_synchronization_state"); }
-    check(isRecord(state) && state.phase === "completed" || synchronizationHash === bytesVersion(synchronization), "source_synchronization_pending");
+    check(isRecord(state) && ["completed", "partial"].includes(String(state.phase)) || synchronizationHash === bytesVersion(synchronization), "source_synchronization_pending");
   }
   const pending = await text(path.join(resolved, markerName));
   if (pending === null) return;

@@ -497,3 +497,13 @@ Source 和 Policy 保留稳定 ID 及历史语义版本；唯一的完全相同�
 重启复用已批准的事务，不重跑已记录的语义重评；critical commit／pointer／push 失败保持读取屏障。并发未提交文件或提交变化返回 write_conflict，不暂存主人编辑。尚未进入最终发布事务的 pending 操作可由新 operationId 接管：fromRevision 与原待同步基线相同、expectedGenerationId 相同、toRevision 为已提交的最新后继；旧屏障保留至新操作发布，不重新启用旧理解。目标提交需满足已有 durability 的显式远端协调要求。回退到已封存的相同内容可复用该版本，不能重复建立对象身份。
 
 本实现仍使用现有适配器边界：改变 v2 分段原文而未重新审定片段权限时返回 source_segment_reassessment_required；新增二进制媒体缺少证据适配器时返回 source_evidence_adapter_required；非空声明 views 尚无对应重建适配器时返回 required_view_adapter_unavailable。上述路径保持 pending，不能称同步完成。Host 全部摘要治理、分批重评、真实 main 和自然反馈分别由后续工作验收；本票测试仅提供 synchronize／当前读取／历史校验及本地合成远端故障的契约证据，不能覆盖 G-07、M-10、M-11、C-08 整组或证明真实模型质量。
+
+2026-09-18 分批重评入口（Issue #22／T16）：`synchronize` 保留原整批调用，新增可选 `targetIds`（调用方已选定的确切对象 ID）和 `currentWorkId`。自然语言选择仍由调用方结构化 LLM 完成；同步模型只重评本批 targets，并独立复核。未选择的受影响 Understanding／Ongoing Work 保留原版本且状态为 superseded，依赖闭包中的旧 Change／Bundle 同样不可用。每批仍使用 critical MemoryTransaction 原子发布，required view 缺少适配器继续失败。
+
+`stella.source-synchronization/v2` 在原屏障路径持久保存 `parentOperationId`、有序 `batchOperationIds`、带版本的 `pendingRefs`、`completedIds`、完整累计 `affectedIds` 和 `currentWorkReady`；phase 为 pending／partial／completed。pending 是含新来源变更批次发布前的读取屏障，partial 是可读的自洽中间代，completed 要求 pendingRefs 为空。基于相同 revision 的续批保持 partial，语义计算及其失败不封锁已就绪事项；实际文件发布事务期间仍阻断读取。Schema 与运行校验拒绝重复待评身份、完成／待评重叠及范围外对象。v1 通过显式解码迁移保留原 phase 和读取屏障，旧事务按原始字节及 digest 重放；新发布统一写 v2，不推断旧状态含有分批进度。
+
+续批使用新 operationId，以已发布代际对应 revision 为 fromRevision、最新已提交后继为 toRevision、已发布 generation 为 expectedGenerationId；无来源变化时两个 revision 可相同。同 operationId 只恢复或重放该批事务，不启动下一批；后续批次沿用父操作。并发来源修改重开受影响已完成对象，同时保留尚未重评的旧目标；明确的新理解版本优先于旧待评版本，不将旧目标覆盖回去。未完成批次发生并发提交时，沿用 T15 接管规则：新 operationId、相同 fromRevision／expectedGenerationId、最新 toRevision。返回 phase、pendingIds、completedIds、currentWorkReady 及持久化结果，当前事项就绪不代表全局完成。
+
+公开 CatalogReader 对待评对象报告 reassessment_pending；retrieve 和 request-local USER／MEMORY 视图携带 pendingReassessment，公共诊断只输出待评数量。中间代可继续读取原始证据及有效事项，待评理解不被当作不存在。currentWorkReady 仅在该事项通过当前依赖／权限／个人视图校验且没有未完成的事项专属 scoped understanding 时成立；它不代替 Host 对具体回答输入和投递前的最终复核。后台调度、全部 Host 摘要治理和私人 main 激活不由本入口自动启用。
+
+`tests/synchronize.test.ts` 覆盖中间发布、请求视图、原文 retrieve、跨批重启及幂等、批间新来源版本、critical push 中断、当前事项依赖待评拒绝、v1 迁移和进度损坏拒绝。证据属于 synthetic_contract（临时 Git 仓库及本地合成远端、注入模型），不签发 G-05／G-06／C-08／M-11 整组、真实模型、真实 main 或自然反馈验收。

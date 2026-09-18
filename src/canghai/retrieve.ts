@@ -36,17 +36,22 @@ export type PublicRetrieveReport = {
   requestId: string;
   generationId: string;
   category?: string;
+  pendingReassessmentCount?: number;
   selectedCount?: number;
   roundsCompleted?: number;
   pagesReviewed?: number;
 };
 type Coverage = Extract<RetrieveCatalogResult, { status: "complete" }>["coverage"];
-export type RetrieveResult =
+type RetrievalOutcome =
   | { status: "complete"; refs: VersionedRef[]; exclusions: SourceAccessExclusions; coverage: Coverage; requestId: string; generationId: string }
   | { status: "resource_exhausted"; checkpoint: RetrievalCheckpoint; refs: VersionedRef[]; exclusions: SourceAccessExclusions; coverage: Coverage; requestId: string; generationId: string }
   | { status: "coverage_gap"; requestId: string; generationId: string; refs: []; exclusions: SourceAccessExclusions }
   | { status: "not_ready"; category: "index_not_ready"; requestId: string; generationId: string }
   | { status: "fault"; category: "source_unavailable" | "generation_mismatch" | "invalid_retrieve_input"; requestId: string; generationId: string };
+
+export type RetrieveResult = RetrievalOutcome & {
+  pendingReassessment?: { parentOperationId: string; pendingIds: string[] };
+};
 
 const check: (value: unknown, category: string) => asserts value = (value, category) => {
   if (!value) throw new CatalogError(category);
@@ -127,6 +132,7 @@ export function toPublicRetrieveReport(result: RetrieveResult): PublicRetrieveRe
     status: result.status,
     requestId: result.requestId,
     generationId: result.generationId,
+    ...(result.pendingReassessment ? { pendingReassessmentCount: result.pendingReassessment.pendingIds.length } : {}),
   };
   if (result.status === "complete") {
     return { ...base, selectedCount: result.refs.length, roundsCompleted: result.coverage.rounds, pagesReviewed: result.coverage.pagesReviewed };
@@ -159,6 +165,12 @@ type RetrieveWiring = {
 
 /** Public retrieve seam: temporal scope, failure classes, and continuable budget exhaustion. */
 export async function retrieve(input: RetrieveWiring): Promise<RetrieveResult> {
+  const result = await retrieveCurrentEvidence(input);
+  const pendingReassessment = input.resolver.reader.reassessmentProgress;
+  return pendingReassessment ? { ...result, pendingReassessment } : result;
+}
+
+async function retrieveCurrentEvidence(input: RetrieveWiring): Promise<RetrievalOutcome> {
   check(input.requestId.trim() && input.question.trim() && /^[a-f0-9]{40}$/.test(input.revision), "invalid_retrieve_input");
   check(input.generationId === input.resolver.reader.catalog.generationId, "generation_mismatch");
   check(input.requiredCapabilities.includes("semantic_retrieval"), "invalid_retrieve_input");
