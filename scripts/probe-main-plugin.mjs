@@ -676,8 +676,16 @@ try {
       : message.content.map((part) => part.type === "text" ? part.text : "").join("\n");
     assert.equal(replayUsers.filter((message) => messageText(message) === submission.message).length, 1);
     const notices = replayUsers.filter((message) => messageText(message) !== submission.message);
-    for (const notice of notices) assert.equal(messageText(notice),
-      "Your message could not be sent: Stella Core 需要经过可验证的完成协调入口，已停止本轮请求。 (blocked by stella-core)");
+    // The terminal above proves persistent replay admission. Host transcript
+    // notices come from independent guards and do not replace that proof.
+    const noticeKinds = notices.map((notice) => {
+      const text = messageText(notice);
+      if (text === "Your message could not be sent: Stella Core 需要经过可验证的完成协调入口，已停止本轮请求。 (blocked by stella-core)") return "completion_gate";
+      assert.equal(text, "Your message could not be sent: Stella 初始化尚未完成或运行文件已变化；请执行 /stella-initialize。 (blocked by stella-core)");
+      assert.ok(gateway.diagnostics().includes("Stella initialization admission blocked (initialization_pending)"),
+        "An initialization notice requires its actual gate diagnostic");
+      return "initialization_gate";
+    });
     assert.ok(notices.length <= 1, "Host must not multiply rejection notices");
     assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), beforeReplayRevision);
     assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
@@ -686,7 +694,7 @@ try {
     assert.equal(providerRequests, 1);
     admissionReplay = { hostRestarted: true, sameRunRejectedBeforeModel: true,
       rejectionLayer: coreAdmissionRejected ? "core_persistent_admission" : "host_session_state",
-      duplicateUserMessages: 0, hostRejectionNotices: notices.length, duplicateFinals: 0,
+      duplicateUserMessages: 0, hostRejectionNotices: notices.length, hostRejectionNoticeKinds: noticeKinds, duplicateFinals: 0,
       businessRevisionUnchanged: true };
   }
   let liveEvidence;
