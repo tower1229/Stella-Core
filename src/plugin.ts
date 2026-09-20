@@ -35,7 +35,7 @@ import {
   persistenceStatusFromDiagnostics,
   resolveManagedDurabilityBinding,
 } from "./canghai/managed-durable-write.js";
-import { parseRuntimeProfile } from "./canghai/runtime-profile.js";
+import { parseRuntimeProfile, RuntimeProfileError } from "./canghai/runtime-profile.js";
 import { parse as parseYaml } from "yaml";
 import {
   buildPraxisContextPacket,
@@ -532,13 +532,24 @@ export default definePluginEntry({
         return process.platform === "win32" ? root.toLowerCase() : root;
       },
       async prepareInput({ runId, abortSignal }) {
-        if (config.dataMode !== "managed_durable_write") return;
         await runCompletionPreparation(runId, async () => {
           const request = readCompletionRequest(runId, config.agentId);
           const audience = resolveTurnAudience(request);
-          assertPrivateContextAudience(audience);
-          const loaded = await consciousness.load();
-          await assertHostMemoryProfile(loaded);
+          // Host replay and compaction can precede before_agent_run. Reject an
+          // unsupported audience/profile before entering that executor in any mode.
+          let loaded: LoadedConsciousness;
+          try {
+            assertPrivateContextAudience(audience);
+            loaded = await consciousness.load();
+            await assertHostMemoryProfile(loaded);
+          } catch (error) {
+            throw new CompletionError(
+              error instanceof CatalogError || error instanceof ConsciousnessLoadError || error instanceof RuntimeProfileError
+                ? error.category : "host_memory_preflight_failed",
+              "prepare",
+            );
+          }
+          if (config.dataMode !== "managed_durable_write") return;
           const binding = await loadPraxisRuntimeBinding(loaded);
           if (!binding.personalContextAccessPath) return;
           const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);

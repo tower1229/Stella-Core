@@ -1,7 +1,7 @@
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { cp, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, writeFile, access } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -63,7 +63,16 @@ await writeFile(path.join(plugin, "package.json"), JSON.stringify({
 await writeFile(path.join(plugin, "openclaw.plugin.json"), await readFile(path.join(packageRoot, "openclaw.plugin.json")));
 await writeFile(path.join(plugin, "index.mjs"), `
 import main from ${JSON.stringify(buildModule("src/plugin.js"))};
-export default main;
+import { writeFile } from "node:fs/promises";
+export default { ...main, register(api) {
+  const original = api.runtime.agent.runEmbeddedAgent.bind(api.runtime.agent);
+  main.register({ ...api, runtime: { ...api.runtime, agent: { ...api.runtime.agent,
+    async runEmbeddedAgent(...args) {
+      await writeFile(${JSON.stringify(path.join(temp, "host-executor-entered"))}, "entered");
+      return original(...args);
+    },
+  } } });
+} };
 `);
 
 let modelCalls = 0;
@@ -160,6 +169,19 @@ try {
   assert.ok(!publicJson.includes("/Users/"));
   assert.ok(!/[\u4e00-\u9fff]{8,}/.test(publicJson));
 
+  const blockedTurns = [];
+  for (const [phase, session] of [["first_turn", "main"], ["same_session_next_turn", "main"], ["fresh_session", "fresh"], ["after_session_reset", "main"]]) {
+    if (phase === "after_session_reset") await admin.request("sessions.reset", { key: "agent:probe:main", reason: "new" });
+    const sent = await admin.request("chat.send", {
+      sessionKey: `agent:probe:${session}`, message: "Synthetic full-memory request", idempotencyKey: `host-memory-${phase}`,
+    });
+    const terminal = await admin.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 });
+    assert.equal(terminal.status, "error", JSON.stringify(terminal));
+    assert.match(terminal.error ?? "", /host_memory_consumption_unverifiable/);
+    blockedTurns.push(phase);
+  }
+  await assert.rejects(access(path.join(temp, "host-executor-entered")), { code: "ENOENT" });
+
   const invalidated = await admin.request("stella.initialize", {
     action: "invalidate-capability", receiptId: accepted.receipt.id,
   });
@@ -182,6 +204,7 @@ try {
     invalidated: true,
     visitorDenied: true,
     hostMemoryConsumption: "blocked_unverifiable",
+    blockedBeforeHostExecutor: blockedTurns,
     modelCalls,
   };
   await writeFile(path.join(temp, "capability-acceptance-probe.json"), JSON.stringify(report, null, 2));

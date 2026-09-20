@@ -271,7 +271,7 @@ type EvidenceBundle = {
 
 #### 2026-09-18 T17 消费门禁及剩余 Host 缺口
 
-Core 在 `before_agent_run` 实际准入时重新检查准备时绑定的请求、模型、Memory Generation、同步 fence 和适用个人视图。准备完成不再自动获得准入；失败锁定本次运行，不因重试准入而恢复旧上下文。
+Core 在 `reply_dispatch` 内、进入 Host 执行器之前，对三种数据模式统一检查受众和完整 profile；不能等到 Host 可能已处理历史或压缩后才拒绝。Core 在 `before_agent_run` 实际准入时重新检查准备时绑定的请求、模型、Memory Generation、同步 fence 和适用个人视图。准备完成不再自动获得准入；失败锁定本次运行，不因重试准入而恢复旧上下文。
 
 固定 OpenClaw `2026.8.2` 的入口核查如下。此表是适配缺口清单，不是 Host 全入口验收收据：
 
@@ -287,7 +287,7 @@ Core 在 `before_agent_run` 实际准入时重新检查准备时绑定的请求�
 
 因此 `full_memory` 独立保留 `host_memory_consumption_unverifiable`，初始化 runtime 状态、已有初始化状态复核及业务准备均不得将其消除。能力收据、空会话、新会话、重启和 `/new` 都不能作为清除此阻塞的依据。不得删除旧会话、关闭记忆或清空历史后宣称语义等价成功，也不得降为 Alpha 来通过完整验收。Alpha 未新增此完整 profile 门禁，不代表其 Host 原生入口已满足完整记忆契约。
 
-单元测试仅证明上述消费准入检查和拒绝未验证完整 profile；固定 Host capability 探针仅证明初始化 runtime 阻塞在有效 bootstrap 收据签发后仍保留且不调用模型。它们不证明真实 main、`/new`、重启、Active Memory、Dreaming 的成功消费或自然反馈。T17／Issue #23 仍需可信的 Host 逐入口清单、最终消费适配器，以及各生命周期和受众的真实执行证据；`source_access_context` 的最终消费验收仍未关闭。
+单元测试覆盖公开 `reply_dispatch` 的三种数据模式和七种受众组合，证明在 Host 执行前拒绝未验证完整 profile 或禁用受众。固定 Host capability 探针验证有效 bootstrap 收据不能清除此阻塞，并实际执行首次聊天、同会话下一轮、新会话和 `sessions.reset(reason: new)` 后聊天，证明这些请求不进入 Host 执行器且没有模型请求；该 reset RPC 不等于 `/new` 命令端到端验收。它们不证明真实 main、旧业务会话、`/new`、重启、Active Memory、Dreaming 的成功消费或自然反馈。T17／Issue #23 仍需可信的 Host 逐入口清单、最终消费适配器，以及各生命周期和受众的真实执行证据；`source_access_context` 的最终消费验收仍未关闭。SDK 的 provider `wrapStreamFn`／`wrapSimpleCompletionStreamFn` 和 context engine `assemble`／`compact` 是待验证的公开扩展点；现有 hooks 的不足不等于已经证明这些扩展点无法实现合同。
 
 ## 4. 交互学习
 

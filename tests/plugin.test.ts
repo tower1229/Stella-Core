@@ -3,7 +3,7 @@ import type { MemoryCatalog, CatalogGroup } from "../src/canghai/catalog-reader.
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
@@ -49,6 +49,7 @@ function registerPlugin(
   assessEvidence?: (params: unknown) => Promise<{ text: string; provider?: string; model?: string }>,
   modelFallbacks: string[] = [],
   agentFallbacks: string[] = [],
+  runEmbeddedAgent: () => Promise<never> = async () => { throw new Error("Unexpected Host execution"); },
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
@@ -60,7 +61,7 @@ function registerPlugin(
       dataMode,
       ...(dataMode === "managed_durable_write" ? { durabilityRemote: "origin", durabilityBranch: "local/stella-alpha" } : {}),
     },
-    runtime: { version: "2026.8.2", config: { current: () => ({ agents: { defaults: { model: { primary: "synthetic/model", fallbacks: modelFallbacks } },
+    runtime: { version: "2026.8.2", state: { resolveStateDir: () => `${root}-host-state` }, agent: { runEmbeddedAgent }, config: { current: () => ({ agents: { defaults: { model: { primary: "synthetic/model", fallbacks: modelFallbacks } },
       entries: { stella: { model: { primary: "synthetic/model", fallbacks: agentFallbacks } } } } }) }, llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
       if (params.purpose === "stella-question-evidence") {
         if (assessEvidence) return assessEvidence(params);
@@ -261,6 +262,43 @@ test("full-memory cannot consume even an empty Host session without verifiable m
       }, hooks, hostRequest("synthetic question", `agent:stella:${session}`));
     }
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("reply dispatch rejects unverified full-memory and denied audiences before Host history processing in every data mode", async () => {
+  const root = await createFixture();
+  try {
+    await mkdir(`${root}-host-state`);
+    const file = path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml");
+    const profile = parseYaml(await readFile(file, "utf8")) as Record<string, unknown>;
+    profile.contract_profile = "full_memory";
+    await writeFile(file, stringifyYaml(profile));
+    const revision = await initializeFixtureRepository(root);
+    for (const mode of ["read_only", "local_write", "managed_durable_write"] as const) {
+      for (const audience of ["owner", "visitor", "group", "channel", "unknown", "subagent", "cron"] as const) {
+        let hostCalls = 0;
+        let modelCalls = 0;
+        const errors: string[] = [];
+        const hooks = registerPlugin(root, revision, async () => { modelCalls++; throw new Error("Unexpected model call"); },
+          mode, errors, undefined, [], [], async () => { hostCalls++; throw new Error("Host already consumed history"); });
+        const runId = `pre-host-${mode}-${audience}`;
+        const sessionKey = audience === "subagent" ? `agent:stella:subagent:${runId}`
+          : audience === "cron" ? `agent:stella:cron:${runId}` : `agent:stella:${runId}`;
+        const context = {
+          cfg: { commands: { ownerAllowFrom: ["owner"] }, agents: { defaults: { model: "synthetic/model", workspace: root } } },
+          dispatchKind: "agent", dispatcher: { supportsSettledReceipt: true }, userTurnTranscriptRecorder: {},
+          onAgentRunStart: () => "reply-dispatch", recordProcessed() {}, markIdle() {},
+        };
+        await requireHook(hooks, "reply_dispatch")({ runId, sessionKey, sendPolicy: "allow", ctx: {
+          Body: "Synthetic request", Provider: "webchat", SenderId: audience === "visitor" ? "visitor" : "owner",
+          ChatType: audience === "unknown" ? undefined : audience === "group" || audience === "channel" ? audience : "direct",
+        } }, context as never);
+        assert.equal(hostCalls, 0, `${mode}/${audience} entered Host history processing`);
+        assert.equal(modelCalls, 0);
+        assert.ok(errors.includes(`Stella completion: ${audience === "owner" ? "host_memory_consumption_unverifiable" : "private_context_audience_forbidden"}:prepare`), errors.join("\n"));
+
+      }
+    }
+  } finally { await rm(root, { recursive: true, force: true }); await rm(`${root}-host-state`, { recursive: true, force: true }); }
 });
 
 test("recovery Gateway method rejects missing admin authority and caller-supplied destinations before model access", async () => {
