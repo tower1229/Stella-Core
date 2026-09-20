@@ -30,7 +30,12 @@ if (liveFragment) {
   assert.equal(liveProvider?.api, "google-generative-ai");
   assert.ok(liveProvider.apiKey, "Configured Google provider credentials required");
 }
-const probeModel = liveFragment ? liveModel : "stella-smoke/probe";
+const guardedActive = process.argv.includes("--guarded-active-memory");
+const guardedStale = process.argv.includes("--guarded-provider-stale");
+const guardedSemantic = process.argv.includes("--guarded-semantic");
+const guardedProvider = guardedActive || guardedSemantic || guardedStale || process.argv.includes("--guarded-provider");
+const probeProvider = guardedProvider ? "stella-guarded" : "stella-smoke";
+const probeModel = liveFragment ? liveModel : `${probeProvider}/probe`;
 const correctionProbe = fragmentProbe || outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
 const admissionReplayProbe = process.argv.includes("--admission-replay");
@@ -214,7 +219,7 @@ await writeFile(path.join(plugin, "openclaw.plugin.json"), await readFile(path.j
 await writeFile(path.join(plugin, "index.mjs"), `
 import main from ${JSON.stringify(buildModule("src/plugin.js"))};
 import { GitCangHaiDurability } from ${JSON.stringify(buildModule("src/canghai/durability.js"))};
-import { existsSync, writeFileSync, appendFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 if (${correctionRecoveryProbe}) {
   const checkpoint = ${JSON.stringify(path.join(temp, "correction-checkpoint.json"))};
@@ -241,12 +246,23 @@ if (${adviceTailProbe}) {
 }
 const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 export default { ...main, register(api) {
+  if (${guardedActive}) api.on('before_prompt_build', (_event, ctx) => {
+    appendFileSync(${JSON.stringify(path.join(temp, "active-hooks.jsonl"))}, JSON.stringify({ trigger: ctx.trigger,
+      sessionKey: ctx.sessionKey, messageProvider: ctx.messageProvider, channelId: ctx.channelId,
+      readAllowed: ctx.toolAuthority?.allows('read') }) + '\\n');
+  }, { priority: 1100, requiresToolAuthority: true });
+  if (${guardedStale}) api.on('after_tool_call', () => {
+    const catalogPath = ${JSON.stringify(path.join(canghaiRoot, "30_PersonalData/memory/catalog.json"))};
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'));
+    catalog.parentGenerationId = catalog.generationId;
+    catalog.generationId = 'synthetic-after-tool-generation';
+    writeFileSync(catalogPath, JSON.stringify(catalog));
+  });
   if (${liveFragment}) api.on('after_tool_call', event => appendFileSync(${JSON.stringify(path.join(temp, "live-tools.jsonl"))}, JSON.stringify(event) + '\\n'));
   if (${liveFragment}) api.on('llm_input', event => appendFileSync(${JSON.stringify(path.join(temp, "live-inputs.jsonl"))}, JSON.stringify({ forbiddenNeighbor: JSON.stringify(event).includes('SYNTHETIC_DENIED_NEIGHBOR'), correctionPresent: JSON.stringify(event).includes('SYNTHETIC_CORRECTED_PREMISE'), event }) + '\\n'));
-  main.register({ ...api, on(name, handler, options) {
-    api.on(name, handler, options);
-  }, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
+  main.register({ ...api, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
     async complete(params) {
+      if (${guardedSemantic} && params.purpose === 'stella-core-semantic-routing') return api.runtime.llm.complete(params);
       if (${liveFragment} && ['stella-source-access', 'stella-source-output'].includes(params.purpose)) {
         if (JSON.stringify(params.messages).includes('SYNTHETIC_DENIED_NEIGHBOR')) throw new Error('live_semantic_input_leaked_neighbor');
         let result;
@@ -311,6 +327,7 @@ export default { ...main, register(api) {
 const providerArrived = Promise.withResolvers();
 const providerRelease = Promise.withResolvers();
 let providerRequests = 0;
+let semanticProviderRequests = 0;
 let providerReceivedOriginalEvidence = false;
 let providerReceivedCorrection = false;
 let providerReceivedInitialization = false;
@@ -327,6 +344,18 @@ const provider = createServer(async (request, response) => {
   for await (const chunk of request) chunks.push(chunk);
   const requestBody = Buffer.concat(chunks).toString('utf8');
   const parsedRequest = JSON.parse(requestBody);
+  if (guardedSemantic && requestBody.includes("Semantically classify one user turn for Stella Cortex")) {
+    providerRequests--;
+    semanticProviderRequests++;
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ id: "synthetic-semantic", object: "chat.completion", created: 1, model: "probe",
+      choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify({
+        mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["general"],
+        needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false,
+      }) }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+    return;
+  }
+
   if (skillReadProbe || fragmentProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
   observedSkillResult = parsedRequest.messages?.filter((message) => message.role === "tool");
   providerReceivedSkillBody ||= parsedRequest.messages?.some((message) => message.role === "tool" &&
@@ -386,9 +415,11 @@ await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
 const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
   agents: { defaults: { model: { primary: probeModel } }, entries: { probe: { workspace } } },
-  models: { providers: { ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.1-pro-preview", name: "Gemini acceptance", contextWindow: 1048576, maxTokens: 8192 }] } } : {}), "stella-smoke": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
+  models: { providers: { ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.1-pro-preview", name: "Gemini acceptance", contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 256 }] } } },
-  plugins: { allow: ["stella-core", ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true,
+  plugins: { allow: ["stella-core", ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedActive ? { "active-memory": { enabled: true, config: {
+    enabled: true, mode: "always", agents: ["probe"], model: probeModel, toolsAllow: ["read"], logging: true,
+  } } } : {}), "stella-core": { enabled: true,
     llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}) } } } },
   tools: { allow: ["read", "stella_initialize", ...(fragmentProbe ? ["stella_read_fragment"] : [])] },
@@ -431,7 +462,7 @@ async function waitForInitializationReady() {
   assert.equal(initializationStatus.state, "ready", JSON.stringify(initializationStatus));
 }
 try {
-  gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+  gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs"), ...(guardedActive ? { diagnosticPrefixes: ["active-memory:"] } : {}) });
   await connectObserver();
   await waitForInitializationReady();
   const displayedAgents = await client.request("agents.list", {});
@@ -465,7 +496,7 @@ try {
   const submission = { sessionKey, message: liveFragment ? `Synthetic fragment acceptance only. Read the stella-initialization-probe skill, list fragment descriptions with stella_read_fragment, and read the permitted observation fragment using its listed handle. Then test these two explicit negative cases: read the synthetic source file ${fragmentOriginalPath} with read, and request the unavailable handle F2 with stella_read_fragment. These attempts must be denied; do not try other tools or routes. Finish with only SYNTHETIC_MAIN_ANSWER and the Evidence ref returned by the successful fragment read. All source bodies are summary-only: do not quote or reproduce any original text, including the permitted fragment. Do not add a narrative report.` : skillReadProbe ? "Read the stella-initialization-probe skill and initialize Stella again now."
     : questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" };
   const { runExactHostEvaluationChat } = await import(buildModule("src/acceptance/exact-host-chat.js"));
-  const sent = failureProbe || cancellationProbe ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
+  const sent = failureProbe || cancellationProbe || guardedStale ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
     request: (method, params) => client.request(method, params, { timeoutMs: 35_000 }),
     subscribe(listener) { evaluationListeners.add(listener); return () => evaluationListeners.delete(listener); },
   }, submission);
@@ -480,13 +511,18 @@ try {
     providerRelease.resolve();
     assert.equal(aborted.aborted, true);
   }
-  if (!failureProbe && !cancellationProbe) liveFragment ? assert.ok(sent.text.includes("SYNTHETIC_MAIN_ANSWER")) : assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
+  if (!failureProbe && !cancellationProbe && !guardedStale) liveFragment ? assert.ok(sent.text.includes("SYNTHETIC_MAIN_ANSWER")) : assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
   const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 });
   const history = await readHistory({ sessionKey, limit: 10 });
   const messages = history.messages ?? [];
-  assert.equal(terminal.status, failureProbe || cancellationProbe ? "error" : "ok", JSON.stringify(terminal));
+  assert.equal(terminal.status, failureProbe || cancellationProbe || guardedStale ? "error" : "ok", JSON.stringify(terminal));
   let persistence;
-  if (cancellationProbe) {
+  if (guardedStale) {
+    assert.match(terminal.error ?? "", /processing_generation_mismatch|stella_recovery_revision_invalid/);
+    assert.equal(providerRequests, 1);
+    assert.ok(!messages.some(message => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")));
+    persistence = { staleToolContinuationBlocked: true, modelRequestsAfterChange: 0 };
+  } else if (cancellationProbe) {
     const events = observedEvents.filter(event => event.event === "chat" && event.payload?.runId === sent.runId);
     assert.equal(events.filter(event => event.payload.state === "final").length, 0);
     assert.ok(events.some(event => ["aborted", "error"].includes(event.payload.state)));
@@ -511,7 +547,7 @@ try {
     assert.equal(providerRequests, 0);
     await client.stopAndWait({ timeoutMs: 2000 }); await gateway.stop();
     await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", remote]);
-    gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+    gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs"), ...(guardedActive ? { diagnosticPrefixes: ["active-memory:"] } : {}) });
     await connectObserver();
     const operationId = `learn_${bytesVersion(sent.runId).slice(7)}`;
     const recovered = await client.request("stella.recoverCorrection", { operationId });
@@ -539,7 +575,7 @@ try {
       await client.stopAndWait({ timeoutMs: 2_000 });
       await gateway.stop();
       await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", remote]);
-      gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+      gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs"), ...(guardedActive ? { diagnosticPrefixes: ["active-memory:"] } : {}) });
       await connectObserver();
       const { bytesVersion } = await import(buildModule("src/canghai/content-version.js"));
       const operationId = `${questionProbe || adviceTailProbe ? "question" : "outcome"}_${bytesVersion(sent.runId).slice(7)}`;
@@ -652,7 +688,7 @@ try {
     const beforeReplayRevision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
     await client.stopAndWait({ timeoutMs: 2_000 });
     await gateway.stop();
-    gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+    gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs"), ...(guardedActive ? { diagnosticPrefixes: ["active-memory:"] } : {}) });
     await connectObserver();
     await waitForInitializationReady();
     const replay = await client.request("chat.send", submission);
@@ -731,22 +767,33 @@ try {
     ? "synthetic managed no-prediction advice; actual main v2 archive, Episode writes, OpenClaw pointer and local bare remote; structured router injected"
     : "synthetic read-only ordinary turn; structured router injected; actual main registration and completion adapter",
     ...(fragmentProbe ? { fragmentSkill: fragmentChecks } : {}), ...(liveEvidence ? { liveEvidence } : {}),
-    terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
+    guardedProvider, guardedActive, semanticProviderRequests, terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
-    provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe,
+    provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe || guardedStale,
     provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
     initialization: { providerReceivedInitialization, hostIdentityVerified: true, restrictedVerification: initializationVerification,
       skillBodyRead: fragmentProbe ? fragmentChecks.skillBodyRead : skillReadProbe ? providerReceivedSkillBody : "not_exercised",
       ownerRequestedReinitialization: skillReadProbe ? providerReceivedInitializationResult : "not_exercised", scope: "host_bootstrap" },
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
-  assert.equal(report.terminalStatus, failureProbe || cancellationProbe ? "error" : "ok");
-  assert.equal(report.providerRequests, liveFragment || correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : 1);
-  if (skillReadProbe) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
-  if (skillReadProbe) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
+  if (guardedSemantic) assert.ok(semanticProviderRequests > 0);
+  assert.equal(report.terminalStatus, failureProbe || cancellationProbe || guardedStale ? "error" : "ok");
+  if (guardedActive) {
+    const plugins = await client.request("plugins.list", {});
+    assert.ok(plugins.plugins.some(plugin => plugin.id === "active-memory" && plugin.installed && plugin.enabled));
+    let observations = [];
+    try { observations = (await readFile(path.join(temp, "active-hooks.jsonl"), "utf8")).trim().split("\n").filter(Boolean).map(line => JSON.parse(line)); }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
+    assert.equal(observations.length, 0, "Pinned Host diagnostic changed: reevaluate the native recall path");
+    report.nativeActiveMemory = { scope: "diagnostic", verified: false, loaded: true,
+      postPolicyHookInvocations: observations.length, category: "host_tool_authority_unavailable" };
+  }
+  assert.equal(report.providerRequests, guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : 1);
+  if (skillReadProbe && !guardedStale) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
+  if (skillReadProbe && !guardedStale) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
   if (!liveFragment && !preparationCancellationProbe && !correctionRecoveryProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
   // Preparation cancellation precedes the Host user transcript append.
   assert.equal(report.userMessages, preparationCancellationProbe || correctionRecoveryProbe ? 0 : 1);
-  assert.equal(report.finalAnswers, failureProbe || cancellationProbe ? 0 : 1);
+  assert.equal(report.finalAnswers, failureProbe || cancellationProbe || guardedStale ? 0 : 1);
   if (questionProbe) assert.equal(providerReceivedOriginalEvidence, true);
   await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

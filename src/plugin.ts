@@ -80,6 +80,7 @@ import { prepareQuestionTransaction, recoverPendingQuestion } from "./praxis/que
 import { registerArchiveRetention } from "./openclaw/archive-retention-registration.js";
 import { registerStellaInitialization } from "./openclaw/initialization-registration.js";
 import { InitializationError } from "./openclaw/initialization.js";
+import { HOST_MEMORY_PROVIDER, isHostConsumptionRevalidation, registerHostMemoryProvider, withHostModelConsumption } from "./openclaw/host-memory-provider.js";
 import { assertHostMemoryConsumptionSupported } from "./openclaw/host-memory.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
@@ -228,6 +229,7 @@ type PreparedTurn = {
   evidenceRef?: string;
   checkSourceOutput?: (text: string, signal: AbortSignal) => Promise<unknown>;
   assertPersonalViewsCurrent?: () => Promise<void>;
+  assertEvidenceCurrent?: () => Promise<void>;
   assertPersonalViewsForGeneration?: (generationId: string) => Promise<void>;
   persistRecommendation?: (text: string, abortSignal: AbortSignal, original: HostInputSnapshot) => Promise<{ revision: string; generationId: string; writeOperationIds: string[] }>;
   retrievalCheckpoint?: RetrievalCheckpoint;
@@ -261,8 +263,25 @@ export default definePluginEntry({
     });
     const initialization = registerStellaInitialization(api, config, undefined, async () => archiveRetention.blockers());
     registerCompletionTranscriptGuard(api, config.agentId);
-    const completeModel = (params: Parameters<typeof api.runtime.llm.complete>[0]) =>
-      completeWithPreparationSignal((signal) => api.runtime.llm.complete({ ...params, ...(signal ? { signal } : {}) }));
+    const completeModel = async (params: Parameters<typeof api.runtime.llm.complete>[0]) => {
+      const call = () => completeWithPreparationSignal((signal) => api.runtime.llm.complete({ ...params, ...(signal ? { signal } : {}) }));
+      const modelRef = params.model ?? resolveLiveModelRef();
+      if (modelRef.split("/")[0] !== HOST_MEMORY_PROVIDER) return call();
+      const request = readActiveCompletionRequest(config.agentId);
+      assertPrivateContextAudience(resolveTurnAudience(request));
+      const loaded = await consciousness.load();
+      const binding = await loadPraxisRuntimeBinding(loaded);
+      const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
+      const assertCurrent = async () => {
+        readCompletionRequest(request.runId, config.agentId, request.sessionId, request.sessionKey);
+        await assertHostMemoryProfile(loaded);
+        await reader.assertCurrent();
+        await assertHostSourceRevision(loaded.recoveryRevision ?? config.recoveryRevision);
+        if (!params.model && resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
+      };
+      await assertCurrent();
+      return withHostModelConsumption({ request, modelRef, assertCurrent, params }, call);
+    };
     const requirePluginSource = (): string => {
       if (typeof api.source !== "string" || !api.source.trim()) throw new CatalogError("plugin_source_binding_required");
       return api.source;
@@ -297,6 +316,32 @@ export default definePluginEntry({
         deployment: prepared.deployment,
         generationId: prepared.generationId,
         purpose: binding.purpose,
+      });
+    };
+    registerHostMemoryProvider(api, config.agentId, async (request, modelRef) => {
+      const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
+      if (prepared?.outcome !== "ready" || !prepared.admitted) {
+        throw new CompletionError("host_memory_consumption_not_admitted", "generate");
+      }
+      try {
+        if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
+        await assertPreparedProcessingAuthority(prepared, request);
+        await prepared.assertPersonalViewsCurrent?.();
+        await prepared.assertEvidenceCurrent?.();
+        await assertHostSourceRevision(prepared.revision!);
+      } catch (error) {
+        prepared.outcome = "blocked";
+        prepared.category = error instanceof CatalogError || error instanceof CompletionError || error instanceof ConsciousnessLoadError || error instanceof RuntimeProfileError
+          ? error.category : "host_memory_validation_failed";
+        throw error;
+      }
+    });
+    const assertHostSourceRevision = async (revision: string): Promise<void> => {
+      // Do not reuse the consciousness TTL across the actual transport boundary:
+      // source or bootstrap edits can precede synchronize and a new generation.
+      await loadConsciousness(config.canghaiRoot, config.manifestPath, {
+        recoveryRevision: revision, coreVersion: STELLA_CORE_COMPATIBILITY_VERSION,
+        openclawVersion: api.runtime.version, dataMode: config.dataMode,
       });
     };
     const assertHostMemoryProfile = async (loaded: LoadedConsciousness): Promise<void> => {
@@ -384,7 +429,7 @@ export default definePluginEntry({
           viewProcessing = { descriptors: processing.config.descriptors, ownerId: processing.config.ownerId, modelRef, assertCurrent };
         }
         sourceAccess = createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
-          isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId),
+          isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId) || isHostConsumptionRevalidation(),
           ...(processingAuthority ? { processingAuthority } : {}),
           complete: async ({ prompt, maxTokens }) => {
             const result = await completeModel({ agentId: config.agentId, model: modelRef,
@@ -702,6 +747,8 @@ export default definePluginEntry({
         if (ctx.agentId !== config.agentId) return;
         if (!hasCompletionRunPermit(ctx.runId)) return;
         const runId = ctx.runId!;
+        // A Host retry must not mint new authority after a consumption failure.
+        if ((readCompletionPreparation(runId) as PreparedTurn | undefined)?.outcome === "blocked") return;
         try {
           return await runCompletionPreparation(runId, async () => {
             const request = readCompletionRequest(runId, config.agentId, ctx.sessionId, ctx.sessionKey);
@@ -1022,7 +1069,16 @@ export default definePluginEntry({
               },
             }) : undefined;
             recordCompletionPreparation(runId, {
-              fragmentTool, outcome: "ready", checkSourceOutput, route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
+              fragmentTool, outcome: "ready", checkSourceOutput,
+              assertEvidenceCurrent: async () => {
+                await viewProcessing?.assertCurrent();
+                for (const original of outputOriginals) {
+                  if (canonicalJson(await runtime.evidence.readEvidence(original.ref)) !== canonicalJson(original)) {
+                    throw new CatalogError("stale_host_memory_evidence");
+                  }
+                }
+              },
+              route, context: appendContext, revision: loaded.recoveryRevision ?? config.recoveryRevision,
               generationId: memory.generationId, deployment, processingAuthority, boundRequest: request,
               ...(durability ? { durability } : {}),
               persistRecommendation, evidenceRef,

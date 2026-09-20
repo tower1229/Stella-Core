@@ -1,6 +1,7 @@
 {
   "id": "stella-core",
   "name": "Stella Core",
+  "providers": ["stella-guarded"],
   "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
   "contracts": {
     "tools": ["stella_initialize", "stella_read_fragment"]

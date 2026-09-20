@@ -6,13 +6,14 @@ import { parse as parseYaml } from "yaml";
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveAgentWorkspaceDir } from "openclaw/plugin-sdk/agent-runtime";
 import { parseCangHaiRef } from "../canghai/ref.js";
-import { readRepositoryBytes } from "../canghai/catalog-reader.js";
+import { CatalogReader, readRepositoryBytes } from "../canghai/catalog-reader.js";
 import { ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
 import { isRecord } from "../shared/type-guards.js";
 import { InitializationError, StellaInitializer, type Materialization } from "./initialization.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import type { HostIdentity } from "./initialization-templates.js";
 import { verifyInitializationContext } from "./initialization-context.js";
+import { hostMemoryConfigurationHash, inspectDeclaredHostMemory } from "./host-memory-inventory.js";
 import { hostMemoryRuntimeBlockers } from "./host-memory.js";
 import { assertHostChannelIdentity, verifyHostSkillTree } from "./initialization-host-skills.js";
 import { Type } from "typebox";
@@ -66,7 +67,7 @@ async function materializationSource(config: Config) {
   const skillRegistryRef = isRecord(manifest.extensions) ? manifest.extensions.skillRegistryRef : undefined;
   if (skillRegistryRef !== undefined && typeof skillRegistryRef !== "string") throw new InitializationError("invalid_skill_registry_ref");
   const requiredCapabilities = profile.capabilities.filter(capability => capability.required).map(capability => capability.id);
-  return { recipePath, contractProfile: profile.contract_profile, requiredCapabilities,
+  return { recipePath, memoryCatalogPath: profile.memory ? parseCangHaiRef(profile.memory.catalog_ref).relativePath : undefined, contractProfile: profile.contract_profile, requiredCapabilities,
     ...(skillRegistryRef ? { skillRegistryRef } : {}) };
 }
 
@@ -208,7 +209,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   const request = requestHost ?? (async (method: string, params: Record<string, unknown>) => {
     if (config.initializationGatewayAccess !== "local_operator_read") throw new InitializationError("local_operator_read_authorization_required");
     if (api.config.gateway?.mode === "remote") throw new InitializationError("local_host_required");
-    if (!["agents.files.list", "agents.files.get", "skills.status"].includes(method)) throw new InitializationError("host_method_forbidden");
+    if (!["agents.files.list", "agents.files.get", "skills.status", "plugins.list"].includes(method)) throw new InitializationError("host_method_forbidden");
     const port = Number(process.env.OPENCLAW_GATEWAY_PORT ?? api.config.gateway?.port ?? 18789);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new InitializationError("invalid_gateway_port");
     // Explicit operator grant, ordinary authenticated transport, read scopes only.
@@ -478,12 +479,25 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     const invalidateCapability = isRecord(params) && params.action === "invalidate-capability" && Object.keys(params).length === 2 &&
       typeof params.receiptId === "string" && /^cap_[a-f0-9-]{36}$/.test(params.receiptId);
     if (!isRecord(params) || typeof params.action !== "string" ||
-      !(Object.keys(params).length === 1 && ["apply", "status", "verify"].includes(params.action) ||
+      !(Object.keys(params).length === 1 && ["apply", "status", "verify", "memory-inventory"].includes(params.action) ||
         acceptCapability || invalidateCapability ||
         Object.keys(params).length === 2 && params.action === "rollback" && typeof params.operationId === "string" && /^init_[a-f0-9-]{36}$/.test(params.operationId))) {
-      respond(false, undefined, { code: "INVALID_REQUEST", message: "Expected action: apply, status, verify, accept-capability with runId, invalidate-capability with receiptId, or rollback with operationId" }); return;
+      respond(false, undefined, { code: "INVALID_REQUEST", message: "Expected action: apply, status, verify, memory-inventory, accept-capability with runId, invalidate-capability with receiptId, or rollback with operationId" }); return;
     }
     try {
+      if (params.action === "memory-inventory") {
+        if (signal?.aborted) throw new InitializationError("operation_cancelled");
+        const source = await materializationSource(config);
+        if (!source.memoryCatalogPath) throw new InitializationError("memory_catalog_required");
+        const reader = await CatalogReader.load(config.canghaiRoot, source.memoryCatalogPath);
+        const before = structuredClone(api.runtime.config.current()) as OpenClawConfig;
+        const plugins = await request("plugins.list", {});
+        if (signal?.aborted) throw new InitializationError("operation_cancelled");
+        if (hostMemoryConfigurationHash(before) !== hostMemoryConfigurationHash(api.runtime.config.current())) throw new InitializationError("host_configuration_changed");
+        await reader.assertCurrent();
+        respond(true, inspectDeclaredHostMemory({ config: before, agentId: config.agentId, plugins, generationId: reader.catalog.generationId }));
+        return;
+      }
       if (params.action === "verify") {
         if (!client.connId) throw new InitializationError("verification_actor_required");
         await assertBootstrapReady();
@@ -566,7 +580,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     } catch (error) {
       const category = error instanceof InitializationError || error instanceof RuntimeProfileError || error instanceof CapabilityReceiptError ? error.category
         : error && typeof error === "object" && "category" in error && typeof error.category === "string" ? error.category
-        : params.action === "verify" ? "verification_failed" : params.action === "accept-capability" || params.action === "invalidate-capability" ? "capability_acceptance_failed" : "rollback_failed";
+        : params.action === "memory-inventory" ? "host_memory_inventory_unavailable" : params.action === "verify" ? "verification_failed" : params.action === "accept-capability" || params.action === "invalidate-capability" ? "capability_acceptance_failed" : "rollback_failed";
       respond(false, undefined, { code: "UNAVAILABLE", message: `Stella initialization blocked: ${category}` });
     }
   }, { scope: "operator.admin" });

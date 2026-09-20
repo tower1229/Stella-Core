@@ -31,7 +31,7 @@ async function waitForExit(child, milliseconds) {
   ]);
 }
 
-export async function startExactHostGateway({ cwd, env, openclawBin }) {
+export async function startExactHostGateway({ cwd, env, openclawBin, diagnosticPrefixes = [] }) {
   const port = await allocateLoopbackPort();
   const token = randomBytes(32).toString("hex");
   const gatewayEnv = {
@@ -87,7 +87,7 @@ export async function startExactHostGateway({ cwd, env, openclawBin }) {
           diagnostics: () => startupOutput
             .split("\n")
             .filter((line) =>
-              line.includes("Stella initialization") || line.includes("Stella Praxis") || line.includes("Stella semantic routing failed") || line.includes("Stella turn preparation failed") || line.includes("Stella evidence assessment attempts:")
+              diagnosticPrefixes.some(prefix => line.includes(prefix)) || line.includes("Stella host memory:") || line.includes("Stella initialization") || line.includes("Stella Praxis") || line.includes("Stella semantic routing failed") || line.includes("Stella turn preparation failed") || line.includes("Stella evidence assessment attempts:")
             )
             .slice(-20)
             .join("\n"),

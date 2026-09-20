@@ -8,6 +8,7 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import plugin from "../src/plugin.js";
+import type { ProviderPlugin } from "openclaw/plugin-sdk/plugin-entry";
 import { EpisodeRepository } from "../src/praxis/episode-repository.js";
 import { memoryRoutingRef } from "../src/praxis/runtime-memory.js";
 import type { EpisodeV2 } from "../src/praxis/episode-v2.js";
@@ -50,6 +51,8 @@ function registerPlugin(
   modelFallbacks: string[] = [],
   agentFallbacks: string[] = [],
   runEmbeddedAgent: () => Promise<never> = async () => { throw new Error("Unexpected Host execution"); },
+  providers?: Map<string, ProviderPlugin>,
+  mainModel = "synthetic/model",
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
@@ -61,8 +64,8 @@ function registerPlugin(
       dataMode,
       ...(dataMode === "managed_durable_write" ? { durabilityRemote: "origin", durabilityBranch: "local/stella-alpha" } : {}),
     },
-    runtime: { version: "2026.8.2", state: { resolveStateDir: () => `${root}-host-state` }, agent: { runEmbeddedAgent }, config: { current: () => ({ agents: { defaults: { model: { primary: "synthetic/model", fallbacks: modelFallbacks } },
-      entries: { stella: { model: { primary: "synthetic/model", fallbacks: agentFallbacks } } } } }) }, llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
+    runtime: { version: "2026.8.2", state: { resolveStateDir: () => `${root}-host-state` }, agent: { runEmbeddedAgent }, config: { current: () => ({ agents: { defaults: { model: { primary: mainModel, fallbacks: modelFallbacks } },
+      entries: { stella: { model: { primary: mainModel, fallbacks: agentFallbacks } } } } }) }, llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
       if (params.purpose === "stella-question-evidence") {
         if (assessEvidence) return assessEvidence(params);
         const input = JSON.parse(params.messages![0]!.content.split("\n").at(-1)!) as { provisionalRoute: { responseKind: string; evidenceStatus: string; materialUnknowns: string[] } };
@@ -87,6 +90,7 @@ function registerPlugin(
       assert.equal(options.scope, "operator.admin");
       hooks.set(`gateway:${name}`, handler);
     },
+    registerProvider(provider: ProviderPlugin) { providers?.set(provider.id, provider); },
     registerService() {},
     registerCommand() {},
     registerTool() {},
@@ -149,6 +153,7 @@ test("plugin requires explicit data mode and managed durability transport", () =
     runtime: { version: "2026.8.2", llm: { complete: async () => ({ text: "{}" }) } },
     on() {},
     registerGatewayMethod() {},
+    registerProvider() {},
     registerService() {},
     registerCommand() {},
     registerTool() {},
@@ -219,6 +224,123 @@ test("a generation changed after preparation cannot enter the Host model", async
     });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+for (const change of ["generation", "source"] as const) {
+ test(`guarded provider checks ${change} at every actual stream, including a tool continuation`, async () => {
+  const root = await createFixture();
+  try {
+    const providers = new Map<string, ProviderPlugin>();
+    const hooks = registerPlugin(root, await initializeFixtureRepository(root), undefined, "read_only", [], undefined, [], [], undefined,
+      providers, "stella-guarded/model");
+    const provider = providers.get("stella-guarded");
+    assert.ok(provider?.wrapStreamFn);
+    let transports = 0;
+    const stream = provider.wrapStreamFn({ provider: "stella-guarded", modelId: "model", agentId: "stella",
+      streamFn: () => { transports++; return undefined as never; },
+    });
+    assert.ok(stream);
+    const model = { provider: "stella-guarded", id: "model" } as never;
+    const input = { messages: [{ role: "user" as const, content: "Synthetic request", timestamp: 0 }] };
+    assert.match((await (await stream(model, input, { sessionId: "synthetic-session" })).result()).errorMessage!, /invalid_run_permit/);
+    await preparedRun(hooks, "guarded-stream", "Synthetic request", async (_prompt, gate, context) => {
+      assert.deepEqual(gate, { outcome: "pass" });
+      await stream(model, input, { sessionId: "synthetic-session" });
+      assert.equal(transports, 1);
+      const file = path.join(root, "30_PersonalData/memory/catalog.json");
+      const original = await readFile(file, "utf8");
+      const catalog = JSON.parse(original) as MemoryCatalog;
+      if (change === "generation") {
+        catalog.parentGenerationId = catalog.generationId;
+        catalog.generationId = "synthetic-after-tool-generation";
+        await writeFile(file, canonicalJson(catalog));
+      } else {
+        await writeFile(path.join(root, "50_PersonalAgent/openclaw/workspace/SOUL.md"), "Changed source before synchronization");
+      }
+      const error = await (await stream(model, input, { sessionId: "synthetic-session" })).result();
+      // Under a slow/concurrent suite the consciousness TTL can expire first;
+      // either current-generation or clean-source validation must deny transport.
+      assert.match(error.errorMessage!, change === "generation" ? /processing_generation_mismatch|stella_recovery_revision_invalid/ : /stella_recovery_revision_invalid/);
+      const category = (readCompletionPreparation("guarded-stream") as { category: string }).category;
+      assert.equal(transports, 1, "No stale continuation may reach the provider");
+      await hooks.get("before_prompt_build")!({ prompt: "Retry must not renew stale authority" },
+        context);
+      assert.equal((readCompletionPreparation("guarded-stream") as { category: string }).category, category);
+    });
+    assert.match((await (await stream(model, input, { sessionId: "synthetic-session" })).result()).errorMessage!, /invalid_run_permit/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+}
+
+test("guarded provider accepts Core semantic preparation only inside its bound model call", async () => {
+  const root = await createFixture();
+  try {
+    const providers = new Map<string, ProviderPlugin>();
+    let calls = 0;
+    let stream: ReturnType<NonNullable<ProviderPlugin["wrapSimpleCompletionStreamFn"]>>;
+    const model = { provider: "stella-guarded", id: "model" } as never;
+    const input = { messages: [{ role: "user" as const, content: "Synthetic semantic judgment", timestamp: 0 }] };
+    const hooks = registerPlugin(root, await initializeFixtureRepository(root), async (raw) => {
+      assert.ok(stream);
+      const params = raw as { systemPrompt?: string; messages: Array<{ role: "system" | "user"; content: string }> };
+      const boundInput = { systemPrompt: [params.systemPrompt, ...params.messages.filter(m => m.role === "system").map(m => m.content)]
+        .map(s => s?.trim()).filter(Boolean).join("\n\n"),
+        messages: params.messages.filter(m => m.role === "user").map(m => ({ ...m, role: "user" as const, timestamp: 0 })) };
+      await stream(model, boundInput, { sessionId: "synthetic-session" });
+      assert.match((await (await stream(model, boundInput)).result()).errorMessage!, /host_memory_call_binding_mismatch/);
+      return { text: JSON.stringify({ mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
+        domains: ["general"], needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false }) };
+    }, "read_only", [], undefined, [], [], undefined, providers, "stella-guarded/model");
+    stream = providers.get("stella-guarded")?.wrapSimpleCompletionStreamFn?.({ provider: "stella-guarded", modelId: "model", agentId: "stella",
+      streamFn: () => { calls++; return undefined as never; },
+    });
+    assert.ok(stream);
+    await preparedRun(hooks, "guarded-preparation", "Synthetic question", (_prompt, gate) => assert.deepEqual(gate, { outcome: "pass" }));
+    assert.ok(calls > 0);
+    assert.match((await (await stream!(model, input)).result()).errorMessage!, /invalid_run_permit/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+for (const scenario of ["expired", "payload", "cancelled"] as const) {
+  test(`guarded direct completion rejects ${scenario} without transport`, async () => {
+    const root = await createFixture();
+    try {
+      const providers = new Map<string, ProviderPlugin>();
+      type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapSimpleCompletionStreamFn"]>>>;
+      let stream: Stream;
+      const pending: Array<ReturnType<Stream>> = [];
+      let transports = 0;
+      const model = { provider: "stella-guarded", id: "model" } as never;
+      const hooks = registerPlugin(root, await initializeFixtureRepository(root), async raw => {
+        const params = raw as { systemPrompt?: string; messages: Array<{ role: "system" | "user"; content: string }> };
+        const input = { systemPrompt: [params.systemPrompt, ...params.messages.filter(m => m.role === "system").map(m => m.content)]
+          .map(s => s?.trim()).filter(Boolean).join("\n\n"),
+          messages: params.messages.filter(m => m.role === "user").map(m => ({ ...m, role: "user" as const, timestamp: 0 })) };
+        if (scenario === "payload") input.messages.push({ role: "user", content: "Unbound child input", timestamp: 0 });
+        const abort = new AbortController();
+        const result = stream(model, input, { signal: abort.signal });
+        pending.push(result);
+        if (scenario === "cancelled") abort.abort();
+        // Return while the inherited child is awaiting filesystem validation.
+        // The outer completion remains alive in preparedRun below.
+        return { text: JSON.stringify({ mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
+          domains: ["general"], needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false }) };
+      }, "read_only", [], undefined, [], [], undefined, providers, "stella-guarded/model");
+      stream = providers.get("stella-guarded")!.wrapSimpleCompletionStreamFn!({ provider: "stella-guarded", modelId: "model",
+        streamFn: () => { transports++; return undefined as never; } })!;
+      await preparedRun(hooks, `guarded-${scenario}`, "Synthetic question", async (_prompt, gate) => {
+        assert.deepEqual(gate, { outcome: "pass" });
+        assert.ok(pending.length > 0);
+        for (const item of pending) {
+          const error = await (await item).result();
+          assert.match(error.errorMessage!, scenario === "payload" ? /host_memory_payload_mismatch/ : /host_memory_call_expired/);
+          assert.equal(error.stopReason, scenario === "cancelled" ? "aborted" : "error");
+        }
+        assert.equal(transports, 0);
+      });
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+}
 
 test("a cached Alpha profile cannot bypass the full-memory consumption blocker", async () => {
   const root = await createFixture();

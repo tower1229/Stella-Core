@@ -132,7 +132,8 @@ export function registerCompletionAdapter(
           const generated = await api.runtime.agent.runEmbeddedAgent({
             agentId, sessionId, sessionKey, runId,
             senderId: sender.senderId, senderIsOwner: sender.senderIsOwner,
-            messageChannel: event.ctx.Provider, chatType,
+            messageChannel: event.ctx.Provider, messageProvider: event.ctx.Provider, chatType,
+            trigger: event.ctx.InternalTurnSource === "exec" ? "manual" : event.ctx.InternalTurnSource ?? "user",
             workspaceDir: resolveAgentWorkspaceDir(ctx.cfg, agentId), config: ctx.cfg,
             prompt, transcriptPrompt: prompt, ...model, modelFallbacksOverride: [],
             timeoutMs: 540_000, abortSignal,

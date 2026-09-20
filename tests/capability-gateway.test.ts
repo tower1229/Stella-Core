@@ -116,6 +116,12 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
           if (method === "agents.files.get") {
             return { file: { content: await readFile(path.join(workspace, params.name!), "utf8") } };
           }
+          if (method === "plugins.list") return { plugins: [
+            { id: "stella-core", installed: true, enabled: true },
+            { id: "active-memory", installed: true, enabled: true },
+            { id: "private-custom-hook", installed: true, enabled: true },
+            { id: "not-installed", installed: false, enabled: false },
+          ] };
           throw new Error("unexpected Host method");
         },
       },
@@ -143,6 +149,20 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
     ],
   });
   await assert.rejects(initialization.assertReady(), /runtime_capabilities_unavailable/);
+  const inventory = await invokeGateway(gatewayHandler!, { action: "memory-inventory" });
+  assert.equal(inventory.ok, true, JSON.stringify(inventory));
+  const memory = inventory.payload as { scope: string; complete: boolean; entries: Array<{ kind: string; state: string }>; generationHash: string };
+  assert.equal(memory.scope, "declared_host_memory");
+  assert.equal(memory.complete, false);
+  assert.match(memory.generationHash, /^sha256:[a-f0-9]{64}$/);
+  for (const kind of ["bootstrap", "session_replay", "compaction", "prompt_cache", "active-memory", "additional_plugin"]) {
+    assert.ok(memory.entries.some(entry => entry.kind === kind && entry.state === "unverifiable"), kind);
+  }
+  assert.ok(!JSON.stringify(memory).includes("private-custom-hook"));
+  assert.ok(!JSON.stringify(memory).includes(canghaiRoot));
+  assert.deepEqual(initialization.status().runtime?.blockers, ["capability_acceptance_missing:host_initialization",
+    "capability_acceptance_missing:memory_access", "host_memory_consumption_unverifiable"]);
+
 
   const denied = await invokeGateway(gatewayHandler!, { action: "accept-capability", runId: "run_denied" }, {
     client: { connect: { role: "operator", scopes: ["operator.read"] }, connId: "conn-denied" },

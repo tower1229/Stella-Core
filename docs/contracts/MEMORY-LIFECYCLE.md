@@ -287,7 +287,15 @@ Core 在 `reply_dispatch` 内、进入 Host 执行器之前，对三种数据模
 
 因此 `full_memory` 独立保留 `host_memory_consumption_unverifiable`，初始化 runtime 状态、已有初始化状态复核及业务准备均不得将其消除。能力收据、空会话、新会话、重启和 `/new` 都不能作为清除此阻塞的依据。不得删除旧会话、关闭记忆或清空历史后宣称语义等价成功，也不得降为 Alpha 来通过完整验收。Alpha 未新增此完整 profile 门禁，不代表其 Host 原生入口已满足完整记忆契约。
 
-单元测试覆盖公开 `reply_dispatch` 的三种数据模式和七种受众组合，证明在 Host 执行前拒绝未验证完整 profile 或禁用受众。固定 Host capability 探针验证有效 bootstrap 收据不能清除此阻塞，并实际执行首次聊天、同会话下一轮、新会话和 `sessions.reset(reason: new)` 后聊天，证明这些请求不进入 Host 执行器且没有模型请求；该 reset RPC 不等于 `/new` 命令端到端验收。它们不证明真实 main、旧业务会话、`/new`、重启、Active Memory、Dreaming 的成功消费或自然反馈。T17／Issue #23 仍需可信的 Host 逐入口清单、最终消费适配器，以及各生命周期和受众的真实执行证据；`source_access_context` 的最终消费验收仍未关闭。SDK 的 provider `wrapStreamFn`／`wrapSimpleCompletionStreamFn` 和 context engine `assemble`／`compact` 是待验证的公开扩展点；现有 hooks 的不足不等于已经证明这些扩展点无法实现合同。
+2026-09-20 增加显式 provider `stella-guarded`。只有模型配置选择该 provider 时，公开 `wrapStreamFn` 才在每次实际 transport 调用（含工具续轮）复核本轮请求／session、模型、代际、处理权威、个人视图及已读证据，并重新检查来源 revision；不复用意识加载缓存代替最后一步。验证失败锁定本轮准备状态，Host 重试不能覆盖原类别。StreamFn 返回 SDK error／aborted 事件，不以抛出异常替代流协议。该 provider 不覆盖其他 provider，也不自动改动已有模型、凭据、备用模型或共享插件配置；使用时须显式配置相应 transport 和精确模型处理许可。
+
+Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许可，绑定当前请求、精确模型和按固定 SDK 规范化后的 system／messages；许可只能消费一次，调用结束、等待期间取消、输入变化或继承上下文的迟到子调用均不能发出请求。实际 Host 探针覆盖正常语义准备、正常工具续轮，以及工具后改变目录代际时零后续 transport；此处改变代际使用合成故障注入，不等于原生记忆来源同步成功。Core 证据复核没有把完整 Host 历史、摘要和工具文本逐片段绑定到来源，因此仍不得清除 full_memory 阻塞。
+
+管理端 `stella.initialize({action: "memory-inventory"})` 通过公开只读 `plugins.list` 获取实际安装／启用状态，连同原生入口、配置摘要和代际摘要返回 `stella.host-memory-inventory/v1`。私有插件身份只返回摘要；未知插件和缺失来源绑定的入口保持 unverifiable，禁用状态不被当作来源验证。结果固定 `complete:false`，不能用来签发能力收据。配置在读取前后变化、目录失效、缺少配置读取授权或 RPC 失败均显式报错。
+
+单元测试覆盖公开 `reply_dispatch` 的三种数据模式和七种受众组合，以及 transport 的来源／代际变化、许可过期、输入替换、重复调用和取消。固定 Host capability 探针验证有效 bootstrap 收据不能清除此阻塞；首次聊天、同会话下一轮、新会话、reset RPC、原生 `/new` 后和 Gateway 重启后均没有模型请求。完整 profile 的 `/new` 在进入原生 reset hooks 前拒绝，公开 transcript SDK 核对 reset boundary 没有增加，另核对 Gateway 重启后的会话身份保留；这些均是无法验证完整 profile 时的拒绝证据，不是完整记忆成功使用的证据。
+
+原生 Active Memory 诊断 `--guarded-active-memory` 单独报告 loaded、postPolicyHookInvocations 和 verified。固定 Host 当前协调执行路径没有调用要求工具授权的提示补充 hook，不能把没有 recall 当作成功拦截。协调器现传递真实 messageProvider 和 InternalTurnSource，但不制造 Host 的工具授权 fingerprint。Active Memory／Dreaming 的来源受众适配、Host 完整输入的来源映射和成功生命周期仍需接通；Issue #23 与 `source_access_context` 最终消费验收尚未关闭。
 
 ## 4. 交互学习
 

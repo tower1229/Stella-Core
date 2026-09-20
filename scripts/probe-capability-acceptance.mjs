@@ -64,7 +64,18 @@ await writeFile(path.join(plugin, "openclaw.plugin.json"), await readFile(path.j
 await writeFile(path.join(plugin, "index.mjs"), `
 import main from ${JSON.stringify(buildModule("src/plugin.js"))};
 import { writeFile } from "node:fs/promises";
+import { readSessionTranscriptRawDelta } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/session-transcript-runtime.js")).href)};
+import { listSessionEntries, resolveStorePath } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/session-store-runtime.js")).href)};
 export default { ...main, register(api) {
+  api.registerGatewayMethod("stella.syntheticResetEvidence", async ({ respond }) => {
+    const storePath = resolveStorePath(undefined, { agentId: "probe" });
+    const found = listSessionEntries({ agentId: "probe", storePath, readOnly: true }).find(row => row.sessionKey === "agent:probe:main");
+    if (!found) { respond(true, { resets: 0 }); return; }
+    const page = await readSessionTranscriptRawDelta({ agentId: "probe", sessionId: found.entry.sessionId,
+      sessionKey: found.sessionKey, storePath, maxEvents: 1000, maxBytes: 1024 * 1024 });
+    if (page.kind !== "page" || page.hasMore) throw new Error("Incomplete synthetic transcript inspection");
+    respond(true, { resets: page.events.filter(row => row.event.type === "reset").length });
+  }, { scope: "operator.admin" });
   const original = api.runtime.agent.runEmbeddedAgent.bind(api.runtime.agent);
   main.register({ ...api, runtime: { ...api.runtime, agent: { ...api.runtime.agent,
     async runEmbeddedAgent(...args) {
@@ -112,6 +123,7 @@ let admin;
 let visitor;
 try {
   gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+  const connectAdmin = async () => {
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Capability admin observer timeout")), 15_000);
     admin = new GatewayClient({
@@ -123,6 +135,8 @@ try {
     });
     admin.start();
   });
+  };
+  await connectAdmin();
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Capability visitor observer timeout")), 15_000);
     visitor = new GatewayClient({
@@ -169,9 +183,46 @@ try {
   assert.ok(!publicJson.includes("/Users/"));
   assert.ok(!/[\u4e00-\u9fff]{8,}/.test(publicJson));
 
+  const memoryInventory = await admin.request("stella.initialize", { action: "memory-inventory" });
+  assert.equal(memoryInventory.scope, "declared_host_memory");
+  assert.equal(memoryInventory.complete, false);
+  assert.ok(memoryInventory.entries.some(entry => entry.kind === "compaction" && entry.state === "unverifiable"));
+  assert.ok(!JSON.stringify(memoryInventory).includes(canghaiRoot));
+
   const blockedTurns = [];
-  for (const [phase, session] of [["first_turn", "main"], ["same_session_next_turn", "main"], ["fresh_session", "fresh"], ["after_session_reset", "main"]]) {
+  const sessionIdentity = async () => (await admin.request("sessions.list", {})).sessions.find(session => session.key === "agent:probe:main")?.sessionId;
+  let newCommandBlockedBeforeReset = false;
+  let restartPreservedSession = false;
+  for (const [phase, session] of [["first_turn", "main"], ["same_session_next_turn", "main"], ["fresh_session", "fresh"], ["after_session_reset", "main"], ["after_new_command", "main"], ["restart_old_session", "main"]]) {
     if (phase === "after_session_reset") await admin.request("sessions.reset", { key: "agent:probe:main", reason: "new" });
+    if (phase === "after_new_command") {
+      const previous = await admin.request("stella.syntheticResetEvidence", {});
+      const reset = await admin.request("chat.send", { sessionKey: "agent:probe:main", message: "/new", idempotencyKey: "host-memory-new-command" });
+      const terminal = await admin.request("agent.wait", { runId: reset.runId, timeoutMs: 60_000 });
+      assert.equal(terminal.status, "error");
+      assert.match(terminal.error, /host_memory_consumption_unverifiable/);
+      const current = await admin.request("stella.syntheticResetEvidence", {});
+      newCommandBlockedBeforeReset = current.resets === previous.resets;
+      assert.equal(newCommandBlockedBeforeReset, true, "Unverifiable full profile must not enter native reset hooks");
+    }
+    if (phase === "restart_old_session") {
+      const previous = await sessionIdentity();
+      assert.ok(previous);
+      await admin.stopAndWait({ timeoutMs: 2000 });
+      await visitor.stopAndWait({ timeoutMs: 2000 });
+      await gateway.stop();
+      gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+      await connectAdmin();
+      let restarted;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        restarted = await admin.request("stella.initialize", { action: "status" });
+        if (restarted.state === "ready") break;
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      assert.equal(restarted.state, "ready", JSON.stringify(restarted));
+      restartPreservedSession = await sessionIdentity() === previous;
+      assert.equal(restartPreservedSession, true);
+    }
     const sent = await admin.request("chat.send", {
       sessionKey: `agent:probe:${session}`, message: "Synthetic full-memory request", idempotencyKey: `host-memory-${phase}`,
     });
@@ -205,11 +256,13 @@ try {
     visitorDenied: true,
     hostMemoryConsumption: "blocked_unverifiable",
     blockedBeforeHostExecutor: blockedTurns,
+    memoryInventory,
+    newCommandBlockedBeforeReset, restartPreservedSession,
     modelCalls,
   };
   await writeFile(path.join(temp, "capability-acceptance-probe.json"), JSON.stringify(report, null, 2));
   process.stdout.write(`${JSON.stringify(report)}\n`);
-} finally {
+} catch (error) { process.stderr.write(`${gateway?.diagnostics()}\n`); throw error; } finally {
   try { admin?.stop?.(); } catch { /* ignore */ }
   try { visitor?.stop?.(); } catch { /* ignore */ }
   await gateway?.stop?.();

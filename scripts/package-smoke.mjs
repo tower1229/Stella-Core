@@ -35,6 +35,7 @@ for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admi
   "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
   "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
   "dist/src/acceptance/recovery-drill.js", "dist/src/acceptance/capability-receipt.js",
+  "dist/src/openclaw/host-memory-provider.js", "dist/src/openclaw/host-memory-inventory.js",
   "dist/src/acceptance/capability-acceptance.js", "dist/src/openclaw/capability-admission.js",
   "openclaw.plugin.json",
   "schemas/consciousness-manifest.schema.json", "evaluation/praxis-social.synthetic.json"]) {
@@ -52,7 +53,7 @@ const packageRoot = path.join(consumer, "node_modules/@tower1229/stella-core");
 const hostRoot = path.join(consumer, "node_modules/openclaw");
 assert.equal(JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8")).version, hostVersion);
 const probes = [];
-for (const flag of ["--initialization", "--fragment-skill", "--correction", "--correction-recovery", "--correction-output-rejected", "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
+for (const flag of ["--guarded-provider", "--guarded-semantic", "--guarded-provider-stale", "--initialization", "--fragment-skill", "--correction", "--correction-recovery", "--correction-output-rejected", "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
   "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery"]) {
   process.stderr.write(`Packed main probe: ${flag}\n`);
   const result = await run(process.execPath, [path.join(root, "scripts/probe-main-plugin.mjs"), flag], {
