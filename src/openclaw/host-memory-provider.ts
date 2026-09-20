@@ -10,6 +10,12 @@ import { AsyncLocalStorage } from "node:async_hooks";
 type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
 type StreamResult = Awaited<ReturnType<Stream>>;
 type AssistantMessage = Awaited<ReturnType<StreamResult["result"]>>;
+/** Model-visible data only. Tool execution callbacks never confer input authority. */
+export type HostMemoryInput = {
+  readonly systemPrompt: string;
+  readonly messages: Parameters<Stream>[1]["messages"];
+  readonly tools: Array<Pick<NonNullable<Parameters<Stream>[1]["tools"]>[number], "name" | "description" | "parameters">>;
+};
 function rejectedStream(model: Parameters<Stream>[0], category: string, aborted = false): StreamResult {
   const error: AssistantMessage = {
     role: "assistant", content: [], api: model.api, provider: model.provider, model: model.id,
@@ -25,7 +31,16 @@ const directCalls = new AsyncLocalStorage<{
   request: BoundTurnRequest; modelRef: string; active: boolean; consumed: boolean; payload: string; assertCurrent: () => Promise<void>;
 }>();
 const revalidation = new AsyncLocalStorage<boolean>();
+// A Host retry may reload the plugin registration, but cannot acquire fresh
+// authority for a request whose consumption already failed. Weak keys follow
+// the completion request's lifetime rather than retaining session contents.
+const rejectedRequests = new WeakMap<BoundTurnRequest, string>();
 export const isHostConsumptionRevalidation = (): boolean => revalidation.getStore() === true;
+
+function failureCategory(error: unknown): string {
+  return error instanceof CompletionError || error instanceof CatalogError || error instanceof ConsciousnessLoadError || error instanceof RuntimeProfileError
+    ? error.category : "host_memory_consumption_failed";
+}
 
 /** A Core-owned call, not a serialized permission or a Host-supplied flag. */
 export async function withHostModelConsumption<T>(
@@ -48,15 +63,28 @@ export async function withHostModelConsumption<T>(
 export function registerHostMemoryProvider(
   api: OpenClawPluginApi,
   agentId: string,
-  assertConsumption: (request: BoundTurnRequest, modelRef: string) => Promise<void>,
+  assertConsumption: (request: BoundTurnRequest, modelRef: string, input: HostMemoryInput) => Promise<void>,
 ): void {
   const wrap = (context: ProviderWrapStreamFnContext, kind: "agent" | "direct"): Stream => {
     const transport = context.streamFn;
     return async (...args: Parameters<Stream>) => {
+      let boundRequest: BoundTurnRequest | undefined;
+      const reject = (error: unknown): string => {
+        const category = boundRequest && rejectedRequests.get(boundRequest) || failureCategory(error);
+        if (boundRequest) rejectedRequests.set(boundRequest, category);
+        api.logger.error(`Stella host memory: ${category}`);
+        return category;
+      };
       try {
         if (!transport) throw new CompletionError("host_memory_transport_unavailable", "generate");
         if ((kind === "agent" || context.agentId !== undefined) && context.agentId !== agentId) throw new CompletionError("host_memory_agent_mismatch", "generate");
         const request = readActiveCompletionRequest(agentId);
+        const assertActive = () => {
+          const priorFailure = rejectedRequests.get(request);
+          if (priorFailure) throw new CompletionError(priorFailure, "generate");
+          readActiveCompletionRequest(agentId, request.sessionId, request.sessionKey);
+          args[2]?.signal?.throwIfAborted();
+        };
         const [model, input, options] = args;
         const snapshot = { ...input, messages: structuredClone(input.messages),
           ...(input.tools ? { tools: input.tools.map(tool => ({ ...tool, parameters: structuredClone(tool.parameters) })) } : {}),
@@ -68,10 +96,13 @@ export function registerHostMemoryProvider(
         options?.signal?.throwIfAborted();
         const modelRef = `${target.provider}/${target.id}`;
         const direct = directCalls.getStore();
+        let assertCurrent: () => Promise<void>;
         if (kind === "direct") {
           if (!direct || !direct.active || direct.consumed || direct.modelRef !== modelRef || direct.request !== request) {
             throw new CompletionError("host_memory_call_binding_mismatch", "generate");
           }
+          boundRequest = request;
+          assertActive();
           direct.consumed = true;
           const messages = snapshot.messages.map(message => {
             if (message.role === "user" && typeof message.content === "string") return { role: message.role, content: message.content };
@@ -83,21 +114,51 @@ export function registerHostMemoryProvider(
           if (snapshot.tools?.length || canonicalJson({ systemPrompt: snapshot.systemPrompt ?? "", messages }) !== direct.payload) {
             throw new CompletionError("host_memory_payload_mismatch", "generate");
           }
-          await direct.assertCurrent();
-          if (!direct.active || directCalls.getStore() !== direct) throw new CompletionError("host_memory_call_expired", "generate");
+          assertCurrent = async () => {
+            await direct.assertCurrent();
+            if (!direct.active || directCalls.getStore() !== direct) throw new CompletionError("host_memory_call_expired", "generate");
+          };
         } else {
           if (options?.sessionId !== request.sessionId) throw new CompletionError("host_memory_session_mismatch", "generate");
-          await revalidation.run(true, () => assertConsumption(request, modelRef));
+          boundRequest = request;
+          assertActive();
+          // The verifier gets the complete SDK Context snapshot, not merely
+          // the run's source state. Keep its copy separate from transport so an
+          // asynchronous verifier cannot mutate the bytes it is authorizing.
+          const consumption: HostMemoryInput = structuredClone({
+            systemPrompt: snapshot.systemPrompt ?? "", messages: snapshot.messages,
+            tools: (snapshot.tools ?? []).map(({ name, description, parameters }) => ({ name, description, parameters })),
+          });
+          assertCurrent = () => revalidation.run(true, () => assertConsumption(request, modelRef, structuredClone(consumption)));
         }
+        await assertCurrent();
         // Revocation/cancellation during an asynchronous check cannot authorize a
         // late transport call. Each continuation obtains a fresh validation.
-        readActiveCompletionRequest(agentId, request.sessionId, request.sessionKey);
-        options?.signal?.throwIfAborted();
-        return await transport(target, snapshot, options);
+        assertActive();
+        const onPayload = options?.onPayload;
+        return await transport(target, snapshot, { ...options, async onPayload(payload, payloadModel) {
+          // The pinned Host applies extra_body through this callback *after*
+          // provider Context validation. Observation is allowed; an unbound
+          // payload replacement must never acquire the Context's authority.
+          try {
+            assertActive();
+            const candidate = structuredClone(payload);
+            const before = JSON.stringify(candidate);
+            const replacement = await onPayload?.(candidate, { ...payloadModel });
+            assertActive();
+            const outgoing = structuredClone(replacement === undefined ? candidate : replacement);
+            if (JSON.stringify(outgoing) !== before) throw new CompletionError("host_memory_payload_transform_unbound", "generate");
+            await assertCurrent();
+            assertActive();
+            return outgoing;
+          } catch (error) {
+            // Native streams invoke this after transport() has returned. Keep
+            // the failure observable and latched independently of that promise.
+            throw new CompletionError(reject(error), "generate");
+          }
+        } });
       } catch (error) {
-        const category = error instanceof CompletionError || error instanceof CatalogError || error instanceof ConsciousnessLoadError || error instanceof RuntimeProfileError ? error.category : "host_memory_consumption_failed";
-        api.logger.error(`Stella host memory: ${category}`);
-        return rejectedStream(args[0], category, args[2]?.signal?.aborted === true);
+        return rejectedStream(args[0], reject(error), args[2]?.signal?.aborted === true);
       }
     };
   };

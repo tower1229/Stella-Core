@@ -33,8 +33,9 @@ if (liveFragment) {
 const guardedDreaming = process.argv.includes("--guarded-dreaming");
 const guardedActive = process.argv.includes("--guarded-active-memory");
 const guardedStale = process.argv.includes("--guarded-provider-stale");
+const guardedPayload = process.argv.includes("--guarded-payload-transform");
 const guardedSemantic = process.argv.includes("--guarded-semantic");
-const guardedProvider = guardedDreaming || guardedActive || guardedSemantic || guardedStale || process.argv.includes("--guarded-provider");
+const guardedProvider = guardedPayload || guardedDreaming || guardedActive || guardedSemantic || guardedStale || process.argv.includes("--guarded-provider");
 const probeProvider = guardedProvider ? "stella-guarded" : "stella-smoke";
 const probeModel = liveFragment ? liveModel : `${probeProvider}/probe`;
 const correctionProbe = fragmentProbe || outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
@@ -424,7 +425,9 @@ const provider = createServer(async (request, response) => {
 await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
 const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
-  agents: { defaults: { model: { primary: probeModel } }, entries: { probe: { workspace } } },
+  agents: { defaults: { model: { primary: probeModel }, ...(guardedPayload ? { models: {
+    [probeModel]: { params: { extra_body: { messages: [{ role: "user", content: "SYNTHETIC_UNBOUND_OLD_UNDERSTANDING" }] } } },
+  } } : {}) }, entries: { probe: { workspace } } },
   models: { providers: { ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.1-pro-preview", name: "Gemini acceptance", contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 256 }] } } },
   plugins: { allow: ["stella-core", ...(guardedDreaming ? ["memory-core"] : []), ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedDreaming ? { "memory-core": { enabled: true, config: { dreaming: {
@@ -515,7 +518,7 @@ try {
   const submission = { sessionKey, message: liveFragment ? `Synthetic fragment acceptance only. Read the stella-initialization-probe skill, list fragment descriptions with stella_read_fragment, and read the permitted observation fragment using its listed handle. Then test these two explicit negative cases: read the synthetic source file ${fragmentOriginalPath} with read, and request the unavailable handle F2 with stella_read_fragment. These attempts must be denied; do not try other tools or routes. Finish with only SYNTHETIC_MAIN_ANSWER and the Evidence ref returned by the successful fragment read. All source bodies are summary-only: do not quote or reproduce any original text, including the permitted fragment. Do not add a narrative report.` : skillReadProbe ? "Read the stella-initialization-probe skill and initialize Stella again now."
     : questionProbe ? "What did my friend confirm about the weekend?" : "Synthetic main plugin question", idempotencyKey: "synthetic-main" };
   const { runExactHostEvaluationChat } = await import(buildModule("src/acceptance/exact-host-chat.js"));
-  const sent = failureProbe || cancellationProbe || guardedStale ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
+  const sent = failureProbe || cancellationProbe || guardedStale || guardedPayload ? await client.request("chat.send", submission) : await runExactHostEvaluationChat({
     request: (method, params) => client.request(method, params, { timeoutMs: 35_000 }),
     subscribe(listener) { evaluationListeners.add(listener); return () => evaluationListeners.delete(listener); },
   }, submission);
@@ -530,11 +533,11 @@ try {
     providerRelease.resolve();
     assert.equal(aborted.aborted, true);
   }
-  if (!failureProbe && !cancellationProbe && !guardedStale) liveFragment ? assert.ok(sent.text.includes("SYNTHETIC_MAIN_ANSWER")) : assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
+  if (!failureProbe && !cancellationProbe && !guardedStale && !guardedPayload) liveFragment ? assert.ok(sent.text.includes("SYNTHETIC_MAIN_ANSWER")) : assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
   const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 });
   const history = await readHistory({ sessionKey, limit: 10 });
   const messages = history.messages ?? [];
-  assert.equal(terminal.status, failureProbe || cancellationProbe || guardedStale ? "error" : "ok", JSON.stringify(terminal));
+  assert.equal(terminal.status, failureProbe || cancellationProbe || guardedStale || guardedPayload ? "error" : "ok", JSON.stringify(terminal));
   let persistence;
   if (guardedStale) {
     assert.match(terminal.error ?? "", /processing_generation_mismatch|stella_recovery_revision_invalid/);
@@ -786,16 +789,16 @@ try {
     ? "synthetic managed no-prediction advice; actual main v2 archive, Episode writes, OpenClaw pointer and local bare remote; structured router injected"
     : "synthetic read-only ordinary turn; structured router injected; actual main registration and completion adapter",
     ...(fragmentProbe ? { fragmentSkill: fragmentChecks } : {}), ...(liveEvidence ? { liveEvidence } : {}),
-    guardedProvider, guardedActive, semanticProviderRequests, terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
+    guardedProvider, guardedActive, guardedPayload, semanticProviderRequests, terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
-    provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe || guardedStale,
+    provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: failureProbe || cancellationProbe || guardedStale || guardedPayload,
     provesOutcomeRecovery: recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
     initialization: { providerReceivedInitialization, hostIdentityVerified: true, restrictedVerification: initializationVerification,
       skillBodyRead: fragmentProbe ? fragmentChecks.skillBodyRead : skillReadProbe ? providerReceivedSkillBody : "not_exercised",
       ownerRequestedReinitialization: skillReadProbe ? providerReceivedInitializationResult : "not_exercised", scope: "host_bootstrap" },
     ...(questionProbe ? { providerReceivedOriginalEvidence, provesQuestionBundlePersistence: managed, provesQuestionRecovery: questionRecoveryProbe } : {}), persistence, evidenceDirectory: temp };
   if (guardedSemantic) assert.ok(semanticProviderRequests > 0);
-  assert.equal(report.terminalStatus, failureProbe || cancellationProbe || guardedStale ? "error" : "ok");
+  assert.equal(report.terminalStatus, failureProbe || cancellationProbe || guardedStale || guardedPayload ? "error" : "ok");
   if (guardedActive) {
     const plugins = await client.request("plugins.list", {});
     assert.ok(plugins.plugins.some(plugin => plugin.id === "active-memory" && plugin.installed && plugin.enabled));
@@ -806,13 +809,17 @@ try {
     report.nativeActiveMemory = { scope: "diagnostic", verified: false, loaded: true,
       postPolicyHookInvocations: observations.length, category: "host_tool_authority_unavailable" };
   }
-  assert.equal(report.providerRequests, guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : 1);
-  if (skillReadProbe && !guardedStale) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
-  if (skillReadProbe && !guardedStale) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
-  if (!liveFragment && !preparationCancellationProbe && !correctionRecoveryProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
+  assert.equal(report.providerRequests, guardedPayload ? 0 : guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : 1);
+  if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
+  if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
+  if (!liveFragment && !preparationCancellationProbe && !correctionRecoveryProbe && !guardedPayload) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
   // Preparation cancellation precedes the Host user transcript append.
   assert.equal(report.userMessages, preparationCancellationProbe || correctionRecoveryProbe ? 0 : 1);
-  assert.equal(report.finalAnswers, failureProbe || cancellationProbe || guardedStale ? 0 : 1);
+  assert.equal(report.finalAnswers, failureProbe || cancellationProbe || guardedStale || guardedPayload ? 0 : 1);
+  if (guardedPayload) {
+    assert.ok(gateway.diagnostics().includes("host_memory_payload_transform_unbound"), "Must fail at the actual payload gate, not an unrelated admission failure");
+    report.payloadTransform = { nativeExtraBodyExecuted: true, unboundPayloadSent: false, modelRequests: providerRequests };
+  }
   if (questionProbe) assert.equal(providerReceivedOriginalEvidence, true);
   if (guardedDreaming) {
     let job;

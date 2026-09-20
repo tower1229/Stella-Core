@@ -287,7 +287,7 @@ Core 在 `reply_dispatch` 内、进入 Host 执行器之前，对三种数据模
 
 因此 `full_memory` 独立保留 `host_memory_consumption_unverifiable`，初始化 runtime 状态、已有初始化状态复核及业务准备均不得将其消除。能力收据、空会话、新会话、重启和 `/new` 都不能作为清除此阻塞的依据。不得删除旧会话、关闭记忆或清空历史后宣称语义等价成功，也不得降为 Alpha 来通过完整验收。Alpha 未新增此完整 profile 门禁，不代表其 Host 原生入口已满足完整记忆契约。
 
-2026-09-20 增加显式 provider `stella-guarded`。只有模型配置选择该 provider 时，公开 `wrapStreamFn` 才在每次实际 transport 调用（含工具续轮）复核本轮请求／session、模型、代际、处理权威、个人视图及已读证据，并重新检查来源 revision；不复用意识加载缓存代替最后一步。验证失败锁定本轮准备状态，Host 重试不能覆盖原类别。StreamFn 返回 SDK error／aborted 事件，不以抛出异常替代流协议。该 provider 不覆盖其他 provider，也不自动改动已有模型、凭据、备用模型或共享插件配置；使用时须显式配置相应 transport 和精确模型处理许可。
+2026-09-20 增加显式 provider `stella-guarded`。只有模型配置选择该 provider 时，公开 `wrapStreamFn` 才在每次实际 transport 调用（含工具续轮）复核本轮请求／session、模型、代际、处理权威、个人视图及已读证据，并重新检查来源 revision；不复用意识加载缓存代替最后一步。验证失败锁定本轮准备状态，Host 重试不能覆盖原类别。StreamFn 返回 SDK error／aborted 事件，不以抛出异常替代流协议。该 provider 不覆盖其他 provider，也不自动改动已有模型、凭据、备用模型或共享插件配置；使用时须显式配置相应 transport 和精确模型处理许可。校验接口取得独立的 system／messages／工具描述与参数副本，但现有产品校验器尚未完成逐片段来源绑定。原版 Host 在 Context 校验后通过 `onPayload` 应用 `extra_body`；此回调只能观察独立副本，任何 JSON 正文修改或替换均以 `host_memory_payload_transform_unbound` 拒绝，包括普通参数改写，不宣称兼容全部 payload 定制。回调后再次复核权限、取消和本轮失败锁定；流返回后的异步拒绝也保留错误类别。未获许可的跨会话／direct 子调用不得锁死父请求。真实 `--guarded-payload-transform` 探针通过原生配置覆盖 messages，必须观察对应错误及零模型请求；正常工具续轮另行验证，二者都不构成完整记忆来源治理验收。
 
 Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许可，绑定当前请求、精确模型和按固定 SDK 规范化后的 system／messages；许可只能消费一次，调用结束、等待期间取消、输入变化或继承上下文的迟到子调用均不能发出请求。实际 Host 探针覆盖正常语义准备、正常工具续轮，以及工具后改变目录代际时零后续 transport；此处改变代际使用合成故障注入，不等于原生记忆来源同步成功。Core 证据复核没有把完整 Host 历史、摘要和工具文本逐片段绑定到来源，因此仍不得清除 full_memory 阻塞。
 
