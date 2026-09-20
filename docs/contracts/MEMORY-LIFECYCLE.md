@@ -295,7 +295,7 @@ Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许�
 
 单元测试覆盖公开 `reply_dispatch` 的三种数据模式和七种受众组合，以及 transport 的来源／代际变化、许可过期、输入替换、重复调用和取消。固定 Host capability 探针验证有效 bootstrap 收据不能清除此阻塞；首次聊天、同会话下一轮、新会话、reset RPC、原生 `/new` 后和 Gateway 重启后均没有模型请求。完整 profile 的 `/new` 在进入原生 reset hooks 前拒绝，公开 transcript SDK 核对 reset boundary 没有增加，另核对 Gateway 重启后的会话身份保留；这些均是无法验证完整 profile 时的拒绝证据，不是完整记忆成功使用的证据。
 
-原生 Active Memory 诊断 `--guarded-active-memory` 单独报告 loaded、postPolicyHookInvocations 和 verified。固定 Host 当前协调执行路径没有调用要求工具授权的提示补充 hook，不能把没有 recall 当作成功拦截。协调器现传递真实 messageProvider 和 InternalTurnSource，但不制造 Host 的工具授权 fingerprint。Active Memory／Dreaming 的来源受众适配、Host 完整输入的来源映射和成功生命周期仍需接通；Issue #23 与 `source_access_context` 最终消费验收尚未关闭。
+原生 Active Memory 诊断 `--guarded-active-memory` 单独报告 loaded、postPolicyHookInvocations 和 verified。固定 Host 当前协调执行路径没有调用要求工具授权的提示补充 hook，不能把没有 recall 当作成功拦截。协调器现传递真实 messageProvider 和 InternalTurnSource，但不制造 Host 的工具授权 fingerprint。`--guarded-dreaming` 通过公开 cron API 执行原生受管任务并观察真实 Dreaming 子运行；固定 Host 即使子模型未调用仍会将未绑定 Core 来源的合成片段写入 MEMORY，调度器还可报告成功。探针确认下一轮因投影变化被拒绝、后台和下一轮均零新增模型请求；这是拒绝证据，不是 Dreaming 学习成功。Active Memory／Dreaming 的来源受众适配、Host 完整输入的来源映射和成功生命周期仍需接通；Issue #23 与 `source_access_context` 最终消费验收尚未关闭。
 
 ## 4. 交互学习
 

@@ -30,10 +30,11 @@ if (liveFragment) {
   assert.equal(liveProvider?.api, "google-generative-ai");
   assert.ok(liveProvider.apiKey, "Configured Google provider credentials required");
 }
+const guardedDreaming = process.argv.includes("--guarded-dreaming");
 const guardedActive = process.argv.includes("--guarded-active-memory");
 const guardedStale = process.argv.includes("--guarded-provider-stale");
 const guardedSemantic = process.argv.includes("--guarded-semantic");
-const guardedProvider = guardedActive || guardedSemantic || guardedStale || process.argv.includes("--guarded-provider");
+const guardedProvider = guardedDreaming || guardedActive || guardedSemantic || guardedStale || process.argv.includes("--guarded-provider");
 const probeProvider = guardedProvider ? "stella-guarded" : "stella-smoke";
 const probeModel = liveFragment ? liveModel : `${probeProvider}/probe`;
 const correctionProbe = fragmentProbe || outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
@@ -246,6 +247,10 @@ if (${adviceTailProbe}) {
 }
 const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 export default { ...main, register(api) {
+  if (${guardedDreaming}) api.on('before_agent_run', (_event, ctx) => {
+    appendFileSync(${JSON.stringify(path.join(temp, "native-runs.jsonl"))}, JSON.stringify({ trigger: ctx.trigger,
+      sessionKey: ctx.sessionKey, runId: ctx.runId }) + '\\n');
+  }, { priority: 2000 });
   if (${guardedActive}) api.on('before_prompt_build', (_event, ctx) => {
     appendFileSync(${JSON.stringify(path.join(temp, "active-hooks.jsonl"))}, JSON.stringify({ trigger: ctx.trigger,
       sessionKey: ctx.sessionKey, messageProvider: ctx.messageProvider, channelId: ctx.channelId,
@@ -339,6 +344,11 @@ let providerReceivedInitializationResult = false;
 let observedSkillResult;
 const fragmentChecks = { allowedRead: false, descriptionListed: false, skillBodyRead: false, deniedNeighborAbsent: true, wholeFileBlocked: false, unavailableHandleBlocked: false };
 const provider = createServer(async (request, response) => {
+  // Native background model discovery is metadata, not a completion request.
+  if (guardedDreaming && request.method === "GET" && request.url === "/v1/models") {
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ object: "list", data: [{ id: "probe", object: "model", owned_by: "synthetic" }] })); return;
+  }
   providerRequests++;
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
@@ -417,7 +427,11 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
   agents: { defaults: { model: { primary: probeModel } }, entries: { probe: { workspace } } },
   models: { providers: { ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.1-pro-preview", name: "Gemini acceptance", contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 256 }] } } },
-  plugins: { allow: ["stella-core", ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedActive ? { "active-memory": { enabled: true, config: {
+  plugins: { allow: ["stella-core", ...(guardedDreaming ? ["memory-core"] : []), ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedDreaming ? { "memory-core": { enabled: true, config: { dreaming: {
+    enabled: true, frequency: "0 0 * * *", model: probeModel,
+    phases: { light: { enabled: true, limit: 3, lookbackDays: 7, execution: { model: probeModel } }, rem: { enabled: false },
+      deep: { enabled: true, limit: 3, minScore: 0, minRecallCount: 0, minUniqueQueries: 0 } },
+  } } } } : {}), ...(guardedActive ? { "active-memory": { enabled: true, config: {
     enabled: true, mode: "always", agents: ["probe"], model: probeModel, toolsAllow: ["read"], logging: true,
   } } } : {}), "stella-core": { enabled: true,
     llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
@@ -465,6 +479,11 @@ try {
   gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs"), ...(guardedActive ? { diagnosticPrefixes: ["active-memory:"] } : {}) });
   await connectObserver();
   await waitForInitializationReady();
+  if (guardedDreaming) {
+    await mkdir(path.join(workspace, "memory"), { recursive: true });
+    await writeFile(path.join(workspace, "memory", new Date().toISOString().slice(0, 10) + ".md"),
+      "# Synthetic retained daily log\n\n- SYNTHETIC_UNBOUND_DREAMING_SOURCE: The synthetic project meeting was moved to Tuesday. This retained test fixture has no Core source or policy binding.\n");
+  }
   const displayedAgents = await client.request("agents.list", {});
   assert.equal(displayedAgents.agents.find((agent) => agent.id === "probe")?.identity?.name, "Synthetic Stella",
     "The Gateway must expose the initialized identity, not merely a workspace file");
@@ -795,6 +814,42 @@ try {
   assert.equal(report.userMessages, preparationCancellationProbe || correctionRecoveryProbe ? 0 : 1);
   assert.equal(report.finalAnswers, failureProbe || cancellationProbe || guardedStale ? 0 : 1);
   if (questionProbe) assert.equal(providerReceivedOriginalEvidence, true);
+  if (guardedDreaming) {
+    let job;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const jobs = await client.request("cron.list", { includeDisabled: true });
+      job = jobs.jobs.find(candidate => candidate.declarationKey === "memory-core:memory-dreaming-promotion");
+      if (job) break;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    assert.ok(job, "Native memory-core must create its own managed Dreaming job");
+    const before = providerRequests;
+    const started = await client.request("cron.run", { id: job.id, mode: "force" });
+    assert.equal(started.enqueued, true);
+    let finished;
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const runs = await client.request("cron.runs", { id: job.id, limit: 5 });
+      finished = runs.entries.find(entry => entry.runId === started.runId && entry.action === "finished");
+      if (finished) break;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    assert.ok(finished, "Native Dreaming must finish, not merely be enqueued");
+    const written = (await readFile(path.join(workspace, "MEMORY.md"), "utf8")).includes("SYNTHETIC_UNBOUND_DREAMING_SOURCE");
+    assert.equal(written, true, "Exercise native fallback materialization, not an empty Dreaming run");
+    const followup = await client.request("chat.send", { sessionKey, message: "Synthetic next turn after native Dreaming", idempotencyKey: "after-native-dreaming" });
+    const next = await client.request("agent.wait", { runId: followup.runId, timeoutMs: 60_000 });
+    assert.equal(next.status, "error", JSON.stringify(next));
+    const initialization = await client.request("stella.initialize", { action: "status" });
+    assert.equal(initialization.state, "blocked", JSON.stringify(initialization));
+    assert.equal(initialization.category, "projection_drift", JSON.stringify(initialization));
+    assert.equal(providerRequests, before, "Neither native subruns nor the next turn may consume the unbound projection");
+    const runs = (await readFile(path.join(temp, "native-runs.jsonl"), "utf8")).trim().split("\n").map(line => JSON.parse(line));
+    const nativeSubruns = runs.filter(run => run.sessionKey?.startsWith("agent:probe:dreaming-narrative-"));
+    assert.ok(nativeSubruns.length > 0, "Observe actual Host-created Dreaming subruns");
+    report.nativeDreaming = { scope: "diagnostic", verified: false, managedJobExecuted: true,
+      schedulerStatus: finished.status, nativeSubruns: nativeSubruns.length, unboundProjectionWritten: written,
+      nextTurnStatus: next.status, nextTurnBlocker: initialization.category, modelRequestsAfterDreaming: providerRequests - before };
+  }
   await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 } catch (error) {
