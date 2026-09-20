@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
 import { prepareRepositorySource, REPOSITORY_SOURCE_ADAPTER } from "../src/canghai/repository-source.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
@@ -45,4 +45,12 @@ test("repository import retains mixed original bytes as unknown, never as owner 
   await assert.rejects(resolver.readEvidence(prepared.evidenceRefs[0]!));
   await writeFile(path.join(root, relativePath), Buffer.from([0xff, 0xfe]));
   await assert.rejects(prepareRepositorySource({ ...input, expectedSha256: bytesVersion(Buffer.from([0xff, 0xfe])) }), /media_adapter_required/);
+  await rm(path.join(root, relativePath));
+  await assert.rejects(prepareRepositorySource(input), (error: unknown) => {
+    assert.ok(error instanceof CatalogError);
+    assert.equal(error.category, "repository_source_unavailable");
+    assert.equal(error.message, "Memory catalog failed: repository_source_unavailable");
+    assert.equal(error.cause, undefined, "Private paths must not escape in a filesystem cause");
+    return true;
+  });
 });

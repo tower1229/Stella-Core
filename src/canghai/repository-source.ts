@@ -20,7 +20,12 @@ export async function prepareRepositorySource(input: {
       value.split("/").some((part) => !part || part === "." || part === ".." || part.toLowerCase() === ".git" || part.includes(":")))) {
     throw new CatalogError("invalid_repository_source_import");
   }
-  const bytes = await readRepositoryBytes(input.root, input.relativePath);
+  let bytes: Buffer;
+  try { bytes = await readRepositoryBytes(input.root, input.relativePath); }
+  catch (error) {
+    if (error instanceof CatalogError) throw error;
+    throw new CatalogError("repository_source_unavailable");
+  }
   if (bytesVersion(bytes) !== input.expectedSha256) throw new CatalogError("repository_source_changed");
   // Binary attachments need their own media adapter; never decode them lossily as evidence.
   let text: string;

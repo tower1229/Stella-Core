@@ -305,3 +305,11 @@ Physical migration of old archives is optional. Continuity and reconstructabilit
 - 脚本会 pull、commit、push 或重启，不能当只读规划器调用。新初始化先输出精确来源版本和可审查变更，再执行获授权的计划，应用期间不能悄悄 pull 到另一 revision。
 
 新版初始化的迁移结果须逐项记录 `retained | adapted | retired | unavailable | conflict`、原始定位／blob、目标职责、被替代条款、依赖和验收。`retired` 只指旧运行实现退出，不表示删除原件或取消未被修改的产品能力。
+
+## 14. 真实备份配置与本机隔离接入（2026-09-20）
+
+最终交付包含沧海中的生产配置适配：先以当前 `dev` 的配置和资料建立隔离副本，验证来源读取、同步及旧记忆失效；Core 完成后再同步修改沧海中的相关运行配置。配置保存、本机验收和生产生效分别记录，不能将测试副本或旧集成分支当作生产已迁移。
+
+本次只读基线为沧海 `dev@78f5466b0ad53595f020f315969e639e8bd9d83d`。备份配置位于 `50_PersonalAgent/openclaw/openclaw.json`，未启用 `stella-core`，默认 Core manifest 尚缺失。固定 Host `2026.8.2` 的公开 `config validate` 返回 7 个兼容性问题；不得通过删除未知字段来宣称保留了原能力。`30_RAG` 中 100 份登记资料的策略元数据结构可解析，不等于完成语义审查、全库及附件覆盖、授权迁移或真实 Host 验收。
+
+`npm run build` 后可运行 `node scripts/preflight-private-source.mjs --canghai-root <clean-isolated-copy> --revision <full-SHA>`。预检不启动 Gateway、不调用模型、不修改来源或配置；完整诊断和策略计划保存在仓库外的私有临时目录，终端只输出摘要。结果固定为迁移诊断，退出码 2 表示尚不能激活；构建产物摘要独立记录，不能用 Git clean 证明 ignored dist 对应当前源码。现有部署／回写脚本不在该预检中执行。
