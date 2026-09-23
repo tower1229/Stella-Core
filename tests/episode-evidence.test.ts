@@ -589,6 +589,96 @@ test("evidence-bound closure atomically commits learning, retries pointer failur
   }
 });
 
+test("outcome fails closed on an open required view until structured rebuild admissions are supplied", async (t) => {
+  const { root, actual, evidence, catalog, save } = await fixture(t);
+  const { viewRecipePath } = await import("../src/canghai/view-recipe.js");
+  const artifactBody = { schemaVersion: "stella.host-history-view/v1", viewId: "open-history", text: "baseline" };
+  const artifactBytes = canonicalJson(artifactBody);
+  const digest = bytesVersion(artifactBytes);
+  const recipeBody = { schemaVersion: "stella.view-recipe/v1", id: "history-view:open-history", adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: [], parameters: { archiveRoot: "retained-context", digest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const recipe = { ...recipeBody, version: objectVersion(recipeBody) };
+  const view = { id: "open-history", generationId: catalog.generationId, required: true,
+    recipeRef: { id: recipe.id, version: recipe.version }, sourceRefs: [] as VersionedRef[] };
+  const recipePath = viewRecipePath("catalog.json", view.recipeRef);
+  await mkdir(path.dirname(path.join(root, recipePath)), { recursive: true });
+  await writeFile(path.join(root, recipePath), canonicalJson(recipe));
+  catalog.views.push(view);
+  await save();
+  const outcome = { observations: ["对方确认周末有空"], result: "时间得到确认", observedAt: now, evidenceRefs: [evidence] };
+  const complete = async ({ prompt }: { prompt: string }) => prompt.includes("reported-outcome evidence verifier")
+    ? { text: JSON.stringify({ supported: true, outcome, rationale: "Synthetic" }) } : verdict(actual);
+  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, "catalog.json"), purpose, complete);
+  const runtime = new PraxisRuntimeMemory(new EpisodeRepository(root, "episodes", {
+    resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
+    resolveLearning: (ref) => resolver.resolveLearning(ref), verifyActionEvidence: (claim) => resolver.verifyActionEvidence(claim),
+    verifyOutcomeEvidence: (action, report) => resolver.verifyOutcomeEvidence(action, report),
+    isCurrentlyEligible: (episode) => resolver.isCurrentlyEligible(episode), async persist() {},
+  }), resolver);
+  const episode: EpisodeV2 = { schemaVersion: "stella.praxis-episode/v2", id: "episode-open-view", status: "open",
+    createdAt: now, updatedAt: now, recoveryPriority: "normal", provenance: {}, historicalInputRefs: [evidence],
+    situation: { summary: "确认周末时间", domains: ["social"], observations: [] } };
+  const advised = await runtime.recommend({ operationId: "initial", episode, decision: { recommendation: "询问时间", rationale: [] }, recordedAt: now });
+  const run = promisify(execFile);
+  await run("git", ["init", "--quiet", "--initial-branch=main", root]);
+  for (const [key, value] of [["user.name", "Synthetic Test"], ["user.email", "synthetic@example.invalid"], ["core.autocrlf", "false"]]) {
+    await run("git", ["-C", root, "config", key!, value!]);
+  }
+  await run("git", ["-C", root, "add", "."]);
+  await run("git", ["-C", root, "commit", "--quiet", "-m", "Synthetic baseline"]);
+  const initial = (await run("git", ["-C", root, "rev-parse", "HEAD"])).stdout.trim();
+  const prepared = await prepareEvidenceBoundOutcome({ request: "记录邀约结果", selected: advised, recordedAt: now, resolver: runtime.evidence,
+    complete: async () => ({ provider: "synthetic", model: "injected", text: canonicalJson({ disposition: "ready", actual, outcome,
+      predictionAssessment: "unresolved", learning: { disposition: "no_change", rationale: "Synthetic scoped evaluation", evidenceRefs: [evidence] } }) }) });
+  assert.ok(prepared.disposition === "ready");
+  await assert.rejects(prepareOutcomeTransaction({ operationId: "report", requestId: "report", revision: initial, runtime, objectRoot: "objects", prepared }),
+    /required_view_rebuild_required/);
+  const admissionFor = (generationId: string) => {
+    const body = { schemaVersion: "stella.host-history-view/v1", viewId: "open-history", text: "rebuilt-after-outcome" };
+    const bytes = canonicalJson(body);
+    const nextDigest = bytesVersion(bytes);
+    const nextRecipeBody = { schemaVersion: "stella.view-recipe/v1", id: "history-view:open-history", adapterId: "stella.host-history",
+      adapterVersion: "1", hostTarget: "stella", inputRefs: [], parameters: { archiveRoot: "retained-context", digest: nextDigest },
+      modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+    const nextRecipe = { ...nextRecipeBody, version: objectVersion(nextRecipeBody) };
+    const nextView = { id: "open-history", generationId, required: true,
+      recipeRef: { id: nextRecipe.id, version: nextRecipe.version }, sourceRefs: [] as VersionedRef[] };
+    return {
+      viewId: "open-history", view: nextView,
+      artifactPath: `retained-context/history-views/${nextDigest.slice(7)}.json`, artifactBytes: bytes,
+      signaturePath: `retained-context/history-views/${nextDigest.slice(7)}.json.sig`, signatureBytes: "c2ln",
+      recipePath: viewRecipePath("catalog.json", nextView.recipeRef), recipeBytes: canonicalJson(nextRecipe),
+    };
+  };
+  const transaction = await prepareOutcomeTransaction({
+    operationId: "report", requestId: "report", revision: initial, runtime, objectRoot: "objects", prepared,
+    viewRebuilds: (generationId) => [admissionFor(generationId)],
+  });
+  assert.equal(transaction.viewMigration.rebuilt.length, 1);
+  const external = await mkdtemp(path.join(os.tmpdir(), "stella-outcome-view-remote-"));
+  t.after(() => rm(external, { recursive: true, force: true }));
+  const remote = path.join(external, "remote.git");
+  await run("git", ["init", "--quiet", "--bare", remote]);
+  await run("git", ["-C", root, "remote", "add", "origin", remote]);
+  await run("git", ["-C", root, "push", "origin", "main"]);
+  let fail = true;
+  const durability = new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
+    normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0,
+    onRevision: async () => { if (fail) throw new Error("Synthetic pointer failure"); } });
+  const signal = new AbortController().signal;
+  await assert.rejects(transaction.persist(durability, signal), /Synthetic pointer failure/);
+  fail = false;
+  const restarted = new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
+    normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0 });
+  const receipt = await recoverPendingOutcome({ root, operationId: transaction.plan.operationId, catalogPath: "catalog.json",
+    episodeRoot: "episodes", objectRoot: "objects", purpose, complete, durability: restarted, abortSignal: signal });
+  assert.equal(receipt.generationId, transaction.generationId);
+  const reader = await CatalogReader.load(root, "catalog.json");
+  assert.equal(reader.catalog.views[0]?.generationId, receipt.generationId);
+  assert.deepEqual(reader.catalog.views[0]?.sourceRefs, []);
+});
+
 
 test("outcome clarification rejects missing model identity and originals changed during inference", async t => {
   const f = await fixture(t);

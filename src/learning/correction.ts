@@ -11,6 +11,7 @@ import { EpisodeEvidenceResolver, type OriginalEvidence, type EvidencePurpose } 
 import { preparePersonalViews, validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
+import { applyViewMigration, planViewMigration, rebuildsFromRecordedPlan, isViewMigrationFile, type ViewMigrationPlan, type ViewRebuildAdmission } from "../canghai/view-migration.js";
 
 const VERSION = "stella-correction/v1";
 const RECEIPT_VERSION = "stella-correction/v2";
@@ -63,6 +64,8 @@ export async function prepareCorrection(input: {
   evidenceRefs: VersionedRef[]; resolver: EpisodeEvidenceResolver; objectRoot: string;
   processingAuthority: ProcessingAuthority;
   assertProcessingCurrent: () => Promise<void>; complete: Complete;
+  /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
+  viewRebuilds?: (generationId: string) => readonly ViewRebuildAdmission[] | undefined;
 }) {
   input = { ...input, evidenceRefs: structuredClone(input.evidenceRefs) };
   check(/^[a-zA-Z][a-zA-Z0-9_-]{0,100}$/.test(input.operationId) &&
@@ -192,7 +195,7 @@ export async function prepareCorrection(input: {
       for (const original of ownerEvidence) check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "correction_evidence_changed");
     } });
   const before = (await readRepositoryBytes(reader.root, reader.catalogPath)).toString("utf8");
-  const after = structuredClone(reader.catalog);
+  let after = structuredClone(reader.catalog);
   const files: MemoryFileChange[] = [], objects: Array<{ path: string; bytes: string }> = [];
   const updated = new Map<string, VersionedRef>();
   const readEvidenceRefs = unique([...input.evidenceRefs, ...candidates.flatMap(item => item.originals.map(original => original.ref))]);
@@ -261,9 +264,14 @@ export async function prepareCorrection(input: {
     targetRefs: targets, changes: changeRows, disposition: proposal.disposition, rationale: proposal.rationale }, [...input.evidenceRefs, ...targets]);
   after.parentGenerationId = reader.catalog.generationId;
   after.generationId = `generation_${bytesVersion(canonicalJson({ operationId, before: reader.catalogHash, changeRef })).slice(7)}`;
+  const viewRebuilds = input.viewRebuilds?.(after.generationId);
+  const viewMigration: ViewMigrationPlan = planViewMigration({ before: reader.catalog, after, rebuilds: viewRebuilds });
+  after = applyViewMigration(after, viewMigration);
+  parseMemoryCatalog(after);
   files.push({ path: path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.correction.json`), before: null,
     after: canonicalJson({ schemaVersion: RECEIPT_VERSION, operationId, requestHash, changeRef, clarification: proposal.clarification,
       ownerId: input.ownerId, modelRef: input.modelRef, evidenceCutoff: input.resolver.purpose.evidenceCutoff }) });
+  files.push(...viewMigration.files);
   files.push({ path: reader.catalogPath, before, after: canonicalJson(after) });
   const plan: MemoryTransactionPlan = { operationId, journalPath, files };
   const verify = async (current: CatalogReader) => current.validatePreview(after, objects, async preview => {
@@ -274,10 +282,11 @@ export async function prepareCorrection(input: {
     await preparePersonalViews({ ...input, requestId: input.operationId, question: input.request, resolver,
       audience: "owner_direct", selection: "all_authorized", complete: input.complete });
     for (const old of changed) check(![...after.understandings, ...after.works].some(entry => key(entry) === old && entry.status === "current"), "stale_correction_target");
-  }, { allowWorkChanges: true });
+  }, { allowWorkChanges: true, viewMigration, viewRebuilds });
   await verify(reader); await inventory.assertCurrent(); await input.assertProcessingCurrent();
   return { disposition: proposal.disposition as "update" | "no_change" | "needs_clarification", clarification: proposal.clarification,
     changeRef: { ...changeRef }, targets: structuredClone(targets), generationId: after.generationId, plan: structuredClone(plan),
+    viewMigration,
     async persist(durability: GitCangHaiDurability, signal: AbortSignal) {
       await applyMemoryTransaction(reader.root, plan, {
         async validate() {
@@ -322,7 +331,7 @@ export async function recoverCorrection(input: {
   const after = parseMemoryCatalog(JSON.parse(catalogFile.after));
   const changeRef = receipt.changeRef;
   const expected = structuredClone(before);
-  const objects = plan.files.filter(file => file !== catalogFile && file !== receiptFile);
+  const objects = plan.files.filter(file => file !== catalogFile && file !== receiptFile && !isViewMigrationFile(file.path));
   check(objects.length > 0 && objects.length <= 33 && objects.every(file => file.before === null), invalid);
   const changeFile = objects.find(file => file.path === `${input.objectRoot}/changes/${changeRef.id}/${changeRef.version.slice(7)}.json`);
   check(changeFile, invalid);
@@ -389,7 +398,11 @@ export async function recoverCorrection(input: {
   }
   expected.parentGenerationId = before.generationId;
   expected.generationId = `generation_${bytesVersion(canonicalJson({ operationId: input.operationId, before: bytesVersion(catalogFile.before), changeRef: receipt.changeRef })).slice(7)}`;
-  check(canonicalJson(expected) === canonicalJson(after), invalid);
+  const viewRebuilds = rebuildsFromRecordedPlan(before, after, plan, input.catalogPath);
+  const viewMigration = planViewMigration({ before, after: expected, rebuilds: viewRebuilds });
+  const migrated = applyViewMigration(expected, viewMigration);
+  check(canonicalJson(migrated) === canonicalJson(after), invalid);
+  check(viewMigration.files.every(file => plan.files.some(entry => entry.path === file.path && entry.after === file.after)), invalid);
   const purpose = { ...input.purpose, evidenceCutoff: new Date(Math.min(Date.parse(input.purpose.evidenceCutoff), Date.parse(receipt.evidenceCutoff))).toISOString() };
   const validateOriginals = async (reader: CatalogReader) => {
     check(input.processingAuthority.privateContextAllowed && input.processingAuthority.audience === "owner_direct",
@@ -419,7 +432,7 @@ export async function recoverCorrection(input: {
         await preparePersonalViews({ resolver, requestId: input.operationId, question: originals.join("\n"), ownerId: input.ownerId, modelRef: input.modelRef,
           audience: "owner_direct", selection: "all_authorized", processingAuthority: input.processingAuthority,
           assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
-      }, { allowWorkChanges: true });
+      }, { allowWorkChanges: true, viewMigration, viewRebuilds });
       await input.assertProcessingCurrent();
     },
     persist: async paths => { await input.durability.syncCritical(paths, `stella correction ${input.operationId}`); },

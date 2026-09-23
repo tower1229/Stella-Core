@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, rm, writeFile, realpath } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile, realpath } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { personalMemoryFixture } from "./personal-memory-fixture.js";
@@ -11,6 +11,8 @@ import { learn, prepareCorrection, recoverCorrection } from "../src/learning/cor
 import { preparePersonalViews } from "../src/praxis/personal-views.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import { CatalogReader } from "../src/canghai/catalog-reader.js";
+import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
+import { viewRecipePath } from "../src/canghai/view-recipe.js";
 
 const request = "我希望这篇文章保留疑问，不要替我加上励志结尾。";
 const editable = ["kind", "status", "goal", "sourceRefs", "confirmedPremises", "candidateIdeas", "rejectedInterpretations", "openQuestions", "nextStep"];
@@ -437,4 +439,91 @@ test("revoking a correction grant during input custody prevents learning without
   }), /personal_context_access_changed/);
   assert.equal(calls(), 0);
   assert.equal((await CatalogReader.load(f.root, "catalog.json")).catalog.changes.length, f.catalog.changes.length);
+});
+
+async function seedHostHistoryView(f: Awaited<ReturnType<typeof personalMemoryFixture>>, sourceRefs: Array<{ id: string; version: string }>,
+  viewId = "session-history") {
+  const artifactBody = { schemaVersion: "stella.host-history-view/v1", viewId, text: "baseline" };
+  const artifactBytes = canonicalJson(artifactBody);
+  const digest = bytesVersion(artifactBytes);
+  const recipeBody = { schemaVersion: "stella.view-recipe/v1", id: `history-view:${viewId}`, adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: sourceRefs, parameters: { archiveRoot: "retained-context", digest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const recipe = { ...recipeBody, version: objectVersion(recipeBody) };
+  const view = { id: viewId, generationId: f.catalog.generationId, required: true,
+    recipeRef: { id: recipe.id, version: recipe.version }, sourceRefs };
+  const recipePath = viewRecipePath("catalog.json", view.recipeRef);
+  const artifactPath = `retained-context/history-views/${digest.slice(7)}.json`;
+  await mkdir(path.dirname(path.join(f.root, recipePath)), { recursive: true });
+  await mkdir(path.dirname(path.join(f.root, artifactPath)), { recursive: true });
+  await writeFile(path.join(f.root, recipePath), canonicalJson(recipe));
+  await writeFile(path.join(f.root, artifactPath), artifactBytes);
+  await writeFile(path.join(f.root, `${artifactPath}.sig`), "c2ln");
+  f.catalog.views.push(view);
+  await f.save();
+  return { view, recipe, recipePath, artifactPath, artifactBytes, digest };
+}
+
+function hostHistoryAdmission(input: {
+  viewId: string; generationId: string; sourceRefs: Array<{ id: string; version: string }>; text: string;
+}) {
+  const artifactBody = { schemaVersion: "stella.host-history-view/v1", viewId: input.viewId, text: input.text };
+  const artifactBytes = canonicalJson(artifactBody);
+  const digest = bytesVersion(artifactBytes);
+  const recipeBody = { schemaVersion: "stella.view-recipe/v1", id: `history-view:${input.viewId}`, adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: input.sourceRefs, parameters: { archiveRoot: "retained-context", digest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const recipe = { ...recipeBody, version: objectVersion(recipeBody) };
+  const view = { id: input.viewId, generationId: input.generationId, required: true,
+    recipeRef: { id: recipe.id, version: recipe.version }, sourceRefs: input.sourceRefs };
+  return {
+    viewId: input.viewId, view,
+    artifactPath: `retained-context/history-views/${digest.slice(7)}.json`, artifactBytes,
+    signaturePath: `retained-context/history-views/${digest.slice(7)}.json.sig`, signatureBytes: "c2ln",
+    recipePath: viewRecipePath("catalog.json", view.recipeRef), recipeBytes: canonicalJson(recipe),
+  };
+}
+
+test("correction reauthenticates an evidence-bound required view when only derived cognition changes", async t => {
+  const { f, input } = await setup(t);
+  await seedHostHistoryView(f, [f.evidence]);
+  const { restart } = await learningDurability(t, f.root);
+  const resolver = await f.resolver();
+  const result = await learn({ ...input, resolver, durability: restart(), signal: new AbortController().signal });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal(reader.catalog.generationId, result.generationId);
+  assert.equal(reader.catalog.views.length, 1);
+  assert.equal(reader.catalog.views[0]?.generationId, result.generationId);
+  assert.deepEqual(reader.catalog.views[0]?.sourceRefs, [f.evidence]);
+  const replay = await learn({ ...input, resolver: await f.resolver(), durability: restart(), signal: new AbortController().signal,
+    complete: async () => { throw new Error("Replay must not call the model"); } });
+  assert.deepEqual(replay, result);
+});
+
+test("correction rebuilds a work-bound required view from recorded admissions without rerunning a model", async t => {
+  const { f, input } = await setup(t);
+  await seedHostHistoryView(f, [f.workRef]);
+  const { restart } = await learningDurability(t, f.root);
+  const resolver = await f.resolver();
+  await assert.rejects(prepareCorrection({ ...input, resolver }), /required_view_rebuild_required/);
+  const result = await learn({
+    ...input, resolver, durability: restart(), signal: new AbortController().signal,
+    viewRebuilds: (generationId) => [hostHistoryAdmission({
+      viewId: "session-history", generationId, sourceRefs: [f.evidence], text: "rebuilt-after-correction",
+    })],
+  });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal(reader.catalog.views[0]?.generationId, result.generationId);
+  assert.deepEqual(reader.catalog.views[0]?.sourceRefs, [f.evidence]);
+  const recipe = await reader.readViewRecipe("session-history");
+  assert.equal(recipe.adapterId, "stella.host-history");
+  assert.equal(recipe.parameters.digest, bytesVersion(hostHistoryAdmission({
+    viewId: "session-history", generationId: result.generationId, sourceRefs: [f.evidence], text: "rebuilt-after-correction",
+  }).artifactBytes));
+  const replay = await learn({
+    ...input, resolver: await f.resolver(), durability: restart(), signal: new AbortController().signal,
+    complete: async () => { throw new Error("Replay must not regenerate history views"); },
+    viewRebuilds: () => { throw new Error("Replay must read rebuild bytes from the recorded plan"); },
+  });
+  assert.deepEqual(replay, result);
 });

@@ -1,10 +1,11 @@
 import path from "node:path";
-import { CatalogReader, readRepositoryBytes, type CatalogEntry, type MemoryCatalog } from "../canghai/catalog-reader.js";
+import { CatalogReader, parseMemoryCatalog, readRepositoryBytes, type CatalogEntry, type MemoryCatalog } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
 import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
+import { applyViewMigration, planViewMigration, type ViewMigrationPlan, type ViewRebuildAdmission } from "../canghai/view-migration.js";
 import { EpisodeEvidenceResolver } from "./episode-evidence.js";
 import { episodeVersion } from "./episode-repository.js";
 import { EpisodeV2Error, parseEpisodeV2, validateEpisodeV2References, validateEpisodeV2Transition, type VersionedRef } from "./episode-v2.js";
@@ -12,7 +13,6 @@ import { readPreparedOutcomeContext, type PreparedOutcome } from "./outcome-prep
 import type { PraxisRuntimeMemory } from "./runtime-memory.js";
 import { createOutcomeEvidenceBundle } from "./outcome-evidence-bundle.js";
 import { loadEvidenceBundle } from "./evidence-bundle.js";
-
 
 type OutcomeProjection = { episode: Extract<PreparedOutcome, { disposition: "ready" }>["episode"]; version: string;
   changeRef: VersionedRef; strategyRef?: VersionedRef; bundleRef: VersionedRef; generationId: string };
@@ -31,7 +31,10 @@ export async function readPreparedOutcomeProjection(transaction: object, prepare
 }
 
 export async function prepareOutcomeTransaction(input: { operationId: string; runtime: PraxisRuntimeMemory;
-  objectRoot: string; revision: string; requestId: string; prepared: Extract<PreparedOutcome, { disposition: "ready" }> }) {
+  objectRoot: string; revision: string; requestId: string; prepared: Extract<PreparedOutcome, { disposition: "ready" }>;
+  /** Structured rebuild admissions for required views whose inputs or open evidence plane changed. */
+  viewRebuilds?: (generationId: string) => readonly ViewRebuildAdmission[] | undefined;
+}) {
   input = { ...input };
   if (input.requestId !== input.operationId) throw new EpisodeV2Error("outcome_request_binding_mismatch");
   const binding = await readPreparedOutcomeContext(input.prepared);
@@ -47,7 +50,7 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
     throw new EpisodeV2Error("stale_episode_selection");
   }
   const beforeCatalog = (await readRepositoryBytes(reader.root, reader.catalogPath)).toString("utf8");
-  const after: MemoryCatalog = structuredClone(reader.catalog);
+  let after: MemoryCatalog = structuredClone(reader.catalog);
   const changes: MemoryFileChange[] = [];
   const objects: Array<{ path: string; bytes: string }> = [];
   const operationId = `outcome_${bytesVersion(input.operationId).slice(7)}`;
@@ -92,12 +95,21 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
   after.generationId = `generation_${bytesVersion(canonicalJson({ operationId, before: reader.catalogHash, version, changeRef })).slice(7)}`;
   const bundle = createOutcomeEvidenceBundle({ operationId, requestId: input.requestId, revision: input.revision, generationId: reader.catalog.generationId, prepared });
   const bundleRef = add("bundles", bundle, [...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs]);
+  const extraChangedPaths = new Set([episodePath, runtime.repository.historicalPath(episode.id, version)]);
+  const viewRebuilds = input.viewRebuilds?.(after.generationId);
+  const viewMigration: ViewMigrationPlan = planViewMigration({
+    before: reader.catalog, after, rebuilds: viewRebuilds, extraChangedPaths,
+  });
+  after = applyViewMigration(after, viewMigration);
+  parseMemoryCatalog(after);
   const afterCatalog = canonicalJson(after);
+  changes.push(...viewMigration.files);
   changes.push({ path: reader.catalogPath, before: beforeCatalog, after: afterCatalog });
   const plan: MemoryTransactionPlan = { operationId, journalPath: path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.transaction.json`), files: changes };
   await reader.assertCurrent();
   const transaction = {
     episode, version, changeRef, ...(strategyRef ? { strategyRef } : {}), bundle, bundleRef, plan, generationId: after.generationId,
+    viewMigration,
     async persist(durability: GitCangHaiDurability, abortSignal: AbortSignal) {
       assertProjection();
       await applyMemoryTransaction(reader.root, plan, {
@@ -114,7 +126,7 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
             });
             for (const ref of inputRefs) await resolver.readEvidence(ref);
             if (!await resolver.isCurrentlyEligible(episode)) throw new EpisodeV2Error("evidence_not_currently_eligible");
-          });
+          }, { viewMigration, viewRebuilds, viewExtraChangedPaths: extraChangedPaths });
         },
         async persist(paths, id) { await durability.syncCritical(paths, `close and evaluate ${id}`); },
         confirmPreviouslyCommitted: (file) => durability.confirmPreviouslyCommitted(file),
@@ -126,7 +138,7 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
     },
   };
   const projection = { episode, version, changeRef, ...(strategyRef ? { strategyRef } : {}), bundleRef, generationId: after.generationId };
-  const snapshot = canonicalJson({ ...projection, bundle, plan });
+  const snapshot = canonicalJson({ ...projection, bundle, plan, viewMigration });
   const assertProjection = () => {
     const { persist: _persist, ...current } = transaction;
     if (canonicalJson(current) !== snapshot) throw new EpisodeV2Error("outcome_transaction_changed");

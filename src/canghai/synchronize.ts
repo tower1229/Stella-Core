@@ -1,6 +1,6 @@
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import path from "node:path";
-import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef, type CatalogGroup } from "./catalog-reader.js";
+import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogGroup } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError, type MemoryTransactionPlan } from "./memory-transaction.js";
 import type { IngestDurabilityPort } from "./ingest.js";
@@ -16,6 +16,7 @@ import { verifySourceInterpretation } from "./source-interpretation.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES } from "../praxis/evidence-bundle.js";
 
 import { migrateSynchronizationState, type ReassessmentProgress } from "./synchronization-state.js";
+import { applyViewMigration, planViewMigration, rebuildsFromRecordedPlan, type ViewMigrationPlan, type ViewRebuildAdmission } from "./view-migration.js";
 
 const fencePath = ".stella-source-synchronization.json";
 const version = "stella.source-synchronization/v2";
@@ -32,6 +33,8 @@ export type SynchronizePorts = {
   complete(input: { prompt: string; maxTokens: number }): Promise<{ text: string; provider?: string; model?: string }>;
   signal?: AbortSignal;
   corpusRegistryRef?: string;
+  /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
+  viewRebuilds?: (generationId: string) => readonly ViewRebuildAdmission[] | undefined;
 };
 async function optionalFile(root: string, file: string): Promise<string | null> {
   try { return (await readRepositoryBytes(root, file)).toString("utf8"); }
@@ -187,6 +190,13 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   };
   if (finalPlan) {
     check(finalPlan.files.some(file => file.path === fencePath && file.before === pending && record(Buffer.from(file.after)).inputDigest === digest), "idempotency_conflict");
+    const catalogFile = finalPlan.files.find(file => file.path === ports.catalogPath);
+    check(catalogFile?.before === original.bytes && typeof catalogFile.after === "string", "idempotency_conflict");
+    const afterCatalog = parseMemoryCatalog(JSON.parse(catalogFile.after));
+    planViewMigration({
+      before: original.catalog, after: afterCatalog,
+      rebuilds: rebuildsFromRecordedPlan(original.catalog, afterCatalog, finalPlan, ports.catalogPath),
+    });
     await apply(finalPlan, blockRevision);
     return readReceipt();
   }
@@ -224,7 +234,9 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
       }
     }
   }
-  check(plan.catalog.views.length === 0, "required_view_adapter_unavailable");
+  const viewMigrationBase = original.catalog;
+  // Required views migrate through reauthentication or supplied rebuild admissions.
+  // Evidence-plane changes without rebuild admissions fail closed below.
   const allTargets = original.catalog.understandings.concat(original.catalog.works).filter(entry =>
     entry.status === "current" && plan.changed.has(refKey(entry)) || inheritedRefs.some(ref => refKey(ref) === refKey(entry)));
   const targets = allTargets.filter(entry => !request.targetIds || request.targetIds.includes(entry.id));
@@ -360,6 +372,12 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
     targetRefs: newRefs, changes: rows, disposition: "update", rationale: proposal.rationale }, [...evidence.map(item => item.ref), ...newRefs]);
   plan.catalog.parentGenerationId = original.catalog.generationId;
   plan.catalog.generationId = `generation_${bytesVersion(canonicalJson({ digest, catalog: plan.catalog })).slice(7)}`;
+  const viewMigration: ViewMigrationPlan = planViewMigration({
+    before: viewMigrationBase, after: plan.catalog,
+    rebuilds: ports.viewRebuilds?.(plan.catalog.generationId),
+  });
+  plan.catalog = applyViewMigration(plan.catalog, viewMigration);
+  parseMemoryCatalog(plan.catalog);
   const preview = await snapshot();
   const personal = await preparePersonalViews({ resolver: new EpisodeEvidenceResolver(preview, ports.purpose, ports.complete), requestId: id,
     question: "Verify synchronized current understanding", ownerId: ports.ownerId, modelRef: ports.modelRef, audience: "owner_direct",
@@ -385,7 +403,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
     removedSourceIds: plan.removedSourceIds, decisions: proposal.decisions });
   await migrateSynchronizationState(JSON.parse(finished));
   const newFiles = [];
-  for (const file of plan.files) {
+  for (const file of [...viewMigration.files, ...plan.files]) {
     const existing = await optionalFile(ports.root, file.path);
     check(existing === null || existing === file.after, "write_conflict");
     if (existing === null) newFiles.push(file);
@@ -393,6 +411,12 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   finalPlan = { operationId: id, journalPath: finalJournal, files: [...newFiles,
     { path: ports.catalogPath, before: original.bytes, after: canonicalJson(plan.catalog) },
     { path: fencePath, before: pending, after: finished }] };
-  await apply(finalPlan, blockRevision, assertCurrent);
+  await apply(finalPlan, blockRevision, async () => {
+    await assertCurrent();
+    planViewMigration({
+      before: viewMigrationBase, after: parseMemoryCatalog(plan.catalog),
+      rebuilds: ports.viewRebuilds?.(plan.catalog.generationId),
+    });
+  });
   return readReceipt();
 }

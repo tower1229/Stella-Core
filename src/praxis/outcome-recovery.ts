@@ -5,6 +5,7 @@ import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction } from "../canghai/memory-transaction.js";
 import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
+import { applyViewMigration, isViewMigrationFile, planViewMigration, rebuildsFromRecordedPlan } from "../canghai/view-migration.js";
 import { isRecord } from "../shared/type-guards.js";
 import { EpisodeEvidenceResolver, type EvidencePurpose } from "./episode-evidence.js";
 import { episodeVersion } from "./episode-repository.js";
@@ -52,7 +53,8 @@ export async function recoverPendingOutcome(input: {
   const identity = canonicalJson({ episodeId: episode.id, operationId: plan.operationId });
   const changeId = stableId("change", identity);
   const inputRefs = unique([...episode.actual!.evidenceRefs, ...episode.outcome!.evidenceRefs, ...episode.learning!.evidenceRefs]);
-  const objects = plan.files.filter((file) => file !== catalogFile && file !== episodeFile && file !== immutable);
+  const objects = plan.files.filter((file) => file !== catalogFile && file !== episodeFile && file !== immutable &&
+    !isViewMigrationFile(file.path));
   check(objects.length === 2 || objects.length === 3);
   const expected = structuredClone(before);
   const parseObject = (group: "changes" | "understandings" | "bundles", id: string) => {
@@ -107,8 +109,15 @@ export async function recoverPendingOutcome(input: {
   check(same(bundle, expectedBundle));
   expected.bundles.push({ ...bundleObject.ref, status: "current", dependencies: unique([...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs]),
     locator: { path: bundleObject.file.path, sha256: bytesVersion(bundleObject.file.after) } });
-  check(same(expected, after));
-  check(plan.files.length === objects.length + 3);
+  const episodePath = episodeFile.path;
+  const versionPathForExtra = versionPath;
+  const extraChangedPaths = new Set([episodePath, versionPathForExtra]);
+  const viewRebuilds = rebuildsFromRecordedPlan(before, after, plan, input.catalogPath);
+  const viewMigration = planViewMigration({ before, after: expected, rebuilds: viewRebuilds, extraChangedPaths });
+  const migrated = applyViewMigration(expected, viewMigration);
+  check(same(migrated, after));
+  check(viewMigration.files.every(file => plan.files.some(entry => entry.path === file.path && entry.after === file.after)));
+  check(plan.files.length === objects.length + 3 + viewMigration.files.length);
   await applyMemoryTransaction(input.root, plan, {
     async validate() {
       const current = await CatalogReader.load(input.root, input.catalogPath);
@@ -126,7 +135,7 @@ export async function recoverPendingOutcome(input: {
         });
         for (const ref of inputRefs) await resolver.readEvidence(ref);
         check(await resolver.isCurrentlyEligible(episode));
-      });
+      }, { viewMigration, viewRebuilds, viewExtraChangedPaths: extraChangedPaths });
     },
     async persist(paths, operationId) { await input.durability.syncCritical(paths, `recover outcome ${operationId}`); },
     confirmPreviouslyCommitted: (file) => input.durability.confirmPreviouslyCommitted(file),

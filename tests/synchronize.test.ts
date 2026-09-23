@@ -17,7 +17,8 @@ import { ManagedHostContextEngine } from "../src/openclaw/host-context-engine.js
 import { bindProcessingAuthority } from "../src/openclaw/processing-authority.js";
 import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
 import { preparePersonalViews } from "../src/praxis/personal-views.js";
-import { bytesVersion } from "../src/canghai/content-version.js";
+import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
+import { viewRecipePath } from "../src/canghai/view-recipe.js";
 
 async function setup(t: Parameters<typeof personalMemoryFixture>[0]) {
   const f = await personalMemoryFixture(t);
@@ -549,4 +550,93 @@ test("a later persisted correction resolves a pending identity without being lea
   const head = await git("rev-parse", "HEAD");
   await assert.rejects(synchronize(request, { ...ports, durability: restart() }), /write_conflict/);
   assert.equal(await git("rev-parse", "HEAD"), head);
+});
+
+async function seedSyncHistoryView(f: Awaited<ReturnType<typeof personalMemoryFixture>>, sourceRefs: Array<{ id: string; version: string }>,
+  viewId = "session-history") {
+  const artifactBody = { schemaVersion: "stella.host-history-view/v1", viewId, text: "baseline" };
+  const artifactBytes = canonicalJson(artifactBody);
+  const digest = bytesVersion(artifactBytes);
+  const recipeBody = { schemaVersion: "stella.view-recipe/v1", id: `history-view:${viewId}`, adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: sourceRefs, parameters: { archiveRoot: "retained-context", digest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const recipe = { ...recipeBody, version: objectVersion(recipeBody) };
+  const view = { id: viewId, generationId: f.catalog.generationId, required: true,
+    recipeRef: { id: recipe.id, version: recipe.version }, sourceRefs };
+  const recipePath = viewRecipePath("catalog.json", view.recipeRef);
+  const artifactPath = `retained-context/history-views/${digest.slice(7)}.json`;
+  await mkdir(path.dirname(path.join(f.root, recipePath)), { recursive: true });
+  await mkdir(path.dirname(path.join(f.root, artifactPath)), { recursive: true });
+  await writeFile(path.join(f.root, recipePath), canonicalJson(recipe));
+  await writeFile(path.join(f.root, artifactPath), artifactBytes);
+  await writeFile(path.join(f.root, `${artifactPath}.sig`), "c2ln");
+  f.catalog.views.push(view);
+  await f.save();
+  return { view, digest };
+}
+
+function syncHistoryAdmission(input: {
+  viewId: string; generationId: string; sourceRefs: Array<{ id: string; version: string }>; text: string;
+}) {
+  const artifactBody = { schemaVersion: "stella.host-history-view/v1", viewId: input.viewId, text: input.text };
+  const artifactBytes = canonicalJson(artifactBody);
+  const digest = bytesVersion(artifactBytes);
+  const recipeBody = { schemaVersion: "stella.view-recipe/v1", id: `history-view:${input.viewId}`, adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: input.sourceRefs, parameters: { archiveRoot: "retained-context", digest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const recipe = { ...recipeBody, version: objectVersion(recipeBody) };
+  const view = { id: input.viewId, generationId: input.generationId, required: true,
+    recipeRef: { id: recipe.id, version: recipe.version }, sourceRefs: input.sourceRefs };
+  return {
+    viewId: input.viewId, view,
+    artifactPath: `retained-context/history-views/${digest.slice(7)}.json`, artifactBytes,
+    signaturePath: `retained-context/history-views/${digest.slice(7)}.json.sig`, signatureBytes: "c2ln",
+    recipePath: viewRecipePath("catalog.json", view.recipeRef), recipeBytes: canonicalJson(recipe),
+  };
+}
+
+test("synchronize reauthenticates a policy-bound required view when the policy identity is untouched", async t => {
+  const { f, git, ports } = await setup(t);
+  const policy = { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version };
+  await seedSyncHistoryView(f, [policy]);
+  await git("add", "."); await git("commit", "--quiet", "-m", "seed policy-bound view"); await git("push", "origin", "main");
+  const fromRevision = await git("rev-parse", "HEAD");
+  await rm(path.join(f.root, "payload.json"));
+  await git("add", "-u"); await git("commit", "--quiet", "-m", "owner deletes source"); await git("push", "origin", "main");
+  const input = { operationId: "sync_view_reauth", fromRevision, toRevision: await git("rev-parse", "HEAD"),
+    expectedGenerationId: f.catalog.generationId };
+  const receipt = await synchronize(input, ports);
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal(reader.catalog.views[0]?.generationId, receipt.generationId);
+  assert.deepEqual(reader.catalog.views[0]?.sourceRefs, [policy]);
+  const replay = await synchronize(input, { ...ports, complete: async () => { throw new Error("must replay"); } });
+  assert.deepEqual(replay, receipt);
+});
+
+test("synchronize rebuilds an evidence-bound required view from recorded admissions without regenerating history", async t => {
+  const { f, git, ports } = await setup(t);
+  await seedSyncHistoryView(f, [f.evidence]);
+  await git("add", "."); await git("commit", "--quiet", "-m", "seed evidence-bound view"); await git("push", "origin", "main");
+  const fromRevision = await git("rev-parse", "HEAD");
+  await rm(path.join(f.root, "payload.json"));
+  await git("add", "-u"); await git("commit", "--quiet", "-m", "owner deletes source"); await git("push", "origin", "main");
+  const input = { operationId: "sync_view_rebuild", fromRevision, toRevision: await git("rev-parse", "HEAD"),
+    expectedGenerationId: f.catalog.generationId };
+  await assert.rejects(synchronize(input, ports), /required_view_rebuild_required/);
+  const policy = { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version };
+  const receipt = await synchronize(input, {
+    ...ports,
+    viewRebuilds: (generationId) => [syncHistoryAdmission({
+      viewId: "session-history", generationId, sourceRefs: [policy], text: "rebuilt-after-sync",
+    })],
+  });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal(reader.catalog.views[0]?.generationId, receipt.generationId);
+  assert.deepEqual(reader.catalog.views[0]?.sourceRefs, [policy]);
+  const replay = await synchronize(input, {
+    ...ports,
+    complete: async () => { throw new Error("must replay"); },
+    viewRebuilds: () => { throw new Error("Replay must read rebuild bytes from the recorded plan"); },
+  });
+  assert.deepEqual(replay, receipt);
 });
