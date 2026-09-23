@@ -16,6 +16,17 @@ export type HostMemoryInput = {
   readonly messages: Parameters<Stream>[1]["messages"];
   readonly tools: Array<Pick<NonNullable<Parameters<Stream>[1]["tools"]>[number], "name" | "description" | "parameters">>;
 };
+export type HostModelOutputReceipt = Readonly<{ kind: "model_output" }>;
+type HostModelOutput = { request: BoundTurnRequest; modelRef: string; input: HostMemoryInput; message: AssistantMessage };
+const modelOutputs = new WeakMap<HostModelOutputReceipt, HostModelOutput>();
+
+/** Only this provider's actual transport result can create a receipt. */
+export function readHostModelOutput(receipt: HostModelOutputReceipt): HostModelOutput {
+  const output = modelOutputs.get(receipt);
+  if (!output) throw new CompletionError("host_model_output_unbound", "generate");
+  return { ...output, input: structuredClone(output.input), message: structuredClone(output.message) };
+}
+
 function rejectedStream(model: Parameters<Stream>[0], category: string, aborted = false): StreamResult {
   const error: AssistantMessage = {
     role: "assistant", content: [], api: model.api, provider: model.provider, model: model.id,
@@ -64,6 +75,7 @@ export function registerHostMemoryProvider(
   api: OpenClawPluginApi,
   agentId: string,
   assertConsumption: (request: BoundTurnRequest, modelRef: string, input: HostMemoryInput) => Promise<void>,
+  observeOutput?: (receipt: HostModelOutputReceipt) => Promise<void>,
 ): void {
   const wrap = (context: ProviderWrapStreamFnContext, kind: "agent" | "direct"): Stream => {
     const transport = context.streamFn;
@@ -136,7 +148,9 @@ export function registerHostMemoryProvider(
         // late transport call. Each continuation obtains a fresh validation.
         assertActive();
         const onPayload = options?.onPayload;
-        return await transport(target, snapshot, { ...options, async onPayload(payload, payloadModel) {
+        const outputInput: HostMemoryInput = structuredClone({ systemPrompt: snapshot.systemPrompt ?? "", messages: snapshot.messages,
+          tools: (snapshot.tools ?? []).map(({ name, description, parameters }) => ({ name, description, parameters })) });
+        const streamed = await transport(target, snapshot, { ...options, async onPayload(payload, payloadModel) {
           // The pinned Host applies extra_body through this callback *after*
           // provider Context validation. Observation is allowed; an unbound
           // payload replacement must never acquire the Context's authority.
@@ -157,6 +171,44 @@ export function registerHostMemoryProvider(
             throw new CompletionError(reject(error), "generate");
           }
         } });
+        if (kind !== "agent" || !observeOutput) return streamed;
+        let observed: { body: string; result: Promise<AssistantMessage> } | undefined;
+        const authorize = (value: AssistantMessage): Promise<AssistantMessage> => {
+          const message = structuredClone(value);
+          const body = canonicalJson(message);
+          if (observed) {
+            if (observed.body !== body) return rejectedStream(target, reject(new CompletionError("host_model_output_changed", "generate"))).result();
+            return observed.result;
+          }
+          const result = (async () => {
+            try {
+              assertActive();
+              if (message.stopReason === "error" || message.stopReason === "aborted") return message;
+              if (message.provider !== target.provider || message.model !== target.id) throw new CompletionError("host_model_output_model_mismatch", "generate");
+              await assertCurrent();
+              assertActive();
+              const receipt: HostModelOutputReceipt = Object.freeze({ kind: "model_output" });
+              modelOutputs.set(receipt, { request, modelRef, input: outputInput, message: structuredClone(message) });
+              await observeOutput(receipt);
+              assertActive();
+              return message;
+            } catch (error) { return rejectedStream(target, reject(error), options?.signal?.aborted === true).result(); }
+          })();
+          observed = { body, result };
+          return result;
+        };
+        return {
+          async *[Symbol.asyncIterator]() {
+            for await (const event of streamed) {
+              if (event.type !== "done") { yield event; continue; }
+              const message = await authorize(event.message);
+              if (message.stopReason === "error" || message.stopReason === "aborted") {
+                yield { type: "error", reason: message.stopReason, error: message };
+              } else yield { ...event, message };
+            }
+          },
+          async result() { return authorize(await streamed.result()); },
+        };
       } catch (error) {
         return rejectedStream(args[0], reject(error), args[2]?.signal?.aborted === true);
       }

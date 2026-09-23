@@ -1,3 +1,4 @@
+import { readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
 import { CatalogError, CatalogReader, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson, bytesVersion } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -80,11 +81,29 @@ export function validateUnderstanding(value: Record<string, unknown>): void {
 type Candidate = { handle: string; ref: VersionedRef; group: "understandings" | "works";
   record: Record<string, unknown>; originals: OriginalEvidence[] };
 
+type PreparedPersonalContext = {
+  resolver: EpisodeEvidenceResolver; authority: ProcessingAuthority; requestId: string; requestHash: string; context: string;
+  dependencies: Array<{ ref: VersionedRef; digest: string }>; originals: OriginalEvidence[];
+  configurationInputs: Array<{ path: string; sha256: string }>;
+  assertCurrent(): Promise<void>;
+};
+const preparedContexts = new WeakMap<object, PreparedPersonalContext>();
+
+/** The context renderer, not a Host prompt hook, attests this derived view. */
+export async function readPreparedPersonalContext(prepared: object): Promise<PreparedPersonalContext> {
+  const binding = preparedContexts.get(prepared);
+  check(binding, "personal_view_context_unbound");
+  await binding.assertCurrent();
+  const { resolver, assertCurrent, ...snapshot } = binding;
+  return { ...structuredClone(snapshot), resolver, assertCurrent };
+}
+
 /** Request-local projections. No writes, no cached persona, no model-authored rewrites. */
 export async function preparePersonalViews(input: {
   requestId: string; question: string; ownerId: string; modelRef: string;
   audience: "owner_direct";
   processingAuthority: ProcessingAuthority;
+  processingGrant?: object;
   resolver: EpisodeEvidenceResolver;
   selection?: "model" | "all_authorized";
   assertProcessingCurrent: () => Promise<void>;
@@ -93,6 +112,24 @@ export async function preparePersonalViews(input: {
   const reader = input.resolver.reader;
   check(text(input.requestId) && text(input.question) && text(input.ownerId) && text(input.modelRef) &&
     input.audience === "owner_direct", "invalid_personal_view_request");
+  const configurationInputs: Array<{ path: string; sha256: string }> = [];
+  const assertGrantCurrent = async () => {
+    // Internal transaction validation enumerates authorized records without a
+    // selector call. Model selection additionally needs the repository grant;
+    // final Host admission independently requires it for either projection.
+    check(input.selection === "all_authorized" || input.processingGrant || !input.resolver.purpose.sourceAccess,
+      "personal_view_processing_grant_required");
+    if (!input.processingGrant) return;
+    const grant = await readPersonalContextAccessBinding(input.processingGrant);
+    check(grant.root === reader.root && grant.config.ownerId === input.ownerId &&
+      grant.config.ownerId === input.processingAuthority.ownerId &&
+      grant.config.requesterIds.includes(input.processingAuthority.senderId ?? "") &&
+      grant.config.viewProcessingModelRefs?.includes(input.modelRef) &&
+      input.modelRef === input.processingAuthority.modelRef &&
+      canonicalJson(grant.config.purpose) === canonicalJson(input.processingAuthority.purpose), "personal_view_processing_grant_mismatch");
+    if (!configurationInputs.length) configurationInputs.push({ path: grant.path, sha256: grant.sha256 });
+  };
+  await assertGrantCurrent();
   await input.assertProcessingCurrent();
   const snapshots = new Map<string, { ref: VersionedRef; body: string }>();
   const payloads = new Map<string, { source: VersionedRef; sha256: string }>();
@@ -202,11 +239,13 @@ export async function preparePersonalViews(input: {
     }
   }
   const assertCurrent = async () => {
+    await assertGrantCurrent();
     await input.assertProcessingCurrent();
     await reader.assertCurrent();
     for (const snapshot of snapshots.values()) check(canonicalJson(await reader.read(snapshot.ref)) === snapshot.body, "stale_personal_view");
     for (const payload of payloads.values()) await reader.readPayload(payload.source, payload.sha256);
     await input.assertProcessingCurrent();
+    await assertGrantCurrent();
   };
   await assertCurrent();
   const requestHash = bytesVersion(input.question);
@@ -264,6 +303,7 @@ export async function preparePersonalViews(input: {
   check(context.length <= 96_000, "personal_view_budget_exhausted");
   await assertCurrent();
   const assertCurrentForGeneration = async (generationId: string) => {
+    await assertGrantCurrent();
     await input.assertProcessingCurrent();
     const current = await CatalogReader.load(reader.root, reader.catalogPath);
     check(current.catalog.generationId === generationId, "stale_generation");
@@ -271,7 +311,14 @@ export async function preparePersonalViews(input: {
       check(current.eligible(snapshot.ref) && canonicalJson(await current.read(snapshot.ref)) === snapshot.body, "stale_personal_view");
     }
     for (const payload of payloads.values()) await current.readPayload(payload.source, payload.sha256);
-    await current.assertCurrent(); await input.assertProcessingCurrent();
+    await current.assertCurrent(); await input.assertProcessingCurrent(); await assertGrantCurrent();
   };
-  return { view, context, assertCurrent, assertCurrentForGeneration };
+  const prepared = { view, context, assertCurrent, assertCurrentForGeneration };
+  preparedContexts.set(prepared, { resolver: input.resolver, authority: structuredClone(input.processingAuthority),
+    requestId: input.requestId, requestHash, context, assertCurrent,
+    configurationInputs: structuredClone(configurationInputs),
+    dependencies: [...snapshots.values()].map(snapshot => ({ ref: { ...snapshot.ref }, digest: bytesVersion(snapshot.body) })),
+    originals: [...new Map(candidates.flatMap(candidate => candidate.originals).map(original => [key(original.ref), structuredClone(original)])).values()],
+  });
+  return prepared;
 }

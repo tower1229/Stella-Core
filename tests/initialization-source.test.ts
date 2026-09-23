@@ -3,7 +3,7 @@ import test from "node:test";
 import path from "node:path";
 import { readFile, writeFile, rm, realpath, symlink } from "node:fs/promises";
 import { createFixture, prepareInitializationFixture } from "./consciousness-fixture.js";
-import { compileInitializationSource } from "../src/openclaw/initialization-source.js";
+import { compileInitializationSource, readCompiledContextRules } from "../src/openclaw/initialization-source.js";
 import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
 import { isRecord } from "../src/shared/type-guards.js";
 
@@ -23,6 +23,9 @@ test("compiles a complete registered skill tree, native display identity, and re
   assert.equal(result.setup, true);
   assert.match(result.contents.get("IDENTITY.md")!.toString(), /- Name: Synthetic Stella/);
   assert.match(result.contents.get("skills/stella-initialization-probe/SKILL.md")!.toString(), /No private data/);
+  const skillRule = readCompiledContextRules(result).rules["skills/stella-initialization-probe/SKILL.md"]!;
+  assert.equal(skillRule.text, result.contents.get("skills/stella-initialization-probe/SKILL.md")!.toString());
+  assert.equal(skillRule.version, bytesVersion(skillRule.text));
 });
 
 test("an unlisted skill resource cannot be omitted from the deployed tree", async (t) => {
@@ -189,4 +192,31 @@ test("display role affects the prompt without introducing unsupported Host ident
   assert.match(result.contents.get("IDENTITY.md")!.toString(), /Role: Synthetic collaboration partner/);
   assert.equal("role" in result.identity, false);
   assert.equal(result.identity.theme, "Isolated local acceptance");
+});
+
+test("context rules require a real compiler receipt and ignore subsequent output mutation", async t => {
+  const f = await fixture(t);
+  const compiled = await f.compile();
+  const original = readCompiledContextRules(compiled);
+  assert.throws(() => readCompiledContextRules({ ...compiled }), /host_context_compilation_unbound/);
+  compiled.contents.set("AGENTS.md", Buffer.from("Unreviewed replacement"));
+  const copy = readCompiledContextRules(compiled);
+  copy.rules["AGENTS.md"]!.text = "Changed returned copy";
+  assert.deepEqual(readCompiledContextRules(compiled), original);
+});
+
+test("identical public rule bytes do not reuse authority after a reviewed source policy changes", async t => {
+  const f = await fixture(t);
+  const first = await f.compile();
+  const binding = f.document.skill_bindings[0]!;
+  const file = path.join(f.root, binding.policy_ref.ref.slice(5));
+  const policy = JSON.parse(await readFile(file, "utf8"));
+  policy.readPurposes.push("another-reviewed-purpose");
+  const bytes = canonicalJson(policy);
+  await writeFile(file, bytes);
+  binding.policy_ref.sha256 = bytesVersion(bytes);
+  const second = await f.compile();
+  assert.deepEqual(first.materialization, second.materialization);
+  assert.deepEqual(readCompiledContextRules(first).rules, readCompiledContextRules(second).rules);
+  assert.notEqual(readCompiledContextRules(first).digest, readCompiledContextRules(second).digest);
 });

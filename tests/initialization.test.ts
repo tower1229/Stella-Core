@@ -11,8 +11,9 @@ import { bytesVersion } from "../src/canghai/content-version.js";
 import { registerStellaInitialization } from "../src/openclaw/initialization-registration.js";
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { prepareInitializationFixture } from "./consciousness-fixture.js";
-import { coordinateCompletion } from "../src/openclaw/completion.js";
-import { compileInitializationSource } from "../src/openclaw/initialization-source.js";
+import { coordinateCompletion, readActiveCompletionRequest } from "../src/openclaw/completion.js";
+import type { BoundTurnRequest } from "../src/openclaw/turn-request.js";
+import { compileInitializationSource, readCompiledContextRules } from "../src/openclaw/initialization-source.js";
 import { BOOTSTRAP_TARGETS, INITIALIZATION_TEMPLATE_VERSION, type HostIdentity } from "../src/openclaw/initialization-templates.js";
 
 import { withMemoryMutationLock } from "../src/canghai/memory-transaction.js";
@@ -346,7 +347,24 @@ test("Host service initializes on startup; manual entry shares the same transact
   });
   await hooks.get("gateway_start")!({}, {});
   assert.equal(inventoryRequests, 2);
-  assert.equal(initialization.status().state, "ready");
+  assert.equal(initialization.status().state, "ready", JSON.stringify(initialization.status()));
+  let preparedRequest: BoundTurnRequest | undefined;
+  const preparationFinished = new Error("Synthetic preparation finished before generation");
+  await assert.rejects(coordinateCompletion({ operationId: "prepare-rules", runId: "prepare-rules", timeoutMs: 10000,
+    request: { agentId: "stella", sessionId: "prepare-session", sessionKey: "agent:stella:main", prompt: "Synthetic request",
+      senderId: "owner", senderIsOwner: true, chatType: "direct" } }, {
+    async generateDraft() {
+      preparedRequest = readActiveCompletionRequest("stella");
+      await assert.rejects(initialization.prepareContextCompilation({ ...preparedRequest }), /host_request_binding_required/);
+      const compiled = await initialization.prepareContextCompilation(preparedRequest);
+      assert.equal(readCompiledContextRules(compiled).agentId, "stella");
+      await assert.rejects(initialization.assertRun("prepare-rules"), /stale_initialization_run/);
+      throw preparationFinished;
+    },
+    async persist() { throw new Error("Preparation test must not persist"); },
+    async publishFinal() { throw new Error("Preparation test must not publish"); },
+  }), error => error instanceof Error && error.cause === preparationFinished);
+  await assert.rejects(initialization.prepareContextCompilation(preparedRequest!), /invalid_run_permit/);
   const originalHooks = new Map(hooks), originalService = service, originalCommand = command,
     originalTool = registeredTool, originalToolOptions = toolOptions;
   const retiring = registerStellaInitialization(api as never, pluginConfig,
@@ -531,4 +549,46 @@ process.stdout.write(output);
   }
   assert.match(captured, /\.stella-memory-transaction\.json\.lock/);
   assert.equal((await planned).sourceRevision, f.config.revision);
+});
+
+test("context compilation requires a current admitted run and detects installed drift", async t => {
+  const f = await fixture(t);
+  const prefix = path.join(f.source, "50_PersonalAgent/stella");
+  await mkdir(prefix, { recursive: true });
+  await writeFile(path.join(prefix, "runtime-profile.yaml"), "{}");
+  await writeFile(path.join(prefix, "manifest.yaml"), "{}");
+  const document = await prepareInitializationFixture(f.source, "stella");
+  await writeFile(path.join(f.source, "recipe.json"), JSON.stringify(document));
+  await f.git(["add", "."]);
+  await f.git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "Reviewed context source"]);
+  f.config.revision = await f.git(["rev-parse", "HEAD"]);
+  await f.initializer.initialize();
+  await assert.rejects(f.initializer.contextCompilation("unbound"));
+  const prepared = await f.initializer.prepareContextCompilation();
+  assert.equal(readCompiledContextRules(prepared).agentId, "stella");
+  // Prompt preparation precedes before_agent_run; compiling public rules must
+  // neither require nor create the later model-consumption admission.
+  await assert.rejects(f.initializer.assertRun("unbound"));
+  const readIdentity = f.ports.readIdentity;
+  let arrivals = 0;
+  let release!: () => void;
+  const bothCompiled = new Promise<void>(resolve => { release = resolve; });
+  f.ports.readIdentity = async () => {
+    if (++arrivals === 2) release();
+    await bothCompiled;
+    return readIdentity();
+  };
+  try {
+    const [first, second] = await Promise.all([
+      f.initializer.prepareContextCompilation(), f.initializer.prepareContextCompilation(),
+    ]);
+    assert.notEqual(first, second, "Each validation returns its own compiler receipt, not a shared mutable slot");
+    assert.deepEqual(readCompiledContextRules(first), readCompiledContextRules(second));
+  } finally { f.ports.readIdentity = readIdentity; }
+  await f.initializer.bindRun("context-run");
+  const compiled = await f.initializer.contextCompilation("context-run");
+  assert.equal(readCompiledContextRules(compiled).agentId, "stella");
+  await writeFile(path.join(f.workspace, "MEMORY.md"), "Unbound memory artifact");
+  await assert.rejects(f.initializer.prepareContextCompilation(), /projection_drift/);
+  await assert.rejects(f.initializer.contextCompilation("context-run"), /projection_drift/);
 });

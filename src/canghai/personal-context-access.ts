@@ -53,6 +53,16 @@ export function parsePersonalContextAccess(value: unknown): PersonalContextAcces
   return structuredClone(value) as PersonalContextAccess;
 }
 
+const loadedBindings = new WeakMap<object, { root: string; path: string; sha256: string; config: PersonalContextAccess }>();
+
+/** Proof of an actual repository grant load, never a caller-supplied callback. */
+export async function readPersonalContextAccessBinding(binding: object) {
+  const receipt = loadedBindings.get(binding);
+  check(receipt, "personal_context_binding_unbound");
+  check(bytesVersion(await readRepositoryBytes(receipt.root, receipt.path)) === receipt.sha256, "personal_context_access_changed");
+  return structuredClone(receipt);
+}
+
 export async function loadPersonalContextAccess(root: string, configPath: string) {
   const bytes = await readRepositoryBytes(root, configPath);
   check(bytes.length <= 256_000, "personal_context_access_budget_exhausted");
@@ -60,9 +70,11 @@ export async function loadPersonalContextAccess(root: string, configPath: string
   try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
   catch { throw new CatalogError("invalid_personal_context_access"); }
   const config = parsePersonalContextAccess(value), hash = bytesVersion(bytes);
-  return { config, async assertCurrent() {
+  const binding = { config, async assertCurrent() {
     check(bytesVersion(await readRepositoryBytes(root, configPath)) === hash, "personal_context_access_changed");
   } };
+  loadedBindings.set(binding, { root, path: configPath, sha256: hash, config: structuredClone(config) });
+  return binding;
 }
 
 /** The caller obtains request from the active completion permit and pins the

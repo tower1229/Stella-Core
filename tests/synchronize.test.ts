@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, mkdir, rm, writeFile, readFile, rename } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile, readFile, rename, realpath } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { personalMemoryFixture } from "./personal-memory-fixture.js";
@@ -10,6 +10,14 @@ import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import { synchronize, type SynchronizePorts } from "../src/canghai/synchronize.js";
 import { ownerDirectAuthority } from "./processing-authority-fixture.js";
+import { createFixture, prepareInitializationFixture } from "./consciousness-fixture.js";
+import { compileInitializationSource } from "../src/openclaw/initialization-source.js";
+import { HostContextAuthority } from "../src/openclaw/host-context-authority.js";
+import { ManagedHostContextEngine } from "../src/openclaw/host-context-engine.js";
+import { bindProcessingAuthority } from "../src/openclaw/processing-authority.js";
+import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
+import { preparePersonalViews } from "../src/praxis/personal-views.js";
+import { bytesVersion } from "../src/canghai/content-version.js";
 
 async function setup(t: Parameters<typeof personalMemoryFixture>[0]) {
   const f = await personalMemoryFixture(t);
@@ -131,9 +139,44 @@ test("policy revocation is versioned, propagates transitively and does not expos
 
 test("source reevaluation publishes supported replacement and retains the previous understanding version", async t => {
   const { f, git, ports, request } = await setup(t);
+  const rulesRoot = await realpath(await createFixture());
+  t.after(() => rm(rulesRoot, { recursive: true, force: true }));
+  const compilation = await compileInitializationSource(rulesRoot, await prepareInitializationFixture(rulesRoot, "stella"),
+    { agentId: "stella", hostVersion: "2026.8.2" });
+  const configurationHash = bytesVersion("synthetic original Host configuration");
+  const prepareContext = async (runId: string) => {
+    const turn = snapshotTurnRequest({ agentId: "stella", sessionId: "retained-session", sessionKey: "agent:stella:main",
+      senderId: "owner", senderIsOwner: true, chatType: "direct", prompt: "继续核对文章论证" }, runId);
+    const resolver = await f.resolver();
+    const { readPurpose, derivePurpose, deliveryScope } = resolver.purpose;
+    const binding = { request: turn, modelRef: "synthetic/model", deployment: bytesVersion("deployment"),
+      generationId: resolver.reader.catalog.generationId, purpose: { readPurpose, derivePurpose, deliveryScope } };
+    const processingAuthority = bindProcessingAuthority({ ...binding, ownerId: "owner" });
+    const authority = new HostContextAuthority(resolver, turn, { authority: processingAuthority, configurationHash, compilation,
+      captureCurrent: async () => ({ ...binding, configurationHash, compilation,
+        generationId: (await CatalogReader.load(f.root, "catalog.json")).catalog.generationId }),
+    });
+    const views = await preparePersonalViews({ requestId: runId, question: turn.prompt, ownerId: "owner", modelRef: binding.modelRef,
+      audience: "owner_direct", processingAuthority, resolver, assertProcessingCurrent: () => resolver.reader.assertCurrent(),
+      complete: async ({ prompt }) => {
+        const data = JSON.parse(prompt.split("\n").at(-1)!);
+        return { provider: "synthetic", model: "model", text: JSON.stringify({ requestHash: data.requestHash,
+          selections: data.candidates.map((candidate: { handle: string }) => ({ handle: candidate.handle, view: "memory" })) }) };
+      },
+    });
+    const fragment = await authority.personalViews(views);
+    return { authority, fragment, turn };
+  };
+  const old = await prepareContext("before-synchronize");
+  const oldSummary = await old.authority.summarize([old.fragment], async () => ({
+    text: JSON.stringify({ summary: "本篇文章保留未决问题。" }), modelRef: "synthetic/model",
+  }));
+  const oldInput = await old.authority.seal({ system: old.authority.publicRules(), messages: [{ role: "user", fragment: oldSummary }] });
+  await old.authority.assertConsumption(oldInput.consumption, oldInput.input);
   await writeFile(path.join(f.root, "payload.json"), JSON.stringify({ report: "继续保留问题，核对论证。" }));
   await git("add", "payload.json"); await git("commit", "--quiet", "-m", "edit original");
   const result = await synchronize(await request(), { ...ports, complete: async args => {
+    await assert.rejects(old.authority.assertConsumption(oldInput.consumption, oldInput.input), /source_synchronization_pending/);
     const data = JSON.parse(args.prompt.split("\n").at(-1)!);
     if (data.proposalHash) return ports.complete(args);
     const target = data.targets.find((target: { group: string }) => target.group === "understandings");
@@ -151,6 +194,24 @@ test("source reevaluation publishes supported replacement and retains the previo
   assert.equal(current.statement, "修改后的材料要求继续核对论证。");
   assert.notEqual(result.generationId, "one");
   assert.equal((await reader.read(f.understanding, "understandings", "historical")).statement, "本篇文章保留未决问题。");
+  await assert.rejects(old.authority.assertConsumption(oldInput.consumption, oldInput.input), /processing_generation_mismatch/);
+  const fresh = await prepareContext("after-synchronize");
+  const archived: unknown[] = [];
+  const engine = new ManagedHostContextEngine(fresh.turn, fresh.authority, {
+    system: fresh.authority.publicRules(), history: [fresh.fragment],
+    archive: async messages => { archived.push(...messages); }, persistSummary: async () => {},
+    complete: async () => { throw new Error("No additional compression requested"); },
+  });
+  const assembled = await engine.assemble({ sessionId: fresh.turn.sessionId, sessionKey: fresh.turn.sessionKey,
+    prompt: fresh.turn.prompt, messages: oldInput.input.messages, availableTools: new Set(), tokenBudget: 100_000 });
+  assert.deepEqual(archived, oldInput.input.messages, "Old session messages remain archived");
+  const expected = await fresh.authority.seal({ system: fresh.authority.publicRules(), messages:
+    [fresh.fragment, fresh.authority.currentInput()].map(fragment => ({ role: "user", fragment })) });
+  const finalInput = { ...expected.input, messages: [...assembled.messages, expected.input.messages.at(-1)!] };
+  await engine.assertConsumption(finalInput);
+  assert.match(JSON.stringify(finalInput.messages), /修改后的材料要求继续核对论证/);
+  assert.doesNotMatch(JSON.stringify(finalInput.messages), /本篇文章保留未决问题/);
+  await assert.rejects(fresh.authority.assertConsumption(oldInput.consumption, oldInput.input), /host_context_consumption_unbound/);
 });
 
 test("new material in declared scope is admitted and forces reevaluation without an old dependency edge", async t => {

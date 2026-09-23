@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, realpath } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { personalMemoryFixture } from "./personal-memory-fixture.js";
@@ -225,7 +225,9 @@ test("clarification records no invented replacement or completed work", async t 
 
 test("Host correction archives exact owner input before inference and restores a failed custody transaction", async t => {
   const { f, input, calls } = await setup(t);
-  const { archiveCorrectionInput, applyHostCorrection } = await import("../src/learning/host-correction.js");
+  const { archiveCorrectionInput, applyHostCorrection, readAppliedCorrectionContext } = await import("../src/learning/host-correction.js");
+  const { loadPersonalContextAccess } = await import("../src/canghai/personal-context-access.js");
+  const { canonicalJson, bytesVersion } = await import("../src/canghai/content-version.js");
   const { HOST_INPUT_ARCHIVE_ADAPTER } = await import("../src/canghai/host-input-archive.js");
   const { HOST_REQUEST_ARCHIVE_ADAPTER } = await import("../src/canghai/host-request-archive.js");
   const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
@@ -233,6 +235,10 @@ test("Host correction archives exact owner input before inference and restores a
   const run = promisify(execFile), remote = await mkdtemp(path.join(os.tmpdir(), "stella-host-correction-remote-"));
   t.after(() => rm(remote, { recursive: true, force: true }));
   const git = (...args: string[]) => run("git", ["-c", "core.fsmonitor=false", "-C", f.root, ...args]);
+  const grantConfig = { schemaVersion: "stella.personal-context-access/v1", ownerId: "owner", requesterIds: ["trusted-sender"],
+    modelRefs: [input.modelRef], viewProcessingModelRefs: [input.modelRef], purpose: input.processingAuthority.purpose, descriptors: [] };
+  await writeFile(path.join(f.root, "correction-grant.json"), canonicalJson(grantConfig));
+  const processingGrant = await loadPersonalContextAccess(f.root, "correction-grant.json");
   await git("init", "--quiet", "--initial-branch=main");
   await git("config", "user.name", "Synthetic Test"); await git("config", "user.email", "synthetic@example.invalid");
   await git("add", "."); await git("commit", "--quiet", "-m", "Synthetic baseline");
@@ -250,7 +256,7 @@ test("Host correction archives exact owner input before inference and restores a
   const params = { request: bound, original, ownerId: "owner", reader: input.resolver.reader,
     archive: { policyRef: { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version }, objectRoot: "objects", payloadRoot: "originals" },
     purpose, durability, signal: new AbortController().signal, assertCurrent: async () => {}, modelRef: input.modelRef,
-    processingAuthority: input.processingAuthority, complete: input.complete };
+    processingAuthority: input.processingAuthority, processingGrant, complete: input.complete };
   await assert.rejects(applyHostCorrection({ ...params, request: { ...bound, senderIsOwner: false } }), /correction_host_request_mismatch|private_context_audience_forbidden/);
   await assert.rejects(applyHostCorrection(params), /Synthetic custody pointer failure/);
   assert.equal(calls(), 0, "No inference before critical input custody");
@@ -300,8 +306,88 @@ test("Host correction archives exact owner input before inference and restores a
   assert.equal((approvalChange.targetRefs as unknown[]).length, 1);
   assert.equal(resumed.view.memory.length, 3, "work plus two scoped understandings, no fabricated outcome");
   assert.equal((await git("status", "--porcelain")).stdout.trim(), "");
+  const binding = await readAppliedCorrectionContext(approved);
+  await assert.rejects(readAppliedCorrectionContext({ ...approved }), /correction_context_unbound/);
+  const disposition = approved.disposition;
+  approved.disposition = "no_change";
+  await assert.rejects(readAppliedCorrectionContext(approved), /correction_context_changed/);
+  approved.disposition = disposition;
+  assert.equal(binding.generationId, approved.generationId);
+  assert.ok(binding.configurationInputs.some(item => item.path === "correction-grant.json"));
+  assert.ok(binding.dependencies.some(item => item.ref.id === approved.changeRef.id));
+  const { createFixture, prepareInitializationFixture } = await import("./consciousness-fixture.js");
+  const { compileInitializationSource } = await import("../src/openclaw/initialization-source.js");
+  const { bindProcessingAuthority } = await import("../src/openclaw/processing-authority.js");
+  const { HostContextAuthority } = await import("../src/openclaw/host-context-authority.js");
+  const { generateKeyPairSync } = await import("node:crypto");
+  const { persistContextHistory, loadContextHistory } = await import("../src/openclaw/host-context-history.js");
+  const initializationRoot = await realpath(await createFixture());
+  t.after(() => rm(initializationRoot, { recursive: true, force: true }));
+  const compilation = await compileInitializationSource(initializationRoot, await prepareInitializationFixture(initializationRoot, "main"),
+    { agentId: "main", hostVersion: "2026.8.2" });
+  const keys = generateKeyPairSync("ed25519"), configurationHash = bytesVersion("Synthetic correction configuration");
+  const createGate = (request = approvalRequest) => {
+    const current = { request, purpose: input.processingAuthority.purpose, modelRef: input.modelRef,
+      deployment: bytesVersion("Synthetic correction deployment"), generationId: approved.generationId };
+    return new HostContextAuthority(afterApproval, request, { authority: bindProcessingAuthority({ ...current, ownerId: "owner" }),
+      compilation, configurationHash, historyVerificationKey: keys.publicKey,
+      captureCurrent: async () => ({ ...current, compilation, configurationHash,
+        generationId: (await CatalogReader.load(f.root, "catalog.json")).catalog.generationId }) });
+  };
+  const gate = createGate();
+  await assert.rejects(createGate(snapshotTurnRequest({ ...approvalRequest, sessionId: "another-session" }, "other-run")).correction(approved),
+    /host_context_correction_scope_mismatch/);
+  await gate.bindArchivedInput(binding.ingressRefs[0]!);
+  const fragment = await gate.correction(approved);
+  assert.equal(await gate.renderContext([fragment]), binding.context);
+  const summary = await gate.summarize([fragment], async () => ({ text: '{"summary":"The owner approved the process but not the ending"}', modelRef: input.modelRef }));
+  const sealed = await gate.seal({ system: gate.publicRules(), messages: [{ role: "user", fragment: summary }] });
+  const retained = await persistContextHistory(gate, sealed.consumption, { archiveRoot: "retained-context", signingKey: keys.privateKey, durability });
+  const archive = await loadContextHistory(f.root, { archiveRoot: "retained-context", digest: retained.locator.sha256 }, keys.publicKey);
+  await createGate().restoreHistory(archive);
+  await writeFile(path.join(f.root, "correction-grant.json"), canonicalJson({ ...grantConfig, requesterIds: ["different-owner"] }));
+  await assert.rejects(readAppliedCorrectionContext(approved), /personal_context_access_changed/);
+  await assert.rejects(gate.assertConsumption(sealed.consumption, sealed.input), /host_context_configuration_input_changed/);
+  await assert.rejects(createGate().restoreHistory(archive), /host_context_configuration_input_changed/);
 });
 
+
+for (const disposition of ["no_change", "needs_clarification"] as const) test(`durable correction context preserves ${disposition} without inventing an update`, async t => {
+  const { f, input } = await setup(t);
+  const { restart } = await learningDurability(t, f.root);
+  const { applyHostCorrection, readAppliedCorrectionContext } = await import("../src/learning/host-correction.js");
+  const { HOST_REQUEST_ARCHIVE_ADAPTER } = await import("../src/canghai/host-request-archive.js");
+  const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
+  const bound = snapshotTurnRequest({ agentId: "stella", sessionId: "session", sessionKey: "agent:stella:correction",
+    prompt: request, senderId: "owner-host", senderIsOwner: true, chatType: "direct" }, `correction-${disposition}`);
+  const clarification = disposition === "needs_clarification" ? "Which premise should remain unresolved?" : null;
+  const result = await applyHostCorrection({ request: bound,
+    original: { schemaVersion: "stella.host-request-snapshot/v1", request: bound, capturedAt: input.recordedAt },
+    ownerId: "owner", reader: input.resolver.reader,
+    archive: { policyRef: f.catalog.policies[0]!, objectRoot: "objects", payloadRoot: "originals" },
+    purpose: { ...input.resolver.purpose, trustedAdapters: { ...input.resolver.purpose.trustedAdapters,
+      user_report: ["synthetic", HOST_REQUEST_ARCHIVE_ADAPTER] } },
+    durability: restart(), signal: new AbortController().signal, assertCurrent: async () => {},
+    processingAuthority: input.processingAuthority, modelRef: input.modelRef,
+    complete: async ({ prompt }) => {
+      const data = JSON.parse(prompt.split("\n").at(-1)!);
+      return { provider: "synthetic", model: "model", text: JSON.stringify(data.proposalHash
+        ? { requestHash: data.requestHash, proposalHash: data.proposalHash, valid: true }
+        : { requestHash: data.requestHash, disposition, clarification, rationale: "Synthetic unresolved interpretation",
+          reviewedHandles: data.candidates.map((candidate: { handle: string }) => candidate.handle), replacements: [] }) };
+    } });
+  const context = await readAppliedCorrectionContext(result);
+  assert.equal(result.disposition, disposition);
+  assert.deepEqual(JSON.parse(context.context.split("\n").at(-1)!), { disposition, clarification, changeRef: result.changeRef });
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  const change = await reader.read(result.changeRef, "changes");
+  assert.deepEqual(change.targetRefs, []);
+  assert.equal(reader.currentRef("work", "works").version, f.workRef.version);
+  const evidence = await reader.read(context.ingressRefs[0]!, "evidence");
+  const source = await reader.read(evidence.source as { id: string; version: string }, "sources");
+  await writeFile(path.join(f.root, (source.payloads as Array<{ path: string }>)[0]!.path), "Changed original owner input");
+  await assert.rejects(readAppliedCorrectionContext(result), /payload_digest_mismatch/);
+});
 
 test("authenticated ingress archive keeps original custody without inventing a transcript event", async () => {
   const { prepareHostRequestArchive } = await import("../src/canghai/host-request-archive.js");
@@ -318,4 +404,37 @@ test("authenticated ingress archive keeps original custody without inventing a t
   assert.deepEqual(evidence.selector, { kind: "json_pointer", value: "/request/prompt" });
   assert.throws(() => prepareHostRequestArchive({ ...snapshot, request: { ...bound, senderIsOwner: false } }, config), /invalid_host_request_snapshot/);
   assert.throws(() => prepareHostRequestArchive({ ...snapshot, request: { ...bound, requestHash: "wrong" } }, config), /invalid_host_request_snapshot/);
+});
+
+
+test("revoking a correction grant during input custody prevents learning without relying on the caller callback", async t => {
+  const { f, input, calls } = await setup(t);
+  const { applyHostCorrection } = await import("../src/learning/host-correction.js");
+  const { loadPersonalContextAccess } = await import("../src/canghai/personal-context-access.js");
+  const { canonicalJson } = await import("../src/canghai/content-version.js");
+  const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
+  const { HOST_REQUEST_ARCHIVE_ADAPTER } = await import("../src/canghai/host-request-archive.js");
+  const grant = { schemaVersion: "stella.personal-context-access/v1", ownerId: "owner", requesterIds: ["trusted-sender"],
+    modelRefs: [input.modelRef], viewProcessingModelRefs: [input.modelRef], purpose: input.processingAuthority.purpose, descriptors: [] };
+  await writeFile(path.join(f.root, "correction-grant.json"), canonicalJson(grant));
+  const processingGrant = await loadPersonalContextAccess(f.root, "correction-grant.json");
+  const { restart } = await learningDurability(t, f.root), durability = restart();
+  const sync = durability.syncCritical.bind(durability);
+  durability.syncCritical = async (...args) => {
+    const result = await sync(...args);
+    await writeFile(path.join(f.root, "correction-grant.json"), canonicalJson({ ...grant, requesterIds: [] }));
+    return result;
+  };
+  const bound = snapshotTurnRequest({ agentId: "main", sessionId: "session", sessionKey: "agent:main:revoke", prompt: request,
+    senderId: "trusted-sender", senderIsOwner: true, chatType: "direct" }, "revoke_during_custody");
+  await assert.rejects(applyHostCorrection({ request: bound,
+    original: { schemaVersion: "stella.host-request-snapshot/v1", request: bound, capturedAt: input.recordedAt },
+    ownerId: "owner", reader: input.resolver.reader,
+    archive: { policyRef: { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version }, objectRoot: "objects", payloadRoot: "originals" },
+    purpose: { ...input.resolver.purpose, trustedAdapters: { ...input.resolver.purpose.trustedAdapters, user_report: [HOST_REQUEST_ARCHIVE_ADAPTER] } },
+    durability, signal: new AbortController().signal, assertCurrent: async () => {},
+    modelRef: input.modelRef, processingAuthority: input.processingAuthority, processingGrant, complete: input.complete,
+  }), /personal_context_access_changed/);
+  assert.equal(calls(), 0);
+  assert.equal((await CatalogReader.load(f.root, "catalog.json")).catalog.changes.length, f.catalog.changes.length);
 });

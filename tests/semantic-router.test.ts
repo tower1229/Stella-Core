@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSemanticRouter } from "../src/routing/semantic-router.js";
+import { createSemanticRouter, readPreparedSemanticRoute } from "../src/routing/semantic-router.js";
 
 test("response semantics allow clarification, collaboration and meaningful advice without invented predictions", async () => {
   const candidates = { frameworks: [], twin: [], personalPraxis: [] };
@@ -422,4 +422,32 @@ test("semantic route fails instead of silently truncating over-capacity selectio
       error.diagnostic === "invalid_model_route" &&
       error.cause === undefined,
   );
+});
+
+
+test("semantic route receipts snapshot all candidates and every selector or repair model result", async () => {
+  const candidates = { frameworks: [{ ref: "path:framework.yaml#operator:one", purpose: "Original candidate description" }],
+    twin: [], personalPraxis: [], openEpisodes: [{ ref: "path:episode.json", purpose: "Original episode description" }] };
+  const decision = { mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
+    domains: ["general"], needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false };
+  let routingCalls = 0;
+  const router = createSemanticRouter(async params => {
+    candidates.frameworks[0]!.purpose = "Changed caller-owned candidate";
+    if (params.purpose === "stella-core-open-episode-selection") {
+      return { text: '{"openEpisodeRef":null}', provider: "selector", model: "one" };
+    }
+    assert.match(params.systemPrompt, /Original candidate description/);
+    return { text: ++routingCalls === 1 ? "{}" : JSON.stringify(decision), provider: "router", model: `attempt-${routingCalls}` };
+  });
+  const route = await router("The real original question", candidates);
+  const receipt = readPreparedSemanticRoute(route);
+  assert.equal(receipt.candidates.frameworks[0]!.purpose, "Original candidate description");
+  assert.deepEqual(receipt.modelRefs, ["selector/one", "router/attempt-1", "router/attempt-2"]);
+  await assert.rejects(async () => readPreparedSemanticRoute({ ...route }), /semantic_route_context_unbound/);
+  receipt.candidates.frameworks[0]!.purpose = "Mutated receipt copy";
+  assert.equal(readPreparedSemanticRoute(route).candidates.frameworks[0]!.purpose, "Original candidate description");
+  route.domains.push("Unbound interpretation");
+  assert.throws(() => readPreparedSemanticRoute(route), /semantic_route_context_changed/);
+  const withoutModel = await createSemanticRouter(async () => ({ text: JSON.stringify(decision) }))("Question", { frameworks: [], twin: [], personalPraxis: [] });
+  assert.throws(() => readPreparedSemanticRoute(withoutModel), /semantic_route_model_receipt_required/);
 });

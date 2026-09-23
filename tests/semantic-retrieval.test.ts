@@ -1,8 +1,8 @@
-import { prepareQuestionEvidence } from "../src/praxis/question-evidence.js";
+import { prepareQuestionEvidence, readPreparedQuestionContext } from "../src/praxis/question-evidence.js";
 import { prepareHostRequestArchive, HOST_REQUEST_ARCHIVE_ADAPTER } from "../src/canghai/host-request-archive.js";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { CatalogReader, parseMemoryCatalog, CatalogError } from "../src/canghai/catalog-reader.js";
@@ -48,6 +48,32 @@ test("semantic retrieval searches beyond 64 entries and follows original-driven 
   assert.equal(result.status, "complete");
   assert.equal(pages, 10); assert.equal(result.refs.length, 2); assert.equal(result.coverage.notSelectedCount, 63);
   assert.equal(result.coverage.scope, "configured_catalog_only");
+  const assessed = await prepareQuestionEvidence({ requestId: "unselected-descriptors", revision: "a".repeat(40),
+    question: input.question, resolver, priorContext: "", route: { mode: "ordinary", responseKind: "clarification", evidenceStatus: "material_unknown",
+      materialUnknowns: ["Missing original context"], domains: ["general"], needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false },
+    retrieval: { descriptors, modelRef: input.modelRef, ownerId: "owner", config, assertProcessingCurrent: input.assertProcessingCurrent },
+    complete: async ({ prompt }) => {
+      const data = JSON.parse(prompt.split("\n").at(-1)!);
+      return { provider: "synthetic", model: "model", text: JSON.stringify(data.candidates ? { selected: [] } :
+        prompt.startsWith("Review") ? { stopped: true, nextIntents: [], reason: "No selected original" } :
+        { status: "material_unknown", claims: [], unresolvedLeads: [{ question: "Which original?", material: true, reason: "No original selected" }],
+          stoppingReason: "Descriptors alone do not establish facts", suggestedResponseKind: "clarification" }) };
+    } });
+  const assessmentReceipt = await readPreparedQuestionContext(assessed);
+  assert.deepEqual(assessmentReceipt.originals, [], "Descriptor processing must not open unselected payloads");
+  for (const descriptor of descriptors) {
+    assert.ok(assessmentReceipt.dependencies.some(dep => canonicalJson(dep.ref) === canonicalJson(descriptor.sourceRef)),
+      "Every candidate description, including unselected candidates, contributes source provenance");
+  }
+  assert.ok(assessmentReceipt.dependencies.some(dep => canonicalJson(dep.ref) === canonicalJson(policyRef)));
+  for (const entry of [catalog.sources[64]!, catalog.policies[0]!]) {
+    const original = await readFile(path.join(root, entry.locator.path), "utf8");
+    await put(entry.locator.path, original + " ");
+    await assert.rejects(readPreparedQuestionContext(assessed), /digest_mismatch/);
+    await put(entry.locator.path, original);
+  }
+  await readPreparedQuestionContext(assessed);
+
   await assert.rejects(retrieveCatalogEvidence({ ...input, complete: async () => ({ provider: "synthetic", model: "model", text: '{"selected":["E65"]}' }) }), /invalid_retrieval_selection/);
   await assert.rejects(retrieveCatalogEvidence({ ...input, complete: async () => ({ provider: "other", model: "model", text: '{"selected":[]}' }) }), /retrieval_model_mismatch/);
   const exhausted = await retrieveCatalogEvidence({ ...input, config: { ...config, maxRounds: 1 }, complete: async ({ prompt }) => ({ provider: "synthetic", model: "model", text: JSON.stringify(prompt.startsWith("Select") ? { selected: [] } : { stopped: false, nextIntents: ["Unresolved lead"], reason: "More context needed" }) }) });

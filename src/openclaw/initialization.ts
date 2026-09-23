@@ -7,7 +7,7 @@ import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin
 import { isLiveMemoryMutationDirt, ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
-import { compileInitializationSource, InitializationSourceError } from "./initialization-source.js";
+import { compileInitializationSource, InitializationSourceError, type CompiledInitializationSource } from "./initialization-source.js";
 import type { HostIdentity } from "./initialization-templates.js";
 import {
   assertRunAdmissionBinding,
@@ -168,7 +168,7 @@ export class StellaInitializer {
     }
   }
 
-  private async recipe(): Promise<Materialization> {
+  private async recipe(): Promise<{ recipe: Materialization; compiled?: CompiledInitializationSource }> {
     check(/^[a-f0-9]{40}$/.test(this.source.revision), "invalid_source_revision");
     const git = async (args: string[]) => (await run("git", ["-c", "core.fsmonitor=false", "-C", this.source.root, ...args])).stdout.trim();
     for (let attempt = 0; ; attempt++) {
@@ -189,12 +189,13 @@ export class StellaInitializer {
     try { value = JSON.parse(Buffer.from(content, "base64").toString("utf8")); }
     catch { throw new InitializationError("invalid_materialization_json"); }
     let recipe: Materialization;
+    let compiled: CompiledInitializationSource | undefined;
     this.compiledContents = undefined;
     this.compiledIdentity = undefined;
     this.compiledRuntimeBlockers = [];
     if (isRecord(value) && value.schema_version === "stella.host-materialization/v1") {
       try {
-        const compiled = await compileInitializationSource(this.source.root, value, this.source);
+        compiled = await compileInitializationSource(this.source.root, value, this.source);
         recipe = parseMaterialization(compiled.materialization);
         this.compiledContents = compiled.contents;
         this.compiledIdentity = compiled.identity;
@@ -205,7 +206,7 @@ export class StellaInitializer {
       }
     } else recipe = parseMaterialization(value);
     check(recipe.agentId === this.source.agentId && recipe.hostVersion === this.source.hostVersion, "host_identity_mismatch");
-    return recipe;
+    return { recipe, compiled };
   }
 
   private async sourceContent(file: Materialization["files"][number]): Promise<string | null> {
@@ -216,7 +217,7 @@ export class StellaInitializer {
   }
 
   async plan(): Promise<InitializationPlan> {
-    const recipe = await this.recipe();
+    const { recipe } = await this.recipe();
     const changes: Change[] = [];
     for (const file of recipe.files) {
       const after = await this.sourceContent(file);
@@ -261,10 +262,14 @@ export class StellaInitializer {
   }
 
   async assertCurrent(): Promise<Receipt> {
+    return (await this.currentContext()).receipt;
+  }
+
+  private async currentContext(): Promise<{ receipt: Receipt; compiled?: CompiledInitializationSource }> {
     check(await read(this.stateRoot, "pending.json") === null, "initialization_pending");
     check(await read(this.stateRoot, "fenced") === null, "initialization_pending");
     check(await read(this.stateRoot, "rollback-pending.json") === null, "rollback_pending");
-    const recipe = await this.recipe();
+    const { recipe, compiled } = await this.recipe();
     const receipt = await this.receipt();
     check(receipt && receipt.workspace === this.workspace && receipt.recipeHash === bytesVersion(canonicalJson(recipe)), "initialization_required");
     check(receipt.files.length === recipe.files.length && recipe.files.every((file) =>
@@ -274,19 +279,19 @@ export class StellaInitializer {
       check(data && bytesVersion(Buffer.from(data, "base64")) === file.hash, "projection_drift");
     }
     for (const file of recipe.files) check(await mode(this.workspace, file.target) === (file.executable ? 0o700 : 0o600), "projection_mode_drift");
-    if (this.compiledIdentity) {
-      const expected = bytesVersion(canonicalJson(this.compiledIdentity));
+    if (compiled?.identity) {
+      const expected = bytesVersion(canonicalJson(compiled.identity));
       check(receipt.identityHash === expected && this.ports.readIdentity, "host_identity_verification_required");
       check(bytesVersion(canonicalJson(await this.ports.readIdentity())) === expected, "host_identity_drift");
     }
-    return receipt;
+    return { receipt, compiled };
   }
 
   /** Recheck installed Host consumption without installation effects or runtime admission. */
   async verifyInstalled(): Promise<Receipt> {
     this.active();
     const before = await this.assertCurrent();
-    const recipe = await this.recipe();
+    const { recipe } = await this.recipe();
     await this.ports.verify(recipe);
     this.active();
     const after = await this.assertCurrent();
@@ -359,7 +364,7 @@ export class StellaInitializer {
       check(await read(this.stateRoot, "rollback-pending.json") === null, "rollback_pending");
       const { planHash, ...body } = plan;
       check(bytesVersion(canonicalJson(body)) === planHash && plan.agentId === this.source.agentId && plan.workspace === this.workspace && plan.sourceRevision === this.source.revision, "stale_plan");
-      const recipe = await this.recipe();
+      const { recipe } = await this.recipe();
       check(bytesVersion(canonicalJson(recipe)) === plan.recipeHash, "stale_plan");
       const previous = await this.receipt();
       const intent = Buffer.from(canonicalJson(plan)).toString("base64");
@@ -536,8 +541,28 @@ export class StellaInitializer {
     return value.operationId;
   }
 
+  /** Prompt preparation runs before Host admission. This exposes only reviewed
+   * source compilation; it does not grant a run permission to consume it. */
+  async prepareContextCompilation(): Promise<CompiledInitializationSource> {
+    const { compiled } = await this.currentContext();
+    check(compiled, "reviewed_context_compilation_required");
+    return compiled;
+  }
+
+  /** Consumption additionally requires the admission issued by before_agent_run. */
+  async contextCompilation(runId: string): Promise<CompiledInitializationSource> {
+    const { receipt, compiled } = await this.currentContext();
+    await this.assertAdmission(runId, receipt);
+    check(compiled, "reviewed_context_compilation_required");
+    return compiled;
+  }
+
   async assertRun(runId: string): Promise<void> {
     const receipt = await this.assertCurrent();
+    await this.assertAdmission(runId, receipt);
+  }
+
+  private async assertAdmission(runId: string, receipt: Receipt): Promise<void> {
     try {
       await assertRunAdmissionBinding(this.stateRoot, runId, {
         schemaVersion: "stella.run-admission/v1",
@@ -555,7 +580,7 @@ export class StellaInitializer {
     const pending = await read(this.stateRoot, "pending.json");
     if (pending) return this.apply(JSON.parse(Buffer.from(pending, "base64").toString("utf8")) as InitializationPlan);
     const previous = await this.receipt();
-    const recipe = await this.recipe();
+    const { recipe } = await this.recipe();
     const identityHash = this.compiledIdentity ? bytesVersion(canonicalJson(this.compiledIdentity)) : undefined;
     if (previous?.recipeHash === bytesVersion(canonicalJson(recipe)) && previous.identityHash === identityHash && await read(this.stateRoot, "fenced") === null) {
       await this.assertCurrent();

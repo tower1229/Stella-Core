@@ -1,14 +1,45 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Ajv } from "ajv";
-import { prepareQuestionEvidence } from "../src/praxis/question-evidence.js";
+import { prepareQuestionEvidence, readPreparedQuestionContext } from "../src/praxis/question-evidence.js";
 import type { CortexRoute } from "../src/routing/router.js";
 import { bundleFixture } from "./evidence-bundle-fixture.js";
+import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
 
 const route: CortexRoute = { mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["general"],
   needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false };
 const decision = { status: "material_unknown", claims: [], unresolvedLeads: [{ question: "Which earlier exchange?", material: true, reason: "Original history is absent" }],
   stoppingReason: "Configured catalog is empty; no claim of absent interaction", suggestedResponseKind: "clarification" };
+
+test("question context receipts pin model input, reject copied and changed results, and retain generation checks", async t => {
+  const fixture = await bundleFixture(t);
+  const resolver = await fixture.resolver();
+  const input = { requestId: "receipt-request", revision: "a".repeat(40), question: "Original question",
+    route: structuredClone(route), priorContext: "Original prior context", resolver,
+    complete: async () => {
+      input.question = "Changed during inference";
+      input.priorContext = "Injected during inference";
+      input.route.domains.push("injected");
+      return { text: JSON.stringify(decision), provider: "synthetic", model: "injected" };
+    },
+  };
+  const prepared = await prepareQuestionEvidence(input);
+  const binding = await readPreparedQuestionContext(prepared);
+  assert.equal(binding.priorContext, "Original prior context");
+  assert.deepEqual(binding.provisionalRoute.domains, ["general"]);
+  assert.equal(binding.context, canonicalJson(prepared));
+  assert.equal(binding.requestHash, bytesVersion("Original question"));
+  await assert.rejects(readPreparedQuestionContext({ ...prepared }), /question_context_unbound/);
+  const originalReason = prepared.bundle.stopping.reason;
+  prepared.bundle.stopping.reason = "Unbound old understanding";
+  await assert.rejects(readPreparedQuestionContext(prepared), /question_context_changed/);
+  prepared.bundle.stopping.reason = originalReason;
+  binding.provisionalRoute.domains.push("mutated returned binding");
+  assert.deepEqual((await readPreparedQuestionContext(prepared)).provisionalRoute.domains, ["general"]);
+  fixture.catalog.generationId = "next-generation";
+  await fixture.save();
+  await assert.rejects(readPreparedQuestionContext(prepared), /stale_generation/);
+});
 
 test("model output schema forbids the unsupported claims rejected by the evidence contract", async (t) => {
   const fixture = await bundleFixture(t);

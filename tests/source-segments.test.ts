@@ -7,7 +7,7 @@ import { prepareRepositorySource } from "../src/canghai/repository-source.js";
 import { sourceSegments, assertEvidenceSegment } from "../src/canghai/source-segments.js";
 import { bytesVersion, objectVersion, canonicalJson } from "../src/canghai/content-version.js";
 import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
-import { validatePersonalContextCatalog, type PersonalContextAccess } from "../src/canghai/personal-context-access.js";
+import { loadPersonalContextAccess, validatePersonalContextCatalog, type PersonalContextAccess } from "../src/canghai/personal-context-access.js";
 import { createFragmentReadTool } from "../src/openclaw/fragment-read-tool.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
 import { ownerDirectAuthority } from "./processing-authority-fixture.js";
@@ -214,7 +214,11 @@ test("restricted parent policies authorize personal views through their evidence
         segment: value.segment, applicable: true, scenarios: ["writing"], topicRequested: true, topicExplicitlyNamed: true }) };
     } });
   const resolver = new EpisodeEvidenceResolver(base.reader, { ...base.purpose, sourceAccess: access }, base.complete);
-  const views = await preparePersonalViews({ requestId: "view", question: "Continue writing", ownerId: "owner", modelRef: "synthetic/model",
+  await writeFile(path.join(f.root, "view-grant.json"), canonicalJson({ schemaVersion: "stella.personal-context-access/v1",
+    ownerId: "owner", requesterIds: ["owner-host"], modelRefs: ["synthetic/model"], viewProcessingModelRefs: ["synthetic/model"],
+    purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model" }, descriptors: [] }));
+  const processingGrant = await loadPersonalContextAccess(f.root, "view-grant.json");
+  const views = await preparePersonalViews({ processingGrant, requestId: "view", question: "Continue writing", ownerId: "owner", modelRef: "synthetic/model",
     audience: "owner_direct", processingAuthority: ownerDirectAuthority({
       purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model" },
     }), resolver,

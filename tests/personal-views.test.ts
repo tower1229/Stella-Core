@@ -1,3 +1,4 @@
+import { loadPersonalContextAccess } from "../src/canghai/personal-context-access.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { writeFile } from "node:fs/promises";
@@ -5,7 +6,7 @@ import path from "node:path";
 import { CatalogReader, CatalogError } from "../src/canghai/catalog-reader.js";
 import { objectVersion, canonicalJson, bytesVersion } from "../src/canghai/content-version.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
-import { preparePersonalViews } from "../src/praxis/personal-views.js";
+import { preparePersonalViews, readPreparedPersonalContext } from "../src/praxis/personal-views.js";
 import type { VersionedRef } from "../src/praxis/episode-v2.js";
 
 import { personalMemoryFixture as fixture } from "./personal-memory-fixture.js";
@@ -136,4 +137,57 @@ test("final delivery revalidation permits unrelated generation additions but ref
   await assert.rejects(views.assertCurrentForGeneration("wrong-generation"), /stale_generation/);
   await writeFile(path.join(f.root, "payload.json"), "changed original");
   await assert.rejects(views.assertCurrentForGeneration("unrelated-new-generation"), /payload_digest_mismatch/);
+});
+
+test("personal context credentials retain the renderer snapshot and invalidate on source edits", async t => {
+  const f = await fixture(t);
+  const resolver = await f.resolver();
+  const prepared = await preparePersonalViews({ ...request, resolver, complete: selector() });
+  const original = prepared.context;
+  await assert.rejects(readPreparedPersonalContext({ ...prepared }), /personal_view_context_unbound/);
+  prepared.context = "Unbound replacement";
+  const binding = await readPreparedPersonalContext(prepared);
+  assert.equal(binding.context, original);
+  assert.ok(binding.dependencies.some(dependency => dependency.ref.id === f.workRef.id));
+  binding.context = "Changed returned copy";
+  assert.equal((await readPreparedPersonalContext(prepared)).context, original);
+  await writeFile(path.join(f.root, "payload.json"), "Edited underlying source");
+  await assert.rejects(readPreparedPersonalContext(prepared), /payload_digest_mismatch/);
+});
+
+
+test("personal view receipts retain the genuine grant and reject revocation across generation revalidation", async t => {
+  const f = await fixture(t), resolver = await f.resolver();
+  const grantPath = "personal-access.json";
+  const grant = { schemaVersion: "stella.personal-context-access/v1", ownerId: request.ownerId,
+    requesterIds: [request.processingAuthority.senderId], modelRefs: [request.modelRef], viewProcessingModelRefs: [request.modelRef],
+    purpose: request.processingAuthority.purpose, descriptors: [] };
+  const bytes = canonicalJson(grant);
+  await writeFile(path.join(f.root, grantPath), bytes);
+  const processingGrant = await loadPersonalContextAccess(f.root, grantPath);
+  let calls = 0;
+  await assert.rejects(preparePersonalViews({ ...request, resolver, processingGrant: { ...processingGrant },
+    complete: async input => { calls++; return selector()(input); } }), /personal_context_binding_unbound/);
+  assert.equal(calls, 0);
+  const prepared = await preparePersonalViews({ ...request, resolver, processingGrant, complete: selector() });
+  const receipt = await readPreparedPersonalContext(prepared);
+  assert.deepEqual(receipt.configurationInputs, [{ path: grantPath, sha256: bytesVersion(bytes) }]);
+  assert.ok(receipt.originals.length > 0);
+  await prepared.assertCurrentForGeneration(f.catalog.generationId);
+  await writeFile(path.join(f.root, grantPath), canonicalJson({ ...grant, requesterIds: ["another-owner"] }));
+  await assert.rejects(readPreparedPersonalContext(prepared), /personal_context_access_changed/);
+  await assert.rejects(prepared.assertCurrentForGeneration(f.catalog.generationId), /personal_context_access_changed/);
+  await assert.rejects(preparePersonalViews({ ...request, resolver,
+    processingGrant: await loadPersonalContextAccess(f.root, grantPath),
+    complete: async input => { calls++; return selector()(input); } }), /personal_view_processing_grant_mismatch/);
+  assert.equal(calls, 0);
+});
+
+
+test("source-access views require a genuine processing grant before disclosing candidates", async t => {
+  const f = await fixture(t, true);
+  let calls = 0;
+  await assert.rejects(preparePersonalViews({ ...request, resolver: await f.resolver(),
+    complete: async input => { calls++; return selector()(input); } }), /personal_view_processing_grant_required/);
+  assert.equal(calls, 0);
 });

@@ -106,6 +106,10 @@ export class EpisodeRepository {
     return record;
   }
 
+  currentPath(id: string): string {
+    return `${this.#relativeRoot}/${checkedId(id)}/episode.json`;
+  }
+
   historicalPath(id: string, version: string): string {
     return `${this.#relativeRoot}/${checkedId(id)}/.versions/${versionHash(version)}.json`;
   }

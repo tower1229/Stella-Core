@@ -1,3 +1,4 @@
+import { parseMemoryViews, parseViewRecipe, viewRecipePath, type MemoryView } from "./view-recipe.js";
 import { execFile } from "node:child_process";
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,7 +19,7 @@ export type CatalogEntry = VersionedRef & {
   metadataRef?: VersionedRef;
 };
 export type MemoryCatalog = { schemaVersion: "stella.memory-catalog/v1"; generationId: string; parentGenerationId: string | null;
-  views: unknown[] } & Record<CatalogGroup, CatalogEntry[]>;
+  views: MemoryView[] } & Record<CatalogGroup, CatalogEntry[]>;
 export class CatalogError extends Error {
   constructor(readonly category: string) { super(`Memory catalog failed: ${category}`); }
 }
@@ -34,6 +35,7 @@ const key = (ref: VersionedRef) => JSON.stringify([ref.id, ref.version]);
 export function parseMemoryCatalog(value: unknown): MemoryCatalog {
   requireCondition(isRecord(value) && value.schemaVersion === "stella.memory-catalog/v1" && typeof value.generationId === "string" && value.generationId &&
     (value.parentGenerationId === null || typeof value.parentGenerationId === "string" && value.parentGenerationId) && Array.isArray(value.views), "invalid_catalog");
+  parseMemoryViews(value.views, value.generationId);
   const seen = new Set<string>();
   const current = new Set<string>();
   for (const group of groups) {
@@ -144,6 +146,18 @@ export class CatalogReader {
     }
     await validate(preview);
     await this.assertCurrent();
+  }
+  async readViewRecipe(viewId: string) {
+    await this.assertCurrent();
+    const views = parseMemoryViews(this.catalog.views, this.catalog.generationId);
+    const view = views.find(candidate => candidate.id === viewId);
+    requireCondition(view, "view_unavailable");
+    let value: unknown;
+    try { value = JSON.parse((await readRepositoryBytes(this.root, viewRecipePath(this.catalogPath, view.recipeRef))).toString("utf8")); }
+    catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("view_recipe_unavailable"); }
+    const recipe = parseViewRecipe(value, view);
+    await this.assertCurrent();
+    return recipe;
   }
   entry(ref: VersionedRef, group?: CatalogGroup): CatalogEntry {
     const found = this.#entries.get(key(ref));

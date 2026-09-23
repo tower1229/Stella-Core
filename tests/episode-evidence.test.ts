@@ -9,7 +9,7 @@ import { EpisodeEvidenceResolver, type EvidencePurpose } from "../src/praxis/epi
 import type { EpisodeV2, VersionedRef } from "../src/praxis/episode-v2.js";
 import { EpisodeRepository } from "../src/praxis/episode-repository.js";
 import { PraxisRuntimeMemory } from "../src/praxis/runtime-memory.js";
-import { prepareEvidenceBoundOutcome } from "../src/praxis/outcome-preparation.js";
+import { prepareEvidenceBoundOutcome, readPreparedOutcomeContext } from "../src/praxis/outcome-preparation.js";
 import { episodeVersion } from "../src/praxis/episode-repository.js";
 import { prepareOutcomeTransaction } from "../src/praxis/outcome-transaction.js";
 import { recoverPendingOutcome } from "../src/praxis/outcome-recovery.js";
@@ -64,6 +64,36 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, options: { r
 }
 const verdict = (actual: NonNullable<EpisodeV2["actual"]>, supported = true) => ({ text: JSON.stringify({
   supported, action: actual.action, occurredAt: actual.occurredAt, source: actual.source, evidenceRefs: actual.evidenceRefs, rationale: "Synthetic semantic verdict" }) });
+
+test("evidence read scopes separate concurrent operations, inherit nested reads and reject late metadata reads", async t => {
+  const f = await fixture(t);
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No inference"); });
+  let enter!: () => void, release!: () => void;
+  const entered = new Promise<void>(resolve => { enter = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const first = resolver.captureReads(async () => {
+    await resolver.readMetadata(f.source);
+    enter();
+    await gate;
+    const nested = await resolver.captureReads(() => resolver.readEvidence(f.evidence));
+    assert.deepEqual(nested.originals.map(original => original.ref), [f.evidence]);
+  });
+  await entered;
+  const second = await resolver.captureReads(() => resolver.readMetadata(f.catalog.policies[0]!));
+  assert.deepEqual(second.originals, []);
+  assert.deepEqual(second.metadata.map(ref => ref.id), [f.catalog.policies[0]!.id]);
+  release();
+  const captured = await first;
+  assert.deepEqual(captured.metadata, [f.source]);
+  assert.deepEqual(captured.originals.map(original => original.ref), [f.evidence]);
+  let releaseLate!: () => void;
+  const lateGate = new Promise<void>(resolve => { releaseLate = resolve; });
+  let late!: Promise<unknown>;
+  await resolver.captureReads(async () => { late = lateGate.then(() => resolver.readMetadata(f.source)); });
+  releaseLate();
+  await assert.rejects(late, /evidence_read_scope_expired/);
+});
 
 test("restricted evidence fails before payload access without an admitted semantic context", async (t) => {
   const f = await fixture(t, { restricted: true });
@@ -513,14 +543,13 @@ test("evidence-bound closure atomically commits learning, retries pointer failur
     const durability = new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
       normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0,
       onRevision: async (revision) => { if (fail) throw new Error("Synthetic pointer failure"); await writeFile(pointer, revision); } });
-    const transaction = await prepareOutcomeTransaction({ operationId: "report", requestId: "report", revision: initial, runtime, objectRoot: "objects", prepared: {
-      disposition: "ready", expectedVersion: advised.version, modelRef: "synthetic/injected", promptVersion: "synthetic/v1",
-      readEvidenceRefs: [evidence], searchedCoverageRefs: [],
-      episode: { ...advised.episode, status: "closed", actual, outcome,
-        learning: { algorithmVersion: "stella-outcome-preparation/v1", predictionAssessment: "unresolved", evidenceRefs: [evidence], twin: [], praxis: [] } },
-      learning: { disposition: propose ? "propose_strategy" : "no_change", rationale: "Synthetic scoped evaluation", evidenceRefs: [evidence],
-        ...(propose ? { strategy: { statement: "先确认具体时间", scope: { workIds: [], contexts: ["周末邀约"], domains: ["social"], global: false as const } } } : {}) },
-    } });
+    const prepared = await prepareEvidenceBoundOutcome({ request: "记录邀约结果", selected: advised, recordedAt: now, resolver: runtime.evidence,
+      complete: async () => ({ provider: "synthetic", model: "injected", text: canonicalJson({ disposition: "ready", actual, outcome,
+        predictionAssessment: "unresolved", learning: { disposition: propose ? "propose_strategy" : "no_change",
+          rationale: "Synthetic scoped evaluation", evidenceRefs: [evidence],
+          ...(propose ? { strategy: { statement: "先确认具体时间", scope: { workIds: [], contexts: ["周末邀约"], domains: ["social"], global: false } } } : {}) } }) }) });
+    assert.ok(prepared.disposition === "ready");
+    const transaction = await prepareOutcomeTransaction({ operationId: "report", requestId: "report", revision: initial, runtime, objectRoot: "objects", prepared });
     const signal = new AbortController().signal;
     await assert.rejects(transaction.persist(durability, signal), /Synthetic pointer failure/);
     await assert.rejects(runtime.repository.read(episode.id), /memory_transaction_pending/);
@@ -558,4 +587,53 @@ test("evidence-bound closure atomically commits learning, retries pointer failur
     assert.deepEqual((await recovered.listMemory()).learningItems, []);
     assert.equal((await run("git", ["-C", root, "status", "--porcelain"])).stdout.trim(), "");
   }
+});
+
+
+test("outcome clarification rejects missing model identity and originals changed during inference", async t => {
+  const f = await fixture(t);
+  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(f.root, "catalog.json"), purpose,
+    async () => { throw new Error("No verifier call expected"); });
+  const episode: EpisodeV2 = { schemaVersion: "stella.praxis-episode/v2", id: "clarification-provenance", status: "recommended",
+    createdAt: now, updatedAt: now, recoveryPriority: "normal", provenance: {}, historicalInputRefs: [],
+    situation: { summary: "Synthetic pending event", domains: [], observations: [] }, decision: { recommendation: "Ask about time", rationale: [] } };
+  const text = JSON.stringify({ disposition: "needs_clarification", question: "Which event is this?" });
+  const input = { request: "Record the outcome", selected: { episode, version: episodeVersion(episode) }, recordedAt: now, resolver };
+  await assert.rejects(prepareEvidenceBoundOutcome({ ...input, complete: async () => ({ text }) }), /outcome_model_receipt_required/);
+  const prepared = await prepareEvidenceBoundOutcome({ ...input, complete: async () => ({ text, provider: "synthetic", model: "model" }) });
+  const receipt = await readPreparedOutcomeContext(prepared);
+  assert.deepEqual(receipt.modelRefs, ["synthetic/model"]);
+  assert.equal(receipt.missingModelReceipt, false);
+  await assert.rejects(readPreparedOutcomeContext({ ...prepared }), /outcome_context_unbound/);
+  if (prepared.disposition !== "needs_clarification") assert.fail("Expected clarification");
+  const saved = prepared.question;
+  prepared.question = "Unbound alternate question";
+  await assert.rejects(readPreparedOutcomeContext(prepared), /outcome_context_changed/);
+  prepared.question = saved;
+  const source = await resolver.reader.read(f.source, "sources");
+  const file = path.join(f.root, (source.payloads as Array<{ path: string }>)[0]!.path);
+  await assert.rejects(prepareEvidenceBoundOutcome({ ...input, complete: async () => {
+    await writeFile(file, "Changed while asking a clarification");
+    return { text, provider: "synthetic", model: "model" };
+  } }), /payload_digest_mismatch/);
+  await assert.rejects(readPreparedOutcomeContext(prepared), /payload_digest_mismatch/);
+});
+
+test("evidence capture records nested model calls and rejects late calls before model disclosure", async t => {
+  const f = await fixture(t);
+  let calls = 0;
+  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(f.root, "catalog.json"), purpose,
+    async () => { calls++; return { text: "Synthetic", provider: "synthetic", model: "verifier" }; });
+  const outer = await resolver.captureReads(async () => {
+    const inner = await resolver.captureReads(() => resolver.complete({ prompt: "Synthetic verifier input", maxTokens: 10 }));
+    assert.deepEqual(inner.models, [{ provider: "synthetic", model: "verifier" }]);
+  });
+  assert.deepEqual(outer.models, [{ provider: "synthetic", model: "verifier" }]);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let late: Promise<unknown> | undefined;
+  await resolver.captureReads(async () => { late = gate.then(() => resolver.complete({ prompt: "Expired input", maxTokens: 10 })); });
+  release();
+  await assert.rejects(late!, /evidence_read_scope_expired/);
+  assert.equal(calls, 1);
 });

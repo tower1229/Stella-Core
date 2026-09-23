@@ -1,3 +1,7 @@
+import path from "node:path";
+import { collectContextSources, type ContextSources } from "../praxis/context-sources.js";
+import { readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
+import { isRecord } from "../shared/type-guards.js";
 import { CatalogError, CatalogReader } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import {
@@ -18,6 +22,26 @@ import { learn, prepareCorrection } from "./correction.js";
 import type { HostRequestSnapshot } from "../canghai/host-request-archive.js";
 
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
+
+type AppliedCorrectionContext = ContextSources & {
+  root: string; catalogPath: string; generationId: string; ownerId: string; modelRef: string;
+  request: BoundTurnRequest; purpose: ProcessingAuthority["purpose"]; context: string;
+  ingressRefs: VersionedRef[]; assertCurrent(): Promise<void>;
+};
+const appliedContexts = new WeakMap<object, { result: string; binding: AppliedCorrectionContext }>();
+
+/** A completed learning transaction, not a caller-authored receipt, produces
+ * this context. Its dependencies are the newly published records and originals. */
+export async function readAppliedCorrectionContext(receipt: object): Promise<AppliedCorrectionContext> {
+  const stored = appliedContexts.get(receipt);
+  check(stored, "correction_context_unbound");
+  const assertResult = () => check(canonicalJson(receipt) === stored.result, "correction_context_changed");
+  assertResult();
+  await stored.binding.assertCurrent();
+  assertResult();
+  const { assertCurrent, ...snapshot } = stored.binding;
+  return { ...structuredClone(snapshot), assertCurrent };
+}
 
 /** Canonical Host input custody, before any semantic correction or answer generation. */
 export async function archiveCorrectionInput(input: {
@@ -101,13 +125,55 @@ export async function archiveCorrectionInput(input: {
 export async function applyHostCorrection(input: Parameters<typeof archiveCorrectionInput>[0] & {
   modelRef: string; complete: Parameters<typeof prepareCorrection>[0]["complete"];
   processingAuthority: ProcessingAuthority;
+  processingGrant?: object;
 }) {
+  input = { ...input, request: structuredClone(input.request), original: structuredClone(input.original),
+    archive: structuredClone(input.archive), processingAuthority: structuredClone(input.processingAuthority) };
   assertPrivateContextAudience(resolveTurnAudience(input.request));
-  const archived = await archiveCorrectionInput(input);
+  check(input.processingGrant || !input.purpose.sourceAccess, "correction_processing_grant_required");
+  const grant = input.processingGrant ? await readPersonalContextAccessBinding(input.processingGrant) : undefined;
+  if (grant) check(grant.root === input.reader.root && grant.config.ownerId === input.ownerId &&
+    grant.config.requesterIds.includes(input.request.senderId ?? "") && grant.config.viewProcessingModelRefs?.includes(input.modelRef) &&
+    canonicalJson(grant.config.purpose) === canonicalJson(input.processingAuthority.purpose), "correction_processing_grant_mismatch");
+  const assertScopeCurrent = async () => {
+    input.signal.throwIfAborted();
+    await input.assertCurrent();
+    if (input.processingGrant) await readPersonalContextAccessBinding(input.processingGrant);
+  };
+  const archived = await archiveCorrectionInput({ ...input, assertCurrent: assertScopeCurrent });
   const receipt = await learn({ operationId: input.request.runId, request: input.request.prompt,
     ownerId: input.ownerId, modelRef: input.modelRef, recordedAt: input.original.schemaVersion === "stella.host-request-snapshot/v1" ? input.original.capturedAt : String(input.original.event.timestamp),
     evidenceRefs: archived.evidenceRefs, resolver: archived.resolver, objectRoot: input.archive.objectRoot,
     processingAuthority: input.processingAuthority,
-    assertProcessingCurrent: input.assertCurrent, complete: input.complete, durability: input.durability, signal: input.signal });
-  return { ...receipt, writeOperationIds: [archived.operationId, receipt.operationId] };
+    assertProcessingCurrent: assertScopeCurrent, complete: input.complete, durability: input.durability, signal: input.signal });
+  const result = { ...receipt, writeOperationIds: [archived.operationId, receipt.operationId] };
+  const current = await CatalogReader.load(input.reader.root, input.reader.catalogPath);
+  check(current.catalog.generationId === receipt.generationId, "correction_generation_changed");
+  const resolver = new EpisodeEvidenceResolver(current, input.purpose, input.complete);
+  const sources = collectContextSources(resolver, input.processingAuthority, assertScopeCurrent);
+  const receiptPath = path.posix.join(path.posix.dirname(current.catalogPath), "operations", `${receipt.operationId}.correction.json`);
+  let recorded: unknown;
+  try { recorded = JSON.parse((await sources.pinFile(receiptPath)).toString("utf8")); }
+  catch { throw new CatalogError("correction_receipt_unavailable"); }
+  check(isRecord(recorded) && ["stella-correction/v1", "stella-correction/v2"].includes(String(recorded.schemaVersion)) && recorded.operationId === receipt.operationId &&
+    recorded.requestHash === input.request.requestHash && recorded.ownerId === input.ownerId && recorded.modelRef === input.modelRef &&
+    canonicalJson(recorded.changeRef) === canonicalJson(receipt.changeRef) &&
+    (recorded.schemaVersion === "stella-correction/v1" ? receipt.clarification === null : recorded.clarification === receipt.clarification),
+    "correction_receipt_mismatch");
+  if (grant) check(bytesVersion(await sources.pinFile(grant.path)) === grant.sha256, "correction_processing_grant_mismatch");
+  await sources.visit(receipt.changeRef);
+  for (const ref of archived.evidenceRefs) await sources.visit(ref);
+  const change = await current.read(receipt.changeRef, "changes");
+  check(change.disposition === receipt.disposition && change.modelRef === input.modelRef &&
+    canonicalJson(change.inputRefs) === canonicalJson(archived.evidenceRefs), "correction_receipt_mismatch");
+  await sources.assertCurrent();
+  const context = [
+    "The current owner input has been archived and its learning disposition durably recorded. Preserve the current corrected views. A clarification disposition must remain unresolved; it does not authorize guessing or claiming correction is complete.",
+    canonicalJson({ disposition: receipt.disposition, clarification: receipt.clarification, changeRef: receipt.changeRef }),
+  ].join("\n");
+  appliedContexts.set(result, { result: canonicalJson(result), binding: { ...sources.snapshot(), root: current.root, catalogPath: current.catalogPath,
+    generationId: receipt.generationId, ownerId: input.ownerId, modelRef: input.modelRef, request: input.request,
+    purpose: structuredClone(input.processingAuthority.purpose), ingressRefs: structuredClone(archived.evidenceRefs), context,
+    assertCurrent: sources.assertCurrent } });
+  return result;
 }

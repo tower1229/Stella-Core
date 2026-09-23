@@ -1,4 +1,4 @@
-import { canonicalJson } from "../canghai/content-version.js";
+import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { validMemoryRef } from "../canghai/catalog-reader.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { EpisodeSnapshot } from "./episode-repository.js";
@@ -27,7 +27,7 @@ function admitted(item: OriginalEvidence, resolver: EpisodeEvidenceResolver): bo
 }
 
 /** Produces a write-free plan. A strategy is only a candidate, never an adopted owner belief. */
-export async function prepareEvidenceBoundOutcome(input: {
+async function assessEvidenceBoundOutcome(input: {
   request: string; selected: EpisodeSnapshot; recordedAt: string; resolver: EpisodeEvidenceResolver;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
   abortSignal?: AbortSignal;
@@ -75,6 +75,10 @@ export async function prepareEvidenceBoundOutcome(input: {
   catch { throw new EpisodeV2Error("outcome_preparation_model_failed"); }
   checkActive();
   await reader.assertCurrent();
+  check(nonempty(provider) && nonempty(model), "outcome_model_receipt_required");
+  for (const item of readEvidence) {
+    check(canonicalJson(await input.resolver.readEvidence(item.ref)) === canonicalJson(item), "stale_evidence");
+  }
   try { value = JSON.parse(text); } catch { throw new EpisodeV2Error("invalid_outcome_proposal"); }
   check(isRecord(value));
   if (value.disposition === "needs_clarification") {
@@ -82,7 +86,6 @@ export async function prepareEvidenceBoundOutcome(input: {
     return { disposition: "needs_clarification", question: value.question };
   }
   check(value.disposition === "ready" && isRecord(value.actual) && isRecord(value.outcome) && isRecord(value.learning));
-  check(nonempty(provider) && nonempty(model), "outcome_model_receipt_required");
   const learning = value.learning;
   const checkedRefs = (refs: unknown): VersionedRef[] => {
     check(Array.isArray(refs) && refs.length > 0 && refs.every(validMemoryRef));
@@ -119,4 +122,66 @@ export async function prepareEvidenceBoundOutcome(input: {
   return { disposition: "ready", expectedVersion: selected.version, episode, learning: proposal,
     readEvidenceRefs: readEvidence.map(({ ref }) => ({ id: ref.id, version: ref.version })), searchedCoverageRefs: [...searchedCoverage.values()],
     modelRef: `${provider}/${model}`, promptVersion: "stella-outcome-preparation/v1" };
+}
+
+
+type PreparedOutcomeContext = {
+  resolver: EpisodeEvidenceResolver; requestHash: string; selected: EpisodeSnapshot; result: PreparedOutcome;
+  generationId: string; modelRefs: string[]; missingModelReceipt: boolean;
+  originals: OriginalEvidence[]; dependencies: Array<{ ref: VersionedRef; digest: string }>;
+  assertCurrent(): Promise<void>;
+};
+const preparedContexts = new WeakMap<object, PreparedOutcomeContext>();
+
+/** Attests the outcome computation only; its selected Episode still needs an
+ * independent repository and route binding at the final consumption boundary. */
+export async function readPreparedOutcomeContext(prepared: object): Promise<PreparedOutcomeContext> {
+  const binding = preparedContexts.get(prepared);
+  check(binding, "outcome_context_unbound");
+  const assertResult = () => check(canonicalJson(prepared) === canonicalJson(binding.result), "outcome_context_changed");
+  assertResult();
+  await binding.assertCurrent();
+  assertResult();
+  const { resolver, assertCurrent, ...snapshot } = binding;
+  return { ...structuredClone(snapshot), resolver, assertCurrent };
+}
+
+export async function prepareEvidenceBoundOutcome(input: Parameters<typeof assessEvidenceBoundOutcome>[0]) {
+  input = { ...input, selected: structuredClone(input.selected) };
+  const planningModels: Array<{ provider?: string; model?: string }> = [];
+  const captured = await input.resolver.captureReads(() => assessEvidenceBoundOutcome({ ...input, complete: async params => {
+    const result = await input.complete(params);
+    planningModels.push({ provider: result.provider, model: result.model });
+    return result;
+  } }));
+  const { value, originals, metadata } = captured;
+  const reader = input.resolver.reader;
+  const dependencies = new Map<string, { ref: VersionedRef; digest: string }>();
+  const visit = async (ref: VersionedRef): Promise<void> => {
+    const key = canonicalJson({ id: ref.id, version: ref.version });
+    if (dependencies.has(key)) return;
+    check(dependencies.size < 1024, "resource_exhausted");
+    dependencies.set(key, { ref: { id: ref.id, version: ref.version }, digest: bytesVersion(canonicalJson(await reader.read(ref))) });
+    const entry = reader.entry(ref);
+    for (const parent of [...entry.dependencies, ...(entry.metadataRef ? [entry.metadataRef] : [])]) await visit(parent);
+  };
+  for (const original of originals) await visit(original.ref);
+  for (const ref of metadata) await visit(ref);
+  const assertCurrent = async () => {
+    check(!input.abortSignal?.aborted, "operation_cancelled");
+    await reader.assertCurrent();
+    for (const dependency of dependencies.values()) check(bytesVersion(canonicalJson(await reader.read(dependency.ref))) === dependency.digest,
+      "outcome_context_dependency_changed");
+    for (const original of originals) check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "stale_evidence");
+    await reader.assertCurrent();
+    check(!input.abortSignal?.aborted, "operation_cancelled");
+  };
+  await assertCurrent();
+  const models = [...planningModels, ...captured.models];
+  preparedContexts.set(value, { resolver: input.resolver, requestHash: bytesVersion(input.request), selected: structuredClone(input.selected),
+    result: structuredClone(value), generationId: reader.catalog.generationId,
+    modelRefs: [...new Set(models.filter(model => nonempty(model.provider) && nonempty(model.model)).map(model => `${model.provider}/${model.model}`))],
+    missingModelReceipt: models.some(model => !nonempty(model.provider) || !nonempty(model.model)),
+    originals: structuredClone(originals), dependencies: structuredClone([...dependencies.values()]), assertCurrent });
+  return value;
 }

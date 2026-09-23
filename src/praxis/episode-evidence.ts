@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { CatalogError, CatalogReader, selectTextEvidence, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -46,11 +47,59 @@ export function evidenceTemporallyEligible(
   return true;
 }
 
+/** Every current-use dependency of an Episode, including sealed predictions. */
+export function episodeContextRefs(episode: EpisodeV2): VersionedRef[] {
+  return [...episode.historicalInputRefs, ...(episode.decision?.inputRefs ?? []), ...(episode.twin?.hypothesisRefs ?? []), ...(episode.framework?.frameworkRefs ?? []),
+    ...(episode.reality?.externalRefs ?? []), ...(episode.reality?.similarEpisodeRefs ?? []), ...(episode.actual?.evidenceRefs ?? []),
+    ...(episode.outcome?.evidenceRefs ?? []), ...(episode.learning?.evidenceRefs ?? []), ...(episode.learning?.twin ?? []), ...(episode.learning?.praxis ?? [])];
+}
+
 /** Structural provenance gates precede, but never replace, the model's semantic action judgment. */
+type EvidenceModelReceipt = { provider?: string; model?: string };
+type EvidenceCompletion = (input: { prompt: string; maxTokens: number }) => Promise<{ text: string } & EvidenceModelReceipt>;
+type EvidenceReadScope = { active: boolean; models: EvidenceModelReceipt[]; originals: Map<string, OriginalEvidence>; metadata: Map<string, VersionedRef>; parent?: EvidenceReadScope };
 export class EpisodeEvidenceResolver {
-  constructor(readonly reader: CatalogReader, readonly purpose: EvidencePurpose,
-    readonly complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string }>) {
+  readonly #readScopes = new AsyncLocalStorage<EvidenceReadScope>();
+  readonly complete: EvidenceCompletion;
+  constructor(readonly reader: CatalogReader, readonly purpose: EvidencePurpose, complete: EvidenceCompletion) {
     check(purpose.readPurpose && purpose.derivePurpose && purpose.deliveryScope && timestamp(purpose.evidenceCutoff), "invalid_evidence_purpose");
+    this.complete = async input => {
+      const scopes: EvidenceReadScope[] = [];
+      for (let scope = this.#readScopes.getStore(); scope; scope = scope.parent) {
+        check(scope.active, "evidence_read_scope_expired");
+        scopes.push(scope);
+      }
+      const result = await complete(input);
+      for (const scope of scopes) {
+        check(scope.active, "evidence_read_scope_expired");
+        check(scope.models.length < 1024, "resource_exhausted");
+        scope.models.push({ ...(result.provider ? { provider: result.provider } : {}), ...(result.model ? { model: result.model } : {}) });
+      }
+      return result;
+    };
+  }
+  /** Record actual authorized reads, including descriptor construction and
+   * originals a semantic selector considered but did not select. Concurrent
+   * operations remain separate; nested operations contribute to their parent. */
+  async captureReads<T>(work: () => Promise<T>): Promise<{ value: T; originals: OriginalEvidence[]; metadata: VersionedRef[]; models: EvidenceModelReceipt[] }> {
+    const scope: EvidenceReadScope = { active: true, models: [], originals: new Map(), metadata: new Map(), parent: this.#readScopes.getStore() };
+    try {
+      const value = await this.#readScopes.run(scope, work);
+      return { value, originals: structuredClone([...scope.originals.values()]), metadata: structuredClone([...scope.metadata.values()]), models: structuredClone(scope.models) };
+    } finally { scope.active = false; }
+  }
+  /** Track catalog metadata used in inference independently from payload reads.
+   * Metadata processing still requires the caller's explicit processing grant. */
+  async readMetadata(ref: VersionedRef): Promise<Record<string, unknown>> {
+    const target = { id: ref.id, version: ref.version };
+    const object = await this.reader.read(target);
+    for (let scope = this.#readScopes.getStore(); scope; scope = scope.parent) {
+      check(scope.active, "evidence_read_scope_expired");
+      const key = canonicalJson(target);
+      check(scope.metadata.has(key) || scope.metadata.size < 1024, "resource_exhausted");
+      scope.metadata.set(key, target);
+    }
+    return object;
   }
   async assertSourceAccess(sourceRef: VersionedRef, ref: VersionedRef): Promise<void> {
     const source = await this.reader.read(sourceRef, "sources");
@@ -69,7 +118,31 @@ export class EpisodeEvidenceResolver {
     const declared = this.reader.entry(ref).dependencies;
     check(dependencies.every((dependency) => includesRef(declared, dependency)), "undeclared_object_dependency");
   }
+  /** Integrity-only check for a current Evidence whose derived ancestry may
+   * have been invalidated. Authorize the still-current source/segment, but do
+   * not return text or certify this Evidence as current understanding. */
+  async assertCurrentEvidencePayloadIntegrity(ref: VersionedRef): Promise<void> {
+    check(this.reader.entry(ref, "evidence").status === "current", "evidence_not_currently_eligible");
+    const evidence = await this.reader.read(ref, "evidence", "historical");
+    check(evidence.schemaVersion === "stella.memory-evidence/v1" && validMemoryRef(evidence.source) &&
+      validMemoryRef(evidence.policyRef) && typeof evidence.payloadSha256 === "string", "invalid_evidence");
+    this.#dependencies(ref, [evidence.source, evidence.policyRef]);
+    // A removed or superseded source must never be read by an integrity check.
+    check(this.reader.eligible(evidence.source) && this.reader.eligible(evidence.policyRef), "evidence_not_currently_eligible");
+    const source = await this.reader.read(evidence.source, "sources");
+    check(validMemoryRef(source.policyRef), "invalid_source");
+    const segments = sourceSegments(source);
+    const segment = assertEvidenceSegment(segments, evidence);
+    for (const policy of includesRef([evidence.policyRef], source.policyRef) ? [evidence.policyRef] : [evidence.policyRef, source.policyRef]) {
+      if (segments.length) await this.assertSourceMetadataAccess(evidence.source, policy, segment && segmentLocator(segment));
+      else await this.assertSourceAccess(evidence.source, policy);
+    }
+    await this.reader.readPayload(evidence.source, evidence.payloadSha256);
+    await this.reader.assertCurrent();
+  }
+
   async readEvidence(ref: VersionedRef): Promise<OriginalEvidence> {
+    ref = { id: ref.id, version: ref.version };
     const evidence = await this.reader.read(ref, "evidence");
     check(evidence.schemaVersion === "stella.memory-evidence/v1" && validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef) &&
       refs(evidence.derivedFrom) && typeof evidence.payloadSha256 === "string" &&
@@ -127,10 +200,18 @@ export class EpisodeEvidenceResolver {
       const policy = parseSourcePolicy(await this.reader.read(policyRef, "policies"));
       if (policy.usageRules?.interpretation.length) usageConstraints.push({ policyRef, rules: policy.usageRules.interpretation });
     }
-    return { ref, text, role: String(evidence.role), kind: String(evidence.kind), sourceAdapterId: source.origin.adapterId,
+    const original: OriginalEvidence = { ref, text, role: String(evidence.role), kind: String(evidence.kind), sourceAdapterId: source.origin.adapterId,
       ...(usageConstraints.length ? { usageConstraints } : {}),
       independentOriginId: evidence.independentOriginId, occurredAt: evidence.occurredAt,
       authoredAt: evidence.authoredAt, capturedAt: evidence.capturedAt as string, coverageComplete: coverage.completeForDeclaredScope };
+    for (let scope = this.#readScopes.getStore(); scope; scope = scope.parent) {
+      check(scope.active, "evidence_read_scope_expired");
+      const key = canonicalJson(ref), previous = scope.originals.get(key);
+      check(!previous || canonicalJson(previous) === canonicalJson(original), "stale_evidence");
+      check(previous || scope.originals.size < 1024, "resource_exhausted");
+      scope.originals.set(key, structuredClone(original));
+    }
+    return original;
   }
   async verifyActionEvidence(actual: Actual): Promise<boolean> {
     check(["user_report", "tool_observation", "system_event"].includes(actual.source) && actual.evidenceRefs.length > 0, "unsupported_actual_source");
@@ -235,9 +316,7 @@ export class EpisodeEvidenceResolver {
   }
   async isCurrentlyEligible(episode: EpisodeV2): Promise<boolean> {
     await this.reader.assertCurrent();
-    return [...episode.historicalInputRefs, ...(episode.decision?.inputRefs ?? []), ...(episode.twin?.hypothesisRefs ?? []), ...(episode.framework?.frameworkRefs ?? []),
-      ...(episode.reality?.externalRefs ?? []), ...(episode.reality?.similarEpisodeRefs ?? []), ...(episode.actual?.evidenceRefs ?? []),
-      ...(episode.outcome?.evidenceRefs ?? []), ...(episode.learning?.evidenceRefs ?? []), ...(episode.learning?.twin ?? []), ...(episode.learning?.praxis ?? [])]
+    return episodeContextRefs(episode)
       .every((ref) => this.reader.eligible(ref));
   }
 }

@@ -48,13 +48,79 @@ function assessmentSchema(handles: string[]) {
   } };
 }
 
+type PreparedQuestionContext = {
+  resolver: EpisodeEvidenceResolver; requestId: string; requestHash: string; generationId: string; modelRef: string; modelRefs: string[];
+  checkpoint?: RetrievalCheckpoint;
+  retrievalDescriptors?: import("../canghai/source-access.js").SourceAccessDescriptor[]; processingGrant?: object;
+  priorContext: string; provisionalRoute: CortexRoute; context: string;
+  originals: OriginalEvidence[]; dependencies: Array<{ ref: VersionedRef; digest: string }>;
+  assertCurrent(): Promise<void>;
+};
+const preparedContexts = new WeakMap<object, PreparedQuestionContext>();
+
+/** This attests a computation, not the provenance of its upstream prompt.
+ * A consumer must independently bind priorContext and provisionalRoute too. */
+export async function readPreparedQuestionContext(prepared: object): Promise<PreparedQuestionContext> {
+  const binding = preparedContexts.get(prepared);
+  check(binding, "question_context_unbound");
+  check(canonicalJson(prepared) === binding.context, "question_context_changed");
+  await binding.assertCurrent();
+  check(canonicalJson(prepared) === binding.context, "question_context_changed");
+  const { resolver, assertCurrent, processingGrant, ...snapshot } = binding;
+  return { ...structuredClone(snapshot), resolver, assertCurrent, ...(processingGrant ? { processingGrant } : {}) };
+}
+
+/** Keep model input snapshots and all actually read evidence attached to the
+ * produced assessment. The model cannot choose or serialize this receipt. */
+export async function prepareQuestionEvidence(input: Parameters<typeof assessQuestionEvidence>[0]) {
+  input = { ...input, route: structuredClone(input.route),
+    ...(input.checkpoint ? { checkpoint: structuredClone(input.checkpoint) } : {}),
+    ...(input.retrieval ? { retrieval: { ...input.retrieval, config: structuredClone(input.retrieval.config),
+      descriptors: structuredClone(input.retrieval.descriptors) } } : {}),
+  };
+  const { value, originals, metadata } = await input.resolver.captureReads(() => assessQuestionEvidence(input));
+  const dependencies = new Map<string, { ref: VersionedRef; digest: string }>();
+  const visit = async (ref: VersionedRef): Promise<void> => {
+    const key = canonicalJson(ref);
+    if (dependencies.has(key)) return;
+    check(dependencies.size < 1024, "resource_exhausted");
+    dependencies.set(key, { ref: { id: ref.id, version: ref.version },
+      digest: bytesVersion(canonicalJson(await input.resolver.reader.read(ref))) });
+    const entry = input.resolver.reader.entry(ref);
+    for (const parent of [...entry.dependencies, ...(entry.metadataRef ? [entry.metadataRef] : [])]) await visit(parent);
+  };
+  for (const original of originals) await visit(original.ref);
+  for (const ref of metadata) await visit(ref);
+  for (const ref of value.bundle.searchedCoverageRefs) await visit(ref);
+  const assertCurrent = async () => {
+    check(!input.abortSignal?.aborted, "operation_cancelled");
+    await input.retrieval?.assertProcessingCurrent();
+    await input.resolver.reader.assertCurrent();
+    for (const dependency of dependencies.values()) check(
+      bytesVersion(canonicalJson(await input.resolver.reader.read(dependency.ref))) === dependency.digest, "question_context_dependency_changed");
+    for (const original of originals) check(canonicalJson(await input.resolver.readEvidence(original.ref)) === canonicalJson(original), "stale_evidence");
+    await input.resolver.reader.assertCurrent();
+    check(!input.abortSignal?.aborted, "operation_cancelled");
+  };
+  await assertCurrent();
+  preparedContexts.set(value, { resolver: input.resolver, requestId: input.requestId, requestHash: bytesVersion(input.question),
+    generationId: input.resolver.reader.catalog.generationId, modelRef: value.bundle.stopping.modelRef,
+    modelRefs: [...new Set([...value.modelOutput.attempts.map(attempt => attempt.modelRef), ...(input.retrieval ? [input.retrieval.modelRef] : [])])],
+    ...(input.retrieval ? { retrievalDescriptors: structuredClone(input.retrieval.descriptors), processingGrant: input.retrieval.processingGrant,
+      ...(input.checkpoint ? { checkpoint: structuredClone(input.checkpoint) } : {}) } : {}),
+    priorContext: input.priorContext, provisionalRoute: structuredClone(input.route), context: canonicalJson(value),
+    originals: structuredClone(originals), dependencies: structuredClone([...dependencies.values()]), assertCurrent });
+  return value;
+}
+
 /** Assess selected catalog originals; legacy Alpha callers retain exhaustive bounded reading. Neither path proves full-repository coverage. */
-export async function prepareQuestionEvidence(input: {
+async function assessQuestionEvidence(input: {
   requestId: string; revision: string; question: string; route: CortexRoute; priorContext: string;
   resolver: EpisodeEvidenceResolver;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
   abortSignal?: AbortSignal;
   retrieval?: {
+    processingGrant?: object;
     descriptors: import("../canghai/source-access.js").SourceAccessDescriptor[];
     modelRef: string;
     ownerId: string;

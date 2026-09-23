@@ -14,6 +14,30 @@ export function hostMemoryConfigurationHash(config: unknown): string {
   return bytesVersion(canonicalJson(JSON.parse(JSON.stringify(config))));
 }
 
+/** Bind every execution setting while treating the durable source pointer as
+ * data state. The expected pointer is Core's held recovery binding, updated
+ * only after its durability callback succeeds; never copy it from this config.
+ * Source revision, generation and payload eligibility remain separate gates. */
+export function hostContextExecutionHash(config: unknown, expected: {
+  agentId: string; canghaiRoot: string; recoveryRevision: string;
+}): string {
+  let snapshot: unknown;
+  try { snapshot = JSON.parse(JSON.stringify(config)); }
+  catch { throw new CatalogError("host_context_configuration_required"); }
+  if (!isRecord(snapshot) || !isRecord(snapshot.plugins) || !isRecord(snapshot.plugins.entries)) {
+    throw new CatalogError("host_context_configuration_required");
+  }
+  const entry = snapshot.plugins.entries["stella-core"];
+  if (!isRecord(entry) || entry.enabled === false || !isRecord(entry.config) ||
+      (entry.config.agentId ?? "stella") !== expected.agentId || entry.config.canghaiRoot !== expected.canghaiRoot ||
+      entry.config.dataMode !== "managed_durable_write") throw new CatalogError("host_context_configuration_scope_mismatch");
+  if (!/^[a-f0-9]{40}$/i.test(expected.recoveryRevision) || entry.config.recoveryRevision !== expected.recoveryRevision) {
+    throw new CatalogError("host_context_recovery_binding_changed");
+  }
+  delete entry.config.recoveryRevision;
+  return bytesVersion(canonicalJson({ schemaVersion: "stella.host-context-execution-config/v1", configuration: snapshot }));
+}
+
 /** Inventory evidence is diagnostic; neither an enabled plugin nor an absent
  * plugin proves the provenance of the final prompt assembled by the Host. */
 export function inspectDeclaredHostMemory(input: {

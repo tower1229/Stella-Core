@@ -1,3 +1,4 @@
+import type { HostMemoryInput } from "./host-memory-provider.js";
 import { Type } from "typebox";
 import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson } from "../canghai/content-version.js";
@@ -8,11 +9,35 @@ import { isRecord } from "../shared/type-guards.js";
 import { assertProcessingStage, type ProcessingAuthority } from "./processing-authority.js";
 
 export const FRAGMENT_READ_TOOL = "stella_read_fragment";
-export const FRAGMENT_READ_PARAMETERS = Type.Union([
-      Type.Object({ action: Type.Literal("list") }, { additionalProperties: false }),
-      Type.Object({ action: Type.Literal("read"), handle: Type.String() }, { additionalProperties: false }),
-    ]);
+export const FRAGMENT_READ_DESCRIPTION = "For memory skills: list this turn's admitted fragment descriptions, then read an exact handle. Originals retain Evidence citations. Unavailable evidence requires a new retrieval request; never read the source file directly.";
+// A top-level object survives the pinned Host's schema normalization unchanged.
+// execute enforces the action-specific shape before reading any source.
+export const FRAGMENT_READ_PARAMETERS = Type.Object({
+  action: Type.String({ enum: ["list", "read"] }),
+  handle: Type.Optional(Type.String()),
+}, { additionalProperties: false });
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
+
+type FragmentToolDefinition = HostMemoryInput["tools"][number];
+const toolDefinitions = new WeakMap<object, FragmentToolDefinition>();
+export type FragmentToolResultReceipt = Readonly<{ kind: "fragment_tool_result" }>;
+type FragmentToolResult = { tool: object; toolCallId: string; arguments: unknown; authority: ProcessingAuthority;
+  output: { content: Array<{ type: "text"; text: string }>; details: unknown }; evidenceRefs: OriginalEvidence["ref"][] };
+const toolResults = new WeakMap<FragmentToolResultReceipt, FragmentToolResult>();
+export function readFragmentToolResult(receipt: FragmentToolResultReceipt): FragmentToolResult {
+  const result = toolResults.get(receipt);
+  check(result, "host_context_tool_result_unbound");
+  const { tool, ...binding } = result;
+  return { tool, ...structuredClone(binding) };
+}
+
+
+/** A plain object or a Host-observed tool description is not a tool receipt. */
+export function readFragmentToolDefinition(tool: object): FragmentToolDefinition {
+  const definition = toolDefinitions.get(tool);
+  check(definition, "host_context_tool_unbound");
+  return structuredClone(definition);
+}
 
 /** Re-read only evidence already admitted to this turn's cognition and output
  * checks. Handles reveal no filesystem paths and cannot expand the evidence set. */
@@ -20,14 +45,17 @@ export function createFragmentReadTool(input: {
   resolver: EpisodeEvidenceResolver; descriptors: SourceAccessDescriptor[]; originals: OriginalEvidence[];
   processingAuthority: ProcessingAuthority;
   assertCurrent(): Promise<void>;
+  observeResult?(receipt: FragmentToolResultReceipt): Promise<void>;
 }) {
   const originals = [...new Map(input.originals.map(original => [canonicalJson(original.ref), structuredClone(original)])).values()];
   const descriptors = structuredClone(input.descriptors);
-  return {
+  const processingAuthority = structuredClone(input.processingAuthority);
+  const tool = {
     name: FRAGMENT_READ_TOOL, label: "Stella source fragments",
-    description: "For memory skills: list this turn's admitted fragment descriptions, then read an exact handle. Originals retain Evidence citations. Unavailable evidence requires a new retrieval request; never read the source file directly.",
+    description: FRAGMENT_READ_DESCRIPTION,
     parameters: FRAGMENT_READ_PARAMETERS,
-    async execute(_id: string, request: unknown, signal?: AbortSignal) {
+    async execute(toolCallId: string, request: unknown, signal?: AbortSignal) {
+      request = structuredClone(request);
       const current = async () => {
         check(!signal?.aborted, "fragment_read_cancelled");
         await input.assertCurrent(); await input.resolver.reader.assertCurrent();
@@ -48,7 +76,7 @@ export function createFragmentReadTool(input: {
           const key = canonicalJson(policyRef);
           if (seenPolicies.has(key)) continue;
           seenPolicies.add(key);
-          assertProcessingStage(input.processingAuthority,
+          assertProcessingStage(processingAuthority,
             await input.resolver.reader.read(policyRef, "policies"), "read");
         }
         const target = { sourceRef: evidence.source, policyRef: evidence.policyRef, segment: segmentLocator(segment) };
@@ -69,7 +97,18 @@ export function createFragmentReadTool(input: {
         details = { original };
       }
       await current();
-      return { content: [{ type: "text" as const, text: canonicalJson(details) }], details };
+      const output = { content: [{ type: "text" as const, text: canonicalJson(details) }], details };
+      if (input.observeResult) {
+        check(typeof toolCallId === "string" && toolCallId.length > 0, "host_context_tool_call_required");
+        const receipt: FragmentToolResultReceipt = Object.freeze({ kind: "fragment_tool_result" });
+        toolResults.set(receipt, { tool, toolCallId, arguments: structuredClone(request), authority: processingAuthority,
+          output: structuredClone(output), evidenceRefs: originals.map(original => ({ ...original.ref })) });
+        await input.observeResult(receipt);
+        await current();
+      }
+      return output;
     },
   };
+  toolDefinitions.set(tool, structuredClone({ name: tool.name, description: tool.description, parameters: tool.parameters }));
+  return tool;
 }

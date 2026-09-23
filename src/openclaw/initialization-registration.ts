@@ -18,7 +18,8 @@ import { hostMemoryRuntimeBlockers } from "./host-memory.js";
 import { assertHostChannelIdentity, verifyHostSkillTree } from "./initialization-host-skills.js";
 import { Type } from "typebox";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
-import { completionOperationForRun, isCompletionResourceActive, PREPARATION_TIMEOUT_MS } from "./completion.js";
+import { completionOperationForRun, isCompletionResourceActive, PREPARATION_TIMEOUT_MS, readActiveCompletionRequest } from "./completion.js";
+import type { BoundTurnRequest } from "./turn-request.js";
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportError } from "openclaw/plugin-sdk/gateway-runtime";
 import { captureInitializationVerificationBinding } from "./initialization-verification-binding.js";
@@ -613,6 +614,20 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   return { initialize, rollback, assertReady, async assertRun(runId: string) {
     await assertReady();
     await initializer!.assertRun(runId);
+  }, async prepareContextCompilation(request: BoundTurnRequest) {
+    const assertRequest = () => {
+      if (readActiveCompletionRequest(config.agentId, request.sessionId, request.sessionKey) !== request) {
+        throw new InitializationError("host_request_binding_required");
+      }
+    };
+    assertRequest();
+    await assertReady();
+    const compiled = await initializer!.prepareContextCompilation();
+    assertRequest();
+    return compiled;
+  }, async contextCompilation(runId: string) {
+    await assertReady();
+    return initializer!.contextCompilation(runId);
   }, async revokeActiveRuns(reason: string, options?: { retainRunId?: string }) {
     if (!initializer) throw new InitializationError("initialization_required");
     await initializer.revokeActiveRuns(reason, options);

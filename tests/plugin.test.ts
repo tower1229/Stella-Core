@@ -1,4 +1,9 @@
 import { canonicalJson, bytesVersion, objectVersion } from "../src/canghai/content-version.js";
+import { loadConsciousness } from "../src/canghai/manifest.js";
+import { parseCangHaiRef } from "../src/canghai/ref.js";
+import { loadPraxisRuntimeBinding } from "../src/praxis/runtime-binding.js";
+import { prepareRepositorySource } from "../src/canghai/repository-source.js";
+import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import type { MemoryCatalog, CatalogGroup } from "../src/canghai/catalog-reader.js";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import assert from "node:assert/strict";
@@ -8,7 +13,8 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import plugin from "../src/plugin.js";
-import type { ProviderPlugin } from "openclaw/plugin-sdk/plugin-entry";
+import type { OpenClawPluginApi, ProviderPlugin } from "openclaw/plugin-sdk/plugin-entry";
+import { resolveAgentDir } from "openclaw/plugin-sdk/agent-runtime";
 import { EpisodeRepository } from "../src/praxis/episode-repository.js";
 import { memoryRoutingRef } from "../src/praxis/runtime-memory.js";
 import type { EpisodeV2 } from "../src/praxis/episode-v2.js";
@@ -53,6 +59,7 @@ function registerPlugin(
   runEmbeddedAgent: () => Promise<never> = async () => { throw new Error("Unexpected Host execution"); },
   providers?: Map<string, ProviderPlugin>,
   mainModel = "synthetic/model",
+  engines?: Map<string, Parameters<OpenClawPluginApi["registerContextEngine"]>[1]>,
 ): Map<string, HookHandler> {
   const hooks = new Map<string, HookHandler>();
   const api = {
@@ -65,7 +72,11 @@ function registerPlugin(
       ...(dataMode === "managed_durable_write" ? { durabilityRemote: "origin", durabilityBranch: "local/stella-alpha" } : {}),
     },
     runtime: { version: "2026.8.2", state: { resolveStateDir: () => `${root}-host-state` }, agent: { runEmbeddedAgent }, config: { current: () => ({ agents: { defaults: { model: { primary: mainModel, fallbacks: modelFallbacks } },
-      entries: { stella: { model: { primary: mainModel, fallbacks: agentFallbacks } } } } }) }, llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
+      entries: { stella: { model: { primary: mainModel, fallbacks: agentFallbacks } } } },
+      plugins: { ...(engines ? { slots: { contextEngine: "stella-core" } } : {}), entries: { "stella-core": { enabled: true, config: {
+        canghaiRoot: root, recoveryRevision, agentId: "stella", dataMode,
+        ...(dataMode === "managed_durable_write" ? { durabilityRemote: "origin", durabilityBranch: "local/stella-alpha" } : {}),
+      } } } } }) }, llm: { complete: async (params: { purpose?: string; messages?: Array<{ content: string }> }) => {
       if (params.purpose === "stella-question-evidence") {
         if (assessEvidence) return assessEvidence(params);
         const input = JSON.parse(params.messages![0]!.content.split("\n").at(-1)!) as { provisionalRoute: { responseKind: string; evidenceStatus: string; materialUnknowns: string[] } };
@@ -90,6 +101,7 @@ function registerPlugin(
       assert.equal(options.scope, "operator.admin");
       hooks.set(`gateway:${name}`, handler);
     },
+    registerContextEngine(id: string, factory: Parameters<OpenClawPluginApi["registerContextEngine"]>[1]) { engines?.set(id, factory); },
     registerProvider(provider: ProviderPlugin) { providers?.set(provider.id, provider); },
     registerService() {},
     registerCommand() {},
@@ -153,6 +165,7 @@ test("plugin requires explicit data mode and managed durability transport", () =
     runtime: { version: "2026.8.2", llm: { complete: async () => ({ text: "{}" }) } },
     on() {},
     registerGatewayMethod() {},
+    registerContextEngine() {},
     registerProvider() {},
     registerService() {},
     registerCommand() {},
@@ -420,6 +433,62 @@ test("reply dispatch rejects unverified full-memory and denied audiences before 
 
       }
     }
+  } finally { await rm(root, { recursive: true, force: true }); await rm(`${root}-host-state`, { recursive: true, force: true }); }
+});
+
+for (const changeSource of [false, true]) test(`reply dispatch prepares before Host history and reuses only current preparation (${changeSource})`, async () => {
+  const root = await createFixture();
+  try {
+    await mkdir(`${root}-host-state`);
+    const revision = await initializeFixtureRepository(root);
+    const runId = `early-preparation-${changeSource}`;
+    const sessionKey = `agent:stella:${runId}`;
+    let routeCalls = 0, hostCalls = 0;
+    let verifiedBoundary = false;
+    const errors: string[] = [];
+    const route = async () => {
+      routeCalls++;
+      return { text: JSON.stringify({ mode: "ordinary", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [],
+        domains: ["general"], needsTwin: false, needsFramework: false, needsReality: false, needsExternalResearch: false }) };
+    };
+    // The Host may invoke hooks registered by a different plugin load.
+    const hostHooks = registerPlugin(root, revision, route);
+    const hooks = registerPlugin(root, revision, route, "read_only", errors, undefined, [], [], async () => {
+      hostCalls++;
+      assert.equal(routeCalls, 1, "semantic preparation must precede Host history processing");
+      const prepared = readCompletionPreparation(runId) as { outcome: string; promptContext: unknown };
+      assert.equal(prepared.outcome, "ready");
+      if (changeSource) {
+        const catalogPath = path.join(root, "30_PersonalData/memory/catalog.json");
+        const catalog = JSON.parse(await readFile(catalogPath, "utf8")) as MemoryCatalog;
+        catalog.generationId = "changed-before-host-prompt";
+        await writeFile(catalogPath, canonicalJson(catalog));
+      }
+      const prompt = await requireHook(hostHooks, "before_prompt_build")({ prompt: "Host-added text" }, { agentId: "stella", runId, sessionKey });
+      const retried = await requireHook(hostHooks, "before_prompt_build")({ prompt: "Host retry" }, { agentId: "stella", runId, sessionKey });
+      assert.equal(routeCalls, 1, "Host hooks must not repeat semantic preparation");
+      if (changeSource) {
+        assert.equal(prompt, undefined);
+        assert.equal(retried, undefined);
+        assert.equal((readCompletionPreparation(runId) as { outcome: string }).outcome, "blocked");
+      } else {
+        assert.deepEqual(prompt, prepared.promptContext);
+        assert.deepEqual(retried, prepared.promptContext);
+        assert.notEqual(prompt, prepared.promptContext);
+      }
+      verifiedBoundary = true;
+      throw new Error("Synthetic stop after verifying the public Host boundary");
+    });
+    await requireHook(hooks, "reply_dispatch")({ runId, sessionKey, sendPolicy: "allow", ctx: {
+      Body: "Synthetic request", Provider: "webchat", SenderId: "owner", ChatType: "direct",
+    } }, {
+      cfg: { commands: { ownerAllowFrom: ["owner"] }, agents: { defaults: { model: "synthetic/model", workspace: root } } },
+      dispatchKind: "agent", dispatcher: { supportsSettledReceipt: true }, userTurnTranscriptRecorder: {},
+      onAgentRunStart: () => "reply-dispatch", recordProcessed() {}, markIdle() {},
+    } as never);
+    assert.equal(hostCalls, 1, errors.join("\n"));
+    assert.equal(routeCalls, 1);
+    assert.equal(verifiedBoundary, true, "adapter failure handling must not hide a failed boundary assertion");
   } finally { await rm(root, { recursive: true, force: true }); await rm(`${root}-host-state`, { recursive: true, force: true }); }
 });
 
@@ -879,9 +948,115 @@ test("Host preparation wires the configured personal access grant before routing
         }
       });
       assert.equal(calls, allowed ? 1 : 0);
-      assert.equal(accessCalls, allowed ? 5 : 0);
+      // The question computation receipt revalidates its actual read closure too.
+      assert.equal(accessCalls, allowed ? 6 : 0);
       assert.equal(viewCalls, allowed ? 1 : 0);
       assert.equal(evidenceCalls, allowed ? 1 : 0);
     } finally { await rm(root, { recursive: true, force: true }); }
   }
+});
+
+test("selected managed engine cannot fall back to unbound input across plugin registrations", async () => {
+  const root = await createFixture();
+  try {
+    const revision = await initializeFixtureRepository(root);
+    const engines = new Map<string, Parameters<OpenClawPluginApi["registerContextEngine"]>[1]>();
+    const hooks = registerPlugin(root, revision, undefined, "read_only", [], undefined, [], [], undefined,
+      undefined, "stella-guarded/model", engines);
+    const providers = new Map<string, ProviderPlugin>();
+    registerPlugin(root, revision, undefined, "read_only", [], undefined, [], [], undefined, providers, "stella-guarded/model");
+    let transports = 0;
+    const stream = providers.get("stella-guarded")!.wrapStreamFn!({ provider: "stella-guarded", modelId: "model", agentId: "stella",
+      streamFn: () => { transports++; throw new Error("Unexpected transport"); } })!;
+    await preparedRun(hooks, "missing-managed-context", "Synthetic request", async (_prompt, gate) => {
+      assert.deepEqual(gate, { outcome: "pass" });
+      const config = { agents: { entries: { stella: { workspace: root } } } };
+      const engine = await engines.get("stella-core")!({ config, agentDir: resolveAgentDir(config, "stella"), workspaceDir: root });
+      assert.equal(engine.info.id, "stella-core");
+      await assert.rejects(async () => engine.assemble({ sessionId: "synthetic-session", sessionKey: "agent:stella:main",
+        prompt: "Synthetic request", messages: [], tokenBudget: 100_000 }), /host_context_preparation_required/);
+      const result = await stream({ provider: "stella-guarded", id: "model" } as never,
+        { messages: [{ role: "user", content: "Host fallback containing old understanding", timestamp: 0 }] }, { sessionId: "synthetic-session" });
+      assert.match((await result.result()).errorMessage!, /host_context_preparation_required/);
+      assert.equal(transports, 0);
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+
+test("managed routing checks source bindings before sending candidate text to a model", async t => {
+  const root = await createFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const engines = new Map<string, Parameters<OpenClawPluginApi["registerContextEngine"]>[1]>();
+  let modelCalls = 0;
+  let observedGate: unknown;
+  const hooks = registerPlugin(root, await initializeFixtureRepository(root), async () => { modelCalls++; throw new Error("Unbound candidates reached model"); },
+    "managed_durable_write", [], undefined, [], [], undefined, undefined, "stella-guarded/model", engines);
+  await assert.rejects(coordinateCompletion({ operationId: "managed-routing-bindings", runId: "managed-routing-bindings",
+    request: hostRequest("Synthetic request"), timeoutMs: 10000 }, {
+    async generateDraft() {
+      const config = { agents: { entries: { stella: { workspace: root } } } };
+      const engine = await engines.get("stella-core")!({ config, agentDir: resolveAgentDir(config, "stella"), workspaceDir: root });
+      const context = { agentId: "stella", runId: "managed-routing-bindings" };
+      await requireHook(hooks, "before_prompt_build")({ prompt: "Synthetic request" }, context);
+      observedGate = await requireHook(hooks, "before_agent_run")({}, context);
+      await engine.dispose?.();
+      throw new Error("Expected blocked draft");
+    },
+    async persist() { throw new Error("Unexpected persistence"); },
+    async publishFinal() { throw new Error("Unexpected delivery"); },
+  }), /completion_failed/);
+  assert.equal((observedGate as { category: string })?.category, "cognitive_source_binding_required");
+  assert.equal(modelCalls, 0);
+});
+
+
+test("managed Twin preparation rejects identity changed while question inference is pending", async t => {
+  const root = await createFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const loaded = await loadConsciousness(root), binding = await loadPraxisRuntimeBinding(loaded);
+  const reader = await CatalogReader.load(root, binding.catalogPath);
+  for (const document of loaded.bootstrapDocuments) {
+    const source = await prepareRepositorySource({ root, collectionId: "main-cortex", sourceId: document.ref,
+      relativePath: parseCangHaiRef(document.ref).relativePath, expectedSha256: bytesVersion(document.content), capturedAt: "2026-09-06T00:00:00Z",
+      policyRef: binding.archive.policyRef, objectRoot: binding.archive.objectRoot });
+    for (const object of source.objects) {
+      await mkdir(path.dirname(path.join(root, object.entry.locator.path)), { recursive: true });
+      await writeFile(path.join(root, object.entry.locator.path), object.bytes);
+      reader.catalog[object.group].push(object.entry);
+    }
+    binding.referenceBindings.push({ routingRef: document.ref, sourceRef: source.sourceRef });
+  }
+  await writeFile(path.join(root, binding.catalogPath), canonicalJson(reader.catalog));
+  const bindingFile = path.join(root, binding.configPath), savedBinding = JSON.parse(await readFile(bindingFile, "utf8"));
+  await writeFile(bindingFile, canonicalJson({ ...savedBinding, referenceBindings: binding.referenceBindings }));
+  const identity = loaded.bootstrapDocuments.find(document => document.field === "identity.soulRef")!;
+  const engines = new Map<string, Parameters<OpenClawPluginApi["registerContextEngine"]>[1]>();
+  let evaluations = 0;
+  let observedGate: { outcome: string; category: string } | undefined;
+  const hooks = registerPlugin(root, await initializeFixtureRepository(root), async () => ({ provider: "stella-guarded", model: "model",
+    text: canonicalJson({ mode: "twin", responseKind: "answer", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["writing"],
+      needsTwin: true, needsFramework: false, needsReality: false, needsExternalResearch: false, candidateTwinRefs: fixtureTwinRefs.slice(0, 1) }) }),
+    "managed_durable_write", [], async () => {
+      evaluations++;
+      await writeFile(path.join(root, parseCangHaiRef(identity.ref).relativePath), "Changed while model was running");
+      return { provider: "stella-guarded", model: "model", text: canonicalJson({ status: "sufficient", claims: [], unresolvedLeads: [],
+        stoppingReason: "Synthetic response must be rejected after source mutation", suggestedResponseKind: "answer" }) };
+    }, [], [], undefined, undefined, "stella-guarded/model", engines);
+  await assert.rejects(coordinateCompletion({ operationId: "changed-twin-input", runId: "changed-twin-input", request: { ...hostRequest("Continue writing"), senderId: "owner-fixture" }, timeoutMs: 10000 }, {
+    async generateDraft() {
+      const config = { agents: { entries: { stella: { workspace: root } } } };
+      const engine = await engines.get("stella-core")!({ config, agentDir: resolveAgentDir(config, "stella"), workspaceDir: root });
+      const context = { agentId: "stella", runId: "changed-twin-input" };
+      await requireHook(hooks, "before_prompt_build")({ prompt: "Continue writing" }, context);
+      observedGate = await requireHook(hooks, "before_agent_run")({}, context) as { outcome: string; category: string };
+      await engine.dispose?.();
+      throw new Error("Expected blocked draft");
+    },
+    async persist() { throw new Error("Must not persist stale inference"); },
+    async publishFinal() { throw new Error("Must not deliver stale inference"); },
+  }), /completion_failed/);
+  assert.equal(evaluations, 1, canonicalJson(observedGate));
+  assert.equal(observedGate?.outcome, "block");
+  assert.match(observedGate!.category, /routing_input_changed|question_evidence_model_failed|stale_host_source/);
 });

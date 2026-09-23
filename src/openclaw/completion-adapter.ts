@@ -116,9 +116,17 @@ export function registerCompletionAdapter(
       }
       const prompt = event.ctx.Body;
       if (typeof prompt !== "string" || !prompt.trim()) throw new CompletionError("invalid_input", "admission");
+      let hostMessageTimestamp: number | undefined;
+      if (ctx.cfg.plugins?.slots?.contextEngine === "stella-core") {
+        const message = await ctx.userTurnTranscriptRecorder.resolveMessage();
+        if (!message || message.role !== "user" || !Number.isSafeInteger(message.timestamp) || message.timestamp < 0) {
+          throw new CompletionError("host_input_timestamp_unavailable", "admission");
+        }
+        hostMessageTimestamp = message.timestamp;
+      }
       const resourceScope = await ports.resourceScope();
       result = await coordinateCompletion({ operationId: runId, runId, resourceScope, timeoutMs: 600_000, abortSignal: ctx.abortSignal,
-        request: { agentId, sessionId, sessionKey, prompt, senderId: sender.senderId || undefined,
+        request: { agentId, sessionId, sessionKey, prompt, ...(hostMessageTimestamp !== undefined ? { hostMessageTimestamp } : {}), senderId: sender.senderId || undefined,
           senderIsOwner: sender.senderIsOwner, chatType },
       }, {
         async generateDraft({ abortSignal }) {

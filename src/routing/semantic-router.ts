@@ -1,3 +1,5 @@
+import { CatalogError } from "../canghai/catalog-reader.js";
+import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import {
   CORTEX_MODES,
@@ -14,7 +16,22 @@ export type RoutingCompletion = (params: {
   purpose: string;
   systemPrompt: string;
   messages: Array<{ role: "user"; content: string }>;
-}) => Promise<{ text: string }>;
+}) => Promise<{ text: string; provider?: string; model?: string }>;
+
+type PreparedSemanticRoute = {
+  requestHash: string; candidates: SemanticRoutingCandidates; route: string; modelRefs: string[];
+};
+const preparedRoutes = new WeakMap<CortexRoute, PreparedSemanticRoute>();
+
+/** A model result receipt is not candidate provenance. The final consumer
+ * must independently bind every candidate the selector and router received. */
+export function readPreparedSemanticRoute(route: CortexRoute): PreparedSemanticRoute {
+  const receipt = preparedRoutes.get(route);
+  if (!receipt) throw new CatalogError("semantic_route_context_unbound");
+  if (canonicalJson(route) !== receipt.route) throw new CatalogError("semantic_route_context_changed");
+  if (!receipt.modelRefs.length || receipt.modelRefs.some(ref => !ref)) throw new CatalogError("semantic_route_model_receipt_required");
+  return structuredClone(receipt);
+}
 
 export class SemanticRoutingError extends Error {
   readonly category = "stella_semantic_routing_failed";
@@ -408,9 +425,16 @@ export function createSemanticRouter(
   complete: RoutingCompletion,
 ): SemanticRouteClassifier {
   return async (prompt, candidates) => {
+    candidates = structuredClone(candidates);
+    const modelRefs: string[] = [];
+    const boundComplete: RoutingCompletion = async params => {
+      const result = await complete(params);
+      modelRefs.push(result.provider?.trim() && result.model?.trim() ? `${result.provider}/${result.model}` : "");
+      return result;
+    };
     let selectedOpenEpisodeRef: string | undefined;
     try {
-      selectedOpenEpisodeRef = await selectRelevantOpenEpisode(prompt, candidates, complete);
+      selectedOpenEpisodeRef = await selectRelevantOpenEpisode(prompt, candidates, boundComplete);
     } catch (error) {
       if (error instanceof SemanticRoutingError) throw error;
       throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
@@ -452,7 +476,7 @@ export function createSemanticRouter(
             ? systemPrompt
             : `${systemPrompt} ${repairInstruction}`,
           messages: [{ role: "user", content: prompt }],
-        }, complete);
+        }, boundComplete);
       } catch {
         throw new SemanticRoutingError("Stella semantic routing failed", "completion_failed");
       }
@@ -468,6 +492,8 @@ export function createSemanticRouter(
         if (!selectedEpisodeMatches) {
           throw new Error("Model route disagreed with the open Episode selector");
         }
+        preparedRoutes.set(route, { requestHash: bytesVersion(prompt), candidates: structuredClone(candidates),
+          route: canonicalJson(route), modelRefs: [...modelRefs] });
         return route;
       } catch (error) {
         validationCode = routeValidationCode(error);

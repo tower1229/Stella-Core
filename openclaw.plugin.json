@@ -1,10 +1,15 @@
 {
   "id": "stella-core",
   "name": "Stella Core",
-  "providers": ["stella-guarded"],
+  "providers": [
+    "stella-guarded"
+  ],
   "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
   "contracts": {
-    "tools": ["stella_initialize", "stella_read_fragment"]
+    "tools": [
+      "stella_initialize",
+      "stella_read_fragment"
+    ]
   },
   "activation": {
     "onStartup": true,
@@ -73,6 +78,16 @@
           "hold_and_monitor"
         ],
         "description": "Opt in to native-maintenance hold checks and continuous archive backlog monitoring for the configured agent; requires session.maintenance.mode=warn and managed durability. Does not authorize deletion or certify all historical generations."
+      },
+      "contextHistorySignerId": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$",
+        "description": "Pinned Ed25519 public key identity for Core history; initialize the private key outside CangHai before enabling managed context."
+      },
+      "contextHistoryArchiveRoot": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Repository-relative retained Core context archive directory; requires managed durable writes and a pinned signing key."
       }
     }
   }

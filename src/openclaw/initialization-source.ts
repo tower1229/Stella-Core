@@ -41,6 +41,17 @@ function location(ref: string): string {
 
 export type CompiledInitializationSource = { materialization: Materialization; contents: Map<string, Buffer>; identity: HostIdentity & { name: string }; setup: true; runtimeBlockers: string[] };
 
+type CompiledContextRules = { agentId: string; hostVersion: string; digest: string; rules: Record<string, { text: string; version: string }> };
+const compiledContextRules = new WeakMap<CompiledInitializationSource, CompiledContextRules>();
+
+/** Only successful compilation can mint this authority. Mutable installation
+ * buffers and serialized compiler results cannot change or recreate it. */
+export function readCompiledContextRules(compiled: CompiledInitializationSource): CompiledContextRules {
+  const binding = compiledContextRules.get(compiled);
+  check(binding, "host_context_compilation_unbound");
+  return structuredClone(binding);
+}
+
 /** Compile pinned, already-reviewed behavior. No model call or source mutation is permitted here. */
 export async function compileInitializationSource(root: string, document: unknown,
   target: { agentId: string; hostVersion: string; skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory";
@@ -70,10 +81,15 @@ export async function compileInitializationSource(root: string, document: unknow
   check(requiredChecks.every((name) => supportedChecks.includes(name)), "required_check_adapter_unavailable");
   check(Array.isArray(document.automation_declarations), "invalid_automation_declarations");
 
+  const sourceBindings = new Map<string, string>();
   const read = async (value: unknown): Promise<Buffer> => {
     const input = pin(value);
-    const bytes = await readRepositoryBytes(root, location(input.ref));
+    const sourcePath = location(input.ref);
+    const bytes = await readRepositoryBytes(root, sourcePath);
     check(bytes.length <= 2 * 1024 * 1024 && bytesVersion(bytes) === input.sha256, "source_pin_mismatch");
+    const previous = sourceBindings.get(sourcePath);
+    check(previous === undefined || previous === input.sha256, "source_pin_mismatch");
+    sourceBindings.set(sourcePath, input.sha256);
     return bytes;
   };
   const readDocument = async (value: unknown): Promise<unknown> => {
@@ -296,6 +312,20 @@ export async function compileInitializationSource(root: string, document: unknow
     const row = entry as Record<string, unknown>;
     check(!row.required || row.status === "retired" || usedBehaviors.has(row.id as string), "required_behavior_not_projected");
   }
-  return { materialization: { schemaVersion: "stella.host-files/v1", agentId: target.agentId,
+  const compiled: CompiledInitializationSource = { materialization: { schemaVersion: "stella.host-files/v1", agentId: target.agentId,
     hostVersion: target.hostVersion, files, skills }, contents, identity, setup: true, runtimeBlockers: [...runtimeBlockers].sort() };
+  const ruleNames = [...BOOTSTRAP_TARGETS, ...skills.map(name => `skills/${name}/SKILL.md`)];
+  const rules = Object.fromEntries(ruleNames.map(name => {
+    const bytes = contents.get(name);
+    check(bytes, "host_context_rule_missing");
+    return [name, { text: bytes.toString("utf8"), version: bytesVersion(bytes) }];
+  }));
+  compiledContextRules.set(compiled, { agentId: target.agentId, hostVersion: target.hostVersion,
+    // Rendering can stay byte-identical while its source or exposure policy
+    // changes. Bind the verified inputs too, not just installed output files.
+    digest: bytesVersion(canonicalJson({ materialization: compiled.materialization,
+      target: { agentId: target.agentId, hostVersion: target.hostVersion, skillRegistryRef: target.skillRegistryRef ?? null,
+        contractProfile: target.contractProfile ?? null, requiredCapabilities: target.requiredCapabilities ?? [] }, document,
+      sources: [...sourceBindings].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0) })), rules });
+  return compiled;
 }

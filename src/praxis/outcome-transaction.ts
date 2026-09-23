@@ -8,20 +8,44 @@ import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { EpisodeEvidenceResolver } from "./episode-evidence.js";
 import { episodeVersion } from "./episode-repository.js";
 import { EpisodeV2Error, parseEpisodeV2, validateEpisodeV2References, validateEpisodeV2Transition, type VersionedRef } from "./episode-v2.js";
-import type { PreparedOutcome } from "./outcome-preparation.js";
+import { readPreparedOutcomeContext, type PreparedOutcome } from "./outcome-preparation.js";
 import type { PraxisRuntimeMemory } from "./runtime-memory.js";
 import { createOutcomeEvidenceBundle } from "./outcome-evidence-bundle.js";
 import { loadEvidenceBundle } from "./evidence-bundle.js";
 
+
+type OutcomeProjection = { episode: Extract<PreparedOutcome, { disposition: "ready" }>["episode"]; version: string;
+  changeRef: VersionedRef; strategyRef?: VersionedRef; bundleRef: VersionedRef; generationId: string };
+const preparedProjections = new WeakMap<object, {
+  prepared: object; runtime: PraxisRuntimeMemory; requestId: string; projection: OutcomeProjection; assertCurrent(): Promise<void>;
+}>();
+
+/** Only the transaction builder can attest the projected Episode and learning
+ * references. A matching JSON object is not a transaction receipt. */
+export async function readPreparedOutcomeProjection(transaction: object, prepared: object) {
+  const binding = preparedProjections.get(transaction);
+  if (!binding || binding.prepared !== prepared) throw new EpisodeV2Error("outcome_transaction_unbound");
+  await binding.assertCurrent();
+  return { runtime: binding.runtime, requestId: binding.requestId, projection: structuredClone(binding.projection),
+    assertCurrent: binding.assertCurrent };
+}
+
 export async function prepareOutcomeTransaction(input: { operationId: string; runtime: PraxisRuntimeMemory;
   objectRoot: string; revision: string; requestId: string; prepared: Extract<PreparedOutcome, { disposition: "ready" }> }) {
+  input = { ...input };
   if (input.requestId !== input.operationId) throw new EpisodeV2Error("outcome_request_binding_mismatch");
-  const prepared = structuredClone(input.prepared);
+  const binding = await readPreparedOutcomeContext(input.prepared);
+  if (binding.resolver !== input.runtime.evidence || binding.result.disposition !== "ready") {
+    throw new EpisodeV2Error("outcome_transaction_producer_mismatch");
+  }
+  const prepared = binding.result;
   const { runtime } = input;
   const reader = runtime.evidence.reader;
   await reader.assertCurrent();
   const previous = await runtime.repository.read(prepared.episode.id);
-  if (previous.version !== prepared.expectedVersion) throw new EpisodeV2Error("stale_episode_selection");
+  if (previous.version !== prepared.expectedVersion || canonicalJson(previous) !== canonicalJson(binding.selected)) {
+    throw new EpisodeV2Error("stale_episode_selection");
+  }
   const beforeCatalog = (await readRepositoryBytes(reader.root, reader.catalogPath)).toString("utf8");
   const after: MemoryCatalog = structuredClone(reader.catalog);
   const changes: MemoryFileChange[] = [];
@@ -72,9 +96,10 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
   changes.push({ path: reader.catalogPath, before: beforeCatalog, after: afterCatalog });
   const plan: MemoryTransactionPlan = { operationId, journalPath: path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.transaction.json`), files: changes };
   await reader.assertCurrent();
-  return {
-    episode, version, changeRef, strategyRef, bundle, bundleRef, plan, generationId: after.generationId,
+  const transaction = {
+    episode, version, changeRef, ...(strategyRef ? { strategyRef } : {}), bundle, bundleRef, plan, generationId: after.generationId,
     async persist(durability: GitCangHaiDurability, abortSignal: AbortSignal) {
+      assertProjection();
       await applyMemoryTransaction(reader.root, plan, {
         async validate() {
           const current = await CatalogReader.load(reader.root, reader.catalogPath);
@@ -100,4 +125,23 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
       return { revision: diagnostics.localRevision, generationId: after.generationId, writeOperationIds: [operationId] };
     },
   };
+  const projection = { episode, version, changeRef, ...(strategyRef ? { strategyRef } : {}), bundleRef, generationId: after.generationId };
+  const snapshot = canonicalJson({ ...projection, bundle, plan });
+  const assertProjection = () => {
+    const { persist: _persist, ...current } = transaction;
+    if (canonicalJson(current) !== snapshot) throw new EpisodeV2Error("outcome_transaction_changed");
+  };
+  const assertCurrent = async () => {
+    assertProjection();
+    await readPreparedOutcomeContext(input.prepared);
+    await reader.assertCurrent();
+    if ((await readRepositoryBytes(reader.root, episodePath)).toString("utf8") !== beforeEpisode) {
+      throw new EpisodeV2Error("stale_episode_selection");
+    }
+    assertProjection();
+  };
+  await assertCurrent();
+  preparedProjections.set(transaction, { prepared: input.prepared, runtime, requestId: input.requestId,
+    projection: structuredClone(projection), assertCurrent });
+  return transaction;
 }

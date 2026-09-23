@@ -1,3 +1,4 @@
+import { parseViewRecipe, viewRecipePath, type ViewRecipe } from "./view-recipe.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { CatalogError, parseMemoryCatalog, validMemoryRef, type CatalogEntry, type CatalogGroup, type MemoryCatalog } from "./catalog-reader.js";
@@ -47,7 +48,13 @@ export async function baseline(root: string, revision: string, catalogPath: stri
     check(object.id === entry.id && objectVersion(object) === entry.version, "object_version_mismatch");
     objects.set(refKey(entry), object);
   }
-  return { catalog, objects, bytes: bytes.toString("utf8") };
+  const recipes = new Map<string, ViewRecipe>();
+  for (const view of catalog.views) {
+    const data = await blob(root, revision, viewRecipePath(catalogPath, view.recipeRef));
+    check(data, "view_recipe_unavailable");
+    recipes.set(view.id, parseViewRecipe(record(data), view));
+  }
+  return { catalog, objects, recipes, bytes: bytes.toString("utf8") };
 }
 
 export async function prepareSourceChanges(input: {

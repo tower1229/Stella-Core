@@ -1,3 +1,4 @@
+import { assertMemoryTransactionReadable, isLiveMemoryMutationDirt, ownsMemoryMutationLock } from "./memory-transaction.js";
 import { execFile } from "node:child_process";
 import { access, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
@@ -945,9 +946,18 @@ async function validateActivationGate(
         dirtyPath === localWriteRoot || dirtyPath.startsWith(`${localWriteRoot}/`),
     );
 
+  // A consuming transaction must revalidate its source while holding its own
+  // fence. These two bookkeeping files do not change the selected source;
+  // arbitrary dirt or another transaction's unpublished data remain forbidden.
+  let hasOnlyOwnedMemoryFence = false;
+  if (options.dataMode === "managed_durable_write" && sourceStatus.length > 0 &&
+      isLiveMemoryMutationDirt(statusEntries.join("\n")) && await ownsMemoryMutationLock(root)) {
+    await assertMemoryTransactionReadable(root);
+    hasOnlyOwnedMemoryFence = true;
+  }
   if (
     currentRevision !== options.recoveryRevision ||
-    (sourceStatus.length > 0 && !hasOnlyManagedLocalWrites)
+    (sourceStatus.length > 0 && !hasOnlyManagedLocalWrites && !hasOnlyOwnedMemoryFence)
   ) {
     throw new ConsciousnessLoadError(
       CONSCIOUSNESS_FAILURE_CATEGORY.recoveryRevisionInvalid,

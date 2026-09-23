@@ -1,3 +1,4 @@
+import { withMemoryMutationLock } from "../src/canghai/memory-transaction.js";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
@@ -368,4 +369,22 @@ test("rejects a tracked symlink whose in-repository target is ignored", async (c
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+
+test("managed consciousness permits only its owned transaction fence at the pinned revision", async t => {
+  const root = await createFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const recoveryRevision = await initializeFixtureRepository(root);
+  const options = { recoveryRevision, coreVersion: "3.0.0-alpha.0", openclawVersion: "2026.8.2", dataMode: "managed_durable_write" as const };
+  await withMemoryMutationLock(root, async () => {
+    await loadConsciousness(root, undefined, options);
+    await assert.rejects(loadConsciousness(root, undefined, { ...options, dataMode: "read_only" }), /must be clean/);
+    await writeFile(path.join(root, "unrelated.txt"), "Owner edit must remain visible");
+    await assert.rejects(loadConsciousness(root, undefined, options), /must be clean/);
+    await rm(path.join(root, "unrelated.txt"));
+    await loadConsciousness(root, undefined, options);
+  });
+  await writeFile(path.join(root, ".stella-memory-transaction.json.lock"), "External fence");
+  await assert.rejects(loadConsciousness(root, undefined, options), /must be clean/);
 });
