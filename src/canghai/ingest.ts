@@ -26,6 +26,7 @@ import {
   type MemoryTransactionPlan,
 } from "./memory-transaction.js";
 import { parseSourcePolicy } from "./source-policy.js";
+import { applyViewMigration, planViewReauthentication } from "./view-migration.js";
 import { snapshotTurnRequest } from "../openclaw/turn-request.js";
 import {
   prepareTranscriptItems,
@@ -952,7 +953,7 @@ function applyArchiveToCatalog(
   }
   after.parentGenerationId = before.generationId;
   after.generationId = `generation_${bytesVersion(`${bytesVersion(canonicalJson(before))}:${inputHash}:${operationId}`).slice(7)}`;
-  return parseMemoryCatalog(after);
+  return parseMemoryCatalog(applyViewMigration(after, planViewReauthentication({ before, after })));
 }
 
 async function emit(ports: IngestPorts, phase: IngestPhase, observed: IngestPhase[]): Promise<void> {
@@ -1194,11 +1195,12 @@ export async function ingest(request: IngestRequest, ports: IngestPorts): Promis
       }
     } else {
       // Admitted do_not_retain: only content-free operation status may land on disk.
-      after = parseMemoryCatalog({
-        ...JSON.parse(canonicalJson(before)),
+      const next = {
+        ...JSON.parse(canonicalJson(before)) as MemoryCatalog,
         parentGenerationId: before.generationId,
         generationId: `generation_${bytesVersion(`${reader.catalogHash}:${digest}:${request.operationId}`).slice(7)}`,
-      });
+      };
+      after = parseMemoryCatalog(applyViewMigration(next, planViewReauthentication({ before, after: next })));
     }
 
     const checkpoint = await prepareCheckpoint(request, { coverageRef: archive?.coverageRef ?? null }, ports);

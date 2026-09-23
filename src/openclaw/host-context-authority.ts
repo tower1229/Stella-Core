@@ -1,4 +1,4 @@
-import { appendAssistantTrace, appendToolTrace, assembleContextTrace, combineContextTraces, contextFragmentTrace, contextInputRoots,
+import { appendAssistantTrace, appendToolTrace, assembleContextTrace, combineContextTraces, contextAncestorIds, contextFragmentTrace, contextInputRoots,
   projectContextTrace, readContextArchiveGraph, readContextTrace, parseContextSources, mergeContextSources, eligibleContextInputs, consumptionContextMessage as visibleMessage, contextInputDigest as inputDigest, type ContextTrace, type ContextInputTrace, type ContextNodeSources } from "./host-context-graph.js";
 import { readAppliedCorrectionContext } from "../learning/host-correction.js";
 import { readPreparedOutcomeContext } from "../praxis/outcome-preparation.js";
@@ -25,7 +25,8 @@ import { readHostModelOutput, type HostMemoryInput, type HostModelOutputReceipt 
 import { assembleManagedSystemPrompt, projectManagedMessages } from "./host-context-prompt.js";
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js";
 import { stableId } from "../canghai/host-input-archive.js";
-import { contextHistoryLocation, contextHistorySignerId, contextHistoryVerificationKey, loadContextHistory, readContextHistory, type StoredContextHistory } from "./host-context-history.js";
+import { contextHistoryLocation, contextHistorySignerId, contextHistoryVerificationKey, loadContextHistory, readContextHistory, assertRetainableContextDependencies, type StoredContextHistory } from "./host-context-history.js";
+import { readPublishedHistoryView, type PublishedHistoryView } from "./host-context-view.js";
 import { verify, type KeyObject } from "node:crypto";
 
 /** Opaque, process-local capabilities. Serialized copies are never credentials. */
@@ -46,7 +47,10 @@ export type ContextHistoryAssessment = Readonly<{
 }>;
 type FragmentRecord = { text: string; originals: OriginalEvidence[]; dependencies: Map<string, { ref: VersionedRef; digest: string }>;
   payloads?: Array<{ source: VersionedRef; sha256: string }>;
-  archives?: StoredContextHistory[]; configurationInputs?: Array<{ path: string; sha256: string }>; trace?: ContextTrace };
+  archives?: StoredContextHistory[]; configurationInputs?: Array<{ path: string; sha256: string }>; trace?: ContextTrace;
+  /** Opaque published-view rechecks. The durable recipe/signature files stay
+   * outside this process-local map and must be reread on every consumption. */
+  publishedViews?: Array<{ digest: string; revalidate: () => Promise<void> }> };
 type CurrentBinding = Parameters<typeof assertProcessingAuthority>[1] & { configurationHash: string; compilation: CompiledInitializationSource };
 type Rule = { text: string; version: string };
 
@@ -492,6 +496,9 @@ export class HostContextAuthority {
     for (const archive of new Set(records.flatMap(record => record.archives ?? []))) {
       await readContextHistory(archive, this.resolver.reader.root);
     }
+    for (const view of records.flatMap(record => record.publishedViews ?? [])) {
+      await view.revalidate();
+    }
     for (const entry of records.flatMap(record => record.configurationInputs ?? [])) {
       check(await configurationInputDigest(this.resolver.reader.root, entry.path) === entry.sha256,
         "host_context_configuration_input_changed");
@@ -823,6 +830,30 @@ export class HostContextAuthority {
    * This method issues no fragment: catalog selection and signature verification
    * remain the durable view loader's separate responsibilities. */
   async assertHistoryViewSnapshot(value: unknown, verificationKey: KeyObject): Promise<void> {
+    await this.#validateRecords([await this.#historyViewRecord(value, verificationKey)]);
+  }
+
+  /** Admit a durable published reconstruction under live authority. Every later
+   * provider check rereads the catalog recipe, signed artifact and journal through
+   * the opaque handle — callers cannot supply a one-shot cached snapshot. */
+  async admitPublishedHistoryView(handle: PublishedHistoryView): Promise<ContextFragment> {
+    check(typeof handle.viewId === "string" && handle.viewId.trim() && handle.viewId.length <= 1024 &&
+      typeof handle.digest === "string" && /^sha256:[a-f0-9]{64}$/.test(handle.digest), "host_context_view_invalid");
+    const load = async () => readPublishedHistoryView(handle, this.resolver.reader);
+    const revalidate = async () => {
+      const current = await load();
+      check(jsonDigest(current.snapshot) === handle.digest, "host_context_view_changed");
+      await this.assertHistoryViewSnapshot(current.snapshot, current.verificationKey);
+    };
+    const { snapshot, verificationKey } = await load();
+    check(jsonDigest(snapshot) === handle.digest, "host_context_view_changed");
+    const record = await this.#historyViewRecord(snapshot, verificationKey);
+    const fragment = this.#issue("derived", { ...record, publishedViews: [{ digest: handle.digest, revalidate }] });
+    await this.#validate([fragment]);
+    return fragment;
+  }
+
+  async #historyViewRecord(value: unknown, verificationKey: KeyObject): Promise<FragmentRecord> {
     await this.#current();
     check(isRecord(value) && value.schemaVersion === "stella.host-history-view/v1" &&
       Object.keys(value).sort().join() === "agentId,assessment,authority,compilationDigest,configurationHash,modelRef,promptDigest,promptVersion,retainedNodeIds,schemaVersion,signerId,sourceArchive,sources,text,trace,viewId" &&
@@ -845,9 +876,16 @@ export class HostContextAuthority {
     const sources = parseContextSources(value.sources);
     const trace = readContextTrace(value.trace, sources);
     const byId = new Map(trace.nodes.map(node => [node.id, node]));
-    check(trace.roots.length === 1 && byId.get(trace.roots[0]!)?.producer === "summary" &&
-      byId.get(trace.roots[0]!)?.content === value.text &&
-      retained.nodes.every(node => canonicalJson(byId.get(node.id)) === canonicalJson(node)), "host_context_view_lineage_invalid");
+    check(trace.roots.length === 1, "host_context_view_lineage_invalid");
+    const summaryId = trace.roots[0]!;
+    const summary = byId.get(summaryId);
+    check(summary?.producer === "summary" && summary.content === value.text, "host_context_view_lineage_invalid");
+    // Retained historical nodes must be ancestors of the output summary, not
+    // merely present as orphans that inflate the graph without informing it.
+    const ancestors = contextAncestorIds(trace, [summaryId]);
+    check(trace.nodes.every(node => ancestors.has(node.id)) &&
+      retained.nodes.every(node => ancestors.has(node.id) && canonicalJson(byId.get(node.id)) === canonicalJson(node)) &&
+      canonicalJson(summary.sources) === canonicalJson(sources), "host_context_view_lineage_invalid");
     const dependencies: FragmentRecord["dependencies"] = new Map();
     for (const dependency of sources.dependencies) {
       const object = await this.resolver.reader.read(dependency.ref);
@@ -855,6 +893,7 @@ export class HostContextAuthority {
       if (String(object.schemaVersion).startsWith("stella.source-policy/")) {
         check(object.ownerId === this.#authority.ownerId, "host_context_owner_mismatch");
         assertProcessingStage(this.#authority, object, "derive");
+        await assertRetainableContextDependencies(this.resolver.reader, [{ ref: dependency.ref }]);
       }
       dependencies.set(refKey(dependency.ref), dependency);
     }
@@ -875,8 +914,8 @@ export class HostContextAuthority {
       check(ancestor.archiveRoot === location.archiveRoot && ancestor.signerId === signerId, "host_context_archive_invalid");
       archives.push(await loadContextHistory(this.resolver.reader.root, ancestor, verificationKey));
     }
-    await this.#validateRecords([{ text: value.text, dependencies, originals, archives,
-      payloads: sources.payloads, configurationInputs: sources.configurationInputs, trace }]);
+    return { text: value.text, dependencies, originals, archives,
+      payloads: sources.payloads, configurationInputs: sources.configurationInputs, trace };
   }
 
   async #historicalRecord(stored: Record<string, unknown>, location: ReturnType<typeof contextHistoryLocation>,

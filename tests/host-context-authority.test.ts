@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { writeFile, readFile, rm, realpath } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, sign, createPublicKey } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { CatalogReader, type CatalogGroup } from "../src/canghai/catalog-reader.js";
@@ -29,6 +29,11 @@ import { prepareHostRequestArchive } from "../src/canghai/host-request-archive.j
 import { persistHostInputArchive } from "../src/canghai/archive-writer.js";
 import { loadContextHistory, readContextHistory, persistContextHistory, recoverContextHistory } from "../src/openclaw/host-context-history.js";
 import { applyMemoryTransaction, assertMemoryTransactionReadable } from "../src/canghai/memory-transaction.js";
+import {
+  loadPublishedHistoryView, publishPreparedHistoryView, readPublishedHistoryView, recoverHistoryView,
+  restorePublishedHistoryView,
+} from "../src/openclaw/host-context-view.js";
+import { viewRecipePath } from "../src/canghai/view-recipe.js";
 import { loadContextHistoryHead, publishContextHistoryHead, publishCompletedContextHistoryHead } from "../src/openclaw/host-context-head.js";
 import { loadPersonalContextAccess } from "../src/canghai/personal-context-access.js";
 import { prepareQuestionEvidence } from "../src/praxis/question-evidence.js";
@@ -1556,4 +1561,185 @@ for (const segmented of [false, true]) test(`personal view grant revocation inva
   await assert.rejects(authority.assertConsumption(sealed.consumption, sealed.input), /host_context_configuration_input_changed/);
   await assert.rejects(next.assertConsumption(resumed.consumption, resumed.input), /host_context_configuration_input_changed/);
   await assert.rejects((await f.create()).restoreHistory(archive), /host_context_configuration_input_changed/);
+});
+
+async function preparedHistoryView(f: Awaited<ReturnType<typeof archivedHeadFixture>>, viewId = "session-current-view") {
+  const authority = await f.create();
+  Object.assign(f.catalog, (await CatalogReader.load(f.root, "catalog.json")).catalog);
+  f.catalog.parentGenerationId = f.catalog.generationId;
+  f.catalog.generationId = `view-${viewId}`;
+  const freshRef = await f.update("CURRENT_VIEW_EVIDENCE");
+  const fresh = await f.create();
+  const current = await fresh.evidence(freshRef);
+  const prepared = await fresh.prepareHistoryRebuild({
+    viewId, archive: f.archive, current: [current],
+    complete: async () => ({ text: JSON.stringify({ summary: "CURRENT_VIEW_EVIDENCE; continue" }), modelRef: "stella-guarded/model" }),
+  });
+  return { authority: fresh, prepared, freshRef };
+}
+
+test("published history views bind recipe and signature, restore into live consumption, and reject tampering", async t => {
+  const f = await archivedHeadFixture(t);
+  const { authority, prepared } = await preparedHistoryView(f);
+  const ports = {
+    signingKey: f.archiveKeys.privateKey,
+    durability: f.durability,
+    reloadAuthority: async () => f.create(),
+  };
+  const published = await publishPreparedHistoryView(authority, prepared, ports);
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal(reader.catalog.views.some(view => view.id === published.viewId && view.required), true);
+  const handle = await loadPublishedHistoryView(reader, published.viewId, f.archiveKeys.publicKey);
+  assert.equal(handle.digest, published.digest);
+  // Publication rewrites the catalog; only a post-commit authority may consume.
+  const live = await f.create();
+  const restored = await restorePublishedHistoryView(live, published);
+  const sealed = await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment: restored }] });
+  await live.assertConsumption(sealed.consumption, sealed.input);
+  assert.match(JSON.stringify(sealed.input.messages), /CURRENT_VIEW_EVIDENCE/);
+
+  const artifact = `retained-context/history-views/${published.digest.slice(7)}.json`;
+  const original = await readFile(path.join(f.root, artifact), "utf8");
+  await writeFile(path.join(f.root, artifact), original.replace("CURRENT_VIEW_EVIDENCE", "TAMPERED_VIEW_EVIDENCE"));
+  await assert.rejects(readPublishedHistoryView(published, await CatalogReader.load(f.root, "catalog.json")),
+    /host_context_view_(changed|signature_invalid|invalid)/);
+  await assert.rejects(live.assertConsumption(sealed.consumption, sealed.input),
+    /host_context_view_(changed|signature_invalid|invalid|unbound)/);
+  await writeFile(path.join(f.root, artifact), original);
+
+  const signaturePath = path.join(f.root, `${artifact}.sig`);
+  const signature = await readFile(signaturePath, "utf8");
+  await writeFile(signaturePath, Buffer.alloc(64).toString("base64"));
+  await assert.rejects(restorePublishedHistoryView(await f.create(), published), /host_context_view_signature_invalid/);
+  await writeFile(signaturePath, signature);
+
+  // Re-admit after signature restoration so the live consumption binding is current.
+  const verified = await f.create();
+  const again = await restorePublishedHistoryView(verified, published);
+  const resumed = await verified.seal({ system: verified.publicRules(), messages: [{ role: "user", fragment: again }] });
+  await verified.assertConsumption(resumed.consumption, resumed.input);
+  await writeFile(path.join(f.root, "current.txt"), "Source revoked after publication");
+  await assert.rejects(verified.assertConsumption(resumed.consumption, resumed.input), /payload_digest_mismatch/);
+});
+
+test("published history view consumption rereads recipe bytes on every provider check", async t => {
+  const f = await archivedHeadFixture(t);
+  const { authority, prepared } = await preparedHistoryView(f, "recipe-bound-view");
+  const published = await publishPreparedHistoryView(authority, prepared, {
+    signingKey: f.archiveKeys.privateKey, durability: f.durability, reloadAuthority: async () => f.create(),
+  });
+  const live = await f.create();
+  const restored = await restorePublishedHistoryView(live, published);
+  const sealed = await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment: restored }] });
+  await live.assertConsumption(sealed.consumption, sealed.input);
+  const recipe = await live.resolver.reader.readViewRecipe(published.viewId);
+  const recipePath = path.join(f.root, viewRecipePath("catalog.json", {
+    id: recipe.id, version: recipe.version,
+  }));
+  const original = await readFile(recipePath, "utf8");
+  await writeFile(recipePath, original.replace(recipe.adapterId, "forged.adapter"));
+  await assert.rejects(live.assertConsumption(sealed.consumption, sealed.input),
+    /host_context_view_recipe_invalid|view_recipe_version_mismatch|host_context_view_changed/);
+  await writeFile(recipePath, original);
+  await live.assertConsumption(sealed.consumption, sealed.input);
+  const catalogPath = path.join(f.root, "catalog.json");
+  const catalogBytes = await readFile(catalogPath, "utf8");
+  const forgedCatalog = JSON.parse(catalogBytes) as { generationId: string; views: Array<{ generationId: string }> };
+  forgedCatalog.generationId = "forged-generation";
+  for (const entry of forgedCatalog.views) entry.generationId = "forged-generation";
+  await writeFile(catalogPath, canonicalJson(forgedCatalog));
+  await assert.rejects(live.assertConsumption(sealed.consumption, sealed.input),
+    /stale_generation|host_context_generation_mismatch|processing_generation_mismatch|host_context_view_catalog_changed|invalid_catalog/);
+  await writeFile(catalogPath, catalogBytes);
+  await live.assertConsumption(sealed.consumption, sealed.input);
+});
+
+test("history view publication recovers a partial write without rerunning the model", async t => {
+  const f = await archivedHeadFixture(t);
+  const { authority, prepared } = await preparedHistoryView(f, "recoverable-view");
+  const snapshot = await authority.historyViewSnapshot(prepared);
+  const bytes = canonicalJson(snapshot);
+  const digest = bytesVersion(bytes);
+  const artifact = `retained-context/history-views/${digest.slice(7)}.json`;
+  let calls = 0;
+  await assert.rejects(publishPreparedHistoryView(authority, prepared, {
+    signingKey: f.archiveKeys.privateKey,
+    durability: { ...f.durability, async syncCritical() { throw new Error("Stopped before view commit"); } },
+    reloadAuthority: async () => { calls++; return f.create(); },
+  }), /Stopped before view commit/);
+  assert.ok(calls >= 1);
+  await assert.rejects(assertMemoryTransactionReadable(f.root), /memory_transaction_pending/);
+  await assert.rejects(loadPublishedHistoryView(await CatalogReader.load(f.root, "catalog.json"), "recoverable-view", f.archiveKeys.publicKey),
+    /view_unavailable|host_context_view_pending|memory_transaction_pending/);
+  await rm(path.join(f.root, `${artifact}.sig`)).catch(() => undefined);
+  const recovered = await recoverHistoryView(f.root, "catalog.json", f.archiveKeys.publicKey, {
+    durability: f.durability,
+    reloadAuthority: async () => f.create(),
+  });
+  assert.equal(recovered.digest, digest);
+  assert.equal(await readFile(path.join(f.root, artifact), "utf8"), bytes);
+  await assertMemoryTransactionReadable(f.root);
+  const next = await f.create();
+  const restored = await restorePublishedHistoryView(next, recovered);
+  const sealed = await next.seal({ system: next.publicRules(), messages: [{ role: "user", fragment: restored }] });
+  await next.assertConsumption(sealed.consumption, sealed.input);
+});
+
+test("assertHistoryViewSnapshot rejects orphan retained nodes and do_not_retain sources", async t => {
+  const f = await archivedHeadFixture(t);
+  const { authority, prepared, freshRef } = await preparedHistoryView(f, "lineage-view");
+  const snapshot = await authority.historyViewSnapshot(prepared);
+  await authority.assertHistoryViewSnapshot(snapshot, f.archiveKeys.publicKey);
+
+  const summary = snapshot.trace.nodes.find(node => node.id === snapshot.trace.roots[0])!;
+  const orphaned = structuredClone(snapshot);
+  orphaned.trace = {
+    nodes: snapshot.trace.nodes.map(node => node.id === summary.id
+      ? { ...node, parents: node.parents.filter(parent => {
+        const parentNode = snapshot.trace.nodes.find(candidate => candidate.id === parent);
+        return parentNode?.producer !== "derived";
+      }), sources: node.sources }
+      : node),
+    roots: snapshot.trace.roots,
+  };
+  // Rebuild summary id after parent rewrite so the forged graph stays self-consistent enough
+  // for structural parsing; lineage must still fail because retained history is orphaned.
+  const forgedSummaryBody = { producer: "summary" as const, version: "stella.context-node/v1" as const,
+    content: summary.content, parents: orphaned.trace.nodes.find(node => node.id === summary.id)!.parents,
+    sources: summary.sources };
+  const forgedSummary = { id: bytesVersion(canonicalJson(forgedSummaryBody)), ...forgedSummaryBody };
+  orphaned.trace = {
+    nodes: orphaned.trace.nodes.map(node => node.id === summary.id ? forgedSummary : node),
+    roots: [forgedSummary.id],
+  };
+  await assert.rejects(authority.assertHistoryViewSnapshot(orphaned, f.archiveKeys.publicKey),
+    /host_context_view_lineage_invalid|host_context_graph_invalid/);
+
+  const dnrPolicy = await f.put("policies", { schemaVersion: "stella.source-policy/v1", id: "dnr-policy", ownerId: "owner",
+    readPurposes: ["synthetic"], derivePurposes: ["synthetic"], deliveryScopes: ["synthetic"], retention: "do_not_retain",
+    authorityEvidenceRefs: [] });
+  const coverage = f.catalog.coverage.find(entry => entry.status === "current")!;
+  await writeFile(path.join(f.root, "dnr.txt"), "must not be retained in a durable view");
+  const dnrSource = await f.put("sources", { schemaVersion: "stella.memory-source/v1", id: "dnr-source",
+    origin: { adapterId: "synthetic", collectionId: "history", upstreamId: "dnr" }, capturedAt: "2026-09-06T00:00:00Z",
+    policyRef: dnrPolicy, coverageRef: { id: coverage.id, version: coverage.version },
+    payloads: [{ path: "dnr.txt", mediaType: "text/plain", bytes: Buffer.byteLength("must not be retained in a durable view"),
+      sha256: bytesVersion("must not be retained in a durable view") }] }, [dnrPolicy, { id: coverage.id, version: coverage.version }]);
+  const dnrEvidence = await f.put("evidence", { schemaVersion: "stella.memory-evidence/v1", id: "dnr-evidence", source: dnrSource,
+    payloadSha256: bytesVersion("must not be retained in a durable view"),
+    selector: { kind: "utf8_bytes", value: `0:${Buffer.byteLength("must not be retained in a durable view")}` },
+    speakerId: "owner", role: "owner", kind: "reported", independentOriginId: "dnr-source", derivedFrom: [],
+    occurredAt: null, authoredAt: "2026-09-06T00:00:00Z", capturedAt: "2026-09-06T00:00:00Z", policyRef: dnrPolicy },
+  [dnrSource, dnrPolicy]);
+  await f.save();
+  const blocked = await f.create();
+  const current = await blocked.evidence(dnrEvidence);
+  const blockedView = await blocked.prepareHistoryRebuild({
+    viewId: "dnr-view", archive: f.archive, current: [current],
+    complete: async () => ({ text: JSON.stringify({ summary: "should never publish" }), modelRef: "stella-guarded/model" }),
+  });
+  await assert.rejects(publishPreparedHistoryView(blocked, blockedView, {
+    signingKey: f.archiveKeys.privateKey, durability: f.durability, reloadAuthority: async () => f.create(),
+  }), /host_context_archive_retention_forbidden/);
+  assert.ok(freshRef);
 });

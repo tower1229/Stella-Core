@@ -5,6 +5,7 @@ import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
 import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
+import { applyViewMigration, planViewReauthentication, type ViewMigrationPlan } from "../canghai/view-migration.js";
 import { isRecord } from "../shared/type-guards.js";
 import { EpisodeV2Error, parseEpisodeV2, type VersionedRef } from "./episode-v2.js";
 import { episodeVersion } from "./episode-repository.js";
@@ -22,7 +23,7 @@ function preparePlan(catalogPath: string, beforeBytes: string, objectRoot: strin
   check(source.id === stableId("bundle", `question:${source.requestId}`) && !before.bundles.some((entry) => entry.id === source.id));
   check(Number.isFinite(Date.parse(evidenceCutoff)) && /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(evidenceCutoff));
   const operationId = `question_${bytesVersion(source.requestId).slice(7)}`;
-  const after = structuredClone(before);
+  let after = structuredClone(before);
   after.parentGenerationId = before.generationId;
   after.generationId = `generation_${bytesVersion(canonicalJson({ operationId, before: bytesVersion(beforeBytes), bundleVersion: source.version })).slice(7)}`;
   const bundle = source;
@@ -31,11 +32,14 @@ function preparePlan(catalogPath: string, beforeBytes: string, objectRoot: strin
   const bundleBytes = canonicalJson(bundle);
   const dependencies = [...new Map([...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs].map((ref) => [canonicalJson(ref), ref])).values()];
   after.bundles.push({ ...bundleRef, status: "current", dependencies, locator: { path: bundlePath, sha256: bytesVersion(bundleBytes) } });
+  const viewMigration: ViewMigrationPlan = planViewReauthentication({ before, after });
+  after = applyViewMigration(after, viewMigration);
+  parseMemoryCatalog(after);
   const operations = path.posix.join(path.posix.dirname(catalogPath), "operations");
   const bindingPath = `${operations}/${operationId}.evidence.json`;
   const binding = { schemaVersion: "stella.question-evidence-receipt/v1", operationId, bundleRef,
     requestId: bundle.requestId, revision: bundle.revision, generationId: bundle.generationId, evidenceCutoff };
-  return { bundle, bundleRef, after, bundlePath, bundleBytes, bindingPath,
+  return { bundle, bundleRef, after, bundlePath, bundleBytes, bindingPath, viewMigration,
     plan(answer: AnswerBinding): MemoryTransactionPlan {
       check(hash(answer.requestHash) && hash(answer.draftHash));
       check(source.suggestedResponseKind === "action_advice" ? validMemoryRef(answer.advice) && Object.keys(answer.advice).length === 2 : answer.advice === undefined);
@@ -70,7 +74,7 @@ async function persist(input: { root: string; catalogPath: string; episodeRoot?:
             prepared.bundle.readEvidenceRefs.every((ref) => (episode.decision!.inputRefs ?? episode.historicalInputRefs)
               .some((inputRef) => inputRef.id === ref.id && inputRef.version === ref.version)));
         }
-      });
+      }, { viewMigration: prepared.viewMigration });
     },
     async persist(paths, operationId) { await input.durability.syncCritical(paths, `preserve question evidence ${operationId}`); },
     confirmPreviouslyCommitted: (file) => input.durability.confirmPreviouslyCommitted(file),

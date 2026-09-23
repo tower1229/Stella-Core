@@ -28,6 +28,20 @@ export function contextHistoryLocation(handle: StoredContextHistory): { archiveR
   return { archiveRoot: binding.archiveRoot, digest: handle.digest, signerId: contextHistorySignerId(binding.verificationKey) };
 }
 
+/** Shared gate for durable archive and published-view writes: live policies that
+ * forbid retention cannot authorize derived repository content. */
+export async function assertRetainableContextDependencies(
+  reader: { read(ref: { id: string; version: string }): Promise<Record<string, unknown>> },
+  dependencies: Iterable<{ ref: { id: string; version: string } }>,
+): Promise<void> {
+  for (const { ref } of dependencies) {
+    const object = await reader.read(ref);
+    if (String(object.schemaVersion).startsWith("stella.source-policy/") && parseSourcePolicy(object).retention !== "retain") {
+      throw new CatalogError("host_context_archive_retention_forbidden");
+    }
+  }
+}
+
 function archiveRoot(value: string): string {
   if (!value || value.includes("\\") || value.split("/").some(part =>
     !part || part === "." || part === ".." || part.toLowerCase() === ".git" || part.includes(":"))) {
@@ -109,10 +123,7 @@ export async function persistContextHistory(authority: HostContextAuthority, con
       throw new CatalogError("host_context_archive_signer_mismatch");
     }
     for (const { ref } of snapshot.dependencies) {
-      const object = await authority.resolver.reader.read(ref);
-      if (String(object.schemaVersion).startsWith("stella.source-policy/") && parseSourcePolicy(object).retention !== "retain") {
-        throw new CatalogError("host_context_archive_retention_forbidden");
-      }
+      await assertRetainableContextDependencies(authority.resolver.reader, [{ ref }]);
     }
     return canonicalJson(snapshot);
   };
@@ -169,10 +180,9 @@ export async function recoverContextHistory(authority: HostContextAuthority, inp
       if (!isRecord(dependency) || !isRecord(dependency.ref) || typeof dependency.ref.id !== "string" || typeof dependency.ref.version !== "string") {
         throw new CatalogError("host_context_archive_invalid");
       }
-      const object = await authority.resolver.reader.read({ id: dependency.ref.id, version: dependency.ref.version });
-      if (String(object.schemaVersion).startsWith("stella.source-policy/") && parseSourcePolicy(object).retention !== "retain") {
-        throw new CatalogError("host_context_archive_retention_forbidden");
-      }
+      await assertRetainableContextDependencies(authority.resolver.reader, [{
+        ref: { id: dependency.ref.id, version: dependency.ref.version },
+      }]);
     }
   };
   const receipt = await applyMemoryTransaction(root, plan, {

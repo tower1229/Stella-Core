@@ -6,7 +6,7 @@ import { parseViewRecipe, viewRecipePath, type MemoryView } from "../canghai/vie
 import type { IngestDurabilityPort } from "../canghai/ingest.js";
 import { isRecord } from "../shared/type-guards.js";
 import { contextHistorySignerId } from "./host-context-history.js";
-import type { HostContextAuthority, PreparedHistoryView } from "./host-context-authority.js";
+import type { ContextFragment, HostContextAuthority, PreparedHistoryView } from "./host-context-authority.js";
 
 const adapterId = "stella.host-history";
 const adapterVersion = "1";
@@ -162,4 +162,10 @@ export async function readPublishedHistoryView(handle: PublishedHistoryView, rea
   const snapshot = decode(bytes, signature, binding.verificationKey);
   await reader.assertCurrent();
   return { snapshot, verificationKey: binding.verificationKey };
+}
+
+/** Issue a live fragment from a published opaque handle. Each later provider
+ * check rereads the catalog recipe, signed artifact and current sources. */
+export async function restorePublishedHistoryView(authority: HostContextAuthority, handle: PublishedHistoryView): Promise<ContextFragment> {
+  return authority.admitPublishedHistoryView(handle);
 }

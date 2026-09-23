@@ -1,4 +1,5 @@
 import { parseMemoryViews, parseViewRecipe, viewRecipePath, type MemoryView } from "./view-recipe.js";
+import { assertViewReauthentication, type ViewMigrationPlan } from "./view-migration.js";
 import { execFile } from "node:child_process";
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -129,13 +130,20 @@ export class CatalogReader {
       return catalog;
     } catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("historical_catalog_unavailable"); }
   }
-  /** Validate derived objects against unchanged original evidence before publishing their catalog. */
+  /** Validate derived objects against unchanged original evidence before publishing their catalog.
+   * View rows may only change through an exact reauthentication plan — never via a boolean escape. */
   async validatePreview(catalog: MemoryCatalog, objects: Array<{ path: string; bytes: string }>,
-    validate: (reader: CatalogReader) => Promise<void>, options: { allowWorkChanges?: boolean } = {}): Promise<void> {
+    validate: (reader: CatalogReader) => Promise<void>, options: {
+      allowWorkChanges?: boolean; viewMigration?: ViewMigrationPlan;
+    } = {}): Promise<void> {
     await this.assertCurrent();
     const planned = parseMemoryCatalog(structuredClone(catalog));
     for (const group of ["sources", "evidence", "policies", "coverage", "works", "views"] as const) {
       if (group === "works" && options.allowWorkChanges) continue;
+      if (group === "views" && options.viewMigration) {
+        assertViewReauthentication(this.catalog, planned, options.viewMigration);
+        continue;
+      }
       requireCondition(canonicalJson(planned[group]) === canonicalJson(this.catalog[group]), "preview_original_evidence_changed");
     }
     const preview = new CatalogReader(this.root, this.catalogPath, planned, this.catalogHash);

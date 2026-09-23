@@ -86,27 +86,30 @@ export function assembleContextTrace(input: HostMemoryInput, system: readonly Co
 export function contextInputRoots(trace: ContextInputTrace): ContextTrace {
   return { nodes: structuredClone(trace.nodes), roots: [trace.system, ...trace.messages] };
 }
+/** Walk parent edges from roots. Callers must still prove eligibility separately. */
+export function contextAncestorIds(trace: Pick<ContextTrace, "nodes">, roots: readonly string[]): Set<string> {
+  const byId = new Map(trace.nodes.map(node => [node.id, node]));
+  const found = new Set<string>(), pending = [...roots];
+  while (pending.length) {
+    const id = pending.pop()!;
+    if (found.has(id)) continue;
+    const node = byId.get(id);
+    check(node);
+    found.add(id);
+    pending.push(...node.parents);
+  }
+  return found;
+}
+
 /** Preserve every eligible semantic input. Influence edges do not prove that
  * an assistant reply or summary retained its parents' meaning, so ancestors
  * remain model inputs too. Formatting wrappers add no independent content. */
 export function eligibleContextInputs(trace: ContextInputTrace, eligible: ReadonlySet<string>): ContextTrace {
   const semantic = trace.nodes.filter(node => eligible.has(node.id) &&
     ["current_input", "evidence", "derived", "summary", "conversation", "assistant", "tool_result"].includes(node.producer));
-  const byId = new Map(trace.nodes.map(node => [node.id, node]));
-  const ancestors = (roots: readonly string[]) => {
-    const found = new Set<string>(), pending = [...roots];
-    while (pending.length) {
-      const id = pending.pop()!;
-      if (found.has(id)) continue;
-      const node = byId.get(id);
-      check(node && eligible.has(id));
-      found.add(id);
-      pending.push(...node.parents);
-    }
-    return found;
-  };
   const roots = semantic.map(node => node.id);
-  const retained = ancestors(roots);
+  const retained = contextAncestorIds(trace, roots);
+  check([...retained].every(id => eligible.has(id)));
   return { nodes: structuredClone(trace.nodes.filter(node => retained.has(node.id))), roots };
 }
 
