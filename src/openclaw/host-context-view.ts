@@ -1,11 +1,12 @@
 import { createPublicKey, sign, verify, type KeyObject } from "node:crypto";
-import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes } from "../canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, type MemoryCatalog } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { applyMemoryTransaction, assertMemoryTransactionReadable, readRecordedMemoryTransaction, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
 import { parseViewRecipe, viewRecipePath, type MemoryView } from "../canghai/view-recipe.js";
+import { viewsRequiringRebuild, type ViewRebuildAdmission } from "../canghai/view-migration.js";
 import type { IngestDurabilityPort } from "../canghai/ingest.js";
 import { isRecord } from "../shared/type-guards.js";
-import { contextHistorySignerId } from "./host-context-history.js";
+import { contextHistorySignerId, type StoredContextHistory } from "./host-context-history.js";
 import type { ContextFragment, HostContextAuthority, PreparedHistoryView } from "./host-context-authority.js";
 
 const adapterId = "stella.host-history";
@@ -40,12 +41,8 @@ function decode(bytes: string, signature: string, key: KeyObject): Snapshot {
   // before a transaction can publish or a caller can consume this signed data.
   return value as Snapshot;
 }
-function planFor(snapshot: Snapshot, bytes: string, signature: string, catalogPath: string, before: string) {
-  const catalog = parseMemoryCatalog(JSON.parse(before));
-  check(catalog.generationId === snapshot.authority.generationId, "host_context_generation_mismatch");
+function materializeHistoryView(snapshot: Snapshot, bytes: string, generationId: string, catalogPath: string) {
   const archiveRoot = directory(snapshot.sourceArchive.archiveRoot), digest = bytesVersion(bytes);
-  const operationId = `history_view_${digest.slice(7)}`;
-  const artifact = `${archiveRoot}/history-views/${digest.slice(7)}.json`;
   const refs = snapshot.sources.dependencies.map(dependency => {
     check(isRecord(dependency) && isRecord(dependency.ref) && typeof dependency.ref.id === "string" && typeof dependency.ref.version === "string");
     return { id: dependency.ref.id, version: dependency.ref.version };
@@ -54,19 +51,29 @@ function planFor(snapshot: Snapshot, bytes: string, signature: string, catalogPa
     hostTarget: snapshot.agentId, inputRefs: refs, parameters: { archiveRoot, digest },
     modelRef: snapshot.modelRef, promptVersion: snapshot.promptVersion };
   const recipe = { ...body, version: objectVersion(body) };
-  const view: MemoryView = { id: snapshot.viewId, generationId: snapshot.authority.generationId,
+  const view: MemoryView = { id: snapshot.viewId, generationId,
     recipeRef: { id: recipe.id, version: recipe.version }, required: true, sourceRefs: refs };
   parseViewRecipe(recipe, view);
+  const artifactPath = `${archiveRoot}/history-views/${digest.slice(7)}.json`;
+  return { archiveRoot, digest, recipe, view, artifactPath,
+    recipePath: viewRecipePath(catalogPath, view.recipeRef), recipeBytes: canonicalJson(recipe) };
+}
+
+function planFor(snapshot: Snapshot, bytes: string, signature: string, catalogPath: string, before: string) {
+  const catalog = parseMemoryCatalog(JSON.parse(before));
+  check(catalog.generationId === snapshot.authority.generationId, "host_context_generation_mismatch");
+  const material = materializeHistoryView(snapshot, bytes, snapshot.authority.generationId, catalogPath);
   const after = structuredClone(catalog);
-  const index = after.views.findIndex(candidate => candidate.id === view.id);
-  if (index < 0) after.views.push(view); else after.views[index] = view;
+  const index = after.views.findIndex(candidate => candidate.id === material.view.id);
+  if (index < 0) after.views.push(material.view); else after.views[index] = material.view;
   parseMemoryCatalog(after);
-  const plan: MemoryTransactionPlan = { operationId, journalPath: `${archiveRoot}/operations/${operationId}.json`, files: [
-    { path: artifact, before: null, after: bytes }, { path: `${artifact}.sig`, before: null, after: signature },
-    { path: viewRecipePath(catalogPath, view.recipeRef), before: null, after: canonicalJson(recipe) },
+  const operationId = `history_view_${material.digest.slice(7)}`;
+  const plan: MemoryTransactionPlan = { operationId, journalPath: `${material.archiveRoot}/operations/${operationId}.json`, files: [
+    { path: material.artifactPath, before: null, after: bytes }, { path: `${material.artifactPath}.sig`, before: null, after: signature },
+    { path: material.recipePath, before: null, after: material.recipeBytes },
     { path: catalogPath, before, after: canonicalJson(after) },
   ] };
-  return { plan, view, digest };
+  return { plan, view: material.view, digest: material.digest };
 }
 
 async function apply(root: string, catalogPath: string, plan: MemoryTransactionPlan, key: KeyObject, ports: Ports) {
@@ -133,7 +140,11 @@ export async function loadPublishedHistoryView(reader: CatalogReader, viewId: st
   const expected = planFor(snapshot, bytes, signature, reader.catalogPath, transaction.files[3].before);
   check(journal === canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...expected.plan, planHash: bytesVersion(canonicalJson(expected.plan)) }));
   const selected = reader.catalog.views.find(view => view.id === viewId);
-  check(snapshot.viewId === viewId && recipe.hostTarget === snapshot.agentId && canonicalJson(selected) === canonicalJson(expected.view), "host_context_view_catalog_changed");
+  // Reauthentication advances only generationId; recipe, sources and required must stay exact.
+  check(snapshot.viewId === viewId && recipe.hostTarget === snapshot.agentId && selected &&
+    selected.generationId === reader.catalog.generationId && selected.required === expected.view.required &&
+    canonicalJson(selected.recipeRef) === canonicalJson(expected.view.recipeRef) &&
+    canonicalJson(selected.sourceRefs) === canonicalJson(expected.view.sourceRefs), "host_context_view_catalog_changed");
   await assertMemoryTransactionReadable(reader.root);
   // The owning publication transaction must not expose an unfinished view.
   try { await readRepositoryBytes(reader.root, ".stella-memory-transaction.json"); }
@@ -168,4 +179,59 @@ export async function readPublishedHistoryView(handle: PublishedHistoryView, rea
  * check rereads the catalog recipe, signed artifact and current sources. */
 export async function restorePublishedHistoryView(authority: HostContextAuthority, handle: PublishedHistoryView): Promise<ContextFragment> {
   return authority.admitPublishedHistoryView(handle);
+}
+
+/** Build a structured rebuild admission for a destination generation without
+ * writing the catalog. Generation writers embed these bytes in their own plan. */
+export async function admissionFromPreparedHistoryView(
+  authority: HostContextAuthority,
+  prepared: PreparedHistoryView,
+  signingKey: KeyObject,
+  input: { generationId: string; catalogPath: string },
+): Promise<ViewRebuildAdmission> {
+  check(signingKey.type === "private", "host_context_archive_key_invalid");
+  check(typeof input.generationId === "string" && input.generationId.trim(), "host_context_generation_mismatch");
+  const key = createPublicKey(signingKey);
+  const snapshot = await authority.historyViewSnapshot(prepared);
+  check(snapshot.signerId === contextHistorySignerId(key), "host_context_archive_signer_mismatch");
+  const bytes = canonicalJson(snapshot);
+  const signature = sign(null, Buffer.from(bytes), signingKey).toString("base64");
+  const material = materializeHistoryView(snapshot, bytes, input.generationId, input.catalogPath);
+  return Object.freeze({
+    viewId: snapshot.viewId, view: material.view,
+    artifactPath: material.artifactPath, artifactBytes: bytes,
+    signaturePath: `${material.artifactPath}.sig`, signatureBytes: signature,
+    recipePath: material.recipePath, recipeBytes: material.recipeBytes,
+  });
+}
+
+/** Prepare rebuild admissions for every required view that cannot reauthenticate.
+ * Does not write the catalog; callers pass the result into a generation writer. */
+export async function prepareHostHistoryRebuildAdmissions(input: {
+  authority: HostContextAuthority;
+  signingKey: KeyObject;
+  catalogPath: string;
+  before: MemoryCatalog;
+  after: MemoryCatalog;
+  extraChangedPaths?: ReadonlySet<string>;
+  archives: ReadonlyMap<string, StoredContextHistory>;
+  currentByView?: ReadonlyMap<string, readonly ContextFragment[]>;
+  complete(input: { prompt: string; maxTokens: number }): Promise<{ text: string; modelRef: string }>;
+}): Promise<ViewRebuildAdmission[]> {
+  check(input.after.generationId !== input.before.generationId, "host_context_generation_mismatch");
+  const needed = viewsRequiringRebuild({
+    before: input.before, after: input.after, extraChangedPaths: input.extraChangedPaths,
+  });
+  const admissions: ViewRebuildAdmission[] = [];
+  for (const viewId of needed) {
+    const archive = input.archives.get(viewId);
+    check(archive, "required_view_rebuild_required");
+    const prepared = await input.authority.prepareHistoryRebuild({
+      viewId, archive, current: [...(input.currentByView?.get(viewId) ?? [])], complete: input.complete,
+    });
+    admissions.push(await admissionFromPreparedHistoryView(input.authority, prepared, input.signingKey, {
+      generationId: input.after.generationId, catalogPath: input.catalogPath,
+    }));
+  }
+  return admissions;
 }

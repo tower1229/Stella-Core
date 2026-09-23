@@ -30,10 +30,10 @@ import { persistHostInputArchive } from "../src/canghai/archive-writer.js";
 import { loadContextHistory, readContextHistory, persistContextHistory, recoverContextHistory } from "../src/openclaw/host-context-history.js";
 import { applyMemoryTransaction, assertMemoryTransactionReadable } from "../src/canghai/memory-transaction.js";
 import {
-  loadPublishedHistoryView, publishPreparedHistoryView, readPublishedHistoryView, recoverHistoryView,
-  restorePublishedHistoryView,
+  admissionFromPreparedHistoryView, loadPublishedHistoryView, publishPreparedHistoryView, readPublishedHistoryView, recoverHistoryView,
+  restorePublishedHistoryView, prepareHostHistoryRebuildAdmissions,
 } from "../src/openclaw/host-context-view.js";
-import { viewRecipePath } from "../src/canghai/view-recipe.js";
+import { MAIN_REQUIRED_HISTORY_VIEW_ID, viewRecipePath } from "../src/canghai/view-recipe.js";
 import { loadContextHistoryHead, publishContextHistoryHead, publishCompletedContextHistoryHead } from "../src/openclaw/host-context-head.js";
 import { loadPersonalContextAccess } from "../src/canghai/personal-context-access.js";
 import { prepareQuestionEvidence } from "../src/praxis/question-evidence.js";
@@ -1742,4 +1742,103 @@ test("assertHistoryViewSnapshot rejects orphan retained nodes and do_not_retain 
     signingKey: f.archiveKeys.privateKey, durability: f.durability, reloadAuthority: async () => f.create(),
   }), /host_context_archive_retention_forbidden/);
   assert.ok(freshRef);
+});
+
+test("Host rebuild admissions for main session-current-view migrate across a generation without republishing", async t => {
+  const f = await archivedHeadFixture(t);
+  const { authority, prepared } = await preparedHistoryView(f, MAIN_REQUIRED_HISTORY_VIEW_ID);
+  const published = await publishPreparedHistoryView(authority, prepared, {
+    signingKey: f.archiveKeys.privateKey, durability: f.durability, reloadAuthority: async () => f.create(),
+  });
+  assert.equal(published.viewId, MAIN_REQUIRED_HISTORY_VIEW_ID);
+  const live = await f.create();
+  const restored = await restorePublishedHistoryView(live, published);
+  const sealed = await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment: restored }] });
+  await live.assertConsumption(sealed.consumption, sealed.input);
+
+  const beforeReader = await CatalogReader.load(f.root, "catalog.json");
+  const before = beforeReader.catalog;
+  assert.equal(before.views.find(view => view.id === MAIN_REQUIRED_HISTORY_VIEW_ID)?.required, true);
+  const after = structuredClone(before);
+  after.parentGenerationId = before.generationId;
+  after.generationId = `generation_${bytesVersion(canonicalJson({ before: before.generationId, next: "rebuild" })).slice(7)}`;
+  // Touch a declared sourceRef so the published view must rebuild rather than reauthenticate.
+  const bound = before.views.find(view => view.id === MAIN_REQUIRED_HISTORY_VIEW_ID)!;
+  assert.ok(bound.sourceRefs.length > 0);
+  const touched = bound.sourceRefs[0]!;
+  for (const group of ["sources", "evidence", "policies", "coverage"] as const) {
+    for (const entry of after[group]) {
+      if (entry.id === touched.id && entry.version === touched.version && entry.status === "current") entry.status = "superseded";
+    }
+  }
+  const { planViewMigration, applyViewMigration, assertViewMigration, viewsRequiringRebuild } = await import("../src/canghai/view-migration.js");
+  assert.deepEqual(viewsRequiringRebuild({ before, after }), [MAIN_REQUIRED_HISTORY_VIEW_ID]);
+  const rebuildAuthority = await f.create();
+  const admissions = await prepareHostHistoryRebuildAdmissions({
+    authority: rebuildAuthority,
+    signingKey: f.archiveKeys.privateKey,
+    catalogPath: "catalog.json",
+    before, after,
+    archives: new Map([[MAIN_REQUIRED_HISTORY_VIEW_ID, f.archive]]),
+    complete: async () => ({ text: JSON.stringify({ summary: "rebuilt for next generation" }), modelRef: "stella-guarded/model" }),
+  });
+  assert.equal(admissions.length, 1);
+  assert.equal(admissions[0]?.viewId, MAIN_REQUIRED_HISTORY_VIEW_ID);
+  assert.equal(admissions[0]?.view.generationId, after.generationId);
+  const single = await admissionFromPreparedHistoryView(rebuildAuthority,
+    await rebuildAuthority.prepareHistoryRebuild({
+      viewId: MAIN_REQUIRED_HISTORY_VIEW_ID, archive: f.archive, current: [],
+      complete: async () => ({ text: JSON.stringify({ summary: "single admission" }), modelRef: "stella-guarded/model" }),
+    }), f.archiveKeys.privateKey, { generationId: after.generationId, catalogPath: "catalog.json" });
+  assert.equal(single.viewId, MAIN_REQUIRED_HISTORY_VIEW_ID);
+  const plan = planViewMigration({ before, after, rebuilds: admissions });
+  const migrated = applyViewMigration(after, plan);
+  assertViewMigration(before, migrated, plan, { rebuilds: admissions });
+  assert.equal(migrated.views[0]?.generationId, after.generationId);
+  assert.equal(plan.rebuilt[0], MAIN_REQUIRED_HISTORY_VIEW_ID);
+});
+
+test("archive reauthenticates main session-current-view when declared sourceRefs stay current", async t => {
+  const f = await archivedHeadFixture(t);
+  const { authority, prepared } = await preparedHistoryView(f, MAIN_REQUIRED_HISTORY_VIEW_ID);
+  await publishPreparedHistoryView(authority, prepared, {
+    signingKey: f.archiveKeys.privateKey, durability: f.durability, reloadAuthority: async () => f.create(),
+  });
+  const beforeReader = await CatalogReader.load(f.root, "catalog.json");
+  const beforeView = beforeReader.catalog.views.find(view => view.id === MAIN_REQUIRED_HISTORY_VIEW_ID);
+  assert.ok(beforeView);
+  assert.ok(beforeView.sourceRefs.length > 0);
+  const policy = beforeReader.catalog.policies.find(entry => entry.status === "current");
+  assert.ok(policy);
+  const followup = prepareHostRequestArchive({
+    schemaVersion: "stella.host-request-snapshot/v1",
+    request: snapshotTurnRequest({
+      agentId: "main", sessionId: "session", sessionKey: "agent:main:history", prompt: "another turn",
+      senderId: "owner", senderIsOwner: true, chatType: "direct",
+    }, "main_view_reauth"),
+    capturedAt: "2026-09-07T00:00:00Z",
+  }, { policyRef: { id: policy.id, version: policy.version }, objectRoot: "objects", payloadRoot: "ingress", ownerId: "owner" });
+  const receipt = await persistHostInputArchive({
+    reader: beforeReader, archive: followup, operationId: "op_main_view_reauth",
+    purpose: (await f.resolver()).purpose,
+  }, {
+    persist: async (paths) => { await f.durability.syncCritical(paths); },
+    confirmPreviouslyCommitted: file => f.durability.confirmPreviouslyCommitted(file),
+  });
+  const after = await CatalogReader.load(f.root, "catalog.json");
+  assert.equal(after.catalog.generationId, receipt.generationId);
+  assert.notEqual(after.catalog.generationId, beforeReader.catalog.generationId);
+  const afterView = after.catalog.views.find(view => view.id === MAIN_REQUIRED_HISTORY_VIEW_ID);
+  assert.equal(afterView?.generationId, receipt.generationId);
+  assert.deepEqual(afterView?.sourceRefs, beforeView.sourceRefs);
+  assert.deepEqual(afterView?.recipeRef, beforeView.recipeRef);
+  // Reauthentication keeps the signed artifact; load and admit tolerate generation advance.
+  const handle = await loadPublishedHistoryView(after, MAIN_REQUIRED_HISTORY_VIEW_ID, f.archiveKeys.publicKey);
+  assert.equal(handle.viewId, MAIN_REQUIRED_HISTORY_VIEW_ID);
+  const recipe = await after.readViewRecipe(MAIN_REQUIRED_HISTORY_VIEW_ID);
+  assert.equal(handle.digest, recipe.parameters.digest);
+  const live = await f.create();
+  const restored = await restorePublishedHistoryView(live, handle);
+  const sealed = await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment: restored }] });
+  await live.assertConsumption(sealed.consumption, sealed.input);
 });

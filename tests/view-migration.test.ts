@@ -4,7 +4,7 @@ import { parseMemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { canonicalJson, objectVersion, bytesVersion } from "../src/canghai/content-version.js";
 import {
   applyViewMigration, assertViewMigration, assertViewReauthentication, catalogChangedRefs,
-  planViewMigration, planViewReauthentication, rebuildsFromRecordedPlan,
+  planViewMigration, planViewReauthentication, rebuildsFromRecordedPlan, rebuildsFromViewFiles, viewsRequiringRebuild,
 } from "../src/canghai/view-migration.js";
 import { parseViewRecipe, viewRecipePath, type MemoryView } from "../src/canghai/view-recipe.js";
 
@@ -30,6 +30,7 @@ test("unchanged declared inputs reauthenticate across a bundle-only generation b
   after.generationId = "generation-two";
   after.bundles.push({ id: "bundle", version: "sha256:" + "b".repeat(64), status: "current", dependencies: [],
     locator: { path: "bundle.json", sha256: "sha256:" + "c".repeat(64) } });
+  assert.deepEqual(viewsRequiringRebuild({ before, after }), []);
   const plan = planViewReauthentication({ before, after });
   assert.deepEqual(plan.reauthenticated, ["session"]);
   assert.deepEqual(plan.rebuilt, []);
@@ -167,4 +168,8 @@ test("recorded rebuild admissions replay without regenerating signed history byt
   assert.equal(recovered[0]?.recipePath, recipePath);
   assertViewMigration(before, migrated, plan, { rebuilds: recovered });
   parseViewRecipe(JSON.parse(recovered[0]!.recipeBytes), recovered[0]!.view);
+  assert.deepEqual(
+    rebuildsFromViewFiles(migrated, plan.files.map(file => ({ path: file.path, bytes: String(file.after) })), "catalog.json"),
+    recovered,
+  );
 });

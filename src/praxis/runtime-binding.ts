@@ -2,6 +2,7 @@ import { parseSemanticRetrievalConfig, type SemanticRetrievalConfig } from "../c
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js";
 import { parse as parseYaml } from "yaml";
 import { PERSONAL_CONTEXT_ADAPTER, loadPersonalContextAccess, validatePersonalContextCatalog } from "../canghai/personal-context-access.js";
+import { assertRequiredMemoryViews } from "../canghai/view-recipe.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
@@ -87,6 +88,9 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       for (const model of Object.values(profile.models)) requireValue(processing.config.viewProcessingModelRefs.includes(`${model.provider}/${model.model}`));
       await validatePersonalContextCatalog(await CatalogReader.load(loaded.canghaiRoot, catalogPath), processing.config);
       await processing.assertCurrent();
+    } else if (profile.memory.required_views.length > 0) {
+      // Alpha required views must already be catalog-declared host-history (or other) recipes.
+      await assertRequiredMemoryViews(await CatalogReader.load(loaded.canghaiRoot, catalogPath), profile.memory.required_views);
     }
     const retrievalCapability = profile.capabilities.find(value => value.id === "semantic_retrieval");
     let semanticRetrieval: SemanticRetrievalConfig | undefined;

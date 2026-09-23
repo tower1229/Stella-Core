@@ -33,7 +33,10 @@ export async function readPreparedOutcomeProjection(transaction: object, prepare
 export async function prepareOutcomeTransaction(input: { operationId: string; runtime: PraxisRuntimeMemory;
   objectRoot: string; revision: string; requestId: string; prepared: Extract<PreparedOutcome, { disposition: "ready" }>;
   /** Structured rebuild admissions for required views whose inputs or open evidence plane changed. */
-  viewRebuilds?: (generationId: string) => readonly ViewRebuildAdmission[] | undefined;
+  viewRebuilds?: (generationId: string) =>
+    | readonly ViewRebuildAdmission[]
+    | undefined
+    | Promise<readonly ViewRebuildAdmission[] | undefined>;
 }) {
   input = { ...input };
   if (input.requestId !== input.operationId) throw new EpisodeV2Error("outcome_request_binding_mismatch");
@@ -96,7 +99,7 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
   const bundle = createOutcomeEvidenceBundle({ operationId, requestId: input.requestId, revision: input.revision, generationId: reader.catalog.generationId, prepared });
   const bundleRef = add("bundles", bundle, [...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs]);
   const extraChangedPaths = new Set([episodePath, runtime.repository.historicalPath(episode.id, version)]);
-  const viewRebuilds = input.viewRebuilds?.(after.generationId);
+  const viewRebuilds = await input.viewRebuilds?.(after.generationId);
   const viewMigration: ViewMigrationPlan = planViewMigration({
     before: reader.catalog, after, rebuilds: viewRebuilds, extraChangedPaths,
   });

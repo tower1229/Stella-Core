@@ -68,8 +68,8 @@
 - [archive-writer.ts](../src/canghai/archive-writer.ts) 使用独立 intent／expectedPaths／重放流程，不直接走 applyMemoryTransaction。
 - [ingest.ts](../src/canghai/ingest.ts) 的普通与 do_not_retain 分支都会推进 generation。
 - [question-transaction.ts](../src/praxis/question-transaction.ts)、[outcome-transaction.ts](../src/praxis/outcome-transaction.ts)、[correction.ts](../src/learning/correction.ts)、[synchronize.ts](../src/canghai/synchronize.ts) 都必须迁移 required views；Outcome 实际改写 episode.json，不能只比较 catalog entries。
-- CatalogReader.validatePreview 目前要求 views 不变，而 parseMemoryViews 要求 view generation 等于 catalog generation。需接收并验证具体迁移计划，不能新增无条件 allowViewChanges。
-- synchronize 当前仍在约 227 行以 `required_view_adapter_unavailable` 阻断非空 views。finalPlan 恢复分支当前缺少 view 语义校验，receipt 只报告 catalog。
+- CatalogReader.validatePreview 需接收并验证具体迁移计划；parseMemoryViews 要求 view generation 等于 catalog generation。
+- synchronize／correction／outcome／archive-writer 已接 `planViewMigration`＋`viewRebuilds`；缺 admission 时 fail-closed（`required_view_rebuild_required`）。恢复分支经 `rebuildsFromRecordedPlan`／`rebuildsFromViewFiles` 重放，不重跑模型。交接当时关于 `required_view_adapter_unavailable` 的阻断描述已过时。
 
 建议顺序：共享“before/after catalog＋实际 file changes→经验证的 view migration plan”；先接 ingress／Question 无相关来源变化的重新认证；再接 correction／Outcome／synchronize 的结构化重建；把配方、签名记录、catalog 和 fence 放入对应真实事务；覆盖每条恢复分支且不重跑模型；最后才在 main 注册第一个非空 view。
 

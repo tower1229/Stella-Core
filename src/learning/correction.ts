@@ -65,7 +65,10 @@ export async function prepareCorrection(input: {
   processingAuthority: ProcessingAuthority;
   assertProcessingCurrent: () => Promise<void>; complete: Complete;
   /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
-  viewRebuilds?: (generationId: string) => readonly ViewRebuildAdmission[] | undefined;
+  viewRebuilds?: (generationId: string) =>
+    | readonly ViewRebuildAdmission[]
+    | undefined
+    | Promise<readonly ViewRebuildAdmission[] | undefined>;
 }) {
   input = { ...input, evidenceRefs: structuredClone(input.evidenceRefs) };
   check(/^[a-zA-Z][a-zA-Z0-9_-]{0,100}$/.test(input.operationId) &&
@@ -264,7 +267,7 @@ export async function prepareCorrection(input: {
     targetRefs: targets, changes: changeRows, disposition: proposal.disposition, rationale: proposal.rationale }, [...input.evidenceRefs, ...targets]);
   after.parentGenerationId = reader.catalog.generationId;
   after.generationId = `generation_${bytesVersion(canonicalJson({ operationId, before: reader.catalogHash, changeRef })).slice(7)}`;
-  const viewRebuilds = input.viewRebuilds?.(after.generationId);
+  const viewRebuilds = await input.viewRebuilds?.(after.generationId);
   const viewMigration: ViewMigrationPlan = planViewMigration({ before: reader.catalog, after, rebuilds: viewRebuilds });
   after = applyViewMigration(after, viewMigration);
   parseMemoryCatalog(after);

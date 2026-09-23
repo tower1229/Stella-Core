@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
-import { createFixture, initializeFixtureRepository, updateFixtureManifest } from "./consciousness-fixture.js";
+import { createFixture, initializeFixtureRepository, updateFixtureManifest, createMainRequiredHistoryFixture } from "./consciousness-fixture.js";
+import { MAIN_REQUIRED_HISTORY_VIEW_ID } from "../src/canghai/view-recipe.js";
 import { listSemanticRoutingCandidates } from "../src/praxis/packet.js";
 import { loadConsciousness } from "../src/canghai/manifest.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
@@ -37,6 +38,23 @@ test("runtime binding requires explicit v2 configuration and refuses unknown cog
   const profile = loaded.bootstrapDocuments.find((document) => document.field === "identity.runtimeProfileRef")!;
   profile.content = "fixture: legacy";
   await assert.rejects(loadPraxisRuntimeBinding(loaded), /profile_migration_required/);
+});
+
+test("alpha main required session-current-view must exist in the catalog with a readable recipe", async (t) => {
+  const bare = await createFixture(); t.after(() => rm(bare, { recursive: true, force: true }));
+  const { parse, stringify } = await import("yaml");
+  const profilePath = path.join(bare, "50_PersonalAgent/stella/runtime-profile.yaml");
+  const profile = parse(await readFile(profilePath, "utf8"));
+  profile.memory.required_views = [MAIN_REQUIRED_HISTORY_VIEW_ID];
+  await writeFile(profilePath, stringify(profile));
+  await assert.rejects(loadPraxisRuntimeBinding(await loadConsciousness(bare)), /required_view_unavailable/);
+  const root = await createMainRequiredHistoryFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const binding = await loadPraxisRuntimeBinding(await loadConsciousness(root));
+  assert.equal(binding.catalogPath, "30_PersonalData/memory/catalog.json");
+  const runtime = await createBoundPraxisRuntime(await loadConsciousness(root), binding, complete, async () => {});
+  assert.equal(runtime.evidence.reader.catalog.views.find(view => view.id === MAIN_REQUIRED_HISTORY_VIEW_ID)?.required, true);
+  await runtime.evidence.reader.readViewRecipe(MAIN_REQUIRED_HISTORY_VIEW_ID);
 });
 
 test("recovery bindings tolerate pending business files but reject changed authority at the configured revision", async (t) => {

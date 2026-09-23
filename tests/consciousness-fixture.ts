@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { parse, stringify } from "yaml";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { isRecord } from "../src/shared/type-guards.js";
+import { MAIN_REQUIRED_HISTORY_VIEW_ID, viewRecipePath } from "../src/canghai/view-recipe.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -269,4 +270,50 @@ export async function initializeFixtureRepository(root: string): Promise<string>
   await execFileAsync("git", ["-C", root, "commit", "--quiet", "-m", "fixture"]);
   const { stdout } = await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"]);
   return stdout.trim();
+}
+
+/** Register Stella main's first required host-history view in an alpha fixture.
+ * Seeds catalog recipe + placeholder artifact bytes and sets profile.memory.required_views.
+ * Placeholder signatures are binding-only (recipe readable); real Host publish replaces
+ * them with signed history-view snapshots before admit/consume. Empty sourceRefs means
+ * any later evidence-plane change requires rebuild admissions — callers that archive
+ * after registration must supply viewRebuilds. */
+export async function registerMainRequiredHistoryView(root: string): Promise<{ viewId: string }> {
+  const catalogPath = "30_PersonalData/memory/catalog.json";
+  const catalog = JSON.parse(await readFile(path.join(root, catalogPath), "utf8")) as {
+    generationId: string;
+    views: Array<{ id: string; generationId: string; recipeRef: { id: string; version: string }; required: boolean; sourceRefs: unknown[] }>;
+  };
+  const viewId = MAIN_REQUIRED_HISTORY_VIEW_ID;
+  const artifactBody = { schemaVersion: "stella.host-history-view/v1", viewId, text: "main baseline history view" };
+  const artifactBytes = canonicalJson(artifactBody);
+  const digest = bytesVersion(artifactBytes);
+  const recipeBody = { schemaVersion: "stella.view-recipe/v1", id: `history-view:${viewId}`, adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: [], parameters: { archiveRoot: "retained-context", digest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const recipe = { ...recipeBody, version: objectVersion(recipeBody) };
+  const view = { id: viewId, generationId: catalog.generationId, required: true,
+    recipeRef: { id: recipe.id, version: recipe.version }, sourceRefs: [] as Array<{ id: string; version: string }> };
+  const recipeFile = viewRecipePath(catalogPath, view.recipeRef);
+  const artifactFile = `retained-context/history-views/${digest.slice(7)}.json`;
+  await mkdir(path.dirname(path.join(root, recipeFile)), { recursive: true });
+  await mkdir(path.dirname(path.join(root, artifactFile)), { recursive: true });
+  await writeFile(path.join(root, recipeFile), canonicalJson(recipe));
+  await writeFile(path.join(root, artifactFile), artifactBytes);
+  await writeFile(path.join(root, `${artifactFile}.sig`), "c2ln");
+  catalog.views = [...catalog.views.filter(entry => entry.id !== viewId), view];
+  await writeFile(path.join(root, catalogPath), canonicalJson(catalog));
+  const profilePath = path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml");
+  const profile: unknown = parse(await readFile(profilePath, "utf8"));
+  if (!isRecord(profile) || !isRecord(profile.memory)) throw new Error("Synthetic runtime profile memory is missing");
+  profile.memory.required_views = [viewId];
+  await writeFile(profilePath, stringify(profile));
+  return { viewId };
+}
+
+/** Alpha fixture with main's required session-current-view already registered. */
+export async function createMainRequiredHistoryFixture(): Promise<string> {
+  const root = await createFixture();
+  await registerMainRequiredHistoryView(root);
+  return root;
 }

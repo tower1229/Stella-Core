@@ -86,6 +86,22 @@ function viewNeedsRebuild(input: {
   return input.view.sourceRefs.some(ref => input.changedRefs.has(refKey(ref)));
 }
 
+/** View ids that cannot reauthenticate across this before/after pair. */
+export function viewsRequiringRebuild(input: {
+  before: MemoryCatalog;
+  after: MemoryCatalog;
+  changedRefs?: ReadonlySet<string>;
+  extraChangedPaths?: ReadonlySet<string>;
+}): string[] {
+  const changedRefs = input.changedRefs ?? catalogChangedRefs(input.before, input.after);
+  const extraChangedPaths = input.extraChangedPaths ?? new Set<string>();
+  return input.before.views
+    .filter(view => viewNeedsRebuild({
+      view, before: input.before, after: input.after, changedRefs, extraChangedPaths,
+    }))
+    .map(view => view.id);
+}
+
 function decodeRebuild(admission: ViewRebuildAdmission, generationId: string): { view: MemoryView; recipe: ViewRecipe } {
   check(admission.view.id === admission.viewId && admission.view.generationId === generationId && admission.view.required,
     "required_view_rebuild_invalid");
@@ -208,6 +224,45 @@ export function assertViewReauthentication(
   assertViewMigration(before, after, plan);
 }
 
+/** Extract structured rebuild admissions from recorded view file bytes.
+ * Reauthenticated views omit recipe/artifact files; every supplied path must be used. */
+export function rebuildsFromViewFiles(
+  after: MemoryCatalog,
+  viewFiles: readonly { path: string; bytes: string }[],
+  catalogPath: string,
+): ViewRebuildAdmission[] {
+  const byPath = new Map(viewFiles.map(file => [file.path, file.bytes]));
+  check(byPath.size === viewFiles.length, "required_view_rebuild_invalid");
+  const admissions: ViewRebuildAdmission[] = [];
+  for (const view of after.views) {
+    check(view.generationId === after.generationId, "required_view_rebuild_invalid");
+    const recipePath = viewRecipePath(catalogPath, view.recipeRef);
+    const recipeBytes = byPath.get(recipePath);
+    if (recipeBytes === undefined) continue;
+    let recipeValue: unknown;
+    try { recipeValue = JSON.parse(recipeBytes); } catch { throw new CatalogError("required_view_rebuild_invalid"); }
+    check(isRecord(recipeValue) && canonicalJson(recipeValue) === recipeBytes, "required_view_rebuild_invalid");
+    const recipe = parseViewRecipe(recipeValue, view);
+    check(recipe.adapterId === "stella.host-history" && typeof recipe.parameters.digest === "string" &&
+      typeof recipe.parameters.archiveRoot === "string", "required_view_rebuild_invalid");
+    const artifactPath = `${recipe.parameters.archiveRoot}/history-views/${String(recipe.parameters.digest).slice(7)}.json`;
+    const artifactBytes = byPath.get(artifactPath);
+    const signatureBytes = byPath.get(`${artifactPath}.sig`);
+    check(typeof artifactBytes === "string" && typeof signatureBytes === "string", "required_view_rebuild_invalid");
+    const admission: ViewRebuildAdmission = {
+      viewId: view.id, view: structuredClone(view),
+      artifactPath, artifactBytes,
+      signaturePath: `${artifactPath}.sig`, signatureBytes,
+      recipePath, recipeBytes,
+    };
+    decodeRebuild(admission, after.generationId);
+    admissions.push(admission);
+  }
+  const used = new Set(admissions.flatMap(entry => [entry.artifactPath, entry.signaturePath, entry.recipePath]));
+  check(viewFiles.every(file => used.has(file.path)) && used.size === viewFiles.length, "required_view_rebuild_invalid");
+  return admissions;
+}
+
 /** Extract structured rebuild admissions from an already recorded transaction.
  * Recovery must replay these bytes; it never regenerates signed history views. */
 export function rebuildsFromRecordedPlan(
@@ -216,28 +271,17 @@ export function rebuildsFromRecordedPlan(
   plan: MemoryTransactionPlan,
   catalogPath: string,
 ): ViewRebuildAdmission[] {
-  const byPath = new Map(plan.files.map(file => [file.path, file]));
-  const admissions: ViewRebuildAdmission[] = [];
+  const viewFiles = plan.files
+    .filter(file => file.before === null && typeof file.after === "string" && isViewMigrationFile(file.path))
+    .map(file => ({ path: file.path, bytes: file.after as string }));
+  const admissions = rebuildsFromViewFiles(after, viewFiles, catalogPath);
   for (const view of after.views) {
     const prior = before.views.find(candidate => candidate.id === view.id);
-    if (prior && canonicalJson({ ...prior, generationId: view.generationId }) === canonicalJson(view)) continue;
-    const recipeFilePath = viewRecipePath(catalogPath, view.recipeRef);
-    const recipeFile = byPath.get(recipeFilePath);
-    check(recipeFile?.before === null && typeof recipeFile.after === "string", "required_view_rebuild_required");
-    const recipe = parseViewRecipe(JSON.parse(recipeFile.after), view);
-    check(recipe.adapterId === "stella.host-history" && typeof recipe.parameters.digest === "string" &&
-      typeof recipe.parameters.archiveRoot === "string", "required_view_rebuild_required");
-    const artifactPath = `${recipe.parameters.archiveRoot}/history-views/${String(recipe.parameters.digest).slice(7)}.json`;
-    const artifact = byPath.get(artifactPath);
-    const signature = byPath.get(`${artifactPath}.sig`);
-    check(artifact?.before === null && signature?.before === null && typeof artifact.after === "string" &&
-      typeof signature.after === "string", "required_view_rebuild_required");
-    admissions.push({
-      viewId: view.id, view: structuredClone(view),
-      artifactPath, artifactBytes: artifact.after,
-      signaturePath: `${artifactPath}.sig`, signatureBytes: signature.after,
-      recipePath: recipeFilePath, recipeBytes: recipeFile.after,
-    });
+    if (prior && canonicalJson({ ...prior, generationId: view.generationId }) === canonicalJson(view)) {
+      check(!admissions.some(entry => entry.viewId === view.id), "required_view_rebuild_invalid");
+      continue;
+    }
+    check(admissions.some(entry => entry.viewId === view.id), "required_view_rebuild_required");
   }
   return admissions;
 }

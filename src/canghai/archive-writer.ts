@@ -12,13 +12,20 @@ import {
   type HostRetentionGuarantees,
 } from "./ingest.js";
 import { withMemoryMutationLock } from "./memory-transaction.js";
+import { applyViewMigration, assertViewMigration, planViewMigration, rebuildsFromViewFiles, type ViewRebuildAdmission } from "./view-migration.js";
 
 type ArchiveWriterPorts = {
   persist(paths: string[], operationId: string): Promise<void>;
   confirmPreviouslyCommitted(operationPath: string): Promise<void>;
+  /** Structured rebuild admissions for required views whose inputs changed. Replay reads recorded viewFiles. */
+  viewRebuilds?: (generationId: string) =>
+    | readonly ViewRebuildAdmission[]
+    | undefined
+    | Promise<readonly ViewRebuildAdmission[] | undefined>;
 };
 type Intent = { schemaVersion: "stella.archive-operation/v1"; operationId: string; inputHash: string;
-  beforeHash: string; afterHash: string; after: MemoryCatalog; paths: string[] };
+  beforeHash: string; afterHash: string; after: MemoryCatalog; paths: string[];
+  viewFiles: Array<{ path: string; bytes: string }>; };
 function requireValue(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
 function missing(error: unknown): boolean { return error instanceof Error && "code" in error && error.code === "ENOENT"; }
 async function location(root: string, relative: string, create = false): Promise<string> {
@@ -103,16 +110,31 @@ async function persistArchive(input: {
     }
     const operationPath = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${input.operationId}.json`);
     const operationFile = await location(reader.root, operationPath, true);
-    const expectedPaths = [reader.catalogPath, operationPath, archive.payload.path, ...archive.objects.map((object) => object.entry.locator.path)];
+    const archivePaths = [reader.catalogPath, operationPath, archive.payload.path, ...archive.objects.map((object) => object.entry.locator.path)];
     const recorded = await optionalText(operationFile);
     let intent: Intent;
     if (recorded !== undefined) {
       const parsed: unknown = JSON.parse(recorded);
       requireValue(isRecord(parsed) && parsed.schemaVersion === "stella.archive-operation/v1" && parsed.operationId === input.operationId &&
-        parsed.inputHash === inputHash && typeof parsed.beforeHash === "string" && typeof parsed.afterHash === "string" && Array.isArray(parsed.paths), "archive_operation_conflict");
+        parsed.inputHash === inputHash && typeof parsed.beforeHash === "string" && typeof parsed.afterHash === "string" &&
+        Array.isArray(parsed.paths) && Array.isArray(parsed.viewFiles) &&
+        parsed.viewFiles.every((file: unknown) => isRecord(file) && typeof file.path === "string" && typeof file.bytes === "string"),
+        "archive_operation_conflict");
       const after = parseMemoryCatalog(parsed.after);
+      const viewPaths = (parsed.viewFiles as Intent["viewFiles"]).map(file => file.path);
+      const expectedPaths = [...archivePaths, ...viewPaths];
       requireValue(bytesVersion(canonicalJson(after)) === parsed.afterHash && canonicalJson(parsed.paths) === canonicalJson(expectedPaths) &&
         after.generationId === `generation_${bytesVersion(`${parsed.beforeHash}:${inputHash}`).slice(7)}`, "archive_journal_invalid");
+      // Replay uses only recorded view file bytes — never regenerate rebuild admissions.
+      const admissions = rebuildsFromViewFiles(after, parsed.viewFiles as Intent["viewFiles"], reader.catalogPath);
+      if (current.catalogHash === parsed.beforeHash) {
+        const migration = planViewMigration({ before: current.catalog, after, rebuilds: admissions });
+        assertViewMigration(current.catalog, after, migration, { rebuilds: admissions });
+        requireValue(canonicalJson(migration.files.map(file => {
+          requireValue(typeof file.after === "string", "required_view_rebuild_invalid");
+          return { path: file.path, bytes: file.after };
+        })) === canonicalJson(parsed.viewFiles), "required_view_migration_mismatch");
+      }
       intent = parsed as Intent;
       if (current.catalogHash !== intent.beforeHash && current.catalogHash !== intent.afterHash) {
         // A later generation must not be replaced by replaying an earlier operation.
@@ -121,7 +143,7 @@ async function persistArchive(input: {
       }
     } else {
       requireValue(current.catalogHash === reader.catalogHash, "stale_generation");
-      const after: MemoryCatalog = JSON.parse(canonicalJson(current.catalog));
+      let after: MemoryCatalog = JSON.parse(canonicalJson(current.catalog));
       for (const object of archive.objects) {
         const entries = after[object.group];
         const existing = entries.find((entry) => entry.id === object.ref.id && entry.version === object.ref.version);
@@ -131,14 +153,25 @@ async function persistArchive(input: {
       }
       after.parentGenerationId = current.catalog.generationId;
       after.generationId = `generation_${bytesVersion(`${current.catalogHash}:${inputHash}`).slice(7)}`;
+      const viewMigration = planViewMigration({
+        before: current.catalog, after, rebuilds: await ports.viewRebuilds?.(after.generationId),
+      });
+      after = applyViewMigration(after, viewMigration);
       parseMemoryCatalog(after);
+      const viewFiles = viewMigration.files.map(file => {
+        requireValue(typeof file.after === "string", "required_view_rebuild_invalid");
+        return { path: file.path, bytes: file.after };
+      });
+      const paths = [...archivePaths, ...viewFiles.map(file => file.path)];
       intent = { schemaVersion: "stella.archive-operation/v1", operationId: input.operationId, inputHash,
-        beforeHash: current.catalogHash, afterHash: bytesVersion(canonicalJson(after)), after,
-        paths: expectedPaths };
+        beforeHash: current.catalogHash, afterHash: bytesVersion(canonicalJson(after)), after, paths, viewFiles };
       await publishFile(operationFile, canonicalJson(intent));
     }
     await publishFile(await location(reader.root, archive.payload.path, true), archive.payload.bytes);
     for (const object of archive.objects) await publishFile(await location(reader.root, object.entry.locator.path, true), object.bytes);
+    for (const file of intent.viewFiles) {
+      await publishFile(await location(reader.root, file.path, true), file.bytes);
+    }
     await current.assertCurrent();
     await publishFile(await location(reader.root, reader.catalogPath), canonicalJson(intent.after), true);
     await ports.persist(intent.paths, input.operationId);

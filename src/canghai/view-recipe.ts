@@ -62,3 +62,20 @@ export function parseViewRecipe(value: unknown, view: MemoryView): ViewRecipe {
   check(objectVersion(value) === view.recipeRef.version, "view_recipe_version_mismatch");
   return structuredClone(value) as ViewRecipe;
 }
+
+/** Profile-required view ids must already be declared required in the catalog with a readable recipe. */
+export async function assertRequiredMemoryViews(
+  reader: { catalog: { views: MemoryView[] }; readViewRecipe(viewId: string): Promise<ViewRecipe>; assertCurrent(): Promise<void> },
+  requiredViews: readonly string[],
+): Promise<void> {
+  for (const id of requiredViews) {
+    check(typeof id === "string" && id.trim(), "required_view_unavailable");
+    const view = reader.catalog.views.find(entry => entry.id === id);
+    check(view?.required === true, "required_view_unavailable");
+    await reader.readViewRecipe(id);
+  }
+  await reader.assertCurrent();
+}
+
+/** First required host-history view registered for Stella main. */
+export const MAIN_REQUIRED_HISTORY_VIEW_ID = "session-current-view";

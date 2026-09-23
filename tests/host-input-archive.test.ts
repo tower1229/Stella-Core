@@ -136,3 +136,94 @@ test("archive transaction survives pointer failure, exact replay, later generati
   await assert.rejects(persistHostInputArchive({ ...input, operationId: "op-denied", reader: await CatalogReader.load(root, "catalog.json"),
     purpose: { ...input.purpose, deliveryScope: "unauthorized" } }, ports), /archive_permission_denied/);
 });
+
+test("archive reauthenticates a policy-bound required view and rebuilds open views from recorded admissions", async (t) => {
+  const run = promisify(execFile);
+  const parent = await mkdtemp(path.join(os.tmpdir(), "stella-archive-views-"));
+  t.after(() => rm(parent, { recursive: true, force: true }));
+  const root = path.join(parent, "work");
+  const remote = path.join(parent, "remote.git");
+  await run("git", ["init", "--bare", "--quiet", remote]);
+  await run("git", ["init", "--quiet", "-b", "synthetic-alpha", root]);
+  await run("git", ["-C", root, "config", "user.name", "Stella Test"]);
+  await run("git", ["-C", root, "config", "user.email", "test@stella.invalid"]);
+  const { viewRecipePath } = await import("../src/canghai/view-recipe.js");
+  const policyBytes = canonicalJson({ ...policy, version: policyRef.version });
+  await writeFile(path.join(root, "policy.json"), policyBytes);
+  const openArtifact = canonicalJson({ schemaVersion: "stella.host-history-view/v1", viewId: "open-history", text: "baseline-open" });
+  const openDigest = bytesVersion(openArtifact);
+  const openRecipeBody = { schemaVersion: "stella.view-recipe/v1", id: "history-view:open-history", adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: [], parameters: { archiveRoot: "retained-context", digest: openDigest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const openRecipe = { ...openRecipeBody, version: objectVersion(openRecipeBody) };
+  const openView = { id: "open-history", generationId: "generation-base", required: true,
+    recipeRef: { id: openRecipe.id, version: openRecipe.version }, sourceRefs: [] as Array<{ id: string; version: string }> };
+  const policyBoundArtifact = canonicalJson({ schemaVersion: "stella.host-history-view/v1", viewId: "policy-history", text: "baseline-policy" });
+  const policyBoundDigest = bytesVersion(policyBoundArtifact);
+  const policyBoundRecipeBody = { schemaVersion: "stella.view-recipe/v1", id: "history-view:policy-history", adapterId: "stella.host-history",
+    adapterVersion: "1", hostTarget: "stella", inputRefs: [policyRef], parameters: { archiveRoot: "retained-context", digest: policyBoundDigest },
+    modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+  const policyBoundRecipe = { ...policyBoundRecipeBody, version: objectVersion(policyBoundRecipeBody) };
+  const policyBoundView = { id: "policy-history", generationId: "generation-base", required: true,
+    recipeRef: { id: policyBoundRecipe.id, version: policyBoundRecipe.version }, sourceRefs: [policyRef] };
+  const catalog: MemoryCatalog = { schemaVersion: "stella.memory-catalog/v1", generationId: "generation-base", parentGenerationId: null,
+    sources: [], evidence: [], coverage: [], policies: [{ ...policyRef, status: "current", dependencies: [], locator: { path: "policy.json", sha256: bytesVersion(policyBytes) } }],
+    understandings: [], works: [], changes: [], bundles: [], views: [openView, policyBoundView] };
+  for (const [recipe, artifact, digest] of [
+    [openRecipe, openArtifact, openDigest], [policyBoundRecipe, policyBoundArtifact, policyBoundDigest],
+  ] as const) {
+    const recipePath = viewRecipePath("catalog.json", { id: recipe.id, version: recipe.version });
+    const artifactPath = `retained-context/history-views/${digest.slice(7)}.json`;
+    await mkdir(path.dirname(path.join(root, recipePath)), { recursive: true });
+    await mkdir(path.dirname(path.join(root, artifactPath)), { recursive: true });
+    await writeFile(path.join(root, recipePath), canonicalJson(recipe));
+    await writeFile(path.join(root, artifactPath), artifact);
+    await writeFile(path.join(root, `${artifactPath}.sig`), "c2ln");
+  }
+  await writeFile(path.join(root, "catalog.json"), canonicalJson(catalog));
+  await run("git", ["-C", root, "add", "."]);
+  await run("git", ["-C", root, "commit", "--quiet", "-m", "Synthetic baseline with views"]);
+  await run("git", ["-C", root, "remote", "add", "origin", remote]);
+  await run("git", ["-C", root, "push", "--quiet", "origin", "HEAD:refs/heads/synthetic-alpha"]);
+  const reader = await CatalogReader.load(root, "catalog.json");
+  const archive = prepareHostInputArchive(snapshot(), config);
+  const durability = new GitCangHaiDurability({ root, remote: "origin", branch: "synthetic-alpha",
+    criticalWritePolicy: "sync_immediately", normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0 });
+  const ports = { async persist(paths: string[], operation: string) { await durability.syncCritical(paths, operation); },
+    confirmPreviouslyCommitted: (operationPath: string) => durability.confirmPreviouslyCommitted(operationPath) };
+  const input = { reader, archive, operationId: "op-with-views", purpose: { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic" } };
+  await assert.rejects(persistHostInputArchive(input, ports), /required_view_rebuild_required/);
+  const rebuildOpen = (generationId: string) => {
+    const body = { schemaVersion: "stella.host-history-view/v1", viewId: "open-history", text: "rebuilt-after-archive" };
+    const bytes = canonicalJson(body);
+    const digest = bytesVersion(bytes);
+    const recipeBody = { schemaVersion: "stella.view-recipe/v1", id: "history-view:open-history", adapterId: "stella.host-history",
+      adapterVersion: "1", hostTarget: "stella", inputRefs: [], parameters: { archiveRoot: "retained-context", digest },
+      modelRef: "synthetic/model", promptVersion: "stella.host-history-rebuild/v1" };
+    const recipe = { ...recipeBody, version: objectVersion(recipeBody) };
+    const view = { id: "open-history", generationId, required: true,
+      recipeRef: { id: recipe.id, version: recipe.version }, sourceRefs: [] as Array<{ id: string; version: string }> };
+    return [{
+      viewId: "open-history", view,
+      artifactPath: `retained-context/history-views/${digest.slice(7)}.json`, artifactBytes: bytes,
+      signaturePath: `retained-context/history-views/${digest.slice(7)}.json.sig`, signatureBytes: "c2ln",
+      recipePath: viewRecipePath("catalog.json", view.recipeRef), recipeBytes: canonicalJson(recipe),
+    }];
+  };
+  let modelCalls = 0;
+  const receipt = await persistHostInputArchive(input, {
+    ...ports,
+    viewRebuilds: (generationId) => { modelCalls++; return rebuildOpen(generationId); },
+  });
+  assert.equal(modelCalls, 1);
+  const after = await CatalogReader.load(root, "catalog.json");
+  assert.equal(after.catalog.generationId, receipt.generationId);
+  assert.equal(after.catalog.views.find(view => view.id === "policy-history")?.generationId, receipt.generationId);
+  assert.deepEqual(after.catalog.views.find(view => view.id === "policy-history")?.sourceRefs, [policyRef]);
+  assert.equal(after.catalog.views.find(view => view.id === "open-history")?.generationId, receipt.generationId);
+  const replay = await persistHostInputArchive(input, {
+    ...ports,
+    viewRebuilds: () => { throw new Error("Replay must use recorded viewFiles"); },
+  });
+  assert.deepEqual(replay, receipt);
+});

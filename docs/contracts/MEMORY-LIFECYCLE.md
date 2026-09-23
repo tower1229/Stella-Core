@@ -524,9 +524,9 @@ Source 和 Policy 保留稳定 ID 及历史语义版本；唯一的完全相同�
 
 重启复用已批准的事务，不重跑已记录的语义重评；critical commit／pointer／push 失败保持读取屏障。并发未提交文件或提交变化返回 write_conflict，不暂存主人编辑。尚未进入最终发布事务的 pending 操作可由新 operationId 接管：fromRevision 与原待同步基线相同、expectedGenerationId 相同、toRevision 为已提交的最新后继；旧屏障保留至新操作发布，不重新启用旧理解。目标提交需满足已有 durability 的显式远端协调要求。回退到已封存的相同内容可复用该版本，不能重复建立对象身份。
 
-本实现仍使用现有适配器边界：改变 v2 分段原文而未重新审定片段权限时返回 source_segment_reassessment_required；新增二进制媒体缺少证据适配器时返回 source_evidence_adapter_required；非空声明 views 尚无对应重建适配器时返回 required_view_adapter_unavailable。上述路径保持 pending，不能称同步完成。Host 全部摘要治理、分批重评、真实 main 和自然反馈分别由后续工作验收；本票测试仅提供 synchronize／当前读取／历史校验及本地合成远端故障的契约证据，不能覆盖 G-07、M-10、M-11、C-08 整组或证明真实模型质量。
+本实现仍使用现有适配器边界：改变 v2 分段原文而未重新审定片段权限时返回 source_segment_reassessment_required；新增二进制媒体缺少证据适配器时返回 source_evidence_adapter_required。非空 catalog views 经 `planViewMigration`／`viewRebuilds` 在代际 writer（archive／synchronize／correction／outcome）中 reauthenticate 或结构化 rebuild；缺 admission 时返回 required_view_rebuild_required，保持 pending。Host 全部摘要治理、分批重评、真实 main 和自然反馈分别由后续工作验收；本票测试仅提供 synchronize／当前读取／历史校验及本地合成远端故障的契约证据，不能覆盖 G-07、M-10、M-11、C-08 整组或证明真实模型质量。
 
-2026-09-18 分批重评入口（Issue #22／T16）：`synchronize` 保留原整批调用，新增可选 `targetIds`（调用方已选定的确切对象 ID）和 `currentWorkId`。自然语言选择仍由调用方结构化 LLM 完成；同步模型只重评本批 targets，并独立复核。未选择的受影响 Understanding／Ongoing Work 保留原版本且状态为 superseded，依赖闭包中的旧 Change／Bundle 同样不可用。每批仍使用 critical MemoryTransaction 原子发布，required view 缺少适配器继续失败。
+2026-09-18 分批重评入口（Issue #22／T16）：`synchronize` 保留原整批调用，新增可选 `targetIds`（调用方已选定的确切对象 ID）和 `currentWorkId`。自然语言选择仍由调用方结构化 LLM 完成；同步模型只重评本批 targets，并独立复核。未选择的受影响 Understanding／Ongoing Work 保留原版本且状态为 superseded，依赖闭包中的旧 Change／Bundle 同样不可用。每批仍使用 critical MemoryTransaction 原子发布，required view 缺少结构化 rebuild admission 时返回 required_view_rebuild_required。
 
 `stella.source-synchronization/v2` 在原屏障路径持久保存 `parentOperationId`、有序 `batchOperationIds`、带版本的 `pendingRefs`、`completedIds`、完整累计 `affectedIds` 和 `currentWorkReady`；phase 为 pending／partial／completed。pending 是含新来源变更批次发布前的读取屏障，partial 是可读的自洽中间代，completed 要求 pendingRefs 为空。基于相同 revision 的续批保持 partial，语义计算及其失败不封锁已就绪事项；实际文件发布事务期间仍阻断读取。Schema 与运行校验拒绝重复待评身份、完成／待评重叠及范围外对象。v1 通过显式解码迁移保留原 phase 和读取屏障，旧事务按原始字节及 digest 重放；新发布统一写 v2，不推断旧状态含有分批进度。
 

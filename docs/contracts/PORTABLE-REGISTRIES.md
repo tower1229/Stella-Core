@@ -91,7 +91,7 @@ recipeRef 指向 `schemaVersion: stella.view-recipe/v1`，必含 id、version、
 
 视图配方的仓库定位固定为 catalog 所在目录下的 `view-recipes/<SHA256(recipeRef.id)>/<recipeRef.version 去除 sha256: 前缀>.json`；两个摘要路径段均使用小写十六进制。配方正文的 ID、version、语义摘要及 inputRefs 必须分别匹配目录条目的 recipeRef 和 sourceRefs；读取显式恢复 revision 时，也从该 revision 读取配方，不能使用当前工作树中的替代文件。结构有效不代表适配器已实现或视图 ready；适配器参数、重建结果及当前处理授权仍须独立校验。
 
-profile.memory.catalog_ref 必须与 corpus registry 的 memory_catalog_ref 解析为相同目录。profile.memory.required_views 对应的 view 必须标 required；Manifest 的每个 derived.rebuild 目标均须有声明的配方，不能因另一处配置未列出就跳过。冲突配置返回 validation_failed。
+profile.memory.catalog_ref 必须与 corpus registry 的 memory_catalog_ref 解析为相同目录。profile.memory.required_views 对应的 view 必须标 required，且 recipe 可读；alpha 非空 required_views 在 runtime binding 加载时经 `assertRequiredMemoryViews` 校验（`required_view_unavailable`），full_memory 仍硬编码 `current_understanding`／`ongoing_work`。Manifest 的每个 derived.rebuild 目标均须有声明的配方，不能因另一处配置未列出就跳过。冲突配置返回 validation_failed。
 
 ## 3. Runtime profile
 

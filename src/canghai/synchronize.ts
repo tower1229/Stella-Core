@@ -34,7 +34,10 @@ export type SynchronizePorts = {
   signal?: AbortSignal;
   corpusRegistryRef?: string;
   /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
-  viewRebuilds?: (generationId: string) => readonly ViewRebuildAdmission[] | undefined;
+  viewRebuilds?: (generationId: string) =>
+    | readonly ViewRebuildAdmission[]
+    | undefined
+    | Promise<readonly ViewRebuildAdmission[] | undefined>;
 };
 async function optionalFile(root: string, file: string): Promise<string | null> {
   try { return (await readRepositoryBytes(root, file)).toString("utf8"); }
@@ -374,7 +377,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   plan.catalog.generationId = `generation_${bytesVersion(canonicalJson({ digest, catalog: plan.catalog })).slice(7)}`;
   const viewMigration: ViewMigrationPlan = planViewMigration({
     before: viewMigrationBase, after: plan.catalog,
-    rebuilds: ports.viewRebuilds?.(plan.catalog.generationId),
+    rebuilds: await ports.viewRebuilds?.(plan.catalog.generationId),
   });
   plan.catalog = applyViewMigration(plan.catalog, viewMigration);
   parseMemoryCatalog(plan.catalog);
@@ -415,7 +418,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
     await assertCurrent();
     planViewMigration({
       before: viewMigrationBase, after: parseMemoryCatalog(plan.catalog),
-      rebuilds: ports.viewRebuilds?.(plan.catalog.generationId),
+      rebuilds: await ports.viewRebuilds?.(plan.catalog.generationId),
     });
   });
   return readReceipt();

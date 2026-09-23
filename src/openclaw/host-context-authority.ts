@@ -843,17 +843,23 @@ export class HostContextAuthority {
     const revalidate = async () => {
       const current = await load();
       check(jsonDigest(current.snapshot) === handle.digest, "host_context_view_changed");
-      await this.assertHistoryViewSnapshot(current.snapshot, current.verificationKey);
+      // Provider rechecks must keep reauthentication tolerance; publication-time
+      // assertHistoryViewSnapshot stays generation-strict.
+      await this.#validateRecords([await this.#historyViewRecord(current.snapshot, current.verificationKey, {
+        allowReauthenticatedGeneration: true,
+      })]);
     };
     const { snapshot, verificationKey } = await load();
     check(jsonDigest(snapshot) === handle.digest, "host_context_view_changed");
-    const record = await this.#historyViewRecord(snapshot, verificationKey);
+    const record = await this.#historyViewRecord(snapshot, verificationKey, { allowReauthenticatedGeneration: true });
     const fragment = this.#issue("derived", { ...record, publishedViews: [{ digest: handle.digest, revalidate }] });
     await this.#validate([fragment]);
     return fragment;
   }
 
-  async #historyViewRecord(value: unknown, verificationKey: KeyObject): Promise<FragmentRecord> {
+  async #historyViewRecord(value: unknown, verificationKey: KeyObject, options?: {
+    allowReauthenticatedGeneration?: boolean;
+  }): Promise<FragmentRecord> {
     await this.#current();
     check(isRecord(value) && value.schemaVersion === "stella.host-history-view/v1" &&
       Object.keys(value).sort().join() === "agentId,assessment,authority,compilationDigest,configurationHash,modelRef,promptDigest,promptVersion,retainedNodeIds,schemaVersion,signerId,sourceArchive,sources,text,trace,viewId" &&
@@ -867,10 +873,22 @@ export class HostContextAuthority {
     check(signerId === this.#historySignerId && value.sourceArchive.signerId === signerId, "host_context_archive_signer_mismatch");
     const location = { archiveRoot: value.sourceArchive.archiveRoot, digest: value.sourceArchive.digest, signerId };
     const previous = this.#assertHistoryScope(value, location);
-    check(previous.generationId === this.#authority.generationId, "host_context_generation_mismatch");
+    // Reauthentication advances catalog generation while keeping signed recipe bytes.
+    // Publication-time asserts still require an exact generation match.
+    if (!options?.allowReauthenticatedGeneration) {
+      check(previous.generationId === this.#authority.generationId, "host_context_generation_mismatch");
+    }
     const archive = await loadContextHistory(this.resolver.reader.root, location, verificationKey);
     const assessed = await this.#assessHistory(archive);
-    check(canonicalJson(value.assessment) === canonicalJson(assessed.assessment), "host_context_rebuild_sources_changed");
+    check(isRecord(value.assessment) && typeof value.assessment.archiveDigest === "string" &&
+      Array.isArray(value.assessment.nodes), "host_context_view_invalid");
+    if (options?.allowReauthenticatedGeneration) {
+      check(value.assessment.archiveDigest === assessed.assessment.archiveDigest &&
+        canonicalJson(value.assessment.nodes) === canonicalJson(assessed.assessment.nodes),
+      "host_context_rebuild_sources_changed");
+    } else {
+      check(canonicalJson(value.assessment) === canonicalJson(assessed.assessment), "host_context_rebuild_sources_changed");
+    }
     const retained = eligibleContextInputs(assessed.graph, new Set(assessed.eligibleRecords.keys()));
     check(canonicalJson(value.retainedNodeIds) === canonicalJson(retained.roots), "host_context_view_lineage_invalid");
     const sources = parseContextSources(value.sources);
