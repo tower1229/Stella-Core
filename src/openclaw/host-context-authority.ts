@@ -22,7 +22,7 @@ import type { BoundTurnRequest } from "./turn-request.js";
 import { readCompiledContextRules, type CompiledInitializationSource } from "./initialization-source.js";
 import { readFragmentToolDefinition, readFragmentToolResult, type FragmentToolResultReceipt, type createFragmentReadTool } from "./fragment-read-tool.js";
 import { readHostModelOutput, type HostMemoryInput, type HostModelOutputReceipt } from "./host-memory-provider.js";
-import { assembleManagedSystemPrompt, projectManagedMessages } from "./host-context-prompt.js";
+import { assembleManagedSystemPrompt, projectManagedMessages, projectQueuedHostControlPrompt } from "./host-context-prompt.js";
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { contextHistoryLocation, contextHistorySignerId, contextHistoryVerificationKey, loadContextHistory, readContextHistory, assertRetainableContextDependencies, type StoredContextHistory } from "./host-context-history.js";
@@ -48,9 +48,9 @@ export type ContextHistoryAssessment = Readonly<{
 type FragmentRecord = { text: string; originals: OriginalEvidence[]; dependencies: Map<string, { ref: VersionedRef; digest: string }>;
   payloads?: Array<{ source: VersionedRef; sha256: string }>;
   archives?: StoredContextHistory[]; configurationInputs?: Array<{ path: string; sha256: string }>; trace?: ContextTrace;
-  /** Opaque published-view rechecks. The durable recipe/signature files stay
-   * outside this process-local map and must be reread on every consumption. */
-  publishedViews?: Array<{ digest: string; revalidate: () => Promise<void> }> };
+  /** Live producer and published-view checks survive derivation. Durable
+   * provenance remains in the signed trace and existing repository files. */
+  consumptionChecks?: Array<() => Promise<void>> };
 type CurrentBinding = Parameters<typeof assertProcessingAuthority>[1] & { configurationHash: string; compilation: CompiledInitializationSource };
 type Rule = { text: string; version: string };
 
@@ -75,8 +75,9 @@ async function configurationInputDigest(root: string, path: string): Promise<str
 export class HostContextAuthority {
   readonly #fragments = new WeakMap<ContextFragment, FragmentRecord>();
   readonly #historyViews = new WeakMap<PreparedHistoryView, { snapshot: HistoryViewSnapshot; archive: StoredContextHistory;
-    records: FragmentRecord[] }>();
+    records: FragmentRecord[]; invalidatedRefs: ReadonlySet<string> }>();
   readonly #questionFragments = new WeakMap<ContextFragment, object>();
+  readonly #outcomeTransactions = new Map<string, { operationId: string; planHash: string }>();
   readonly #consumptions = new WeakMap<ContextConsumption, { input: HostMemoryInput; fragments: ContextFragment[]; trace: ContextInputTrace }>();
   readonly #extended = new WeakSet<ContextConsumption>();
   readonly #rules: Record<string, Rule>;
@@ -279,7 +280,7 @@ export class HostContextAuthority {
       "host_context_route_scope_mismatch");
     const fragment = this.#issue("derived", { text: canonicalJson(binding.candidates), originals: binding.originals,
       dependencies: new Map(binding.dependencies.map(dependency => [refKey(dependency.ref), dependency])),
-      configurationInputs: binding.configurationInputs, payloads: binding.payloads });
+      configurationInputs: binding.configurationInputs, payloads: binding.payloads, consumptionChecks: [binding.assertCurrent] });
     await this.#validate([fragment]);
     return fragment;
   }
@@ -300,6 +301,7 @@ export class HostContextAuthority {
       dependencies: new Map(records.flatMap(record => [...record.dependencies])),
       configurationInputs: records.flatMap(record => record.configurationInputs ?? []),
       payloads: records.flatMap(record => record.payloads ?? []),
+      consumptionChecks: records.flatMap(record => record.consumptionChecks ?? []),
       archives: [...new Set(records.flatMap(record => record.archives ?? []))],
       trace: combineContextTraces(records.map(record => record.trace!)),
     });
@@ -345,6 +347,7 @@ export class HostContextAuthority {
         ...records.flatMap(record => [...record.dependencies])]),
       configurationInputs: [...sources.configurationInputs, ...records.flatMap(record => record.configurationInputs ?? [])],
       payloads: [...sources.payloads, ...records.flatMap(record => record.payloads ?? [])],
+      consumptionChecks: records.flatMap(record => record.consumptionChecks ?? []),
       archives: [...new Set(records.flatMap(record => record.archives ?? []))],
       trace: combineContextTraces(records.map(record => record.trace!)),
     };
@@ -395,10 +398,15 @@ export class HostContextAuthority {
         .map(original => [refKey(original.ref), original])).values()],
       configurationInputs: [...sources.configurationInputs, ...records.flatMap(record => record.configurationInputs ?? [])],
       payloads: [...sources.payloads, ...records.flatMap(record => record.payloads ?? [])],
+      consumptionChecks: records.flatMap(record => record.consumptionChecks ?? []),
       archives: [...new Set(records.flatMap(record => record.archives ?? []))],
       trace: combineContextTraces(records.map(record => record.trace!)),
     };
-    const context = this.#issue("derived", { ...record, text: renderOutcomeContext(selected, binding.result, transaction?.projection) });
+    const context = this.#issue("derived", { ...record, consumptionChecks: [...record.consumptionChecks,
+      binding.assertCurrent, ...(transaction ? [transaction.assertCurrent] : [])], text: renderOutcomeContext(selected, binding.result, transaction?.projection) });
+    if (transaction) for (const nodeId of this.#record(context).trace!.roots) {
+      this.#outcomeTransactions.set(nodeId, transaction.verification);
+    }
     const responseContract = this.#issue("derived", { ...record, text: renderResponseContract(applyOutcomeResponse(route, binding.result)) });
     await binding.assertCurrent();
     await sources.assertCurrent();
@@ -454,6 +462,7 @@ export class HostContextAuthority {
       payloads: records.flatMap(record => record.payloads ?? []),
       originals: [...new Map([...records.flatMap(record => record.originals), ...binding.originals]
         .map(original => [refKey(original.ref), original])).values()],
+      consumptionChecks: records.flatMap(record => record.consumptionChecks ?? []),
       archives: [...new Set(records.flatMap(record => record.archives ?? []))],
       trace: combineContextTraces(records.map(record => record.trace!)),
     });
@@ -476,16 +485,20 @@ export class HostContextAuthority {
     await this.#current();
     const originals = new Map<string, OriginalEvidence>();
     const dependencies: FragmentRecord["dependencies"] = new Map();
+    const configurationInputs = [...new Map(records.flatMap(record => record.configurationInputs ?? [])
+      .map(entry => [canonicalJson(entry), entry])).values()];
+    const payloads = [...new Map(records.flatMap(record => record.payloads ?? [])
+      .map(entry => [canonicalJson(entry), entry])).values()];
     for (const record of records) {
       for (const [key, dependency] of record.dependencies) dependencies.set(key, dependency);
       for (const original of record.originals) originals.set(refKey(original.ref), original);
     }
-    for (const entry of records.flatMap(record => record.configurationInputs ?? [])) {
+    for (const entry of configurationInputs) {
       check(await configurationInputDigest(this.resolver.reader.root, entry.path) === entry.sha256,
         "host_context_configuration_input_changed");
     }
     for (const { ref, digest } of dependencies.values()) check(jsonDigest(await this.resolver.reader.read(ref)) === digest, "host_context_dependency_changed");
-    for (const payload of records.flatMap(record => record.payloads ?? [])) {
+    for (const payload of payloads) {
       const source = await this.resolver.reader.read(payload.source, "sources");
       check(validMemoryRef(source.policyRef) && dependencies.has(refKey(payload.source)) && dependencies.has(refKey(source.policyRef)),
         "host_context_payload_dependency_missing");
@@ -493,13 +506,12 @@ export class HostContextAuthority {
       await this.resolver.reader.readPayload(payload.source, payload.sha256);
     }
     for (const original of originals.values()) check(canonicalJson(await this.resolver.readEvidence(original.ref)) === canonicalJson(original), "host_context_evidence_changed");
-    for (const archive of new Set(records.flatMap(record => record.archives ?? []))) {
-      await readContextHistory(archive, this.resolver.reader.root);
+    for (const archive of new Map(records.flatMap(record => record.archives ?? [])
+      .map(archive => [canonicalJson(contextHistoryLocation(archive)), archive])).values()) {
+      await readContextHistory(archive, this.resolver.reader.root, this.resolver.reader);
     }
-    for (const view of records.flatMap(record => record.publishedViews ?? [])) {
-      await view.revalidate();
-    }
-    for (const entry of records.flatMap(record => record.configurationInputs ?? [])) {
+    for (const revalidate of new Set(records.flatMap(record => record.consumptionChecks ?? []))) await revalidate();
+    for (const entry of configurationInputs) {
       check(await configurationInputDigest(this.resolver.reader.root, entry.path) === entry.sha256,
         "host_context_configuration_input_changed");
     }
@@ -530,6 +542,7 @@ export class HostContextAuthority {
       dependencies: new Map(records.flatMap(record => [...record.dependencies])),
       configurationInputs: records.flatMap(record => record.configurationInputs ?? []),
       payloads: records.flatMap(record => record.payloads ?? []),
+      consumptionChecks: records.flatMap(record => record.consumptionChecks ?? []),
       archives: [...new Set(records.flatMap(record => record.archives ?? []))],
       trace: combineContextTraces(records.map(record => record.trace!)),
     }, "summary");
@@ -548,6 +561,7 @@ export class HostContextAuthority {
       dependencies: new Map(records.flatMap(record => [...record.dependencies])),
       configurationInputs: records.flatMap(record => record.configurationInputs ?? []),
       payloads: records.flatMap(record => record.payloads ?? []),
+      consumptionChecks: records.flatMap(record => record.consumptionChecks ?? []),
       archives: [...new Set(records.flatMap(record => record.archives ?? []))],
       trace: contextInputRoots(prior.trace),
     }, "conversation");
@@ -569,12 +583,16 @@ export class HostContextAuthority {
     const dependencies = [...new Map(records.flatMap(record => [...record.dependencies])).values()];
     const originals = [...new Map(records.flatMap(record => record.originals).map(original =>
       [refKey(original.ref), { ref: original.ref, digest: jsonDigest(original) }])).values()];
+    const consumedNodes = contextAncestorIds(prior.trace, [prior.trace.system, ...prior.trace.messages]);
+    const outcomeTransactions = [...this.#outcomeTransactions].filter(([nodeId]) => consumedNodes.has(nodeId))
+      .map(([nodeId, receipt]) => ({ nodeId, ...receipt }));
     return structuredClone({ schemaVersion: "stella.host-context-archive/v2" as const,
       graph: { ...prior.trace, nodes: combineContextTraces([contextInputRoots(prior.trace), this.#record(ingress).trace!]).nodes },
       agentId: this.request.agentId, authority: this.#authority,
       signerId: this.#historySignerId,
       configurationHash: this.#configurationHash, compilationDigest: this.#compilationDigest,
       consumptionDigest: consumption.digest, input: prior.input, dependencies, originals,
+      ...(outcomeTransactions.length ? { outcomeTransactions } : {}),
       payloads: [...new Map(records.flatMap(record => record.payloads ?? []).map(entry => [canonicalJson(entry), entry])).values()],
       configurationInputs: [...new Map(records.flatMap(record => record.configurationInputs ?? []).map(entry => [canonicalJson(entry), entry])).values()],
       archives: [...new Map(records.flatMap(record => record.archives ?? []).map(archive => {
@@ -588,7 +606,7 @@ export class HostContextAuthority {
    * the old generation nor the serialized consumption digest grants admission. */
   async restoreHistory(archive: StoredContextHistory): Promise<ContextFragment> {
     const location = contextHistoryLocation(archive);
-    const record = await this.#historicalRecord(await readContextHistory(archive, this.resolver.reader.root), location,
+    const record = await this.#historicalRecord(await readContextHistory(archive, this.resolver.reader.root, this.resolver.reader), location,
       contextHistoryVerificationKey(archive), [archive]);
     const fragment = this.#issue("derived", record);
     await this.#validate([fragment]);
@@ -638,10 +656,10 @@ export class HostContextAuthority {
     return (await this.#assessHistory(archive)).assessment;
   }
 
-  async #assessHistory(archive: StoredContextHistory) {
+  async #assessHistory(archive: StoredContextHistory, invalidatedRefs: ReadonlySet<string> = new Set()) {
     await this.#current();
     const location = contextHistoryLocation(archive);
-    const stored = await readContextHistory(archive, this.resolver.reader.root);
+    const stored = await readContextHistory(archive, this.resolver.reader.root, this.resolver.reader);
     const previous = this.#assertHistoryScope(stored, location);
     check(stored.schemaVersion === "stella.host-context-archive/v2", "host_context_history_graph_required");
     const graph = readContextArchiveGraph(stored);
@@ -656,7 +674,7 @@ export class HostContextAuthority {
       if (ancestors.has(key)) continue;
       check(ancestor.archiveRoot === location.archiveRoot && ancestor.signerId === location.signerId &&
         ancestor.digest !== location.digest, "host_context_archive_invalid");
-      ancestors.set(key, await loadContextHistory(this.resolver.reader.root, ancestor, contextHistoryVerificationKey(archive)));
+      ancestors.set(key, await loadContextHistory(this.resolver.reader.root, ancestor, contextHistoryVerificationKey(archive), this.resolver.reader));
     }
     const results = new Map<string, { id: string; eligible: boolean; reason?: string }>();
     const checkedRecords: FragmentRecord[] = [];
@@ -675,7 +693,7 @@ export class HostContextAuthority {
       check(sources.originals.every(original => dependencies.has(refKey(original.ref))) &&
         sources.payloads.every(payload => dependencies.has(refKey(payload.source))), "host_context_history_dependency_missing");
       let reason = node.parents.some(parent => !results.get(parent)?.eligible) ? "parent_ineligible" : undefined;
-      if (!reason && sources.dependencies.some(({ ref }) => !this.resolver.reader.eligible(ref))) reason = "source_not_current";
+      if (!reason && sources.dependencies.some(({ ref }) => invalidatedRefs.has(refKey(ref)) || !this.resolver.reader.eligible(ref))) reason = "source_not_current";
       const originals: OriginalEvidence[] = [];
       const currentDependencies: FragmentRecord["dependencies"] = new Map();
       const payloads: NonNullable<FragmentRecord["payloads"]> = [];
@@ -731,9 +749,9 @@ export class HostContextAuthority {
       const record: FragmentRecord = { text: node.content, originals, dependencies: currentDependencies,
         payloads, configurationInputs: sources.configurationInputs,
         archives: [archive, ...sources.archives.map(ancestor => ancestors.get(canonicalJson(ancestor))!)] };
-      await this.#validateRecords([record]);
       // Keep all checked current dependencies in the final race check, even
-      // when this node itself needs replacement. They do not authorize text.
+      // when this node itself needs replacement. Validate the batch once below,
+      // before any reconstruction can use it; records do not authorize text.
       checkedRecords.push(record);
       if (!reason) eligibleRecords.set(node.id, record);
       results.set(node.id, { id: node.id, eligible: !reason, ...(reason ? { reason } : {}) });
@@ -751,6 +769,7 @@ export class HostContextAuthority {
    * and caller-selected fresh evidence. The result cannot enter a model until
    * the view's publication transaction has independently admitted it. */
   async prepareHistoryRebuild(input: { viewId: string; archive: StoredContextHistory; current: readonly ContextFragment[];
+    invalidatedRefs?: ReadonlySet<string>;
     complete(input: { prompt: string; maxTokens: number }): Promise<{ text: string; modelRef: string }>;
   }): Promise<PreparedHistoryView> {
     check(typeof input.viewId === "string" && input.viewId.trim() && input.viewId.length <= 1024, "host_context_view_id_required");
@@ -758,7 +777,8 @@ export class HostContextAuthority {
     check(selected.length <= 512 && selected.every(fragment => ["evidence", "derived", "current_input"].includes(fragment.kind)),
       "host_context_rebuild_input_invalid");
     await this.#validate(selected);
-    const assessed = await this.#assessHistory(archive);
+    const invalidatedRefs = new Set(input.invalidatedRefs);
+    const assessed = await this.#assessHistory(archive, invalidatedRefs);
     const frontier = eligibleContextInputs(assessed.graph, new Set(assessed.eligibleRecords.keys()));
     const retained = frontier.roots.map(id => assessed.eligibleRecords.get(id)!);
     check(retained.length + selected.length > 0 && retained.length + selected.length <= 512, "host_context_rebuild_input_required");
@@ -789,7 +809,7 @@ export class HostContextAuthority {
     try { value = JSON.parse(result.text); } catch { throw new CatalogError("host_context_rebuild_invalid"); }
     check(isRecord(value) && Object.keys(value).join() === "summary" && typeof value.summary === "string" && value.summary.trim() &&
       Buffer.byteLength(value.summary) <= 32_000, "host_context_rebuild_invalid");
-    const after = await this.#assessHistory(archive);
+    const after = await this.#assessHistory(archive, invalidatedRefs);
     check(canonicalJson(after.assessment) === canonicalJson(assessed.assessment), "host_context_rebuild_sources_changed");
     await this.#validateRecords(records);
     // The model cannot select or prune provenance. Each retained node is bound
@@ -801,6 +821,7 @@ export class HostContextAuthority {
       originals: [...new Map(records.flatMap(record => record.originals).map(original => [refKey(original.ref), original])).values()],
       dependencies: new Map(records.flatMap(record => [...record.dependencies])),
       payloads: records.flatMap(record => record.payloads ?? []), configurationInputs: records.flatMap(record => record.configurationInputs ?? []),
+      consumptionChecks: records.flatMap(record => record.consumptionChecks ?? []),
       archives: [...new Set(records.flatMap(record => record.archives ?? []))], trace: combined };
     const sources = mergeContextSources([this.#sources(record)]);
     const trace = contextFragmentTrace("summary", value.summary, sources, [combined]);
@@ -811,7 +832,7 @@ export class HostContextAuthority {
       assessment: assessed.assessment, retainedNodeIds: [...frontier.roots], promptVersion, promptDigest: bytesVersion(prompt),
       modelRef: result.modelRef, text: value.summary, sources, trace };
     const handle = Object.freeze({ digest: jsonDigest(snapshot) });
-    this.#historyViews.set(handle, { snapshot, archive, records });
+    this.#historyViews.set(handle, { snapshot, archive, records, invalidatedRefs });
     return handle;
   }
 
@@ -820,7 +841,7 @@ export class HostContextAuthority {
   async historyViewSnapshot(view: PreparedHistoryView): Promise<HistoryViewSnapshot> {
     const prepared = this.#historyViews.get(view);
     check(prepared && view.digest === jsonDigest(prepared.snapshot), "host_context_view_unbound");
-    const assessed = await this.#assessHistory(prepared.archive);
+    const assessed = await this.#assessHistory(prepared.archive, prepared.invalidatedRefs);
     check(canonicalJson(assessed.assessment) === canonicalJson(prepared.snapshot.assessment), "host_context_rebuild_sources_changed");
     await this.#validateRecords(prepared.records);
     return structuredClone(prepared.snapshot);
@@ -852,7 +873,7 @@ export class HostContextAuthority {
     const { snapshot, verificationKey } = await load();
     check(jsonDigest(snapshot) === handle.digest, "host_context_view_changed");
     const record = await this.#historyViewRecord(snapshot, verificationKey, { allowReauthenticatedGeneration: true });
-    const fragment = this.#issue("derived", { ...record, publishedViews: [{ digest: handle.digest, revalidate }] });
+    const fragment = this.#issue("derived", { ...record, consumptionChecks: [revalidate] });
     await this.#validate([fragment]);
     return fragment;
   }
@@ -878,7 +899,7 @@ export class HostContextAuthority {
     if (!options?.allowReauthenticatedGeneration) {
       check(previous.generationId === this.#authority.generationId, "host_context_generation_mismatch");
     }
-    const archive = await loadContextHistory(this.resolver.reader.root, location, verificationKey);
+    const archive = await loadContextHistory(this.resolver.reader.root, location, verificationKey, this.resolver.reader);
     const assessed = await this.#assessHistory(archive);
     check(isRecord(value.assessment) && typeof value.assessment.archiveDigest === "string" &&
       Array.isArray(value.assessment.nodes), "host_context_view_invalid");
@@ -930,7 +951,7 @@ export class HostContextAuthority {
     const archives = [archive];
     for (const ancestor of sources.archives) {
       check(ancestor.archiveRoot === location.archiveRoot && ancestor.signerId === signerId, "host_context_archive_invalid");
-      archives.push(await loadContextHistory(this.resolver.reader.root, ancestor, verificationKey));
+      archives.push(await loadContextHistory(this.resolver.reader.root, ancestor, verificationKey, this.resolver.reader));
     }
     return { text: value.text, dependencies, originals, archives,
       payloads: sources.payloads, configurationInputs: sources.configurationInputs, trace };
@@ -999,7 +1020,7 @@ export class HostContextAuthority {
       check(isRecord(ancestor) && ancestor.archiveRoot === location.archiveRoot && typeof ancestor.digest === "string" &&
         ancestor.signerId === location.signerId && ancestor.digest !== location.digest, "host_context_archive_invalid");
       archives.push(await loadContextHistory(this.resolver.reader.root, { archiveRoot: location.archiveRoot, digest: ancestor.digest },
-        verificationKey));
+        verificationKey, this.resolver.reader));
     }
     return { text: canonicalJson({ kind: "historical_conversation", runId: previous.runId,
       generationId: previous.generationId, deliveryStatus: "not_verified", messages }), dependencies, originals, archives, configurationInputs, payloads,
@@ -1095,6 +1116,26 @@ export class HostContextAuthority {
     check(inputDigest(input) === consumption.digest, "host_context_input_changed");
   }
 
+  /** Admit fixed Host control text as formatting of this run's already
+   * archived input. The queued text cannot contribute independent evidence. */
+  async projectQueuedHostControl(consumption: ContextConsumption, observedPrompt: string) {
+    const prior = this.#consumptions.get(consumption);
+    check(prior && !this.#extended.has(consumption), "host_context_consumption_unbound");
+    const projectedPrompt = projectQueuedHostControlPrompt(this.request.prompt, observedPrompt);
+    check(projectedPrompt, "host_context_prompt_changed");
+    await this.assertConsumption(consumption, prior.input);
+    const input = structuredClone(prior.input);
+    const current = input.messages.at(-1);
+    check(current?.role === "user" && Array.isArray(current.content) && current.content.length === 1 &&
+      current.content[0]?.type === "text" && current.content[0].text === this.request.prompt,
+    "host_context_current_input_changed");
+    current.content[0].text = projectedPrompt;
+    const next = Object.freeze({ digest: inputDigest(input) });
+    this.#extended.add(consumption);
+    this.#consumptions.set(next, { input, fragments: [...prior.fragments], trace: projectContextTrace(prior.trace, input) });
+    return { input: structuredClone(input), consumption: next };
+  }
+
   /** Called by the managed engine at the Host's pre-wire assembly callback.
    * Raw user bytes must already match an issued context before the fixed Host
    * timestamp formatter can produce a new credential. */
@@ -1103,8 +1144,13 @@ export class HostContextAuthority {
     await this.assertConsumption(consumption, snapshot);
     const record = this.#consumptions.get(consumption)!;
     check(!this.#extended.has(consumption), "host_context_continuation_replayed");
+    const current = snapshot.messages.at(-1);
+    const currentText = current?.role === "user" ? typeof current.content === "string" ? current.content
+      : Array.isArray(current.content) && current.content.length === 1 && current.content[0]?.type === "text"
+        ? current.content[0].text : undefined : undefined;
+    check(currentText, "host_context_current_input_changed");
     const projected = projectManagedMessages(snapshot, timezone, this.request.hostMessageTimestamp === undefined ? undefined
-      : { text: this.request.prompt, timestamp: this.request.hostMessageTimestamp });
+      : { text: currentText, timestamp: this.request.hostMessageTimestamp });
     const next = Object.freeze({ digest: inputDigest(projected) });
     this.#extended.add(consumption);
     this.#consumptions.set(next, { input: projected, fragments: [...record.fragments], trace: projectContextTrace(record.trace, projected) });

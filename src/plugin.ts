@@ -5,8 +5,11 @@ import type { SourceAccessDescriptor } from "./canghai/source-access.js";
 import { HostContextAuthority, type ContextFragment } from "./openclaw/host-context-authority.js";
 import { loadContextHistoryKeys } from "./openclaw/host-context-keys.js";
 import { loadContextHistory, persistContextHistory } from "./openclaw/host-context-history.js";
+import { findPublishedHistoryView, loadPublishedHistoryArchives,
+  prepareHostHistoryRebuildAdmissions, restorePublishedHistoryView } from "./openclaw/host-context-view.js";
 import { loadContextHistoryHead, publishCompletedContextHistoryHead } from "./openclaw/host-context-head.js";
 import { applyMemoryTransaction } from "./canghai/memory-transaction.js";
+import { viewsRequiringRebuild } from "./canghai/view-migration.js";
 import { parseSourcePolicy } from "./canghai/source-policy.js";
 import { recoverCorrection } from "./learning/correction.js";
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "./canghai/host-request-archive.js";
@@ -281,6 +284,65 @@ export default definePluginEntry({
       return CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
     });
     const initialization = registerStellaInitialization(api, config, undefined, async () => archiveRetention.blockers());
+    const prepareRequestHistoryRebuilds = async ({ request, loaded, resolver, before, after, journalPath,
+      evidenceRefs, ownerId, modelRef, audience, durability, assertCurrent, extraChangedPaths }: {
+      request: BoundTurnRequest; loaded: LoadedConsciousness; resolver: EpisodeEvidenceResolver; before: CatalogReader;
+      after: import("./canghai/catalog-reader.js").MemoryCatalog; journalPath: string;
+      evidenceRefs: readonly import("./praxis/episode-v2.js").VersionedRef[]; ownerId: string; modelRef: string;
+      audience: ReturnType<typeof resolveTurnAudience>; durability: GitCangHaiDurability;
+      assertCurrent(): Promise<void>; extraChangedPaths?: ReadonlySet<string>;
+    }) => {
+      const needed = viewsRequiringRebuild({ before: before.catalog, after, extraChangedPaths });
+      if (!needed.length) return [];
+      if (!config.contextHistorySignerId || !config.contextHistoryArchiveRoot) {
+        throw new CatalogError("host_context_history_configuration_required");
+      }
+      const keys = await loadContextHistoryKeys({ stateDirectory: api.runtime.state.resolveStateDir(),
+        repositoryRoot: loaded.canghaiRoot, agentId: config.agentId }, config.contextHistorySignerId);
+      const currentRevision = (await durability.diagnostics()).localRevision;
+      const currentLoaded = await loadConsciousness(config.canghaiRoot, config.manifestPath, {
+        recoveryRevision: currentRevision, coreVersion: STELLA_CORE_COMPATIBILITY_VERSION,
+        openclawVersion: api.runtime.version, dataMode: config.dataMode,
+      });
+      const currentBinding = await loadPraxisRuntimeBinding(currentLoaded);
+      const rebuildAuthority = await bindTurnProcessingAuthority(request, currentLoaded, currentBinding,
+        ownerId, modelRef, audience);
+      if (rebuildAuthority.generationId !== before.catalog.generationId) {
+        throw new CatalogError("host_context_generation_mismatch");
+      }
+      const compilation = await initialization.prepareContextCompilation(request);
+      const authority = new HostContextAuthority(resolver, request, {
+        authority: rebuildAuthority, configurationHash: hostContextExecutionHash(api.runtime.config.current(), config),
+        compilation, historyVerificationKey: keys.verificationKey,
+        captureCurrent: async () => {
+          await assertCurrent();
+          await before.assertCurrent();
+          return { request, modelRef: resolveLiveModelRef(), deployment: rebuildAuthority.deployment,
+            purpose: currentBinding.purpose, generationId: before.catalog.generationId,
+            configurationHash: hostContextExecutionHash(api.runtime.config.current(), config),
+            compilation: await initialization.prepareContextCompilation(request) };
+        },
+      });
+      try {
+        const archives = await loadPublishedHistoryArchives(before, needed, keys.verificationKey, request.agentId);
+        const current = await Promise.all(evidenceRefs.map(ref => authority.evidence(ref)));
+        const result = await prepareHostHistoryRebuildAdmissions({ authority, signingKey: keys.signingKey,
+          catalogPath: before.catalogPath, publicationJournalPath: journalPath,
+          before: before.catalog, after, extraChangedPaths, archives,
+          currentByView: new Map(needed.map(viewId => [viewId, current])),
+          complete: async ({ prompt, maxTokens }) => {
+            const answer = await completeModel({ agentId: config.agentId, model: modelRef,
+              purpose: "stella-history-rebuild", temperature: 0, maxTokens,
+              messages: [{ role: "user", content: prompt }] });
+            return { text: answer.text, modelRef: `${answer.provider}/${answer.model}` };
+          },
+        });
+        if (result.some(admission => !needed.includes(admission.viewId) || admission.view.generationId !== after.generationId)) {
+          throw new CatalogError("required_view_rebuild_invalid");
+        }
+        return result;
+      } finally { authority.close(); }
+    };
     registerCompletionTranscriptGuard(api, config.agentId);
     const completeModel = async (params: Parameters<typeof api.runtime.llm.complete>[0], assertInputsCurrent?: () => Promise<void>) => {
       const call = async () => {
@@ -610,15 +672,36 @@ export default definePluginEntry({
             throw new CompletionError("invalid_recovery_request", "admission");
           }
           if (config.dataMode !== "managed_durable_write") throw new CompletionError("critical_durability_required", "admission");
-          const { loaded, binding, episodeRoot } = await loadOutcomeRecoveryBinding(config.canghaiRoot, config.manifestPath, config.recoveryRevision);
-          const { runtime } = await createRuntime(loaded);
+          const { loaded, binding, episodeRoot, assertCurrent: assertRecoveryCurrent } = await loadOutcomeRecoveryBinding(config.canghaiRoot, config.manifestPath, config.recoveryRevision);
+          ensureDurability(loaded);
           const abortSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(300_000)]) : AbortSignal.timeout(300_000);
           const recoveryInput = { root: loaded.canghaiRoot, operationId: params.operationId, catalogPath: binding.catalogPath,
-            objectRoot: binding.archive.objectRoot, episodeRoot, purpose: runtime.evidence.purpose, durability: durability!, abortSignal,
+            objectRoot: binding.archive.objectRoot, episodeRoot, purpose: { ...binding.purpose, evidenceCutoff: new Date().toISOString(),
+              trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, durability: durability!, abortSignal,
             complete: (input: { prompt: string; maxTokens: number }) => api.runtime.llm.complete({ agentId: config.agentId, purpose: `stella-${recoveryKind}-recovery-evidence`, signal: abortSignal,
               temperature: 0, maxTokens: input.maxTokens, messages: [{ role: "user", content: input.prompt }] }),
           };
-          const result = recoveryKind === "outcome" ? await recoverPendingOutcome(recoveryInput) : await recoverPendingQuestion(recoveryInput);
+          let contextHistory;
+          if (recoveryKind === "outcome") {
+            if (!config.contextHistorySignerId || !config.contextHistoryArchiveRoot) throw new CatalogError("host_context_history_configuration_required");
+            const keys = await loadContextHistoryKeys({ stateDirectory: api.runtime.state.resolveStateDir(),
+              repositoryRoot: loaded.canghaiRoot, agentId: config.agentId }, config.contextHistorySignerId);
+            const modelRef = resolveLiveModelRef();
+            const processing = binding.personalContextAccessPath ? await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath) : undefined;
+            if (processing && (processing.config.operatorRecovery !== true || !processing.config.requesterIds.includes(client.connect.client.id) ||
+              !processing.config.viewProcessingModelRefs?.includes(modelRef))) throw new CatalogError("operator_recovery_grant_required");
+            contextHistory = { archiveRoot: config.contextHistoryArchiveRoot, verificationKey: keys.verificationKey,
+              agentId: config.agentId, modelRef, ownerPolicyRef: binding.archive.policyRef, assertCurrent: async () => {
+                abortSignal.throwIfAborted(); await assertRecoveryCurrent(); await processing?.assertCurrent();
+                const current = api.runtime.config.current().plugins?.entries?.["stella-core"];
+                if (current?.enabled !== true || current.config?.canghaiRoot !== config.canghaiRoot || current.config.agentId !== config.agentId ||
+                  current.config.contextHistorySignerId !== config.contextHistorySignerId || current.config.contextHistoryArchiveRoot !== config.contextHistoryArchiveRoot ||
+                  (current.config.manifestPath ?? "50_PersonalAgent/stella/manifest.yaml") !== config.manifestPath) throw new CatalogError("recovery_host_binding_changed");
+                if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
+              } };
+          }
+          const result = recoveryKind === "outcome" ? await recoverPendingOutcome({ ...recoveryInput, contextHistory }) :
+            await recoverPendingQuestion({ ...recoveryInput, purpose: (await createRuntime(loaded)).runtime.evidence.purpose });
           respond(true, { ...result, replyResent: false });
         } catch (error) {
           const category = error instanceof CompletionError || error instanceof EpisodeV2Error || error instanceof MemoryTransactionError || error instanceof CatalogError
@@ -632,6 +715,9 @@ export default definePluginEntry({
     const corrections = new Map<string, Awaited<ReturnType<typeof applyHostCorrection>>>();
     const completions = new Map<string, { prepared: PreparedTurn; draft: CompletionDraft; original: HostInputSnapshot }>();
     registerCompletionAdapter(api, config.agentId, {
+      async assertHostResetAllowed() {
+        await assertHostMemoryProfile(await consciousness.load());
+      },
       async resourceScope() {
         const root = await realpath(config.canghaiRoot);
         return process.platform === "win32" ? root.toLowerCase() : root;
@@ -681,15 +767,18 @@ export default definePluginEntry({
               processingAuthority, processingGrant: viewProcessing.processingGrant,
               complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
                 purpose: "stella-correction", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] }),
+              viewRebuilds: context => prepareRequestHistoryRebuilds({ ...context, request, loaded,
+                ownerId: viewProcessing.ownerId, modelRef: viewProcessing.modelRef, audience, durability: durability!, assertCurrent }),
             }));
             await assertCurrent();
             await initialization.revokeActiveRuns("correction_applied", { retainRunId: runId });
             corrections.set(runId, receipt);
           } catch (error) {
+            const category = error instanceof CatalogError || error instanceof MemoryTransactionError || error instanceof InitializationError
+              ? error.category : "correction_failed";
+            api.logger.error(`Stella correction preparation failed: ${category}`);
             throw new CompletionError(
-              error instanceof CatalogError || error instanceof MemoryTransactionError || error instanceof InitializationError
-                ? error.category
-                : "correction_failed",
+              category,
               "prepare",
             );
           }
@@ -954,6 +1043,7 @@ export default definePluginEntry({
             let persistRecommendation: PreparedTurn["persistRecommendation"];
             let evidenceRef: string | undefined;
             let outcomeContext: PreparedTurn["outcomeContext"];
+            let outcomeArchive: Awaited<ReturnType<typeof loadContextHistory>> | undefined;
             let questionContext: Awaited<ReturnType<typeof prepareQuestionEvidence>> | undefined;
             let questionBundle: Awaited<ReturnType<typeof prepareQuestionEvidence>>["bundle"] | undefined;
             const renderSelectedContext = () => renderSelectedCortexContext({ question: request.prompt, route,
@@ -1056,11 +1146,29 @@ export default definePluginEntry({
               if (planned.disposition === "ready") {
                 if (config.dataMode !== "managed_durable_write" || !durability) throw new CompletionError("critical_durability_required", "prepare");
                 const transaction = await prepareOutcomeTransaction({ operationId: runId, requestId: runId, revision: loaded.recoveryRevision ?? config.recoveryRevision,
-                  runtime, prepared: planned, objectRoot: binding.archive.objectRoot });
+                  runtime, prepared: planned, objectRoot: binding.archive.objectRoot,
+                  viewRebuilds: async (_generationId, after, journalPath, changes) => {
+                    const before = runtime.evidence.reader;
+                    const extraChangedPaths = new Set(changes.filter(file => file.before !== null).map(file => file.path));
+                    if (!viewsRequiringRebuild({ before: before.catalog, after, extraChangedPaths }).length) return [];
+                    if (!viewProcessing) throw new CatalogError("host_context_history_processing_required");
+                    const outcome = await readPreparedOutcomeContext(planned);
+                    return prepareRequestHistoryRebuilds({ request, loaded, resolver: runtime.evidence, before, after, journalPath,
+                      evidenceRefs: outcome.originals.map(original => original.ref), ownerId: viewProcessing.ownerId,
+                      modelRef: viewProcessing.modelRef, audience, durability: durability!, extraChangedPaths,
+                      assertCurrent: async () => {
+                        assertContextConfigurationCurrent?.();
+                        await viewProcessing.assertCurrent();
+                        await before.assertCurrent();
+                        await readPreparedOutcomeContext(planned);
+                      },
+                    });
+                  },
+                });
                 outcomeContext.transaction = transaction;
                 evidenceRef = canonicalJson(transaction.bundleRef);
                 const boundDurability = durability!;
-                persistRecommendation = async (_text, abortSignal) => transaction.persist(boundDurability, abortSignal);
+                persistRecommendation = async (_text, abortSignal) => transaction.persist(boundDurability, abortSignal, outcomeArchive);
                 route = applyOutcomeResponse(route, planned);
                 appendContext = renderOutcomeContext(selected, planned, transaction);
               } else {
@@ -1208,7 +1316,20 @@ export default definePluginEntry({
               const history: ContextFragment[] = [];
               const previous = await loadContextHistoryHead({ root: loaded.canghaiRoot, archiveRoot, request,
                 revision: config.recoveryRevision, verificationKey: keys.verificationKey, requireBusinessCommit: true });
-              if (previous) history.push(await authority.restoreHistory(previous.archive));
+              if (previous) {
+                const view = await findPublishedHistoryView(authority, previous.archive, keys.verificationKey, request.agentId);
+                const restored = view ? await restorePublishedHistoryView(authority, view) : await authority.restoreHistory(previous.archive);
+                // Repeated Host turns otherwise nest the previous signed input
+                // inside each new archive. Reuse the existing semantic summary
+                // and inherited source closure before that context exceeds the
+                // Host's model budget; never truncate or silently drop history.
+                history.push(Buffer.byteLength(await authority.renderContext([restored])) <= 32_000 ? restored
+                  : await authority.summarize([restored], async ({ prompt, maxTokens }) => {
+                    const result = await completeModel({ agentId: config.agentId, model: modelRef, purpose: "stella-context-summary",
+                      temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] });
+                    return { text: result.text, modelRef: `${result.provider}/${result.model}` };
+                  }));
+              }
               let selected: { context: ContextFragment; responseContract: ContextFragment };
               if (outcomeContext) {
                 selected = await authority.outcomeContext({ routing: preparedRouting, route: preparedRoute, routeFragment,
@@ -1267,6 +1388,7 @@ export default definePluginEntry({
               persistManagedHistory = signal => engine.persistCompletedHistory(async context => {
                 const stored = await archiveContext(context, signal);
                 retainedArchive = await loadContextHistory(loaded.canghaiRoot, { archiveRoot, digest: stored.locator.sha256 }, keys.verificationKey);
+                if (outcomeContext?.transaction) outcomeArchive = retainedArchive;
                 return { revision: (await activeDurability.diagnostics()).localRevision, writeOperationIds: [stored.operationId] };
               });
               publishManagedHistory = async (completion, signal) => {

@@ -1,5 +1,5 @@
 import { readContextArchiveGraph } from "./host-context-graph.js";
-import { CatalogError, readRepositoryBytes } from "../canghai/catalog-reader.js";
+import { CatalogReader, CatalogError, readRepositoryBytes } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { applyMemoryTransaction, assertMemoryTransactionReadable, readRecordedMemoryTransaction } from "../canghai/memory-transaction.js";
 import { createPublicKey, sign, verify, type KeyObject } from "node:crypto";
@@ -50,8 +50,11 @@ function archiveRoot(value: string): string {
   return value;
 }
 
-async function assertArchiveReadable(root: string, operationId: string): Promise<void> {
-  await assertMemoryTransactionReadable(root);
+async function assertArchiveReadable(root: string, operationId: string, reader?: CatalogReader): Promise<void> {
+  if (reader) {
+    if (!(reader instanceof CatalogReader) || reader.root !== root) throw new CatalogError("host_context_archive_unbound");
+    await reader.assertCurrent();
+  } else await assertMemoryTransactionReadable(root);
   // The owning writer may read its unpublished catalog, but must not turn an
   // unfinished archive transaction into a restoration credential.
   try {
@@ -66,7 +69,7 @@ async function assertArchiveReadable(root: string, operationId: string): Promise
 
 /** Only a completed Core archive transaction can supply a restoration handle.
  * Native Host messages and model-provided JSON cannot mint this handle. */
-export async function loadContextHistory(root: string, location: { archiveRoot: string; digest: string }, verificationKey: KeyObject): Promise<StoredContextHistory> {
+export async function loadContextHistory(root: string, location: { archiveRoot: string; digest: string }, verificationKey: KeyObject, reader?: CatalogReader): Promise<StoredContextHistory> {
   contextHistorySignerId(verificationKey);
   if (!/^sha256:[a-f0-9]{64}$/.test(location.digest)) throw new CatalogError("host_context_archive_invalid");
   const directory = archiveRoot(location.archiveRoot);
@@ -74,14 +77,14 @@ export async function loadContextHistory(root: string, location: { archiveRoot: 
   const handle = Object.freeze({ digest: location.digest });
   histories.set(handle, { root, archiveRoot: directory, operationId, verificationKey, path: `${directory}/contexts/${location.digest.slice(7)}.json`,
     journalPath: `${directory}/operations/${operationId}.json` });
-  await readContextHistory(handle, root);
+  await readContextHistory(handle, root, reader);
   return handle;
 }
 
-export async function readContextHistory(handle: StoredContextHistory, root: string): Promise<Record<string, unknown>> {
+export async function readContextHistory(handle: StoredContextHistory, root: string, reader?: CatalogReader): Promise<Record<string, unknown>> {
   const binding = histories.get(handle);
   if (!binding || binding.root !== root) throw new CatalogError("host_context_archive_unbound");
-  await assertArchiveReadable(root, binding.operationId);
+  await assertArchiveReadable(root, binding.operationId, reader);
   const bytes = await readRepositoryBytes(root, binding.path);
   const signature = await readRepositoryBytes(root, `${binding.path}.sig`);
   if (bytesVersion(bytes) !== handle.digest) throw new CatalogError("host_context_archive_changed");
@@ -99,7 +102,7 @@ export async function readContextHistory(handle: StoredContextHistory, root: str
   try { value = JSON.parse(bytes.toString("utf8")); } catch { throw new CatalogError("host_context_archive_invalid"); }
   if (!isRecord(value) || !["stella.host-context-archive/v1", "stella.host-context-archive/v2"].includes(String(value.schemaVersion))) throw new CatalogError("host_context_archive_invalid");
   if (value.schemaVersion === "stella.host-context-archive/v2") readContextArchiveGraph(value);
-  await assertArchiveReadable(root, binding.operationId);
+  await assertArchiveReadable(root, binding.operationId, reader);
   return value;
 }
 

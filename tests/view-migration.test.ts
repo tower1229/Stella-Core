@@ -51,6 +51,16 @@ test("open views rebuild when non-catalog episode paths change even if catalog e
   }), /required_view_rebuild_required/);
 });
 
+test("source-bound views cannot reauthenticate across non-catalog Episode writes", () => {
+  const before = catalog([view({ id: "session", sourceRefs: [{ id: "source", version: "sha256:" + "a".repeat(64) }] })]);
+  const after = structuredClone(before);
+  after.parentGenerationId = before.generationId;
+  after.generationId = "generation-two";
+  const extraChangedPaths = new Set(["episodes/one/episode.json"]);
+  assert.deepEqual(viewsRequiringRebuild({ before, after, extraChangedPaths }), ["session"]);
+  assert.throws(() => planViewReauthentication({ before, after, extraChangedPaths }), /required_view_rebuild_required/);
+});
+
 test("structured rebuild admissions replace touched views without rerunning a model", () => {
   const sourceRef = { id: "source", version: "sha256:" + "a".repeat(64) };
   const before = catalog([view({ id: "session", sourceRefs: [sourceRef] })], {

@@ -2,7 +2,7 @@ import { FRAGMENT_READ_TOOL } from "./fragment-read-tool.js";
 import { randomUUID } from "node:crypto";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveAgentWorkspaceDir, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
-import { getSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
+import { getSessionEntry, patchSessionEntry, type SessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
 import {
   CompletionError, coordinateCompletion, captureCompletionOutput, readCompletionOutput, readCompletionPreparation,
   type CompletionDraft, type CompletionPorts, type CompletionResult,
@@ -12,6 +12,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { captureHostInput, type HostInputSnapshot } from "./host-input.js";
 import { admitCompletionOnce, openCompletionAdmissionJournal } from "./completion-admission.js";
 import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
+import { CatalogError } from "../canghai/catalog-reader.js";
 
 // Keep terminal run IDs too: a late callback is not a new request. Do not evict a
 // known run merely to admit new work, since eviction could authorize a resend.
@@ -26,6 +27,21 @@ export const PRIVATE_DRAFT_HOST_POLICY = {
 } as const;
 /** Constrained private-draft tool surface: observe/verify only, never source expand or delivery tools. */
 export const CONSTRAINED_TOOL_EXECUTION_ALLOW = ["read", "stella_initialize", FRAGMENT_READ_TOOL] as const;
+type CompletionSessionStart = { sessionId: string; lifecycleRevision?: string; startedAt: number };
+
+/** Public status only; the SDK preserves Host writer/recovery ownership fields. */
+export function completionSessionTerminalPatch(entry: SessionEntry, start: CompletionSessionStart, terminal: {
+  status: "done" | "failed" | "killed"; endedAt: number; error?: string;
+}): Partial<SessionEntry> {
+  if (entry.sessionId !== start.sessionId || entry.lifecycleRevision !== start.lifecycleRevision ||
+      entry.startedAt !== start.startedAt || (entry.status !== "running" && entry.status !== terminal.status) ||
+      !Number.isSafeInteger(start.startedAt) || start.startedAt <= 0 ||
+      !Number.isSafeInteger(terminal.endedAt) || terminal.endedAt < start.startedAt) {
+    throw new CompletionError("host_completion_session_changed", "publish");
+  }
+  return { status: terminal.status, endedAt: terminal.endedAt, runtimeMs: terminal.endedAt - start.startedAt,
+    abortedLastRun: terminal.status === "killed", lastRunError: terminal.status === "failed" ? terminal.error : undefined };
+}
 function claimRun(agentId: string, runId: string): boolean {
   const key = JSON.stringify([agentId, runId]);
   if (claimedRuns.has(key)) return false;
@@ -53,6 +69,7 @@ export function parsePrivateAssistantDraft(value: unknown): string {
 
 export type CompletionAdapterPorts = {
   resourceScope(): Promise<string>;
+  assertHostResetAllowed(): Promise<void>;
   prepareInput?(input: { runId: string; abortSignal: AbortSignal }): Promise<void>;
   withFinalValidation?(input: Parameters<CompletionPorts["publishFinal"]>[0], publish: () => ReturnType<CompletionPorts["publishFinal"]>): ReturnType<CompletionPorts["publishFinal"]>;
   validateDraft?(input: { runId: string; text: string; preparation: unknown; abortSignal: AbortSignal }): Promise<void>;
@@ -73,6 +90,21 @@ export function registerCompletionAdapter(
   api.on("reply_dispatch", async (event, ctx) => {
     const sessionKey = event.sessionKey ?? event.ctx.SessionKey;
     if (!sessionKey?.startsWith(`agent:${agentId}:`)) return;
+    // Host owns reset parsing and its transcript boundary. Claiming this turn
+    // would make /new an ordinary model prompt and leave the old session live.
+    const commandTurn = event.ctx.CommandTurn;
+    let resetGateFailure: CompletionError | undefined;
+    if (commandTurn && commandTurn.kind !== "normal" &&
+        (commandTurn.commandName === "new" || commandTurn.commandName === "reset")) {
+      try {
+        await ports.assertHostResetAllowed();
+        return;
+      } catch (error) {
+        // Claim the failed command and deliver the blocker through the normal
+        // Host terminal. It must never fall through to an ordinary model turn.
+        resetGateFailure = new CompletionError(error instanceof CatalogError ? error.category : "host_reset_guard_failed", "admission");
+      }
+    }
     const runId = event.runId;
     let result: CompletionResult | undefined;
     let failure: { category: string; stage: string } | undefined;
@@ -81,6 +113,7 @@ export function registerCompletionAdapter(
     let queued = false;
     let claimed = false;
     let duplicate = false;
+    let sessionStart: CompletionSessionStart | undefined;
     try {
       // This must precede Host ownership and any awaited work. Otherwise a second
       // registration can replace the first owner's terminal callback, then fail at
@@ -103,6 +136,7 @@ export function registerCompletionAdapter(
       });
       if (ownership !== "reply-dispatch") throw new CompletionError("capability_unavailable", "admission");
       claimed = true;
+      if (resetGateFailure) throw resetGateFailure;
       const entry = getSessionEntry({ agentId, sessionKey });
       if (entry?.modelOverride || entry?.providerOverride) {
         throw new CompletionError("session_model_override_unavailable", "admission");
@@ -151,6 +185,12 @@ export function registerCompletionAdapter(
             toolExecutionAllow: [...CONSTRAINED_TOOL_EXECUTION_ALLOW],
             suppressLiveStreamOutput: true,
             ...PRIVATE_DRAFT_HOST_POLICY, deferTerminalLifecycle: true,
+            onAgentEvent(event) {
+              if (event.stream === "lifecycle" && event.data.phase === "start" &&
+                  typeof event.data.startedAt === "number") {
+                sessionStart = { sessionId, lifecycleRevision: entry?.lifecycleRevision, startedAt: event.data.startedAt };
+              }
+            },
             userTurnTranscriptRecorder: ctx.userTurnTranscriptRecorder,
             prepareAssistantTranscriptMessage: ctx.prepareAssistantTranscriptMessage,
           });
@@ -168,12 +208,16 @@ export function registerCompletionAdapter(
           const prepared = readCompletionPreparation(runId);
           await ports.validateDraft?.({ runId, text, preparation: prepared, abortSignal });
           if (abortSignal.aborted) throw new CompletionError("cancelled", "generate");
+          if (!sessionStart) throw new CompletionError("host_completion_lifecycle_unverifiable", "generate");
           return ports.describeDraft(runId, text, originalInput, prepared);
         },
         persist: ports.persist,
         async publishFinal(input) {
           // Admission is the irreversible send boundary; never re-send on unknown delivery.
           const publish = () => {
+            const current = getSessionEntry({ agentId, sessionKey });
+            if (!current || !sessionStart) throw new CompletionError("host_completion_lifecycle_unverifiable", "publish");
+            completionSessionTerminalPatch(current, sessionStart, { status: "done", endedAt: Date.now() });
             queued = true;
             return publishCompletionDraft({ ...input, dispatcher: ctx.dispatcher });
           };
@@ -200,12 +244,35 @@ export function registerCompletionAdapter(
       }
       ctx.recordProcessed("error", { reason: `stella_${caught.category}` });
     } finally {
-      if (claimed && runId) {
-        try { ports.settled(runId, result, failure); } catch {
-          api.logger.error("Stella completion: cleanup_failed:settled");
+      try {
+        if (claimed && runId && sessionStart) {
+          try {
+            const terminal = { status: result?.delivery.status === "confirmed" ? "done" as const
+              : ctx.abortSignal?.aborted ? "killed" as const : "failed" as const,
+              endedAt: Date.now(), error: terminalError };
+            const updated = await patchSessionEntry({ agentId, sessionKey, requireWriteSuccess: true, skipMaintenance: true,
+              update: entry => completionSessionTerminalPatch(entry, sessionStart!, terminal) });
+            if (!updated || updated.status !== terminal.status) throw new CompletionError("host_completion_lifecycle_unverifiable", "publish");
+          } catch (error) {
+            const category = error instanceof CompletionError ? error.category : "host_completion_status_write_failed";
+            failure = { category, stage: "publish" };
+            terminalOutcome = "failed";
+            terminalError = `Stella 未完成本轮请求（${category}，阶段：publish）。收尾状态未确认，不自动重发。`;
+            api.logger.error(`Stella completion: ${category}:publish`);
+            ctx.recordProcessed("error", { reason: `stella_${category}` });
+          }
+        }
+      } finally {
+        try {
+          if (claimed && runId) {
+            try { ports.settled(runId, result, failure); } catch {
+              api.logger.error("Stella completion: cleanup_failed:settled");
+            }
+          }
+        } finally {
+          if (!duplicate) ctx.markIdle("Stella completion settled");
         }
       }
-      if (!duplicate) ctx.markIdle("Stella completion settled");
     }
     return { handled: true, queuedFinal: queued, counts: { tool: 0, block: 0, final: queued ? 1 : 0 } };
   }, { priority: 1_000, timeoutMs: 660_000, eligibleDispatchKinds: ["agent"] });

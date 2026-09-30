@@ -1,7 +1,7 @@
 import { createPublicKey, sign, verify, type KeyObject } from "node:crypto";
 import { CatalogError, readRepositoryBytes } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
-import { applyMemoryTransaction, assertMemoryTransactionReadable, readRecordedMemoryTransaction } from "../canghai/memory-transaction.js";
+import { applyMemoryTransaction, assertMemoryTransactionReadable, parseRecordedMemoryTransaction, readRecordedMemoryTransaction } from "../canghai/memory-transaction.js";
 import { blob, git } from "../canghai/synchronization-plan.js";
 import type { IngestDurabilityPort } from "../canghai/ingest.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -106,8 +106,8 @@ async function verifyBusinessCommit(root: string, value: unknown, snapshot: Reco
     check(isRecord(journal) && journal.operationId === reference.operationId, invalid);
     if (journal.schemaVersion === "stella.memory-transaction/v1") {
       check(Array.isArray(journal.files) && journal.journalPath === reference.path, invalid);
-      const plan = { operationId: journal.operationId, journalPath: journal.journalPath, files: journal.files };
-      check(journal.planHash === bytesVersion(canonicalJson(plan)), invalid);
+      try { parseRecordedMemoryTransaction(bytes.toString("utf8"), reference.operationId); }
+      catch { throw new CatalogError(invalid); }
       for (const file of journal.files) {
         check(isRecord(file) && typeof file.path === "string" && typeof file.after === "string" &&
           (file.encoding === undefined || file.encoding === "utf8" || file.encoding === "base64"), invalid);

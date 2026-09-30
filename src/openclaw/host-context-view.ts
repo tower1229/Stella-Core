@@ -1,12 +1,13 @@
 import { createPublicKey, sign, verify, type KeyObject } from "node:crypto";
+import path from "node:path";
 import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, type MemoryCatalog } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
-import { applyMemoryTransaction, assertMemoryTransactionReadable, readRecordedMemoryTransaction, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
+import { applyMemoryTransaction, parseRecordedMemoryTransaction, readRecordedMemoryTransaction, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
 import { parseViewRecipe, viewRecipePath, type MemoryView } from "../canghai/view-recipe.js";
-import { viewsRequiringRebuild, type ViewRebuildAdmission } from "../canghai/view-migration.js";
+import { catalogChangedRefs, viewsRequiringRebuild, type ViewRebuildAdmission } from "../canghai/view-migration.js";
 import type { IngestDurabilityPort } from "../canghai/ingest.js";
 import { isRecord } from "../shared/type-guards.js";
-import { contextHistorySignerId, type StoredContextHistory } from "./host-context-history.js";
+import { contextHistoryLocation, contextHistorySignerId, loadContextHistory, type StoredContextHistory } from "./host-context-history.js";
 import type { ContextFragment, HostContextAuthority, PreparedHistoryView } from "./host-context-authority.js";
 
 const adapterId = "stella.host-history";
@@ -41,14 +42,16 @@ function decode(bytes: string, signature: string, key: KeyObject): Snapshot {
   // before a transaction can publish or a caller can consume this signed data.
   return value as Snapshot;
 }
-function materializeHistoryView(snapshot: Snapshot, bytes: string, generationId: string, catalogPath: string) {
+function materializeHistoryView(snapshot: Snapshot, bytes: string, generationId: string, catalogPath: string,
+  publicationJournalPath?: string) {
   const archiveRoot = directory(snapshot.sourceArchive.archiveRoot), digest = bytesVersion(bytes);
   const refs = snapshot.sources.dependencies.map(dependency => {
     check(isRecord(dependency) && isRecord(dependency.ref) && typeof dependency.ref.id === "string" && typeof dependency.ref.version === "string");
     return { id: dependency.ref.id, version: dependency.ref.version };
   });
   const body = { schemaVersion: "stella.view-recipe/v1", id: `history-view:${snapshot.viewId}`, adapterId, adapterVersion,
-    hostTarget: snapshot.agentId, inputRefs: refs, parameters: { archiveRoot, digest },
+    hostTarget: snapshot.agentId, inputRefs: refs, parameters: { archiveRoot, digest,
+      ...(publicationJournalPath ? { publicationJournalPath } : {}) },
     modelRef: snapshot.modelRef, promptVersion: snapshot.promptVersion };
   const recipe = { ...body, version: objectVersion(body) };
   const view: MemoryView = { id: snapshot.viewId, generationId,
@@ -125,7 +128,8 @@ export async function recoverHistoryView(root: string, catalogPath: string, key:
 export async function loadPublishedHistoryView(reader: CatalogReader, viewId: string, key: KeyObject): Promise<PublishedHistoryView> {
   const recipe = await reader.readViewRecipe(viewId);
   check(recipe.adapterId === adapterId && recipe.adapterVersion === adapterVersion &&
-    Object.keys(recipe.parameters).sort().join() === "archiveRoot,digest" && typeof recipe.parameters.archiveRoot === "string" &&
+    ["archiveRoot,digest", "archiveRoot,digest,publicationJournalPath"].includes(Object.keys(recipe.parameters).sort().join()) &&
+    typeof recipe.parameters.archiveRoot === "string" &&
     typeof recipe.parameters.digest === "string" && /^sha256:[a-f0-9]{64}$/.test(recipe.parameters.digest), "host_context_view_recipe_invalid");
   const digest = recipe.parameters.digest, archiveRoot = directory(recipe.parameters.archiveRoot);
   const artifact = `${archiveRoot}/history-views/${digest.slice(7)}.json`;
@@ -133,31 +137,68 @@ export async function loadPublishedHistoryView(reader: CatalogReader, viewId: st
   const signature = (await readRepositoryBytes(reader.root, `${artifact}.sig`)).toString("utf8");
   check(bytesVersion(bytes) === digest, "host_context_view_changed");
   const snapshot = decode(bytes, signature, key);
-  const journal = (await readRepositoryBytes(reader.root, `${archiveRoot}/operations/history_view_${digest.slice(7)}.json`)).toString("utf8");
+  const publicationJournalPath = recipe.parameters.publicationJournalPath;
+  check(publicationJournalPath === undefined || typeof publicationJournalPath === "string" &&
+    publicationJournalPath === path.posix.join(path.posix.dirname(reader.catalogPath), "operations", path.posix.basename(publicationJournalPath)) &&
+    /^[a-zA-Z][a-zA-Z0-9_-]{0,199}\.transaction\.json$/.test(path.posix.basename(publicationJournalPath)),
+  "host_context_view_publication_invalid");
+  const journalPath = publicationJournalPath ?? `${archiveRoot}/operations/history_view_${digest.slice(7)}.json`;
+  const journal = (await readRepositoryBytes(reader.root, journalPath)).toString("utf8");
   let transaction: unknown;
   try { transaction = JSON.parse(journal); } catch { throw new CatalogError("host_context_view_publication_invalid"); }
-  check(isRecord(transaction) && Array.isArray(transaction.files) && isRecord(transaction.files[3]) && typeof transaction.files[3].before === "string");
-  const expected = planFor(snapshot, bytes, signature, reader.catalogPath, transaction.files[3].before);
-  check(journal === canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...expected.plan, planHash: bytesVersion(canonicalJson(expected.plan)) }));
+  check(isRecord(transaction) && transaction.schemaVersion === "stella.memory-transaction/v1" &&
+    transaction.journalPath === journalPath && typeof transaction.operationId === "string" && Array.isArray(transaction.files),
+  "host_context_view_publication_invalid");
+  const files = transaction.files;
+  try { parseRecordedMemoryTransaction(journal, transaction.operationId); }
+  catch { throw new CatalogError("host_context_view_publication_invalid"); }
+  const expected = materializeHistoryView(snapshot, bytes, reader.catalog.generationId, reader.catalogPath,
+    publicationJournalPath);
+  if (!publicationJournalPath) {
+    check(isRecord(files[3]) && typeof files[3].before === "string", "host_context_view_publication_invalid");
+    const standalone = planFor(snapshot, bytes, signature, reader.catalogPath, files[3].before);
+    check(journal === canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...standalone.plan,
+      planHash: bytesVersion(canonicalJson(standalone.plan)) }), "host_context_view_publication_invalid");
+  }
+  if (publicationJournalPath) {
+    for (const [file, value] of [[expected.artifactPath, bytes], [`${expected.artifactPath}.sig`, signature],
+      [expected.recipePath, expected.recipeBytes]] as const) {
+      check(files.some(entry => isRecord(entry) && entry.path === file && entry.after === value && entry.before === null),
+        "host_context_view_publication_invalid");
+    }
+    check(files.some(entry => isRecord(entry) && entry.path === reader.catalogPath && typeof entry.before === "string" &&
+      typeof entry.after === "string" && (() => { try { const after = JSON.parse(entry.after); return isRecord(after) &&
+        Array.isArray(after.views) && after.views.some(view => isRecord(view) &&
+          canonicalJson({ ...view, generationId: expected.view.generationId }) === canonicalJson(expected.view)); }
+      catch { return false; } })()), "host_context_view_publication_invalid");
+  }
   const selected = reader.catalog.views.find(view => view.id === viewId);
   // Reauthentication advances only generationId; recipe, sources and required must stay exact.
   check(snapshot.viewId === viewId && recipe.hostTarget === snapshot.agentId && selected &&
     selected.generationId === reader.catalog.generationId && selected.required === expected.view.required &&
     canonicalJson(selected.recipeRef) === canonicalJson(expected.view.recipeRef) &&
     canonicalJson(selected.sourceRefs) === canonicalJson(expected.view.sourceRefs), "host_context_view_catalog_changed");
-  await assertMemoryTransactionReadable(reader.root);
-  // The owning publication transaction must not expose an unfinished view.
+  await reader.assertCurrent();
+  // The current transaction owner may read an already published view while
+  // archiving this turn. A pending write to this view or its catalog cannot
+  // become a restoration credential until that transaction finishes.
+  let pending = true;
   try { await readRepositoryBytes(reader.root, ".stella-memory-transaction.json"); }
   catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      await reader.assertCurrent();
-      const handle = Object.freeze({ viewId, digest });
-      published.set(handle, { root: reader.root, catalogPath: reader.catalogPath, verificationKey: key, recipeRef: expected.view.recipeRef });
-      return handle;
-    }
-    throw error;
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") pending = false;
+    else throw error;
   }
-  throw new CatalogError("host_context_view_pending");
+  if (pending) {
+    const plan = await readRecordedMemoryTransaction(reader.root);
+    const protectedPaths = new Set([reader.catalogPath, expected.artifactPath, `${expected.artifactPath}.sig`,
+      expected.recipePath, journalPath]);
+    check(!plan.files.some(file => protectedPaths.has(file.path)) && plan.journalPath !== journalPath,
+      "host_context_view_pending");
+  }
+  await reader.assertCurrent();
+  const handle = Object.freeze({ viewId, digest });
+  published.set(handle, { root: reader.root, catalogPath: reader.catalogPath, verificationKey: key, recipeRef: expected.view.recipeRef });
+  return handle;
 }
 
 export async function readPublishedHistoryView(handle: PublishedHistoryView, reader: CatalogReader) {
@@ -181,13 +222,49 @@ export async function restorePublishedHistoryView(authority: HostContextAuthorit
   return authority.admitPublishedHistoryView(handle);
 }
 
+/** Select only a required reconstruction of this exact retained Host archive.
+ * Loading the handle verifies publication; admission and every later provider
+ * check revalidate its signed content and live source eligibility. */
+export async function findPublishedHistoryView(authority: HostContextAuthority, archive: StoredContextHistory,
+  verificationKey: KeyObject, agentId: string): Promise<PublishedHistoryView | undefined> {
+  const reader = authority.resolver.reader;
+  const location = contextHistoryLocation(archive);
+  let selected: PublishedHistoryView | undefined;
+  for (const view of reader.catalog.views) {
+    const recipe = await reader.readViewRecipe(view.id);
+    if (recipe.adapterId !== adapterId || recipe.adapterVersion !== adapterVersion ||
+      recipe.hostTarget !== agentId) continue;
+    check(view.required, "host_context_view_catalog_changed");
+    const handle = await loadPublishedHistoryView(reader, view.id, verificationKey);
+    const { snapshot } = await readPublishedHistoryView(handle, reader);
+    if (canonicalJson(snapshot.sourceArchive) !== canonicalJson(location)) continue;
+    check(!selected, "host_context_view_ambiguous");
+    selected = handle;
+  }
+  return selected;
+}
+
+/** Recover each affected view's exact signed source archive before preparing a
+ * generation migration. A request may rebuild only views for its own Agent. */
+export async function loadPublishedHistoryArchives(reader: CatalogReader, viewIds: readonly string[],
+  verificationKey: KeyObject, agentId: string): Promise<Map<string, StoredContextHistory>> {
+  const archives = new Map<string, StoredContextHistory>();
+  for (const viewId of viewIds) {
+    const handle = await loadPublishedHistoryView(reader, viewId, verificationKey);
+    const { snapshot } = await readPublishedHistoryView(handle, reader);
+    check(snapshot.agentId === agentId, "host_context_view_agent_mismatch");
+    archives.set(viewId, await loadContextHistory(reader.root, snapshot.sourceArchive, verificationKey, reader));
+  }
+  return archives;
+}
+
 /** Build a structured rebuild admission for a destination generation without
  * writing the catalog. Generation writers embed these bytes in their own plan. */
 export async function admissionFromPreparedHistoryView(
   authority: HostContextAuthority,
   prepared: PreparedHistoryView,
   signingKey: KeyObject,
-  input: { generationId: string; catalogPath: string },
+  input: { generationId: string; catalogPath: string; publicationJournalPath?: string },
 ): Promise<ViewRebuildAdmission> {
   check(signingKey.type === "private", "host_context_archive_key_invalid");
   check(typeof input.generationId === "string" && input.generationId.trim(), "host_context_generation_mismatch");
@@ -196,7 +273,8 @@ export async function admissionFromPreparedHistoryView(
   check(snapshot.signerId === contextHistorySignerId(key), "host_context_archive_signer_mismatch");
   const bytes = canonicalJson(snapshot);
   const signature = sign(null, Buffer.from(bytes), signingKey).toString("base64");
-  const material = materializeHistoryView(snapshot, bytes, input.generationId, input.catalogPath);
+  const material = materializeHistoryView(snapshot, bytes, input.generationId, input.catalogPath,
+    input.publicationJournalPath);
   return Object.freeze({
     viewId: snapshot.viewId, view: material.view,
     artifactPath: material.artifactPath, artifactBytes: bytes,
@@ -211,6 +289,7 @@ export async function prepareHostHistoryRebuildAdmissions(input: {
   authority: HostContextAuthority;
   signingKey: KeyObject;
   catalogPath: string;
+  publicationJournalPath?: string;
   before: MemoryCatalog;
   after: MemoryCatalog;
   extraChangedPaths?: ReadonlySet<string>;
@@ -222,15 +301,17 @@ export async function prepareHostHistoryRebuildAdmissions(input: {
   const needed = viewsRequiringRebuild({
     before: input.before, after: input.after, extraChangedPaths: input.extraChangedPaths,
   });
+  const invalidatedRefs = catalogChangedRefs(input.before, input.after);
   const admissions: ViewRebuildAdmission[] = [];
   for (const viewId of needed) {
     const archive = input.archives.get(viewId);
     check(archive, "required_view_rebuild_required");
     const prepared = await input.authority.prepareHistoryRebuild({
-      viewId, archive, current: [...(input.currentByView?.get(viewId) ?? [])], complete: input.complete,
+      viewId, archive, current: [...(input.currentByView?.get(viewId) ?? [])], invalidatedRefs, complete: input.complete,
     });
     admissions.push(await admissionFromPreparedHistoryView(input.authority, prepared, input.signingKey, {
       generationId: input.after.generationId, catalogPath: input.catalogPath,
+      ...(input.publicationJournalPath ? { publicationJournalPath: input.publicationJournalPath } : {}),
     }));
   }
   return admissions;

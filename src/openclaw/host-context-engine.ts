@@ -9,8 +9,8 @@ import type { FragmentToolResultReceipt } from "./fragment-read-tool.js";
 import type { HostMemoryInput, HostModelOutputReceipt } from "./host-memory-provider.js";
 import { HostContextAuthority, type ContextFragment } from "./host-context-authority.js";
 import type { CommitHostContextTurn } from "./host-context-turn-store.js";
-import { projectManagedMessages } from "./host-context-prompt.js";
-import { hasCompletionPersistencePermit } from "./completion.js";
+import { projectManagedMessages, projectQueuedHostControlPrompt } from "./host-context-prompt.js";
+import { CompletionError, hasCompletionPersistencePermit } from "./completion.js";
 
 // The slot is also a plugin activation id in the original Host. A separate
 // engine alias loads at startup but cannot bind other Agents' prepared runtime.
@@ -164,10 +164,12 @@ export class ManagedHostContextEngine implements ContextEngine {
       }
       this.#sealed = undefined;
       this.#boundaryProjected = false;
-      check(params.prompt === this.request.prompt, "host_context_prompt_changed");
+      const hostWrapped = params.prompt !== this.request.prompt;
+      check(!hostWrapped || projectQueuedHostControlPrompt(this.request.prompt, params.prompt), "host_context_prompt_changed");
       await this.ports.archive(snapshot);
-      const sealed = await this.authority.seal({ system: this.#system, messages: [...this.#history, this.authority.currentInput()]
+      let sealed = await this.authority.seal({ system: this.#system, messages: [...this.#history, this.authority.currentInput()]
         .map(fragment => ({ role: "user", fragment })) });
+      if (hostWrapped) sealed = await this.authority.projectQueuedHostControl(sealed.consumption, params.prompt);
       // Host assembles history before applying before_prompt_build.toolsAllow.
       // Require our tools to exist here; seal still binds the exact final tool
       // definitions, so an extra surviving tool fails at the provider boundary.
@@ -295,7 +297,20 @@ export function registerManagedHostContextEngine(api: OpenClawPluginApi,
   scope?: { targetAgentId: string }): void {
   api.registerContextEngine(STELLA_CONTEXT_ENGINE, context => {
     if (scope && !selectsTarget(context, scope.targetAgentId)) return legacyContextEngine();
-    const request = bindRequest();
+    let request: ReturnType<typeof bindRequest>;
+    try { request = bindRequest(); }
+    catch (error) {
+      if (!(error instanceof CompletionError) || error.category !== "invalid_run_permit") throw error;
+      // The Host replaces a throwing factory with legacy. Return an explicit
+      // refusal from our owned compact method so a separate compaction model
+      // cannot consume unverified history through that fallback.
+      return {
+        info: ENGINE_INFO,
+        async ingest() { throw error; },
+        async assemble() { throw error; },
+        async compact() { return { ok: false, compacted: false, reason: "host_context_compaction_not_admitted" }; },
+      };
+    }
     let engine: ManagedHostContextEngine | undefined;
     let disposed = false;
     const current = () => {

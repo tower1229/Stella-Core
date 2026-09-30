@@ -1,6 +1,6 @@
 import path from "node:path";
 import { verifySourceInterpretation } from "../canghai/source-interpretation.js";
-import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogEntry } from "../canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogEntry, type MemoryCatalog } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
@@ -65,7 +65,7 @@ export async function prepareCorrection(input: {
   processingAuthority: ProcessingAuthority;
   assertProcessingCurrent: () => Promise<void>; complete: Complete;
   /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
-  viewRebuilds?: (generationId: string) =>
+  viewRebuilds?: (generationId: string, after: MemoryCatalog, journalPath: string) =>
     | readonly ViewRebuildAdmission[]
     | undefined
     | Promise<readonly ViewRebuildAdmission[] | undefined>;
@@ -267,7 +267,7 @@ export async function prepareCorrection(input: {
     targetRefs: targets, changes: changeRows, disposition: proposal.disposition, rationale: proposal.rationale }, [...input.evidenceRefs, ...targets]);
   after.parentGenerationId = reader.catalog.generationId;
   after.generationId = `generation_${bytesVersion(canonicalJson({ operationId, before: reader.catalogHash, changeRef })).slice(7)}`;
-  const viewRebuilds = await input.viewRebuilds?.(after.generationId);
+  const viewRebuilds = await input.viewRebuilds?.(after.generationId, structuredClone(after), journalPath);
   const viewMigration: ViewMigrationPlan = planViewMigration({ before: reader.catalog, after, rebuilds: viewRebuilds });
   after = applyViewMigration(after, viewMigration);
   parseMemoryCatalog(after);

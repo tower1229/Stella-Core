@@ -107,7 +107,9 @@ export type MemoryFileChange = {
   /** Default utf8. base64 stores original binary bytes in the journal without UTF-8 corruption. */
   encoding?: MemoryFileEncoding;
 };
-export type MemoryTransactionPlan = { operationId: string; journalPath: string; files: MemoryFileChange[] };
+export type MemoryTransactionPlan = { operationId: string; journalPath: string; files: MemoryFileChange[];
+  /** Locator only. Recovery must authenticate the archive with deployment-owned keys. */
+  contextArchive?: { archiveRoot: string; digest: string } };
 
 function normalizeEncoding(value: unknown): MemoryFileEncoding {
   return value === "base64" ? "base64" : "utf8";
@@ -142,8 +144,13 @@ export async function readRecordedMemoryTransaction(root: string, expectedOperat
   const pending = await text(await location(path.resolve(root), markerName));
   const bytes = pending ?? (completedJournalPath ? await text(await location(path.resolve(root), completedJournalPath)) : null);
   check(bytes !== null, "pending_transaction_not_found");
+  return parseRecordedMemoryTransaction(bytes!, expectedOperationId);
+}
+
+/** Decode the same exact journal contract for both recovery and consumers. */
+export function parseRecordedMemoryTransaction(bytes: string, expectedOperationId?: string): MemoryTransactionPlan {
   let value: unknown;
-  try { value = JSON.parse(bytes!); } catch { throw new MemoryTransactionError("invalid_transaction_journal"); }
+  try { value = JSON.parse(bytes); } catch { throw new MemoryTransactionError("invalid_transaction_journal"); }
   if (!isRecord(value) || value.schemaVersion !== "stella.memory-transaction/v1" ||
       typeof value.operationId !== "string" || !/^[a-zA-Z][a-zA-Z0-9_-]{0,199}$/.test(value.operationId) ||
       (expectedOperationId !== undefined && value.operationId !== expectedOperationId) ||
@@ -152,7 +159,12 @@ export async function readRecordedMemoryTransaction(root: string, expectedOperat
         typeof file.after === "string" && (file.encoding === undefined || file.encoding === "utf8" || file.encoding === "base64"))) {
     throw new MemoryTransactionError("invalid_transaction_journal");
   }
+  if (value.contextArchive !== undefined && (!isRecord(value.contextArchive) ||
+    Object.keys(value.contextArchive).sort().join() !== "archiveRoot,digest" ||
+    typeof value.contextArchive.archiveRoot !== "string" || typeof value.contextArchive.digest !== "string" ||
+    !/^sha256:[a-f0-9]{64}$/.test(value.contextArchive.digest))) throw new MemoryTransactionError("invalid_transaction_journal");
   const plan: MemoryTransactionPlan = { operationId: value.operationId, journalPath: value.journalPath,
+    ...(isRecord(value.contextArchive) ? { contextArchive: { archiveRoot: String(value.contextArchive.archiveRoot), digest: String(value.contextArchive.digest) } } : {}),
     files: value.files.map((file) => ({
       path: file.path,
       before: file.before,

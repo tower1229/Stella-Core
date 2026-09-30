@@ -151,14 +151,46 @@ test("open Episode candidates retain current Episode bytes and their original in
   const prepared = await prepareRoutingCandidates(f.input);
   assert.equal(prepared.candidates.openEpisodes?.length, 1);
   const fragment = await f.gate.routingCandidates(prepared);
+  const summarized = await f.gate.summarize([fragment], async () => ({ text: '{"summary":"The candidate remains open"}', modelRef: "synthetic/synthetic" }));
+  const sealed = await f.gate.seal({ system: f.gate.publicRules(), messages: [{ role: "user", fragment: summarized }] });
+  await f.gate.assertConsumption(sealed.consumption, sealed.input);
+  const receipt = await readPreparedRoutingCandidates(prepared);
+  const selected = await f.input.runtime.selectedEpisode(prepared.candidates.openEpisodes![0]!.ref);
+  assert.ok(receipt.configurationInputs.some(input => input.path === f.input.runtime.repository.historicalPath(episode.id, selected.version)));
+  assert.equal(receipt.configurationInputs.some(input => input.path === f.input.runtime.repository.currentPath(episode.id)), false);
   const file = path.join(f.root, f.input.runtime.repository.currentPath(episode.id));
   const previous = await readFile(file, "utf8");
   await writeFile(file, previous + " ");
-  await assert.rejects(f.gate.renderContext([fragment]), /host_context_configuration_input_changed/);
+  await assert.rejects(f.gate.renderContext([fragment]), /routing_input_changed/);
+  await assert.rejects(f.gate.assertConsumption(sealed.consumption, sealed.input), /routing_input_changed/);
   await writeFile(file, previous);
   await f.gate.renderContext([fragment]);
   await writeFile(path.join(f.root, f.ingress.payload.path), "Changed original owner input");
   await assert.rejects(f.gate.renderContext([fragment]), /payload_digest_mismatch/);
+});
+
+test("Episode history pins survive a legitimate transition while live candidates expire", async t => {
+  const f = await fixture(t), now = "2026-09-06T00:00:00Z";
+  await f.gate.bindArchivedInput(f.ingress.evidenceRefs[0]!);
+  const episode = { schemaVersion: "stella.praxis-episode/v2" as const, id: "historical-episode", status: "open" as const,
+    createdAt: now, updatedAt: now, recoveryPriority: "important" as const, provenance: {}, historicalInputRefs: f.ingress.evidenceRefs,
+    situation: { summary: "An earlier discussion", domains: ["writing"], observations: [] } };
+  const opened = await f.input.runtime.repository.apply({ operationId: "historical-open", expectedVersion: null, episode });
+  const candidates = await f.gate.routingCandidates(await prepareRoutingCandidates(f.input));
+  const sealed = await f.gate.seal({ system: f.gate.publicRules(), messages: [{ role: "user", fragment: candidates }] });
+  const retained = await persistContextHistory(f.gate, sealed.consumption, { archiveRoot: "synthetic-history", signingKey: f.keys.privateKey,
+    durability: { syncCritical: async () => ({ state: "synchronized", localRevision: "a".repeat(40) }), confirmPreviouslyCommitted: async () => {} } });
+  await f.input.runtime.repository.apply({ operationId: "historical-recommend", expectedVersion: opened.version,
+    episode: { ...episode, status: "recommended", decision: { recommendation: "Discuss the remaining question", rationale: [] } } });
+  await assert.rejects(f.gate.assertConsumption(sealed.consumption, sealed.input), /routing_input_changed|stale_episode_selection/);
+  const archive = await loadContextHistory(f.root, { archiveRoot: "synthetic-history", digest: retained.locator.sha256 }, f.keys.publicKey);
+  const fresh = f.createGate();
+  const restored = await fresh.restoreHistory(archive);
+  const input = await fresh.seal({ system: fresh.publicRules(), messages: [{ role: "user", fragment: restored }] });
+  await fresh.assertConsumption(input.consumption, input.input);
+  assert.match(JSON.stringify(input.input.messages), /historical_conversation/);
+  await writeFile(path.join(f.root, f.input.runtime.repository.historicalPath(episode.id, opened.version)), "{}");
+  await assert.rejects(fresh.assertConsumption(input.consumption, input.input), /host_context_configuration_input_changed/);
 });
 
 test("unselected learning candidates preserve the originals of their Learning Change", async t => {

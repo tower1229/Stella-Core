@@ -1,5 +1,5 @@
 import path from "node:path";
-import { CatalogReader, parseMemoryCatalog, readRepositoryBytes, type CatalogEntry } from "../canghai/catalog-reader.js";
+import { CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogEntry } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction } from "../canghai/memory-transaction.js";
@@ -13,6 +13,9 @@ import { EpisodeV2Error, parseEpisodeV2, validateEpisodeV2References, validateEp
 import { loadEvidenceBundle, parseEvidenceBundle } from "./evidence-bundle.js";
 import { createOutcomeEvidenceBundle } from "./outcome-evidence-bundle.js";
 import type { OutcomeLearningProposal } from "./outcome-preparation.js";
+import type { KeyObject } from "node:crypto";
+import { contextHistorySignerId, loadContextHistory, readContextHistory } from "../openclaw/host-context-history.js";
+import { contextAncestorIds, parseContextSources, readContextArchiveGraph } from "../openclaw/host-context-graph.js";
 
 function check(value: unknown): asserts value { if (!value) throw new EpisodeV2Error("outcome_recovery_plan_invalid"); }
 const same = (left: unknown, right: unknown) => canonicalJson(left) === canonicalJson(right);
@@ -22,6 +25,8 @@ const unique = (refs: VersionedRef[]) => [...new Map(refs.map((ref) => [canonica
 export async function recoverPendingOutcome(input: {
   root: string; operationId: string; catalogPath: string; episodeRoot: string; objectRoot: string;
   purpose: EvidencePurpose; complete: EpisodeEvidenceResolver["complete"]; durability: GitCangHaiDurability; abortSignal: AbortSignal;
+  contextHistory?: { archiveRoot: string; verificationKey: KeyObject; agentId: string; modelRef: string;
+    ownerPolicyRef: VersionedRef; assertCurrent(): Promise<void> };
 }): Promise<{ revision: string; generationId: string; writeOperationIds: string[] }> {
   const journalPath = path.posix.join(path.posix.dirname(input.catalogPath), "operations", `${input.operationId}.transaction.json`);
   const plan = await readRecordedMemoryTransaction(input.root, input.operationId, journalPath);
@@ -118,29 +123,80 @@ export async function recoverPendingOutcome(input: {
   check(same(migrated, after));
   check(viewMigration.files.every(file => plan.files.some(entry => entry.path === file.path && entry.after === file.after)));
   check(plan.files.length === objects.length + 3 + viewMigration.files.length);
-  await applyMemoryTransaction(input.root, plan, {
-    async validate() {
+  const history = input.contextHistory;
+  if (!history || !plan.contextArchive || plan.contextArchive.archiveRoot !== history.archiveRoot) {
+    throw new EpisodeV2Error("outcome_recovery_verification_required");
+  }
+  const planHash = bytesVersion(canonicalJson({ operationId: plan.operationId, journalPath: plan.journalPath, files: plan.files }));
+  let validated = false;
+  const validate = async () => {
+      await history.assertCurrent();
       const current = await CatalogReader.load(input.root, input.catalogPath);
       check([bytesVersion(catalogFile.before!), bytesVersion(catalogFile.after)].includes(current.catalogHash));
       await current.validatePreview(after, objects.map((file) => ({ path: file.path, bytes: file.after })), async (preview) => {
         check(Number.isFinite(Date.parse(input.purpose.evidenceCutoff)));
         const evidenceCutoff = new Date(Math.min(Date.parse(input.purpose.evidenceCutoff), Date.parse(episode.updatedAt))).toISOString();
         const resolver = new EpisodeEvidenceResolver(preview, { ...input.purpose, evidenceCutoff }, input.complete);
+        const archive = await loadContextHistory(input.root, plan.contextArchive!, history.verificationKey, preview);
+        const stored = await readContextHistory(archive, input.root, preview);
+        const authority = stored.authority;
+        const ownerPolicy = await preview.read(history.ownerPolicyRef, "policies");
+        check(typeof ownerPolicy.ownerId === "string" && ownerPolicy.ownerId.trim());
+        const owner = ownerPolicy.ownerId;
+        if (!isRecord(authority) || stored.agentId !== history.agentId || stored.signerId !== contextHistorySignerId(history.verificationKey) ||
+          authority.ownerId !== owner || authority.senderIsOwner !== true || authority.audience !== "owner_direct" ||
+          authority.privateContextAllowed !== true || authority.runId !== bundle.requestId || authority.generationId !== before.generationId ||
+          authority.modelRef !== history.modelRef || change.object.modelRef !== history.modelRef ||
+          !same(authority.purpose, { readPurpose: input.purpose.readPurpose, derivePurpose: input.purpose.derivePurpose,
+            deliveryScope: input.purpose.deliveryScope })) throw new EpisodeV2Error("outcome_recovery_scope_mismatch");
+        const graph = readContextArchiveGraph(stored);
+        const consumed = contextAncestorIds(graph, [graph.system, ...graph.messages]);
+        if (!Array.isArray(stored.outcomeTransactions) || !stored.outcomeTransactions.some((receipt: unknown) =>
+          isRecord(receipt) && receipt.operationId === plan.operationId && receipt.planHash === planHash &&
+          typeof receipt.nodeId === "string" && consumed.has(receipt.nodeId) &&
+          graph.nodes.some(node => node.id === receipt.nodeId && node.producer === "derived"))) {
+          throw new EpisodeV2Error("outcome_recovery_verification_mismatch");
+        }
+        const sources = parseContextSources({ dependencies: stored.dependencies, originals: stored.originals, payloads: stored.payloads,
+          configurationInputs: stored.configurationInputs, archives: stored.archives }, false);
+        for (const entry of sources.dependencies) check(bytesVersion(canonicalJson(await preview.read(entry.ref))) === entry.digest);
+        for (const entry of sources.originals) check(bytesVersion(canonicalJson(await resolver.readEvidence(entry.ref))) === entry.digest);
+        for (const entry of sources.payloads) {
+          const source = await preview.read(entry.source, "sources");
+          check(validMemoryRef(source.policyRef));
+          await resolver.assertSourceAccess(entry.source, source.policyRef);
+          await preview.readPayload(entry.source, entry.sha256);
+        }
+        for (const entry of sources.archives) {
+          check(entry.archiveRoot === history.archiveRoot && entry.signerId === contextHistorySignerId(history.verificationKey));
+          await loadContextHistory(input.root, entry, history.verificationKey, preview);
+        }
+        for (const entry of sources.configurationInputs) check(bytesVersion(await readRepositoryBytes(input.root, entry.path)) === entry.sha256);
         await loadEvidenceBundle(resolver, { bundleRef: bundleObject.ref, requestId: bundle.requestId,
           revision: bundle.revision, generationId: bundle.generationId });
         await validateEpisodeV2References(episode, {
           resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
-          verifyActionEvidence: (actual) => resolver.verifyActionEvidence(actual), verifyOutcomeEvidence: (actual, outcome) => resolver.verifyOutcomeEvidence(actual, outcome),
+          // The signed, consumed producer attests this exact transaction. Live
+          // references and originals are reread above; recovery performs no inference.
+          verifyActionEvidence: async actual => same(actual, episode.actual),
+          verifyOutcomeEvidence: async (actual, outcome) => same(actual, episode.actual) && same(outcome, episode.outcome),
           resolveLearning: (ref) => resolver.resolveLearning(ref),
         });
         for (const ref of inputRefs) await resolver.readEvidence(ref);
         check(await resolver.isCurrentlyEligible(episode));
       }, { viewMigration, viewRebuilds, viewExtraChangedPaths: extraChangedPaths });
-    },
+      await history.assertCurrent();
+      validated = true;
+  };
+  await applyMemoryTransaction(input.root, plan, {
+    validate,
     async persist(paths, operationId) { await input.durability.syncCritical(paths, `recover outcome ${operationId}`); },
     confirmPreviouslyCommitted: (file) => input.durability.confirmPreviouslyCommitted(file),
     publishView: () => afterDurablePersistPublishView(input.root),
   }, input.abortSignal);
+  // Idempotent completed-journal recovery still checks current authority and
+  // the signature, even though the transaction itself needs no write replay.
+  if (!validated) await validate();
   const diagnostics = await input.durability.diagnostics();
   if (!diagnostics.criticalSynchronized || diagnostics.localRevision !== diagnostics.synchronizedRevision) throw new EpisodeV2Error("critical_sync_failed");
   return { revision: diagnostics.localRevision, generationId: after.generationId, writeOperationIds: [plan.operationId] };

@@ -624,12 +624,23 @@ test("synchronize rebuilds an evidence-bound required view from recorded admissi
     expectedGenerationId: f.catalog.generationId };
   await assert.rejects(synchronize(input, ports), /required_view_rebuild_required/);
   const policy = { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version };
+  let rebuildCalls = 0;
   const receipt = await synchronize(input, {
     ...ports,
-    viewRebuilds: (generationId) => [syncHistoryAdmission({
-      viewId: "session-history", generationId, sourceRefs: [policy], text: "rebuilt-after-sync",
-    })],
+    viewRebuilds: async (generationId, after, journalPath, context) => {
+      await context.assertCurrent();
+      await context.resolver.reader.assertCurrent();
+      assert.equal(context.before.generationId, input.expectedGenerationId);
+      assert.equal(after.generationId, generationId);
+      assert.equal(journalPath.endsWith(".transaction.json"), true);
+      assert.equal(context.resolver.reader.catalog.sources.find(source => source.id === f.source.id)?.status, "removed");
+      rebuildCalls++;
+      return [syncHistoryAdmission({
+        viewId: "session-history", generationId, sourceRefs: [policy], text: "rebuilt-after-sync",
+      })];
+    },
   });
+  assert.equal(rebuildCalls, 1);
   const reader = await CatalogReader.load(f.root, "catalog.json");
   assert.equal(reader.catalog.views[0]?.generationId, receipt.generationId);
   assert.deepEqual(reader.catalog.views[0]?.sourceRefs, [policy]);

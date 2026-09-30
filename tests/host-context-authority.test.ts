@@ -18,7 +18,7 @@ import { bindProcessingAuthority, resolveDeploymentDigest } from "../src/opencla
 import type { OpenClawPluginApi, ProviderPlugin } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveAgentDir } from "openclaw/plugin-sdk/agent-runtime";
 import { delegateCompactionToRuntime } from "openclaw/plugin-sdk/core";
-import { coordinateCompletion, completionDraftHash, readActiveCompletionRequest } from "../src/openclaw/completion.js";
+import { CompletionError, coordinateCompletion, completionDraftHash, readActiveCompletionRequest } from "../src/openclaw/completion.js";
 import { registerHostMemoryProvider, readHostModelOutput } from "../src/openclaw/host-memory-provider.js";
 import { snapshotTurnRequest, type BoundTurnRequest } from "../src/openclaw/turn-request.js";
 import type { VersionedRef } from "../src/praxis/episode-v2.js";
@@ -31,7 +31,7 @@ import { loadContextHistory, readContextHistory, persistContextHistory, recoverC
 import { applyMemoryTransaction, assertMemoryTransactionReadable } from "../src/canghai/memory-transaction.js";
 import {
   admissionFromPreparedHistoryView, loadPublishedHistoryView, publishPreparedHistoryView, readPublishedHistoryView, recoverHistoryView,
-  restorePublishedHistoryView, prepareHostHistoryRebuildAdmissions,
+  restorePublishedHistoryView, findPublishedHistoryView, loadPublishedHistoryArchives, prepareHostHistoryRebuildAdmissions,
 } from "../src/openclaw/host-context-view.js";
 import { MAIN_REQUIRED_HISTORY_VIEW_ID, viewRecipePath } from "../src/canghai/view-recipe.js";
 import { loadContextHistoryHead, publishContextHistoryHead, publishCompletedContextHistoryHead } from "../src/openclaw/host-context-head.js";
@@ -221,7 +221,7 @@ test("durable history heads bind the selected revision, reject cache rollback, a
   }), /host_context_history_parent_missing/);
   await assertMemoryTransactionReadable(f.root);
   await f.update("Corrected source");
-  await assert.rejects(f.authority.restoreHistory(head!.archive), /processing_generation_mismatch/);
+  await assert.rejects(f.authority.restoreHistory(head!.archive), /stale_generation/);
 });
 
 test("signed history graphs keep independent source inputs and summary dependencies distinct", async t => {
@@ -550,6 +550,7 @@ test("signed business binding survives a failed head commit and rejects a replac
       catalog.parentGenerationId = catalog.generationId;
       catalog.generationId = "business-result-generation";
       await applyMemoryTransaction(f.root, { operationId: "completed_business", journalPath: "business.transaction.json",
+        contextArchive: { archiveRoot: "retained-context", digest: archive.digest },
         files: [{ path: "catalog.json", before, after: canonicalJson(catalog) }] }, {
         validate: async () => {}, persist: paths => f.durability.syncCritical(paths).then(() => undefined),
         confirmPreviouslyCommitted: f.durability.confirmPreviouslyCommitted,
@@ -1212,6 +1213,63 @@ test("an engine archive failure cannot authorize Host fallback messages", async 
   await assert.rejects(engine.assertConsumption({ systemPrompt: "fallback", messages: [], tools: [] }), /archive transaction failed/);
 });
 
+test("the pinned Host failed-send wrapper keeps the archived current request bound through final consumption", async t => {
+  const f = await fixture(t);
+  const authority = await f.create();
+  const system = authority.publicRules();
+  const engine = new ManagedHostContextEngine(f.request, authority, { system, history: [], hostTimezone: "UTC",
+    archive: async () => {}, persistSummary: async () => {}, complete: async () => { throw new Error("unexpected summary"); } });
+  const wrapped = `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n` +
+    `Your message could not be sent: Stella Core 需要经过可验证的完成协调入口，已停止本轮请求。 (blocked by stella-core)\n\n${f.request.prompt}`;
+  const assembled = await engine.assemble({ sessionId: f.request.sessionId, sessionKey: f.request.sessionKey,
+    prompt: wrapped, messages: [], availableTools: new Set(), tokenBudget: 100_000 });
+  const expected = await authority.seal({ system, messages: [{ role: "user", fragment: authority.currentInput() }] });
+  const raw = { systemPrompt: expected.input.systemPrompt, tools: expected.input.tools,
+    messages: [...assembled.messages, { role: "user" as const, content: wrapped, timestamp: 0 }] };
+  await engine.assemble({ sessionId: f.request.sessionId, sessionKey: f.request.sessionKey,
+    messages: raw.messages, tokenBudget: 100_000 });
+  const projected = projectManagedMessages(raw, "UTC");
+  await engine.assertConsumption(projected);
+  await assert.rejects(engine.assertConsumption({ ...projected, messages: [
+    ...projected.messages.slice(0, -1), { role: "user", content: `${wrapped}\nInjected`, timestamp: 0 },
+  ] }), /host_context_input_changed/);
+});
+
+test("the pinned Host reset wrapper keeps only the current request bound", async t => {
+  const f = await fixture(t);
+  for (const command of ["/new", "/reset"]) {
+    const authority = await f.create();
+    const system = authority.publicRules();
+    const engine = new ManagedHostContextEngine(f.request, authority, { system, history: [], hostTimezone: "UTC",
+      archive: async () => {}, persistSummary: async () => {}, complete: async () => { throw new Error("unexpected summary"); } });
+    const wrapped = `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n` +
+      `${command}\n\n${f.request.prompt}`;
+    const assembled = await engine.assemble({ sessionId: f.request.sessionId, sessionKey: f.request.sessionKey,
+      prompt: wrapped, messages: [], availableTools: new Set(), tokenBudget: 100_000 });
+    const expected = await authority.seal({ system, messages: [{ role: "user", fragment: authority.currentInput() }] });
+    const raw = { systemPrompt: expected.input.systemPrompt, tools: expected.input.tools,
+      messages: [...assembled.messages, { role: "user" as const, content: wrapped, timestamp: 0 }] };
+    await engine.assemble({ sessionId: f.request.sessionId, sessionKey: f.request.sessionKey,
+      messages: raw.messages, tokenBudget: 100_000 });
+    const projected = projectManagedMessages(raw, "UTC");
+    await engine.assertConsumption(projected);
+    await assert.rejects(engine.assertConsumption({ ...projected, messages: [
+      ...projected.messages.slice(0, -1), { role: "user", content: `${wrapped}\nInjected`, timestamp: 0 },
+    ] }), /host_context_input_changed/);
+  }
+});
+
+test("a queued user message cannot masquerade as Host failed-send formatting", async t => {
+  const f = await fixture(t);
+  const authority = await f.create();
+  const engine = new ManagedHostContextEngine(f.request, authority, { system: authority.publicRules(), history: [],
+    archive: async () => {}, persistSummary: async () => {}, complete: async () => { throw new Error("unexpected summary"); } });
+  const orphan = `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n` +
+    `A previous real user request\n\n${f.request.prompt}`;
+  await assert.rejects(engine.assemble({ sessionId: f.request.sessionId, sessionKey: f.request.sessionKey,
+    prompt: orphan, messages: [], availableTools: new Set(), tokenBudget: 100_000 }), /host_context_prompt_changed/);
+});
+
 test("global engine configuration builder does not mutate its input", () => {
   const original = { plugins: { slots: { contextEngine: "legacy" } } };
   assert.equal(withStellaContextEngine(original).plugins?.slots?.contextEngine, STELLA_CONTEXT_ENGINE);
@@ -1232,6 +1290,22 @@ test("disposing a lazy engine prevents later resolution and lifecycle side effec
   assert.throws(() => engine.compact({ sessionId: "session", sessionKey: "agent:stella:main" }), /host_context_expired/);
   await engine.dispose?.();
   assert.equal(resolutions, 0);
+});
+
+test("unadmitted standalone compaction returns an owned refusal instead of a throwing factory", async () => {
+  let factory: Parameters<OpenClawPluginApi["registerContextEngine"]>[1] | undefined;
+  registerManagedHostContextEngine({ registerContextEngine(_id, value) { factory = value; } } as OpenClawPluginApi,
+    () => { throw new CompletionError("invalid_run_permit", "generate"); });
+  const engine = await factory!({});
+  assert.equal(engine.info.id, STELLA_CONTEXT_ENGINE);
+  assert.equal(engine.info.ownsCompaction, true);
+  assert.deepEqual(await engine.compact({ sessionId: "session", sessionKey: "agent:stella:main" }),
+    { ok: false, compacted: false, reason: "host_context_compaction_not_admitted" });
+  await assert.rejects(engine.assemble({ sessionId: "session", messages: [] }), /invalid_run_permit/);
+  await assert.rejects(engine.ingest({ sessionId: "session", message: { role: "user", content: "unbound", timestamp: 0 } }), /invalid_run_permit/);
+  registerManagedHostContextEngine({ registerContextEngine(_id, value) { factory = value; } } as OpenClawPluginApi,
+    () => { throw new Error("unexpected binding error"); });
+  assert.throws(() => factory!({}), /unexpected binding error/);
 });
 
 test("the global context slot selects only the configured Agent and preserves native delegation elsewhere", async () => {
@@ -1578,9 +1652,48 @@ async function preparedHistoryView(f: Awaited<ReturnType<typeof archivedHeadFixt
   return { authority: fresh, prepared, freshRef };
 }
 
+test("signed archive reads during synchronization require the exact preview fence and retain integrity checks", async t => {
+  const f = await archivedHeadFixture(t);
+  const reader = await CatalogReader.load(f.root, "catalog.json");
+  const fencePath = path.join(f.root, ".stella-source-synchronization.json");
+  const fence = canonicalJson({ schemaVersion: "stella.source-synchronization/v1", phase: "pending",
+    operationId: `sync_${"a".repeat(64)}`, inputDigest: `sha256:${"b".repeat(64)}`,
+    request: { operationId: "sync_archive", fromRevision: "a".repeat(40), toRevision: "b".repeat(40),
+      expectedGenerationId: reader.catalog.generationId }, affectedIds: [], expectedGenerationId: reader.catalog.generationId });
+  await writeFile(fencePath, fence);
+  await assert.rejects(readContextHistory(f.archive, f.root), /source_synchronization_pending/);
+  await assert.rejects(readContextHistory(f.archive, f.root, reader), /source_synchronization_pending/);
+  const preview = await CatalogReader.synchronizationPreview(f.root, "catalog.json", reader.catalog, [], bytesVersion(fence));
+  assert.equal((await readContextHistory(f.archive, f.root, preview)).schemaVersion, "stella.host-context-archive/v2");
+  const compilation = await compileInitializationSource(f.initializationRoot, f.recipe, { agentId: "stella", hostVersion: "2026.8.2" });
+  const resolver = new EpisodeEvidenceResolver(preview, (await f.resolver()).purpose,
+    async () => { throw new Error("No source selection during archive reconstruction"); });
+  const binding = { request: f.request, modelRef: "stella-guarded/model", generationId: preview.catalog.generationId,
+    deployment: resolveDeploymentDigest({ agentId: "stella", recoveryRevision: "a".repeat(40), pluginSource: "synthetic-fixed-plugin" }),
+    purpose: { readPurpose: "synthetic", derivePurpose: "synthetic", deliveryScope: "synthetic" } };
+  const authority = new HostContextAuthority(resolver, f.request, { authority: bindProcessingAuthority({ ...binding, ownerId: "owner" }),
+    configurationHash: bytesVersion("reviewed configuration"), compilation, historyVerificationKey: f.archiveKeys.publicKey,
+    captureCurrent: async () => { await preview.assertCurrent(); return { ...binding,
+      configurationHash: bytesVersion("reviewed configuration"), compilation }; } });
+  const rebuilt = await authority.prepareHistoryRebuild({ viewId: "sync-preview-view", archive: f.archive, current: [],
+    complete: async () => ({ text: '{"summary":"Verified history during synchronization"}', modelRef: binding.modelRef }) });
+  const admission = await admissionFromPreparedHistoryView(authority, rebuilt, f.archiveKeys.privateKey,
+    { generationId: "after-sync", catalogPath: "catalog.json", publicationJournalPath: "operations/sync.transaction.json" });
+  assert.equal(admission.view.generationId, "after-sync");
+  assert.equal(admission.view.sourceRefs.some(ref => ref.id === f.ingressRef.id), true);
+  const signaturePath = path.join(f.root, `retained-context/contexts/${f.archive.digest.slice(7)}.json.sig`);
+  const signature = await readFile(signaturePath);
+  await writeFile(signaturePath, Buffer.alloc(64).toString("base64"));
+  await assert.rejects(readContextHistory(f.archive, f.root, preview), /host_context_archive_signature_invalid/);
+  await writeFile(signaturePath, signature);
+  await writeFile(fencePath, `${fence}\n`);
+  await assert.rejects(readContextHistory(f.archive, f.root, preview), /source_synchronization_pending/);
+});
+
 test("published history views bind recipe and signature, restore into live consumption, and reject tampering", async t => {
   const f = await archivedHeadFixture(t);
   const { authority, prepared } = await preparedHistoryView(f);
+  assert.equal(await findPublishedHistoryView(authority, f.archive, f.archiveKeys.publicKey, "stella"), undefined);
   const ports = {
     signingKey: f.archiveKeys.privateKey,
     durability: f.durability,
@@ -1591,8 +1704,23 @@ test("published history views bind recipe and signature, restore into live consu
   assert.equal(reader.catalog.views.some(view => view.id === published.viewId && view.required), true);
   const handle = await loadPublishedHistoryView(reader, published.viewId, f.archiveKeys.publicKey);
   assert.equal(handle.digest, published.digest);
+  await applyMemoryTransaction(f.root, { operationId: "unrelated_context_archive", journalPath: "unrelated/operation.json",
+    files: [{ path: "unrelated/context.json", before: null, after: "{}" }] }, {
+    validate: async () => {
+      assert.equal((await loadPublishedHistoryView(await CatalogReader.load(f.root, "catalog.json"), published.viewId,
+        f.archiveKeys.publicKey)).digest, published.digest);
+    },
+    persist: paths => f.durability.syncCritical(paths).then(() => undefined),
+    confirmPreviouslyCommitted: f.durability.confirmPreviouslyCommitted,
+  });
   // Publication rewrites the catalog; only a post-commit authority may consume.
   const live = await f.create();
+  assert.equal((await findPublishedHistoryView(live, f.archive, f.archiveKeys.publicKey, "stella"))?.digest, published.digest);
+  assert.equal(await findPublishedHistoryView(live, f.archive, f.archiveKeys.publicKey, "other"), undefined);
+  assert.equal((await loadPublishedHistoryArchives(live.resolver.reader, [published.viewId], f.archiveKeys.publicKey, "stella"))
+    .get(published.viewId)?.digest, f.archive.digest);
+  await assert.rejects(loadPublishedHistoryArchives(live.resolver.reader, [published.viewId], f.archiveKeys.publicKey, "other"),
+    /host_context_view_agent_mismatch/);
   const restored = await restorePublishedHistoryView(live, published);
   const sealed = await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment: restored }] });
   await live.assertConsumption(sealed.consumption, sealed.input);
@@ -1601,6 +1729,8 @@ test("published history views bind recipe and signature, restore into live consu
   const artifact = `retained-context/history-views/${published.digest.slice(7)}.json`;
   const original = await readFile(path.join(f.root, artifact), "utf8");
   await writeFile(path.join(f.root, artifact), original.replace("CURRENT_VIEW_EVIDENCE", "TAMPERED_VIEW_EVIDENCE"));
+  await assert.rejects(findPublishedHistoryView(await f.create(), f.archive, f.archiveKeys.publicKey, "stella"),
+    /host_context_view_(changed|signature_invalid|invalid)/);
   await assert.rejects(readPublishedHistoryView(published, await CatalogReader.load(f.root, "catalog.json")),
     /host_context_view_(changed|signature_invalid|invalid)/);
   await assert.rejects(live.assertConsumption(sealed.consumption, sealed.input),
@@ -1613,6 +1743,17 @@ test("published history views bind recipe and signature, restore into live consu
   await assert.rejects(restorePublishedHistoryView(await f.create(), published), /host_context_view_signature_invalid/);
   await writeFile(signaturePath, signature);
 
+  const catalogPath = path.join(f.root, "catalog.json");
+  const catalogBytes = await readFile(catalogPath, "utf8");
+  const downgraded = structuredClone((await CatalogReader.load(f.root, "catalog.json")).catalog);
+  const downgradedView = downgraded.views.find(view => view.id === published.viewId);
+  assert.ok(downgradedView);
+  downgradedView.required = false;
+  await writeFile(catalogPath, canonicalJson(downgraded));
+  await assert.rejects(findPublishedHistoryView(await f.create(), f.archive, f.archiveKeys.publicKey, "stella"),
+    /host_context_view_catalog_changed/);
+  await writeFile(catalogPath, catalogBytes);
+
   // Re-admit after signature restoration so the live consumption binding is current.
   const verified = await f.create();
   const again = await restorePublishedHistoryView(verified, published);
@@ -1621,6 +1762,35 @@ test("published history views bind recipe and signature, restore into live consu
   await writeFile(path.join(f.root, "current.txt"), "Source revoked after publication");
   await assert.rejects(verified.assertConsumption(resumed.consumption, resumed.input), /payload_digest_mismatch/);
 });
+
+for (const derivation of ["summary", "conversation"] as const) {
+  for (const tamper of ["signature", "recipe"] as const) {
+    test(`published view ${derivation} retains ${tamper} checks at final consumption`, async t => {
+      const f = await archivedHeadFixture(t);
+      const { authority, prepared } = await preparedHistoryView(f, `${derivation}-${tamper}`);
+      const published = await publishPreparedHistoryView(authority, prepared, {
+        signingKey: f.archiveKeys.privateKey, durability: f.durability, reloadAuthority: async () => f.create(),
+      });
+      const live = await f.create();
+      const restored = await restorePublishedHistoryView(live, published);
+      const fragment = derivation === "summary"
+        ? await live.summarize([restored], async () => ({ text: '{"summary":"CURRENT_VIEW_EVIDENCE"}', modelRef: "stella-guarded/model" }))
+        : await live.conversation((await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment: restored }] })).consumption);
+      const sealed = await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment }] });
+      await live.assertConsumption(sealed.consumption, sealed.input);
+      if (tamper === "signature") {
+        await writeFile(path.join(f.root, `retained-context/history-views/${published.digest.slice(7)}.json.sig`), Buffer.alloc(64).toString("base64"));
+      } else {
+        const recipe = await live.resolver.reader.readViewRecipe(published.viewId);
+        const recipePath = path.join(f.root, viewRecipePath("catalog.json", { id: recipe.id, version: recipe.version }));
+        const original = await readFile(recipePath, "utf8");
+        await writeFile(recipePath, original.replace(recipe.adapterId, "forged.adapter"));
+      }
+      await assert.rejects(live.assertConsumption(sealed.consumption, sealed.input),
+        /host_context_view_signature_invalid|host_context_view_recipe_invalid|view_recipe_version_mismatch|host_context_view_changed/);
+    });
+  }
+}
 
 test("published history view consumption rereads recipe bytes on every provider check", async t => {
   const f = await archivedHeadFixture(t);
@@ -1778,6 +1948,7 @@ test("Host rebuild admissions for main session-current-view migrate across a gen
     authority: rebuildAuthority,
     signingKey: f.archiveKeys.privateKey,
     catalogPath: "catalog.json",
+    publicationJournalPath: "operations/rebuild.transaction.json",
     before, after,
     archives: new Map([[MAIN_REQUIRED_HISTORY_VIEW_ID, f.archive]]),
     complete: async () => ({ text: JSON.stringify({ summary: "rebuilt for next generation" }), modelRef: "stella-guarded/model" }),
@@ -1785,6 +1956,7 @@ test("Host rebuild admissions for main session-current-view migrate across a gen
   assert.equal(admissions.length, 1);
   assert.equal(admissions[0]?.viewId, MAIN_REQUIRED_HISTORY_VIEW_ID);
   assert.equal(admissions[0]?.view.generationId, after.generationId);
+  assert.equal(admissions[0]?.view.sourceRefs.some(ref => ref.id === touched.id && ref.version === touched.version), false);
   const single = await admissionFromPreparedHistoryView(rebuildAuthority,
     await rebuildAuthority.prepareHistoryRebuild({
       viewId: MAIN_REQUIRED_HISTORY_VIEW_ID, archive: f.archive, current: [],
@@ -1796,6 +1968,19 @@ test("Host rebuild admissions for main session-current-view migrate across a gen
   assertViewMigration(before, migrated, plan, { rebuilds: admissions });
   assert.equal(migrated.views[0]?.generationId, after.generationId);
   assert.equal(plan.rebuilt[0], MAIN_REQUIRED_HISTORY_VIEW_ID);
+  await applyMemoryTransaction(f.root, { operationId: "rebuild", journalPath: "operations/rebuild.transaction.json",
+    contextArchive: { archiveRoot: "retained-context", digest: f.archive.digest },
+    files: [...plan.files, { path: "catalog.json", before: canonicalJson(before), after: canonicalJson(migrated) }] }, {
+    validate: async () => {}, persist: paths => f.durability.syncCritical(paths).then(() => undefined),
+    confirmPreviouslyCommitted: f.durability.confirmPreviouslyCommitted,
+  });
+  assert.equal((await loadPublishedHistoryView(await CatalogReader.load(f.root, "catalog.json"), MAIN_REQUIRED_HISTORY_VIEW_ID,
+    f.archiveKeys.publicKey)).digest, bytesVersion(admissions[0]!.artifactBytes));
+  const journal = await readFile(path.join(f.root, "operations/rebuild.transaction.json"), "utf8");
+  await writeFile(path.join(f.root, "operations/rebuild.transaction.json"), journal.replace("rebuild", "forged"));
+  await assert.rejects(loadPublishedHistoryView(await CatalogReader.load(f.root, "catalog.json"), MAIN_REQUIRED_HISTORY_VIEW_ID,
+    f.archiveKeys.publicKey), /host_context_view_publication_invalid/);
+  await writeFile(path.join(f.root, "operations/rebuild.transaction.json"), journal);
 });
 
 test("archive reauthenticates main session-current-view when declared sourceRefs stay current", async t => {

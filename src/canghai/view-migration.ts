@@ -80,6 +80,9 @@ function viewNeedsRebuild(input: {
   changedRefs: ReadonlySet<string>;
   extraChangedPaths: ReadonlySet<string>;
 }): boolean {
+  // Non-catalog runtime inputs (for example the selected Episode) are not
+  // represented by sourceRefs. Rebuild when a writer changes that input plane.
+  if (input.extraChangedPaths.size > 0) return true;
   if (input.view.sourceRefs.length === 0) {
     return evidencePlaneChanged(input.before, input.after, input.changedRefs) || input.extraChangedPaths.size > 0;
   }

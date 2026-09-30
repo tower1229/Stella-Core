@@ -2,6 +2,21 @@ import { formatZonedTimestamp } from "openclaw/plugin-sdk/core";
 import { CatalogError } from "../canghai/catalog-reader.js";
 import type { HostMemoryInput } from "./host-memory-provider.js";
 
+/** The pinned Host can queue its failed-send notice or a completed reset
+ * command before the next active prompt. These fixed control texts carry no
+ * independent memory evidence; any other queued user content is rejected. */
+export function projectQueuedHostControlPrompt(current: string, observed: string): string | undefined {
+  const controlTexts = [
+    "Your message could not be sent: Stella Core 需要经过可验证的完成协调入口，已停止本轮请求。 (blocked by stella-core)",
+    "/new", "/reset",
+  ];
+  for (const controlText of controlTexts) {
+    const expected = `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n${controlText}\n\n${current}`;
+    if (observed === expected) return expected;
+  }
+  return undefined;
+}
+
 /** OpenClaw 2026.8.2's public prompt hook is followed by these deterministic
  * transformations (attempt-prompt-build / system-prompt). This is an expected
  * assembly, not a filter applied to an observed, potentially untrusted prompt.

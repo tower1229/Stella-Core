@@ -1,6 +1,6 @@
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import path from "node:path";
-import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogGroup } from "./catalog-reader.js";
+import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogGroup, type MemoryCatalog } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError, type MemoryTransactionPlan } from "./memory-transaction.js";
 import type { IngestDurabilityPort } from "./ingest.js";
@@ -34,7 +34,9 @@ export type SynchronizePorts = {
   signal?: AbortSignal;
   corpusRegistryRef?: string;
   /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
-  viewRebuilds?: (generationId: string) =>
+  viewRebuilds?: (generationId: string, after: MemoryCatalog, journalPath: string, context: {
+    resolver: EpisodeEvidenceResolver; before: MemoryCatalog; assertCurrent(): Promise<void>;
+  }) =>
     | readonly ViewRebuildAdmission[]
     | undefined
     | Promise<readonly ViewRebuildAdmission[] | undefined>;
@@ -373,11 +375,16 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   if (newRefs.length) plan.add("changes", { schemaVersion: "stella.learning-change/v1", id: changeId, operationId: id,
     algorithmVersion: version, modelRef: ports.modelRef, promptVersion: version, inputRefs: evidence.map(item => item.ref),
     targetRefs: newRefs, changes: rows, disposition: "update", rationale: proposal.rationale }, [...evidence.map(item => item.ref), ...newRefs]);
+  const rebuildReader = ports.viewRebuilds ? await snapshot() : undefined;
   plan.catalog.parentGenerationId = original.catalog.generationId;
   plan.catalog.generationId = `generation_${bytesVersion(canonicalJson({ digest, catalog: plan.catalog })).slice(7)}`;
+  const viewRebuilds = await ports.viewRebuilds?.(plan.catalog.generationId, structuredClone(plan.catalog), finalJournal, {
+    resolver: new EpisodeEvidenceResolver(rebuildReader!, ports.purpose, ports.complete),
+    before: structuredClone(original.catalog), assertCurrent,
+  });
   const viewMigration: ViewMigrationPlan = planViewMigration({
     before: viewMigrationBase, after: plan.catalog,
-    rebuilds: await ports.viewRebuilds?.(plan.catalog.generationId),
+    rebuilds: viewRebuilds,
   });
   plan.catalog = applyViewMigration(plan.catalog, viewMigration);
   parseMemoryCatalog(plan.catalog);
@@ -418,7 +425,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
     await assertCurrent();
     planViewMigration({
       before: viewMigrationBase, after: parseMemoryCatalog(plan.catalog),
-      rebuilds: await ports.viewRebuilds?.(plan.catalog.generationId),
+      rebuilds: viewRebuilds,
     });
   });
   return readReceipt();

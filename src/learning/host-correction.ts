@@ -2,7 +2,7 @@ import path from "node:path";
 import { collectContextSources, type ContextSources } from "../praxis/context-sources.js";
 import { readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
 import { isRecord } from "../shared/type-guards.js";
-import { CatalogError, CatalogReader } from "../canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, type MemoryCatalog } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import {
   DEFAULT_RETENTION_GUARANTEES,
@@ -18,6 +18,7 @@ import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 import type { ProcessingAuthority } from "../openclaw/processing-authority.js";
 import { EpisodeEvidenceResolver } from "../praxis/episode-evidence.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { ViewRebuildAdmission } from "../canghai/view-migration.js";
 import { learn, prepareCorrection } from "./correction.js";
 import type { HostRequestSnapshot } from "../canghai/host-request-archive.js";
 
@@ -126,6 +127,10 @@ export async function applyHostCorrection(input: Parameters<typeof archiveCorrec
   modelRef: string; complete: Parameters<typeof prepareCorrection>[0]["complete"];
   processingAuthority: ProcessingAuthority;
   processingGrant?: object;
+  viewRebuilds?: (context: { resolver: EpisodeEvidenceResolver; before: CatalogReader; after: MemoryCatalog; generationId: string;
+    journalPath: string;
+    evidenceRefs: readonly VersionedRef[] }) => readonly ViewRebuildAdmission[] | undefined |
+    Promise<readonly ViewRebuildAdmission[] | undefined>;
 }) {
   input = { ...input, request: structuredClone(input.request), original: structuredClone(input.original),
     archive: structuredClone(input.archive), processingAuthority: structuredClone(input.processingAuthority) };
@@ -141,11 +146,16 @@ export async function applyHostCorrection(input: Parameters<typeof archiveCorrec
     if (input.processingGrant) await readPersonalContextAccessBinding(input.processingGrant);
   };
   const archived = await archiveCorrectionInput({ ...input, assertCurrent: assertScopeCurrent });
+  const rebuildViews = input.viewRebuilds;
   const receipt = await learn({ operationId: input.request.runId, request: input.request.prompt,
     ownerId: input.ownerId, modelRef: input.modelRef, recordedAt: input.original.schemaVersion === "stella.host-request-snapshot/v1" ? input.original.capturedAt : String(input.original.event.timestamp),
     evidenceRefs: archived.evidenceRefs, resolver: archived.resolver, objectRoot: input.archive.objectRoot,
     processingAuthority: input.processingAuthority,
-    assertProcessingCurrent: assertScopeCurrent, complete: input.complete, durability: input.durability, signal: input.signal });
+    assertProcessingCurrent: assertScopeCurrent, complete: input.complete, durability: input.durability, signal: input.signal,
+    ...(rebuildViews ? { viewRebuilds: (generationId: string, after: MemoryCatalog, journalPath: string) => rebuildViews({
+      resolver: archived.resolver, before: archived.resolver.reader, after, generationId, journalPath, evidenceRefs: archived.evidenceRefs,
+    }) } : {}),
+  });
   const result = { ...receipt, writeOperationIds: [archived.operationId, receipt.operationId] };
   const current = await CatalogReader.load(input.reader.root, input.reader.catalogPath);
   check(current.catalog.generationId === receipt.generationId, "correction_generation_changed");

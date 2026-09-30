@@ -1,5 +1,5 @@
 import { relative } from "node:path";
-import { CatalogError } from "../canghai/catalog-reader.js";
+import { CatalogError, readRepositoryBytes } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { parseConsciousnessManifest, type LoadedConsciousness } from "../canghai/manifest.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
@@ -83,12 +83,26 @@ export async function prepareRoutingCandidates(input: {
     check(typeof understanding.originChangeId === "string", "invalid_learning_change");
     await sources.visit(reader.currentRef(understanding.originChangeId, "changes"));
   }
+  const episodeInputs: Array<{ ref: string; path: string; sha256: string }> = [];
   for (const item of memory.openEpisodes) {
     const snapshot = await runtime.selectedEpisode(item.ref);
-    await pinFile(runtime.repository.currentPath(snapshot.episode.id), canonicalJson(snapshot.episode));
+    const currentPath = runtime.repository.currentPath(snapshot.episode.id);
+    const currentBytes = await readRepositoryBytes(reader.root, currentPath);
+    check(currentBytes.toString("utf8") === canonicalJson(snapshot.episode), "routing_input_changed");
+    episodeInputs.push({ ref: item.ref, path: currentPath, sha256: bytesVersion(currentBytes) });
+    // Durable historical provenance uses the existing immutable Episode version.
+    // The live candidate choice is independently checked until model consumption.
+    await pinFile(runtime.repository.historicalPath(snapshot.episode.id, snapshot.version), canonicalJson(snapshot.episode));
     for (const ref of episodeContextRefs(snapshot.episode)) await sources.visit(ref);
   }
-  const assertCurrent = sources.assertCurrent;
+  const assertCurrent = async () => {
+    await sources.assertCurrent();
+    for (const input of episodeInputs) {
+      check(bytesVersion(await readRepositoryBytes(reader.root, input.path)) === input.sha256, "routing_input_changed");
+      await runtime.selectedEpisode(input.ref);
+    }
+    await sources.assertCurrent();
+  };
   const candidates = listSemanticRoutingCandidates({ ...loaded, praxisPlaybookItems: memory.learningItems }, memory.openEpisodes);
   await assertCurrent();
   const prepared = { candidates, memory, assertCurrent };

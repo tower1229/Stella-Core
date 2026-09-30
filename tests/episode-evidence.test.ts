@@ -20,6 +20,42 @@ import { loadEvidenceBundle } from "../src/praxis/evidence-bundle.js";
 import { syntheticBundle } from "./evidence-bundle-fixture.js";
 import { prepareQuestionEvidence } from "../src/praxis/question-evidence.js";
 import { createSourceAccessProvider } from "../src/canghai/source-access.js";
+import { generateKeyPairSync, sign } from "node:crypto";
+import { applyMemoryTransaction, readRecordedMemoryTransaction } from "../src/canghai/memory-transaction.js";
+import { contextHistorySignerId, loadContextHistory } from "../src/openclaw/host-context-history.js";
+import { assembleContextTrace, contextFragmentTrace, contextInputDigest } from "../src/openclaw/host-context-graph.js";
+
+/** Signed synthetic fixture. Production provenance is exercised by the exact Host probe. */
+async function outcomeArchiveFixture(transaction: Awaited<ReturnType<typeof prepareOutcomeTransaction>>,
+  prepared: Extract<Awaited<ReturnType<typeof prepareEvidenceBoundOutcome>>, { disposition: "ready" }>,
+  runtime: PraxisRuntimeMemory, durability: GitCangHaiDurability) {
+  const keys = generateKeyPairSync("ed25519"), archiveRoot = "retained-context";
+  const binding = await readPreparedOutcomeContext(prepared);
+  const sources = { dependencies: binding.dependencies, originals: binding.originals.map(original =>
+    ({ ref: original.ref, digest: bytesVersion(canonicalJson(original)) })), payloads: [], configurationInputs: [], archives: [] };
+  const fragment = contextFragmentTrace("derived", canonicalJson(transaction.episode), sources);
+  const wire = { systemPrompt: canonicalJson(transaction.episode), tools: [], messages: [] };
+  const graph = assembleContextTrace(wire, [fragment], []);
+  const bundle = transaction.bundle;
+  const policy = runtime.evidence.reader.catalog.policies[0]!;
+  const owner = await runtime.evidence.reader.read(policy, "policies");
+  const authority = { ownerId: owner.ownerId, senderIsOwner: true, audience: "owner_direct", privateContextAllowed: true,
+    runId: bundle.requestId, generationId: bundle.generationId, modelRef: prepared.modelRef,
+    purpose: { readPurpose: purpose.readPurpose, derivePurpose: purpose.derivePurpose, deliveryScope: purpose.deliveryScope } };
+  const stored = { schemaVersion: "stella.host-context-archive/v2", agentId: "stella", signerId: contextHistorySignerId(keys.publicKey),
+    authority, input: wire, consumptionDigest: contextInputDigest(wire), graph, ...sources,
+    outcomeTransactions: [{ nodeId: fragment.roots[0], operationId: transaction.plan.operationId, planHash: bytesVersion(canonicalJson(transaction.plan)) }] };
+  const bytes = canonicalJson(stored), digest = bytesVersion(bytes), operationId = `context_archive_${digest.slice(7)}`;
+  const file = `${archiveRoot}/contexts/${digest.slice(7)}.json`;
+  await applyMemoryTransaction(runtime.evidence.reader.root, { operationId, journalPath: `${archiveRoot}/operations/${operationId}.json`, files: [
+    { path: file, before: null, after: bytes }, { path: `${file}.sig`, before: null, after: sign(null, Buffer.from(bytes), keys.privateKey).toString("base64") },
+  ] }, { validate: () => runtime.evidence.reader.assertCurrent(), persist: paths => durability.syncCritical(paths, "Synthetic signed recovery archive").then(() => undefined),
+    confirmPreviouslyCommitted: file => durability.confirmPreviouslyCommitted(file) });
+  return { archive: await loadContextHistory(runtime.evidence.reader.root, { archiveRoot, digest }, keys.publicKey),
+    contextHistory: { archiveRoot, verificationKey: keys.publicKey, agentId: "stella", modelRef: prepared.modelRef,
+      ownerPolicyRef: { id: policy.id, version: policy.version }, assertCurrent: async () => {} },
+    file, stored, keys };
+}
 
 const now = "2026-09-06T00:00:00Z";
 const purpose: EvidencePurpose = { readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "gemini-evaluation", evidenceCutoff: now,
@@ -550,21 +586,74 @@ test("evidence-bound closure atomically commits learning, retries pointer failur
           ...(propose ? { strategy: { statement: "先确认具体时间", scope: { workIds: [], contexts: ["周末邀约"], domains: ["social"], global: false } } } : {}) } }) }) });
     assert.ok(prepared.disposition === "ready");
     const transaction = await prepareOutcomeTransaction({ operationId: "report", requestId: "report", revision: initial, runtime, objectRoot: "objects", prepared });
+    const archived = await outcomeArchiveFixture(transaction, prepared, runtime, new GitCangHaiDurability({ root, remote: "origin", branch: "main",
+      criticalWritePolicy: "sync_immediately", normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0 }));
+    const archiveRevision = (await run("git", ["-C", root, "rev-parse", "HEAD"])).stdout.trim();
     const signal = new AbortController().signal;
-    await assert.rejects(transaction.persist(durability, signal), /Synthetic pointer failure/);
+    await assert.rejects(transaction.persist(durability, signal, archived.archive), /Synthetic pointer failure/);
     await assert.rejects(runtime.repository.read(episode.id), /memory_transaction_pending/);
-    assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim(), initial);
+    assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim(), archiveRevision);
     fail = false;
     const restartedDurability = new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
       normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0, onRevision: async (revision) => { await writeFile(pointer, revision); } });
     const recovery = { root, operationId: transaction.plan.operationId, catalogPath: "catalog.json", episodeRoot: "episodes", objectRoot: "objects",
-      purpose, complete, durability: restartedDurability, abortSignal: signal };
+      purpose, complete: async () => { throw new Error("Recovery must not infer again"); }, contextHistory: archived.contextHistory,
+      durability: restartedDurability, abortSignal: signal };
     await assert.rejects(recoverPendingOutcome({ ...recovery, objectRoot: "unrelated" }), /outcome_recovery_plan_invalid/);
     await assert.rejects(recoverPendingOutcome({ ...recovery, operationId: "wrong-operation" }), /invalid_transaction_journal/);
+    await assert.rejects(recoverPendingOutcome({ ...recovery, contextHistory: undefined }), /outcome_recovery_verification_required/);
+    await assert.rejects(recoverPendingOutcome({ ...recovery, contextHistory: { ...archived.contextHistory, modelRef: "changed/model" } }), /outcome_recovery_scope_mismatch/);
+    const signaturePath = path.join(root, `${archived.file}.sig`), signature = await readFile(signaturePath, "utf8");
+    await writeFile(signaturePath, Buffer.alloc(64).toString("base64"));
+    await assert.rejects(recoverPendingOutcome(recovery), /host_context_archive_signature_invalid/);
+    await writeFile(signaturePath, signature);
+    const originalPath = path.join(root, "original.json"), originalBytes = await readFile(originalPath);
+    await rm(originalPath);
+    await assert.rejects(recoverPendingOutcome(recovery));
+    await writeFile(originalPath, originalBytes);
+    await assert.rejects(recoverPendingOutcome({ ...recovery, contextHistory: { ...archived.contextHistory,
+      assertCurrent: async () => { throw new CatalogError("recovery_host_binding_changed"); } } }), /recovery_host_binding_changed/);
+    if (!propose) {
+      // Recompute every affected object/reference/catalog/plan hash and make
+      // disk files agree. An unkeyed, self-consistent journal is still untrusted.
+      const plan = await readRecordedMemoryTransaction(root, transaction.plan.operationId);
+      const markerPath = path.join(root, ".stella-memory-transaction.json"), journalPath = path.join(root, plan.journalPath);
+      const marker = await readFile(markerPath, "utf8"), journal = await readFile(journalPath, "utf8");
+      const tampered = structuredClone(plan);
+      const changeFile = tampered.files.find(file => file.path.startsWith("objects/changes/"))!;
+      const changed = { ...JSON.parse(changeFile.after), rationale: "Forged recorded semantic result" };
+      changed.version = objectVersion(changed);
+      changeFile.path = `objects/changes/${changed.id}/${changed.version.slice(7)}.json`;
+      changeFile.after = canonicalJson(changed);
+      const catalogFile = tampered.files.find(file => file.path === "catalog.json")!;
+      const after = parseMemoryCatalog(JSON.parse(catalogFile.after));
+      const entry = after.changes.find(entry => entry.id === changed.id)!;
+      entry.version = changed.version;
+      entry.locator = { path: changeFile.path, sha256: bytesVersion(changeFile.after) };
+      after.generationId = `generation_${bytesVersion(canonicalJson({ operationId: plan.operationId, before: bytesVersion(catalogFile.before!),
+        version: transaction.version, changeRef: { id: changed.id, version: changed.version } })).slice(7)}`;
+      catalogFile.after = canonicalJson(after);
+      const originalCatalog = await readFile(path.join(root, "catalog.json"), "utf8");
+      const forged = canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...tampered, planHash: bytesVersion(canonicalJson(tampered)) });
+      await writeFile(path.join(root, changeFile.path), changeFile.after);
+      await writeFile(path.join(root, "catalog.json"), catalogFile.after);
+      await writeFile(markerPath, forged); await writeFile(journalPath, forged);
+      await assert.rejects(recoverPendingOutcome(recovery), /outcome_recovery_verification_mismatch/);
+      await writeFile(path.join(root, "catalog.json"), originalCatalog);
+      await rm(path.join(root, changeFile.path));
+      await writeFile(markerPath, marker); await writeFile(journalPath, journal);
+    }
     const receipt = await recoverPendingOutcome(recovery);
     assert.deepEqual(await recoverPendingOutcome(recovery), receipt);
+    const catalogBytes = await readFile(path.join(root, "catalog.json"), "utf8");
+    const revoked = parseMemoryCatalog(JSON.parse(catalogBytes));
+    revoked.generationId = "generation-revoked";
+    revoked.sources[0]!.status = "removed";
+    await writeFile(path.join(root, "catalog.json"), canonicalJson(revoked));
+    await assert.rejects(recoverPendingOutcome(recovery), /outcome_recovery_plan_invalid/);
+    await writeFile(path.join(root, "catalog.json"), catalogBytes);
     assert.deepEqual(await transaction.persist(restartedDurability, signal), receipt);
-    assert.equal((await run("git", ["-C", root, "rev-list", "--count", "HEAD"])).stdout.trim(), "2");
+    assert.equal((await run("git", ["-C", root, "rev-list", "--count", "HEAD"])).stdout.trim(), "3");
     assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim(), receipt.revision);
     assert.equal(await readFile(pointer, "utf8"), receipt.revision);
     const restored = path.join(external, "restored");
@@ -607,8 +696,12 @@ test("outcome fails closed on an open required view until structured rebuild adm
   catalog.views.push(view);
   await save();
   const outcome = { observations: ["对方确认周末有空"], result: "时间得到确认", observedAt: now, evidenceRefs: [evidence] };
-  const complete = async ({ prompt }: { prompt: string }) => prompt.includes("reported-outcome evidence verifier")
-    ? { text: JSON.stringify({ supported: true, outcome, rationale: "Synthetic" }) } : verdict(actual);
+  let semanticCallsAllowed = true;
+  const complete = async ({ prompt }: { prompt: string }) => {
+    assert.equal(semanticCallsAllowed, true, "Persistence must reuse the admitted semantic result");
+    return prompt.includes("reported-outcome evidence verifier")
+      ? { text: JSON.stringify({ supported: true, outcome, rationale: "Synthetic" }) } : verdict(actual);
+  };
   const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, "catalog.json"), purpose, complete);
   const runtime = new PraxisRuntimeMemory(new EpisodeRepository(root, "episodes", {
     resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
@@ -653,7 +746,13 @@ test("outcome fails closed on an open required view until structured rebuild adm
   };
   const transaction = await prepareOutcomeTransaction({
     operationId: "report", requestId: "report", revision: initial, runtime, objectRoot: "objects", prepared,
-    viewRebuilds: (generationId) => [admissionFor(generationId)],
+    viewRebuilds: (generationId, after, journalPath, changes) => {
+      assert.equal(after.generationId, generationId);
+      assert.equal(after.parentGenerationId, runtime.evidence.reader.catalog.generationId);
+      assert.equal(journalPath.endsWith(".transaction.json"), true);
+      assert.ok(changes.some(file => file.path === runtime.repository.currentPath(advised.episode.id) && file.before !== null));
+      return [admissionFor(generationId)];
+    },
   });
   assert.equal(transaction.viewMigration.rebuilt.length, 1);
   const external = await mkdtemp(path.join(os.tmpdir(), "stella-outcome-view-remote-"));
@@ -662,17 +761,20 @@ test("outcome fails closed on an open required view until structured rebuild adm
   await run("git", ["init", "--quiet", "--bare", remote]);
   await run("git", ["-C", root, "remote", "add", "origin", remote]);
   await run("git", ["-C", root, "push", "origin", "main"]);
+  const archived = await outcomeArchiveFixture(transaction, prepared, runtime, new GitCangHaiDurability({ root, remote: "origin", branch: "main",
+    criticalWritePolicy: "sync_immediately", normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0 }));
+  semanticCallsAllowed = false;
   let fail = true;
   const durability = new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
     normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0,
     onRevision: async () => { if (fail) throw new Error("Synthetic pointer failure"); } });
   const signal = new AbortController().signal;
-  await assert.rejects(transaction.persist(durability, signal), /Synthetic pointer failure/);
+  await assert.rejects(transaction.persist(durability, signal, archived.archive), /Synthetic pointer failure/);
   fail = false;
   const restarted = new GitCangHaiDurability({ root, remote: "origin", branch: "main", criticalWritePolicy: "sync_immediately",
     normalWritePolicy: "sync_immediately", maxNormalRpoSeconds: 0 });
   const receipt = await recoverPendingOutcome({ root, operationId: transaction.plan.operationId, catalogPath: "catalog.json",
-    episodeRoot: "episodes", objectRoot: "objects", purpose, complete, durability: restarted, abortSignal: signal });
+    episodeRoot: "episodes", objectRoot: "objects", purpose, complete, contextHistory: archived.contextHistory, durability: restarted, abortSignal: signal });
   assert.equal(receipt.generationId, transaction.generationId);
   const reader = await CatalogReader.load(root, "catalog.json");
   assert.equal(reader.catalog.views[0]?.generationId, receipt.generationId);

@@ -266,10 +266,19 @@ test("Host correction archives exact owner input before inference and restores a
   fail = false;
   const restored = await archiveCorrectionInput(params);
   assert.equal((await restored.resolver.readEvidence(restored.evidenceRefs[0]!)).text, request);
-  const result = await applyHostCorrection(params);
+  let viewRebuildCalls = 0;
+  const result = await applyHostCorrection({ ...params, viewRebuilds: ({ before, after, generationId, evidenceRefs }) => {
+    viewRebuildCalls++;
+    assert.equal(before.catalog.generationId, restored.resolver.reader.catalog.generationId);
+    assert.equal(after.generationId, generationId);
+    assert.deepEqual(evidenceRefs, restored.evidenceRefs);
+    return [];
+  } });
+  assert.equal(viewRebuildCalls, 1);
   assert.equal(result.disposition, "update"); assert.equal(calls(), 2);
   assert.equal(result.writeOperationIds.length, 2);
-  const replay = await applyHostCorrection({ ...params, reader: await CatalogReader.load(f.root, "catalog.json") });
+  const replay = await applyHostCorrection({ ...params, reader: await CatalogReader.load(f.root, "catalog.json"),
+    viewRebuilds: () => { throw new Error("Replay must not rebuild Host history views"); } });
   assert.deepEqual(replay, result, "Host retries return the recorded correction without a second learning");
   assert.equal(calls(), 2);
   const fresh = new (await import("../src/praxis/episode-evidence.js")).EpisodeEvidenceResolver(await CatalogReader.load(f.root, "catalog.json"), purpose, input.complete);

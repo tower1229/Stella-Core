@@ -28,7 +28,9 @@ test("partial, expired, superseded, dirty and different-version evidence cannot 
   assert.notEqual(partial.acceptances[0]!.status, "verified");
   assert.equal(partial.complete, false);
   for (const record of [{ ...evidence, expiresAt: "2026-09-09T03:30:00.000Z" },
-    { ...evidence, version: { ...version, host: "f".repeat(64) } }, { ...evidence, version: { ...version, sourceClean: false } }]) {
+    { ...evidence, version: { ...version, host: "f".repeat(64) } },
+    { ...evidence, version: { ...version, cases: "f".repeat(64) } },
+    { ...evidence, version: { ...version, sourceClean: false } }]) {
     const result = await run(record);
     assert.equal(result.acceptances[0]!.cases[0]!.result, "not_executed");
     assert.equal(result.history.length, 1);
@@ -57,11 +59,20 @@ test("contract edits cannot be silently reported as the pinned specification", a
   const path = await import("node:path");
   const root = await mkdtemp(path.join(tmpdir(), "delivery-contract-")); t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, "docs/contracts"), { recursive: true });
-  for (const file of ["docs/10-DESIGN-BASELINE.md", "docs/04-OPENCLAW-INTEGRATION.md", "docs/contracts/MEMORY-LIFECYCLE.md"]) {
+  const files = ["docs/10-DESIGN-BASELINE.md", "docs/04-OPENCLAW-INTEGRATION.md", "docs/contracts/MEMORY-LIFECYCLE.md"];
+  for (const file of files) {
     await copyFile(file, path.join(root, file));
   }
-  await writeFile(path.join(root, "docs/10-DESIGN-BASELINE.md"), "changed contract");
-  await assert.rejects(buildDeliveryLedger({ ...input(), contractRoot: root }), /contract_version_mismatch/);
+  for (const file of files) {
+    await t.test(file, async () => {
+      try {
+        await writeFile(path.join(root, file), "changed contract");
+        await assert.rejects(buildDeliveryLedger({ ...input(), contractRoot: root }), /delivery_contract_version_mismatch/);
+      } finally {
+        await copyFile(file, path.join(root, file));
+      }
+    });
+  }
 });
 
 test("only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate", async () => {

@@ -13,11 +13,14 @@ import { readPreparedOutcomeContext, type PreparedOutcome } from "./outcome-prep
 import type { PraxisRuntimeMemory } from "./runtime-memory.js";
 import { createOutcomeEvidenceBundle } from "./outcome-evidence-bundle.js";
 import { loadEvidenceBundle } from "./evidence-bundle.js";
+import { contextHistoryLocation, readContextHistory, type StoredContextHistory } from "../openclaw/host-context-history.js";
+import { isRecord } from "../shared/type-guards.js";
 
 type OutcomeProjection = { episode: Extract<PreparedOutcome, { disposition: "ready" }>["episode"]; version: string;
   changeRef: VersionedRef; strategyRef?: VersionedRef; bundleRef: VersionedRef; generationId: string };
 const preparedProjections = new WeakMap<object, {
-  prepared: object; runtime: PraxisRuntimeMemory; requestId: string; projection: OutcomeProjection; assertCurrent(): Promise<void>;
+  prepared: object; runtime: PraxisRuntimeMemory; requestId: string; projection: OutcomeProjection;
+  verification: { operationId: string; planHash: string }; assertCurrent(): Promise<void>;
 }>();
 
 /** Only the transaction builder can attest the projected Episode and learning
@@ -27,13 +30,14 @@ export async function readPreparedOutcomeProjection(transaction: object, prepare
   if (!binding || binding.prepared !== prepared) throw new EpisodeV2Error("outcome_transaction_unbound");
   await binding.assertCurrent();
   return { runtime: binding.runtime, requestId: binding.requestId, projection: structuredClone(binding.projection),
+    verification: structuredClone(binding.verification),
     assertCurrent: binding.assertCurrent };
 }
 
 export async function prepareOutcomeTransaction(input: { operationId: string; runtime: PraxisRuntimeMemory;
   objectRoot: string; revision: string; requestId: string; prepared: Extract<PreparedOutcome, { disposition: "ready" }>;
   /** Structured rebuild admissions for required views whose inputs or open evidence plane changed. */
-  viewRebuilds?: (generationId: string) =>
+  viewRebuilds?: (generationId: string, after: MemoryCatalog, journalPath: string, changes: readonly MemoryFileChange[]) =>
     | readonly ViewRebuildAdmission[]
     | undefined
     | Promise<readonly ViewRebuildAdmission[] | undefined>;
@@ -99,7 +103,8 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
   const bundle = createOutcomeEvidenceBundle({ operationId, requestId: input.requestId, revision: input.revision, generationId: reader.catalog.generationId, prepared });
   const bundleRef = add("bundles", bundle, [...bundle.readEvidenceRefs, ...bundle.searchedCoverageRefs]);
   const extraChangedPaths = new Set([episodePath, runtime.repository.historicalPath(episode.id, version)]);
-  const viewRebuilds = await input.viewRebuilds?.(after.generationId);
+  const journalPath = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.transaction.json`);
+  const viewRebuilds = await input.viewRebuilds?.(after.generationId, structuredClone(after), journalPath, structuredClone(changes));
   const viewMigration: ViewMigrationPlan = planViewMigration({
     before: reader.catalog, after, rebuilds: viewRebuilds, extraChangedPaths,
   });
@@ -108,14 +113,25 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
   const afterCatalog = canonicalJson(after);
   changes.push(...viewMigration.files);
   changes.push({ path: reader.catalogPath, before: beforeCatalog, after: afterCatalog });
-  const plan: MemoryTransactionPlan = { operationId, journalPath: path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.transaction.json`), files: changes };
+  const plan: MemoryTransactionPlan = { operationId, journalPath, files: changes };
+  const verification = { operationId, planHash: bytesVersion(canonicalJson(plan)) };
+  let persistencePlan = plan;
   await reader.assertCurrent();
   const transaction = {
     episode, version, changeRef, ...(strategyRef ? { strategyRef } : {}), bundle, bundleRef, plan, generationId: after.generationId,
     viewMigration,
-    async persist(durability: GitCangHaiDurability, abortSignal: AbortSignal) {
+    async persist(durability: GitCangHaiDurability, abortSignal: AbortSignal, archive?: StoredContextHistory) {
       assertProjection();
-      await applyMemoryTransaction(reader.root, plan, {
+      if (archive) {
+        const stored = await readContextHistory(archive, reader.root);
+        if (!Array.isArray(stored.outcomeTransactions) || !stored.outcomeTransactions.some((receipt: unknown) =>
+          isRecord(receipt) && receipt.operationId === verification.operationId && receipt.planHash === verification.planHash)) {
+          throw new EpisodeV2Error("outcome_recovery_verification_required");
+        }
+        const { archiveRoot, digest } = contextHistoryLocation(archive);
+        persistencePlan = { ...plan, contextArchive: { archiveRoot, digest } };
+      }
+      await applyMemoryTransaction(reader.root, persistencePlan, {
         async validate() {
           const current = await CatalogReader.load(reader.root, reader.catalogPath);
           if (![bytesVersion(beforeCatalog), bytesVersion(afterCatalog)].includes(current.catalogHash)) throw new EpisodeV2Error("stale_generation");
@@ -124,9 +140,16 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
             await loadEvidenceBundle(resolver, { bundleRef, requestId: input.requestId, revision: input.revision, generationId: bundle.generationId });
             await validateEpisodeV2References(episode, {
               resolveHistorical: (ref) => resolver.resolveHistorical(ref), resolveEvidence: (ref) => resolver.resolveEvidence(ref),
-              verifyActionEvidence: (actual) => resolver.verifyActionEvidence(actual), verifyOutcomeEvidence: (actual, outcome) => resolver.verifyOutcomeEvidence(actual, outcome),
+              // The opaque prepared outcome already passed both semantic checks.
+              // Execute that exact result while rereading its current evidence.
+              verifyActionEvidence: async actual => canonicalJson(actual) === canonicalJson(prepared.episode.actual),
+              verifyOutcomeEvidence: async (actual, outcome) => canonicalJson(actual) === canonicalJson(prepared.episode.actual) &&
+                canonicalJson(outcome) === canonicalJson(prepared.episode.outcome),
               resolveLearning: (ref) => resolver.resolveLearning(ref),
             });
+            for (const original of binding.originals) {
+              if (canonicalJson(await resolver.readEvidence(original.ref)) !== canonicalJson(original)) throw new EpisodeV2Error("stale_evidence");
+            }
             for (const ref of inputRefs) await resolver.readEvidence(ref);
             if (!await resolver.isCurrentlyEligible(episode)) throw new EpisodeV2Error("evidence_not_currently_eligible");
           }, { viewMigration, viewRebuilds, viewExtraChangedPaths: extraChangedPaths });
@@ -157,6 +180,6 @@ export async function prepareOutcomeTransaction(input: { operationId: string; ru
   };
   await assertCurrent();
   preparedProjections.set(transaction, { prepared: input.prepared, runtime, requestId: input.requestId,
-    projection: structuredClone(projection), assertCurrent });
+    projection: structuredClone(projection), verification, assertCurrent });
   return transaction;
 }
