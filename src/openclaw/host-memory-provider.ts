@@ -76,6 +76,10 @@ export function registerHostMemoryProvider(
   agentId: string,
   assertConsumption: (request: BoundTurnRequest, modelRef: string, input: HostMemoryInput) => Promise<void>,
   observeOutput?: (receipt: HostModelOutputReceipt) => Promise<void>,
+  resolveNativeRecall?: (request: BoundTurnRequest, sessionId: string | undefined) => Promise<{
+    assertConsumption(input: HostMemoryInput): Promise<void>;
+    observeOutput(receipt: HostModelOutputReceipt): Promise<void>;
+  } | undefined>,
 ): void {
   const wrap = (context: ProviderWrapStreamFnContext, kind: "agent" | "direct"): Stream => {
     const transport = context.streamFn;
@@ -108,6 +112,7 @@ export function registerHostMemoryProvider(
         options?.signal?.throwIfAborted();
         const modelRef = `${target.provider}/${target.id}`;
         const direct = directCalls.getStore();
+        let outputObserver = observeOutput;
         let assertCurrent: () => Promise<void>;
         if (kind === "direct") {
           if (!direct || !direct.active || direct.consumed || direct.modelRef !== modelRef || direct.request !== request) {
@@ -131,7 +136,8 @@ export function registerHostMemoryProvider(
             if (!direct.active || directCalls.getStore() !== direct) throw new CompletionError("host_memory_call_expired", "generate");
           };
         } else {
-          if (options?.sessionId !== request.sessionId) throw new CompletionError("host_memory_session_mismatch", "generate");
+          const native = options?.sessionId !== request.sessionId ? await resolveNativeRecall?.(request, options?.sessionId) : undefined;
+          if (options?.sessionId !== request.sessionId && !native) throw new CompletionError("host_memory_session_mismatch", "generate");
           boundRequest = request;
           assertActive();
           // The verifier gets the complete SDK Context snapshot, not merely
@@ -141,7 +147,10 @@ export function registerHostMemoryProvider(
             systemPrompt: snapshot.systemPrompt ?? "", messages: snapshot.messages,
             tools: (snapshot.tools ?? []).map(({ name, description, parameters }) => ({ name, description, parameters })),
           });
-          assertCurrent = () => revalidation.run(true, () => assertConsumption(request, modelRef, structuredClone(consumption)));
+          assertCurrent = () => revalidation.run(true, () => native
+            ? native.assertConsumption(structuredClone(consumption))
+            : assertConsumption(request, modelRef, structuredClone(consumption)));
+          if (native) outputObserver = receipt => native.observeOutput(receipt);
         }
         await assertCurrent();
         // Revocation/cancellation during an asynchronous check cannot authorize a
@@ -171,7 +180,7 @@ export function registerHostMemoryProvider(
             throw new CompletionError(reject(error), "generate");
           }
         } });
-        if (kind !== "agent" || !observeOutput) return streamed;
+        if (kind !== "agent" || !outputObserver) return streamed;
         let observed: { body: string; result: Promise<AssistantMessage> } | undefined;
         const authorize = (value: AssistantMessage): Promise<AssistantMessage> => {
           const message = structuredClone(value);
@@ -189,7 +198,7 @@ export function registerHostMemoryProvider(
               assertActive();
               const receipt: HostModelOutputReceipt = Object.freeze({ kind: "model_output" });
               modelOutputs.set(receipt, { request, modelRef, input: outputInput, message: structuredClone(message) });
-              await observeOutput(receipt);
+              await outputObserver!(receipt);
               assertActive();
               return message;
             } catch (error) { return rejectedStream(target, reject(error), options?.signal?.aborted === true).result(); }

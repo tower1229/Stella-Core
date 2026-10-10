@@ -1,7 +1,7 @@
 import { createHostContextTurnStore, type CommitHostContextTurn } from "./openclaw/host-context-turn-store.js";
 import { resolveManagedHostTimezone } from "./openclaw/host-context-prompt.js";
 import { createFragmentReadTool, FRAGMENT_READ_DESCRIPTION, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "./openclaw/fragment-read-tool.js";
-import type { SourceAccessDescriptor } from "./canghai/source-access.js";
+import type { SourceAccessDescriptor, SourceAccessProvider } from "./canghai/source-access.js";
 import { HostContextAuthority, type ContextFragment } from "./openclaw/host-context-authority.js";
 import { loadContextHistoryKeys } from "./openclaw/host-context-keys.js";
 import { loadContextHistory, persistContextHistory } from "./openclaw/host-context-history.js";
@@ -94,6 +94,7 @@ import { registerManagedHostContextEngine, STELLA_CONTEXT_ENGINE, ManagedHostCon
 import { HOST_MEMORY_PROVIDER, isHostConsumptionRevalidation, registerHostMemoryProvider, withHostModelConsumption } from "./openclaw/host-memory-provider.js";
 import { assertHostMemoryConsumptionSupported } from "./openclaw/host-memory.js";
 import { hostContextExecutionHash } from "./openclaw/host-memory-inventory.js";
+import { NativeMemoryRecall, isNativeMemoryOwner, nativeMemoryConfiguration } from "./openclaw/native-active-memory.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 
@@ -239,6 +240,8 @@ type PreparedPrompt = { prependSystemContext?: string; appendContext?: string; s
 type PreparedTurn = {
   promptContext?: PreparedPrompt;
   managedContext?: ManagedHostContextEngine;
+  nativeMemory?: NativeMemoryRecall;
+  prepareNativeMemory?: (capability: { allows(name: string): boolean; assertActive(): void }) => Promise<NativeMemoryRecall | undefined>;
   commitContextTurn?: CommitHostContextTurn;
   persistContextHistory?: (signal: AbortSignal) => Promise<{ revision: string; writeOperationIds: string[] }>;
   publishContextHistory?: (completion: { revision: string; generationId: string; draftHash: string; businessWriteOperationIds: string[] }, signal: AbortSignal) => Promise<{ revision: string; writeOperationIds: string[] }>;
@@ -418,14 +421,23 @@ export default definePluginEntry({
     registerManagedHostContextEngine(api, () => {
       const request = readActiveCompletionRequest(config.agentId);
       managedContextRequests.add(request);
-      return { retainForCompletion: true, commitTurn: async params => {
+      const nativeFactory = isNativeMemoryOwner();
+      return { retainForCompletion: true, ...(!nativeFactory ? { commitTurn: (async params => {
         const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
         if (!prepared?.commitContextTurn) throw new CatalogError("host_context_preparation_required");
         return prepared.commitContextTurn(params);
-      }, resolve() {
+      }) satisfies CommitHostContextTurn } : {}), async resolve(params) {
         if (readActiveCompletionRequest(config.agentId) !== request) throw new CatalogError("host_context_request_mismatch");
         const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
         if (prepared?.outcome !== "ready" || !prepared.managedContext) throw new CatalogError("host_context_preparation_required");
+        if (nativeFactory) {
+          if (!prepared.nativeMemory) throw new CatalogError("native_memory_child_not_admitted");
+          if (params?.prompt !== undefined) await prepared.nativeMemory.bind({ agentId: request.agentId,
+            // The pinned native runtime uses its child session id as run id;
+            // the later public hook verifies the actual run id as well.
+            runId: params.sessionId, sessionId: params.sessionId, sessionKey: params.sessionKey }, params.prompt);
+          return prepared.nativeMemory.engine();
+        }
         return prepared.managedContext;
       } };
     }, { targetAgentId: config.agentId });
@@ -457,6 +469,12 @@ export default definePluginEntry({
       const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
       if (managedContextRequests.has(request) && !prepared?.managedContext) throw new CatalogError("host_context_preparation_required");
       await prepared?.managedContext?.observeOutput(receipt);
+    }, async (request, sessionId) => {
+      const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
+      const native = prepared?.nativeMemory;
+      if (!native || !isNativeMemoryOwner()) return;
+      await native.assertChild({ sessionId });
+      return native;
     });
     const assertHostSourceRevision = async (revision: string): Promise<void> => {
       // Do not reuse the consciousness TTL across the actual transport boundary:
@@ -519,9 +537,13 @@ export default definePluginEntry({
       processingAuthority?: ProcessingAuthority,
       temporalScope: TemporalScope = "current",
       turnNow = new Date().toISOString(),
+      revalidationSourceAccess?: SourceAccessProvider,
     ) => {
       ensureDurability(loaded);
       const binding = await loadPraxisRuntimeBinding(loaded);
+      if (revalidationSourceAccess && (!request || !hasCompletionPersistencePermit(request.runId) || !binding.personalContextAccessPath)) {
+        throw new CatalogError("source_access_revalidation_permit_required");
+      }
       let sourceAccess;
       let viewProcessing: { processingGrant: object; descriptors: SourceAccessDescriptor[]; ownerId: string; modelRef: string; assertCurrent: () => Promise<void> } | undefined;
       if (binding.personalContextAccessPath) {
@@ -550,7 +572,7 @@ export default definePluginEntry({
           await assertCurrent();
           viewProcessing = { processingGrant: processing, descriptors: processing.config.descriptors, ownerId: processing.config.ownerId, modelRef, assertCurrent };
         }
-        sourceAccess = createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
+        sourceAccess = revalidationSourceAccess ?? createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
           isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId) || isHostConsumptionRevalidation(),
           ...(processingAuthority ? { processingAuthority } : {}),
           complete: async ({ prompt, maxTokens }) => {
@@ -594,8 +616,12 @@ export default definePluginEntry({
       description: FRAGMENT_READ_DESCRIPTION,
       parameters: FRAGMENT_READ_PARAMETERS,
       async execute(id, input, signal) {
-        const request = readActiveCompletionRequest(config.agentId, ctx.sessionId, ctx.sessionKey);
-        if (!ctx.sessionId || !ctx.sessionKey || ctx.requesterSenderId !== request.senderId) {
+        const request = readActiveCompletionRequest(config.agentId);
+        const native = (readCompletionPreparation(request.runId) as PreparedTurn | undefined)?.nativeMemory;
+        const nativeChild = native?.matches(ctx);
+        if (native && nativeChild) native.assertFragmentChild(ctx);
+        else readCompletionRequest(request.runId, config.agentId, ctx.sessionId, ctx.sessionKey);
+        if (!ctx.sessionId || !ctx.sessionKey || !nativeChild && ctx.requesterSenderId !== request.senderId) {
           throw new CatalogError("fragment_request_binding_required");
         }
         assertPrivateContextAudience(resolveTurnAudience(request));
@@ -603,7 +629,8 @@ export default definePluginEntry({
         const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
         if (prepared?.outcome !== "ready" || !prepared.fragmentTool) throw new CatalogError("fragment_reader_unavailable");
         await assertPreparedProcessingAuthority(prepared, request);
-        return prepared.fragmentTool.execute(id, input, signal);
+        const read = () => prepared.fragmentTool!.execute(id, input, signal);
+        return native && nativeChild ? native.readFragment(ctx, read) : read();
       },
     }, { names: [FRAGMENT_READ_TOOL] });
 
@@ -1263,7 +1290,9 @@ export default definePluginEntry({
               processingAuthority,
               ...(contextExecutionHash ? { observeResult: async (receipt: Parameters<ManagedHostContextEngine["observeToolResult"]>[0]) => {
                 if (!managedContext) throw new CatalogError("host_context_preparation_required");
-                await managedContext.observeToolResult(receipt);
+                if (preparedTurn?.nativeMemory?.isFragmentRead()) {
+                  await preparedTurn.nativeMemory.observeToolResult(receipt);
+                } else await managedContext.observeToolResult(receipt);
               } } : {}),
               assertCurrent: async () => {
                 readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
@@ -1278,6 +1307,7 @@ export default definePluginEntry({
               ...(appendContext ? { appendContext } : {}),
             };
             let preparedTurn: PreparedTurn | undefined;
+            let prepareNativeMemory: PreparedTurn["prepareNativeMemory"];
             let commitContextTurn: CommitHostContextTurn | undefined;
             let persistManagedHistory: PreparedTurn["persistContextHistory"];
             let publishManagedHistory: PreparedTurn["publishContextHistory"];
@@ -1357,6 +1387,7 @@ export default definePluginEntry({
                 await reader.assertCurrent();
               };
               managedContext = new ManagedHostContextEngine(request, authority, { system, history,
+                nativeMemory: () => preparedTurn?.nativeMemory,
                 hostTimezone: resolveManagedHostTimezone(api.runtime.config.current().agents?.defaults?.userTimezone),
                 archive: async messages => {
                   await assertArchiveAllowed(runtime.evidence.reader);
@@ -1400,7 +1431,13 @@ export default definePluginEntry({
                 });
                 const currentAuthority = await bindTurnProcessingAuthority(request, currentLoaded, binding, ownerId, modelRef, audience);
                 if (currentAuthority.generationId !== completion.generationId) throw new CatalogError("processing_generation_mismatch");
-                const currentRuntime = await createRuntime(currentLoaded, request, currentAuthority, temporalScope, turnNow);
+                // The new generation needs a fresh reader and processing grant,
+                // but persistence cannot mint new semantic access decisions.
+                // Reuse this exact request's successful source/policy/segment
+                // receipts; their provider still rechecks the live grant and
+                // supplied reader and rejects every previously unread target.
+                const currentRuntime = await createRuntime(currentLoaded, request, currentAuthority, temporalScope, turnNow,
+                  runtime.evidence.purpose.sourceAccess);
                 const currentCompilation = await initialization.contextCompilation(runId);
                 const assertCompletionCurrent = async () => {
                   signal.throwIfAborted();
@@ -1447,10 +1484,31 @@ export default definePluginEntry({
                 } finally { publicationAuthority.close(); }
               };
               promptContext = { systemPrompt: await authority.systemPrompt(system), toolsAllow: fragmentTool ? [FRAGMENT_READ_TOOL] : [] };
+              // Native recall inherits this already-prepared source/model scope.
+              // The parent is admitted again at before_agent_run and transport.
+              prepareNativeMemory = (capability: { allows(name: string): boolean; assertActive(): void }) => NativeMemoryRecall.begin(api, {
+                request, authority, system, capability, modelRef,
+                timezone: resolveManagedHostTimezone(api.runtime.config.current().agents?.defaults?.userTimezone),
+                assertActive: () => { readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
+                  preparedTurn?.assertContextConfigurationCurrent?.(); },
+                assertCurrent: async () => {
+                  readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
+                  if (!preparedTurn || preparedTurn.outcome !== "ready") throw new CatalogError("native_memory_parent_not_prepared");
+                  preparedTurn.assertContextConfigurationCurrent?.();
+                  await assertPreparedProcessingAuthority(preparedTurn, request);
+                  await preparedTurn.assertPersonalViewsCurrent?.();
+                  await preparedTurn.assertEvidenceCurrent?.();
+                  await assertHostSourceRevision(preparedTurn.revision!);
+                  preparedTurn.assertContextConfigurationCurrent?.();
+                },
+              });
+              // Keep the producer with the prepare-bound authority, including
+              // registrations reloaded while this completion is draining.
             }
             preparedTurn = {
               promptContext, managedContext, commitContextTurn, persistContextHistory: persistManagedHistory, publishContextHistory: publishManagedHistory,
               fragmentTool, outcome: "ready", checkSourceOutput, assertContextConfigurationCurrent, outcomeContext,
+              ...(prepareNativeMemory ? { prepareNativeMemory } : {}),
               sourceBinding: { catalogPath: binding.catalogPath, runtimeProfileRef: loaded.manifest.identity.runtimeProfileRef },
               ...(preparedRouting ? { routingContext: { prepared: preparedRouting, route: preparedRoute } } : {}),
               assertEvidenceCurrent: async () => {
@@ -1511,17 +1569,57 @@ export default definePluginEntry({
     api.on(
       "before_prompt_build",
       async (_event, ctx) => {
+        if (ctx.agentId === config.agentId && isNativeMemoryOwner()) {
+          const request = readActiveCompletionRequest(config.agentId);
+          const native = (readCompletionPreparation(request.runId) as PreparedTurn | undefined)?.nativeMemory;
+          if (!native) throw new CatalogError("native_memory_child_not_admitted");
+          return native.bind(ctx, _event.prompt);
+        }
         if (ctx.agentId !== config.agentId || !hasCompletionRunPermit(ctx.runId)) return;
         return prepareTurn(ctx.runId!, ctx.sessionId, ctx.sessionKey);
       },
       { priority: 100, timeoutMs: PREPARATION_HOOK_TIMEOUT_MS },
     );
 
+    api.on("before_prompt_build", async (event, ctx) => {
+      if (ctx.agentId !== config.agentId || !hasCompletionRunPermit(ctx.runId)) return;
+      const prepared = readCompletionPreparation(ctx.runId!) as PreparedTurn | undefined;
+      const nativeEntry = api.runtime.config.current().plugins?.entries?.["active-memory"];
+      if (nativeEntry?.enabled !== true || isRecord(nativeEntry.config) && nativeEntry.config.enabled === false) return;
+      if (!prepared) throw new CatalogError("native_memory_parent_not_prepared");
+      try {
+        if (!await nativeMemoryConfiguration(api, config.agentId)) return;
+        if (!prepared.prepareNativeMemory) throw new CatalogError("native_memory_context_required");
+        if (!ctx.toolAuthority) throw new CatalogError("native_memory_tool_authority_required");
+        if (prepared.nativeMemory) return;
+        const request = readCompletionRequest(ctx.runId!, config.agentId, ctx.sessionId, ctx.sessionKey);
+        if (event.prompt !== request.prompt) throw new CatalogError("native_memory_parent_prompt_unbound");
+        prepared.nativeMemory = await prepared.prepareNativeMemory(ctx.toolAuthority);
+      }
+      catch (error) {
+        prepared.outcome = "blocked";
+        prepared.category = error instanceof CatalogError ? error.category : "native_memory_validation_failed";
+        throw error;
+      }
+    }, { priority: 2_000, requiresToolAuthority: true });
+
     api.on(
       "before_agent_run",
       async (event, ctx) => {
         if (ctx.agentId !== config.agentId) return { outcome: "pass" } as const;
 
+        if (!hasCompletionRunPermit(ctx.runId) && isNativeMemoryOwner()) {
+          const request = readActiveCompletionRequest(config.agentId);
+          const native = (readCompletionPreparation(request.runId) as PreparedTurn | undefined)?.nativeMemory;
+          try {
+            if (!native) throw new CatalogError("native_memory_child_not_admitted");
+            await native.assertChild(ctx);
+            return { outcome: "pass" } as const;
+          } catch (error) {
+            return { outcome: "block", category: error instanceof CatalogError ? error.category : "native_memory_validation_failed",
+              reason: "Native memory child is not bound to the active parent", message: "Stella Core 原生记忆召回授权失效，已停止执行。" } as const;
+          }
+        }
         if (!hasCompletionRunPermit(ctx.runId)) return {
           outcome: "block", reason: "Stella requires coordinated completion",
           message: "Stella Core 需要经过可验证的完成协调入口，已停止本轮请求。", category: "capability_unavailable",

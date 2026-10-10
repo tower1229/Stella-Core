@@ -22,6 +22,7 @@ const outputRejectionProbe = process.argv.includes("--correction-output-rejected
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
 const liveFragment = process.argv.includes("--fragment-live");
 const fragmentProbe = liveFragment || process.argv.includes("--fragment-skill");
+const nativeFragmentFixture = process.argv.includes("--guarded-active-memory") || process.argv.includes("--guarded-active-memory-stale");
 const liveModel = "google/gemini-3.1-pro-preview";
 let liveProvider;
 if (liveFragment) {
@@ -85,9 +86,10 @@ const historyQueuedNoticeProbe = process.argv.includes("--history-queued-notice"
 const standaloneCompactProbe = process.argv.includes("--standalone-compact");
 const historyNativeCompactProbe = process.argv.includes("--history-native-compact");
 const historyViewProbe = sourceDeletionProbe || historyFollowupProbe || historyQueuedNoticeProbe || historyNativeCompactProbe || process.argv.includes("--history-view-rebuild");
-const managedContextProbe = completionLifecycleProbe || outcomeHistoryProbe || standaloneCompactProbe || nativeArtifactProbe || managedBusinessFailure || historyViewProbe || process.argv.includes("--managed-context");
+const nativeActiveStale = process.argv.includes("--guarded-active-memory-stale");
+const managedContextProbe = nativeActiveStale || completionLifecycleProbe || outcomeHistoryProbe || standaloneCompactProbe || nativeArtifactProbe || managedBusinessFailure || historyViewProbe || process.argv.includes("--guarded-active-memory") || process.argv.includes("--managed-context");
 const guardedDreaming = process.argv.includes("--guarded-dreaming");
-const guardedActive = process.argv.includes("--guarded-active-memory");
+const guardedActive = nativeActiveStale || process.argv.includes("--guarded-active-memory");
 const guardedStale = process.argv.includes("--guarded-provider-stale");
 const guardedPayload = process.argv.includes("--guarded-payload-transform");
 const guardedSemantic = process.argv.includes("--guarded-semantic");
@@ -102,7 +104,7 @@ const cancellationProbe = process.argv.includes("--cancel") || preparationCancel
 const adviceRevisionProbe = process.argv.includes("--advice-revision") || process.argv.includes("--advice-revision-recovery");
 const adviceTailProbe = process.argv.includes("--advice-evidence-recovery") || process.argv.includes("--advice-revision-recovery");
 const recoveryProbe = correctionRecoveryProbe || process.argv.includes("--outcome-recovery") || questionRecoveryProbe || adviceTailProbe;
-const failureProbe = completionStatusChanged || nativeArtifactProbe || managedBusinessFailure || outputRejectionProbe || process.argv.includes("--outcome-persist-failure") || recoveryProbe;
+const failureProbe = nativeActiveStale || completionStatusChanged || nativeArtifactProbe || managedBusinessFailure || outputRejectionProbe || process.argv.includes("--outcome-persist-failure") || recoveryProbe;
 const outcomeProbe = outcomeHistoryProbe || process.argv.includes("--outcome") || failureProbe && !correctionProbe && !questionRecoveryProbe && !adviceTailProbe;
 const questionProbe = process.argv.includes("--question-evidence") || process.argv.includes("--question-durable") || questionRecoveryProbe || admissionReplayProbe;
 const managed = correctionProbe || process.argv.includes("--managed") || cancellationProbe || adviceRevisionProbe || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe || adviceTailProbe || admissionReplayProbe;
@@ -230,7 +232,7 @@ if (correctionProbe) {
 }
 
 let fragmentOriginalPath;
-if (fragmentProbe) {
+if (fragmentProbe || nativeFragmentFixture) {
   const { prepareRepositorySource } = await import(buildModule("src/canghai/repository-source.js"));
   const { canonicalJson, bytesVersion, objectVersion } = await import(buildModule("src/canghai/content-version.js"));
   const catalogFile = path.join(canghaiRoot, "30_PersonalData/memory/catalog.json");
@@ -244,13 +246,13 @@ if (fragmentProbe) {
     await writeFile(path.join(canghaiRoot, file), body);
     catalog.policies.push({ ...ref, status: "current", dependencies: [], locator: { path: file, sha256: bytesVersion(body) } }); refs.push(ref);
   }
-  const allowed = "SYNTHETIC_ALLOWED_FRAGMENT\n", denied = "SYNTHETIC_DENIED_NEIGHBOR\n", payload = allowed + denied;
+  const allowed = "SYNTHETIC_ALLOWED_FRAGMENT\n", denied = nativeFragmentFixture ? "" : "SYNTHETIC_DENIED_NEIGHBOR\n", payload = allowed + denied;
   fragmentOriginalPath = path.join(canghaiRoot, "30_PersonalData/memory/fragments.txt");
   await writeFile(fragmentOriginalPath, payload);
   const imported = await prepareRepositorySource({ root: canghaiRoot, collectionId: "fragment-probe", sourceId: "mixed",
     relativePath: "30_PersonalData/memory/fragments.txt", expectedSha256: bytesVersion(payload), capturedAt: "2026-09-01T00:00:00Z", policyRef: refs[0],
     objectRoot: "30_PersonalData/memory/objects", reviewedSegments: [{ start: 0, end: Buffer.byteLength(allowed), policyRef: refs[0] },
-      { start: Buffer.byteLength(allowed), end: Buffer.byteLength(payload), policyRef: refs[1] }] });
+      ...(nativeFragmentFixture ? [] : [{ start: Buffer.byteLength(allowed), end: Buffer.byteLength(payload), policyRef: refs[1] }])] });
   for (const object of imported.objects) {
     await mkdir(path.dirname(path.join(canghaiRoot, object.entry.locator.path)), { recursive: true });
     await writeFile(path.join(canghaiRoot, object.entry.locator.path), object.bytes); catalog[object.group].push(object.entry);
@@ -258,11 +260,11 @@ if (fragmentProbe) {
   await writeFile(catalogFile, canonicalJson(catalog));
   const accessFile = path.join(canghaiRoot, "50_PersonalAgent/stella/personal-access.json");
   const access = JSON.parse(await readFile(accessFile, "utf8"));
-  access.descriptors = refs.map((policyRef, index) => ({ sourceRef: imported.sourceRef, policyRef,
+  access.descriptors = refs.slice(0, nativeFragmentFixture ? 1 : 2).map((policyRef, index) => ({ sourceRef: imported.sourceRef, policyRef,
     description: index ? "Synthetic unavailable neighboring fragment" : "Synthetic permitted observation fragment",
     segment: { payloadSha256: bytesVersion(payload), start: index ? Buffer.byteLength(allowed) : 0,
       end: index ? Buffer.byteLength(payload) : Buffer.byteLength(allowed) } }));
-  access.descriptors.push({ ...access.descriptors[1], policyRef: refs[0] });
+  if (!nativeFragmentFixture) access.descriptors.push({ ...access.descriptors[1], policyRef: refs[0] });
   await writeFile(accessFile, canonicalJson(access));
 }
 
@@ -314,10 +316,13 @@ import main from ${JSON.stringify(buildModule("src/plugin.js"))};
 import { GitCangHaiDurability } from ${JSON.stringify(buildModule("src/canghai/durability.js"))};
 import { readSessionTranscriptRawDelta } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/session-transcript-runtime.js")).href)};
 import { listSessionEntries, resolveStorePath, patchSessionEntry } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/session-store-runtime.js")).href)};
-import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, appendFileSync, unlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { ManagedHostContextEngine } from ${JSON.stringify(buildModule("src/openclaw/host-context-engine.js"))};
 import { HostContextAuthority } from ${JSON.stringify(buildModule("src/openclaw/host-context-authority.js"))};
+import { CatalogReader } from ${JSON.stringify(buildModule("src/canghai/catalog-reader.js"))};
+import { readCompletionPreparation, hasCompletionRunPermit } from ${JSON.stringify(buildModule("src/openclaw/completion.js"))};
+import { getPluginRuntimeGatewayRequestScope } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/plugin-runtime.js")).href)};
 if (${completionStatusChanged}) {
   const originalSync = GitCangHaiDurability.prototype.syncCritical;
   GitCangHaiDurability.prototype.syncCritical = async function(paths, message) {
@@ -406,7 +411,30 @@ if (${adviceTailProbe}) {
 }
 const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 const outcomePhase = () => !${outcomeHistoryProbe} || existsSync(${JSON.stringify(path.join(temp, 'outcome-history-phase'))}) && readFileSync(${JSON.stringify(path.join(temp, 'outcome-history-phase'))}, 'utf8') === 'outcome';
+const tracedPreparations = new WeakSet();
 export default { ...main, register(api) {
+  if (${nativeActiveStale}) {
+    api.on('after_tool_call', event => {
+      const ref = event.result?.details?.original?.ref;
+      if (event.toolName === 'stella_read_fragment' && ref) writeFileSync(${JSON.stringify(path.join(temp, "native-read-evidence.json"))}, JSON.stringify(ref));
+    });
+    api.on('agent_end', async () => {
+      const scope = getPluginRuntimeGatewayRequestScope();
+      const marker = ${JSON.stringify(path.join(temp, "native-source-invalidation.json"))};
+      const selected = ${JSON.stringify(path.join(temp, "native-read-evidence.json"))};
+      if (scope?.pluginId !== 'active-memory' || !existsSync(selected) || existsSync(marker)) return;
+      const reader = await CatalogReader.load(${JSON.stringify(canghaiRoot)}, '30_PersonalData/memory/catalog.json');
+      const evidence = await reader.read(JSON.parse(readFileSync(selected, 'utf8')), 'evidence');
+      const source = await reader.read(evidence.source, 'sources');
+      const payload = source.payloads[0];
+      const deletedPath = ${JSON.stringify(canghaiRoot)} + '/' + payload.path;
+      const before = readFileSync(deletedPath);
+      unlinkSync(deletedPath);
+      writeFileSync(marker, JSON.stringify({ sourceRef: evidence.source, payload, deletedPath,
+        retainedBytesBeforeDeletion: before.length, generationId: reader.catalog.generationId,
+        nativeModelOutputAlreadyObserved: true }));
+    });
+  }
   if (${historyFollowupProbe || nativeNewPassThrough}) api.registerGatewayMethod('stella.syntheticResetEvidence', async ({ respond }) => {
     const storePath = resolveStorePath(undefined, { agentId: 'probe' });
     const found = listSessionEntries({ agentId: 'probe', storePath, readOnly: true }).find(row => row.sessionKey === 'agent:probe:main-completion');
@@ -429,7 +457,7 @@ export default { ...main, register(api) {
   if (${guardedActive}) api.on('before_prompt_build', (_event, ctx) => {
     appendFileSync(${JSON.stringify(path.join(temp, "active-hooks.jsonl"))}, JSON.stringify({ trigger: ctx.trigger,
       sessionKey: ctx.sessionKey, messageProvider: ctx.messageProvider, channelId: ctx.channelId,
-      readAllowed: ctx.toolAuthority?.allows('read') }) + '\\n');
+      readAllowed: ctx.toolAuthority?.allows('read'), fragmentAllowed: ctx.toolAuthority?.allows('stella_read_fragment') }) + '\\n');
   }, { priority: 1100, requiresToolAuthority: true });
   if (${guardedStale}) api.on('after_tool_call', () => {
     const catalogPath = ${JSON.stringify(path.join(canghaiRoot, "30_PersonalData/memory/catalog.json"))};
@@ -442,6 +470,28 @@ export default { ...main, register(api) {
   if (${liveFragment}) api.on('llm_input', event => appendFileSync(${JSON.stringify(path.join(temp, "live-inputs.jsonl"))}, JSON.stringify({ forbiddenNeighbor: JSON.stringify(event).includes('SYNTHETIC_DENIED_NEIGHBOR'), correctionPresent: JSON.stringify(event).includes('SYNTHETIC_CORRECTED_PREMISE'), event }) + '\\n'));
   main.register({ ...api,
     on(name, handler, options) {
+      if (${guardedActive} && ['before_prompt_build', 'before_agent_run'].includes(name)) return api.on(name, async (event, ctx) => {
+        const owner = getPluginRuntimeGatewayRequestScope();
+        const record = value => appendFileSync(${JSON.stringify(path.join(temp, "native-authority-events.jsonl"))}, JSON.stringify(value) + '\\n');
+        record({ name, phase: 'enter', runId: ctx.runId, sessionId: ctx.sessionId,
+          owner: owner && { pluginId: owner.pluginId, pluginOrigin: owner.pluginOrigin, pluginSource: owner.pluginSource },
+          authorizedPhase: options?.requiresToolAuthority === true });
+        try { const result = await handler(event, ctx);
+          const prepared = hasCompletionRunPermit(ctx.runId) ? readCompletionPreparation(ctx.runId) : undefined;
+          if (name === 'before_agent_run' && prepared && !tracedPreparations.has(prepared)) {
+            tracedPreparations.add(prepared);
+            for (const method of ['persistContextHistory', 'persistRecommendation', 'publishContextHistory']) {
+              const invoke = prepared[method];
+              if (!invoke) continue;
+              prepared[method] = async (...args) => {
+                try { return await invoke(...args); }
+                catch(error) { record({name:method,phase:'failed',category:error.category,message:error.message,stack:error.stack});throw error; }
+              };
+            }
+          }
+          record({ name, phase: 'returned', result }); return result; }
+        catch(error) { record({ name, phase: 'failed', category: error.category, message: error.message, stack: error.stack }); throw error; }
+      }, options);
       if (${sourceDeletionProbe || completionLifecycleProbe} && name === 'reply_dispatch') return api.on(name, async (event, ctx) => {
         let owned;
         const result = await handler(event, { ...ctx, onAgentRunStart(...args) {
@@ -486,7 +536,13 @@ export default { ...main, register(api) {
         }
         return engine;
       });
-    }, runtime: { ...api.runtime, llm: { ...api.runtime.llm,
+    }, runtime: { ...api.runtime, ...(${guardedActive} ? { agent: { ...api.runtime.agent,
+      async runEmbeddedAgent(params) {
+        try { return await api.runtime.agent.runEmbeddedAgent(params); }
+        catch(error) { appendFileSync(${JSON.stringify(path.join(temp, "native-runtime-error.jsonl"))}, JSON.stringify({
+          category: error.category, message: error.message, stack: error.stack }) + '\\n'); throw error; }
+      },
+    } } : {}), llm: { ...api.runtime.llm,
     async complete(params) {
       if (${cancellationProbe}) appendFileSync(${JSON.stringify(path.join(temp, "cancellation-semantic-calls.jsonl"))}, JSON.stringify({ purpose: params.purpose, at: Date.now() }) + '\\n');
       if (${outcomeHistoryRecoveryProbe} && existsSync(${JSON.stringify(path.join(temp, "outcome-recovery-running"))})) {
@@ -506,7 +562,7 @@ export default { ...main, register(api) {
         return result;
       }
       if (${preparationCancellationProbe}) return api.runtime.llm.complete(params);
-      if (${fragmentProbe} && params.purpose === 'stella-source-access') {
+      if (${fragmentProbe || nativeFragmentFixture} && params.purpose === 'stella-source-access') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
         return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
           policyRef: value.policyRef, segment: value.segment, applicable: true, scenarios: ['synthetic'], topicRequested: true, topicExplicitlyNamed: true }) };
@@ -588,6 +644,9 @@ let providerReceivedInitializationResult = false;
 let observedSkillResult;
 let cancellationCheckpoint;
 const fragmentChecks = { allowedRead: false, descriptionListed: false, skillBodyRead: false, deniedNeighborAbsent: true, wholeFileBlocked: false, unavailableHandleBlocked: false };
+let nativeRecallRequests = 0;
+let nativeFragmentRead = false;
+let nativeSummaryConsumed = false;
 const provider = createServer(async (request, response) => {
   // Native background model discovery is metadata, not a completion request.
   if (guardedDreaming && request.method === "GET" && request.url === "/v1/models") {
@@ -631,6 +690,30 @@ const provider = createServer(async (request, response) => {
     await providerRelease.promise;
   }
   response.setHeader("content-type", "application/json");
+  if (guardedActive && requestBody.includes("You are a memory search agent.")) {
+    assert.ok(!requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR"), "Native recall must not receive the denied neighboring segment");
+    nativeRecallRequests++;
+    await writeFile(path.join(temp, `native-recall-input-${nativeRecallRequests}.json`), requestBody);
+    assert.ok(nativeRecallRequests <= 3, "Native recall must stay within the synthetic call budget");
+    if (nativeRecallRequests <= 2) {
+      const args = nativeRecallRequests === 1 ? { action: "list" } : { action: "read", handle: "F1" };
+      response.end(JSON.stringify({ id: "synthetic-native-fragment", object: "chat.completion", created: 1, model: "probe",
+        choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: `native-fragment-${nativeRecallRequests}`, type: "function",
+          function: { name: "stella_read_fragment", arguments: JSON.stringify(args) } }] }, finish_reason: "tool_calls" }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+      return;
+    }
+    nativeFragmentRead = parsedRequest.messages.some(message => message.role === "tool" &&
+      JSON.stringify(message.content).includes('original') && JSON.stringify(message.content).includes("SYNTHETIC_ALLOWED_FRAGMENT"));
+    response.end(JSON.stringify({ id: "synthetic-native-summary", object: "chat.completion", created: 1, model: "probe",
+      choices: [{ index: 0, message: { role: "assistant", content: "The owner requested preservation of unresolved questions. SYNTHETIC_NATIVE_RECALL_SUMMARY" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+    return;
+  }
+  if (guardedActive) {
+    nativeSummaryConsumed ||= requestBody.includes("<active_memory_plugin>") && requestBody.includes("SYNTHETIC_NATIVE_RECALL_SUMMARY");
+    await writeFile(path.join(temp, "native-main-input.json"), requestBody);
+  }
   if (fragmentProbe) {
     fragmentChecks.deniedNeighborAbsent &&= !requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR");
     const steps = [
@@ -692,7 +775,7 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
     phases: { light: { enabled: true, limit: 3, lookbackDays: 7, execution: { model: probeModel } }, rem: { enabled: false },
       deep: { enabled: true, limit: 3, minScore: 0, minRecallCount: 0, minUniqueQueries: 0 } },
   } } } } : {}), ...(guardedActive ? { "active-memory": { enabled: true, config: {
-    enabled: true, mode: "always", agents: ["probe"], model: probeModel, toolsAllow: ["read"], logging: true,
+    enabled: true, mode: "always", queryMode: "message", agents: ["probe"], model: probeModel, toolsAllow: ["stella_read_fragment"], timeoutMs: 120000, logging: true,
   } } } : {}), "stella-core": { enabled: true,
     llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}),
@@ -795,6 +878,12 @@ try {
   }
   if (!completionLifecycleProbe && !failureProbe && !cancellationProbe && !guardedStale && !guardedPayload) liveFragment ? assert.ok(sent.text.includes("SYNTHETIC_MAIN_ANSWER")) : assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
   let terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 }, { timeoutMs: 65_000 });
+  if (nativeActiveStale) {
+    const deadline = Date.now() + 600_000;
+    while ((terminal.status === "pending" || terminal.status === "timeout") && terminal.endedAt == null && Date.now() < deadline) {
+      terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 30_000 }, { timeoutMs: 35_000 });
+    }
+  }
   if (completionLifecycleProbe) {
     const deadline = Date.now() + 120_000;
     for (;;) {
@@ -829,7 +918,19 @@ try {
   }
   assert.equal(terminal.status, failureProbe || cancellationProbe || guardedStale || guardedPayload ? "error" : "ok", JSON.stringify(terminal));
   let persistence;
-  if (nativeArtifactProbe) {
+  if (nativeActiveStale) {
+    const invalidation = JSON.parse(await readFile(path.join(temp, 'native-source-invalidation.json'), 'utf8'));
+    assert.equal(providerRequests, 3, "A valid native summary must be followed by zero main-model requests after source deletion");
+    assert.equal(nativeSummaryConsumed, false);
+    // The original Host reaches the parent admission gate before transport.
+    // Preserve its actual category rather than bypassing it to reach a later
+    // source check merely for the probe.
+    assert.ok(gateway.diagnostics().includes("initialization admission blocked (source_dirty)"), gateway.diagnostics());
+    const admissions = (await readFile(path.join(temp, "native-authority-events.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+    assert.ok(admissions.some(row => row.name === "before_agent_run" && row.phase === "returned" &&
+      row.result?.outcome === "block" && row.result.category === "source_dirty"));
+    persistence = { nativeSourceInvalidation: invalidation, mainModelRequests: 0, staleSummaryConsumed: false };
+  } else if (nativeArtifactProbe) {
     const hooks = (await readFile(path.join(temp, "native-reinjection-hook.jsonl"), "utf8")).trim().split("\n").map(line => JSON.parse(line));
     assert.ok(hooks.length > 0 && hooks.every(hook => hook.sha256 === nativeArtifact.sha256 && hook.entry === nativeArtifact.entry));
     assert.equal(providerRequests, 0, "The actual final model transport must not receive the unbound native artifact");
@@ -978,7 +1079,7 @@ try {
     const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
     assert.equal(reader.catalog.understandings.length, 1);
     assert.equal(reader.catalog.changes.length, 1);
-    assert.equal(reader.catalog.sources.length, contextSourceCount + (fragmentProbe ? 2 : 1));
+    assert.equal(reader.catalog.sources.length, contextSourceCount + (fragmentProbe || nativeFragmentFixture ? 2 : 1));
     assert.equal(reader.catalog.bundles.length, 1);
     if (!liveFragment) assert.equal(providerReceivedCorrection, true, "Final Host prompt must contain the newly synchronized understanding");
     const localRevision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
@@ -1000,6 +1101,13 @@ try {
         request: head.scope, verificationKey: contextKeys.verificationKey, requireBusinessCommit: true });
       assert.equal(restored.archive.digest, head.digest);
       persistence.businessCommitBindingVerified = true;
+      if (guardedActive) {
+        const { readContextHistory } = await import(buildModule("src/openclaw/host-context-history.js"));
+        const snapshot = await readContextHistory(restored.archive, canghaiRoot, reader);
+        assert.ok(snapshot.graph.nodes.some(node => node.producer === "assistant" && node.content.includes("SYNTHETIC_NATIVE_RECALL_SUMMARY")));
+        assert.ok(snapshot.graph.nodes.some(node => node.producer === "tool_result" && node.content.includes("SYNTHETIC_ALLOWED_FRAGMENT")));
+        persistence.nativeRecallTraceSignedAndSynchronized = true;
+      }
     }
   } else if (questionProbe && managed) {
     const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
@@ -1688,7 +1796,7 @@ try {
     ...(fragmentProbe ? { fragmentSkill: fragmentChecks } : {}), ...(liveEvidence ? { liveEvidence } : {}),
     managedContextProbe, guardedProvider, guardedActive, guardedPayload, semanticProviderRequests, terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
-    provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe && !nativeArtifactProbe && !cancellationProbe, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: outcomeHistoryRecoveryProbe || failureProbe || cancellationProbe || guardedStale || guardedPayload,
+    provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe && !failureProbe && !cancellationProbe && !guardedStale && !guardedPayload, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: outcomeHistoryRecoveryProbe || failureProbe || cancellationProbe || guardedStale || guardedPayload,
     provesOutcomeRecovery: outcomeHistoryRecoveryProbe || recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
     initialization: { providerReceivedInitialization, hostIdentityVerified: true, restrictedVerification: initializationVerification,
       skillBodyRead: fragmentProbe ? fragmentChecks.skillBodyRead : skillReadProbe ? providerReceivedSkillBody : "not_exercised",
@@ -1703,11 +1811,17 @@ try {
     let observations = [];
     try { observations = (await readFile(path.join(temp, "active-hooks.jsonl"), "utf8")).trim().split("\n").filter(Boolean).map(line => JSON.parse(line)); }
     catch (error) { if (error.code !== "ENOENT") throw error; }
-    assert.equal(observations.length, 0, "Pinned Host diagnostic changed: reevaluate the native recall path");
-    report.nativeActiveMemory = { scope: "diagnostic", verified: false, loaded: true,
-      postPolicyHookInvocations: observations.length, category: "host_tool_authority_unavailable" };
+    assert.ok(observations.length > 0, "The Host must issue genuine post-policy tool authority");
+    assert.ok(observations.every(row => row.fragmentAllowed === true && row.readAllowed === false));
+    assert.equal(nativeRecallRequests, 3);
+    assert.equal(nativeFragmentRead, true);
+    assert.equal(nativeSummaryConsumed, !nativeActiveStale);
+    report.nativeActiveMemory = { scope: "synthetic exact Host consumption", verified: true, loaded: true,
+      postPolicyHookInvocations: observations.length, nativeRecallRequests, nativeFragmentRead, nativeSummaryConsumed,
+      ...(nativeActiveStale ? { staleSourceRejected: true, mainModelRequestsAfterInvalidation: 0 } : {}),
+      dreamingEnabled: false };
   }
-  assert.equal(report.providerRequests, nativeArtifactProbe || guardedPayload ? 0 : guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : fragmentProbe ? 6 : skillReadProbe ? 3 : sourceDeletionProbe ? 3 : historyFollowupProbe ? 6 : historyViewProbe ? 2 + (historyView?.nativeCompact?.modelRequests ?? 0) : outcomeHistoryProbe ? 3 : standaloneCompactProbe ? 2 : 1);
+  assert.equal(report.providerRequests, nativeActiveStale ? 3 : nativeArtifactProbe || guardedPayload ? 0 : guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : guardedActive ? 4 : fragmentProbe ? 6 : skillReadProbe ? 3 : sourceDeletionProbe ? 3 : historyFollowupProbe ? 6 : historyViewProbe ? 2 + (historyView?.nativeCompact?.modelRequests ?? 0) : outcomeHistoryProbe ? 3 : standaloneCompactProbe ? 2 : 1);
   if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
   if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
   if (!liveFragment && !preparationCancellationProbe && !correctionRecoveryProbe && !guardedPayload && !nativeArtifactProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));

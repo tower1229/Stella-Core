@@ -33,6 +33,7 @@ type HookContext = {
   runId?: string;
   sessionKey?: string;
   trace?: { traceId: string };
+  toolAuthority?: { allows(name: string): boolean; assertActive(): void };
 };
 type HookHandler = (event: unknown, context: HookContext) => unknown | Promise<unknown>;
 
@@ -94,8 +95,16 @@ function registerPlugin(
         errors.push(message);
       },
     },
-    on(name: string, handler: HookHandler) {
-      hooks.set(name, handler);
+    on(name: string, handler: HookHandler, options?: { requiresToolAuthority?: boolean }) {
+      if (options?.requiresToolAuthority) {
+        const ordinary = hooks.get(name);
+        hooks.set(name, async (event, context) => {
+          const result = await ordinary?.(event, context);
+          // The real Host dispatches this phase only with its finalized,
+          // ephemeral tool capability. Ordinary fixture hooks have none.
+          return context.toolAuthority ? await handler(event, context) ?? result : result;
+        });
+      } else hooks.set(name, handler);
     },
     registerGatewayMethod(name: string, handler: HookHandler, options: { scope: string }) {
       assert.equal(options.scope, "operator.admin");

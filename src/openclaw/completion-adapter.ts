@@ -1,5 +1,6 @@
 import { FRAGMENT_READ_TOOL } from "./fragment-read-tool.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { canonicalJson } from "../canghai/content-version.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveAgentWorkspaceDir, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import { getSessionEntry, patchSessionEntry, type SessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
@@ -27,6 +28,14 @@ export const PRIVATE_DRAFT_HOST_POLICY = {
 } as const;
 /** Constrained private-draft tool surface: observe/verify only, never source expand or delivery tools. */
 export const CONSTRAINED_TOOL_EXECUTION_ALLOW = ["read", "stella_initialize", FRAGMENT_READ_TOOL] as const;
+export function completionToolCachePartition(input: {
+  runId: string; agentId: string; sessionId: string; sessionKey: string; prompt: string;
+  model: unknown; config: unknown; toolsAllow?: string[];
+}): string {
+  const snapshot: unknown = JSON.parse(JSON.stringify({ ...input,
+    toolsAllow: input.toolsAllow ?? null, toolExecutionAllow: CONSTRAINED_TOOL_EXECUTION_ALLOW }));
+  return createHash("sha256").update(canonicalJson(snapshot)).digest("hex");
+}
 type CompletionSessionStart = { sessionId: string; lifecycleRevision?: string; startedAt: number };
 
 /** Public status only; the SDK preserves Host writer/recovery ownership fields. */
@@ -183,6 +192,12 @@ export function registerCompletionAdapter(
             // Only these tools may execute before the private draft is committed.
             toolsAllow: event.toolsAllow,
             toolExecutionAllow: [...CONSTRAINED_TOOL_EXECUTION_ALLOW],
+            // Cache partition only. The Host still admits the run and mints the
+            // ephemeral capability from its finalized tool surface. A fresh
+            // completion must not reuse a previous generation's native recall.
+            ...(ctx.cfg.plugins?.entries?.["active-memory"]?.enabled === true ? { toolAuthorityFingerprint:
+              completionToolCachePartition({ runId, agentId, sessionId, sessionKey, prompt, model, config: ctx.cfg,
+                toolsAllow: event.toolsAllow }) } : {}),
             suppressLiveStreamOutput: true,
             ...PRIVATE_DRAFT_HOST_POLICY, deferTerminalLifecycle: true,
             onAgentEvent(event) {

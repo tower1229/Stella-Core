@@ -88,6 +88,8 @@ completion receipt 是 `stella.completion-receipt/v1` 的运行结果，包含 o
 
 检索 adapter 返回原始 Ref、覆盖及 indexing／truncation 信息。Host 的候选排序可作为搜索基础，Core 使用 LLM 作最终语义选择。失效摘要、Dreaming 和 Active Memory 注入必须经过当前 generation 检查；不能校验时该路径不能作为当前个人理解来源。
 
+原生 Active Memory 的 Core 适配要求全局 contextEngine slot 为 `stella-core`，父模型为已获处理许可的 `stella-guarded/<model-id>`；原生配置显式启用目标 agent，使用 `mode: "always"`、`queryMode: "message"`、同一精确模型和 `toolsAllow: ["stella_read_fragment"]`，不配置 modelFallback。只支持固定 Host `2026.8.2`；未知模式、模型或额外工具明确失败。公开工具缓存 fingerprint 仅用于分区，真实授权由 Host 在策略收敛后签发。原生提示、工具结果和输出必须经来源约束的 context engine 与 provider 核验，再把确切原生前缀绑定到父输入。Dreaming 保持关闭。成功与来源失效验收及其范围见 [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md#2026-09-18-t17-消费门禁及剩余-host-缺口)，不能据此清除完整 profile 的独立门禁。
+
 ## 6. 能力与 activation 状态
 
 runtimeState.activationStatus 仍须为 active；migration_required 和 degraded 均阻断实例激活。单项非必需能力不可用单独记录 unavailable，不把实例改为 degraded 后继续启动。

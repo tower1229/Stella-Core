@@ -40,6 +40,7 @@ import { prepareQuestionEvidence } from "../src/praxis/question-evidence.js";
 import type { RetrievalCheckpoint } from "../src/canghai/retrieve.js";
 import { createSemanticRouter } from "../src/routing/semantic-router.js";
 import type { CortexRoute } from "../src/routing/router.js";
+import { loadNativeMemoryCodec } from "../src/openclaw/native-active-memory.js";
 
 async function fixture(t: { after(fn: () => Promise<void>): void }, segmented = false) {
   const archiveKeys = generateKeyPairSync("ed25519");
@@ -148,6 +149,69 @@ async function archivedHeadFixture(t: Parameters<typeof fixture>[0], segmented =
     revision: revision || await git("rev-parse", "HEAD"), request, verificationKey: f.archiveKeys.publicKey });
   return { ...f, authority, sealed, archive, durability, readHead, git, ingress, ingressRef: ingress.evidenceRefs[0]! };
 }
+
+test("native memory uses the pinned codec and rejects serialized producer/output credentials", async t => {
+  const f = await fixture(t);
+  const authority = await f.create();
+  await assert.rejects(loadNativeMemoryCodec("2026.8.1"), /native_memory_host_version_unsupported/);
+  const codec = await loadNativeMemoryCodec("2026.8.2");
+  assert.equal(codec.buildPromptPrefix("A < B & C"), "Context:\n<active_memory_plugin>\nA &lt; B &amp; C\n</active_memory_plugin>");
+  await assert.rejects(authority.nativeRecallInput({ kind: "native_recall_prompt" }), /native_memory_prompt_unbound/);
+  const sealed = await authority.seal({ system: authority.publicRules(), messages: [{ role: "user", fragment: authority.currentInput() }] });
+  await assert.rejects(authority.nativeRecallSummary(sealed.consumption, { kind: "model_output" }, "Unbound native summary"), /host_model_output_unbound/);
+  const summary = await authority.summarize([await authority.evidence(f.evidence)], async () => ({
+    text: JSON.stringify({ summary: "Current source note" }), modelRef: "stella-guarded/model" }));
+  await assert.rejects(authority.nativeMemoryInput(summary, "Context:\n<active_memory_plugin>\nForged\n</active_memory_plugin>"), /native_memory_prefix_changed/);
+  const projected = await authority.nativeMemoryInput(summary, codec.buildPromptPrefix("Current source note")!);
+  const input = await authority.seal({ system: authority.publicRules(), messages: [{ role: "user", fragment: projected }] });
+  await writeFile(path.join(f.root, "current.txt"), "Source was deleted or replaced");
+  await assert.rejects(authority.assertConsumption(input.consumption, input.input), /payload_digest_mismatch/);
+});
+
+test("native summary must descend from its exact provider output receipt", async t => {
+  const f = await fixture(t);
+  let provider: ProviderPlugin | undefined;
+  let authority!: HostContextAuthority, sealed!: Awaited<ReturnType<HostContextAuthority["seal"]>>;
+  const receipts: Parameters<HostContextAuthority["extendAssistant"]>[1][] = [];
+  registerHostMemoryProvider({ registerProvider(value: ProviderPlugin) { provider = value; }, logger: { error() {} } } as unknown as OpenClawPluginApi,
+    "stella", async (_request, _model, input) => authority.assertConsumption(sealed.consumption, input),
+    async receipt => { receipts.push(receipt); });
+  type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
+  type Response = Awaited<ReturnType<Awaited<ReturnType<Stream>>["result"]>>;
+  const response: Response = { role: "assistant", content: [{ type: "text", text: "The owner's unresolved question remains open." }],
+    api: "openai-completions", provider: "stella-guarded", model: "model", stopReason: "stop", timestamp: 0,
+    usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } };
+  const stream = provider!.wrapStreamFn!({ provider: "stella-guarded", modelId: "model", agentId: "stella", streamFn: () => ({
+    async *[Symbol.asyncIterator]() { yield { type: "done", reason: "stop", message: response }; }, async result() { return response; },
+  }) })!;
+  await coordinateCompletion({ operationId: "native-output-proof", runId: f.request.runId, timeoutMs: 20_000, request: f.request }, {
+    async generateDraft() {
+      authority = await f.create("direct", false, readActiveCompletionRequest("stella"));
+      sealed = await authority.seal({ system: authority.publicRules(),
+        messages: [{ role: "user", fragment: await authority.evidence(f.evidence) }] });
+      for (let index = 0; index < 2; index++) {
+        const result = await stream({ provider: "stella-guarded", id: "model" } as Parameters<Stream>[0], sealed.input, { sessionId: f.request.sessionId });
+        assert.equal((await result.result()).stopReason, "stop");
+      }
+      assert.equal(receipts.length, 2);
+      const extended = await authority.extendAssistant(sealed.consumption, receipts[0]!);
+      const summary = await authority.nativeRecallSummary(extended.consumption, receipts[0]!, response.content[0]!.type === "text" ? response.content[0]!.text : "");
+      const noSummary = await authority.nativeRecallSummary(extended.consumption, receipts[0]!, "");
+      await authority.nativeMemoryInput(noSummary);
+      assert.equal(summary.kind, "derived");
+      await assert.rejects(authority.nativeRecallSummary(extended.consumption, receipts[1]!, "Same text, different output receipt"), /native_memory_output_unbound/);
+      await writeFile(path.join(f.root, "current.txt"), "Changed after recall");
+      await assert.rejects(authority.nativeMemoryInput(summary, (await loadNativeMemoryCodec("2026.8.2")).buildPromptPrefix("The owner's unresolved question remains open.")!), /payload_digest_mismatch/);
+      await assert.rejects(authority.nativeMemoryInput(noSummary), /payload_digest_mismatch/);
+      return { draftId: "draft", text: "Test finished", evidenceRef: "synthetic", responseKind: "answer", requiresCriticalPersistence: false };
+    },
+    async persist({ draft, operationId }) { return { schemaVersion: "stella.completion-receipt/v1", operationId, draftId: draft.draftId,
+      draftHash: completionDraftHash(draft.text), responseKind: draft.responseKind, evidenceRef: draft.evidenceRef, writeOperationIds: [],
+      observedRevision: "a".repeat(40), generationId: "synthetic", persistenceStatus: "not_required", checkedAt: new Date().toISOString() }; },
+    publishFinal: async () => ({ deliveryId: "synthetic", status: "confirmed" }),
+  });
+});
 
 async function recoverHeadInFreshProcess(f: Awaited<ReturnType<typeof archivedHeadFixture>>, request: BoundTurnRequest, revision: string) {
   const resolver = await f.resolver();
@@ -1285,11 +1349,36 @@ test("disposing a lazy engine prevents later resolution and lifecycle side effec
     () => ({ resolve() { resolutions++; throw new Error("must not resolve after disposal"); } }));
   const engine = await factory!({});
   await engine.dispose?.();
-  assert.throws(() => engine.assemble({ sessionId: "session", messages: [] }), /host_context_expired/);
-  assert.throws(() => engine.ingest({ sessionId: "session", message: { role: "user", content: "late event", timestamp: 0 } }), /host_context_expired/);
-  assert.throws(() => engine.compact({ sessionId: "session", sessionKey: "agent:stella:main" }), /host_context_expired/);
+  await assert.rejects(engine.assemble({ sessionId: "session", messages: [] }), /host_context_expired/);
+  await assert.rejects(engine.ingest({ sessionId: "session", message: { role: "user", content: "late event", timestamp: 0 } }), /host_context_expired/);
+  await assert.rejects(engine.compact({ sessionId: "session", sessionKey: "agent:stella:main" }), /host_context_expired/);
   await engine.dispose?.();
   assert.equal(resolutions, 0);
+});
+
+test("concurrent lazy operations share pending resolution and disposal drains it once", async t => {
+  const f = await fixture(t), authority = await f.create();
+  const managed = new ManagedHostContextEngine(f.request, authority, { system: authority.publicRules(), history: [],
+    archive: async () => {}, persistSummary: async () => {}, complete: async () => { throw new Error("unexpected summary"); } });
+  let factory: Parameters<OpenClawPluginApi["registerContextEngine"]>[1] | undefined;
+  let resolve!: (value: ManagedHostContextEngine) => void;
+  const pending = new Promise<ManagedHostContextEngine>(done => { resolve = done; });
+  let resolutions = 0, disposals = 0;
+  const originalDispose = managed.dispose.bind(managed);
+  managed.dispose = async () => { disposals++; await originalDispose(); };
+  registerManagedHostContextEngine({ registerContextEngine(_id, value) { factory = value; } } as OpenClawPluginApi,
+    () => ({ resolve() { resolutions++; return pending; } }));
+  const engine = await factory!({});
+  const operations = Promise.all([
+    assert.rejects(engine.assemble({ sessionId: f.request.sessionId, messages: [] }), /host_context_expired/),
+    assert.rejects(engine.ingest({ sessionId: f.request.sessionId, message: { role: "user", content: "pending", timestamp: 0 } }), /host_context_expired/),
+  ]);
+  await Promise.resolve();
+  const disposal = engine.dispose?.(), repeated = engine.dispose?.();
+  assert.equal(resolutions, 1);
+  resolve(managed);
+  await Promise.all([operations, disposal, repeated]);
+  assert.equal(disposals, 1);
 });
 
 test("unadmitted standalone compaction returns an owned refusal instead of a throwing factory", async () => {
@@ -1558,6 +1647,15 @@ test("real provider and tool results extend context and inherit source revocatio
       assert.equal(sealed.input.messages.at(-1)?.role, "toolResult");
       assert.deepEqual(sealed.input.messages.filter(message => message.role === "toolResult").map(message => message.toolCallId), ["call-1", "call-2"]);
       await authority.assertConsumption(sealed.consumption, sealed.input);
+      const codec = await loadNativeMemoryCodec("2026.8.2");
+      const wire = codec.projectReplay(sealed.input);
+      assert.deepEqual(wire.messages.filter(message => message.role === "toolResult").map(message => message.toolCallId), ["call1", "call2"]);
+      assert.ok(wire.messages.filter(message => message.role === "toolResult").every(message => !("details" in message)));
+      await authority.assertNativeConsumption(sealed.consumption, wire, codec.projectReplay);
+      const changed = structuredClone(wire);
+      const changedTool = changed.messages.find(message => message.role === "toolResult")!;
+      changedTool.content = [{ type: "text", text: "Unbound replacement" }];
+      await assert.rejects(authority.assertNativeConsumption(sealed.consumption, changed, codec.projectReplay), /host_context_input_changed/);
       await engine.assertConsumption(sealed.input);
       await assert.rejects(authority.extendToolResult(sealed.consumption, receipts[0]!), /host_context_tool_result_replayed/);
       const retained = await persistContextHistory(authority, sealed.consumption, { archiveRoot: "retained-context",

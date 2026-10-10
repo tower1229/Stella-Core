@@ -273,7 +273,7 @@ type EvidenceBundle = {
 
 Core 在 `reply_dispatch` 内、进入 Host 执行器之前，对三种数据模式统一检查受众和完整 profile；不能等到 Host 可能已处理历史或压缩后才拒绝。Core 在 `before_agent_run` 实际准入时重新检查准备时绑定的请求、模型、Memory Generation、同步 fence 和适用个人视图。准备完成不再自动获得准入；失败锁定本次运行，不因重试准入而恢复旧上下文。
 
-固定 OpenClaw `2026.8.2` 的入口核查如下。此表是适配缺口清单，不是 Host 全入口验收收据：
+2026-09-18 对固定 OpenClaw `2026.8.2` 的入口核查如下；后续限定适配见下文。此表是当时的适配缺口清单，不是 Host 全入口验收收据：
 
 | 入口 | 当前证据与限制 |
 | --- | --- |
@@ -295,7 +295,13 @@ Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许�
 
 单元测试覆盖公开 `reply_dispatch` 的三种数据模式和七种受众组合，以及 transport 的来源／代际变化、许可过期、输入替换、重复调用和取消。固定 Host capability 探针验证有效 bootstrap 收据不能清除此阻塞；首次聊天、同会话下一轮、新会话、reset RPC、原生 `/new` 后和 Gateway 重启后均没有模型请求。完整 profile 的 `/new` 在进入原生 reset hooks 前拒绝，公开 transcript SDK 核对 reset boundary 没有增加，另核对 Gateway 重启后的会话身份保留；这些均是无法验证完整 profile 时的拒绝证据，不是完整记忆成功使用的证据。
 
-原生 Active Memory 诊断 `--guarded-active-memory` 单独报告 loaded、postPolicyHookInvocations 和 verified。固定 Host 当前协调执行路径没有调用要求工具授权的提示补充 hook，不能把没有 recall 当作成功拦截。协调器现传递真实 messageProvider 和 InternalTurnSource，但不制造 Host 的工具授权 fingerprint。`--guarded-dreaming` 通过公开 cron API 执行原生受管任务并观察真实 Dreaming 子运行；固定 Host 即使子模型未调用仍会将未绑定 Core 来源的合成片段写入 MEMORY，调度器还可报告成功。探针确认下一轮因投影变化被拒绝、后台和下一轮均零新增模型请求；这是拒绝证据，不是 Dreaming 学习成功。Active Memory／Dreaming 的来源受众适配、Host 完整输入的来源映射和成功生命周期仍需接通；Issue #23 与 `source_access_context` 最终消费验收尚未关闭。
+历史 Active Memory 诊断曾观察到 postPolicyHookInvocations 为零；没有 recall 不能当作成功拦截。2026-10-10 的 Core 适配使用公开 `toolAuthorityFingerprint` 给当轮工具缓存分区，绑定真实 run、session、模型、配置及工具集合；该字符串不是授权。Host 仍依据自身的运行准入和最终工具面签发临时 `toolAuthority`，Core 在每次异步消费前后检查其有效性。原生子运行必须来自已安装的 bundled `active-memory` 真实运行作用域，绑定当前父请求、确切子身份和固定原生提示；session 名称、trigger、模型文字或插件自填身份都不能授予访问权。
+
+适配范围固定为 OpenClaw `2026.8.2`、`mode: always`、`queryMode: message`、与父请求相同的 `stella-guarded` 精确模型、唯一工具 `stella_read_fragment`，且不允许备用模型。使用该版本原生扩展的纯提示编解码函数，以及固定构建的工具 ID／details 纯格式化函数；从独立绑定的输入计算预期载荷，不从观察到的差异反推许可。不调用私有 runner 或修改 Host。原生召回仅访问父请求已经获准的片段；工具回调在 Core 身份下执行时，依靠已验证的子身份和仍有效的父授权绑定结果。独立子 context engine 校验完整输入、真实工具结果及 provider 输出；摘要继承全部来源、策略、代际和消费轨迹。原生补充晚于父首次装配，因此父模型发送前重新绑定其确切摘要前缀并校验完整输入。临时 hook 授权结束后不能复用；最终消费重新验证来源依赖和输出收据。未知配置、额外历史、未知载荷改写、授权过期或来源失效均显式拒绝，不使用旧摘要继续回答。
+
+完成提交推进目录代际后，重新加载 reader 和处理授权，并只在该请求的持久化许可内复用其已成功取得的精确来源／策略／片段访问凭据。原 provider 继续复核实时授权、请求模型、用途及新 reader；未读目标不能凭持久化许可取得新语义判断。父请求的签名历史保留原生输入、工具结果、真实模型输出和来源闭包，业务提交及远端同步完成后才发布回答。
+
+`--guarded-active-memory` 验证真实原生召回、片段原文回读和父模型消费；`--guarded-active-memory-stale` 在真实原生输出接纳后物理删除已读原件，要求父模型零请求、旧摘要零消费、业务回答零投递。二者均使用隔离合成资料和 loopback 模型，必须保留具体包摘要及探针收据，不能当成真实模型或生产验收。Dreaming 保持关闭，本次不执行其生成或 cron 路径；此前 Dreaming 摘要变化后的拒绝证据仍不能当作学习成功。`full_memory` 的独立阻塞不变，Issue #23 的其他入口和完整私人记忆验收须分别举证。
 
 ## 4. 交互学习
 

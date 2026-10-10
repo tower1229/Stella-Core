@@ -28,6 +28,7 @@ import { stableId } from "../canghai/host-input-archive.js";
 import { contextHistoryLocation, contextHistorySignerId, contextHistoryVerificationKey, loadContextHistory, readContextHistory, assertRetainableContextDependencies, type StoredContextHistory } from "./host-context-history.js";
 import { readPublishedHistoryView, type PublishedHistoryView } from "./host-context-view.js";
 import { verify, type KeyObject } from "node:crypto";
+import { readNativeRecallPrompt, type NativeRecallPrompt } from "./native-active-memory.js";
 
 /** Opaque, process-local capabilities. Serialized copies are never credentials. */
 export type ContextFragment = Readonly<{ kind: "public_rule" | "current_input" | "evidence" | "derived" }>;
@@ -79,6 +80,8 @@ export class HostContextAuthority {
   readonly #questionFragments = new WeakMap<ContextFragment, object>();
   readonly #outcomeTransactions = new Map<string, { operationId: string; planHash: string }>();
   readonly #consumptions = new WeakMap<ContextConsumption, { input: HostMemoryInput; fragments: ContextFragment[]; trace: ContextInputTrace }>();
+  readonly #assistantOutputs = new WeakMap<ContextConsumption, HostModelOutputReceipt>();
+  readonly #nativeTransports = new WeakMap<ContextConsumption, HostMemoryInput>();
   readonly #extended = new WeakSet<ContextConsumption>();
   readonly #rules: Record<string, Rule>;
   readonly #fragmentTool: object | undefined;
@@ -176,6 +179,47 @@ export class HostContextAuthority {
   currentInput(): ContextFragment {
     this.#inputIssued = true;
     return this.#issue("current_input", this.#archivedInput ?? { text: this.request.prompt, originals: [], dependencies: new Map() });
+  }
+
+  /** Known native codec applied to this request, under a genuine live Host
+   * capability. Observing arbitrary Host text cannot issue this receipt. */
+  async nativeRecallInput(receipt: NativeRecallPrompt): Promise<ContextFragment> {
+    const binding = readNativeRecallPrompt(receipt);
+    check(binding.request === this.request, "native_memory_request_mismatch");
+    const current = this.currentInput();
+    await this.#validate([current]);
+    return this.#issue("current_input", { ...this.#record(current), text: binding.text }, "host_format");
+  }
+
+  async nativeRecallSummary(consumption: ContextConsumption, receipt: HostModelOutputReceipt, text: string): Promise<ContextFragment> {
+    const prior = this.#consumptions.get(consumption);
+    const output = readHostModelOutput(receipt);
+    check(prior && this.#assistantOutputs.get(consumption) === receipt && output.request === this.request && output.modelRef === this.#authority.modelRef &&
+      output.message.stopReason === "stop" &&
+      canonicalJson(prior.input.messages.at(-1)) === canonicalJson(output.message), "native_memory_output_unbound");
+    // The full native tool conversation, including source dependencies and the
+    // actual assistant output, remains an ancestor of this derived summary.
+    const conversation = await this.conversation(consumption);
+    return this.#issue("derived", { ...this.#record(conversation), text }, "summary");
+  }
+
+  async nativeMemoryInput(summary: ContextFragment, prefix?: string): Promise<ContextFragment> {
+    const current = this.currentInput();
+    await this.#validate([current, summary]);
+    const source = this.#record(summary), original = this.#record(current);
+    const escaped = source.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    check(summary.kind === "derived" && (prefix === undefined ? source.text === ""
+      : prefix === `Context:\n<active_memory_plugin>\n${escaped}\n</active_memory_plugin>`),
+      "native_memory_prefix_changed");
+    return this.#issue("current_input", { text: prefix === undefined ? original.text : `${prefix}\n\n${original.text}`,
+      originals: [...original.originals, ...source.originals], dependencies: new Map([...original.dependencies, ...source.dependencies]),
+      configurationInputs: [...(original.configurationInputs ?? []), ...(source.configurationInputs ?? [])],
+      payloads: [...(original.payloads ?? []), ...(source.payloads ?? [])],
+      consumptionChecks: [...(original.consumptionChecks ?? []), ...(source.consumptionChecks ?? [])],
+      archives: [...(original.archives ?? []), ...(source.archives ?? [])],
+      trace: combineContextTraces([original.trace!, source.trace!]),
+    }, "host_format");
   }
 
   /** Bind the exact authenticated ingress archive before retaining this turn
@@ -1057,16 +1101,21 @@ export class HostContextAuthority {
     check(prior && !this.#extended.has(consumption), "host_context_continuation_unbound");
     const output = readHostModelOutput(receipt);
     check(output.request === this.request && output.modelRef === this.#authority.modelRef, "host_context_output_scope_mismatch");
-    check(inputDigest(output.input) === consumption.digest, "host_context_output_input_mismatch");
+    const nativeInput = this.#nativeTransports.get(consumption);
+    check(inputDigest(output.input) === (nativeInput ? inputDigest(nativeInput) : consumption.digest), "host_context_output_input_mismatch");
     const toolCalls = output.message.content.filter(part => part.type === "toolCall");
     check(new Set(toolCalls.map(call => call.id)).size === toolCalls.length && toolCalls.every(call =>
       call.id && this.#tools.some(tool => tool.name === call.name)), "host_context_output_tool_unbound");
-    await this.assertConsumption(consumption, output.input);
+    await this.assertConsumption(consumption, prior.input);
     check(!this.#extended.has(consumption), "host_context_continuation_replayed");
     this.#extended.add(consumption);
     const context = { ...structuredClone(prior.input), messages: [...structuredClone(prior.input.messages), output.message] };
     const next = Object.freeze({ digest: inputDigest(context) });
-    this.#consumptions.set(next, { input: context, fragments: [...prior.fragments], trace: appendAssistantTrace(prior.trace, prior.input, output.message) });
+    const trace = nativeInput ? projectContextTrace(prior.trace, nativeInput) : prior.trace;
+    const appended = appendAssistantTrace(trace, nativeInput ?? prior.input, output.message);
+    this.#consumptions.set(next, { input: context, fragments: [...prior.fragments],
+      trace: nativeInput ? projectContextTrace(appended, context) : appended });
+    this.#assistantOutputs.set(next, receipt);
     return { input: structuredClone(context), consumption: next };
   }
 
@@ -1116,6 +1165,21 @@ export class HostContextAuthority {
     check(inputDigest(input) === consumption.digest, "host_context_input_changed");
   }
 
+  /** The pinned native child receives the Host's known replay formatting after
+   * context assembly. Compute it from already-bound producer input, never by
+   * stripping differences from the observed transport. Preserve both forms in
+   * the signed trace when its actual provider output extends the conversation. */
+  async assertNativeConsumption(consumption: ContextConsumption, input: HostMemoryInput,
+    project: (input: HostMemoryInput) => HostMemoryInput): Promise<void> {
+    const prior = this.#consumptions.get(consumption);
+    check(prior, "host_context_consumption_unbound");
+    const expected = project(structuredClone(prior.input));
+    check(inputDigest(input) === inputDigest(expected), "host_context_input_changed");
+    await this.assertConsumption(consumption, prior.input);
+    check(inputDigest(input) === inputDigest(expected), "host_context_input_changed");
+    this.#nativeTransports.set(consumption, expected);
+  }
+
   /** Admit fixed Host control text as formatting of this run's already
    * archived input. The queued text cannot contribute independent evidence. */
   async projectQueuedHostControl(consumption: ContextConsumption, observedPrompt: string) {
@@ -1139,7 +1203,7 @@ export class HostContextAuthority {
   /** Called by the managed engine at the Host's pre-wire assembly callback.
    * Raw user bytes must already match an issued context before the fixed Host
    * timestamp formatter can produce a new credential. */
-  async projectBoundary(consumption: ContextConsumption, input: HostMemoryInput, timezone: string) {
+  async projectBoundary(consumption: ContextConsumption, input: HostMemoryInput, timezone: string, requestTimestamp = true) {
     const snapshot = structuredClone(input);
     await this.assertConsumption(consumption, snapshot);
     const record = this.#consumptions.get(consumption)!;
@@ -1149,7 +1213,7 @@ export class HostContextAuthority {
       : Array.isArray(current.content) && current.content.length === 1 && current.content[0]?.type === "text"
         ? current.content[0].text : undefined : undefined;
     check(currentText, "host_context_current_input_changed");
-    const projected = projectManagedMessages(snapshot, timezone, this.request.hostMessageTimestamp === undefined ? undefined
+    const projected = projectManagedMessages(snapshot, timezone, !requestTimestamp || this.request.hostMessageTimestamp === undefined ? undefined
       : { text: currentText, timestamp: this.request.hostMessageTimestamp });
     const next = Object.freeze({ digest: inputDigest(projected) });
     this.#extended.add(consumption);

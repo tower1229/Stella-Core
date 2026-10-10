@@ -1,8 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { completionSessionTerminalPatch, parsePrivateAssistantDraft, registerCompletionAdapter } from "../src/openclaw/completion-adapter.js";
+import { completionSessionTerminalPatch, completionToolCachePartition, parsePrivateAssistantDraft, registerCompletionAdapter } from "../src/openclaw/completion-adapter.js";
 import { CatalogError } from "../src/canghai/catalog-reader.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+
+test("native recall cache partitions bind the current completion and JSON-normalized Host policy", () => {
+  const input = { runId: "one", agentId: "probe", sessionId: "session", sessionKey: "agent:probe:main", prompt: "Recall this",
+    model: { provider: "stella-guarded", model: "probe" }, config: { optional: undefined }, toolsAllow: ["stella_read_fragment"] };
+  const partition = completionToolCachePartition(input);
+  assert.match(partition, /^[a-f0-9]{64}$/);
+  assert.equal(partition, completionToolCachePartition({ ...input, config: {} }));
+  for (const changed of [{ ...input, runId: "two" }, { ...input, prompt: "Another request" },
+    { ...input, toolsAllow: [] }, { ...input, config: { generation: "two" } }]) {
+    assert.notEqual(partition, completionToolCachePartition(changed));
+  }
+});
 
 test("completion status is bound to the native session generation and start, including failure and cancellation", () => {
   const start = { sessionId: "synthetic-session", lifecycleRevision: "native-revision", startedAt: 1000 };

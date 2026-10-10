@@ -221,8 +221,14 @@ test("persistence only revalidates prior exact-source decisions and never starts
   await access(f.reader, f.target, purpose);
   persistence = true;
   await access(f.reader, f.target, purpose);
-  await assert.rejects(access(f.reader, f.other, purpose), /source_access_revalidation_receipt_required/);
+  // A critical business write advances catalog generation. The same bound
+  // provider can revalidate with a fresh reader without making a new judgment;
+  // constructing a new provider cannot recreate its private receipts.
+  await writeFile(path.join(f.root, "catalog.json"), JSON.stringify({ ...f.catalog, generationId: "two", parentGenerationId: "one" }));
+  const fresh = await CatalogReader.load(f.root, "catalog.json");
+  await access(fresh, f.target, purpose);
+  await assert.rejects(access(fresh, f.other, purpose), /source_access_revalidation_receipt_required/);
   assert.equal(calls, 1);
   await writeFile(path.join(f.root, "access.json"), JSON.stringify({ ...config, modelRefs: ["revoked/model"] }));
-  await assert.rejects(access(f.reader, f.target, purpose), /personal_context_access_changed/);
+  await assert.rejects(access(fresh, f.target, purpose), /personal_context_access_changed/);
 });

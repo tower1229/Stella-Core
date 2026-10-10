@@ -86,10 +86,17 @@ export class ManagedHostContextEngine implements ContextEngine {
   #pendingToolResults = 0;
   #releasedToCompletion = false;
   #completionPersisted = false;
+  #modelPrompt: string;
+  #nativeBound = false;
   constructor(private readonly request: BoundTurnRequest, private readonly authority: HostContextAuthority,
     private readonly ports: {
       system: readonly ContextFragment[];
       history: readonly ContextFragment[];
+      session?: { sessionId: string; sessionKey: string };
+      prompt?: string;
+      currentInput?: ContextFragment;
+      projectNativeReplay?: (input: HostMemoryInput) => HostMemoryInput;
+      nativeMemory?: () => { currentInput(): Promise<ContextFragment>; prompt(): string } | undefined;
       hostTimezone?: string;
       archive(messages: Messages): Promise<void>;
       persistSummary(summary: Sealed): Promise<void>;
@@ -97,11 +104,13 @@ export class ManagedHostContextEngine implements ContextEngine {
     }) {
     this.#system = [...ports.system];
     this.#history = [...ports.history];
+    this.#modelPrompt = ports.prompt ?? request.prompt;
   }
 
   #scope(params: { sessionId: string; sessionKey?: string }): void {
     if (this.#failure) throw this.#failure;
-    check(params.sessionId === this.request.sessionId && params.sessionKey === this.request.sessionKey, "host_context_session_mismatch");
+    const session = this.ports.session ?? this.request;
+    check(params.sessionId === session.sessionId && params.sessionKey === session.sessionKey, "host_context_session_mismatch");
   }
 
   async #operation<T>(run: () => Promise<T>, persistence = false): Promise<T> {
@@ -142,6 +151,18 @@ export class ManagedHostContextEngine implements ContextEngine {
       // without prompt or availableTools, including before the first call. It
       // already contains the current user message and must not append it twice.
       if (params.prompt === undefined) {
+        // Post-policy native recall finishes after the initial assembly. Bind
+        // its independently produced prefix before the very first parent
+        // transport, then require the complete Host input to match as usual.
+        const native = this.ports.nativeMemory?.();
+        if (native && !this.#nativeBound) {
+          const currentInput = await native.currentInput();
+          this.#modelPrompt = native.prompt();
+          this.#sealed = await this.authority.seal({ system: this.#system,
+            messages: [...this.#history, currentInput].map(fragment => ({ role: "user", fragment })) });
+          this.#boundaryProjected = false;
+          this.#nativeBound = true;
+        }
         const sealed = this.#sealed;
         check(sealed && this.#pendingToolResults === 0, "host_context_assembly_required");
         const messages = snapshot.filter(message => message.role === "user" || message.role === "assistant" || message.role === "toolResult");
@@ -150,10 +171,10 @@ export class ManagedHostContextEngine implements ContextEngine {
         assertCompleteToolBatch(input);
         if (this.ports.hostTimezone) {
           if (this.#boundaryProjected) {
-            await this.authority.assertConsumption(sealed.consumption, projectManagedMessages(input, this.ports.hostTimezone, this.request.hostMessageTimestamp === undefined ? undefined
-              : { text: this.request.prompt, timestamp: this.request.hostMessageTimestamp }));
+            await this.authority.assertConsumption(sealed.consumption, projectManagedMessages(input, this.ports.hostTimezone, this.ports.session || this.request.hostMessageTimestamp === undefined ? undefined
+              : { text: this.#modelPrompt, timestamp: this.request.hostMessageTimestamp }));
           } else {
-            this.#sealed = await this.authority.projectBoundary(sealed.consumption, input, this.ports.hostTimezone);
+            this.#sealed = await this.authority.projectBoundary(sealed.consumption, input, this.ports.hostTimezone, !this.ports.session);
             this.#boundaryProjected = true;
           }
         } else await this.authority.assertConsumption(sealed.consumption, input);
@@ -164,10 +185,14 @@ export class ManagedHostContextEngine implements ContextEngine {
       }
       this.#sealed = undefined;
       this.#boundaryProjected = false;
-      const hostWrapped = params.prompt !== this.request.prompt;
-      check(!hostWrapped || projectQueuedHostControlPrompt(this.request.prompt, params.prompt), "host_context_prompt_changed");
+      const native = this.ports.nativeMemory?.();
+      const currentInput = native ? await native.currentInput() : this.ports.currentInput ?? this.authority.currentInput();
+      this.#modelPrompt = native?.prompt() ?? this.ports.prompt ?? this.request.prompt;
+      this.#nativeBound = Boolean(native);
+      const hostWrapped = params.prompt !== this.#modelPrompt;
+      check(!hostWrapped || !native && projectQueuedHostControlPrompt(this.#modelPrompt, params.prompt), "host_context_prompt_changed");
       await this.ports.archive(snapshot);
-      let sealed = await this.authority.seal({ system: this.#system, messages: [...this.#history, this.authority.currentInput()]
+      let sealed = await this.authority.seal({ system: this.#system, messages: [...this.#history, currentInput]
         .map(fragment => ({ role: "user", fragment })) });
       if (hostWrapped) sealed = await this.authority.projectQueuedHostControl(sealed.consumption, params.prompt);
       // Host assembles history before applying before_prompt_build.toolsAllow.
@@ -216,6 +241,11 @@ export class ManagedHostContextEngine implements ContextEngine {
     });
   }
 
+  async nativeRecallSummary(receipt: HostModelOutputReceipt, text: string): Promise<ContextFragment> {
+    check(this.#sealed, "host_context_assembly_required");
+    return this.authority.nativeRecallSummary(this.#sealed.consumption, receipt, text);
+  }
+
   async observeToolResult(receipt: FragmentToolResultReceipt): Promise<void> {
     this.#pendingToolResults++;
     const operation = this.#toolQueue.then(() => this.#operation(async () => {
@@ -236,7 +266,8 @@ export class ManagedHostContextEngine implements ContextEngine {
       const sealed = this.#sealed;
       check(sealed && !this.#busy && this.#pendingToolResults === 0, "host_context_assembly_required");
       assertCompleteToolBatch(input);
-      await this.authority.assertConsumption(sealed.consumption, input);
+      if (this.ports.projectNativeReplay) await this.authority.assertNativeConsumption(sealed.consumption, input, this.ports.projectNativeReplay);
+      else await this.authority.assertConsumption(sealed.consumption, input);
       if (this.#failure) throw this.#failure;
       check(!this.#releasedToCompletion, "host_context_model_phase_ended");
       check(this.#sealed === sealed && !this.#busy && this.#pendingToolResults === 0, "host_context_assembly_changed");
@@ -293,7 +324,7 @@ export class ManagedHostContextEngine implements ContextEngine {
  * resolve its prepared engine at the first lifecycle operation, and keep that
  * same instance through disposal. Missing preparation remains an error. */
 export function registerManagedHostContextEngine(api: OpenClawPluginApi,
-  bindRequest: () => { resolve(): ManagedHostContextEngine; commitTurn?: CommitHostContextTurn; retainForCompletion?: true },
+  bindRequest: () => { resolve(params?: Parameters<ContextEngine["assemble"]>[0]): ManagedHostContextEngine | Promise<ManagedHostContextEngine>; commitTurn?: CommitHostContextTurn; retainForCompletion?: true },
   scope?: { targetAgentId: string }): void {
   api.registerContextEngine(STELLA_CONTEXT_ENGINE, context => {
     if (scope && !selectsTarget(context, scope.targetAgentId)) return legacyContextEngine();
@@ -311,11 +342,13 @@ export function registerManagedHostContextEngine(api: OpenClawPluginApi,
         async compact() { return { ok: false, compacted: false, reason: "host_context_compaction_not_admitted" }; },
       };
     }
-    let engine: ManagedHostContextEngine | undefined;
+    let resolution: Promise<ManagedHostContextEngine> | undefined;
     let disposed = false;
-    const current = () => {
+    let disposal: Promise<void> | undefined;
+    const current = async (params?: Parameters<ContextEngine["assemble"]>[0]) => {
       check(!disposed, "host_context_expired");
-      engine ??= request.resolve();
+      resolution ??= Promise.resolve().then(() => request.resolve(params));
+      const engine = await resolution;
       check(!disposed, "host_context_expired");
       return engine;
     };
@@ -327,14 +360,20 @@ export function registerManagedHostContextEngine(api: OpenClawPluginApi,
         check(!disposed, "host_context_expired");
         return request.commitTurn!(params);
       }) satisfies CommitHostContextTurn } : {}),
-      ingest: params => current().ingest(params),
-      assemble: params => current().assemble(params),
-      compact: params => current().compact(params),
-      async dispose() {
-        if (disposed) return;
+      ingest: async params => (await current()).ingest(params),
+      assemble: async params => (await current(params)).assemble(params),
+      compact: async params => (await current()).compact(params),
+      dispose() {
+        if (disposal) return disposal;
         disposed = true;
-        if (request.retainForCompletion) engine?.releaseToCompletion();
-        else await engine?.dispose();
+        disposal = (async () => {
+          // Resolution may still be awaiting the native child admission. Its
+          // eventual engine must also be released exactly once.
+          const engine = await resolution?.catch(() => undefined);
+          if (request.retainForCompletion) engine?.releaseToCompletion();
+          else await engine?.dispose();
+        })();
+        return disposal;
       },
     };
   });
