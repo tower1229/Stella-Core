@@ -70,7 +70,7 @@ await writeFile(path.join(plugin, "openclaw.plugin.json"), await readFile(path.j
 await writeFile(path.join(plugin, "index.mjs"), `export { default } from ${JSON.stringify(pathToFileURL(path.join(packageRoot, "dist/src/plugin.js")).href)};\n`);
 let config = { gateway: { mode: "local" }, agents: { entries: { probe: { workspace } } },
   session: { maintenance: { mode: "warn", pruneAfter: "1ms", maxEntries: 1 } },
-  plugins: { allow: ["stella-core"], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true,
+  plugins: { allow: ["stella-core"], load: { paths: [plugin] }, entries: { "memory-core": { config: { dreaming: { enabled: false } } }, "stella-core": { enabled: true,
     hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe",
       initializationGatewayAccess: "local_operator_read", dataMode: "managed_durable_write", durabilityRemote: "origin", durabilityBranch: "main", archiveRetention: "hold_and_monitor" } } } },
   tools: { allow: ["read", "stella_initialize"] } };
@@ -209,6 +209,7 @@ try {
   assert.equal(await runtimeDigest(packageRoot), runtimeContentDigest, "tested runtime changed during acceptance");
   assert.equal(await runtimeDigest(root), runtimeContentDigest, "source runtime changed during acceptance");
   const receipt = { schemaVersion: "stella.host-archive-probe/v1", sourceRevision, sourceClean, hostVersion: host.version, hostRoot, installedArtifactTested: packageRoot !== root, runtimeContentDigest,
+    dreamingEnabled: false, evidenceDirectory: temp,
     hostVersionOutput: (await run(process.execPath, [path.join(hostRoot, "openclaw.mjs"), "--version"], { env })).stdout.trim(),
     hostEntrypointSha256: bytesVersion(await readFile(path.join(hostRoot, "openclaw.mjs"))),
     harnessSha256: bytesVersion(await readFile(fileURLToPath(import.meta.url))), fixture: "synthetic", model: "not_used",

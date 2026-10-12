@@ -97,6 +97,7 @@ try {
       apiKey: "synthetic-local-only", models: ["native-final", "native-recall"].map(id => ({ id, name: id, contextWindow: 32768, maxTokens: 512 })) } } },
     tools: { allow: ["memory_get"] },
     plugins: { allow: ["active-memory", "memory-core", "stella-native-observer"], load: { paths: [observer] }, entries: {
+      "memory-core": { enabled: true, config: { dreaming: { enabled: false } } },
       "stella-native-observer": { enabled: true, hooks: { allowConversationAccess: true } },
       "active-memory": { enabled: true, hooks: { allowConversationAccess: true }, config: { enabled: true, agents: ["native"], mode: "always", model: "stella-native/native-recall",
         toolsAllow: ["memory_get"], logging: true, persistTranscripts: true, timeoutMs: 45000 } },
@@ -118,6 +119,9 @@ try {
   const plugins = await client.request("plugins.list", {});
   await writeFile(path.join(temp, "plugins.json"), JSON.stringify(plugins, null, 2));
   assert.ok(plugins.plugins.some(plugin => plugin.id === "active-memory" && plugin.installed && plugin.enabled));
+  assert.ok(plugins.plugins.some(plugin => plugin.id === "memory-core" && plugin.installed && plugin.enabled));
+  const cronBefore = await client.request("cron.list", { includeDisabled: true });
+  assert.ok(!cronBefore.jobs.some(job => job.declarationKey === "memory-core:memory-dreaming-promotion" && job.enabled));
   const result = await runExactHostEvaluationChat({ request: (method, params) => client.request(method, params, { timeoutMs: 35000 }),
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
   }, { sessionKey: "agent:native:main", message: "What did I previously understand about the meeting date?", idempotencyKey: "native-active-memory", timeoutMs: 90000 });
@@ -131,7 +135,11 @@ try {
   const artifact = requests.find(input => input.model === "native-final");
   const artifactBytes = JSON.stringify(artifact, null, 2);
   await writeFile(path.join(temp, "native-final-input.json"), artifactBytes);
+  const cronAfter = await client.request("cron.list", { includeDisabled: true });
+  assert.ok(!cronAfter.jobs.some(job => job.declarationKey === "memory-core:memory-dreaming-promotion" && job.enabled));
+  await writeFile(path.join(temp, "dreaming-cron.json"), JSON.stringify({ before: cronBefore, after: cronAfter }, null, 2));
   const report = { hostVersion: host.version, scope: "native-artifact-generation", model: "synthetic-loopback", runId: result.runId,
+    dreamingEnabled: false, memoryCoreEnabled: true,
     genuineToolAuthority: true, nativeReadExecuted: true, nativeRecallRequests: 2, nativeSummaryInjected: true,
     stellaReinjectionVerified: false, artifactSha256: createHash("sha256").update(artifactBytes).digest("hex"), evidenceDirectory: temp };
   await writeFile(path.join(temp, "native-active-memory.json"), JSON.stringify(report, null, 2));

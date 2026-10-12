@@ -1,198 +1,279 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { assertProbeDreamingDisabled, assertSourceUnchanged, assertTreeUnchanged,
+  fileManifest, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
 
-const exec = promisify(execFile);
-const root = fileURLToPath(new URL("../", import.meta.url));
-const hostVersion = "2026.8.2";
-const run = (command, args, options = {}) => exec(command, args, {
-  cwd: root, env: process.env, maxBuffer: 10 * 1024 * 1024, ...options,
-});
+// Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
+// generator or cron.run is invoked; full_memory remains independently blocked.
+assert.deepEqual(process.argv.slice(2), ["--dreaming-disabled"], "Select --dreaming-disabled explicitly");
 assert.ok(process.env.npm_execpath, "run package acceptance through npm");
-const coreRevision = (await run("git", ["rev-parse", "HEAD"])).stdout.trim();
-assert.equal((await run("git", ["status", "--porcelain"])).stdout.trim(), "",
-  "package acceptance requires a clean Core source; use an isolated committed snapshot for in-progress changes");
+const exec = promisify(execFile);
+const root = await realpath(fileURLToPath(new URL("../", import.meta.url)));
+const hostVersion = "2026.8.2";
+const source = await sourceIdentity(root);
+const workspaceHost = path.join(root, "node_modules/openclaw");
+const workspaceHostBefore = await treeManifest(workspaceHost);
 const temp = await mkdtemp(path.join(os.tmpdir(), "stella-core-package-smoke-"));
-// Retain artifact, consumer and receipts for audit. Never use a personal repository.
 process.stderr.write(`Package evidence: ${temp}\n`);
-const npm = (args, options) => run(process.execPath, [process.env.npm_execpath, ...args], options);
-const [packed] = JSON.parse((await npm(["pack", "--json", "--pack-destination", temp])).stdout);
-assert.ok(packed?.filename && Array.isArray(packed.files), "npm pack manifest missing");
-const files = packed.files.map((entry) => entry.path);
-for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admission.js",
-  "dist/src/openclaw/initialization.js", "dist/src/openclaw/initialization-registration.js",
-  "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
-  "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
-  "dist/src/openclaw/host-memory.js",
-  "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
-  "dist/src/openclaw/fragment-read-tool.js",
-  "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
-  "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
-  "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
-  "dist/src/acceptance/recovery-drill.js", "dist/src/acceptance/capability-receipt.js",
-  "dist/src/openclaw/host-memory-provider.js", "dist/src/openclaw/host-memory-inventory.js",
-  "dist/src/openclaw/host-context-engine.js", "dist/src/openclaw/host-context-authority.js",
-  "dist/src/openclaw/host-context-graph.js", "dist/src/canghai/view-recipe.js",
-  "dist/src/openclaw/host-context-history.js", "dist/src/openclaw/host-context-keys.js",
-  "dist/src/openclaw/host-context-head.js",
-  "dist/src/openclaw/host-context-turn-store.js", "dist/src/openclaw/host-context-prompt.js",
-  "dist/src/acceptance/capability-acceptance.js", "dist/src/openclaw/capability-admission.js",
-  "openclaw.plugin.json",
-  "schemas/consciousness-manifest.schema.json", "evaluation/praxis-social.synthetic.json"]) {
-  assert.ok(files.includes(required), `packed plugin missing ${required}`);
-}
-assert.ok(!files.some((file) => file.startsWith("tests/") || file.startsWith("dist/tests/") ||
-  file.startsWith(".artifacts/") || file.includes("CangHai")), "package contains test/private paths");
-const artifact = path.join(temp, packed.filename);
-const artifactSha256 = createHash("sha256").update(await readFile(artifact)).digest("hex");
-const consumer = path.join(temp, "consumer");
-await mkdir(consumer);
-await writeFile(path.join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
-await npm(["install", "--ignore-scripts", "--no-audit", "--no-fund", artifact, `openclaw@${hostVersion}`], { cwd: consumer });
-const packageRoot = path.join(consumer, "node_modules/@tower1229/stella-core");
-const hostRoot = path.join(consumer, "node_modules/openclaw");
-assert.equal(JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8")).version, hostVersion);
-const probes = [];
-process.stderr.write("Native Active Memory artifact probe\n");
-const nativeActiveProbe = await run(process.execPath, [path.join(root, "scripts/probe-native-active-memory.mjs")], {
-  cwd: consumer,
-  env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
+const env = { ...process.env, npm_config_cache: path.join(temp, "npm-cache") };
+delete env.NODE_PATH;
+delete env.NODE_OPTIONS;
+const run = (command, args, options = {}) => exec(command, args, {
+  cwd: root, env, maxBuffer: 24 * 1024 * 1024, ...options,
 });
-const nativeActiveReport = JSON.parse(nativeActiveProbe.stdout);
-assert.equal(nativeActiveReport.hostVersion, hostVersion);
-assert.equal(nativeActiveReport.scope, "native-artifact-generation");
-assert.equal(nativeActiveReport.nativeReadExecuted, true);
-assert.equal(nativeActiveReport.nativeSummaryInjected, true);
-assert.equal(nativeActiveReport.stellaReinjectionVerified, false);
-probes.push({ flag: "--native-active-memory-artifact", report: nativeActiveReport });
-process.stderr.write("Native Dreaming artifact probe\n");
-const nativeDreamingProbe = await run(process.execPath, [path.join(root, "scripts/probe-native-dreaming.mjs")], {
-  cwd: consumer,
-  env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
-});
-const nativeDreamingReport = JSON.parse(nativeDreamingProbe.stdout);
-assert.equal(nativeDreamingReport.hostVersion, hostVersion);
-assert.equal(nativeDreamingReport.scope, "native-artifact-generation");
-assert.equal(nativeDreamingReport.nativeCronExecuted, true);
-assert.equal(nativeDreamingReport.nativeNarrativeExecuted, true);
-assert.equal(nativeDreamingReport.nativeSourceRead, true);
-assert.equal(nativeDreamingReport.stellaReinjectionVerified, false);
-probes.push({ flag: "--native-dreaming-artifact", report: nativeDreamingReport });
-await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
-for (const [kind, generated, file] of [
-  ["active-memory", nativeActiveReport, "native-active-memory.json"],
-  ["dreaming", nativeDreamingReport, "native-dreaming.json"],
-]) {
-  process.stderr.write(`Packed main native artifact replay: ${kind}\n`);
-  const result = await run(process.execPath, [path.join(root, "scripts/probe-main-plugin.mjs"), "--native-artifact",
-    path.join(generated.evidenceDirectory, file)], {
-    cwd: consumer,
-    env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
+const receipt = {
+  schemaVersion: "stella.package-main-smoke/v3", status: "running", evidenceDirectory: temp,
+  coreRevision: source.coreRevision, sourceClean: true, sourceManifestSha256: source.digest,
+  hostVersion, profile: "dreaming-disabled", dreamingEnabled: false, dreamingExecuted: false,
+  installedArtifactTested: false, freshDependencyInstallTested: false,
+  transport: "chat.send", fixture: "synthetic", semanticVerdicts: "injected", finalModel: "loopback-synthetic",
+  privateRecoveryAccepted: false, realLearningAccepted: false, mixedEvaluationAccepted: false,
+  fullMemoryAccepted: false, privateMainAccepted: false, realModelAccepted: false, issue23Complete: false,
+  nativeStandaloneCompactionAdmitted: false, checks: [], probes: [],
+};
+let saving = Promise.resolve();
+const save = () => {
+  const body = JSON.stringify(receipt, null, 2);
+  saving = saving.then(async () => {
+    await writeFile(path.join(temp, "package-smoke.json"), body);
+    if (process.env.STELLA_ACCEPTANCE_RECEIPT_PATH) {
+      const destination = path.resolve(process.env.STELLA_ACCEPTANCE_RECEIPT_PATH);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await writeFile(destination, body);
+    }
   });
-  const report = JSON.parse(result.stdout);
-  assert.equal(report.host, hostVersion);
-  assert.equal(report.providerRequests, 0);
-  assert.equal(report.finalAnswers, 0);
-  assert.equal(report.persistence.finalInputRejected, true);
-  assert.equal(report.persistence.generationArtifactSha256, generated.artifactSha256);
-  assert.equal(report.persistence.entry, kind === "active-memory" ? "before_prompt_build.prependContext" : "before_prompt_build.appendSystemContext");
-  if (kind === "active-memory") assert.equal(report.persistence.hostFallbackRejected, true);
-  probes.push({ flag: `--main-native-artifact-${kind}`, report });
-  await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
+  return saving;
+};
+async function capture(name, command, args, options) {
+  try {
+    const result = await run(command, args, options);
+    await writeFile(path.join(temp, `${name}.stdout`), result.stdout);
+    await writeFile(path.join(temp, `${name}.stderr`), result.stderr);
+    return result;
+  } catch (error) {
+    await writeFile(path.join(temp, `${name}.stdout`), error.stdout ?? "");
+    await writeFile(path.join(temp, `${name}.stderr`), error.stderr ?? "");
+    throw error;
+  }
 }
-for (const mode of ["history", "persistence-failure", "native-control", "native-reinjection", "dreaming-reinjection"]) {
-  process.stderr.write(`Packed managed context seam: ${mode}\n`);
-  const result = await run(process.execPath, [path.join(root, "scripts/probe-managed-host-context.mjs")], {
-    cwd: consumer,
-    env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot,
+const npm = (name, args, options) => capture(name, process.execPath, [process.env.npm_execpath, ...args], options);
+await writeFile(path.join(temp, "source-manifest.json"), JSON.stringify(source, null, 2));
+await writeFile(path.join(temp, "workspace-host-before.json"), JSON.stringify(workspaceHostBefore, null, 2));
+await save();
+let artifact, fixtures, build, hostRoot, hostBefore, packageRoot, installed, dependencies, lockSha256, failure;
+try {
+  for (const script of ["check", "check:schemas", "test"]) {
+    process.stderr.write(`Verify ${script}\n`);
+    await npm(script.replaceAll(":", "-"), ["run", script, "--silent"]);
+    receipt.checks.push({ script, passed: true });
+    await save();
+  }
+  await assertSourceUnchanged(root, source);
+  fixtures = await treeManifest(path.join(root, ".test-dist"));
+  build = await treeManifest(path.join(root, "dist"));
+  for (const directory of [".test-dist", "dist"]) {
+    assert.deepEqual(JSON.parse(await readFile(path.join(root, directory, "build-identity.json"), "utf8")),
+      { coreRevision: source.coreRevision, sourceClean: true }, "Compiled artifact has another source identity");
+  }
+  receipt.compiledFixtureSha256 = fixtures.digest;
+  receipt.compiledBuildSha256 = build.digest;
+  await writeFile(path.join(temp, "compiled-fixtures.json"), JSON.stringify(fixtures, null, 2));
+  await writeFile(path.join(temp, "compiled-build.json"), JSON.stringify(build, null, 2));
+  const [packed] = JSON.parse((await npm("pack", ["pack", "--json", "--pack-destination", temp])).stdout);
+  assert.ok(packed?.filename && Array.isArray(packed.files), "npm pack manifest missing");
+  const files = packed.files.map(entry => entry.path);
+  for (const required of ["dist/src/plugin.js", "dist/src/openclaw/completion-admission.js",
+    "dist/src/openclaw/initialization.js", "dist/src/openclaw/initialization-registration.js",
+    "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
+    "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
+    "dist/src/openclaw/host-memory.js",
+    "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
+    "dist/src/openclaw/fragment-read-tool.js",
+    "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
+    "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
+    "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
+    "dist/src/acceptance/recovery-drill.js", "dist/src/acceptance/capability-receipt.js",
+    "dist/src/openclaw/host-history-compaction.js", "dist/src/openclaw/host-memory-provider.js", "dist/src/openclaw/host-memory-inventory.js",
+    "dist/src/openclaw/host-context-engine.js", "dist/src/openclaw/host-context-authority.js",
+    "dist/src/openclaw/host-context-graph.js", "dist/src/canghai/view-recipe.js",
+    "dist/src/openclaw/host-context-history.js", "dist/src/openclaw/host-context-keys.js",
+    "dist/src/openclaw/host-context-head.js",
+    "dist/src/openclaw/host-context-turn-store.js", "dist/src/openclaw/host-context-prompt.js",
+    "dist/src/acceptance/capability-acceptance.js", "dist/src/openclaw/capability-admission.js",
+    "openclaw.plugin.json",
+    "schemas/consciousness-manifest.schema.json", "evaluation/praxis-social.synthetic.json"]) {
+    assert.ok(files.includes(required), `packed plugin missing ${required}`);
+  }
+  assert.ok(!files.some((file) => file.startsWith("tests/") || file.startsWith("dist/tests/") ||
+    file.startsWith(".artifacts/") || file.includes("CangHai")), "package contains test/private paths");
+  artifact = path.join(temp, packed.filename);
+  const artifactBytes = await readFile(artifact);
+  receipt.artifactSha256 = sha256(artifactBytes);
+  receipt.packageIntegrity = packed.integrity;
+  assert.equal(`sha512-${createHash("sha512").update(artifactBytes).digest("base64")}`, packed.integrity);
+  await capture("extract", "tar", ["-xzf", artifact, "-C", temp]);
+  const extracted = await fileManifest(path.join(temp, "package"), files);
+  // npm may normalize package.json; every runtime byte must match the build.
+  assert.deepEqual(await fileManifest(root, files.filter(file => file !== "package.json")),
+    await fileManifest(path.join(temp, "package"), files.filter(file => file !== "package.json")));
+  assert.deepEqual(JSON.parse(await readFile(path.join(temp, "package/package.json"), "utf8")),
+    JSON.parse(await readFile(path.join(root, "package.json"), "utf8")));
+  receipt.packagedFilesSha256 = extracted.digest;
+  await writeFile(path.join(temp, "packaged-files.json"), JSON.stringify(extracted, null, 2));
+  const consumer = path.join(temp, "consumer");
+  // mkdtemp owns this previously nonexistent consumer, outside the source tree.
+  await mkdir(consumer);
+  await writeFile(path.join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
+  process.stderr.write("Fresh consumer install (registry dependencies, lifecycle scripts disabled)\n");
+  await npm("install", ["install", "--ignore-scripts", "--no-audit", "--no-fund", artifact, `openclaw@${hostVersion}`], { cwd: consumer });
+  packageRoot = await realpath(path.join(consumer, "node_modules/@tower1229/stella-core"));
+  hostRoot = await realpath(path.join(consumer, "node_modules/openclaw"));
+  assert.equal(packageRoot, path.join(consumer, "node_modules/@tower1229/stella-core"), "Installed plugin must not be a symlink");
+  assert.equal(hostRoot, path.join(consumer, "node_modules/openclaw"), "Installed Host must not be a symlink");
+  assert.equal(JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8")).version, hostVersion);
+  assert.deepEqual(await fileManifest(packageRoot, files), extracted, "Installed package differs from the one tarball");
+  const locked = JSON.parse(await readFile(path.join(consumer, "package-lock.json"), "utf8"));
+  assert.equal(locked.packages["node_modules/@tower1229/stella-core"].integrity, packed.integrity);
+  assert.equal(locked.packages["node_modules/openclaw"].version, hostVersion);
+  receipt.hostPackageIntegrity = locked.packages["node_modules/openclaw"].integrity;
+  lockSha256 = sha256(await readFile(path.join(consumer, "package-lock.json")));
+  receipt.consumerLockSha256 = lockSha256;
+  const require = createRequire(path.join(packageRoot, "package.json"));
+  const metadata = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
+  receipt.dependencyResolution = [];
+  for (const name of [...Object.keys(metadata.dependencies), "openclaw/plugin-sdk/plugin-entry"]) {
+    const resolved = await realpath(require.resolve(name));
+    assert.ok(resolved.startsWith(`${consumer}/node_modules/`), `Dependency escaped the fresh consumer: ${name}`);
+    receipt.dependencyResolution.push({ name, path: path.relative(consumer, resolved), sha256: sha256(await readFile(resolved)) });
+  }
+  installed = await treeManifest(packageRoot);
+  hostBefore = await treeManifest(hostRoot);
+  dependencies = await treeManifest(path.join(consumer, "node_modules"));
+  receipt.installedArtifactTested = true;
+  receipt.freshDependencyInstallTested = true;
+  receipt.installScriptsEnabled = false;
+  receipt.installedPackageTreeSha256 = installed.digest;
+  receipt.hostTreeSha256 = hostBefore.digest;
+  receipt.dependencyTreeSha256 = dependencies.digest;
+  await writeFile(path.join(temp, "installed-package.json"), JSON.stringify(installed, null, 2));
+  await writeFile(path.join(temp, "host-before.json"), JSON.stringify(hostBefore, null, 2));
+  await writeFile(path.join(temp, "dependencies-before.json"), JSON.stringify(dependencies, null, 2));
+  await save();
+  const probeEnv = { ...env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot,
+    STELLA_NATIVE_ACTIVE_EVIDENCE: "", STELLA_NATIVE_DREAMING_EVIDENCE: "",
+    STELLA_CONTEXT_FAIL_PERSISTENCE: "0", STELLA_CONTEXT_NATIVE_CONTROL: "0" };
+  async function probe(name, script, args = [], extraEnv = {}, validate = () => {}) {
+    process.stderr.write(`Packed probe: ${name}\n`);
+    try {
+      const result = await capture(name, process.execPath, [path.join(root, "scripts", script), ...args],
+        { cwd: consumer, env: { ...probeEnv, ...extraEnv } });
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.host ?? report.hostVersion, hostVersion);
+      await assertProbeDreamingDisabled(report);
+      validate(report);
+      receipt.probes.push({ flag: name, passed: true, coreRevision: source.coreRevision, artifactSha256: receipt.artifactSha256, report });
+      await save();
+      return report;
+    } catch (error) {
+      receipt.probes.push({ flag: name, passed: false, error: String(error.message ?? error) });
+      await save();
+      throw error;
+    }
+  }
+  const active = await probe("native-active-memory-artifact", "probe-native-active-memory.mjs", [], {}, report => {
+    assert.equal(report.scope, "native-artifact-generation");
+    assert.equal(report.nativeReadExecuted, true);
+    assert.equal(report.nativeSummaryInjected, true);
+    assert.equal(report.stellaReinjectionVerified, false);
+    assert.equal(report.dreamingEnabled, false);
+    assert.equal(report.memoryCoreEnabled, true);
+  });
+  await probe("main-native-artifact-active-memory", "probe-main-plugin.mjs",
+    ["--native-artifact", path.join(active.evidenceDirectory, "native-active-memory.json")], {}, report => {
+      assert.equal(report.providerRequests, 0); assert.equal(report.finalAnswers, 0);
+      assert.equal(report.persistence.finalInputRejected, true);
+      assert.equal(report.persistence.generationArtifactSha256, active.artifactSha256);
+      assert.equal(report.persistence.entry, "before_prompt_build.prependContext");
+      assert.equal(report.persistence.hostFallbackRejected, true);
+    });
+  for (const mode of ["history", "persistence-failure", "native-control", "native-reinjection"]) {
+    await probe(`managed-context-${mode}`, "probe-managed-host-context.mjs", [], {
       STELLA_CONTEXT_FAIL_PERSISTENCE: mode === "persistence-failure" ? "1" : "0",
       STELLA_CONTEXT_NATIVE_CONTROL: mode === "native-control" ? "1" : "0",
-      STELLA_NATIVE_ACTIVE_EVIDENCE: mode === "native-reinjection" ? nativeActiveReport.evidenceDirectory : "",
-      STELLA_NATIVE_DREAMING_EVIDENCE: mode === "dreaming-reinjection" ? nativeDreamingReport.evidenceDirectory : "" },
-  });
-  const report = JSON.parse(result.stdout);
-  assert.equal(report.hostVersion, hostVersion);
-  assert.equal(report.productionMainVerified, false);
-  assert.equal(report.otherAgentHistoryConsumed, true);
-  assert.equal(report.otherAgentCompactionConsumed, true);
-  if (mode === "history") {
-    assert.equal(report.nextTurnHistoryConsumed, true);
-    assert.equal(report.durabilityScope, "synthetic-local-git-remote");
-    assert.equal(report.productionRecoveryPointerVerified, false);
+      STELLA_NATIVE_ACTIVE_EVIDENCE: mode === "native-reinjection" ? active.evidenceDirectory : "",
+    }, report => {
+      assert.equal(report.productionMainVerified, false);
+      assert.equal(report.otherAgentHistoryConsumed, true); assert.equal(report.otherAgentCompactionConsumed, true);
+      if (mode === "history") {
+        assert.equal(report.nextTurnHistoryConsumed, true);
+        assert.equal(report.durabilityScope, "synthetic-local-git-remote");
+        assert.equal(report.productionRecoveryPointerVerified, false);
+      }
+      if (mode === "persistence-failure") assert.equal(report.historyPersistenceFailureBlocked, true);
+      if (mode === "native-control") assert.equal(report.scope, "native-context-control");
+      if (mode === "native-reinjection") {
+        assert.equal(report.nativeArtifactRejected, true); assert.equal(report.nativeArtifactSha256, active.artifactSha256);
+        assert.equal(report.nativeArtifactKind, "active-memory-recall");
+      }
+    });
   }
-  if (mode === "persistence-failure") assert.equal(report.historyPersistenceFailureBlocked, true);
-  if (mode === "native-control") assert.equal(report.scope, "native-context-control");
-  if (mode === "native-reinjection") {
-    assert.equal(report.nativeArtifactRejected, true);
-    assert.equal(report.nativeArtifactSha256, nativeActiveReport.artifactSha256);
-    assert.equal(report.nativeArtifactKind, "active-memory-recall");
+  const flags = ["--managed-context", "--managed-business-failure", "--guarded-active-memory", "--guarded-active-memory-stale",
+    "--guarded-provider", "--guarded-payload-transform", "--guarded-semantic", "--guarded-provider-stale",
+    "--initialization", "--fragment-skill", "--correction", "--correction-recovery", "--correction-output-rejected",
+    "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
+    "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery", "--outcome-history-recovery",
+    "--standalone-compact", "--standalone-compact-stale", "--standalone-compact-grant-denied", "--standalone-compact-persist-failure",
+    "--history-view-followup", "--source-deletion-history", "--completion-lifecycle", "--completion-status-changed"];
+  // Each probe owns its Host state and synthetic repositories. Never repack or
+  // rebuild while any installed-package consumer is running. Preserve failures.
+  let probeFailure;
+  for (let index = 0; index < flags.length; index += 2) {
+    const results = await Promise.allSettled(flags.slice(index, index + 2).map(flag => probe(flag.slice(2), "probe-main-plugin.mjs", [flag])));
+    for (const result of results) if (result.status === "rejected") probeFailure ??= result.reason;
   }
-  if (mode === "dreaming-reinjection") {
-    assert.equal(report.nativeArtifactRejected, true);
-    assert.equal(report.nativeArtifactSha256, nativeDreamingReport.artifactSha256);
-    assert.equal(report.nativeArtifactKind, "dreaming-diary");
+  const finalProbes = await Promise.allSettled([
+    probe("capability-acceptance", "probe-capability-acceptance.mjs", [], {}, report => {
+      assert.equal(report.capabilityId, "host_initialization"); assert.equal(report.clearedOneBlocker, true);
+      assert.equal(report.businessAdmission, false); assert.equal(report.invalidated, true); assert.equal(report.visitorDenied, true);
+      assert.equal(report.hostMemoryConsumption, "blocked_unverifiable"); assert.equal(report.modelCalls, 0);
+    }),
+    probe("archive-retention", "probe-archive-retention.mjs", [], {}, report => {
+      assert.equal(report.sourceRevision, source.coreRevision); assert.equal(report.sourceClean, true);
+      assert.equal(report.installedArtifactTested, true); assert.equal(report.probes.length, 8);
+    }),
+  ]);
+  for (const result of finalProbes) if (result.status === "rejected") probeFailure ??= result.reason;
+  if (probeFailure) throw probeFailure;
+  receipt.status = "passed";
+} catch (error) {
+  failure = error;
+  receipt.status = "failed";
+  receipt.error = String(error.message ?? error);
+} finally {
+  // A green probe cannot conceal a changed source, package, dependency or Host.
+  const checks = [
+    ["sourceUnchanged", () => assertSourceUnchanged(root, source)],
+    ["workspaceHostUnchanged", () => assertTreeUnchanged(workspaceHost, workspaceHostBefore, "Original workspace Host")],
+  ];
+  if (fixtures) checks.push(["fixturesUnchanged", () => assertTreeUnchanged(path.join(root, ".test-dist"), fixtures, "Compiled fixtures")]);
+  if (build) checks.push(["buildUnchanged", () => assertTreeUnchanged(path.join(root, "dist"), build, "Compiled build")]);
+  if (artifact) checks.push(["artifactUnchanged", async () => assert.equal(sha256(await readFile(artifact)), receipt.artifactSha256, "Package bytes changed")]);
+  if (installed) checks.push(["installedPackageUnchanged", () => assertTreeUnchanged(packageRoot, installed, "Installed package")]);
+  if (hostBefore) checks.push(["hostUnchanged", () => assertTreeUnchanged(hostRoot, hostBefore, "Installed Host")]);
+  if (dependencies) checks.push(["dependenciesUnchanged", () => assertTreeUnchanged(path.join(temp, "consumer/node_modules"), dependencies, "Consumer dependencies")]);
+  if (lockSha256) checks.push(["consumerLockUnchanged", async () => assert.equal(sha256(await readFile(path.join(temp, "consumer/package-lock.json"))), lockSha256, "Consumer lock changed")]);
+  for (const [name, check] of checks) {
+    try { await check(); receipt[name] = true; }
+    catch (error) { receipt[name] = false; receipt.status = "failed"; receipt.error ??= String(error.message ?? error); failure ??= error; }
   }
-  probes.push({ flag: `--managed-context-${mode}`, report });
-  await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
-}
-for (const flag of ["--managed-context", "--managed-business-failure", "--guarded-active-memory", "--guarded-dreaming", "--guarded-provider", "--guarded-payload-transform", "--guarded-semantic", "--guarded-provider-stale", "--initialization", "--fragment-skill", "--correction", "--correction-recovery", "--correction-output-rejected", "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
-  "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery"]) {
-  process.stderr.write(`Packed main probe: ${flag}\n`);
-  const result = await run(process.execPath, [path.join(root, "scripts/probe-main-plugin.mjs"), flag], {
-    cwd: consumer,
-    env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
-  });
-  const report = JSON.parse(result.stdout);
-  assert.equal(report.host, hostVersion);
-  probes.push({ flag, report });
-  await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
-}
-process.stderr.write("Packed capability acceptance probe\n");
-const capabilityProbe = await run(process.execPath, [path.join(root, "scripts/probe-capability-acceptance.mjs")], {
-  cwd: consumer,
-  env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
-});
-const capabilityReport = JSON.parse(capabilityProbe.stdout);
-assert.equal(capabilityReport.host, hostVersion);
-assert.equal(capabilityReport.capabilityId, "host_initialization");
-assert.equal(capabilityReport.clearedOneBlocker, true);
-assert.equal(capabilityReport.businessAdmission, false);
-assert.equal(capabilityReport.invalidated, true);
-assert.equal(capabilityReport.visitorDenied, true);
-assert.equal(capabilityReport.hostMemoryConsumption, "blocked_unverifiable");
-assert.equal(capabilityReport.modelCalls, 0);
-probes.push({ flag: "--capability-acceptance", report: capabilityReport });
-await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
-process.stderr.write("Packed archive retention probe\n");
-const archiveProbe = await run(process.execPath, [path.join(root, "scripts/probe-archive-retention.mjs")], {
-  cwd: consumer,
-  env: { ...process.env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot },
-});
-const archiveReport = JSON.parse(archiveProbe.stdout);
-assert.equal(archiveReport.hostVersion, hostVersion);
-assert.equal(archiveReport.sourceRevision, coreRevision);
-assert.equal(archiveReport.sourceClean, true);
-assert.equal(archiveReport.installedArtifactTested, true);
-assert.equal(archiveReport.probes.length, 8);
-probes.push({ flag: "--archive-retention", report: archiveReport });
-await writeFile(path.join(temp, "probes.json"), JSON.stringify(probes, null, 2));
-const receipt = {
-  schemaVersion: "stella.package-main-smoke/v2", coreRevision, sourceClean: true,
-  artifactSha256, packageIntegrity: packed.integrity, hostVersion,
-  installedArtifactTested: true, transport: "chat.send", fixture: "synthetic",
-  semanticVerdicts: "injected", finalModel: "loopback-synthetic",
-  privateRecoveryAccepted: false, realLearningAccepted: false, mixedEvaluationAccepted: false,
-  probes,
-};
-await writeFile(path.join(temp, "package-smoke.json"), JSON.stringify(receipt, null, 2));
-if (process.env.STELLA_ACCEPTANCE_RECEIPT_PATH) {
-  const destination = path.resolve(process.env.STELLA_ACCEPTANCE_RECEIPT_PATH);
-  await mkdir(path.dirname(destination), { recursive: true });
-  await writeFile(destination, JSON.stringify(receipt, null, 2));
+  await save();
 }
 process.stdout.write(`${JSON.stringify(receipt)}\n`);
+if (failure) { process.stderr.write(`${receipt.error}\n`); process.exitCode = 1; }
