@@ -41,6 +41,8 @@ import type { RetrievalCheckpoint } from "../src/canghai/retrieve.js";
 import { createSemanticRouter } from "../src/routing/semantic-router.js";
 import type { CortexRoute } from "../src/routing/router.js";
 import { loadNativeMemoryCodec } from "../src/openclaw/native-active-memory.js";
+import { loadHostReplayProjection } from "../src/openclaw/host-context-replay.js";
+import type { HostMemoryInput } from "../src/openclaw/host-memory-provider.js";
 
 async function fixture(t: { after(fn: () => Promise<void>): void }, segmented = false) {
   const archiveKeys = generateKeyPairSync("ed25519");
@@ -1633,6 +1635,8 @@ for (const failure of ["none", "source_changed", "archive_failed", "cancelled"] 
 
 test("real provider and tool results extend context and inherit source revocation", async t => {
   const f = await archivedHeadFixture(t);
+  const projectReplay = await loadHostReplayProjection("2026.8.2");
+  await assert.rejects(loadHostReplayProjection("2026.8.1"), /host_context_replay_version_unsupported/);
   let provider: ProviderPlugin | undefined;
   let authority!: HostContextAuthority;
   let sealed!: Awaited<ReturnType<HostContextAuthority["seal"]>>;
@@ -1665,6 +1669,7 @@ test("real provider and tool results extend context and inherit source revocatio
       await authority.bindArchivedInput(f.ingressRef);
       const rule = authority.rule("AGENTS.md"), evidence = await authority.evidence(f.evidence);
       engine = new ManagedHostContextEngine(readActiveCompletionRequest("stella"), authority, { system: [rule], history: [evidence],
+        projectReplay,
         archive: async () => {}, persistSummary: async () => {}, complete: async ({ prompt }) => {
           for (const included of ["call-1", "call-2", "fragments", "Old interpretation", f.request.prompt]) assert.ok(prompt.includes(included));
           return { text: '{"summary":"Both fragment tool results remain part of the conversation."}', modelRef: "stella-guarded/model" };
@@ -1691,12 +1696,26 @@ test("real provider and tool results extend context and inherit source revocatio
       const wire = codec.projectReplay(sealed.input);
       assert.deepEqual(wire.messages.filter(message => message.role === "toolResult").map(message => message.toolCallId), ["call1", "call2"]);
       assert.ok(wire.messages.filter(message => message.role === "toolResult").every(message => !("details" in message)));
-      await authority.assertNativeConsumption(sealed.consumption, wire, codec.projectReplay);
+      await authority.assertReplayConsumption(sealed.consumption, wire, codec.projectReplay);
       const changed = structuredClone(wire);
       const changedTool = changed.messages.find(message => message.role === "toolResult")!;
       changedTool.content = [{ type: "text", text: "Unbound replacement" }];
-      await assert.rejects(authority.assertNativeConsumption(sealed.consumption, changed, codec.projectReplay), /host_context_input_changed/);
-      await engine.assertConsumption(sealed.input);
+      await assert.rejects(authority.assertReplayConsumption(sealed.consumption, changed, codec.projectReplay), /host_context_input_changed/);
+      for (const mutate of [
+        (input: HostMemoryInput) => { const assistant = input.messages.find(message => message.role === "assistant")!;
+          const call = assistant.content.find(part => part.type === "toolCall")!;
+          if (call.type === "toolCall") call.arguments = { action: "read", fragmentId: "unbound" }; },
+        (input: HostMemoryInput) => { const result = input.messages.find(message => message.role === "toolResult")!;
+          if (result.role === "toolResult") result.toolCallId = "unbound"; },
+        (input: HostMemoryInput) => { Object.assign(input, { systemPrompt: input.systemPrompt + " Unbound Host context" }); },
+      ]) {
+        const invalid = structuredClone(wire);
+        mutate(invalid);
+        await assert.rejects(authority.assertReplayConsumption(sealed.consumption, invalid, projectReplay), /host_context_input_changed/);
+      }
+      await engine.assemble({ sessionId: f.request.sessionId, sessionKey: f.request.sessionKey,
+        messages: sealed.input.messages, availableTools: new Set(), tokenBudget: 100_000 });
+      await engine.assertConsumption(wire);
       await assert.rejects(authority.extendToolResult(sealed.consumption, receipts[0]!), /host_context_tool_result_replayed/);
       const retained = await persistContextHistory(authority, sealed.consumption, { archiveRoot: "retained-context",
         signingKey: f.archiveKeys.privateKey, durability: f.durability });

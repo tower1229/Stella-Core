@@ -95,7 +95,7 @@ export class ManagedHostContextEngine implements ContextEngine {
       session?: { sessionId: string; sessionKey: string };
       prompt?: string;
       currentInput?: ContextFragment;
-      projectNativeReplay?: (input: HostMemoryInput) => HostMemoryInput;
+      projectReplay?: (input: HostMemoryInput) => HostMemoryInput;
       nativeMemory?: () => { currentInput(): Promise<ContextFragment>; prompt(): string } | undefined;
       hostTimezone?: string;
       archive(messages: Messages): Promise<void>;
@@ -266,7 +266,7 @@ export class ManagedHostContextEngine implements ContextEngine {
       const sealed = this.#sealed;
       check(sealed && !this.#busy && this.#pendingToolResults === 0, "host_context_assembly_required");
       assertCompleteToolBatch(input);
-      if (this.ports.projectNativeReplay) await this.authority.assertNativeConsumption(sealed.consumption, input, this.ports.projectNativeReplay);
+      if (this.ports.projectReplay) await this.authority.assertReplayConsumption(sealed.consumption, input, this.ports.projectReplay);
       else await this.authority.assertConsumption(sealed.consumption, input);
       if (this.#failure) throw this.#failure;
       check(!this.#releasedToCompletion, "host_context_model_phase_ended");

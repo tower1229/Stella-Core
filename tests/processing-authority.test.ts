@@ -58,6 +58,13 @@ test("resolveTurnAudience admits only owner direct private context", () => {
     { patch: { chatType: "channel" }, audience: "channel" },
     { patch: { sessionKey: "agent:stella:subagent:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }, audience: "subagent" },
     { patch: { sessionKey: "agent:stella:cron:job-1" }, audience: "cron" },
+    // Gateway chat.send reports direct even when addressing a shared session.
+    { patch: { sessionKey: "agent:stella:telegram:group:room" }, audience: "group" },
+    { patch: { sessionKey: "agent:stella:discord:work:channel:room" }, audience: "channel" },
+    { patch: { sessionKey: "agent:stella:group:legacy-room" }, audience: "group" },
+    { patch: { sessionKey: "agent:stella:whatsapp:120000@g.us" }, audience: "group" },
+    { patch: { sessionKey: "agent:stella:discord:guild-1:channel-2" }, audience: "channel" },
+    { patch: { sessionKey: "agent:stella:direct:group:room" }, audience: "unknown" },
     { patch: { chatType: undefined }, audience: "unknown" },
   ];
   for (const { patch, audience } of cases) {
@@ -70,6 +77,13 @@ test("resolveTurnAudience admits only owner direct private context", () => {
     assert.equal(decision.privateContextAllowed, false);
     assert.throws(() => assertPrivateContextAudience(decision), (error: unknown) =>
       error instanceof CatalogError && error.category === "private_context_audience_forbidden");
+  }
+});
+
+test("direct peer identifiers and opaque main session names are not shared-session markers", () => {
+  for (const sessionKey of ["agent:stella:main", "agent:stella:main-completion", "agent:stella:telegram:dm:room",
+    "agent:stella:telegram:account:direct:room", "agent:stella:direct:project-group", "agent:stella:my-group-notes"]) {
+    assertPrivateContextAudience(resolveTurnAudience({ ...ownerDirect(), sessionKey }));
   }
 });
 

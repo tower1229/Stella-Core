@@ -10,6 +10,7 @@ import { canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import { FRAGMENT_READ_TOOL, type FragmentToolResultReceipt } from "./fragment-read-tool.js";
 import { ManagedHostContextEngine } from "./host-context-engine.js";
+import { loadHostReplayProjection } from "./host-context-replay.js";
 import { readHostModelOutput, type HostMemoryInput, type HostModelOutputReceipt } from "./host-memory-provider.js";
 import type { HostContextAuthority, ContextFragment } from "./host-context-authority.js";
 import type { BoundTurnRequest } from "./turn-request.js";
@@ -54,14 +55,7 @@ export async function loadNativeMemoryCodec(hostVersion: string): Promise<Native
   for (const name of ["normalizePluginConfig", "buildQuery", "buildSearchQuery", "buildRecallPrompt", "normalizeActiveSummary", "truncateSummary", "buildPromptPrefix"]) {
     check(typeof result[name] === "function", "native_memory_codec_unavailable");
   }
-  const toolIds: unknown = await import(pathToFileURL(path.resolve(nativeDirectory, "../../tool-call-id-bBWjBMFi.js")).href);
-  const toolDetails: unknown = await import(pathToFileURL(path.resolve(nativeDirectory, "../../model-context-message-Dmngk3hL.js")).href);
-  check(isRecord(toolIds) && typeof toolIds.a === "function" && isRecord(toolDetails) && typeof toolDetails.r === "function",
-    "native_memory_codec_unavailable");
-  const ids = toolIds.a as (messages: HostMemoryInput["messages"], mode: "strict") => HostMemoryInput["messages"];
-  const details = toolDetails.r as (messages: HostMemoryInput["messages"]) => HostMemoryInput["messages"];
-  result.projectReplay = (input: HostMemoryInput): HostMemoryInput => ({ ...structuredClone(input),
-    messages: ids(details(structuredClone(input.messages)), "strict") });
+  result.projectReplay = await loadHostReplayProjection(hostVersion);
   return result as unknown as NativeCodec;
 }
 
@@ -159,7 +153,7 @@ export class NativeMemoryRecall {
       this.#engine = new ManagedHostContextEngine(this.input.request, this.input.authority, {
         system: this.input.system, history: [], currentInput, prompt: this.#expectedPrompt, session: this.#session,
         hostTimezone: this.input.timezone,
-        projectNativeReplay: this.input.codec.projectReplay,
+        projectReplay: this.input.codec.projectReplay,
         // This is a derived internal request. The parent's signed consumption
         // trace retains its exact input, tool results and model output.
         archive: async () => { this.#active(); },

@@ -20,9 +20,14 @@ const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf
 assert.equal(host.version, "2026.8.2");
 const outputRejectionProbe = process.argv.includes("--correction-output-rejected");
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
+const audienceScenario = process.argv.find(arg => arg.startsWith("--source-audience-"))?.slice("--source-audience-".length);
+if (audienceScenario) assert.ok(["owner", "visitor", "group", "channel", "cron", "subagent", "requester-denied", "revoked"].includes(audienceScenario));
+const audienceAllowed = audienceScenario === "owner" || audienceScenario === "revoked";
+const ingressField = process.argv.find(arg => arg.startsWith("--host-ingress-"))?.slice("--host-ingress-".length);
+if (ingressField) assert.ok(["prependSystemContext", "appendSystemContext", "prependContext", "bootstrap"].includes(ingressField));
 const liveFragment = process.argv.includes("--fragment-live");
 const fragmentProbe = liveFragment || process.argv.includes("--fragment-skill");
-const nativeFragmentFixture = process.argv.includes("--guarded-active-memory") || process.argv.includes("--guarded-active-memory-stale");
+const nativeFragmentFixture = Boolean(audienceScenario) || process.argv.includes("--guarded-active-memory") || process.argv.includes("--guarded-active-memory-stale");
 const liveModel = "google/gemini-3.1-pro-preview";
 let liveProvider;
 if (liveFragment) {
@@ -90,7 +95,7 @@ const standaloneCompactProbe = standaloneCompactStale || standaloneCompactGrantD
 const historyNativeCompactProbe = process.argv.includes("--history-native-compact");
 const historyViewProbe = sourceDeletionProbe || historyFollowupProbe || historyQueuedNoticeProbe || historyNativeCompactProbe || process.argv.includes("--history-view-rebuild");
 const nativeActiveStale = process.argv.includes("--guarded-active-memory-stale");
-const managedContextProbe = nativeActiveStale || completionLifecycleProbe || outcomeHistoryProbe || standaloneCompactProbe || nativeArtifactProbe || managedBusinessFailure || historyViewProbe || process.argv.includes("--guarded-active-memory") || process.argv.includes("--managed-context");
+const managedContextProbe = Boolean(audienceScenario || ingressField) || nativeActiveStale || completionLifecycleProbe || outcomeHistoryProbe || standaloneCompactProbe || nativeArtifactProbe || managedBusinessFailure || historyViewProbe || process.argv.includes("--guarded-active-memory") || process.argv.includes("--managed-context");
 const guardedDreaming = process.argv.includes("--guarded-dreaming");
 const guardedActive = nativeActiveStale || process.argv.includes("--guarded-active-memory");
 const guardedStale = process.argv.includes("--guarded-provider-stale");
@@ -230,7 +235,7 @@ if (correctionProbe) {
     config_ref: `path:${prefix}/personal-access.json`, acceptance_ref: `path:${prefix}/capability-acceptance.json`, required: true, required_secret_refs: [] });
   await writeFile(file, stringifyYaml(profile));
   await writeFile(path.join(canghaiRoot, prefix, "personal-access.json"), JSON.stringify({ schemaVersion: "stella.personal-context-access/v1",
-    ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: [probeModel], viewProcessingModelRefs: [probeModel], operatorRecovery: true,
+    ownerId: "owner-fixture", requesterIds: [audienceScenario === "requester-denied" ? "different-requester" : "cli"], modelRefs: [probeModel], viewProcessingModelRefs: [probeModel], operatorRecovery: true,
     ...(standaloneCompactProbe && !standaloneCompactGrantDenied ? { operatorHistoryCompaction: true } : {}),
     purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, descriptors: [] }));
 }
@@ -327,6 +332,8 @@ import { HostContextAuthority } from ${JSON.stringify(buildModule("src/openclaw/
 import { CatalogReader } from ${JSON.stringify(buildModule("src/canghai/catalog-reader.js"))};
 import { readCompletionPreparation, hasCompletionRunPermit } from ${JSON.stringify(buildModule("src/openclaw/completion.js"))};
 import { getPluginRuntimeGatewayRequestScope } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/plugin-runtime.js")).href)};
+import { resolveCommandAuthorization } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/command-auth.js")).href)};
+import { resolveTurnAudience } from ${JSON.stringify(buildModule("src/openclaw/turn-audience.js"))};
 if (${completionStatusChanged}) {
   const originalSync = GitCangHaiDurability.prototype.syncCritical;
   GitCangHaiDurability.prototype.syncCritical = async function(paths, message) {
@@ -355,11 +362,11 @@ if (${outcomeHistoryRecoveryProbe}) {
   };
 }
 if (${managedContextProbe}) {
-  for (const method of ['seal', 'projectBoundary', 'assertConsumption', 'routingCandidates', ...(${outcomeHistoryProbe} ? ['semanticRoute', 'outcomeContext', 'cortexContext'] : [])]) {
+  for (const method of ['seal', 'projectBoundary', 'assertConsumption', 'assertReplayConsumption', 'routingCandidates', ...(${outcomeHistoryProbe} ? ['semanticRoute', 'outcomeContext', 'cortexContext'] : [])]) {
     const invoke = HostContextAuthority.prototype[method];
     HostContextAuthority.prototype[method] = async function(...args) {
       const record = value => appendFileSync(${JSON.stringify(path.join(temp, "context-inputs.jsonl"))}, JSON.stringify(value) + '\\n');
-      if (method === 'assertConsumption') record({method,input:args[1]});
+      if (method === 'assertConsumption' || method === 'assertReplayConsumption') record({method,input:args[1]});
       if (method === 'routingCandidates') record({method,candidates:args[0].candidates,runId:this.request.runId});
       if (${outcomeHistoryProbe}) record({method,phase:'enter',at:Date.now()});
       let result;
@@ -417,6 +424,17 @@ const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 const outcomePhase = () => !${outcomeHistoryProbe} || existsSync(${JSON.stringify(path.join(temp, 'outcome-history-phase'))}) && readFileSync(${JSON.stringify(path.join(temp, 'outcome-history-phase'))}, 'utf8') === 'outcome';
 const tracedPreparations = new WeakSet();
 export default { ...main, register(api) {
+  if (${Boolean(ingressField && ingressField !== "bootstrap")}) api.on('before_prompt_build', () => {
+    appendFileSync(${JSON.stringify(path.join(temp, "ingress-hook.jsonl"))}, JSON.stringify({ entry: ${JSON.stringify(ingressField)} }) + '\\n');
+    return { [${JSON.stringify(ingressField)}]: 'SYNTHETIC_UNBOUND_HOST_MEMORY' };
+  }, { priority: 100 });
+  if (${audienceScenario === "revoked"}) api.on('after_tool_call', event => {
+    if (event.toolName !== 'stella_read_fragment' || !event.result?.details?.original?.ref) return;
+    const file = ${JSON.stringify(path.join(canghaiRoot, "50_PersonalAgent/stella/personal-access.json"))};
+    const grant = JSON.parse(readFileSync(file, 'utf8'));
+    writeFileSync(file, JSON.stringify({ ...grant, requesterIds: ['revoked-requester'] }));
+    writeFileSync(${JSON.stringify(path.join(temp, "audience-revoked.json"))}, JSON.stringify({ afterAuthorizedFragmentRead: true }));
+  });
   if (${nativeActiveStale}) {
     api.on('after_tool_call', event => {
       const ref = event.result?.details?.original?.ref;
@@ -474,6 +492,13 @@ export default { ...main, register(api) {
   if (${liveFragment}) api.on('llm_input', event => appendFileSync(${JSON.stringify(path.join(temp, "live-inputs.jsonl"))}, JSON.stringify({ forbiddenNeighbor: JSON.stringify(event).includes('SYNTHETIC_DENIED_NEIGHBOR'), correctionPresent: JSON.stringify(event).includes('SYNTHETIC_CORRECTED_PREMISE'), event }) + '\\n'));
   main.register({ ...api,
     on(name, handler, options) {
+      if (${Boolean(audienceScenario || ingressField)} && name === 'reply_dispatch') return api.on(name, async (event, ctx) => {
+        const sender = resolveCommandAuthorization({ ctx: event.ctx, cfg: ctx.cfg, commandAuthorized: event.ctx.CommandAuthorized });
+        const request = { sessionKey: event.sessionKey, chatType: event.ctx.ChatType, ...sender };
+        appendFileSync(${JSON.stringify(path.join(temp, "audience-dispatch.jsonl"))}, JSON.stringify({ ...request,
+          audience: resolveTurnAudience(request).audience }) + '\\n');
+        return handler(event, ctx);
+      }, options);
       if (${guardedActive} && ['before_prompt_build', 'before_agent_run'].includes(name)) return api.on(name, async (event, ctx) => {
         const owner = getPluginRuntimeGatewayRequestScope();
         const record = value => appendFileSync(${JSON.stringify(path.join(temp, "native-authority-events.jsonl"))}, JSON.stringify(value) + '\\n');
@@ -548,6 +573,7 @@ export default { ...main, register(api) {
       },
     } } : {}), llm: { ...api.runtime.llm,
     async complete(params) {
+      if (${Boolean(audienceScenario || ingressField)}) appendFileSync(${JSON.stringify(path.join(temp, "audience-semantic.jsonl"))}, JSON.stringify({ purpose: params.purpose }) + '\\n');
       if (${cancellationProbe}) appendFileSync(${JSON.stringify(path.join(temp, "cancellation-semantic-calls.jsonl"))}, JSON.stringify({ purpose: params.purpose, at: Date.now() }) + '\\n');
       if (${outcomeHistoryRecoveryProbe} && existsSync(${JSON.stringify(path.join(temp, "outcome-recovery-running"))})) {
         appendFileSync(${JSON.stringify(path.join(temp, "outcome-recovery-inference.jsonl"))}, JSON.stringify({ purpose: params.purpose }) + '\\n');
@@ -675,7 +701,7 @@ const provider = createServer(async (request, response) => {
     return;
   }
 
-  if (cancellationProbe || skillReadProbe || fragmentProbe || historyViewProbe || standaloneCompactProbe || outcomeHistoryProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
+  if (audienceScenario || ingressField || cancellationProbe || skillReadProbe || fragmentProbe || historyViewProbe || standaloneCompactProbe || outcomeHistoryProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
   observedSkillResult = parsedRequest.messages?.filter((message) => message.role === "tool");
   providerReceivedSkillBody ||= parsedRequest.messages?.some((message) => message.role === "tool" &&
     JSON.stringify(message.content).includes("No private data.")) === true;
@@ -695,6 +721,19 @@ const provider = createServer(async (request, response) => {
     await providerRelease.promise;
   }
   response.setHeader("content-type", "application/json");
+  if (audienceAllowed) {
+    assert.ok(!requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR"));
+    const steps = [["stella_read_fragment", { action: "list" }], ["stella_read_fragment", { action: "read", handle: "F1" }]];
+    if (providerRequests <= steps.length) {
+      const [name, args] = steps[providerRequests - 1];
+      response.end(JSON.stringify({ id: "audience-tool", object: "chat.completion", created: 1, model: "probe",
+        choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: `audience-${providerRequests}`, type: "function",
+          function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: "tool_calls" }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+      return;
+    }
+    assert.ok(requestBody.includes("SYNTHETIC_ALLOWED_FRAGMENT"), "The actual final transport must consume the authorized fragment");
+  }
   if (guardedActive && requestBody.includes("You are a memory search agent.")) {
     assert.ok(!requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR"), "Native recall must not receive the denied neighboring segment");
     nativeRecallRequests++;
@@ -851,6 +890,7 @@ async function waitForInitializationReady() {
   }
   assert.equal(initializationStatus.state, "ready", JSON.stringify(initializationStatus));
 }
+async function verifyMain() {
 try {
   gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs"),
     diagnosticPrefixes: ["Stella completion:", "Stella history compaction model failed:", ...(guardedActive ? ["active-memory:"] : [])] });
@@ -865,6 +905,84 @@ try {
   assert.equal(displayedAgents.agents.find((agent) => agent.id === "probe")?.identity?.name, "Synthetic Stella",
     "The Gateway must expose the initialized identity, not merely a workspace file");
   assert.equal((await client.request("stella.initialize", { action: "apply" })).state, "ready");
+  if (audienceScenario || ingressField) {
+    const inventory = await client.request("stella.initialize", { action: "memory-inventory" });
+    if (ingressField === "bootstrap") await writeFile(path.join(workspace, "MEMORY.md"), "SYNTHETIC_UNBOUND_HOST_MEMORY\n");
+    let visitor;
+    try {
+      if (audienceScenario === "visitor") await new Promise((resolve, reject) => {
+        visitor = new GatewayClient({ url: `ws://127.0.0.1:${gateway.env.OPENCLAW_GATEWAY_PORT}`, token: gateway.env.OPENCLAW_GATEWAY_TOKEN,
+          env: gateway.env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.read", "operator.write"],
+          sharedStateMode: "read-only", deviceIdentity: null, onHelloOk: resolve, onConnectError: reject });
+        visitor.start();
+      });
+      const sessionKey = audienceScenario === "group" ? "agent:probe:telegram:group:synthetic-room"
+        : audienceScenario === "channel" ? "agent:probe:discord:work:channel:synthetic-room"
+        : audienceScenario === "cron" ? "agent:probe:cron:synthetic-job"
+        : audienceScenario === "subagent" ? "agent:probe:subagent:11111111-2222-3333-4444-555555555555"
+        : "agent:probe:main-completion";
+      const before = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
+      const sent = await (visitor ?? client).request("chat.send", { sessionKey, message: "Synthetic source audience acceptance", idempotencyKey: "synthetic-audience" });
+      // Observe one admitted run through the Host's queue/drain states. A wait
+      // timeout is not a terminal failure and never authorizes another send.
+      const deadline = Date.now() + 300_000;
+      let terminal;
+      do {
+        terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 30_000 }, { timeoutMs: 35_000 });
+        if (!["pending", "timeout"].includes(terminal.status) || terminal.endedAt != null) break;
+        await new Promise(resolve => setTimeout(resolve, 250));
+      } while (Date.now() < deadline);
+      const denied = !audienceAllowed || audienceScenario === "revoked";
+      assert.equal(terminal.status, denied ? "error" : "ok", JSON.stringify(terminal));
+      const dispatch = (await readFile(path.join(temp, "audience-dispatch.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+      assert.equal(dispatch.length, 1);
+      assert.equal(dispatch[0].chatType, "direct", "Record the original Gateway envelope without modifying it");
+      const expectedAudience = ["group", "channel", "cron", "subagent"].includes(audienceScenario) ? audienceScenario
+        : audienceScenario === "visitor" ? "non_owner_direct" : "owner_direct";
+      assert.equal(dispatch[0].audience, expectedAudience);
+      let semantic = [];
+      try { semantic = (await readFile(path.join(temp, "audience-semantic.jsonl"), "utf8")).trim().split("\n").map(JSON.parse); }
+      catch (error) { if (error.code !== "ENOENT") throw error; }
+      const expectedCategory = ingressField === "bootstrap" ? "projection_drift" : ingressField ? "host_context_input_changed"
+        : audienceScenario === "requester-denied" ? "personal_context_requester_forbidden"
+        : audienceScenario === "revoked" ? "personal_context_access_changed" : "private_context_audience_forbidden";
+      let initializationBlocker;
+      if (ingressField === "bootstrap") {
+        const status = await client.request("stella.initialize", { action: "status" });
+        assert.equal(status.state, "blocked", JSON.stringify(status));
+        assert.equal(status.category, expectedCategory, JSON.stringify(status));
+        initializationBlocker = status.category;
+      } else if (denied) assert.ok(gateway.diagnostics().includes(expectedCategory), gateway.diagnostics());
+      assert.equal(providerRequests, audienceScenario === "owner" ? 3 : audienceScenario === "revoked" ? 2 : 0);
+      if (audienceScenario && !audienceAllowed) {
+        assert.equal(semantic.length, 0, "Rejected audiences/requesters must be stopped before semantic disclosure");
+        assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), before);
+      }
+      if (audienceScenario === "owner") {
+        assert.ok(semantic.some(call => call.purpose === "stella-source-access"));
+        assert.ok(semantic.some(call => call.purpose === "stella-source-output"));
+      }
+      if (audienceScenario === "revoked") assert.equal(JSON.parse(await readFile(path.join(temp, "audience-revoked.json"))).afterAuthorizedFragmentRead, true);
+      if (ingressField && ingressField !== "bootstrap") assert.ok((await readFile(path.join(temp, "ingress-hook.jsonl"), "utf8")).trim());
+      const history = await readHistory({ sessionKey, limit: 10 });
+      const finalAnswers = (history.messages ?? []).filter(message => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length;
+      assert.equal(finalAnswers, denied ? 0 : 1);
+      const cron = await client.request("cron.list", { includeDisabled: true });
+      assert.ok(!cron.jobs.find(job => job.declarationKey === "memory-core:memory-dreaming-promotion")?.enabled);
+      const report = { schemaVersion: "stella.host-memory-boundary-probe/v1", host: host.version, evidenceDirectory: temp,
+        scope: "synthetic exact Host; native chat.send metadata; injected semantic verdicts; loopback final model",
+        dreamingEnabled: false, memoryInventory: inventory, audienceScenario, ingressField, dispatch,
+        terminalStatus: terminal.status, category: denied ? expectedCategory : undefined, initializationBlocker, providerRequests, finalAnswers,
+        semanticCalls: semantic.length, sourceAccessCalls: semantic.filter(call => call.purpose === "stella-source-access").length,
+        outputChecks: semantic.filter(call => call.purpose === "stella-source-output").length,
+        authorizedFragmentConsumed: audienceScenario === "owner", revokedBeforeContinuation: audienceScenario === "revoked",
+        modelRequestsAfterRevocation: audienceScenario === "revoked" ? 0 : undefined,
+        unknownInputConsumed: false, fullMemoryAccepted: false, realModelAccepted: false };
+      await writeFile(path.join(temp, "host-memory-boundary.json"), JSON.stringify(report, null, 2));
+      console.log(JSON.stringify(report));
+      return;
+    } finally { await visitor?.stopAndWait({ timeoutMs: 2_000 }); }
+  }
   if (process.argv.includes("--initialization")) {
     const checked = await client.request("stella.initialize", { action: "verify" });
     assert.equal(checked.verification.schemaVersion, "stella.initialization-verification/v1");
@@ -2034,3 +2152,5 @@ try {
   assert.ok(coreSnapshot.startsWith(path.join(snapshotParent, "main-probe-build-")));
   await rm(coreSnapshot, { recursive: true, force: true });
 }
+}
+await verifyMain();

@@ -97,6 +97,7 @@ import { HOST_MEMORY_PROVIDER, isHostConsumptionRevalidation, registerHostMemory
 import { assertHostMemoryConsumptionSupported } from "./openclaw/host-memory.js";
 import { hostContextExecutionHash } from "./openclaw/host-memory-inventory.js";
 import { NativeMemoryRecall, isNativeMemoryOwner, nativeMemoryConfiguration } from "./openclaw/native-active-memory.js";
+import { loadHostReplayProjection } from "./openclaw/host-context-replay.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 
@@ -867,7 +868,7 @@ export default definePluginEntry({
         return process.platform === "win32" ? root.toLowerCase() : root;
       },
       async prepareInput({ runId, abortSignal }) {
-        await runCompletionPreparation(runId, async () => {
+        try { await runCompletionPreparation(runId, async () => {
           const request = readCompletionRequest(runId, config.agentId);
           const audience = resolveTurnAudience(request);
           // Host replay and compaction can precede before_agent_run. Reject an
@@ -926,7 +927,12 @@ export default definePluginEntry({
               "prepare",
             );
           }
-        });
+        }); } catch (error) {
+          if (error instanceof CompletionError) throw error;
+          throw new CompletionError(error instanceof CatalogError || error instanceof ConsciousnessLoadError ||
+            error instanceof RuntimeProfileError || error instanceof InitializationError || error instanceof MemoryTransactionError
+            ? error.category : "host_memory_preparation_failed", "prepare", { cause: error });
+        }
         const request = readCompletionRequest(runId, config.agentId);
         if (api.runtime.config.current().plugins?.slots?.contextEngine === STELLA_CONTEXT_ENGINE) {
           managedContextRequests.add(request);
@@ -1505,6 +1511,7 @@ export default definePluginEntry({
               };
               managedContext = new ManagedHostContextEngine(request, authority, { system, history,
                 nativeMemory: () => preparedTurn?.nativeMemory,
+                projectReplay: await loadHostReplayProjection(api.runtime.version),
                 hostTimezone: resolveManagedHostTimezone(api.runtime.config.current().agents?.defaults?.userTimezone),
                 archive: async messages => {
                   await assertArchiveAllowed(runtime.evidence.reader);

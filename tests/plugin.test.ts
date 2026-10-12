@@ -824,6 +824,8 @@ for (const patch of [
   { chatType: undefined },
   { sessionKey: "agent:stella:subagent:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" },
   { sessionKey: "agent:stella:cron:job-1" },
+  { sessionKey: "agent:stella:telegram:group:room" },
+  { sessionKey: "agent:stella:discord:work:channel:room" },
 ]) {
   test(`private preparation requires Host owner and direct scope: ${JSON.stringify(patch)}`, async () => {
     const root = await createFixture();

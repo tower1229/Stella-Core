@@ -172,6 +172,10 @@ test("personal metadata processing requires exact Host requester, model, owner a
   for (const patch of [{ senderId: "other" }, { senderIsOwner: false }, { chatType: "group" as const }]) {
     assert.throws(() => createPersonalContextAccess({ ...input, request: { ...bound, ...patch } }), /personal_context_requester_forbidden/);
   }
+  for (const sessionKey of ["agent:main:telegram:group:room", "agent:main:discord:work:channel:room",
+    "agent:main:cron:job-1", "agent:main:subagent:child", "agent:main:direct:group:room"]) {
+    assert.throws(() => createPersonalContextAccess({ ...input, request: { ...bound, sessionKey } }), /private_context_audience_forbidden/);
+  }
   assert.throws(() => createPersonalContextAccess({ ...input, modelRef: "other/model" }), /personal_context_model_forbidden/);
   assert.throws(() => createPersonalContextAccess({ ...input, request: { ...bound, prompt: "different" } }), /personal_context_request_mismatch/);
   await assert.rejects(access(f.reader, f.target, { ...purpose, deliveryScope: "public" }), /personal_context_purpose_mismatch/);

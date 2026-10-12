@@ -81,7 +81,7 @@ export class HostContextAuthority {
   readonly #outcomeTransactions = new Map<string, { operationId: string; planHash: string }>();
   readonly #consumptions = new WeakMap<ContextConsumption, { input: HostMemoryInput; fragments: ContextFragment[]; trace: ContextInputTrace }>();
   readonly #assistantOutputs = new WeakMap<ContextConsumption, HostModelOutputReceipt>();
-  readonly #nativeTransports = new WeakMap<ContextConsumption, HostMemoryInput>();
+  readonly #replayTransports = new WeakMap<ContextConsumption, HostMemoryInput>();
   readonly #extended = new WeakSet<ContextConsumption>();
   readonly #rules: Record<string, Rule>;
   readonly #fragmentTool: object | undefined;
@@ -1101,8 +1101,8 @@ export class HostContextAuthority {
     check(prior && !this.#extended.has(consumption), "host_context_continuation_unbound");
     const output = readHostModelOutput(receipt);
     check(output.request === this.request && output.modelRef === this.#authority.modelRef, "host_context_output_scope_mismatch");
-    const nativeInput = this.#nativeTransports.get(consumption);
-    check(inputDigest(output.input) === (nativeInput ? inputDigest(nativeInput) : consumption.digest), "host_context_output_input_mismatch");
+    const replayInput = this.#replayTransports.get(consumption);
+    check(inputDigest(output.input) === (replayInput ? inputDigest(replayInput) : consumption.digest), "host_context_output_input_mismatch");
     const toolCalls = output.message.content.filter(part => part.type === "toolCall");
     check(new Set(toolCalls.map(call => call.id)).size === toolCalls.length && toolCalls.every(call =>
       call.id && this.#tools.some(tool => tool.name === call.name)), "host_context_output_tool_unbound");
@@ -1111,10 +1111,10 @@ export class HostContextAuthority {
     this.#extended.add(consumption);
     const context = { ...structuredClone(prior.input), messages: [...structuredClone(prior.input.messages), output.message] };
     const next = Object.freeze({ digest: inputDigest(context) });
-    const trace = nativeInput ? projectContextTrace(prior.trace, nativeInput) : prior.trace;
-    const appended = appendAssistantTrace(trace, nativeInput ?? prior.input, output.message);
+    const trace = replayInput ? projectContextTrace(prior.trace, replayInput) : prior.trace;
+    const appended = appendAssistantTrace(trace, replayInput ?? prior.input, output.message);
     this.#consumptions.set(next, { input: context, fragments: [...prior.fragments],
-      trace: nativeInput ? projectContextTrace(appended, context) : appended });
+      trace: replayInput ? projectContextTrace(appended, context) : appended });
     this.#assistantOutputs.set(next, receipt);
     return { input: structuredClone(context), consumption: next };
   }
@@ -1165,11 +1165,11 @@ export class HostContextAuthority {
     check(inputDigest(input) === consumption.digest, "host_context_input_changed");
   }
 
-  /** The pinned native child receives the Host's known replay formatting after
+  /** Managed parent and native child receive the Host's replay formatting after
    * context assembly. Compute it from already-bound producer input, never by
    * stripping differences from the observed transport. Preserve both forms in
    * the signed trace when its actual provider output extends the conversation. */
-  async assertNativeConsumption(consumption: ContextConsumption, input: HostMemoryInput,
+  async assertReplayConsumption(consumption: ContextConsumption, input: HostMemoryInput,
     project: (input: HostMemoryInput) => HostMemoryInput): Promise<void> {
     const prior = this.#consumptions.get(consumption);
     check(prior, "host_context_consumption_unbound");
@@ -1177,7 +1177,7 @@ export class HostContextAuthority {
     check(inputDigest(input) === inputDigest(expected), "host_context_input_changed");
     await this.assertConsumption(consumption, prior.input);
     check(inputDigest(input) === inputDigest(expected), "host_context_input_changed");
-    this.#nativeTransports.set(consumption, expected);
+    this.#replayTransports.set(consumption, expected);
   }
 
   /** Compile fixed control text or an already admitted signed historical

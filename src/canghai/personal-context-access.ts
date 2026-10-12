@@ -7,6 +7,7 @@ import { isRecord } from "../shared/type-guards.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 import type { ProcessingAuthority } from "../openclaw/processing-authority.js";
+import { assertPrivateContextAudience, resolveTurnAudience } from "../openclaw/turn-audience.js";
 
 export const PERSONAL_CONTEXT_ADAPTER = "stella.personal-context-access";
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
@@ -98,6 +99,7 @@ export function createPersonalContextAccess(input: {
   const decisions = new Map<string, SourceAccessContext>();
   check(request.senderIsOwner && request.chatType === "direct" && request.senderId &&
     config.requesterIds.includes(request.senderId), "personal_context_requester_forbidden");
+  assertPrivateContextAudience(resolveTurnAudience(request));
   check(config.modelRefs.includes(modelRef), "personal_context_model_forbidden");
   check(request.requestHash === bytesVersion(request.prompt), "personal_context_request_mismatch");
   const current = async (reader: CatalogReader) => {

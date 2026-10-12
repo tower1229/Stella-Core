@@ -6,9 +6,10 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertProbeDreamingDisabled, assertSourceUnchanged,
   fileManifest, installedPackageRoot, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
+import { alignHostMemoryEvidence, assertHostMemoryBoundaryReport, HOST_MEMORY_BOUNDARY_FLAGS } from "./lib/host-memory-evidence.mjs";
 
 // Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
 // generator or cron.run is invoked; full_memory remains independently blocked.
@@ -105,7 +106,7 @@ try {
     "dist/src/openclaw/host-context-graph.js", "dist/src/canghai/view-recipe.js",
     "dist/src/openclaw/host-context-history.js", "dist/src/openclaw/host-context-keys.js",
     "dist/src/openclaw/host-context-head.js",
-    "dist/src/openclaw/host-context-turn-store.js", "dist/src/openclaw/host-context-prompt.js",
+    "dist/src/openclaw/host-context-turn-store.js", "dist/src/openclaw/host-context-prompt.js", "dist/src/openclaw/host-context-replay.js",
     "dist/src/acceptance/capability-acceptance.js", "dist/src/openclaw/capability-admission.js",
     "openclaw.plugin.json",
     "schemas/consciousness-manifest.schema.json", "evaluation/praxis-social.synthetic.json"]) {
@@ -244,7 +245,7 @@ try {
     "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
     "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery", "--outcome-history-recovery",
     "--standalone-compact", "--standalone-compact-stale", "--standalone-compact-grant-denied", "--standalone-compact-persist-failure",
-    "--history-view-followup", "--source-deletion-history", "--completion-lifecycle", "--completion-status-changed"];
+    "--history-view-followup", "--source-deletion-history", "--completion-lifecycle", "--completion-status-changed", ...HOST_MEMORY_BOUNDARY_FLAGS];
   // Each probe owns its Host state and synthetic repositories. Never repack or
   // rebuild while any installed-package consumer is running. Preserve failures.
   let probeFailure;
@@ -255,6 +256,7 @@ try {
       const name = flag === "--outcome-recovery" ? "outcome-recovery-unbound-history" : flag.slice(2);
       try {
         await probe(name, "probe-main-plugin.mjs", [flag], {}, report => {
+          if (HOST_MEMORY_BOUNDARY_FLAGS.includes(flag)) assertHostMemoryBoundaryReport(report, flag);
           if (flag === "--outcome-recovery") {
             assert.equal(report.persistence.recovery.blocked, true);
             assert.equal(report.persistence.recovery.pendingTransactionPreserved, true);
@@ -285,6 +287,11 @@ try {
   ]);
   for (const result of finalProbes) if (result.status === "rejected") probeFailure ??= result.reason;
   if (probeFailure) throw probeFailure;
+  const declarations = await import(pathToFileURL(path.join(packageRoot, "dist/src/openclaw/host-memory-inventory.js")).href);
+  receipt.hostMemoryEvidence = alignHostMemoryEvidence({ nativeEntrances: declarations.HOST_NATIVE_MEMORY_ENTRANCES,
+    pluginIds: declarations.HOST_MEMORY_PLUGIN_IDS, probes: receipt.probes,
+    coreRevision: source.coreRevision, artifactSha256: receipt.artifactSha256 });
+  await writeFile(path.join(temp, "host-memory-alignment.json"), JSON.stringify(receipt.hostMemoryEvidence, null, 2));
   receipt.status = "passed";
 } catch (error) {
   failure = error;

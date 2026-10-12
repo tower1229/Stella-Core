@@ -1,4 +1,4 @@
-import { isCronSessionKey, isSubagentSessionKey } from "openclaw/plugin-sdk/routing";
+import { isCronSessionKey, isSubagentSessionKey, parseAgentSessionKey } from "openclaw/plugin-sdk/routing";
 import { CatalogError } from "../canghai/catalog-reader.js";
 import type { BoundTurnRequest } from "./turn-request.js";
 
@@ -19,6 +19,32 @@ export type TurnAudienceDecision = {
   privateContextAllowed: boolean;
 };
 
+/** Structural addresses from the pinned Host's canonical/legacy session-key
+ * formats. Its public routing API exposes agent parsing but not chat-type
+ * extraction. Never infer audience from prompt text or arbitrary substrings.
+ * Ambiguous addresses cannot acquire private rights through Gateway's direct
+ * chat envelope. Opaque main keys continue to use authenticated Host metadata.
+ */
+function sharedSessionAudience(sessionKey: string): "group" | "channel" | "unknown" | undefined {
+  const key = sessionKey.trim().toLowerCase();
+  const parts = (parseAgentSessionKey(key)?.rest ?? key).split(":");
+  const peerKinds = ["direct", "dm", "group", "channel"];
+  const candidates: string[] = [];
+  if (["direct", "dm"].includes(parts[0]!) && parts[1]) candidates.push("direct");
+  if (parts[0] && peerKinds.includes(parts[1]!) && parts[2]) candidates.push(parts[1]!);
+  if (parts[0] && parts[1] && peerKinds.includes(parts[2]!) && parts[3]) candidates.push(parts[2]!);
+  if (["group", "channel"].includes(parts[0]!) && parts[1]) candidates.push(parts[0]!);
+  if ((parts.length === 1 || parts.length === 2 && parts[0] === "whatsapp") && parts.at(-1)!.endsWith("@g.us")) {
+    candidates.push("group");
+  }
+  if (parts[0] === "discord" && [3, 4].includes(parts.length) &&
+      parts.at(-2)!.startsWith("guild-") && parts.at(-2)!.length > 6 &&
+      parts.at(-1)!.startsWith("channel-") && parts.at(-1)!.length > 8) candidates.push("channel");
+  if (candidates.length > 1) return "unknown";
+  const audience = candidates[0];
+  return audience === "group" || audience === "channel" ? audience : undefined;
+}
+
 /**
  * Host-trusted audience classification. Session-key cron/subagent markers win
  * over chatType. This never grants source access — it only decides whether
@@ -32,6 +58,8 @@ export function resolveTurnAudience(request: BoundTurnRequest): TurnAudienceDeci
   if (isCronSessionKey(sessionKey)) {
     return { audience: "cron", privateContextAllowed: false };
   }
+  const shared = sharedSessionAudience(sessionKey);
+  if (shared) return { audience: shared, privateContextAllowed: false };
   const chatType = request.chatType;
   if (chatType === "group") return { audience: "group", privateContextAllowed: false };
   if (chatType === "channel") return { audience: "channel", privateContextAllowed: false };

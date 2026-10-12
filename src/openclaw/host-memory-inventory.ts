@@ -5,8 +5,9 @@ import { CatalogError } from "../canghai/catalog-reader.js";
 import { isRecord } from "../shared/type-guards.js";
 import { HOST_MEMORY_PROVIDER } from "./host-memory-provider.js";
 
-const nativeEntrances = ["memory_index", "session_summary", "bootstrap", "session_replay", "compaction", "prompt_cache", "context_engine", "harness_memory", "internal_hooks"];
-const memoryPlugins = new Set(["memory-core", "session-memory", "dreaming", "active-memory", "memory-wiki"]);
+export const HOST_NATIVE_MEMORY_ENTRANCES = ["memory_index", "session_summary", "bootstrap", "session_replay", "compaction", "prompt_cache", "context_engine", "harness_memory", "internal_hooks"] as const;
+export const HOST_MEMORY_PLUGIN_IDS = ["memory-core", "session-memory", "dreaming", "active-memory", "memory-wiki"] as const;
+const memoryPlugins = new Set<string>(HOST_MEMORY_PLUGIN_IDS);
 
 // The Host's normalized config includes absent optional fields as undefined.
 // Hash its JSON configuration representation, not runtime-only object layout.
@@ -48,7 +49,7 @@ export function inspectDeclaredHostMemory(input: {
     throw new CatalogError("host_memory_inventory_unavailable");
   }
   const entries: Array<{ identityHash: string; kind: string; state: string; reason: string }> = [];
-  for (const kind of nativeEntrances) entries.push({ identityHash: bytesVersion(`native:${kind}`), kind,
+  for (const kind of HOST_NATIVE_MEMORY_ENTRANCES) entries.push({ identityHash: bytesVersion(`native:${kind}`), kind,
     state: "unverifiable", reason: "host_provenance_binding_unavailable" });
   const seen = new Set<string>();
   for (const plugin of inventory.plugins) {
