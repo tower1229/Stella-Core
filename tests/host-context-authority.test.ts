@@ -1678,11 +1678,15 @@ test("real provider and tool results extend context and inherit source revocatio
         messages: [], availableTools: new Set(["stella_read_fragment"]), tokenBudget: 100_000 });
       sealed = await authority.seal({ system: [rule], messages: [evidence, authority.currentInput()].map(fragment => ({ role: "user", fragment })) });
       await assert.rejects(authority.extendAssistant(sealed.consumption, { kind: "model_output" }), /host_model_output_unbound/);
+      const formatsBefore = (await authority.historySnapshot(sealed.consumption)).graph.nodes.filter(node => node.producer === "host_format").length;
+      await authority.assertReplayConsumption(sealed.consumption, sealed.input, projectReplay);
       const result = await stream({ provider: "stella-guarded", id: "model" } as Parameters<Stream>[0], sealed.input, { sessionId: f.request.sessionId });
       for await (const event of result) assert.equal(event.type, "done");
       assert.equal((await result.result()).stopReason, "toolUse");
       assert.equal(observed, 1);
       assert.equal(sealed.input.messages.at(-1)?.role, "assistant");
+      assert.equal((await authority.historySnapshot(sealed.consumption)).graph.nodes.filter(node => node.producer === "host_format").length,
+        formatsBefore, "An unchanged transport must not duplicate historical payloads through artificial formatting nodes");
       await authority.assertConsumption(sealed.consumption, sealed.input);
       await f.toolFor(authority).execute("call-2", { action: "list" });
       const toolResult = await f.toolFor(authority).execute("call-1", { action: "list" });

@@ -1177,7 +1177,10 @@ export class HostContextAuthority {
     check(inputDigest(input) === inputDigest(expected), "host_context_input_changed");
     await this.assertConsumption(consumption, prior.input);
     check(inputDigest(input) === inputDigest(expected), "host_context_input_changed");
-    this.#replayTransports.set(consumption, expected);
+    // An unchanged input already has exact producer/consumer lineage. Adding
+    // format nodes would duplicate every historical payload on each turn.
+    if (inputDigest(expected) !== consumption.digest) this.#replayTransports.set(consumption, expected);
+    else this.#replayTransports.delete(consumption);
   }
 
   /** Compile fixed control text or an already admitted signed historical
