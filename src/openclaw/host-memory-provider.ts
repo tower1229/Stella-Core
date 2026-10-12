@@ -5,6 +5,7 @@ import { ConsciousnessLoadError } from "../canghai/manifest.js";
 import { RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { CatalogError } from "../canghai/catalog-reader.js";
 import type { BoundTurnRequest } from "./turn-request.js";
+import { hostHistoryCompaction } from "./host-history-compaction.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
@@ -94,11 +95,16 @@ export function registerHostMemoryProvider(
       try {
         if (!transport) throw new CompletionError("host_memory_transport_unavailable", "generate");
         if ((kind === "agent" || context.agentId !== undefined) && context.agentId !== agentId) throw new CompletionError("host_memory_agent_mismatch", "generate");
-        const request = readActiveCompletionRequest(agentId);
+        const direct = directCalls.getStore();
+        const compaction = kind === "direct" && direct ? hostHistoryCompaction(direct.request) : undefined;
+        const request = compaction?.request ?? readActiveCompletionRequest(agentId);
+        if (request.agentId !== agentId) throw new CompletionError("host_memory_agent_mismatch", "generate");
         const assertActive = () => {
           const priorFailure = rejectedRequests.get(request);
           if (priorFailure) throw new CompletionError(priorFailure, "generate");
-          readActiveCompletionRequest(agentId, request.sessionId, request.sessionKey);
+          if (compaction) {
+            if (hostHistoryCompaction(request) !== compaction) throw new CompletionError("host_memory_call_expired", "generate");
+          } else readActiveCompletionRequest(agentId, request.sessionId, request.sessionKey);
           args[2]?.signal?.throwIfAborted();
         };
         const [model, input, options] = args;
@@ -111,7 +117,6 @@ export function registerHostMemoryProvider(
         }
         options?.signal?.throwIfAborted();
         const modelRef = `${target.provider}/${target.id}`;
-        const direct = directCalls.getStore();
         let outputObserver = observeOutput;
         let assertCurrent: () => Promise<void>;
         if (kind === "direct") {

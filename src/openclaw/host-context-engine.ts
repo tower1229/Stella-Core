@@ -9,7 +9,7 @@ import type { FragmentToolResultReceipt } from "./fragment-read-tool.js";
 import type { HostMemoryInput, HostModelOutputReceipt } from "./host-memory-provider.js";
 import { HostContextAuthority, type ContextFragment } from "./host-context-authority.js";
 import type { CommitHostContextTurn } from "./host-context-turn-store.js";
-import { projectManagedMessages, projectQueuedHostControlPrompt } from "./host-context-prompt.js";
+import { projectManagedMessages } from "./host-context-prompt.js";
 import { CompletionError, hasCompletionPersistencePermit } from "./completion.js";
 
 // The slot is also a plugin activation id in the original Host. A separate
@@ -190,7 +190,7 @@ export class ManagedHostContextEngine implements ContextEngine {
       this.#modelPrompt = native?.prompt() ?? this.ports.prompt ?? this.request.prompt;
       this.#nativeBound = Boolean(native);
       const hostWrapped = params.prompt !== this.#modelPrompt;
-      check(!hostWrapped || !native && projectQueuedHostControlPrompt(this.#modelPrompt, params.prompt), "host_context_prompt_changed");
+      check(!hostWrapped || !native, "host_context_prompt_changed");
       await this.ports.archive(snapshot);
       let sealed = await this.authority.seal({ system: this.#system, messages: [...this.#history, currentInput]
         .map(fragment => ({ role: "user", fragment })) });

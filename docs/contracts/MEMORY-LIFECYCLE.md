@@ -303,6 +303,14 @@ Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许�
 
 `--guarded-active-memory` 验证真实原生召回、片段原文回读和父模型消费；`--guarded-active-memory-stale` 在真实原生输出接纳后物理删除已读原件，要求父模型零请求、旧摘要零消费、业务回答零投递。二者均使用隔离合成资料和 loopback 模型，必须保留具体包摘要及探针收据，不能当成真实模型或生产验收。Dreaming 保持关闭，本次不执行其生成或 cron 路径；此前 Dreaming 摘要变化后的拒绝证据仍不能当作学习成功。`full_memory` 的独立阻塞不变，Issue #23 的其他入口和完整私人记忆验收须分别举证。
 
+#### 2026-10-10 独立历史压缩
+
+原版 Host 的独立 `sessions.compact` 未向插件提供当前调用者身份，继续返回 `host_context_compaction_not_admitted`，不得凭 session 定位或旧请求授予新许可。Stella 提供 `stella.compactHistory({sessionId, sessionKey})`：仅限本机 `operator.admin`，当前 personal-context-access 须显式声明 `operatorHistoryCompaction: true`，客户端标识须在 `requesterIds` 内，精确 `stella-guarded` 模型须同时满足私人视图及 Host LLM 处理许可。缺省关闭，不自动扩大 `operatorRecovery` 的权限。
+
+压缩以已完成业务提交的签名会话 head 为唯一历史入口，复核当前受众、处理授权、初始化编译、配置、来源原件及依赖，保留已发布的当前视图。结构化摘要通过真实模型消费门禁，发布前后再次复核；仅在原有 CAS、事务屏障和远端同步完成后返回成功。摘要替换派生视图，不清理原始历史、不更改来源代际、不获得普通运行、业务提交或回答投递许可；并发业务运行互斥。来源在推理期间失效、授权撤销、正文变换、签名或持久化失败均显式拒绝。恢复后原版 Host 的队列封装仅可复用当前已准入签名历史中、有原件且仍位于有效祖先链的精确用户输入；从独立来源计算完整预期封装，并为最终输入追加该历史节点的依赖边，不能从观察到的未知文本反推授权。未知队列内容及被来源失效排除的历史继续拒绝。
+
+`--standalone-compact` 要求真实摘要调用、签名视图同步及重启后旧会话的最终模型消费；`--standalone-compact-stale` 在摘要模型收到输入后物理删除原件，要求零视图发布和零代际提交；`--standalone-compact-grant-denied` 要求缺少显式授权时零摘要模型请求。`--standalone-compact-persist-failure` 要求远端同步失败时保留事务屏障，未同步视图不可被后续读取。失败启动留下的 Host 隔离未恢复时，不得凭旧初始化收据报告 ready；来源与已安装内容完整复核通过后，才按既有隔离日志恢复原配置，退役注册不能继续修改 Host 隔离。`scripts/verify-host-memory.mjs` 将当前源清单、同一包摘要、原版 Host 前后清单及限定入口矩阵收敛到一份收据，单独记录未提交候选版本；不替代要求干净源码的 package 验收。Dreaming 关闭且不执行，完整 `full_memory` 阻塞继续保留，合成模型结果不等于真实模型或私人主链验收。
+
 ## 4. 交互学习
 
 ### 输入与目标

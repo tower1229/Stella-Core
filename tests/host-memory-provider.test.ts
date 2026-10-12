@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { OpenClawPluginApi, ProviderPlugin } from "openclaw/plugin-sdk/plugin-entry";
-import { registerHostMemoryProvider, type HostMemoryInput } from "../src/openclaw/host-memory-provider.js";
+import { registerHostMemoryProvider, withHostModelConsumption, type HostMemoryInput } from "../src/openclaw/host-memory-provider.js";
+import { withHostHistoryCompaction, assertHostHistoryCompaction } from "../src/openclaw/host-history-compaction.js";
+import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
 import { CompletionError, completionDraftHash, coordinateCompletion } from "../src/openclaw/completion.js";
 
 type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
@@ -20,6 +22,47 @@ function signal() {
   let resolve!: () => void;
   const promise = new Promise<void>(done => { resolve = done; });
   return { promise, resolve };
+}
+
+for (const scenario of ["success", "revocation", "payload replacement"] as const) {
+  test(`history maintenance direct transport: ${scenario}`, async () => {
+    let provider!: ProviderPlugin;
+    let revoked = false, sent = 0;
+    const request = snapshotTurnRequest({ agentId: "stella", sessionId: "session", sessionKey: "agent:stella:main",
+      prompt: "Compact history", senderId: "owner", senderIsOwner: true, chatType: "direct" }, `compact-${scenario}`);
+    registerHostMemoryProvider({ registerProvider(value: ProviderPlugin) { provider = value; }, logger: { error() {} } } as unknown as OpenClawPluginApi,
+      "stella", async () => assert.fail("Maintenance must not enter the main-agent consumption path"));
+    const model = { provider: "stella-guarded", id: "model" } as Parameters<Stream>[0];
+    const input = { messages: [{ role: "user" as const, content: "Verified history", timestamp: 0 }] };
+    const context = { provider: "stella-guarded", modelId: "model", agentId: "stella",
+      streamFn: (async (target, _input, options) => {
+        await options?.onPayload?.({ messages: [{ role: "user", content: "Verified history" }] }, target);
+        sent++;
+        return success;
+      }) satisfies Stream };
+    const direct = provider.wrapSimpleCompletionStreamFn!(context)!;
+    await withHostHistoryCompaction({ request, signal: AbortSignal.timeout(5000), assertCurrent: async () => {
+      if (revoked) throw new CompletionError("processing_generation_mismatch", "generate");
+    } }, async () => {
+      const bare = await direct(model, input);
+      assert.equal((await bare.result()).stopReason, "error", "Maintenance scope alone cannot authorize arbitrary model input");
+      const result = await withHostModelConsumption({ request, modelRef: "stella-guarded/model",
+        assertCurrent: () => assertHostHistoryCompaction(request), params: { messages: [{ role: "user", content: "Verified history" }] } }, async () => {
+        const response = await direct(model, input, { onPayload: () => {
+          if (scenario === "revocation") revoked = true;
+          if (scenario === "payload replacement") return { messages: [{ role: "user", content: "Unknown old summary" }] };
+        } });
+        return response.result();
+      });
+      assert.equal(result.stopReason, scenario === "success" ? "stop" : "error");
+      if (scenario !== "success") assert.match(result.errorMessage!, scenario === "revocation" ? /processing_generation_mismatch/ : /host_memory_payload_transform_unbound/);
+      revoked = false;
+      assert.equal(sent, scenario === "success" ? 1 : 0);
+      const main = provider.wrapStreamFn!(context)!;
+      assert.equal((await (await main(model, input, { sessionId: "session" })).result()).stopReason, "error",
+        "Maintenance must not grant a main-agent run permit");
+    });
+  });
 }
 
 for (const scenario of ["reject unbound input", "isolate input during asynchronous validation", "reject payload mutation", "reject payload replacement", "recheck after payload callback"] as const) {

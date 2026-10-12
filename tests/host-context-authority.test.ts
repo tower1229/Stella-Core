@@ -1334,6 +1334,46 @@ test("a queued user message cannot masquerade as Host failed-send formatting", a
     prompt: orphan, messages: [], availableTools: new Set(), tokenBudget: 100_000 }), /host_context_prompt_changed/);
 });
 
+test("queued historical ingress requires exact signed ancestry and remains source-bound at transport", async t => {
+  const f = await archivedHeadFixture(t);
+  const request = snapshotTurnRequest({ ...f.request, prompt: "A new independent question" }, "next-run");
+  const authority = await f.create("direct", false, request);
+  const history = await authority.restoreHistory(f.archive), system = authority.publicRules();
+  const engine = new ManagedHostContextEngine(request, authority, { system, history: [history],
+    archive: async () => {}, persistSummary: async () => {}, complete: async () => { throw new Error("unexpected summary"); } });
+  const wrapped = `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n` +
+    `${f.request.prompt}\n\n${request.prompt}`;
+  const assembled = await engine.assemble({ sessionId: request.sessionId, sessionKey: request.sessionKey,
+    prompt: wrapped, messages: [], availableTools: new Set(), tokenBudget: 100_000 });
+  const expected = await authority.seal({ system, messages: [history, authority.currentInput()].map(fragment => ({ role: "user", fragment })) });
+  const input = { ...expected.input, messages: [...assembled.messages, { role: "user" as const, content: wrapped, timestamp: 0 }] };
+  await engine.assertConsumption(input);
+  const other = await f.create("direct", false, request);
+  const otherSealed = await other.seal({ system: other.publicRules(), messages: [await other.restoreHistory(f.archive), other.currentInput()]
+    .map(fragment => ({ role: "user", fragment })) });
+  await assert.rejects(other.projectQueuedHostControl(otherSealed.consumption, wrapped.replace(f.request.prompt, `${f.request.prompt} Extra historical claim`)),
+    /host_context_prompt_changed/);
+  await writeFile(path.join(f.root, f.ingress.payload.path), "Source revoked after assembly");
+  await assert.rejects(engine.assertConsumption(input), /payload_digest_mismatch/);
+});
+
+test("queued historical text adds its signed source parent to the final input trace", async t => {
+  const f = await archivedHeadFixture(t);
+  const authority = await f.create();
+  await authority.bindArchivedInput(f.ingressRef);
+  const sealed = await authority.seal({ system: authority.publicRules(), messages: [await authority.restoreHistory(f.archive), authority.currentInput()]
+    .map(fragment => ({ role: "user", fragment })) });
+  const wrapped = `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n` +
+    `${f.request.prompt}\n\n${f.request.prompt}`;
+  const projected = await authority.projectQueuedHostControl(sealed.consumption, wrapped);
+  const snapshot = await authority.historySnapshot(projected.consumption);
+  const graph = readContextInputTrace(snapshot.graph, snapshot.input, snapshot);
+  const final = graph.nodes.find(node => node.id === graph.messages.at(-1))!;
+  assert.equal(final.producer, "host_format");
+  assert.ok(final.parents.some(id => graph.nodes.find(node => node.id === id)?.producer === "current_input"));
+  assert.ok(final.sources.originals.some(original => original.ref.id === f.ingressRef.id));
+});
+
 test("global engine configuration builder does not mutate its input", () => {
   const original = { plugins: { slots: { contextEngine: "legacy" } } };
   assert.equal(withStellaContextEngine(original).plugins?.slots?.contextEngine, STELLA_CONTEXT_ENGINE);

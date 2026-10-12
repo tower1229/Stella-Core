@@ -22,7 +22,7 @@ import type { BoundTurnRequest } from "./turn-request.js";
 import { readCompiledContextRules, type CompiledInitializationSource } from "./initialization-source.js";
 import { readFragmentToolDefinition, readFragmentToolResult, type FragmentToolResultReceipt, type createFragmentReadTool } from "./fragment-read-tool.js";
 import { readHostModelOutput, type HostMemoryInput, type HostModelOutputReceipt } from "./host-memory-provider.js";
-import { assembleManagedSystemPrompt, projectManagedMessages, projectQueuedHostControlPrompt } from "./host-context-prompt.js";
+import { assembleManagedSystemPrompt, projectManagedMessages, projectQueuedHostControlPrompt, queuedHostPrompt } from "./host-context-prompt.js";
 import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js";
 import { stableId } from "../canghai/host-input-archive.js";
 import { contextHistoryLocation, contextHistorySignerId, contextHistoryVerificationKey, loadContextHistory, readContextHistory, assertRetainableContextDependencies, type StoredContextHistory } from "./host-context-history.js";
@@ -1180,12 +1180,27 @@ export class HostContextAuthority {
     this.#nativeTransports.set(consumption, expected);
   }
 
-  /** Admit fixed Host control text as formatting of this run's already
-   * archived input. The queued text cannot contribute independent evidence. */
+  /** Compile fixed control text or an already admitted signed historical
+   * ingress. Never extract a permission or source from the observed wrapper. */
   async projectQueuedHostControl(consumption: ContextConsumption, observedPrompt: string) {
     const prior = this.#consumptions.get(consumption);
     check(prior && !this.#extended.has(consumption), "host_context_consumption_unbound");
-    const projectedPrompt = projectQueuedHostControlPrompt(this.request.prompt, observedPrompt);
+    let projectedPrompt = projectQueuedHostControlPrompt(this.request.prompt, observedPrompt);
+    let historicalParent: string | undefined;
+    if (!projectedPrompt) {
+      for (const fragment of prior.fragments) {
+        const record = this.#record(fragment);
+        if (!record.archives?.length || !record.trace) continue;
+        const ancestors = contextAncestorIds(record.trace, record.trace.roots);
+        const node = record.trace.nodes.find(candidate => candidate.producer === "current_input" &&
+          ancestors.has(candidate.id) && candidate.sources.originals.length > 0 &&
+          queuedHostPrompt(candidate.content, this.request.prompt) === observedPrompt);
+        if (!node) continue;
+        projectedPrompt = queuedHostPrompt(node.content, this.request.prompt);
+        historicalParent = node.id;
+        break;
+      }
+    }
     check(projectedPrompt, "host_context_prompt_changed");
     await this.assertConsumption(consumption, prior.input);
     const input = structuredClone(prior.input);
@@ -1196,7 +1211,8 @@ export class HostContextAuthority {
     current.content[0].text = projectedPrompt;
     const next = Object.freeze({ digest: inputDigest(input) });
     this.#extended.add(consumption);
-    this.#consumptions.set(next, { input, fragments: [...prior.fragments], trace: projectContextTrace(prior.trace, input) });
+    this.#consumptions.set(next, { input, fragments: [...prior.fragments],
+      trace: projectContextTrace(prior.trace, input, historicalParent ? [historicalParent] : []) });
     return { input: structuredClone(input), consumption: next };
   }
 

@@ -242,7 +242,7 @@ try {
   await writeFile(configPath,JSON.stringify({gateway:{mode:"local"},agents:{ownership:"explicit",defaults:{userTimezone:"UTC",compaction:{keepRecentTokens:16},model:{primary:"stella-guarded/probe"}},entries:{probe:{workspace},other:{workspace:otherWorkspace,model:{primary:"synthetic-other/other"}}}},
     models:{providers:{"stella-guarded":{baseUrl:`http://127.0.0.1:${provider.address().port}/v1`,api:"openai-completions",apiKey:"synthetic-local-only",models:[{id:"probe",name:"probe",contextWindow:32768,maxTokens:512}]},
       "synthetic-other":{baseUrl:`http://127.0.0.1:${provider.address().port}/v1`,api:"openai-completions",apiKey:"synthetic-local-only",models:[{id:"other",name:"other",contextWindow:32768,maxTokens:512}]}}},
-    plugins:{slots:{contextEngine:nativeControl?"legacy":"stella-core"},allow:["stella-core"],load:{paths:[plugin]},entries:{"stella-core":{enabled:true,hooks:{allowConversationAccess:true}}}},tools:{deny:["*"]}}),{mode:0o600});
+    plugins:{slots:{contextEngine:nativeControl?"legacy":"stella-core"},allow:["stella-core"],load:{paths:[plugin]},entries:{"memory-core":{config:{dreaming:{enabled:false}}},"stella-core":{enabled:true,hooks:{allowConversationAccess:true}}}},tools:{deny:["*"]}}),{mode:0o600});
   const env = {...process.env,OPENCLAW_STATE_DIR:state,OPENCLAW_CONFIG_PATH:configPath}; delete env.NODE_OPTIONS;
   gateway=await startExactHostGateway({cwd:temp,env,openclawBin:path.join(hostRoot,"openclaw.mjs"),diagnosticPrefixes:["context", "Context"]});
   await new Promise((resolve,reject)=>{

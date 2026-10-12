@@ -135,9 +135,10 @@ export function appendToolTrace(trace: ContextInputTrace, before: HostMemoryInpu
   });
   return { nodes: output.nodes, system: trace.system, messages };
 }
-export function projectContextTrace(trace: ContextInputTrace, input: HostMemoryInput): ContextInputTrace {
+export function projectContextTrace(trace: ContextInputTrace, input: HostMemoryInput, currentParents: readonly string[] = []): ContextInputTrace {
   check(trace.messages.length === input.messages.length);
-  const projections = input.messages.map((message, index) => append({ nodes: trace.nodes, roots: [trace.messages[index]!] },
+  const projections = input.messages.map((message, index) => append({ nodes: trace.nodes,
+    roots: [...new Set([trace.messages[index]!, ...(index === input.messages.length - 1 ? currentParents : [])])] },
     "host_format", canonicalJson(visibleContextMessage(message))));
   return { nodes: nodesOf([trace, ...projections]), system: trace.system, messages: projections.map(value => value.roots[0]!) };
 }

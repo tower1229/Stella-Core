@@ -48,6 +48,13 @@ const activeResources = processScope[activeResourcesKey] ??= new Set<string>();
 export function isCompletionResourceActive(scope: string): boolean {
   return activeResources.has(scope);
 }
+/** Reserve the same repository exclusion used by completions without issuing
+ * a run, persistence or delivery permit. Maintenance must not race a turn. */
+export async function withCompletionResourceReservation<T>(scope: string, work: () => Promise<T>): Promise<T> {
+  if (!scope.trim() || activeResources.has(scope)) throw new CompletionError("operation_in_progress", "admission");
+  activeResources.add(scope);
+  try { return await work(); } finally { activeResources.delete(scope); }
+}
 // Sequential routing and evidence judgments share this budget. The Host allows
 // a further 30 seconds for Core to return an explicit preparation failure.
 export const PREPARATION_TIMEOUT_MS = 300_000;

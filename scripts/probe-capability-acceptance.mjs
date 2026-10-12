@@ -103,7 +103,7 @@ await writeFile(configPath, JSON.stringify({
   } } },
   plugins: {
     allow: ["stella-core"], load: { paths: [plugin] },
-    entries: { "stella-core": {
+    entries: { "memory-core": { config: { dreaming: { enabled: false } } }, "stella-core": {
       enabled: true,
       llm: { allowAgentIdOverride: true },
       hooks: { allowConversationAccess: true },
@@ -259,6 +259,7 @@ try {
     memoryInventory,
     newCommandBlockedBeforeReset, restartPreservedSession,
     modelCalls,
+    evidenceDirectory: temp,
   };
   await writeFile(path.join(temp, "capability-acceptance-probe.json"), JSON.stringify(report, null, 2));
   process.stdout.write(`${JSON.stringify(report)}\n`);

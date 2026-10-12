@@ -186,6 +186,9 @@ test("personal metadata processing requires exact Host requester, model, owner a
   await assert.rejects(access(f.reader, f.target, purpose), /personal_context_access_changed/);
   assert.equal(calls, 1);
   assert.throws(() => parsePersonalContextAccess({ ...config, descriptors: [...config.descriptors, ...config.descriptors] }), /duplicate_personal_context_descriptor/);
+  assert.throws(() => parsePersonalContextAccess({ ...config, operatorHistoryCompaction: true }), /invalid_operator_history_compaction_grant/);
+  assert.throws(() => parsePersonalContextAccess({ ...config, viewProcessingModelRefs: ["synthetic/model"], operatorHistoryCompaction: false }), /invalid_operator_history_compaction_grant/);
+  assert.equal(parsePersonalContextAccess({ ...config, viewProcessingModelRefs: ["synthetic/model"], operatorHistoryCompaction: true }).operatorHistoryCompaction, true);
 });
 
 test("personal metadata grant revocation during inference invalidates the result", async t => {

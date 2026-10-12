@@ -20,6 +20,7 @@ import { Type } from "typebox";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { completionOperationForRun, isCompletionResourceActive, PREPARATION_TIMEOUT_MS, readActiveCompletionRequest } from "./completion.js";
 import type { BoundTurnRequest } from "./turn-request.js";
+import { assertHostHistoryCompaction } from "./host-history-compaction.js";
 import { parseRuntimeProfile, RuntimeProfileError } from "../canghai/runtime-profile.js";
 import { callGatewayFromCli, isGatewayClientRequestError, isGatewayTransportError } from "openclaw/plugin-sdk/gateway-runtime";
 import { captureInitializationVerificationBinding } from "./initialization-verification-binding.js";
@@ -35,6 +36,7 @@ import type { InitializationVerificationBinding } from "./initialization.js";
 import {
   HostAdmissionIsolationError,
   assertHostProfileIsolated,
+  hasHostProfileIsolation,
   isolateHostProfile,
   releaseHostProfileIsolation,
   type HostAdmissionConfig,
@@ -197,11 +199,18 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     }
   };
   const isolateAfterStartFailure = async (reason: string) => {
+    if (shutdown.signal.aborted) return;
     stateDir ??= resolveStateDir();
     const localState = path.join(stateDir, "stella-core", "initialization", config.agentId);
     await mkdir(localState, { recursive: true, mode: 0o700 });
     const resolvedState = await realpath(localState);
-    await isolateHostProfile(isolationPorts, config.agentId, reason, resolvedState);
+    await isolateHostProfile({ ...isolationPorts, async mutateConfig(mutate) {
+      await isolationPorts.mutateConfig(draft => {
+        if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
+        mutate(draft);
+      });
+    } }, config.agentId, reason, resolvedState);
+    if (shutdown.signal.aborted) return;
     await waitForIsolation();
     if (initializer) {
       await initializer.revokeActiveRuns("initialization_blocked");
@@ -316,6 +325,12 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         }, shutdown.signal);
         const receipt = await initializer.initialize();
         if (shutdown.signal.aborted) throw new InitializationError("gateway_stopping");
+        // A failed start can isolate an otherwise valid installed receipt.
+        // Restore only its recorded Host settings after complete verification.
+        if (await hasHostProfileIsolation(resolvedState, config.agentId)) {
+          await releaseTarget(resolvedState);
+          await initializer.assertCurrent();
+        }
         status = { state: "ready", operationId: receipt.operationId, recipeHash: receipt.recipeHash, runtime: await runtimeStatus() };
       } catch (error) {
         // A registration retired while only waiting has performed no startup
@@ -357,6 +372,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
           ...source, agentId: config.agentId, hostVersion: api.runtime.version,
         }, { fence: unavailable, verify: verifyHost, release: unavailable, readIdentity, applyIdentity: unavailable }, shutdown.signal);
     }
+    if (await hasHostProfileIsolation(initializer.stateRoot, config.agentId)) throw new InitializationError("initialization_required");
     const current = api.runtime.config.current().plugins?.entries?.["stella-core"];
     if (current?.enabled !== true || current.config?.canghaiRoot !== config.canghaiRoot ||
       current.config.agentId !== config.agentId || typeof current.config.recoveryRevision !== "string" ||
@@ -624,6 +640,12 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     await assertReady();
     const compiled = await initializer!.prepareContextCompilation();
     assertRequest();
+    return compiled;
+  }, async compactionContextCompilation(request: BoundTurnRequest) {
+    await assertHostHistoryCompaction(request);
+    await assertReady();
+    const compiled = await initializer!.prepareContextCompilation();
+    await assertHostHistoryCompaction(request);
     return compiled;
   }, async contextCompilation(runId: string) {
     await assertReady();

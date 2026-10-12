@@ -1,4 +1,5 @@
 import { createHostContextTurnStore, type CommitHostContextTurn } from "./openclaw/host-context-turn-store.js";
+import { withHostHistoryCompaction, hostHistoryCompaction, assertHostHistoryCompaction, publishHostHistoryCompaction } from "./openclaw/host-history-compaction.js";
 import { resolveManagedHostTimezone } from "./openclaw/host-context-prompt.js";
 import { createFragmentReadTool, FRAGMENT_READ_DESCRIPTION, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "./openclaw/fragment-read-tool.js";
 import type { SourceAccessDescriptor, SourceAccessProvider } from "./canghai/source-access.js";
@@ -6,7 +7,7 @@ import { HostContextAuthority, type ContextFragment } from "./openclaw/host-cont
 import { loadContextHistoryKeys } from "./openclaw/host-context-keys.js";
 import { loadContextHistory, persistContextHistory } from "./openclaw/host-context-history.js";
 import { findPublishedHistoryView, loadPublishedHistoryArchives,
-  prepareHostHistoryRebuildAdmissions, restorePublishedHistoryView } from "./openclaw/host-context-view.js";
+  prepareHostHistoryRebuildAdmissions, restorePublishedHistoryView, publishPreparedHistoryView } from "./openclaw/host-context-view.js";
 import { loadContextHistoryHead, publishCompletedContextHistoryHead } from "./openclaw/host-context-head.js";
 import { applyMemoryTransaction } from "./canghai/memory-transaction.js";
 import { viewsRequiringRebuild } from "./canghai/view-migration.js";
@@ -17,6 +18,7 @@ import { HOST_INPUT_ARCHIVE_ADAPTER } from "./canghai/host-input-archive.js";
 import { prepareSourceOutputCheck } from "./canghai/source-output.js";
 import type { OriginalEvidence } from "./praxis/episode-evidence.js";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { applyHostCorrection, readAppliedCorrectionContext } from "./learning/host-correction.js";
 import { prepareRoutingCandidates, readPreparedCortexSources } from "./praxis/routing-context.js";
 import { preparePersonalViews } from "./praxis/personal-views.js";
@@ -62,7 +64,7 @@ import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-r
 import type { CortexRoute } from "./routing/router.js";
 import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
 import { registerCompletionAdapter } from "./openclaw/completion-adapter.js";
-import { CompletionError, readActiveCompletionRequest, readCompletionRequest, hasCompletionPersistencePermit, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
+import { CompletionError, readActiveCompletionRequest, readCompletionRequest, hasCompletionPersistencePermit, withCompletionResourceReservation, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
   type CompletionDraft } from "./openclaw/completion.js";
 import { canonicalJson, bytesVersion } from "./canghai/content-version.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, resolveBoundInputRefs, persistBoundAdvice } from "./praxis/runtime-binding.js";
@@ -350,19 +352,24 @@ export default definePluginEntry({
     const completeModel = async (params: Parameters<typeof api.runtime.llm.complete>[0], assertInputsCurrent?: () => Promise<void>) => {
       const call = async () => {
         await assertInputsCurrent?.();
-        const result = await completeWithPreparationSignal((signal) => api.runtime.llm.complete({ ...params, ...(signal ? { signal } : {}) }));
+        const result = await completeWithPreparationSignal((signal) => {
+          const compaction = hostHistoryCompaction();
+          const signals = [params.signal, signal, compaction?.signal].filter((value): value is AbortSignal => value !== undefined);
+          return api.runtime.llm.complete({ ...params, ...(signals.length ? { signal: AbortSignal.any(signals) } : {}) });
+        });
         await assertInputsCurrent?.();
         return result;
       };
       const modelRef = params.model ?? resolveLiveModelRef();
       if (modelRef.split("/")[0] !== HOST_MEMORY_PROVIDER) return call();
-      const request = readActiveCompletionRequest(config.agentId);
+      const request = hostHistoryCompaction()?.request ?? readActiveCompletionRequest(config.agentId);
       assertPrivateContextAudience(resolveTurnAudience(request));
       const loaded = await consciousness.load();
       const binding = await loadPraxisRuntimeBinding(loaded);
       const reader = await CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
       const assertCurrent = async () => {
-        readCompletionRequest(request.runId, config.agentId, request.sessionId, request.sessionKey);
+        if (hostHistoryCompaction(request)) await assertHostHistoryCompaction(request);
+        else readCompletionRequest(request.runId, config.agentId, request.sessionId, request.sessionKey);
         await assertHostMemoryProfile(loaded);
         await reader.assertCurrent();
         await assertHostSourceRevision(loaded.recoveryRevision ?? config.recoveryRevision);
@@ -541,7 +548,7 @@ export default definePluginEntry({
     ) => {
       ensureDurability(loaded);
       const binding = await loadPraxisRuntimeBinding(loaded);
-      if (revalidationSourceAccess && (!request || !hasCompletionPersistencePermit(request.runId) || !binding.personalContextAccessPath)) {
+      if (revalidationSourceAccess && (!request || !(hasCompletionPersistencePermit(request.runId) || hostHistoryCompaction(request)?.publishing) || !binding.personalContextAccessPath)) {
         throw new CatalogError("source_access_revalidation_permit_required");
       }
       let sourceAccess;
@@ -551,7 +558,7 @@ export default definePluginEntry({
         const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
         const modelRef = resolveLiveModelRef();
         const assertRequestCurrent = () => {
-          if (!hasCompletionPersistencePermit(request.runId)) {
+          if (!hostHistoryCompaction(request) && !hasCompletionPersistencePermit(request.runId)) {
             const current = readCompletionRequest(request.runId, request.agentId, request.sessionId, request.sessionKey);
             if (current.requestHash !== request.requestHash) throw new CatalogError("personal_context_request_mismatch");
           }
@@ -573,7 +580,7 @@ export default definePluginEntry({
           viewProcessing = { processingGrant: processing, descriptors: processing.config.descriptors, ownerId: processing.config.ownerId, modelRef, assertCurrent };
         }
         sourceAccess = revalidationSourceAccess ?? createPersonalContextAccess({ request, modelRef, binding: processing, assertRequestCurrent,
-          isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId) || isHostConsumptionRevalidation(),
+          isPersistenceRevalidation: () => hasCompletionPersistencePermit(request.runId) || isHostConsumptionRevalidation() || hostHistoryCompaction(request)?.publishing === true,
           ...(processingAuthority ? { processingAuthority } : {}),
           complete: async ({ prompt, maxTokens }) => {
             const result = await completeModel({ agentId: config.agentId, model: modelRef,
@@ -610,6 +617,116 @@ export default definePluginEntry({
         audience,
       });
     };
+
+    api.registerGatewayMethod("stella.compactHistory", async ({ params, client, respond, signal }) => {
+      try {
+        if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin") || client.internal?.isLocalClient !== true ||
+          api.runtime.config.current().gateway?.mode === "remote") throw new CatalogError("compaction_admin_required");
+        if (Object.keys(params).sort().join() !== "sessionId,sessionKey" ||
+          typeof params.sessionId !== "string" || !params.sessionId.trim() ||
+          typeof params.sessionKey !== "string" || !params.sessionKey.trim()) throw new CatalogError("invalid_compaction_request");
+        if (config.dataMode !== "managed_durable_write" || !config.contextHistorySignerId || !config.contextHistoryArchiveRoot ||
+          api.runtime.config.current().plugins?.slots?.contextEngine !== STELLA_CONTEXT_ENGINE) {
+          throw new CatalogError("host_context_history_configuration_required");
+        }
+        const loaded = await consciousness.load();
+        await assertHostMemoryProfile(loaded);
+        const binding = await loadPraxisRuntimeBinding(loaded);
+        if (!binding.personalContextAccessPath) throw new CatalogError("operator_history_compaction_grant_required");
+        const processing = await loadPersonalContextAccess(loaded.canghaiRoot, binding.personalContextAccessPath);
+        const modelRef = resolveLiveModelRef();
+        if (processing.config.operatorHistoryCompaction !== true || !processing.config.requesterIds.includes(client.connect.client.id) ||
+          !processing.config.viewProcessingModelRefs?.includes(modelRef) || modelRef.split("/")[0] !== HOST_MEMORY_PROVIDER) {
+          throw new CatalogError("operator_history_compaction_grant_required");
+        }
+        const request = snapshotTurnRequest({ agentId: config.agentId, sessionId: params.sessionId, sessionKey: params.sessionKey,
+          prompt: "Compact this existing conversation. Preserve independent topics, source roles, corrections, rejected interpretations and unresolved questions under the current source policies.",
+          senderId: client.connect.client.id, senderIsOwner: true, chatType: "direct" }, `history_compaction_${randomUUID()}`);
+        assertPrivateContextAudience(resolveTurnAudience(request));
+        const executionHash = hostContextExecutionHash(api.runtime.config.current(), config);
+        const abortSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(300_000)]) : AbortSignal.timeout(300_000);
+        const assertCurrent = async () => {
+          abortSignal.throwIfAborted();
+          await processing.assertCurrent();
+          if (resolveLiveModelRef() !== modelRef || hostContextExecutionHash(api.runtime.config.current(), config) !== executionHash) {
+            throw new CatalogError("host_context_configuration_changed");
+          }
+          await assertHostSourceRevision(config.recoveryRevision);
+        };
+        ensureDurability(loaded);
+        const archiveRoot = config.contextHistoryArchiveRoot;
+        const keys = await loadContextHistoryKeys({ stateDirectory: api.runtime.state.resolveStateDir(),
+          repositoryRoot: loaded.canghaiRoot, agentId: config.agentId }, config.contextHistorySignerId);
+        const root = await realpath(loaded.canghaiRoot);
+        const resourceScope = process.platform === "win32" ? root.toLowerCase() : root;
+        const result = await withCompletionResourceReservation(resourceScope, () => withHostHistoryCompaction({ request, signal: abortSignal, assertCurrent }, async () => {
+          const head = await loadContextHistoryHead({ root, archiveRoot, request, revision: config.recoveryRevision,
+            verificationKey: keys.verificationKey, requireBusinessCommit: true });
+          if (!head) throw new CatalogError("host_context_completed_archive_required");
+          const authorities: HostContextAuthority[] = [];
+          let sourceAccess: SourceAccessProvider | undefined;
+          const reloadAuthority = async () => {
+            await assertHostHistoryCompaction(request);
+            const currentLoaded = await consciousness.load();
+            const currentBinding = await loadPraxisRuntimeBinding(currentLoaded);
+            const processingAuthority = await bindTurnProcessingAuthority(request, currentLoaded, currentBinding, processing.config.ownerId, modelRef);
+            const current = await createRuntime(currentLoaded, request, processingAuthority, "current", new Date().toISOString(),
+              hostHistoryCompaction(request)?.publishing ? sourceAccess : undefined);
+            sourceAccess ??= current.runtime.evidence.purpose.sourceAccess;
+            const compilation = await initialization.compactionContextCompilation(request);
+            const authority = new HostContextAuthority(current.runtime.evidence, request, { authority: processingAuthority,
+              compilation, configurationHash: executionHash, historyVerificationKey: keys.verificationKey,
+              captureCurrent: async () => {
+                await assertHostHistoryCompaction(request);
+                await current.viewProcessing?.assertCurrent();
+                return { request, modelRef: resolveLiveModelRef(), deployment: processingAuthority.deployment,
+                  purpose: currentBinding.purpose, generationId: current.runtime.evidence.reader.catalog.generationId,
+                  configurationHash: hostContextExecutionHash(api.runtime.config.current(), config),
+                  compilation: await initialization.compactionContextCompilation(request) };
+              } });
+            authorities.push(authority);
+            return authority;
+          };
+          try {
+            const authority = await reloadAuthority();
+            const previousView = await findPublishedHistoryView(authority, head.archive, keys.verificationKey, request.agentId);
+            const prepared = await authority.prepareHistoryRebuild({
+              viewId: previousView?.viewId ?? `host-history:${bytesVersion(canonicalJson({ agentId: request.agentId, sessionId: request.sessionId, sessionKey: request.sessionKey })).slice(7)}`,
+              archive: head.archive, current: previousView ? [await restorePublishedHistoryView(authority, previousView)] : [], invalidatedRefs: new Set(),
+              complete: async ({ prompt, maxTokens }) => {
+                try {
+                  const result = await completeModel({ agentId: config.agentId, model: modelRef, purpose: "stella-history-rebuild",
+                    temperature: 0, maxTokens, signal: abortSignal, messages: [{ role: "user", content: prompt }] }, assertCurrent);
+                  return { text: result.text, modelRef: `${result.provider}/${result.model}` };
+                } catch (error) {
+                  const category = error instanceof CatalogError || error instanceof CompletionError || error instanceof ConsciousnessLoadError
+                    ? error.category : "host_model_completion_failed";
+                  api.logger.error(`Stella history compaction model failed: ${category}`);
+                  throw error;
+                }
+              } });
+            const published = await publishHostHistoryCompaction(request, async () => {
+              try {
+                return await publishPreparedHistoryView(authority, prepared, {
+                  signingKey: keys.signingKey, durability: durability!, signal: abortSignal, reloadAuthority,
+                });
+              } catch (error) {
+                if (error instanceof CatalogError || error instanceof MemoryTransactionError || error instanceof InitializationError ||
+                  error instanceof CompletionError || error instanceof ConsciousnessLoadError) throw error;
+                throw new CatalogError("host_context_compaction_publication_failed");
+              }
+            });
+            return { ok: true, compacted: true, viewId: published.viewId, digest: published.digest };
+          } finally { for (const authority of authorities) authority.close(); }
+        }));
+        respond(true, result);
+      } catch (error) {
+        const category = error instanceof CatalogError || error instanceof CompletionError || error instanceof InitializationError ||
+          error instanceof MemoryTransactionError || error instanceof ConsciousnessLoadError || error instanceof RuntimeProfileError
+          ? error.category : "host_context_compaction_failed";
+        respond(false, undefined, { code: "UNAVAILABLE", message: `Stella history compaction failed: ${category}` });
+      }
+    }, { scope: "operator.admin", profileAccess: "required" });
 
     api.registerTool(ctx => ctx.agentId !== config.agentId ? null : {
       name: FRAGMENT_READ_TOOL, label: "Stella source fragments",

@@ -90,6 +90,14 @@ async function readJournal(stateRoot: string): Promise<HostIsolationJournal | nu
   }
 }
 
+/** A recorded isolation remains pending even if a prior bootstrap receipt is valid. */
+export async function hasHostProfileIsolation(stateRoot: string, agentId: string): Promise<boolean> {
+  const journal = await readJournal(stateRoot);
+  if (!journal) return false;
+  check(journal.agentId === agentId, "host_isolation_agent_conflict");
+  return true;
+}
+
 async function writeJournal(stateRoot: string, journal: HostIsolationJournal): Promise<void> {
   const target = await safeFile(stateRoot, "host-isolation.json", true);
   const temporary = `${target}.${randomUUID()}.tmp`;

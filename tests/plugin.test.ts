@@ -124,6 +124,20 @@ const fixtureOperatorRefs = [
   "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:reversible_test",
   "path:30_PersonalData/framework-runtime/active-ir/fw_ir_fixture.yaml#operator:observation_test",
 ];
+
+test("history compaction requires a Host-attested direct-local administrator before reading private configuration", async () => {
+  const hooks = registerPlugin("/synthetic/unread-compaction-root", "a".repeat(40), async () => assert.fail("Denied caller reached a model"));
+  const handler = hooks.get("gateway:stella.compactHistory")!;
+  const connect = { role: "operator", scopes: ["operator.admin"], client: { id: "cli" } };
+  for (const client of [null, { connect }, { connect, internal: { isLocalClient: false } },
+    { connect: { ...connect, scopes: ["operator.read"] }, internal: { isLocalClient: true } }]) {
+    let response: { ok: boolean; message?: string } | undefined;
+    await handler({ params: { sessionId: "session", sessionKey: "agent:stella:main" }, client,
+      respond: (ok: boolean, _payload: unknown, error?: { message: string }) => { response = { ok, message: error?.message }; } }, {});
+    assert.equal(response?.ok, false);
+    assert.match(response?.message ?? "", /compaction_admin_required/);
+  }
+});
 const fixtureTwinRefs = ["path:30_PersonalData/twin/hypotheses/twin_fixture.md"];
 
 async function praxisRouteCompletion(): Promise<{ text: string }> {

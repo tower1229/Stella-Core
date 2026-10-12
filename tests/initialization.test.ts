@@ -17,6 +17,7 @@ import { compileInitializationSource, readCompiledContextRules } from "../src/op
 import { BOOTSTRAP_TARGETS, INITIALIZATION_TEMPLATE_VERSION, type HostIdentity } from "../src/openclaw/initialization-templates.js";
 
 import { withMemoryMutationLock } from "../src/canghai/memory-transaction.js";
+import { isolateHostProfile, hasHostProfileIsolation, type HostAdmissionConfig } from "../src/openclaw/host-admission-isolation.js";
 
 const exec = promisify(execFile);
 async function fixture(t: { after(fn: () => Promise<void>): void }, verify: InitializationPorts["verify"] = async () => undefined) {
@@ -365,6 +366,20 @@ test("Host service initializes on startup; manual entry shares the same transact
     async publishFinal() { throw new Error("Preparation test must not publish"); },
   }), error => error instanceof Error && error.cause === preparationFinished);
   await assert.rejects(initialization.prepareContextCompilation(preparedRequest!), /invalid_run_permit/);
+  const isolationRoot = await realpath(path.join(f.state, "stella-core/initialization/stella"));
+  const installedOperationId = initialization.status().operationId;
+  await isolateHostProfile({ readConfig: () => hostConfig as HostAdmissionConfig,
+    async mutateConfig(mutate) { mutate(hostConfig as HostAdmissionConfig); } }, "stella", "plugin_start_failed", isolationRoot);
+  await assert.rejects(initialization.assertReady(), /initialization_required/);
+  assert.equal(await hasHostProfileIsolation(isolationRoot, "stella"), true);
+  await writeFile(path.join(f.source, "still-dirty.txt"), "Recovery has not completed");
+  assert.equal((await initialization.initialize()).state, "blocked");
+  assert.equal(await hasHostProfileIsolation(isolationRoot, "stella"), true, "Invalid source must preserve isolation");
+  await rm(path.join(f.source, "still-dirty.txt"));
+  assert.equal((await initialization.initialize()).state, "ready");
+  assert.equal(initialization.status().operationId, installedOperationId, "Verified receipt is reused without reinstalling");
+  assert.equal(await hasHostProfileIsolation(isolationRoot, "stella"), false);
+  assert.equal(hostConfig.agents?.entries?.stella?.tools, undefined, "Only the recorded previous tool configuration is restored");
   const originalHooks = new Map(hooks), originalService = service, originalCommand = command,
     originalTool = registeredTool, originalToolOptions = toolOptions;
   const retiring = registerStellaInitialization(api as never, pluginConfig,

@@ -2,7 +2,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { cp, mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -83,7 +83,10 @@ const outcomeHistoryProbe = outcomeHistoryRecoveryProbe || process.argv.includes
 const sourceDeletionProbe = process.argv.includes("--source-deletion-history");
 const historyFollowupProbe = process.argv.includes("--history-view-followup");
 const historyQueuedNoticeProbe = process.argv.includes("--history-queued-notice");
-const standaloneCompactProbe = process.argv.includes("--standalone-compact");
+const standaloneCompactStale = process.argv.includes("--standalone-compact-stale");
+const standaloneCompactGrantDenied = process.argv.includes("--standalone-compact-grant-denied");
+const standaloneCompactPersistFailure = process.argv.includes("--standalone-compact-persist-failure");
+const standaloneCompactProbe = standaloneCompactStale || standaloneCompactGrantDenied || standaloneCompactPersistFailure || process.argv.includes("--standalone-compact");
 const historyNativeCompactProbe = process.argv.includes("--history-native-compact");
 const historyViewProbe = sourceDeletionProbe || historyFollowupProbe || historyQueuedNoticeProbe || historyNativeCompactProbe || process.argv.includes("--history-view-rebuild");
 const nativeActiveStale = process.argv.includes("--guarded-active-memory-stale");
@@ -228,6 +231,7 @@ if (correctionProbe) {
   await writeFile(file, stringifyYaml(profile));
   await writeFile(path.join(canghaiRoot, prefix, "personal-access.json"), JSON.stringify({ schemaVersion: "stella.personal-context-access/v1",
     ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: [probeModel], viewProcessingModelRefs: [probeModel], operatorRecovery: true,
+    ...(standaloneCompactProbe && !standaloneCompactGrantDenied ? { operatorHistoryCompaction: true } : {}),
     purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, descriptors: [] }));
 }
 
@@ -550,6 +554,7 @@ export default { ...main, register(api) {
         throw new Error('Recovery must not invoke any semantic model');
       }
       if (${guardedSemantic} && params.purpose === 'stella-core-semantic-routing') return api.runtime.llm.complete(params);
+      if (${standaloneCompactProbe} && params.purpose === 'stella-history-rebuild') return api.runtime.llm.complete(params);
       if (${liveFragment} && ['stella-source-access', 'stella-source-output'].includes(params.purpose)) {
         if (JSON.stringify(params.messages).includes('SYNTHETIC_DENIED_NEIGHBOR')) throw new Error('live_semantic_input_leaked_neighbor');
         let result;
@@ -714,6 +719,33 @@ const provider = createServer(async (request, response) => {
     nativeSummaryConsumed ||= requestBody.includes("<active_memory_plugin>") && requestBody.includes("SYNTHETIC_NATIVE_RECALL_SUMMARY");
     await writeFile(path.join(temp, "native-main-input.json"), requestBody);
   }
+  if (standaloneCompactProbe && requestBody.includes("Reconstruct a current Stella conversation view.")) {
+    await writeFile(path.join(temp, "standalone-summary-input.json"), requestBody);
+    if (standaloneCompactPersistFailure) await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", path.join(temp, "missing-compaction-remote.git")]);
+    if (standaloneCompactStale) {
+      const archiveRoot = path.join(canghaiRoot, "30_PersonalData/context-history");
+      const heads = await Promise.all((await readdir(path.join(archiveRoot, "sessions"))).map(async name =>
+        JSON.parse(await readFile(path.join(archiveRoot, "sessions", name), "utf8"))));
+      const head = heads.find(value => value.scope.sessionKey === "agent:probe:main-completion");
+      const snapshot = JSON.parse(await readFile(path.join(archiveRoot, "contexts", `${head.digest.slice(7)}.json`), "utf8"));
+      const payload = snapshot.payloads[0];
+      assert.ok(payload, "Compaction must retain an actual original payload dependency");
+      const catalog = JSON.parse(await readFile(path.join(canghaiRoot, "30_PersonalData/memory/catalog.json"), "utf8"));
+      const entry = catalog.sources.find(value => value.id === payload.source.id && value.version === payload.source.version);
+      const source = JSON.parse(await readFile(path.join(canghaiRoot, entry.locator.path), "utf8"));
+      const locator = source.payloads.find(value => value.sha256 === payload.sha256);
+      assert.equal(locator.revision, undefined);
+      const deletedPath = path.join(canghaiRoot, locator.path);
+      const bytes = await readFile(deletedPath);
+      await rm(deletedPath);
+      await writeFile(path.join(temp, "standalone-source-invalidation.json"), JSON.stringify({ sourceRef: payload.source,
+        payload: locator, deletedPath, retainedBytesBeforeDeletion: bytes.length, afterSummaryModelInput: true }, null, 2));
+    }
+    response.end(JSON.stringify({ id: "synthetic-history-compaction", object: "chat.completion", created: 1, model: "probe",
+      choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify({ summary: "SYNTHETIC_COMPACTED_HISTORY" }) }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
+    return;
+  }
   if (fragmentProbe) {
     fragmentChecks.deniedNeighborAbsent &&= !requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR");
     const steps = [
@@ -774,10 +806,10 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
     enabled: true, frequency: "0 0 * * *", model: probeModel,
     phases: { light: { enabled: true, limit: 3, lookbackDays: 7, execution: { model: probeModel } }, rem: { enabled: false },
       deep: { enabled: true, limit: 3, minScore: 0, minRecallCount: 0, minUniqueQueries: 0 } },
-  } } } } : {}), ...(guardedActive ? { "active-memory": { enabled: true, config: {
+  } } } } : { "memory-core": { config: { dreaming: { enabled: false } } } }), ...(guardedActive ? { "active-memory": { enabled: true, config: {
     enabled: true, mode: "always", queryMode: "message", agents: ["probe"], model: probeModel, toolsAllow: ["stella_read_fragment"], timeoutMs: 120000, logging: true,
   } } } : {}), "stella-core": { enabled: true,
-    llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
+    llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : standaloneCompactProbe ? { allowModelOverride: true, allowedModels: [probeModel], allowedCompletionModels: [probeModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}),
       ...(contextKeys ? { contextHistorySignerId: contextKeys.signerId, contextHistoryArchiveRoot: "30_PersonalData/context-history" } : {}) } } } },
   tools: { allow: ["read", "stella_initialize", ...(fragmentProbe || managedContextProbe ? ["stella_read_fragment"] : [])] },
@@ -821,7 +853,7 @@ async function waitForInitializationReady() {
 }
 try {
   gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs"),
-    diagnosticPrefixes: ["Stella completion:", ...(guardedActive ? ["active-memory:"] : [])] });
+    diagnosticPrefixes: ["Stella completion:", "Stella history compaction model failed:", ...(guardedActive ? ["active-memory:"] : [])] });
   await connectObserver();
   await waitForInitializationReady();
   if (guardedDreaming) {
@@ -1335,11 +1367,23 @@ try {
       assert.ok(pending.contextArchive?.digest);
       const checkpoint = JSON.parse(await readFile(path.join(temp, "outcome-recovery-checkpoint.json"), "utf8"));
       assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "main"])).stdout.trim(), checkpoint.archiveRevision);
+      const previousTools = JSON.parse(await readFile(configPath, "utf8")).agents.entries.probe.tools ?? null;
       await client.stopAndWait({ timeoutMs: 2_000 }); await gateway.stop();
       await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", remote]);
       await writeFile(path.join(temp, "outcome-recovery-running"), "no-inference");
       gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
       await connectObserver();
+      const isolationDeadline = Date.now() + 30_000;
+      for (;;) {
+        const state = await client.request("stella.initialize", { action: "status" });
+        const isolation = await readFile(path.join(temp, "state/stella-core/initialization/probe/host-isolation.json"), "utf8")
+          .then(JSON.parse).catch(error => { if (error.code === "ENOENT") return undefined; throw error; });
+        const tools = JSON.parse(await readFile(configPath, "utf8")).agents.entries.probe.tools;
+        if (state.state === "blocked" && state.category === "source_dirty" && isolation?.agentId === "probe" &&
+          JSON.stringify(tools) === JSON.stringify({ deny: ["*"] })) break;
+        assert.ok(Date.now() < isolationDeadline, "Pending business recovery must establish its real startup isolation");
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       const beforeRecoveryRequests = providerRequests;
       const receipt = await client.request("stella.recoverOutcome", { operationId });
       assert.deepEqual(await client.request("stella.recoverOutcome", { operationId }), receipt);
@@ -1350,9 +1394,14 @@ try {
       assert.equal(await readFile(path.join(temp, "outcome-recovery-inference.jsonl"), "utf8").catch(error => {
         if (error.code !== "ENOENT") throw error; return "";
       }), "");
+      const reinitialized = await client.request("stella.initialize", { action: "apply" }, { timeoutMs: 120_000 });
+      assert.equal(reinitialized.state, "ready", JSON.stringify(reinitialized));
+      await waitForInitializationReady();
+      assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")).agents.entries.probe.tools ?? null, previousTools);
       await rm(path.join(temp, "outcome-recovery-running"));
       recovery = { hostRestarted: true, semanticModelCalls: 0, modelRequests: 0, replyResent: false, synchronized: true,
-        signedPlanBound: true, idempotent: true, operationId, revision: receipt.revision };
+        signedPlanBound: true, idempotent: true, startupIsolated: true, bootstrapReverified: true,
+        recordedToolConfigurationRestored: true, operationId, revision: receipt.revision };
     }
     const reader = await CatalogReader.load(canghaiRoot, catalogPath);
     const current = await loadPublishedHistoryView(reader, published.viewId, contextKeys.verificationKey);
@@ -1782,6 +1831,74 @@ try {
     await writeFile(path.join(temp, "standalone-compaction.json"), JSON.stringify(standaloneCompaction, null, 2));
     assert.equal(followup.text, "SYNTHETIC_MAIN_ANSWER", JSON.stringify(followup));
     assert.equal(standaloneCompaction.followup.modelRequests, 1);
+    const sessionId = (await client.request("sessions.list", {})).sessions.find(session => session.key === sessionKey)?.sessionId;
+    assert.ok(sessionId);
+    let visitor;
+    try {
+      await new Promise((resolve, reject) => {
+        visitor = new GatewayClient({ url: `ws://127.0.0.1:${gateway.env.OPENCLAW_GATEWAY_PORT}`, token: gateway.env.OPENCLAW_GATEWAY_TOKEN,
+          env: gateway.env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.read"],
+          sharedStateMode: "read-only", deviceIdentity: null, onHelloOk: resolve, onConnectError: reject });
+        visitor.start();
+      });
+      await assert.rejects(visitor.request("stella.compactHistory", { sessionKey, sessionId }, { timeoutMs: 15_000 }), /operator.admin/);
+      standaloneCompaction.visitorDenied = true;
+    } finally { await visitor?.stopAndWait({ timeoutMs: 2_000 }); }
+    if (!standaloneCompactGrantDenied) await assert.rejects(client.request("stella.compactHistory", { sessionKey, sessionId: "unbound-session" }, { timeoutMs: 60_000 }),
+        /host_context_completed_archive_required/);
+    const catalogFile = path.join(canghaiRoot, "30_PersonalData/memory/catalog.json");
+    const catalogBefore = await readFile(catalogFile, "utf8");
+    const revisionBefore = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
+    if (standaloneCompactGrantDenied) {
+      await assert.rejects(client.request("stella.compactHistory", { sessionKey, sessionId }, { timeoutMs: 60_000 }),
+        /operator_history_compaction_grant_required/);
+      assert.equal(providerRequests - before, 1, "Missing explicit grant must cause zero summary-model requests");
+      assert.equal(await readFile(catalogFile, "utf8"), catalogBefore);
+      standaloneCompaction.explicitGrantDenied = true;
+    } else if (standaloneCompactPersistFailure) {
+      await assert.rejects(client.request("stella.compactHistory", { sessionKey, sessionId }, { timeoutMs: 330_000 }),
+        /host_context_compaction_publication_failed/);
+      const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
+      await assert.rejects((await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json")).assertCurrent(), /memory_transaction_pending/);
+      assert.ok(await readFile(path.join(canghaiRoot, ".stella-memory-transaction.json")), "Failed synchronization must preserve the transaction fence");
+      standaloneCompaction.failedPublicationFenced = true;
+    } else if (standaloneCompactStale) {
+      await assert.rejects(client.request("stella.compactHistory", { sessionKey, sessionId }, { timeoutMs: 330_000 }),
+        /host_context_rebuild_model_failed|source_dirty/);
+      assert.equal(await readFile(catalogFile, "utf8"), catalogBefore, "Invalidated summary cannot publish a view");
+      assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), revisionBefore);
+      standaloneCompaction.staleSourceRejected = true;
+      standaloneCompaction.publishedViewsAfterInvalidation = 0;
+      standaloneCompaction.invalidation = JSON.parse(await readFile(path.join(temp, "standalone-source-invalidation.json"), "utf8"));
+    } else {
+      const authorized = await client.request("stella.compactHistory", { sessionKey, sessionId }, { timeoutMs: 330_000 });
+      assert.equal(authorized.ok, true, JSON.stringify(authorized));
+      assert.equal(authorized.compacted, true, JSON.stringify(authorized));
+      standaloneCompaction.authorized = authorized;
+      const revision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
+      assert.notEqual(revision, revisionBefore);
+      assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim(), revision);
+      assert.equal(JSON.parse(await readFile(catalogFile, "utf8")).generationId, JSON.parse(catalogBefore).generationId,
+        "Compaction must not invent a new source generation");
+      standaloneCompaction.durableRevision = revision;
+      await client.stopAndWait({ timeoutMs: 2_000 });
+      await gateway.stop();
+      gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+      await connectObserver();
+      await waitForInitializationReady();
+      const beforeFollowup = providerRequests;
+      const consumed = await runExactHostEvaluationChat({
+        request: (method, params) => client.request(method, params, { timeoutMs: 35_000 }),
+        subscribe(listener) { evaluationListeners.add(listener); return () => evaluationListeners.delete(listener); },
+      }, { sessionKey, message: "Synthetic follow-up after authorized compaction", idempotencyKey: "after-authorized-compaction", timeoutMs: 300_000 });
+      assert.equal(consumed.text, "SYNTHETIC_MAIN_ANSWER");
+      assert.equal(providerRequests - beforeFollowup, 1);
+      assert.ok((await readFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), "utf8")).includes("SYNTHETIC_COMPACTED_HISTORY"),
+        "Actual main-model input after restart must consume the signed compacted view");
+      standaloneCompaction.restartConsumptionVerified = true;
+    }
+    standaloneCompaction.summaryModelRequests = standaloneCompactGrantDenied ? 0 : 1;
+    await writeFile(path.join(temp, "standalone-compaction.json"), JSON.stringify(standaloneCompaction, null, 2));
   }
   const report = { schemaVersion: "stella.main-plugin-probe/v1", host: host.version, nativeCompletionLifecycle,
     scope: nativeCompletionLifecycle ? "diagnostic only: isolated Core adapter bytes changed; original Host untouched; not source or package acceptance" : nativeArtifactProbe ? "real native artifact from a separate original Host run; replayed through the public prompt hook into actual Stella main; synthetic model and semantic setup, not native plugins co-running with Stella" : liveFragment ? "synthetic sources; real Gemini fragment access/output judgments and native Host skill/tool selection; setup routing/correction judgments injected; not private main or full_memory acceptance" : cancellationProbe
@@ -1805,6 +1922,14 @@ try {
     ...(sourceDeletion ? { sourceDeletion } : {}), ...(outcomeHistory ? { outcomeHistory } : {}), ...(standaloneCompaction ? { standaloneCompaction } : {}), ...(historyView ? { historyView } : {}), ...(historyFollowup ? { historyFollowup } : {}), ...(nativeReset ? { nativeReset } : {}), evidenceDirectory: temp };
   if (guardedSemantic) assert.ok(semanticProviderRequests > 0);
   assert.equal(report.terminalStatus, failureProbe || cancellationProbe || guardedStale || guardedPayload ? "error" : "ok");
+  if (!guardedDreaming) {
+    const currentConfig = JSON.parse(await readFile(configPath, "utf8"));
+    assert.equal(currentConfig.plugins.entries["memory-core"].config.dreaming.enabled, false);
+    const cron = await client.request("cron.list", { includeDisabled: true });
+    assert.ok(!cron.jobs.find(job => job.declarationKey === "memory-core:memory-dreaming-promotion")?.enabled,
+      "Dreaming promotion cron must stay disabled");
+    report.dreamingEnabled = false;
+  }
   if (guardedActive) {
     const plugins = await client.request("plugins.list", {});
     assert.ok(plugins.plugins.some(plugin => plugin.id === "active-memory" && plugin.installed && plugin.enabled));
@@ -1821,7 +1946,7 @@ try {
       ...(nativeActiveStale ? { staleSourceRejected: true, mainModelRequestsAfterInvalidation: 0 } : {}),
       dreamingEnabled: false };
   }
-  assert.equal(report.providerRequests, nativeActiveStale ? 3 : nativeArtifactProbe || guardedPayload ? 0 : guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : guardedActive ? 4 : fragmentProbe ? 6 : skillReadProbe ? 3 : sourceDeletionProbe ? 3 : historyFollowupProbe ? 6 : historyViewProbe ? 2 + (historyView?.nativeCompact?.modelRequests ?? 0) : outcomeHistoryProbe ? 3 : standaloneCompactProbe ? 2 : 1);
+  assert.equal(report.providerRequests, nativeActiveStale ? 3 : nativeArtifactProbe || guardedPayload ? 0 : guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : guardedActive ? 4 : fragmentProbe ? 6 : skillReadProbe ? 3 : sourceDeletionProbe ? 3 : historyFollowupProbe ? 6 : historyViewProbe ? 2 + (historyView?.nativeCompact?.modelRequests ?? 0) : outcomeHistoryProbe ? 3 : standaloneCompactGrantDenied ? 2 : standaloneCompactStale || standaloneCompactPersistFailure ? 3 : standaloneCompactProbe ? 4 : 1);
   if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
   if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
   if (!liveFragment && !preparationCancellationProbe && !correctionRecoveryProbe && !guardedPayload && !nativeArtifactProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));

@@ -2,6 +2,11 @@ import { formatZonedTimestamp } from "openclaw/plugin-sdk/core";
 import { CatalogError } from "../canghai/catalog-reader.js";
 import type { HostMemoryInput } from "./host-memory-provider.js";
 
+/** Compile the pinned Host envelope from independently authorized input. */
+export function queuedHostPrompt(previous: string, current: string): string {
+  return `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n${previous}\n\n${current}`;
+}
+
 /** The pinned Host can queue its failed-send notice or a completed reset
  * command before the next active prompt. These fixed control texts carry no
  * independent memory evidence; any other queued user content is rejected. */
@@ -11,7 +16,7 @@ export function projectQueuedHostControlPrompt(current: string, observed: string
     "/new", "/reset",
   ];
   for (const controlText of controlTexts) {
-    const expected = `[Queued user message from a previous active turn; preserved as context only. Continue with the active prompt below.]\n${controlText}\n\n${current}`;
+    const expected = queuedHostPrompt(controlText, current);
     if (observed === expected) return expected;
   }
   return undefined;

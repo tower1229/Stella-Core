@@ -21,13 +21,14 @@ export type PersonalContextAccess = {
   descriptors: SourceAccessDescriptor[];
   viewProcessingModelRefs?: string[];
   operatorRecovery?: true;
+  operatorHistoryCompaction?: true;
 };
 
 /** An explicitly configured processing grant for reviewed metadata, separate
  * from the source policies. Never created by a model during a question. */
 export function parsePersonalContextAccess(value: unknown): PersonalContextAccess {
   if (!isRecord(value) || value.schemaVersion !== "stella.personal-context-access/v1" ||
-      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs", "operatorRecovery"].includes(k)) ||
+      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs", "operatorRecovery", "operatorHistoryCompaction"].includes(k)) ||
       !text(value.ownerId) || !texts(value.requesterIds) || !value.requesterIds.length ||
       !texts(value.modelRefs) || !value.modelRefs.length || !isRecord(value.purpose) ||
       Object.keys(value.purpose).sort().join() !== "deliveryScope,derivePurpose,readPurpose" ||
@@ -35,6 +36,10 @@ export function parsePersonalContextAccess(value: unknown): PersonalContextAcces
     throw new CatalogError("invalid_personal_context_access");
   }
   if (Object.hasOwn(value, "operatorRecovery")) check(value.operatorRecovery === true, "invalid_operator_recovery_grant");
+  if (Object.hasOwn(value, "operatorHistoryCompaction")) {
+    check(value.operatorHistoryCompaction === true && Array.isArray(value.viewProcessingModelRefs) && value.viewProcessingModelRefs.length > 0,
+      "invalid_operator_history_compaction_grant");
+  }
   if (Object.hasOwn(value, "viewProcessingModelRefs")) {
     check(texts(value.viewProcessingModelRefs) && value.viewProcessingModelRefs.length > 0 &&
       value.viewProcessingModelRefs.every(ref => (value.modelRefs as string[]).includes(ref)), "invalid_view_processing_grant");
