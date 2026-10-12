@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -14,6 +14,7 @@ const evidence = await import(new URL("../../scripts/lib/package-evidence.mjs", 
   assertTreeUnchanged(base: string, expected: Manifest, label: string): Promise<void>;
   assertDreamingDisabled(config: unknown): void;
   assertProbeDreamingDisabled(report: { evidenceDirectory: string }): Promise<void>;
+  installedPackageRoot(consumer: string, name: string): Promise<string>;
 };
 
 test("package evidence rejects missing or enabled Dreaming, including actual probe configuration", async () => {
@@ -29,6 +30,21 @@ test("package evidence rejects missing or enabled Dreaming, including actual pro
     assert.throws(() => evidence.assertDreamingDisabled({ plugins: { entries: {
       "memory-core": { config: { dreaming: { enabled: false } } }, dreaming: { enabled: true },
     } } }), /must not be enabled/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("installation proof accepts a parent directory alias but rejects redirected packages", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "stella-package-install-"));
+  try {
+    const consumer = path.join(root, "consumer"), alias = path.join(root, "alias");
+    await mkdir(path.join(consumer, "node_modules/openclaw"), { recursive: true });
+    await symlink(consumer, alias);
+    assert.equal(await evidence.installedPackageRoot(alias, "openclaw"),
+      path.join(await realpath(consumer), "node_modules/openclaw"));
+    await rm(path.join(consumer, "node_modules/openclaw"), { recursive: true });
+    await mkdir(path.join(root, "external-package"));
+    await symlink(path.join(root, "external-package"), path.join(consumer, "node_modules/openclaw"));
+    await assert.rejects(evidence.installedPackageRoot(alias, "openclaw"), /must not be a symlink/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

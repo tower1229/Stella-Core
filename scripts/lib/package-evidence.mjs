@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, readFile, readdir, readlink } from "node:fs/promises";
+import { lstat, readFile, readdir, readlink, realpath } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -62,4 +62,11 @@ export async function assertProbeDreamingDisabled(report) {
 
 export async function assertTreeUnchanged(base, expected, label) {
   assert.equal((await treeManifest(base)).digest, expected.digest, `${label} changed during acceptance`);
+}
+
+export async function installedPackageRoot(consumer, name) {
+  const expected = path.join(await realpath(consumer), "node_modules", name);
+  const actual = await realpath(expected);
+  assert.equal(actual, expected, `Installed ${name} must not be a symlink`);
+  return actual;
 }

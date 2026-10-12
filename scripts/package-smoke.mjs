@@ -8,7 +8,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { assertProbeDreamingDisabled, assertSourceUnchanged, assertTreeUnchanged,
-  fileManifest, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
+  fileManifest, installedPackageRoot, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
 
 // Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
 // generator or cron.run is invoked; full_memory remains independently blocked.
@@ -20,7 +20,7 @@ const hostVersion = "2026.8.2";
 const source = await sourceIdentity(root);
 const workspaceHost = path.join(root, "node_modules/openclaw");
 const workspaceHostBefore = await treeManifest(workspaceHost);
-const temp = await mkdtemp(path.join(os.tmpdir(), "stella-core-package-smoke-"));
+const temp = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-core-package-smoke-")));
 process.stderr.write(`Package evidence: ${temp}\n`);
 const env = { ...process.env, npm_config_cache: path.join(temp, "npm-cache") };
 delete env.NODE_PATH;
@@ -133,10 +133,8 @@ try {
   await writeFile(path.join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
   process.stderr.write("Fresh consumer install (registry dependencies, lifecycle scripts disabled)\n");
   await npm("install", ["install", "--ignore-scripts", "--no-audit", "--no-fund", artifact, `openclaw@${hostVersion}`], { cwd: consumer });
-  packageRoot = await realpath(path.join(consumer, "node_modules/@tower1229/stella-core"));
-  hostRoot = await realpath(path.join(consumer, "node_modules/openclaw"));
-  assert.equal(packageRoot, path.join(consumer, "node_modules/@tower1229/stella-core"), "Installed plugin must not be a symlink");
-  assert.equal(hostRoot, path.join(consumer, "node_modules/openclaw"), "Installed Host must not be a symlink");
+  packageRoot = await installedPackageRoot(consumer, "@tower1229/stella-core");
+  hostRoot = await installedPackageRoot(consumer, "openclaw");
   assert.equal(JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8")).version, hostVersion);
   assert.deepEqual(await fileManifest(packageRoot, files), extracted, "Installed package differs from the one tarball");
   const locked = JSON.parse(await readFile(path.join(consumer, "package-lock.json"), "utf8"));
