@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { assertProbeDreamingDisabled, assertSourceUnchanged, assertTreeUnchanged,
+import { assertProbeDreamingDisabled, assertSourceUnchanged,
   fileManifest, installedPackageRoot, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
 
 // Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
@@ -141,6 +141,22 @@ try {
   assert.equal(locked.packages["node_modules/@tower1229/stella-core"].integrity, packed.integrity);
   assert.equal(locked.packages["node_modules/openclaw"].version, hostVersion);
   receipt.hostPackageIntegrity = locked.packages["node_modules/openclaw"].integrity;
+  // --ignore-scripts leaves OpenClaw's published pending marker. Its public
+  // launcher owns deferred installation; finish it before freezing consumers.
+  // Every other installed Host byte must stay exactly as npm delivered it.
+  const hostInstalled = await treeManifest(hostRoot);
+  await writeFile(path.join(temp, "host-installed-before-lifecycle.json"), JSON.stringify(hostInstalled, null, 2));
+  const version = await capture("host-install-lifecycle", process.execPath, [path.join(hostRoot, "openclaw.mjs"), "--version"], {
+    cwd: consumer, env: { ...env, OPENCLAW_STATE_DIR: path.join(temp, "installation-state"),
+      OPENCLAW_CONFIG_PATH: path.join(temp, "installation-state/openclaw.json") },
+  });
+  assert.ok(version.stdout.includes(hostVersion), "Installed Host launcher version mismatch");
+  const hostReady = await treeManifest(hostRoot);
+  assert.deepEqual(hostReady.entries, hostInstalled.entries.filter(file => file.path !== ".openclaw-lifecycle-pending"),
+    "Host installation changed files beyond its lifecycle marker");
+  receipt.hostDeferredLifecycleCompleted = true;
+  receipt.hostCodeUnchangedDuringInstall = true;
+  receipt.hostVersionOutput = version.stdout.trim();
   lockSha256 = sha256(await readFile(path.join(consumer, "package-lock.json")));
   receipt.consumerLockSha256 = lockSha256;
   const require = createRequire(path.join(packageRoot, "package.json"));
@@ -232,10 +248,30 @@ try {
   // Each probe owns its Host state and synthetic repositories. Never repack or
   // rebuild while any installed-package consumer is running. Preserve failures.
   let probeFailure;
-  for (let index = 0; index < flags.length; index += 2) {
-    const results = await Promise.allSettled(flags.slice(index, index + 2).map(flag => probe(flag.slice(2), "probe-main-plugin.mjs", [flag])));
-    for (const result of results) if (result.status === "rejected") probeFailure ??= result.reason;
-  }
+  let next = 0;
+  const workers = await Promise.allSettled(Array.from({ length: 2 }, async () => {
+    while (next < flags.length) {
+      const flag = flags[next++];
+      const name = flag === "--outcome-recovery" ? "outcome-recovery-unbound-history" : flag.slice(2);
+      try {
+        await probe(name, "probe-main-plugin.mjs", [flag], {}, report => {
+          if (flag === "--outcome-recovery") {
+            assert.equal(report.persistence.recovery.blocked, true);
+            assert.equal(report.persistence.recovery.pendingTransactionPreserved, true);
+            assert.equal(report.persistence.recovery.modelRequests, 0);
+            assert.equal(report.persistence.recovery.replyResent, false);
+          }
+          if (flag === "--outcome-history-recovery") {
+            assert.equal(report.outcomeHistory.recovery.signedPlanBound, true);
+            assert.equal(report.outcomeHistory.recovery.bootstrapReverified, true);
+            assert.equal(report.outcomeHistory.recovery.modelRequests, 0);
+            assert.equal(report.outcomeHistory.followup.answer, "SYNTHETIC_MAIN_ANSWER");
+          }
+        });
+      } catch (error) { probeFailure ??= error; }
+    }
+  }));
+  for (const result of workers) if (result.status === "rejected") probeFailure ??= result.reason;
   const finalProbes = await Promise.allSettled([
     probe("capability-acceptance", "probe-capability-acceptance.mjs", [], {}, report => {
       assert.equal(report.capabilityId, "host_initialization"); assert.equal(report.clearedOneBlocker, true);
@@ -256,16 +292,24 @@ try {
   receipt.error = String(error.message ?? error);
 } finally {
   // A green probe cannot conceal a changed source, package, dependency or Host.
+  const recordTree = async (name, base, expected) => {
+    const after = await treeManifest(base);
+    await writeFile(path.join(temp, `${name}-after.json`), JSON.stringify(after, null, 2));
+    assert.equal(after.digest, expected.digest, `${name} changed during acceptance`);
+  };
   const checks = [
-    ["sourceUnchanged", () => assertSourceUnchanged(root, source)],
-    ["workspaceHostUnchanged", () => assertTreeUnchanged(workspaceHost, workspaceHostBefore, "Original workspace Host")],
+    ["sourceUnchanged", async () => {
+      await assertSourceUnchanged(root, source);
+      await writeFile(path.join(temp, "source-after.json"), JSON.stringify(await sourceIdentity(root), null, 2));
+    }],
+    ["workspaceHostUnchanged", () => recordTree("workspace-host", workspaceHost, workspaceHostBefore)],
   ];
-  if (fixtures) checks.push(["fixturesUnchanged", () => assertTreeUnchanged(path.join(root, ".test-dist"), fixtures, "Compiled fixtures")]);
-  if (build) checks.push(["buildUnchanged", () => assertTreeUnchanged(path.join(root, "dist"), build, "Compiled build")]);
+  if (fixtures) checks.push(["fixturesUnchanged", () => recordTree("compiled-fixtures", path.join(root, ".test-dist"), fixtures)]);
+  if (build) checks.push(["buildUnchanged", () => recordTree("compiled-build", path.join(root, "dist"), build)]);
   if (artifact) checks.push(["artifactUnchanged", async () => assert.equal(sha256(await readFile(artifact)), receipt.artifactSha256, "Package bytes changed")]);
-  if (installed) checks.push(["installedPackageUnchanged", () => assertTreeUnchanged(packageRoot, installed, "Installed package")]);
-  if (hostBefore) checks.push(["hostUnchanged", () => assertTreeUnchanged(hostRoot, hostBefore, "Installed Host")]);
-  if (dependencies) checks.push(["dependenciesUnchanged", () => assertTreeUnchanged(path.join(temp, "consumer/node_modules"), dependencies, "Consumer dependencies")]);
+  if (installed) checks.push(["installedPackageUnchanged", () => recordTree("installed-package", packageRoot, installed)]);
+  if (hostBefore) checks.push(["hostUnchanged", () => recordTree("host", hostRoot, hostBefore)]);
+  if (dependencies) checks.push(["dependenciesUnchanged", () => recordTree("dependencies", path.join(temp, "consumer/node_modules"), dependencies)]);
   if (lockSha256) checks.push(["consumerLockUnchanged", async () => assert.equal(sha256(await readFile(path.join(temp, "consumer/package-lock.json"))), lockSha256, "Consumer lock changed")]);
   for (const [name, check] of checks) {
     try { await check(); receipt[name] = true; }

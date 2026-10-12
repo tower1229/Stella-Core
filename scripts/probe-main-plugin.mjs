@@ -1077,32 +1077,51 @@ try {
       const { bytesVersion } = await import(buildModule("src/canghai/content-version.js"));
       const operationId = `${questionProbe || adviceTailProbe ? "question" : "outcome"}_${bytesVersion(sent.runId).slice(7)}`;
       const method = questionProbe || adviceTailProbe ? "stella.recoverQuestionEvidence" : "stella.recoverOutcome";
-      const recovered = await client.request(method, { operationId });
-      assert.deepEqual(await client.request(method, { operationId }), recovered);
-      assert.equal(recovered.replyResent, false);
-      assert.deepEqual(recovered.writeOperationIds, [operationId]);
-      const remoteRevision = (await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim();
-      assert.equal(recovered.revision, remoteRevision);
-      assert.notEqual(remoteRevision, revision);
-      assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, remoteRevision);
-      const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
-      await reader.assertCurrent();
-      const episodeId = adviceTailProbe && !adviceRevisionProbe ? `praxis_${bytesVersion(sent.runId).slice(7)}` : outcomeSeed.episodeId;
-      const episode = JSON.parse(await readFile(path.join(canghaiRoot, `30_PersonalData/praxis/episodes/${episodeId}/episode.json`), "utf8"));
-      assert.equal(episode.status, questionProbe || adviceTailProbe ? "recommended" : "closed");
-      if (outcomeProbe) assert.equal((await reader.read(episode.learning.praxis[0], "understandings")).status, "candidate");
-      const afterRecovery = await readHistory({ sessionKey, limit: 10 });
-      assert.equal(afterRecovery.messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
-      assert.equal(observedEvents.filter((event) => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
-      if (adviceTailProbe) await verifyAdviceBundle(reader, sent.runId, revision, remote, remoteRevision, episode);
-      else await (questionProbe ? verifyQuestionBundle : verifyOutcomeBundle)(reader, sent.runId, revision, remote, remoteRevision);
-      if (adviceRevisionProbe) {
-        assert.equal(episode.id, outcomeSeed.episodeId);
-        assert.deepEqual(episode.twin?.prediction, outcomeSeed.advised.episode.twin.prediction);
-        assert.deepEqual(episode.historicalInputRefs, outcomeSeed.advised.episode.historicalInputRefs);
+      if (process.argv.includes("--outcome-recovery")) {
+        // This legacy fixture has no signed context archive. Current outcome
+        // recovery must refuse it; the signed success path is exercised by
+        // --outcome-history-recovery, including restart and final consumption.
+        const marker = await readFile(path.join(canghaiRoot, ".stella-memory-transaction.json"), "utf8");
+        const before = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
+        const pointer = JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision;
+        const calls = providerRequests;
+        await assert.rejects(client.request(method, { operationId }), /host_context_history_configuration_required/);
+        assert.equal(providerRequests, calls);
+        assert.equal(await readFile(path.join(canghaiRoot, ".stella-memory-transaction.json"), "utf8"), marker);
+        assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), before);
+        assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, pointer);
+        assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim(), beforeTailRevision);
+        persistence.recovery = { hostRestarted: true, blocked: true, category: "host_context_history_configuration_required",
+          pendingTransactionPreserved: true, sourceUnchanged: true, pointerUnchanged: true, remoteUnchanged: true,
+          modelRequests: 0, replyResent: false };
+      } else {
+        const recovered = await client.request(method, { operationId });
+        assert.deepEqual(await client.request(method, { operationId }), recovered);
+        assert.equal(recovered.replyResent, false);
+        assert.deepEqual(recovered.writeOperationIds, [operationId]);
+        const remoteRevision = (await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim();
+        assert.equal(recovered.revision, remoteRevision);
+        assert.notEqual(remoteRevision, revision);
+        assert.equal(JSON.parse(await readFile(configPath, "utf8")).plugins.entries["stella-core"].config.recoveryRevision, remoteRevision);
+        const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
+        await reader.assertCurrent();
+        const episodeId = adviceTailProbe && !adviceRevisionProbe ? `praxis_${bytesVersion(sent.runId).slice(7)}` : outcomeSeed.episodeId;
+        const episode = JSON.parse(await readFile(path.join(canghaiRoot, `30_PersonalData/praxis/episodes/${episodeId}/episode.json`), "utf8"));
+        assert.equal(episode.status, questionProbe || adviceTailProbe ? "recommended" : "closed");
+        if (outcomeProbe) assert.equal((await reader.read(episode.learning.praxis[0], "understandings")).status, "candidate");
+        const afterRecovery = await readHistory({ sessionKey, limit: 10 });
+        assert.equal(afterRecovery.messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
+        assert.equal(observedEvents.filter((event) => JSON.stringify(event).includes("SYNTHETIC_MAIN_ANSWER")).length, 0);
+        if (adviceTailProbe) await verifyAdviceBundle(reader, sent.runId, revision, remote, remoteRevision, episode);
+        else await (questionProbe ? verifyQuestionBundle : verifyOutcomeBundle)(reader, sent.runId, revision, remote, remoteRevision);
+        if (adviceRevisionProbe) {
+          assert.equal(episode.id, outcomeSeed.episodeId);
+          assert.deepEqual(episode.twin?.prediction, outcomeSeed.advised.episode.twin.prediction);
+          assert.deepEqual(episode.historicalInputRefs, outcomeSeed.advised.episode.historicalInputRefs);
+        }
+        persistence.recovery = { hostRestarted: true, synchronized: true, pointerConfirmed: true, replyResent: false, evidenceBundleSynchronized: true };
+        if (adviceRevisionProbe) persistence.recovery.adviceRevisionPreserved = true;
       }
-      persistence.recovery = { hostRestarted: true, synchronized: true, pointerConfirmed: true, replyResent: false, evidenceBundleSynchronized: true };
-      if (adviceRevisionProbe) persistence.recovery.adviceRevisionPreserved = true;
     }
   } else if (outcomeHistoryProbe) {
     persistence = { firstOrdinaryTurnSynchronized: true, noOutcomeBeforeExplicitPhase: true };
@@ -1379,8 +1398,15 @@ try {
         const isolation = await readFile(path.join(temp, "state/stella-core/initialization/probe/host-isolation.json"), "utf8")
           .then(JSON.parse).catch(error => { if (error.code === "ENOENT") return undefined; throw error; });
         const tools = JSON.parse(await readFile(configPath, "utf8")).agents.entries.probe.tools;
-        if (state.state === "blocked" && state.category === "source_dirty" && isolation?.agentId === "probe" &&
-          JSON.stringify(tools) === JSON.stringify({ deny: ["*"] })) break;
+        // inspect() reports initialization_required once the isolation is
+        // durable; the startup diagnostic retains the original source fault.
+        if (state.state === "blocked" && ["source_dirty", "initialization_required"].includes(state.category) &&
+          gateway.diagnostics().includes("Stella initialization blocked (source_dirty)") &&
+          isolation?.agentId === "probe" && isolation.reason === "plugin_start_failed" &&
+          JSON.stringify(tools) === JSON.stringify({ deny: ["*"] })) {
+          await writeFile(path.join(temp, "startup-isolation.json"), JSON.stringify({ state, isolation, tools }, null, 2));
+          break;
+        }
         assert.ok(Date.now() < isolationDeadline, "Pending business recovery must establish its real startup isolation");
         await new Promise(resolve => setTimeout(resolve, 100));
       }

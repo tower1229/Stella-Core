@@ -1,7 +1,7 @@
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { cp, mkdtemp, mkdir, readFile, writeFile, access } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, writeFile, access, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -268,4 +268,6 @@ try {
   try { visitor?.stop?.(); } catch { /* ignore */ }
   await gateway?.stop?.();
   await new Promise((resolve) => provider.close(resolve));
+  assert.ok(coreSnapshot.startsWith(path.join(snapshotParent, "capability-probe-build-")));
+  await rm(coreSnapshot, { recursive: true, force: true });
 }
