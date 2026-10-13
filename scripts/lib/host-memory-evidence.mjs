@@ -6,15 +6,15 @@ export const HOST_MEMORY_BOUNDARY_FLAGS = Object.freeze([
   ...SOURCE_AUDIENCE_SCENARIOS.map(value => `--source-audience-${value}`),
   ...HOST_INGRESS_FIELDS.map(value => `--host-ingress-${value}`),
 ]);
-export const NATIVE_MEMORY_CONSUMPTION_FLAGS = Object.freeze(["fts", "cache", "session", "wiki"].flatMap(family =>
-  ["success", "stale", "mismatch"].map(state => `--native-memory-${family}-${state}`)));
+export const NATIVE_MEMORY_CONSUMPTION_FLAGS = Object.freeze([...['fts', 'cache', 'session', 'wiki'].flatMap(family =>
+  ['success', 'stale', 'mismatch'].map(state => `--native-memory-${family}-${state}`)), '--native-memory-cache-missing']);
 const nativeProbes = family => NATIVE_MEMORY_CONSUMPTION_FLAGS.filter(flag => flag.startsWith(`--native-memory-${family}-`)).map(flag => flag.slice(2));
 
 // This is an evidence index, never an admission receipt. A common final-input
 // rejection proves that boundary, not every native producer upstream of it.
 const coverage = {
   memory_index: { probes: ["fragment-skill", "source-audience-owner", "guarded-active-memory", ...nativeProbes("fts"), ...nativeProbes("cache")],
-    gaps: ["Builtin FTS/vector are certified for retained exact fragments; QMD and arbitrary memory plugins remain unverified."] },
+    gaps: ["Native FTS exact-location reads and vector-index/cache preparation are scoped proofs; vector semantic retrieval, QMD and arbitrary plugins remain unverified."] },
   session_summary: { probes: ["standalone-compact", "standalone-compact-stale", "history-view-followup", ...nativeProbes("session")],
     gaps: ["Evidence covers Core signed summaries, not every native summary producer."] },
   bootstrap: { probes: ["initialization", "host-ingress-bootstrap", "source-audience-owner"],
@@ -72,7 +72,13 @@ export function assertNativeMemoryConsumptionReport(report, flag) {
   assert.equal(report.nativeFamily, family); assert.equal(report.nativeState, state);
   assert.equal(report.dreamingEnabled, false); assert.equal(report.fullMemoryAccepted, false);
   assert.equal(report.realModelAccepted, false); assert.equal(report.unknownInputConsumed, false);
-  assert.equal(report.nativeReadExecuted, true); assert.equal(report.nativeReads.length, 1);
+  assert.equal(report.nativeReadExecuted, state !== "missing"); assert.equal(report.nativeReads.length, state === "missing" ? 0 : 1);
+  assert.equal(report.nativeConsumerEmbeddingRequests, 0);
+  assert.equal(report.nativeLookupMode, family === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index");
+  if (state === "missing") {
+    assert.equal(family, "cache"); assert.equal(report.nativeIndexRemoved, true);
+    assert.equal(report.nativeReadFailure, "native_memory_index_unavailable");
+  }
   assert.equal(report.providerRequests, state === "success" ? 3 : 2);
   assert.equal(report.terminalStatus, state === "success" ? "ok" : "error");
   assert.equal(report.finalAnswers, state === "success" ? 1 : 0);

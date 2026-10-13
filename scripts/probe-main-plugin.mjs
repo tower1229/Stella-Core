@@ -22,7 +22,7 @@ const outputRejectionProbe = process.argv.includes("--correction-output-rejected
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
 const nativeCase = process.argv.find(arg => arg.startsWith("--native-memory-"))?.slice("--native-memory-".length);
 const [nativeFamily, nativeState] = nativeCase?.split("-") ?? [];
-if (nativeCase) assert.ok(["fts", "cache", "session", "wiki"].includes(nativeFamily) && ["success", "stale", "mismatch"].includes(nativeState));
+if (nativeCase) assert.ok(["fts", "cache", "session", "wiki"].includes(nativeFamily) && ["success", "stale", "mismatch", "missing"].includes(nativeState) && (nativeState !== "missing" || nativeFamily === "cache"));
 let producerReport, nativeSource;
 if (nativeCase) {
   assert.ok(process.env.STELLA_NATIVE_PRODUCERS_REPORT, "Native consumption requires a real producer report");
@@ -499,6 +499,7 @@ export default { ...main, register(api) {
         await manager.sync({ force: true });
         const warm = manager.status();
         record({ operation: 'warm-sync', status: warm });
+        await manager.close();
         respond(true, { cold, warm });
       } catch(error) { respond(false, undefined, { code: 'UNAVAILABLE', message: String(error) }); }
     });
@@ -1018,10 +1019,20 @@ try {
   if (audienceScenario || ingressField) {
     const inventory = await client.request("stella.initialize", { action: "memory-inventory" });
     let nativePreparation;
+    let embeddingRequestsBeforeConsumption = 0;
     if (nativeCase) {
       nativePreparation = nativeFamily === "wiki" ? { compiled: await client.request("wiki.compile", { agentId: "probe" }, { timeoutMs: 60000 }),
         wiki: await client.request("wiki.status", { agentId: "probe" }) } : await client.request("stella.syntheticNativePrepare", {}, { timeoutMs: 60000 });
       await writeFile(path.join(temp, "native-preparation.json"), JSON.stringify(nativePreparation, null, 2));
+      if (nativeState === "missing") {
+        const index = await realpath(nativePreparation.warm.dbPath);
+        assert.ok(index.startsWith((await realpath(temp)) + path.sep), "Remove only this synthetic Host index");
+        const backup = path.join(temp, "native-index-before-removal.sqlite");
+        await cp(index, backup);
+        for (const suffix of ["", "-wal", "-shm"]) await rm(index + suffix, { force: true });
+        await writeFile(path.join(temp, "native-index-removal.json"), JSON.stringify({ index, backup,
+          sha256: createHash("sha256").update(await readFile(backup)).digest("hex"), afterIndexPreparation: true }));
+      }
       if (nativeState === "mismatch") {
         const file = path.join(nativeFamily === "wiki" ? nativeVault : workspace, nativeSource.nativePath);
         const original = await readFile(file, "utf8");
@@ -1032,6 +1043,7 @@ try {
           originalSha256: createHash("sha256").update(original).digest("hex"), afterIndexPreparation: true }));
       }
     }
+    embeddingRequestsBeforeConsumption = embeddingRequests.length;
     if (ingressField === "bootstrap") await writeFile(path.join(workspace, "MEMORY.md"), "SYNTHETIC_UNBOUND_HOST_MEMORY\n");
     let visitor;
     try {
@@ -1107,10 +1119,19 @@ try {
         unknownInputConsumed: false, fullMemoryAccepted: false, realModelAccepted: false };
       if (nativeCase) {
         const backend = nativeFamily === "wiki" ? [] : (await readFile(path.join(temp, "native-backend.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
-        const reads = (await readFile(path.join(temp, "native-consumed.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
-        assert.equal(reads.length, 1, "One real native read must precede successful consumption or payload rejection");
+        const readLog = await readFile(path.join(temp, "native-consumed.jsonl"), "utf8").catch(error => {
+          if (nativeState === "missing" && error.code === "ENOENT") return "";
+          throw error;
+        });
+        const reads = readLog.trim() ? readLog.trim().split("\n").map(JSON.parse) : [];
+        assert.equal(reads.length, nativeState === "missing" ? 0 : 1,
+          "Only an available authorized index permits the actual native read");
+        const nativeConsumerEmbeddingRequests = embeddingRequests.length - embeddingRequestsBeforeConsumption;
+        assert.equal(nativeConsumerEmbeddingRequests, 0, "Native consumption cannot emit query or rebuild embeddings");
         const toolResults = (await readFile(path.join(temp, "native-tool-results.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
         const mismatchCategory = nativeFamily === "wiki" ? "native_memory_read_unverifiable" : "native_memory_payload_changed";
+        if (nativeState === "missing") assert.ok(toolResults.some(row => row.error?.includes("native_memory_index_unavailable")),
+          "An absent native index must fail explicitly without bootstrapping or reading the retained copy");
         if (nativeState === "mismatch") {
           assert.ok(toolResults.some(row => row.error?.includes(mismatchCategory)),
             "The actual native tool must explicitly reject changed bytes or their invalidated compiled claim");
@@ -1129,12 +1150,15 @@ try {
         }
         Object.assign(report, { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily, nativeState,
           producerReport: process.env.STELLA_NATIVE_PRODUCERS_REPORT, nativeSource, nativePreparation, nativeBackend: backend, nativeReads: reads, nativeToolResults: toolResults,
-          nativeReadExecuted: true, actualNativeBytesConsumed: nativeState === "success", staleNativeArtifactRetained: nativeState === "stale",
+          nativeReadExecuted: nativeState !== "missing", nativeIndexRemoved: nativeState === "missing",
+          nativeConsumerEmbeddingRequests, embeddingRequestsBeforeConsumption,
+          nativeLookupMode: nativeFamily === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index",
+          actualNativeBytesConsumed: nativeState === "success", staleNativeArtifactRetained: nativeState === "stale",
           changedNativeBytesRejected: nativeState === "mismatch", modelRequestsAfterInvalidation: nativeState === "success" ? undefined : 0,
           embeddingRequests: embeddingRequests.length, authorizedFragmentConsumed: nativeState === "success",
           nativeFinalToolOriginalConsumed: nativeState === "success",
           wikiCompiledClaimCacheRequired: nativeFamily === "wiki",
-          nativeReadFailure: nativeState === "mismatch" ? mismatchCategory : undefined,
+          nativeReadFailure: nativeState === "missing" ? "native_memory_index_unavailable" : nativeState === "mismatch" ? mismatchCategory : undefined,
           embeddingCacheReuseVerified: nativeFamily === "cache",
           diagnostics: gateway.diagnostics() });
       }

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { inspectArchiveRetention } from "../src/openclaw/archive-retention.js";
+// Cold SDK loading is fixture setup; the unchanged timeout measures service restart.
+import { registerArchiveRetention } from "../src/openclaw/archive-retention-registration.js";
+import { CatalogError } from "../src/canghai/catalog-reader.js";
 
 test("Host retention fails closed when native maintenance can prune before archive", async () => {
   let reads = 0;
@@ -33,8 +36,6 @@ test("Host service restart on the same registration resumes continuous archive i
   const { mkdtemp, rm } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const { registerArchiveRetention } = await import("../src/openclaw/archive-retention-registration.js");
-  const { CatalogError } = await import("../src/canghai/catalog-reader.js");
   const stateDir = await mkdtemp(join(tmpdir(), "stella-retention-service-"));
   t.after(() => rm(stateDir, { recursive: true, force: true }));
   type Api = import("openclaw/plugin-sdk/plugin-entry").OpenClawPluginApi;

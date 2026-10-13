@@ -313,13 +313,13 @@ Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许�
 
 #### 2026-10-13 原生索引与记忆插件消费接缝
 
-原生定位 `stella.native-memory-origin/v1` 保存在已留存 Source 内，参与不可变版本计算，限定 provider、Host `2026.8.2`、agent、相对路径和最多 120 行的精确范围。Core 的 LLM 完成来源语义选择后，片段工具才访问原生索引；原生排序不能授予访问权或扩展本轮证据集合。`memory-core` 的公开 manager 负责真实索引命中及原生文件回读，公开 `authorizeSearchHits` 按当前会话核对宿主权限；内置 `session-memory` 另要求显式启用钩子。Wiki 使用公开 corpus supplement 传递当前 agent 和 session，不依赖仅供官方插件使用的 Gateway 转发权限。
+原生定位 `stella.native-memory-origin/v1` 保存在已留存 Source 内，参与不可变版本计算，限定 provider、Host `2026.8.2`、agent、相对路径和最多 120 行的精确范围。Core 的 LLM 完成来源语义选择后，片段工具才访问原生索引；原生排序不能授予访问权或扩展本轮证据集合。`memory-core` 使用公开 SDK 固定存储 schema，以 SQLite 只读连接定位确切 FTS 行，同时核对 canonical chunk、来源 hash、provenance 和已准入原文范围；公开 status manager 验证已有索引身份及可用状态，公开 `authorizeSearchHits` 按当前会话核对宿主权限，再由原生 manager 回读文件；内置 `session-memory` 另要求显式启用钩子。Wiki 使用公开 corpus supplement 传递当前 agent 和 session，不依赖仅供官方插件使用的 Gateway 转发权限。
 
-原生读取必须返回确切已准入原件。只接受固定 Host 原生 memory read 的末尾换行及精确续读提示编解码；未知格式、范围、正文、provider、版本或无命中显式失败。索引、缓存及原生文件仍存在时，留存来源删除或授权变化也必须阻止后续模型消费。每个外部异步边界及工具结果签发前后复核现有来源、代际、处理权威和取消状态；定位不是授权或原生产物收据。
+原生读取必须返回确切已准入原件。只接受固定 Host 原生 memory read 的末尾换行及精确续读提示编解码；未知格式、范围、正文、provider、版本或无命中显式失败。索引、缓存及原生文件仍存在时，留存来源删除或授权变化也必须阻止后续模型消费。每个外部异步边界及工具结果签发前后复核现有来源、代际、处理权威和取消状态；定位不是授权或原生产物收据。消费路径不调用原生 search／sync：固定 Host 的 search 即使设置 lexicalOnly，仍可能在缺失索引时隐式重建；本路径明确拒绝缺失、不完整或失配的索引，且消费期间不发送查询或重建嵌入。宿主后台索引生成的处理授权仍须单独认证，不能凭启用 provider 或主模型许可放行。Core 持久化完成时推进的恢复指针只对 `plugins.entries.stella-core.config.recoveryRevision` 声明公开热更新，避免插件重载中断同一完成操作；恢复点 CAS、初始化当前配置及投影复核不变，其他配置继续走 Host 原有重载规则。
 
 Wiki 的可选 `claimId` 同样绑定在 Source 版本内，只允许 Wiki provider 使用。声明后必须以原生 `claim:<id>` 别名回读；该别名依赖原生编译缓存，不能用页面路径回退。缓存不存在、发布资格失效、解析到其他页面或正文不一致时明确失败。验收通过 `wiki.apply` 写入合成 claim 并由 `wiki.compile` 产生缓存，核对别名确实返回同一原生页面；实际模型消费使用该别名，原生文件变化引起缓存失效时要求零模型续轮。
 
-`probe-native-memory-producers.mjs` 通过真实 `chat.send /new`、`wiki.ingest` 和 `wiki.compile` 生成原生产物，完整原件与输入文件保留在合成 Git 仓库。`--native-memory-{fts,cache,session,wiki}-{success,stale,mismatch}` 分别要求最终模型真实消费、原生读取后物理删除 Core 原件时零后续模型请求，以及原生正文变化时显式拒绝且零后续模型请求。cache 场景还要求实际向量索引、原生嵌入缓存和强制重建时的缓存复用；不把 FTS 当成语义检索。正式验收脚本将这些场景与已有场景绑定同一干净提交及同一安装包，运行结果由收据记录，本段不宣称验收已经通过。
+`probe-native-memory-producers.mjs` 通过真实 `chat.send /new`、`wiki.ingest` 和 `wiki.compile` 生成原生产物，完整原件与输入文件保留在合成 Git 仓库。`--native-memory-{fts,cache,session,wiki}-{success,stale,mismatch}` 分别要求最终模型真实消费、原生读取后物理删除 Core 原件时零后续模型请求，以及原生正文变化时显式拒绝且零后续模型请求。cache 场景还要求实际向量索引、原生嵌入缓存和强制重建时的缓存复用；这些是索引准备及缓存复用证据，消费定位使用只读 FTS，不把它当成语义检索或向量查询证明。全部原生消费场景要求消费期间零嵌入请求；`--native-memory-cache-missing` 在索引准备后移除合成 Host 索引，要求显式 index_unavailable、零原生正文回读和零模型续轮。正式验收脚本将这些场景与已有场景绑定同一干净提交及同一安装包，运行结果由收据记录，本段不宣称验收已经通过。
 
 盘点将 `session-memory` 作为内置钩子单独列出，不能因 `plugins.list` 未列出它而遗漏；配置没有显式禁用时保持 unverifiable。以上仅覆盖声明的已留存片段。QMD、未知插件、替代 harness、远端 provider prompt cache、私人主链和真实模型仍须分别举证，`host_memory_consumption_unverifiable` 保留。Dreaming 关闭，不修改 OpenClaw 本体，不清空历史、不放宽原有容量或来源门禁。
 

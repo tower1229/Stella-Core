@@ -278,6 +278,11 @@ type PreparedTurn = {
 
 export default definePluginEntry({
   id: "stella-core",
+  // Core advances this CAS-bound data pointer during completion persistence.
+  // Reloading the plugin here can interrupt that same completion. All authority
+  // and source gates still revalidate live inputs; other config paths keep the
+  // Host's normal reload behavior.
+  reload: { hotPrefixes: ["plugins.entries.stella-core.config.recoveryRevision"] },
   name: "Stella Core",
   description:
     "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",

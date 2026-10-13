@@ -7,3 +7,12 @@ declare module "openclaw/plugin-sdk/memory-core-host-runtime-core" {
     supplement: Parameters<OpenClawPluginApi["registerMemoryCorpusSupplement"]>[0];
   }>;
 }
+
+// OpenClaw 2026.8.2 exposes this pinned storage schema through a public JS
+// facade without declarations. No private Host bundle is imported.
+declare module "openclaw/plugin-sdk/memory-core-host-engine-storage" {
+  export const MEMORY_INDEX_FTS_TABLE: "memory_index_chunks_fts";
+  export const MEMORY_INDEX_CHUNKS_TABLE: "memory_index_chunks";
+  export const MEMORY_INDEX_SOURCES_TABLE: "memory_index_sources";
+  export const MEMORY_INDEX_CHUNK_PROVENANCE_TABLE: "memory_index_chunk_provenance";
+}
