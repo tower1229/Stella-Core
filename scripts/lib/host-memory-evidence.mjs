@@ -6,13 +6,16 @@ export const HOST_MEMORY_BOUNDARY_FLAGS = Object.freeze([
   ...SOURCE_AUDIENCE_SCENARIOS.map(value => `--source-audience-${value}`),
   ...HOST_INGRESS_FIELDS.map(value => `--host-ingress-${value}`),
 ]);
+export const NATIVE_MEMORY_CONSUMPTION_FLAGS = Object.freeze(["fts", "cache", "session", "wiki"].flatMap(family =>
+  ["success", "stale", "mismatch"].map(state => `--native-memory-${family}-${state}`)));
+const nativeProbes = family => NATIVE_MEMORY_CONSUMPTION_FLAGS.filter(flag => flag.startsWith(`--native-memory-${family}-`)).map(flag => flag.slice(2));
 
 // This is an evidence index, never an admission receipt. A common final-input
 // rejection proves that boundary, not every native producer upstream of it.
 const coverage = {
-  memory_index: { probes: ["fragment-skill", "source-audience-owner", "guarded-active-memory"],
-    gaps: ["Native index backends and arbitrary memory plugins are not individually certified."] },
-  session_summary: { probes: ["standalone-compact", "standalone-compact-stale", "history-view-followup"],
+  memory_index: { probes: ["fragment-skill", "source-audience-owner", "guarded-active-memory", ...nativeProbes("fts"), ...nativeProbes("cache")],
+    gaps: ["Builtin FTS/vector are certified for retained exact fragments; QMD and arbitrary memory plugins remain unverified."] },
+  session_summary: { probes: ["standalone-compact", "standalone-compact-stale", "history-view-followup", ...nativeProbes("session")],
     gaps: ["Evidence covers Core signed summaries, not every native summary producer."] },
   bootstrap: { probes: ["initialization", "host-ingress-bootstrap", "source-audience-owner"],
     gaps: ["Scoped to the pinned Host loader and initialized target workspace."] },
@@ -20,19 +23,20 @@ const coverage = {
     gaps: ["Scoped to signed target-session history; other transports are not certified."] },
   compaction: { probes: ["standalone-compact", "standalone-compact-stale", "standalone-compact-grant-denied", "standalone-compact-persist-failure"],
     gaps: ["Native sessions.compact remains rejected; success uses explicit Core compaction authority."] },
-  prompt_cache: { probes: ["guarded-active-memory", "guarded-active-memory-stale", "guarded-provider-stale"],
-    gaps: ["Per-run recall partition and stale transport rejection do not certify every native or remote prompt cache."] },
+  prompt_cache: { probes: ["guarded-active-memory", "guarded-active-memory-stale", "guarded-provider-stale", ...nativeProbes("cache"), ...nativeProbes("wiki")],
+    gaps: ["Embedding reindex cache and native Wiki reads are scoped evidence; remote provider prompt caches and arbitrary harness caches remain unverified."] },
   context_engine: { probes: ["managed-context-history", "managed-context-persistence-failure", "managed-context-native-control", "main-native-artifact-active-memory"],
     gaps: ["Only the selected managed engine and target Agent are governed; native control is diagnostic."] },
   harness_memory: { probes: ["host-ingress-prependSystemContext", "host-ingress-appendSystemContext", "host-ingress-prependContext"],
     gaps: ["Public hook injection is rejected; alternative harness memory producers remain unverified."] },
-  internal_hooks: { probes: ["host-ingress-prependSystemContext", "host-ingress-appendSystemContext", "host-ingress-prependContext", "guarded-payload-transform"],
+  internal_hooks: { probes: ["host-ingress-prependSystemContext", "host-ingress-appendSystemContext", "host-ingress-prependContext", "guarded-payload-transform", ...nativeProbes("session")],
     gaps: ["Observed prompt/payload hooks only; arbitrary plugin side calls are not certified."] },
 };
 const pluginCoverage = {
   "active-memory": ["guarded-active-memory", "guarded-active-memory-stale", "main-native-artifact-active-memory"],
-  "memory-core": ["native-active-memory-artifact", "capability-acceptance"],
-  "dreaming": [], "session-memory": [], "memory-wiki": [],
+  "memory-core": ["native-active-memory-artifact", "capability-acceptance", ...nativeProbes("fts"), ...nativeProbes("cache")],
+  "dreaming": [], "session-memory": ["native-memory-producers", ...nativeProbes("session")],
+  "memory-wiki": ["native-memory-producers", ...nativeProbes("wiki")],
 };
 export const HOST_MEMORY_EVIDENCE_PROBES = Object.freeze([...new Set([
   ...Object.values(coverage).flatMap(row => row.probes), ...Object.values(pluginCoverage).flat(),
@@ -62,6 +66,39 @@ export function assertHostMemoryBoundaryReport(report, flag) {
   } else if (scenario) assert.equal(report.semanticCalls, 0);
 }
 
+export function assertNativeMemoryConsumptionReport(report, flag) {
+  const [family, state] = flag.slice("--native-memory-".length).split("-");
+  assert.equal(report.schemaVersion, "stella.native-memory-consumption/v1");
+  assert.equal(report.nativeFamily, family); assert.equal(report.nativeState, state);
+  assert.equal(report.dreamingEnabled, false); assert.equal(report.fullMemoryAccepted, false);
+  assert.equal(report.realModelAccepted, false); assert.equal(report.unknownInputConsumed, false);
+  assert.equal(report.nativeReadExecuted, true); assert.equal(report.nativeReads.length, 1);
+  assert.equal(report.providerRequests, state === "success" ? 3 : 2);
+  assert.equal(report.terminalStatus, state === "success" ? "ok" : "error");
+  assert.equal(report.finalAnswers, state === "success" ? 1 : 0);
+  assert.equal(report.actualNativeBytesConsumed, state === "success");
+  assert.equal(report.nativeFinalToolOriginalConsumed, state === "success");
+  assert.ok(report.sourceAccessCalls > 0);
+  if (state === "success") assert.ok(report.outputChecks > 0);
+  else assert.equal(report.modelRequestsAfterInvalidation, 0);
+  if (state === "stale") assert.equal(report.staleNativeArtifactRetained, true);
+  if (state === "mismatch") assert.equal(report.changedNativeBytesRejected, true);
+  if (family === "cache") {
+    assert.equal(report.embeddingCacheReuseVerified, true);
+    assert.ok(report.nativePreparation.cold.cache.entries > 0 && report.nativePreparation.warm.cache.entries > 0);
+    assert.ok(report.embeddingRequests > 0);
+  }
+  if (family === "wiki") {
+    assert.equal(report.wikiCompiledClaimCacheRequired, true);
+    assert.equal(typeof report.nativeSource.claimId, "string");
+    assert.ok(report.nativeSource.claimId.length > 0);
+    if (state === "mismatch") {
+      assert.equal(report.nativeReadFailure, "native_memory_read_unverifiable");
+      assert.equal(report.nativeReads[0].result, null);
+    }
+  }
+}
+
 export function alignHostMemoryEvidence({ nativeEntrances, pluginIds, probes, coreRevision, artifactSha256 }) {
   assert.deepEqual([...nativeEntrances].sort(), Object.keys(coverage).sort(), "Every declared native entrance needs an explicit evidence row");
   assert.deepEqual([...pluginIds].sort(), Object.keys(pluginCoverage).sort(), "Every named memory plugin needs an explicit evidence row");
@@ -82,6 +119,14 @@ export function alignHostMemoryEvidence({ nativeEntrances, pluginIds, probes, co
     references([name]);
     assertHostMemoryBoundaryReport(byName.get(name).report, flag);
   }
+  for (const flag of NATIVE_MEMORY_CONSUMPTION_FLAGS) {
+    references([flag.slice(2)]);
+    assertNativeMemoryConsumptionReport(byName.get(flag.slice(2)).report, flag);
+  }
+  const producer = byName.get("native-memory-producers")?.report;
+  assert.equal(producer?.nativeSessionNewExecuted, true); assert.equal(producer?.nativeWikiCompileExecuted, true);
+  assert.equal(producer?.nativeCompiledClaimRead, true);
+  assert.equal(producer?.dreamingEnabled, false);
   const inventories = probes.filter(probe => probe.report.memoryInventory).map(probe => ({
     probe: probe.flag, inventory: probe.report.memoryInventory,
   }));

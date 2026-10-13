@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertProbeDreamingDisabled, assertSourceUnchanged,
   fileManifest, installedPackageRoot, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
-import { alignHostMemoryEvidence, assertHostMemoryBoundaryReport, HOST_MEMORY_BOUNDARY_FLAGS } from "./lib/host-memory-evidence.mjs";
+import { alignHostMemoryEvidence, assertHostMemoryBoundaryReport, assertNativeMemoryConsumptionReport, HOST_MEMORY_BOUNDARY_FLAGS, NATIVE_MEMORY_CONSUMPTION_FLAGS } from "./lib/host-memory-evidence.mjs";
 
 // Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
 // generator or cron.run is invoked; full_memory remains independently blocked.
@@ -97,6 +97,7 @@ try {
     "dist/src/openclaw/host-memory.js",
     "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
     "dist/src/openclaw/fragment-read-tool.js",
+    "dist/src/openclaw/native-memory-reader.js", "dist/src/canghai/native-memory-origin.js",
     "dist/src/canghai/host-request-archive.js", "dist/src/canghai/source-output.js", "dist/src/canghai/source-interpretation.js", "dist/src/canghai/source-policy-migration.js", "dist/src/canghai/source-segments.js", "dist/src/canghai/semantic-retrieval.js", "dist/src/learning/host-correction.js", "dist/src/learning/correction.js",
     "dist/src/acceptance/exact-host-chat.js", "dist/src/acceptance/question-evaluation-answer.js",
     "dist/src/acceptance/alpha-candidate.js", "dist/src/acceptance/model-praxis-evaluator.js",
@@ -210,6 +211,11 @@ try {
     assert.equal(report.dreamingEnabled, false);
     assert.equal(report.memoryCoreEnabled, true);
   });
+  const nativeProducers = await probe("native-memory-producers", "probe-native-memory-producers.mjs", [], {}, report => {
+    assert.equal(report.nativeSessionNewExecuted, true); assert.equal(report.nativeWikiIngestExecuted, true);
+    assert.equal(report.nativeWikiCompileExecuted, true); assert.equal(report.stellaConsumptionVerified, false);
+    assert.equal(report.nativeCompiledClaimRead, true);
+  });
   await probe("main-native-artifact-active-memory", "probe-main-plugin.mjs",
     ["--native-artifact", path.join(active.evidenceDirectory, "native-active-memory.json")], {}, report => {
       assert.equal(report.providerRequests, 0); assert.equal(report.finalAnswers, 0);
@@ -245,7 +251,8 @@ try {
     "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
     "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery", "--outcome-history-recovery",
     "--standalone-compact", "--standalone-compact-stale", "--standalone-compact-grant-denied", "--standalone-compact-persist-failure",
-    "--history-view-followup", "--source-deletion-history", "--completion-lifecycle", "--completion-status-changed", ...HOST_MEMORY_BOUNDARY_FLAGS];
+    "--history-view-followup", "--source-deletion-history", "--completion-lifecycle", "--completion-status-changed", ...HOST_MEMORY_BOUNDARY_FLAGS,
+    ...NATIVE_MEMORY_CONSUMPTION_FLAGS];
   // Each probe owns its Host state and synthetic repositories. Never repack or
   // rebuild while any installed-package consumer is running. Preserve failures.
   let probeFailure;
@@ -255,8 +262,11 @@ try {
       const flag = flags[next++];
       const name = flag === "--outcome-recovery" ? "outcome-recovery-unbound-history" : flag.slice(2);
       try {
-        await probe(name, "probe-main-plugin.mjs", [flag], {}, report => {
+        await probe(name, "probe-main-plugin.mjs", [flag], {
+          STELLA_NATIVE_PRODUCERS_REPORT: path.join(nativeProducers.evidenceDirectory, "native-memory-producers.json"),
+        }, report => {
           if (HOST_MEMORY_BOUNDARY_FLAGS.includes(flag)) assertHostMemoryBoundaryReport(report, flag);
+          if (NATIVE_MEMORY_CONSUMPTION_FLAGS.includes(flag)) assertNativeMemoryConsumptionReport(report, flag);
           if (flag === "--outcome-recovery") {
             assert.equal(report.persistence.recovery.blocked, true);
             assert.equal(report.persistence.recovery.pendingTransactionPreserved, true);

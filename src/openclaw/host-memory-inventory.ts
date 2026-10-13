@@ -51,6 +51,14 @@ export function inspectDeclaredHostMemory(input: {
   const entries: Array<{ identityHash: string; kind: string; state: string; reason: string }> = [];
   for (const kind of HOST_NATIVE_MEMORY_ENTRANCES) entries.push({ identityHash: bytesVersion(`native:${kind}`), kind,
     state: "unverifiable", reason: "host_provenance_binding_unavailable" });
+  // Bundled hooks are default-on when discovered. Config alone cannot prove
+  // absence (managed installs may also load them); only an explicit disable is
+  // sufficient to report disabled without a native hook-runtime inventory.
+  const sessionMemoryDisabled = input.config.hooks?.internal?.enabled === false ||
+    input.config.hooks?.internal?.entries?.["session-memory"]?.enabled === false;
+  entries.push({ identityHash: bytesVersion("hook:session-memory"), kind: "session-memory",
+    state: sessionMemoryDisabled ? "disabled" : "unverifiable",
+    reason: sessionMemoryDisabled ? "host_reports_disabled" : "hook_input_provenance_unavailable" });
   const seen = new Set<string>();
   for (const plugin of inventory.plugins) {
     if (!isRecord(plugin) || typeof plugin.id !== "string" || !plugin.id || typeof plugin.installed !== "boolean" ||

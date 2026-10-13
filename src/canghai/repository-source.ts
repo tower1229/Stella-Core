@@ -3,6 +3,7 @@ import { sourceSegments } from "./source-segments.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { stableId, type ArchiveObject } from "./host-input-archive.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
+import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "./native-memory-origin.js";
 
 export const REPOSITORY_SOURCE_ADAPTER = "stella-repository-file/v1";
 
@@ -11,6 +12,7 @@ export async function prepareRepositorySource(input: {
   root: string; collectionId: string; sourceId: string; relativePath: string;
   expectedSha256: string; capturedAt: string; policyRef: VersionedRef; objectRoot: string;
   reviewedSegments?: Array<{ start: number; end: number; policyRef: VersionedRef }>;
+  nativeMemory?: NativeMemoryOrigin;
 }): Promise<{ sourceRef: VersionedRef; evidenceRefs: VersionedRef[]; objects: ArchiveObject[] }> {
   input = structuredClone(input);
   if (!input.collectionId || !input.sourceId || !validMemoryRef(input.policyRef) ||
@@ -51,6 +53,7 @@ export async function prepareRepositorySource(input: {
     origin: { adapterId: REPOSITORY_SOURCE_ADAPTER, collectionId: input.collectionId, upstreamId: input.sourceId },
     payloads: [{ path: input.relativePath, mediaType: "text/plain", bytes: bytes.length, sha256: input.expectedSha256 }],
     capturedAt: input.capturedAt, policyRef: input.policyRef, coverageRef,
+    ...(input.nativeMemory !== undefined ? { nativeMemory: parseNativeMemoryOrigin(input.nativeMemory) } : {}),
     ...(input.reviewedSegments ? { accessSegments: input.reviewedSegments.map(segment => ({ ...structuredClone(segment), payloadSha256: input.expectedSha256 })) } : {}) };
   const segments = sourceSegments(sourceObject);
   // Validate every boundary, including a segment that a later request will deny.

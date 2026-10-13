@@ -2,6 +2,7 @@ import { createHostContextTurnStore, type CommitHostContextTurn } from "./opencl
 import { withHostHistoryCompaction, hostHistoryCompaction, assertHostHistoryCompaction, publishHostHistoryCompaction } from "./openclaw/host-history-compaction.js";
 import { resolveManagedHostTimezone } from "./openclaw/host-context-prompt.js";
 import { createFragmentReadTool, FRAGMENT_READ_DESCRIPTION, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "./openclaw/fragment-read-tool.js";
+import { createNativeMemoryReader } from "./openclaw/native-memory-reader.js";
 import type { SourceAccessDescriptor, SourceAccessProvider } from "./canghai/source-access.js";
 import { HostContextAuthority, type ContextFragment } from "./openclaw/host-context-authority.js";
 import { loadContextHistoryKeys } from "./openclaw/host-context-keys.js";
@@ -1409,6 +1410,7 @@ export default definePluginEntry({
             })() : undefined;
             let managedContext: ManagedHostContextEngine | undefined;
             const fragmentTool = viewProcessing ? createFragmentReadTool({ resolver: runtime.evidence,
+              readNative: createNativeMemoryReader(api, config.agentId, request.sessionKey),
               descriptors: viewProcessing.descriptors, originals: outputOriginals,
               processingAuthority,
               ...(contextExecutionHash ? { observeResult: async (receipt: Parameters<ManagedHostContextEngine["observeToolResult"]>[0]) => {

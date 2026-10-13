@@ -11,6 +11,49 @@ import { loadPersonalContextAccess, validatePersonalContextCatalog, type Persona
 import { createFragmentReadTool } from "../src/openclaw/fragment-read-tool.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
 import { ownerDirectAuthority } from "./processing-authority-fixture.js";
+import type { NativeMemoryOrigin } from "../src/canghai/native-memory-origin.js";
+
+test("native-bound fragments require native reads and revalidate retained bytes after asynchronous consumption", async t => {
+  const { personalMemoryFixture } = await import("./personal-memory-fixture.js");
+  const f = await personalMemoryFixture(t, true);
+  const policyRef = { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version };
+  const text = "Synthetic native original.\n";
+  await writeFile(path.join(f.root, "native.md"), text);
+  const nativeMemory: NativeMemoryOrigin = { schemaVersion: "stella.native-memory-origin/v1", hostVersion: "2026.8.2",
+    agentId: "stella", provider: "memory-core", path: "memory/native.md", fromLine: 1, lineCount: 1 };
+  const args = { root: f.root, collectionId: "native", sourceId: "native", relativePath: "native.md",
+    expectedSha256: bytesVersion(text), capturedAt: "2026-09-01T00:00:00Z", policyRef, objectRoot: "objects",
+    reviewedSegments: [{ start: 0, end: Buffer.byteLength(text), policyRef }] };
+  const imported = await prepareRepositorySource({ ...args, nativeMemory });
+  assert.notDeepEqual(imported.sourceRef, (await prepareRepositorySource(args)).sourceRef, "Native provenance changes immutable Source identity");
+  for (const object of imported.objects) {
+    await mkdir(path.dirname(path.join(f.root, object.entry.locator.path)), { recursive: true });
+    await writeFile(path.join(f.root, object.entry.locator.path), object.bytes); f.catalog[object.group].push(object.entry);
+  }
+  await f.save();
+  const resolver = await f.resolver(), original = await resolver.readEvidence(imported.evidenceRefs[0]!);
+  const input = { resolver, originals: [original], descriptors: [{ sourceRef: imported.sourceRef, policyRef, description: "Native original",
+    segment: { payloadSha256: args.expectedSha256, start: 0, end: Buffer.byteLength(text) } }], assertCurrent: async () => {},
+    processingAuthority: ownerDirectAuthority({ purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model" } }) };
+  await assert.rejects(createFragmentReadTool(input).execute("read", { action: "read", handle: "F1" }), /native_memory_reader_required/);
+  let reads = 0, receipts = 0;
+  const tool = createFragmentReadTool({ ...input, observeResult: async () => { receipts++; },
+    readNative: async (origin, admitted, current) => {
+      reads++; assert.deepEqual(origin, nativeMemory); assert.deepEqual(admitted, original); await current(); return text;
+    } });
+  await tool.execute("list", { action: "list" }); assert.equal(reads, 0);
+  await assert.rejects(tool.execute("denied", { action: "read", handle: "F2" }), /fragment_handle_not_available/);
+  assert.equal(reads, 0);
+  assert.equal((await tool.execute("read", { action: "read", handle: "F1" })).details.original?.text, text);
+  assert.equal(reads, 1); assert.equal(receipts, 2);
+  await assert.rejects(createFragmentReadTool({ ...input, readNative: async () => "Changed bytes" }).execute("read", { action: "read", handle: "F1" }),
+    /native_memory_payload_changed/);
+  const stale = createFragmentReadTool({ ...input, observeResult: async () => { receipts++; }, readNative: async () => {
+    await rm(path.join(f.root, "native.md")); return text;
+  } });
+  await assert.rejects(stale.execute("read", { action: "read", handle: "F1" }));
+  assert.equal(receipts, 2, "No sealed result is emitted after native read invalidates the retained source");
+});
 
 test("reviewed segments preserve originals and independent origin while enforcing narrower fragment policy before payload access", async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-segments-"));

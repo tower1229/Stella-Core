@@ -7,6 +7,7 @@ import { assertEvidenceSegment, segmentLocator, sourceSegments } from "../cangha
 import type { EpisodeEvidenceResolver, OriginalEvidence } from "../praxis/episode-evidence.js";
 import { isRecord } from "../shared/type-guards.js";
 import { assertProcessingStage, type ProcessingAuthority } from "./processing-authority.js";
+import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "../canghai/native-memory-origin.js";
 
 export const FRAGMENT_READ_TOOL = "stella_read_fragment";
 export const FRAGMENT_READ_DESCRIPTION = "For memory skills: list this turn's admitted fragment descriptions, then read an exact handle. Originals retain Evidence citations. Unavailable evidence requires a new retrieval request; never read the source file directly.";
@@ -46,6 +47,7 @@ export function createFragmentReadTool(input: {
   processingAuthority: ProcessingAuthority;
   assertCurrent(): Promise<void>;
   observeResult?(receipt: FragmentToolResultReceipt): Promise<void>;
+  readNative?(origin: NativeMemoryOrigin, original: OriginalEvidence, assertCurrent: () => Promise<void>): Promise<string>;
 }) {
   const originals = [...new Map(input.originals.map(original => [canonicalJson(original.ref), structuredClone(original)])).values()];
   const descriptors = structuredClone(input.descriptors);
@@ -94,6 +96,22 @@ export function createFragmentReadTool(input: {
         check(selected, "fragment_handle_not_available");
         const original = await input.resolver.readEvidence(selected.evidenceRef);
         check(canonicalJson(original) === canonicalJson(selected.original), "fragment_source_changed");
+        const source = await input.resolver.reader.read(selected.sourceRef, "sources");
+        if (source.nativeMemory !== undefined) {
+          const origin = parseNativeMemoryOrigin(source.nativeMemory);
+          check(input.readNative, "native_memory_reader_required");
+          await current();
+          const text = await input.readNative(origin, structuredClone(original), async () => {
+            await current();
+            check(canonicalJson(await input.resolver.readEvidence(selected.evidenceRef)) === canonicalJson(selected.original),
+              "fragment_source_changed");
+          });
+          await current();
+          check(canonicalJson(await input.resolver.readEvidence(selected.evidenceRef)) === canonicalJson(selected.original),
+            "fragment_source_changed");
+          check(text === original.text, "native_memory_payload_changed");
+          original.text = text;
+        }
         details = { original };
       }
       await current();

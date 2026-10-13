@@ -20,7 +20,23 @@ const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf
 assert.equal(host.version, "2026.8.2");
 const outputRejectionProbe = process.argv.includes("--correction-output-rejected");
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
-const audienceScenario = process.argv.find(arg => arg.startsWith("--source-audience-"))?.slice("--source-audience-".length);
+const nativeCase = process.argv.find(arg => arg.startsWith("--native-memory-"))?.slice("--native-memory-".length);
+const [nativeFamily, nativeState] = nativeCase?.split("-") ?? [];
+if (nativeCase) assert.ok(["fts", "cache", "session", "wiki"].includes(nativeFamily) && ["success", "stale", "mismatch"].includes(nativeState));
+let producerReport, nativeSource;
+if (nativeCase) {
+  assert.ok(process.env.STELLA_NATIVE_PRODUCERS_REPORT, "Native consumption requires a real producer report");
+  producerReport = JSON.parse(await readFile(process.env.STELLA_NATIVE_PRODUCERS_REPORT, "utf8"));
+  assert.equal(producerReport.schemaVersion, "stella.native-memory-producers/v1");
+  assert.equal(producerReport.hostVersion, host.version); assert.equal(producerReport.dreamingEnabled, false);
+  assert.equal(producerReport.nativeSessionNewExecuted, true); assert.equal(producerReport.nativeWikiCompileExecuted, true);
+  assert.equal(producerReport.nativeCompiledClaimRead, true);
+  nativeSource = producerReport.artifacts.find(value => value.provider === ({ session: "session-memory", wiki: "memory-wiki" }[nativeFamily] ?? "memory-core"));
+  assert.ok(nativeSource);
+  if (nativeFamily === "wiki") assert.equal(typeof nativeSource.claimId, "string");
+  assert.equal(createHash("sha256").update(await readFile(nativeSource.rawPath)).digest("hex"), nativeSource.rawSha256);
+}
+const audienceScenario = process.argv.find(arg => arg.startsWith("--source-audience-"))?.slice("--source-audience-".length) ?? (nativeCase ? "owner" : undefined);
 if (audienceScenario) assert.ok(["owner", "visitor", "group", "channel", "cron", "subagent", "requester-denied", "revoked"].includes(audienceScenario));
 const audienceAllowed = audienceScenario === "owner" || audienceScenario === "revoked";
 const ingressField = process.argv.find(arg => arg.startsWith("--host-ingress-"))?.slice("--host-ingress-".length);
@@ -123,6 +139,20 @@ await mkdir(snapshotParent, { recursive: true });
 const coreSnapshot = await mkdtemp(path.join(snapshotParent, "main-probe-build-"));
 const coreDist = path.join(coreSnapshot, "dist");
 await cp(path.join(packageRoot, "dist"), coreDist, { recursive: true });
+if (nativeCase) {
+  // Record the response at Core's public native-read seam. Host may replace its
+  // runtime capability object during config reload, so wrapping one manager
+  // instance is insufficient. This isolated Core copy adds observation only.
+  const file = path.join(coreDist, "src/openclaw/native-memory-reader.js");
+  let source = await readFile(file, "utf8");
+  source = `import { appendFileSync as recordNativeRead } from 'node:fs';\n` + source;
+  for (const marker of ["result = await supplement.get", "result = await loaded.manager.readFile"]) {
+    const start = source.indexOf(marker); assert.ok(start >= 0 && source.indexOf(marker, start + 1) === -1);
+    const end = source.indexOf(";", start) + 1; assert.ok(end > start);
+    source = source.slice(0, end) + `\nrecordNativeRead(${JSON.stringify(path.join(temp, "native-consumed.jsonl"))}, JSON.stringify({ origin, result }) + '\\n');\n` + source.slice(end);
+  }
+  await writeFile(file, source);
+}
 // One-variable diagnostic: change only the isolated Core copy, never the Host.
 if (nativeCompletionLifecycle) {
   const adapter = path.join(coreDist, "src/openclaw/completion-adapter.js");
@@ -255,14 +285,25 @@ if (fragmentProbe || nativeFragmentFixture) {
     await writeFile(path.join(canghaiRoot, file), body);
     catalog.policies.push({ ...ref, status: "current", dependencies: [], locator: { path: file, sha256: bytesVersion(body) } }); refs.push(ref);
   }
-  const allowed = "SYNTHETIC_ALLOWED_FRAGMENT\n", denied = nativeFragmentFixture ? "" : "SYNTHETIC_DENIED_NEIGHBOR\n", payload = allowed + denied;
+  const allowed = nativeSource?.text ?? "SYNTHETIC_ALLOWED_FRAGMENT\n", denied = nativeFragmentFixture ? "" : "SYNTHETIC_DENIED_NEIGHBOR\n";
+  const payload = nativeSource ? await readFile(nativeSource.rawPath, "utf8") : allowed + denied;
+  const segmentStart = nativeSource?.segmentStart ?? 0, segmentEnd = nativeSource?.segmentEnd ?? Buffer.byteLength(allowed);
   fragmentOriginalPath = path.join(canghaiRoot, "30_PersonalData/memory/fragments.txt");
   await writeFile(fragmentOriginalPath, payload);
   const imported = await prepareRepositorySource({ root: canghaiRoot, collectionId: "fragment-probe", sourceId: "mixed",
     relativePath: "30_PersonalData/memory/fragments.txt", expectedSha256: bytesVersion(payload), capturedAt: "2026-09-01T00:00:00Z", policyRef: refs[0],
-    objectRoot: "30_PersonalData/memory/objects", reviewedSegments: [{ start: 0, end: Buffer.byteLength(allowed), policyRef: refs[0] },
+    ...(nativeSource ? { nativeMemory: { schemaVersion: "stella.native-memory-origin/v1", hostVersion: host.version,
+      agentId: "probe", provider: nativeSource.provider, path: nativeSource.nativePath, fromLine: nativeSource.fromLine, lineCount: nativeSource.lineCount,
+      ...(nativeSource.claimId === undefined ? {} : { claimId: nativeSource.claimId }) } } : {}),
+    objectRoot: "30_PersonalData/memory/objects", reviewedSegments: [
+      ...(segmentStart > 0 ? [{ start: 0, end: segmentStart, policyRef: refs[0] }] : []),
+      { start: segmentStart, end: segmentEnd, policyRef: refs[0] },
+      ...(nativeSource && segmentEnd < Buffer.byteLength(payload) ? [{ start: segmentEnd, end: Buffer.byteLength(payload), policyRef: refs[0] }] : []),
       ...(nativeFragmentFixture ? [] : [{ start: Buffer.byteLength(allowed), end: Buffer.byteLength(payload), policyRef: refs[1] }])] });
   for (const object of imported.objects) {
+    // Retain the full native file, but expose only the declared body excerpt as
+    // retrievable Evidence. Frontmatter remains retained provenance metadata.
+    if (nativeSource && object.group === "evidence" && object.object.selector.value !== `${segmentStart}:${segmentEnd}`) continue;
     await mkdir(path.dirname(path.join(canghaiRoot, object.entry.locator.path)), { recursive: true });
     await writeFile(path.join(canghaiRoot, object.entry.locator.path), object.bytes); catalog[object.group].push(object.entry);
   }
@@ -271,9 +312,14 @@ if (fragmentProbe || nativeFragmentFixture) {
   const access = JSON.parse(await readFile(accessFile, "utf8"));
   access.descriptors = refs.slice(0, nativeFragmentFixture ? 1 : 2).map((policyRef, index) => ({ sourceRef: imported.sourceRef, policyRef,
     description: index ? "Synthetic unavailable neighboring fragment" : "Synthetic permitted observation fragment",
-    segment: { payloadSha256: bytesVersion(payload), start: index ? Buffer.byteLength(allowed) : 0,
-      end: index ? Buffer.byteLength(payload) : Buffer.byteLength(allowed) } }));
+    segment: { payloadSha256: bytesVersion(payload), start: index ? Buffer.byteLength(allowed) : segmentStart,
+      end: index ? Buffer.byteLength(payload) : segmentEnd } }));
   if (!nativeFragmentFixture) access.descriptors.push({ ...access.descriptors[1], policyRef: refs[0] });
+  if (nativeSource) for (const segment of [
+    ...(segmentStart > 0 ? [{ start: 0, end: segmentStart }] : []),
+    ...(segmentEnd < Buffer.byteLength(payload) ? [{ start: segmentEnd, end: Buffer.byteLength(payload) }] : []),
+  ]) for (const policyRef of refs.slice(0, 1)) access.descriptors.push({ sourceRef: imported.sourceRef, policyRef,
+    description: "Synthetic unavailable native envelope", segment: { payloadSha256: bytesVersion(payload), ...segment } });
   await writeFile(accessFile, canonicalJson(access));
 }
 
@@ -303,6 +349,14 @@ if (managedContextProbe) {
   const file = path.join(canghaiRoot, binding.configPath), prior = JSON.parse(await readFile(file, "utf8"));
   await writeFile(file, canonicalJson({ ...prior, referenceBindings: binding.referenceBindings }));
 }
+if (nativeCase) {
+  const retained = path.join(canghaiRoot, "30_PersonalData/native-producer");
+  await mkdir(retained, { recursive: true });
+  await cp(producerReport.workspace, path.join(retained, "workspace"), { recursive: true });
+  await cp(producerReport.vault, path.join(retained, "vault"), { recursive: true });
+  await cp(path.join(producerReport.evidenceDirectory, "wiki-input.md"), path.join(retained, "wiki-input.md"));
+  await writeFile(path.join(retained, "producer.json"), JSON.stringify(producerReport, null, 2));
+}
 const revision = await initializeFixtureRepository(canghaiRoot);
 const remote = path.join(temp, "canghai.git");
 if (managed) {
@@ -315,6 +369,11 @@ const state = path.join(temp, "state");
 const plugin = path.join(temp, "plugin");
 const workspace = path.join(temp, "workspace");
 await Promise.all([state, plugin, workspace].map((directory) => mkdir(directory)));
+const nativeVault = path.join(temp, "native-vault");
+if (nativeCase) {
+  await cp(path.join(producerReport.workspace, "memory"), path.join(workspace, "memory"), { recursive: true });
+  await cp(producerReport.vault, nativeVault, { recursive: true });
+}
 const contextKeys = managedContextProbe ? await (await import(buildModule("src/openclaw/host-context-keys.js"))).initializeContextHistoryKeys({
   stateDirectory: state, repositoryRoot: canghaiRoot, agentId: "probe" }) : undefined;
 await writeFile(path.join(workspace, "AGENTS.md"), "Synthetic isolated main plugin probe. No tools or private data.\n");
@@ -332,6 +391,7 @@ import { HostContextAuthority } from ${JSON.stringify(buildModule("src/openclaw/
 import { CatalogReader } from ${JSON.stringify(buildModule("src/canghai/catalog-reader.js"))};
 import { readCompletionPreparation, hasCompletionRunPermit } from ${JSON.stringify(buildModule("src/openclaw/completion.js"))};
 import { getPluginRuntimeGatewayRequestScope } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/plugin-runtime.js")).href)};
+import { getMemoryCapabilityRegistration } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/memory-host-core.js")).href)};
 import { resolveCommandAuthorization } from ${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/command-auth.js")).href)};
 import { resolveTurnAudience } from ${JSON.stringify(buildModule("src/openclaw/turn-audience.js"))};
 if (${completionStatusChanged}) {
@@ -424,6 +484,34 @@ const seed = ${JSON.stringify(outcomeProbe ? outcomeSeed : null)};
 const outcomePhase = () => !${outcomeHistoryProbe} || existsSync(${JSON.stringify(path.join(temp, 'outcome-history-phase'))}) && readFileSync(${JSON.stringify(path.join(temp, 'outcome-history-phase'))}, 'utf8') === 'outcome';
 const tracedPreparations = new WeakSet();
 export default { ...main, register(api) {
+  if (${Boolean(nativeCase)}) {
+    const record = value => appendFileSync(${JSON.stringify(path.join(temp, "native-backend.jsonl"))}, JSON.stringify({ ...value, observedAt: Date.now() }) + '\\n');
+    api.registerGatewayMethod('stella.syntheticNativePrepare', async ({ respond }) => {
+      try {
+        if (${nativeFamily === "wiki"}) { respond(true, { wiki: true }); return; }
+        const runtime = getMemoryCapabilityRegistration()?.capability.runtime;
+        if (!runtime) throw new Error('actual_memory_core_registration_missing');
+        const { manager } = await runtime.getMemorySearchManager({ cfg: api.runtime.config.current(), agentId: 'probe' });
+        if (!manager) throw new Error('actual_native_manager_unavailable');
+        await manager.sync({ force: true });
+        const cold = manager.status();
+        record({ operation: 'cold-sync', status: cold });
+        await manager.sync({ force: true });
+        const warm = manager.status();
+        record({ operation: 'warm-sync', status: warm });
+        respond(true, { cold, warm });
+      } catch(error) { respond(false, undefined, { code: 'UNAVAILABLE', message: String(error) }); }
+    });
+    api.on('after_tool_call', event => {
+      if (event.toolName === 'stella_read_fragment') appendFileSync(${JSON.stringify(path.join(temp, "native-tool-results.jsonl"))}, JSON.stringify(event) + '\\n');
+    });
+    if (${nativeState === "stale"}) api.on('after_tool_call', event => {
+      if (event.toolName !== 'stella_read_fragment' || !event.result?.details?.original?.ref) return;
+      unlinkSync(${JSON.stringify(fragmentOriginalPath)});
+      writeFileSync(${JSON.stringify(path.join(temp, "native-source-stale.json"))}, JSON.stringify({ afterNativeRead: true,
+        nativeArtifactRetained: existsSync(${JSON.stringify(nativeSource ? path.join(nativeFamily === "wiki" ? nativeVault : workspace, nativeSource.nativePath) : "")}) }));
+    });
+  }
   if (${Boolean(ingressField && ingressField !== "bootstrap")}) api.on('before_prompt_build', () => {
     appendFileSync(${JSON.stringify(path.join(temp, "ingress-hook.jsonl"))}, JSON.stringify({ entry: ${JSON.stringify(ingressField)} }) + '\\n');
     return { [${JSON.stringify(ingressField)}]: 'SYNTHETIC_UNBOUND_HOST_MEMORY' };
@@ -678,7 +766,18 @@ const fragmentChecks = { allowedRead: false, descriptionListed: false, skillBody
 let nativeRecallRequests = 0;
 let nativeFragmentRead = false;
 let nativeSummaryConsumed = false;
+const embeddingRequests = [];
 const provider = createServer(async (request, response) => {
+  if (nativeCase && request.url?.endsWith('/embeddings')) {
+    const chunks = []; for await (const chunk of request) chunks.push(chunk);
+    const input = JSON.parse(Buffer.concat(chunks)); embeddingRequests.push({ ...input, observedAt: Date.now() });
+    await writeFile(path.join(temp, `embedding-${embeddingRequests.length}.json`), JSON.stringify(input));
+    const texts = Array.isArray(input.input) ? input.input : [input.input];
+    response.setHeader('content-type', 'application/json');
+    response.end(JSON.stringify({ object: 'list', data: texts.map((_text, index) => ({ object: 'embedding', index,
+      embedding: Array.from({ length: 384 }, (_, position) => position === 0 ? 1 : 0) })), model: input.model,
+      usage: { prompt_tokens: 1, total_tokens: 1 } })); return;
+  }
   // Native background model discovery is metadata, not a completion request.
   if (guardedDreaming && request.method === "GET" && request.url === "/v1/models") {
     response.setHeader("content-type", "application/json");
@@ -733,6 +832,9 @@ const provider = createServer(async (request, response) => {
       return;
     }
     assert.ok(requestBody.includes("SYNTHETIC_ALLOWED_FRAGMENT"), "The actual final transport must consume the authorized fragment");
+    if (nativeCase) assert.ok(parsedRequest.messages.some(message => message.role === "tool" &&
+      typeof message.content === "string" && JSON.parse(message.content).original?.text === nativeSource.text),
+    "The final model must receive the complete native original in the admitted tool result");
   }
   if (guardedActive && requestBody.includes("You are a memory search agent.")) {
     assert.ok(!requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR"), "Native recall must not receive the denied neighboring segment");
@@ -836,16 +938,24 @@ const provider = createServer(async (request, response) => {
 await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
 const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
+  ...(nativeCase ? { memory: { search: { enabled: true, provider: nativeFamily === "cache" ? "openai" : "none", fallback: "none",
+    model: "text-embedding-3-small", remote: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", batch: { enabled: false } },
+    sources: ["memory"], cache: { enabled: true }, store: { vector: { enabled: nativeFamily === "cache" }, fts: { tokenizer: "unicode61" } },
+    sync: { onSessionStart: false, onSearch: false, watch: false }, query: { minScore: 0 } } },
+    hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } } : {}),
   agents: { defaults: { model: { primary: probeModel }, ...(standaloneCompactProbe ? { compaction: { model: "synthetic-compaction/probe" } } : {}), ...(guardedPayload ? { models: {
     [probeModel]: { params: { extra_body: { messages: [{ role: "user", content: "SYNTHETIC_UNBOUND_OLD_UNDERSTANDING" }] } } },
   } } : {}) }, entries: { probe: { workspace } } },
   models: { providers: { ...(standaloneCompactProbe ? { "synthetic-compaction": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", api: "openai-completions", models: [{ id: "probe", name: "synthetic compaction", contextWindow: 262144, maxTokens: 256 }] } } : {}), ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.1-pro-preview", name: "Gemini acceptance", contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: managedContextProbe ? 262144 : 32768, maxTokens: 256 }] } } },
-  plugins: { ...(managedContextProbe ? { slots: { contextEngine: "stella-core" } } : {}), allow: ["stella-core", ...(guardedDreaming ? ["memory-core"] : []), ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedDreaming ? { "memory-core": { enabled: true, config: { dreaming: {
+  plugins: { ...(managedContextProbe ? { slots: { contextEngine: "stella-core" } } : {}), allow: ["stella-core", ...(guardedDreaming || nativeCase ? ["memory-core"] : []), ...(nativeFamily === "wiki" ? ["memory-wiki"] : []), ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedDreaming ? { "memory-core": { enabled: true, config: { dreaming: {
     enabled: true, frequency: "0 0 * * *", model: probeModel,
     phases: { light: { enabled: true, limit: 3, lookbackDays: 7, execution: { model: probeModel } }, rem: { enabled: false },
       deep: { enabled: true, limit: 3, minScore: 0, minRecallCount: 0, minUniqueQueries: 0 } },
-  } } } } : { "memory-core": { config: { dreaming: { enabled: false } } } }), ...(guardedActive ? { "active-memory": { enabled: true, config: {
+  } } } } : { "memory-core": { ...(nativeCase ? { enabled: true } : {}), config: { dreaming: { enabled: false } } } }),
+  ...(nativeFamily === "wiki" ? { "memory-wiki": { enabled: true, config: { vaultMode: "isolated", vault: { scope: "global", path: nativeVault },
+    obsidian: { enabled: false, useOfficialCli: false }, bridge: { enabled: false }, context: { includeCompiledDigestPrompt: false },
+    search: { backend: "local", corpus: "wiki" } } } } : {}), ...(guardedActive ? { "active-memory": { enabled: true, config: {
     enabled: true, mode: "always", queryMode: "message", agents: ["probe"], model: probeModel, toolsAllow: ["stella_read_fragment"], timeoutMs: 120000, logging: true,
   } } } : {}), "stella-core": { enabled: true,
     llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : standaloneCompactProbe ? { allowModelOverride: true, allowedModels: [probeModel], allowedCompletionModels: [probeModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
@@ -907,6 +1017,21 @@ try {
   assert.equal((await client.request("stella.initialize", { action: "apply" })).state, "ready");
   if (audienceScenario || ingressField) {
     const inventory = await client.request("stella.initialize", { action: "memory-inventory" });
+    let nativePreparation;
+    if (nativeCase) {
+      nativePreparation = nativeFamily === "wiki" ? { compiled: await client.request("wiki.compile", { agentId: "probe" }, { timeoutMs: 60000 }),
+        wiki: await client.request("wiki.status", { agentId: "probe" }) } : await client.request("stella.syntheticNativePrepare", {}, { timeoutMs: 60000 });
+      await writeFile(path.join(temp, "native-preparation.json"), JSON.stringify(nativePreparation, null, 2));
+      if (nativeState === "mismatch") {
+        const file = path.join(nativeFamily === "wiki" ? nativeVault : workspace, nativeSource.nativePath);
+        const original = await readFile(file, "utf8");
+        const changed = original.replaceAll("SYNTHETIC_ALLOWED_FRAGMENT", "SYNTHETIC_ALLOWED_FRAGMENT_CHANGED");
+        assert.notEqual(changed, original);
+        await writeFile(file, changed);
+        await writeFile(path.join(temp, "native-payload-invalidation.json"), JSON.stringify({ file,
+          originalSha256: createHash("sha256").update(original).digest("hex"), afterIndexPreparation: true }));
+      }
+    }
     if (ingressField === "bootstrap") await writeFile(path.join(workspace, "MEMORY.md"), "SYNTHETIC_UNBOUND_HOST_MEMORY\n");
     let visitor;
     try {
@@ -932,7 +1057,7 @@ try {
         if (!["pending", "timeout"].includes(terminal.status) || terminal.endedAt != null) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);
-      const denied = !audienceAllowed || audienceScenario === "revoked";
+      const denied = !audienceAllowed || audienceScenario === "revoked" || Boolean(nativeCase && nativeState !== "success");
       assert.equal(terminal.status, denied ? "error" : "ok", JSON.stringify(terminal));
       const dispatch = (await readFile(path.join(temp, "audience-dispatch.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
       assert.equal(dispatch.length, 1);
@@ -943,7 +1068,8 @@ try {
       let semantic = [];
       try { semantic = (await readFile(path.join(temp, "audience-semantic.jsonl"), "utf8")).trim().split("\n").map(JSON.parse); }
       catch (error) { if (error.code !== "ENOENT") throw error; }
-      const expectedCategory = ingressField === "bootstrap" ? "projection_drift" : ingressField ? "host_context_input_changed"
+      const expectedCategory = nativeCase ? nativeState === "stale" ? "source_payload_unavailable" : "native_memory_payload_changed"
+        : ingressField === "bootstrap" ? "projection_drift" : ingressField ? "host_context_input_changed"
         : audienceScenario === "requester-denied" ? "personal_context_requester_forbidden"
         : audienceScenario === "revoked" ? "personal_context_access_changed" : "private_context_audience_forbidden";
       let initializationBlocker;
@@ -952,13 +1078,13 @@ try {
         assert.equal(status.state, "blocked", JSON.stringify(status));
         assert.equal(status.category, expectedCategory, JSON.stringify(status));
         initializationBlocker = status.category;
-      } else if (denied) assert.ok(gateway.diagnostics().includes(expectedCategory), gateway.diagnostics());
-      assert.equal(providerRequests, audienceScenario === "owner" ? 3 : audienceScenario === "revoked" ? 2 : 0);
+      } else if (denied && !nativeCase) assert.ok(gateway.diagnostics().includes(expectedCategory), gateway.diagnostics());
+      assert.equal(providerRequests, nativeCase ? nativeState === "success" ? 3 : 2 : audienceScenario === "owner" ? 3 : audienceScenario === "revoked" ? 2 : 0);
       if (audienceScenario && !audienceAllowed) {
         assert.equal(semantic.length, 0, "Rejected audiences/requesters must be stopped before semantic disclosure");
         assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), before);
       }
-      if (audienceScenario === "owner") {
+      if (audienceScenario === "owner" && !denied) {
         assert.ok(semantic.some(call => call.purpose === "stella-source-access"));
         assert.ok(semantic.some(call => call.purpose === "stella-source-output"));
       }
@@ -972,12 +1098,46 @@ try {
       const report = { schemaVersion: "stella.host-memory-boundary-probe/v1", host: host.version, evidenceDirectory: temp,
         scope: "synthetic exact Host; native chat.send metadata; injected semantic verdicts; loopback final model",
         dreamingEnabled: false, memoryInventory: inventory, audienceScenario, ingressField, dispatch,
-        terminalStatus: terminal.status, category: denied ? expectedCategory : undefined, initializationBlocker, providerRequests, finalAnswers,
+        terminalStatus: terminal.status, category: denied && !nativeCase ? expectedCategory : undefined,
+        terminalError: terminal.error, initializationBlocker, providerRequests, finalAnswers,
         semanticCalls: semantic.length, sourceAccessCalls: semantic.filter(call => call.purpose === "stella-source-access").length,
         outputChecks: semantic.filter(call => call.purpose === "stella-source-output").length,
         authorizedFragmentConsumed: audienceScenario === "owner", revokedBeforeContinuation: audienceScenario === "revoked",
         modelRequestsAfterRevocation: audienceScenario === "revoked" ? 0 : undefined,
         unknownInputConsumed: false, fullMemoryAccepted: false, realModelAccepted: false };
+      if (nativeCase) {
+        const backend = nativeFamily === "wiki" ? [] : (await readFile(path.join(temp, "native-backend.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+        const reads = (await readFile(path.join(temp, "native-consumed.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+        assert.equal(reads.length, 1, "One real native read must precede successful consumption or payload rejection");
+        const toolResults = (await readFile(path.join(temp, "native-tool-results.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+        const mismatchCategory = nativeFamily === "wiki" ? "native_memory_read_unverifiable" : "native_memory_payload_changed";
+        if (nativeState === "mismatch") {
+          assert.ok(toolResults.some(row => row.error?.includes(mismatchCategory)),
+            "The actual native tool must explicitly reject changed bytes or their invalidated compiled claim");
+          if (nativeFamily === "wiki") assert.equal(reads[0].result, null,
+            "Changing the native page must invalidate the compiled claim lookup, without a page-path fallback");
+        }
+        if (nativeState === "stale") assert.deepEqual(JSON.parse(await readFile(path.join(temp, "native-source-stale.json"))),
+          { afterNativeRead: true, nativeArtifactRetained: true });
+        if (nativeFamily === "cache") {
+          assert.ok(nativePreparation.cold.cache.entries > 0 && nativePreparation.warm.cache.entries > 0);
+          assert.ok(embeddingRequests.length > 0);
+          const cold = backend.find(row => row.operation === "cold-sync"), warm = backend.find(row => row.operation === "warm-sync");
+          assert.equal(cold.status.vector.index.state, "complete"); assert.equal(warm.status.vector.index.state, "complete");
+          assert.equal(embeddingRequests.filter(row => row.observedAt > cold.observedAt && row.observedAt <= warm.observedAt).length, 0,
+            "Forced native reindex must reuse embeddings without requesting fresh chunk embeddings");
+        }
+        Object.assign(report, { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily, nativeState,
+          producerReport: process.env.STELLA_NATIVE_PRODUCERS_REPORT, nativeSource, nativePreparation, nativeBackend: backend, nativeReads: reads, nativeToolResults: toolResults,
+          nativeReadExecuted: true, actualNativeBytesConsumed: nativeState === "success", staleNativeArtifactRetained: nativeState === "stale",
+          changedNativeBytesRejected: nativeState === "mismatch", modelRequestsAfterInvalidation: nativeState === "success" ? undefined : 0,
+          embeddingRequests: embeddingRequests.length, authorizedFragmentConsumed: nativeState === "success",
+          nativeFinalToolOriginalConsumed: nativeState === "success",
+          wikiCompiledClaimCacheRequired: nativeFamily === "wiki",
+          nativeReadFailure: nativeState === "mismatch" ? mismatchCategory : undefined,
+          embeddingCacheReuseVerified: nativeFamily === "cache",
+          diagnostics: gateway.diagnostics() });
+      }
       await writeFile(path.join(temp, "host-memory-boundary.json"), JSON.stringify(report, null, 2));
       console.log(JSON.stringify(report));
       return;

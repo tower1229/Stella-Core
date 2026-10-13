@@ -90,6 +90,10 @@ completion receipt 是 `stella.completion-receipt/v1` 的运行结果，包含 o
 
 原生 Active Memory 的 Core 适配要求全局 contextEngine slot 为 `stella-core`，父模型为已获处理许可的 `stella-guarded/<model-id>`；原生配置显式启用目标 agent，使用 `mode: "always"`、`queryMode: "message"`、同一精确模型和 `toolsAllow: ["stella_read_fragment"]`，不配置 modelFallback。只支持固定 Host `2026.8.2`；未知模式、模型或额外工具明确失败。公开工具缓存 fingerprint 仅用于分区，真实授权由 Host 在策略收敛后签发。原生提示、工具结果和输出必须经来源约束的 context engine 与 provider 核验，再把确切原生前缀绑定到父输入。Dreaming 保持关闭。成功与来源失效验收及其范围见 [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md#2026-09-18-t17-消费门禁及剩余-host-缺口)，不能据此清除完整 profile 的独立门禁。
 
+已留存 Source 可声明 `stella.native-memory-origin/v1` 定位，绑定固定 Host 版本、目标 agent、原生 provider、相对 Markdown 路径和行范围；该定位参与 Source 版本计算，不提供额外权限。`stella_read_fragment` 只读取本轮语义选择、来源策略和输出范围已准入的片段：`memory-core` 与内置 `session-memory` 经公开 memory capability 查询及命中授权后原生回读，`memory-wiki` 经公开 corpus supplement 携带当前会话身份查询及回读。原生字节必须与独立留存的原件片段一致，每次异步操作后复核当前来源及处理授权；缺少原生接口、索引未命中、正文变化或来源失效均显式失败，不返回仓库副本代替原生读取。宿主后台产物不会因被索引或缓存而自动获准，`full_memory` 门禁不变。
+
+Wiki 定位可附带原生 `claimId`。此时必须经 `claim:<id>` 从当前原生编译缓存解析到已绑定的精确页面，再核对原文；缓存失效或无别名时显式拒绝，不改用页面路径重读来掩盖缓存失效。
+
 ## 6. 能力与 activation 状态
 
 runtimeState.activationStatus 仍须为 active；migration_required 和 degraded 均阻断实例激活。单项非必需能力不可用单独记录 unavailable，不把实例改为 degraded 后继续启动。

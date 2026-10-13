@@ -15,12 +15,23 @@ function fixture(): Input {
   const probes = evidence.HOST_MEMORY_EVIDENCE_PROBES.map(flag => {
     const scenario = flag.startsWith("source-audience-") ? flag.slice("source-audience-".length) : undefined;
     const field = flag.startsWith("host-ingress-") ? flag.slice("host-ingress-".length) : undefined;
+    const native = flag.startsWith("native-memory-") && flag !== "native-memory-producers" ? flag.slice("native-memory-".length).split("-") : undefined;
     return { flag, passed: true, coreRevision, artifactSha256, report: {
       schemaVersion: "stella.host-memory-boundary-probe/v1", evidenceDirectory: "/synthetic/evidence", dreamingEnabled: false,
       fullMemoryAccepted: false, realModelAccepted: false, unknownInputConsumed: false, dispatch: [{}], audienceScenario: scenario, ingressField: field,
       terminalStatus: scenario === "owner" ? "ok" : "error", providerRequests: scenario === "owner" ? 3 : scenario === "revoked" ? 2 : 0,
       finalAnswers: scenario === "owner" ? 1 : 0, authorizedFragmentConsumed: scenario === "owner", sourceAccessCalls: 1, outputChecks: 1,
       revokedBeforeContinuation: scenario === "revoked", modelRequestsAfterRevocation: 0, semanticCalls: 0,
+      ...(flag === "native-memory-producers" ? { nativeSessionNewExecuted: true, nativeWikiCompileExecuted: true, nativeCompiledClaimRead: true } : {}),
+      ...(native ? { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily: native[0], nativeState: native[1],
+        terminalStatus: native[1] === "success" ? "ok" : "error", providerRequests: native[1] === "success" ? 3 : 2,
+        finalAnswers: native[1] === "success" ? 1 : 0, actualNativeBytesConsumed: native[1] === "success",
+        nativeReadExecuted: true, nativeReads: [{ result: native[1] === "mismatch" ? null : {} }], staleNativeArtifactRetained: native[1] === "stale",
+        nativeFinalToolOriginalConsumed: native[1] === "success", wikiCompiledClaimCacheRequired: native[0] === "wiki",
+        nativeSource: { claimId: "compiled-claim" }, nativeReadFailure: native[1] === "mismatch" ? "native_memory_read_unverifiable" : undefined,
+        changedNativeBytesRejected: native[1] === "mismatch", modelRequestsAfterInvalidation: 0,
+        embeddingCacheReuseVerified: native[0] === "cache", embeddingRequests: 2,
+        nativePreparation: { cold: { cache: { entries: 1 } }, warm: { cache: { entries: 1 } } } } : {}),
     } as Record<string, unknown> };
   });
   probes.find(probe => probe.flag === "capability-acceptance")!.report.memoryInventory = {
@@ -41,6 +52,24 @@ test("alignment accounts for opaque installed plugins without granting full-memo
   assert.equal(result.complete, false);
   assert.equal(result.fullMemoryAccepted, false);
   assert.equal(result.issue23Complete, false);
+});
+
+test("native evidence requires real reads, cache reuse and zero continuation after invalidation", () => {
+  for (const [flag, patch] of [
+    ["native-memory-fts-success", { nativeReadExecuted: false }],
+    ["native-memory-wiki-success", { nativeReads: [] }],
+    ["native-memory-session-stale", { modelRequestsAfterInvalidation: 1 }],
+    ["native-memory-fts-mismatch", { changedNativeBytesRejected: false }],
+    ["native-memory-cache-success", { embeddingCacheReuseVerified: false }],
+    ["native-memory-wiki-success", { wikiCompiledClaimCacheRequired: false }],
+    ["native-memory-wiki-success", { nativeFinalToolOriginalConsumed: false }],
+    ["native-memory-wiki-mismatch", { nativeReads: [{ result: { content: "old page" } }] }],
+    ["native-memory-producers", { nativeSessionNewExecuted: false }],
+    ["native-memory-producers", { nativeCompiledClaimRead: false }],
+  ] as const) {
+    const input = fixture(); Object.assign(input.probes.find(probe => probe.flag === flag)!.report, patch);
+    assert.throws(() => evidence.alignHostMemoryEvidence(input));
+  }
 });
 
 test("alignment refuses mixed versions, incomplete evidence and newly unmapped entrances", () => {

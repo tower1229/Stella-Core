@@ -311,6 +311,18 @@ Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许�
 
 `--standalone-compact` 要求真实摘要调用、签名视图同步及重启后旧会话的最终模型消费；`--standalone-compact-stale` 在摘要模型收到输入后物理删除原件，要求零视图发布和零代际提交；`--standalone-compact-grant-denied` 要求缺少显式授权时零摘要模型请求。`--standalone-compact-persist-failure` 要求远端同步失败时保留事务屏障，未同步视图不可被后续读取。失败启动留下的 Host 隔离未恢复时，不得凭旧初始化收据报告 ready；来源与已安装内容完整复核通过后，才按既有隔离日志恢复原配置，退役注册不能继续修改 Host 隔离。`scripts/verify-host-memory.mjs` 将当前源清单、同一包摘要、原版 Host 前后清单及限定入口矩阵收敛到一份收据，单独记录未提交候选版本；不替代要求干净源码的 package 验收。Dreaming 关闭且不执行，完整 `full_memory` 阻塞继续保留，合成模型结果不等于真实模型或私人主链验收。
 
+#### 2026-10-13 原生索引与记忆插件消费接缝
+
+原生定位 `stella.native-memory-origin/v1` 保存在已留存 Source 内，参与不可变版本计算，限定 provider、Host `2026.8.2`、agent、相对路径和最多 120 行的精确范围。Core 的 LLM 完成来源语义选择后，片段工具才访问原生索引；原生排序不能授予访问权或扩展本轮证据集合。`memory-core` 的公开 manager 负责真实索引命中及原生文件回读，公开 `authorizeSearchHits` 按当前会话核对宿主权限；内置 `session-memory` 另要求显式启用钩子。Wiki 使用公开 corpus supplement 传递当前 agent 和 session，不依赖仅供官方插件使用的 Gateway 转发权限。
+
+原生读取必须返回确切已准入原件。只接受固定 Host 原生 memory read 的末尾换行及精确续读提示编解码；未知格式、范围、正文、provider、版本或无命中显式失败。索引、缓存及原生文件仍存在时，留存来源删除或授权变化也必须阻止后续模型消费。每个外部异步边界及工具结果签发前后复核现有来源、代际、处理权威和取消状态；定位不是授权或原生产物收据。
+
+Wiki 的可选 `claimId` 同样绑定在 Source 版本内，只允许 Wiki provider 使用。声明后必须以原生 `claim:<id>` 别名回读；该别名依赖原生编译缓存，不能用页面路径回退。缓存不存在、发布资格失效、解析到其他页面或正文不一致时明确失败。验收通过 `wiki.apply` 写入合成 claim 并由 `wiki.compile` 产生缓存，核对别名确实返回同一原生页面；实际模型消费使用该别名，原生文件变化引起缓存失效时要求零模型续轮。
+
+`probe-native-memory-producers.mjs` 通过真实 `chat.send /new`、`wiki.ingest` 和 `wiki.compile` 生成原生产物，完整原件与输入文件保留在合成 Git 仓库。`--native-memory-{fts,cache,session,wiki}-{success,stale,mismatch}` 分别要求最终模型真实消费、原生读取后物理删除 Core 原件时零后续模型请求，以及原生正文变化时显式拒绝且零后续模型请求。cache 场景还要求实际向量索引、原生嵌入缓存和强制重建时的缓存复用；不把 FTS 当成语义检索。正式验收脚本将这些场景与已有场景绑定同一干净提交及同一安装包，运行结果由收据记录，本段不宣称验收已经通过。
+
+盘点将 `session-memory` 作为内置钩子单独列出，不能因 `plugins.list` 未列出它而遗漏；配置没有显式禁用时保持 unverifiable。以上仅覆盖声明的已留存片段。QMD、未知插件、替代 harness、远端 provider prompt cache、私人主链和真实模型仍须分别举证，`host_memory_consumption_unverifiable` 保留。Dreaming 关闭，不修改 OpenClaw 本体，不清空历史、不放宽原有容量或来源门禁。
+
 ## 4. 交互学习
 
 ### 输入与目标
