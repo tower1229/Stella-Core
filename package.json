@@ -36,7 +36,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/semver": "7.7.1",
-    "openclaw": "2026.8.2",
+    "openclaw": "2026.9.6",
     "typescript": "^5.9.0"
   },
   "peerDependencies": {
