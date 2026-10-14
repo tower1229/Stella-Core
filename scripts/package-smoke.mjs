@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertProbeDreamingDisabled, assertSourceUnchanged,
   fileManifest, installedPackageRoot, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
-import { alignHostMemoryEvidence, assertHostMemoryBoundaryReport, assertNativeMemoryConsumptionReport, HOST_MEMORY_BOUNDARY_FLAGS, NATIVE_MEMORY_CONSUMPTION_FLAGS } from "./lib/host-memory-evidence.mjs";
+import { alignHostMemoryEvidence, assertHostMemoryAcceptanceReport, assertHostMemoryBoundaryReport, assertNativeMemoryConsumptionReport, HOST_MEMORY_BOUNDARY_FLAGS, NATIVE_MEMORY_CONSUMPTION_FLAGS, HOST_MEMORY_ACCEPTANCE_SCENARIOS } from "./lib/host-memory-evidence.mjs";
 
 // Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
 // generator or cron.run is invoked; full_memory remains independently blocked.
@@ -95,6 +95,7 @@ try {
     "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
     "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
     "dist/src/openclaw/host-memory.js",
+    "dist/src/openclaw/host-memory-acceptance.js", "dist/src/openclaw/host-memory-verification.js",
     "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
     "dist/src/openclaw/fragment-read-tool.js",
     "dist/src/openclaw/native-memory-reader.js", "dist/src/canghai/native-memory-origin.js",
@@ -202,6 +203,9 @@ try {
       await save();
       throw error;
     }
+  }
+  for (const scenario of HOST_MEMORY_ACCEPTANCE_SCENARIOS) {
+    await probe(`memory-access-${scenario}`, "probe-host-memory-acceptance.mjs", [scenario], {}, report => assertHostMemoryAcceptanceReport(report, scenario));
   }
   const active = await probe("native-active-memory-artifact", "probe-native-active-memory.mjs", [], {}, report => {
     assert.equal(report.scope, "native-artifact-generation");

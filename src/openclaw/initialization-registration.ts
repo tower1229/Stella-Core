@@ -33,6 +33,9 @@ import {
 } from "./capability-admission.js";
 import { CapabilityReceiptError, capabilityReceiptLocator, invalidateCapabilityReceipt, type CapabilityVersionBinding } from "../acceptance/capability-receipt.js";
 import type { InitializationVerificationBinding } from "./initialization.js";
+import { HOST_MEMORY_ACCEPTANCE_CASES, type createHostMemoryAcceptance } from "./host-memory-acceptance.js";
+import { runConstrainedCapabilityAcceptance } from "../acceptance/capability-acceptance.js";
+import { createMemoryAccessCapabilityAdapter } from "../acceptance/retrieval-capability.js";
 import {
   HostAdmissionIsolationError,
   assertHostProfileIsolated,
@@ -77,21 +80,32 @@ async function materializationSource(config: Config) {
 /** Registers effects only as a Host service or authenticated operation, never during plugin discovery. */
 export function registerStellaInitialization(api: OpenClawPluginApi, config: Config,
   requestHost?: (method: string, params: Record<string, unknown>) => Promise<unknown>,
-  additionalRuntimeBlockers: () => Promise<string[]> = async () => []) {
+  additionalRuntimeBlockers: () => Promise<string[]> = async () => [],
+  memoryAcceptance?: ReturnType<typeof createHostMemoryAcceptance>) {
   let status: Status = { state: "not_started" };
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
   let waitingForMemoryIdle = false;
   let initializer: StellaInitializer | undefined;
+  const captureCapabilityBinding = async (capabilityId?: string): Promise<CapabilityVersionBinding> => {
+    const installed = await captureInitializationVerificationBinding(api, config);
+    const binding = toCapabilityBinding(installed);
+    if (capabilityId === "memory_access") {
+      if (!memoryAcceptance) throw new InitializationError("host_memory_acceptance_unavailable");
+      binding.cases = bytesVersion(HOST_MEMORY_ACCEPTANCE_CASES);
+      binding.source = bytesVersion(canonicalJson({ source: installed.source, deployment: installed.deployment,
+        generation: installed.generation, native: await memoryAcceptance.captureDependencies() }));
+    }
+    return binding;
+  };
   const resolveRuntimeBlockers = async (signal?: AbortSignal) => {
     if (!initializer) return [] as string[];
     const store = createFileCapabilityReceiptStore(initializer.stateRoot);
-    const capture = async () => toCapabilityBinding(await captureInitializationVerificationBinding(api, config));
     const evaluated = await evaluateRuntimeCapabilityBlockers({
       compiledBlockers: initializer.runtimeBlockers,
       store,
       receiptIds: await listCapabilityReceiptIds(initializer.stateRoot),
-      captureBinding: capture,
+      captureBinding: captureCapabilityBinding,
       signal,
     });
     // Existing initialization journals predate newly identified Host gaps.
@@ -491,7 +505,8 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
     if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin")) {
       respond(false, undefined, { code: "INVALID_REQUEST", message: "Initialization requires operator.admin" }); return;
     }
-    const acceptCapability = isRecord(params) && params.action === "accept-capability" && Object.keys(params).length === 2 &&
+    const acceptCapability = isRecord(params) && params.action === "accept-capability" &&
+      (Object.keys(params).sort().join() === "action,runId" || Object.keys(params).sort().join() === "action,capabilityId,runId" && params.capabilityId === "memory_access") &&
       typeof params.runId === "string" && params.runId.trim().length > 0;
     const invalidateCapability = isRecord(params) && params.action === "invalidate-capability" && Object.keys(params).length === 2 &&
       typeof params.receiptId === "string" && /^cap_[a-f0-9-]{36}$/.test(params.receiptId);
@@ -535,14 +550,27 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         const actorHash = bytesVersion(canonicalJson({ connection: client.connId, request: req.id,
           user: client.authenticatedUserId ?? null, role: client.connect.role }));
         const store = createFileCapabilityReceiptStore(initializer!.stateRoot);
-        const receipt = await acceptHostBootstrapCapability({
+        const capabilityId = params.capabilityId === "memory_access" ? "memory_access" : "host_initialization";
+        const host = {
+          actorHash, runId: String(params.runId), purpose: { kind: "adapter_verification" as const, capabilityId },
+          resourceScope: bytesVersion(canonicalJson({ agentId: config.agentId, workspace: initializer!.workspace })),
+        };
+        if (capabilityId === "memory_access" && (!memoryAcceptance || client.internal?.isLocalClient !== true ||
+          api.runtime.config.current().gateway?.mode === "remote")) throw new InitializationError("host_memory_acceptance_local_admin_required");
+        const receipt = capabilityId === "memory_access" ? await runConstrainedCapabilityAcceptance({
+          adapter: createMemoryAccessCapabilityAdapter({ verify: async verification => {
+            if (verification.host.actorHash !== actorHash || verification.host.runId !== host.runId) throw new InitializationError("verification_actor_required");
+            return memoryAcceptance!.verify({ host: verification.host, clientId: client.connect.client.id, signal: verification.signal,
+              assertRunCurrent: async () => { await assertBootstrapReady(); await initializer!.assertRun(host.runId); } });
+          } }), host, store, signal, captureBinding: () => captureCapabilityBinding(capabilityId),
+        }) : await acceptHostBootstrapCapability({
           host: {
             actorHash,
             runId: String(params.runId),
             purpose: { kind: "adapter_verification", capabilityId: "host_initialization" },
             resourceScope: bytesVersion(canonicalJson({ agentId: config.agentId, workspace: initializer!.workspace })),
           },
-          captureBinding: async () => toCapabilityBinding(await captureInitializationVerificationBinding(api, config)),
+          captureBinding: () => captureCapabilityBinding(capabilityId),
           store,
           ports: {
             assertTrustedIdentity(hash) {

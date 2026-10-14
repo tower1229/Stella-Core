@@ -4,6 +4,8 @@ import type { OpenClawPluginApi, ProviderPlugin } from "openclaw/plugin-sdk/plug
 import { registerHostMemoryProvider, withHostModelConsumption, type HostMemoryInput } from "../src/openclaw/host-memory-provider.js";
 import { withHostHistoryCompaction, assertHostHistoryCompaction } from "../src/openclaw/host-history-compaction.js";
 import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
+import { withHostMemoryVerification, assertHostMemoryVerification, hostMemoryVerification } from "../src/openclaw/host-memory-verification.js";
+import { readHostModelOutput } from "../src/openclaw/host-memory-provider.js";
 import { CompletionError, completionDraftHash, coordinateCompletion } from "../src/openclaw/completion.js";
 
 type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
@@ -18,6 +20,56 @@ const success: Awaited<ReturnType<Stream>> = {
   async *[Symbol.asyncIterator]() { yield { type: "done", reason: "stop", message: answer }; },
   async result() { return answer; },
 };
+for (const scenario of ["success", "revocation", "payload replacement", "cancelled", "changed output model"] as const) {
+  test(`constrained memory verification direct transport: ${scenario}`, async () => {
+    let provider!: ProviderPlugin;
+    let revoked = false, sent = 0, observed = 0;
+    const cancel = new AbortController();
+    const request = snapshotTurnRequest({ agentId: "stella", sessionId: "verification", sessionKey: "agent:stella:main",
+      prompt: "Verify this authorized fragment", senderId: "cli", senderIsOwner: true, chatType: "direct" }, `verify-${scenario}`);
+    registerHostMemoryProvider({ registerProvider(value: ProviderPlugin) { provider = value; }, logger: { error() {} } } as unknown as OpenClawPluginApi,
+      "stella", async () => assert.fail("Constrained verification must not enter business consumption"));
+    const model = { provider: "stella-guarded", id: "model" } as Parameters<Stream>[0];
+    const context = { provider: "stella-guarded", modelId: "model", agentId: "stella", streamFn: (async (target, _input, options) => {
+      await options?.onPayload?.({ messages: [{ role: "user", content: "Authorized original" }] }, target);
+      sent++;
+      return { ...success, async result() { return scenario === "changed output model" ? { ...answer, model: "other" } : answer; } };
+    }) satisfies Stream };
+    const direct = provider.wrapSimpleCompletionStreamFn!(context)!;
+    const input = { messages: [{ role: "user" as const, content: "Authorized original", timestamp: 0 }] };
+    const verified = withHostMemoryVerification({ request, signal: cancel.signal, assertCurrent: async () => {
+      if (revoked) throw new CompletionError("processing_generation_mismatch", "generate");
+    } }, async () => {
+      assert.equal(hostMemoryVerification(request)?.request, request);
+      // Scope alone cannot authorize a payload. A bare call has no bound direct permit.
+      assert.equal((await (await direct(model, input)).result()).stopReason, "error");
+      const message = await withHostModelConsumption({ request, modelRef: "stella-guarded/model",
+        params: { messages: [{ role: "user", content: "Authorized original" }] }, assertCurrent: () => assertHostMemoryVerification(request),
+        async observeOutput(receipt) {
+          const output = readHostModelOutput(receipt);
+          assert.equal(output.request, request); assert.equal(output.modelRef, "stella-guarded/model");
+          assert.equal(output.input.messages[0]?.content, "Authorized original"); observed++;
+        } }, async () => (await direct(model, input, { onPayload: () => {
+          if (scenario === "revocation") revoked = true;
+          if (scenario === "cancelled") cancel.abort();
+          if (scenario === "payload replacement") return { messages: [{ role: "user", content: "Unknown old memory" }] };
+        } })).result());
+      assert.equal(message.stopReason, scenario === "success" ? "stop" : "error");
+      assert.equal(observed, scenario === "success" ? 1 : 0);
+      assert.equal(sent, ["success", "changed output model"].includes(scenario) ? 1 : 0);
+      revoked = false;
+      if (!cancel.signal.aborted) {
+        const agent = provider.wrapStreamFn!(context)!;
+        assert.equal((await (await agent(model, input, { sessionId: request.sessionId })).result()).stopReason, "error");
+      }
+    });
+    if (scenario === "cancelled") await assert.rejects(verified, error => error === cancel.signal.reason);
+    else await verified;
+    assert.equal(hostMemoryVerification(), undefined);
+    await assert.rejects(assertHostMemoryVerification(request), /host_memory_verification_not_admitted/);
+    assert.throws(() => readHostModelOutput({ kind: "model_output" }), /host_model_output_unbound/);
+  });
+}
 function signal() {
   let resolve!: () => void;
   const promise = new Promise<void>(done => { resolve = done; });

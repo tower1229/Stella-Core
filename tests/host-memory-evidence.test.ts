@@ -16,6 +16,7 @@ function fixture(): Input {
     const scenario = flag.startsWith("source-audience-") ? flag.slice("source-audience-".length) : undefined;
     const field = flag.startsWith("host-ingress-") ? flag.slice("host-ingress-".length) : undefined;
     const native = flag.startsWith("native-memory-") && flag !== "native-memory-producers" ? flag.slice("native-memory-".length).split("-") : undefined;
+    const acceptance = flag.startsWith("memory-access-") ? flag.slice("memory-access-".length) : undefined;
     return { flag, passed: true, coreRevision, artifactSha256, report: {
       schemaVersion: "stella.host-memory-boundary-probe/v1", evidenceDirectory: "/synthetic/evidence", dreamingEnabled: false,
       fullMemoryAccepted: false, realModelAccepted: false, unknownInputConsumed: false, dispatch: [{}], audienceScenario: scenario, ingressField: field,
@@ -23,6 +24,12 @@ function fixture(): Input {
       finalAnswers: scenario === "owner" ? 1 : 0, authorizedFragmentConsumed: scenario === "owner", sourceAccessCalls: 1, outputChecks: 1,
       revokedBeforeContinuation: scenario === "revoked", modelRequestsAfterRevocation: 0, semanticCalls: 0,
       ...(flag === "native-memory-producers" ? { nativeSessionNewExecuted: true, nativeWikiCompileExecuted: true, nativeCompiledClaimRead: true } : {}),
+      ...(acceptance ? { schemaVersion: "stella.host-memory-acceptance-probe/v1", scope: "native_fragment_guarded_direct", fullMemoryBindingValid: true,
+        consumerEmbeddingRequests: 0, capabilityPassed: ["success", "generation-changed"].includes(acceptance),
+        finalCalls: ["success", "generation-changed"].includes(acceptance) ? 1 : 0,
+        nativeReads: ["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(acceptance) ? 2 : acceptance === "native-mismatch" ? 1 : 0,
+        modelCalls: ["grant-denied", "source-denied", "payload-transform", "unbound-source-verdict"].includes(acceptance) ? 0 : 1,
+        receiptInvalidatedByGeneration: acceptance === "generation-changed", dreamingExecuted: false, privateMainAccepted: false, issue23Complete: false } : {}),
       ...(native ? { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily: native[0], nativeState: native[1],
         terminalStatus: native[1] === "success" ? "ok" : "error", providerRequests: native[1] === "success" ? 3 : 2,
         finalAnswers: native[1] === "success" ? 1 : 0, actualNativeBytesConsumed: native[1] === "success",

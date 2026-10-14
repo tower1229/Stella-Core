@@ -79,7 +79,7 @@ export async function evaluateRuntimeCapabilityBlockers(input: {
   compiledBlockers: readonly string[];
   store: CapabilityReceiptStore;
   receiptIds: readonly string[];
-  captureBinding: () => Promise<CapabilityVersionBinding>;
+  captureBinding: (capabilityId?: string) => Promise<CapabilityVersionBinding>;
   signal?: AbortSignal;
 }): Promise<RuntimeCapabilityBlockers> {
   const admitted = new Set<string>();
@@ -102,7 +102,7 @@ export async function evaluateRuntimeCapabilityBlockers(input: {
     }
     try {
       await admitBusinessCapability({
-        capabilityId: receipt.capabilityId, receipt, captureBinding: input.captureBinding,
+        capabilityId: receipt.capabilityId, receipt, captureBinding: () => input.captureBinding(String(receipt.capabilityId)),
         store: input.store, signal: input.signal,
       });
       admitted.add(receipt.capabilityId);

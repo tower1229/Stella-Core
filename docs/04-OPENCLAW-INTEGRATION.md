@@ -584,3 +584,9 @@ Stella 1.0 的方法价值保留在 skills，迁移去向如下。按语义选�
 自动语义评估依据固定合成材料、响应类型与具体行为，不能靠关键词命中或模型总分判定成功。真实使用通过主人自然反馈校准，不新增强制评分问卷。私人实例或源码发送外部模型须遵循已明确的数据范围授权；装配检查本身不必调用外部模型。
 
 验收分别报告：内容审查、Host 装载、实际 prompt 消费、行为案例、纠正持久闭环、主人使用反馈。本次已完成正文生成与沧海来源迁移，304 项单元／集成测试通过。隔离 workspace 使用本机 2026.8.2 公开 loader 与固定版本 renderer 检查五份文件的完整性、顺序与单份出现；工具集合为合成只读配置，未调用模型、未运行 main、未交付私人视图。这覆盖 C-02 的部分装配检查，其他行为与生命周期 C 项尚未验收，不改写已有 I 系列装载证据。
+
+2026-10-14 受限记忆认证入口：`stella.initialize({action: "accept-capability", capabilityId: "memory_access", runId})` 要求本机 `operator.admin`、当前处理配置中显式 `operatorMemoryAcceptance: true`、客户端在 `requesterIds` 内，以及确切模型同时具备描述／私人视图／Host LLM 处理许可。此许可缺省关闭，与恢复及独立压缩许可分开。配置能力须为 required `stella.memory-access/v1`，其 `config_ref` 指向闭合的 `stella.host-memory-acceptance/v1` 对象 `{schemaVersion, request, evidenceRef}`。验收执行配置中明确指定的当前 Evidence；自然语言来源使用判断仍由结构化 LLM 完成。首次范围限定到合法 `full_memory` 绑定和 `memory-core` 原生片段，Dreaming 必须显式关闭。
+
+执行通过当前来源访问判断读取独立留存原件，再经真实 `stella_read_fragment` 原生回读、当前 FTS／provenance／内容验证和 `stella-guarded` simple-completion 最终消费。签发收据要求工具和实际模型传输私有对象证明；合成返回、未知载荷改写、索引或来源失效均拒绝。只返回版本绑定的摘要收据，不发布业务回答、写入理解或推进恢复点。收据使用独立 cases 摘要，绑定源码、安装包、Host、配置、模型、策略、恢复点、catalog generation 与 native origin。原生正文及索引字节仍在每次获准读取时验证，不能凭旧收据授权后续回读。
+
+该收据只清除 `capability_acceptance_missing:memory_access`。`host_memory_consumption_unverifiable` 和其他 required capability 继续独立阻断普通 `full_memory` 运行；scope 为 `native_fragment_guarded_direct`，不能推定已认证 Host agent replay、compaction、cache 或其他记忆插件。正式打包矩阵纳入成功、处理许可拒绝、来源策略拒绝、原生正文失配、缺少索引、未知 payload 变换、代际变化及无真实模型收据、伪造来源语义判决、改写实际判决及读取后原生正文变化十一项；同提交／同包执行完成前不声称完整交付。

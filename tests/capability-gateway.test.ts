@@ -163,6 +163,20 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
   assert.deepEqual(initialization.status().runtime?.blockers, ["capability_acceptance_missing:host_initialization",
     "capability_acceptance_missing:memory_access", "host_memory_consumption_unverifiable"]);
 
+  const missingMemoryAdapter = await invokeGateway(gatewayHandler!, {
+    action: "accept-capability", capabilityId: "memory_access", runId: "memory_without_verifier",
+  });
+  assert.equal(missingMemoryAdapter.ok, false);
+  assert.match(missingMemoryAdapter.error?.message ?? "", /host_memory_acceptance_local_admin_required/);
+  for (const params of [
+    { action: "accept-capability", capabilityId: "unimplemented", runId: "other_capability" },
+    { action: "accept-capability", capabilityId: "memory_access", runId: "memory_override", senderIsOwner: true },
+    { action: "accept-capability", capabilityId: "memory_access", runId: "memory_override", sourcePath: "/private/source" },
+  ]) {
+    const invalid = await invokeGateway(gatewayHandler!, params);
+    assert.equal(invalid.ok, false); assert.equal(invalid.error?.code, "INVALID_REQUEST");
+  }
+
 
   const denied = await invokeGateway(gatewayHandler!, { action: "accept-capability", runId: "run_denied" }, {
     client: { connect: { role: "operator", scopes: ["operator.read"] }, connId: "conn-denied" },

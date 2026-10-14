@@ -8,6 +8,7 @@ export const HOST_MEMORY_BOUNDARY_FLAGS = Object.freeze([
 ]);
 export const NATIVE_MEMORY_CONSUMPTION_FLAGS = Object.freeze([...['fts', 'cache', 'session', 'wiki'].flatMap(family =>
   ['success', 'stale', 'mismatch'].map(state => `--native-memory-${family}-${state}`)), '--native-memory-cache-missing']);
+export const HOST_MEMORY_ACCEPTANCE_SCENARIOS = Object.freeze(["success", "grant-denied", "source-denied", "native-mismatch", "index-missing", "payload-transform", "generation-changed", "unbound-output", "unbound-source-verdict", "changed-source-verdict", "native-stale-before-model"]);
 const nativeProbes = family => NATIVE_MEMORY_CONSUMPTION_FLAGS.filter(flag => flag.startsWith(`--native-memory-${family}-`)).map(flag => flag.slice(2));
 
 // This is an evidence index, never an admission receipt. A common final-input
@@ -41,7 +42,25 @@ const pluginCoverage = {
 export const HOST_MEMORY_EVIDENCE_PROBES = Object.freeze([...new Set([
   ...Object.values(coverage).flatMap(row => row.probes), ...Object.values(pluginCoverage).flat(),
   ...HOST_MEMORY_BOUNDARY_FLAGS.map(flag => flag.slice(2)),
+  ...HOST_MEMORY_ACCEPTANCE_SCENARIOS.map(scenario => `memory-access-${scenario}`),
 ])]);
+
+export function assertHostMemoryAcceptanceReport(report, scenario) {
+  assert.ok(HOST_MEMORY_ACCEPTANCE_SCENARIOS.includes(scenario));
+  assert.equal(report.schemaVersion, "stella.host-memory-acceptance-probe/v1");
+  assert.equal(report.scope, "native_fragment_guarded_direct");
+  assert.equal(report.fullMemoryBindingValid, true);
+  assert.equal(report.consumerEmbeddingRequests, 0);
+  const passed = ["success", "generation-changed"].includes(scenario);
+  assert.equal(report.capabilityPassed, passed);
+  assert.equal(report.finalCalls, passed ? 1 : 0);
+  if (["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(scenario)) assert.ok(report.nativeReads >= 2);
+  else assert.equal(report.nativeReads, scenario === "native-mismatch" ? 1 : 0);
+  assert.equal(report.receiptInvalidatedByGeneration, scenario === "generation-changed");
+  if (["grant-denied", "source-denied", "payload-transform", "unbound-source-verdict"].includes(scenario)) assert.equal(report.modelCalls, 0);
+  if (scenario === "changed-source-verdict") assert.equal(report.modelCalls, 1);
+  for (const flag of ["dreamingEnabled", "dreamingExecuted", "fullMemoryAccepted", "privateMainAccepted", "realModelAccepted", "issue23Complete"]) assert.equal(report[flag], false);
+}
 
 export function assertHostMemoryBoundaryReport(report, flag) {
   assert.equal(report.schemaVersion, "stella.host-memory-boundary-probe/v1");
@@ -129,6 +148,10 @@ export function alignHostMemoryEvidence({ nativeEntrances, pluginIds, probes, co
     references([flag.slice(2)]);
     assertNativeMemoryConsumptionReport(byName.get(flag.slice(2)).report, flag);
   }
+  for (const scenario of HOST_MEMORY_ACCEPTANCE_SCENARIOS) {
+    references([`memory-access-${scenario}`]);
+    assertHostMemoryAcceptanceReport(byName.get(`memory-access-${scenario}`).report, scenario);
+  }
   const producer = byName.get("native-memory-producers")?.report;
   assert.equal(producer?.nativeSessionNewExecuted, true); assert.equal(producer?.nativeWikiCompileExecuted, true);
   assert.equal(producer?.nativeCompiledClaimRead, true);
@@ -163,5 +186,8 @@ export function alignHostMemoryEvidence({ nativeEntrances, pluginIds, probes, co
     native, plugins, observedEntries: [...observed.values()].map(row => ({ ...row, status: "observed_only",
       ...(row.kind === "additional_plugin" ? { gaps: ["Opaque installed plugin has no producer-specific consumption proof; preserve the complete-profile blocker."] } : {}) })),
     audiences: SOURCE_AUDIENCE_SCENARIOS.map(kind => ({ kind, evidence: references([`source-audience-${kind}`]) })),
+    constrainedMemoryAccess: { scope: "native_fragment_guarded_direct", fullMemoryBindingValid: true,
+      businessAdmission: false, evidence: references(HOST_MEMORY_ACCEPTANCE_SCENARIOS.map(scenario => `memory-access-${scenario}`)),
+      gaps: ["The remaining Host entrances and required capabilities still block full_memory business admission."] },
   };
 }

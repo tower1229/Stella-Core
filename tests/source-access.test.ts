@@ -8,6 +8,21 @@ import path from "node:path";
 import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { createSourceAccessProvider, type SourceAccessTarget } from "../src/canghai/source-access.js";
+import { parseHostMemoryAcceptance } from "../src/openclaw/host-memory-acceptance.js";
+
+test("operator memory acceptance is an explicit narrow grant, separate from recovery and compaction", () => {
+  const config = { schemaVersion: "stella.personal-context-access/v1", ownerId: "owner", requesterIds: ["cli"], modelRefs: ["synthetic/model"],
+    purpose: { readPurpose: "read", derivePurpose: "answer", deliveryScope: "owner-direct" }, descriptors: [] };
+  assert.equal(parsePersonalContextAccess({ ...config, operatorRecovery: true }).operatorMemoryAcceptance, undefined);
+  assert.throws(() => parsePersonalContextAccess({ ...config, operatorMemoryAcceptance: true }), /invalid_operator_memory_acceptance_grant/);
+  assert.throws(() => parsePersonalContextAccess({ ...config, viewProcessingModelRefs: ["synthetic/model"], operatorMemoryAcceptance: false }), /invalid_operator_memory_acceptance_grant/);
+  assert.equal(parsePersonalContextAccess({ ...config, viewProcessingModelRefs: ["synthetic/model"], operatorMemoryAcceptance: true }).operatorMemoryAcceptance, true);
+  const target = { schemaVersion: "stella.host-memory-acceptance/v1", request: "Read the configured original", evidenceRef: { id: "e1", version: bytesVersion("e1") } };
+  assert.deepEqual(parseHostMemoryAcceptance(target).evidenceRef, target.evidenceRef);
+  for (const extra of [{ sourcePath: "/private" }, { senderIsOwner: true }, { modelRef: "other/model" }, { effects: ["deliver"] }]) {
+    assert.throws(() => parseHostMemoryAcceptance({ ...target, ...extra }), /invalid_host_memory_acceptance/);
+  }
+});
 
 const purpose = { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "owner-direct" };
 const request = "请回顾我上次明确提到的那件合成事件。";

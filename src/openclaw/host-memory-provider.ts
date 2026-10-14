@@ -7,6 +7,7 @@ import { CatalogError } from "../canghai/catalog-reader.js";
 import type { BoundTurnRequest } from "./turn-request.js";
 import { hostHistoryCompaction } from "./host-history-compaction.js";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { hostMemoryVerification } from "./host-memory-verification.js";
 
 type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
 type StreamResult = Awaited<ReturnType<Stream>>;
@@ -41,6 +42,7 @@ function rejectedStream(model: Parameters<Stream>[0], category: string, aborted 
 export const HOST_MEMORY_PROVIDER = "stella-guarded";
 const directCalls = new AsyncLocalStorage<{
   request: BoundTurnRequest; modelRef: string; active: boolean; consumed: boolean; payload: string; assertCurrent: () => Promise<void>;
+  observeOutput?: (receipt: HostModelOutputReceipt) => Promise<void>;
 }>();
 const revalidation = new AsyncLocalStorage<boolean>();
 // A Host retry may reload the plugin registration, but cannot acquire fresh
@@ -56,7 +58,8 @@ function failureCategory(error: unknown): string {
 
 /** A Core-owned call, not a serialized permission or a Host-supplied flag. */
 export async function withHostModelConsumption<T>(
-  input: { request: BoundTurnRequest; modelRef: string; assertCurrent: () => Promise<void>; params: Parameters<OpenClawPluginApi["runtime"]["llm"]["complete"]>[0] },
+  input: { request: BoundTurnRequest; modelRef: string; assertCurrent: () => Promise<void>; params: Parameters<OpenClawPluginApi["runtime"]["llm"]["complete"]>[0];
+    observeOutput?: (receipt: HostModelOutputReceipt) => Promise<void> },
   complete: () => Promise<T>,
 ): Promise<T> {
   // Match the pinned Host simple-completion conversion: trimmed system
@@ -97,12 +100,15 @@ export function registerHostMemoryProvider(
         if ((kind === "agent" || context.agentId !== undefined) && context.agentId !== agentId) throw new CompletionError("host_memory_agent_mismatch", "generate");
         const direct = directCalls.getStore();
         const compaction = kind === "direct" && direct ? hostHistoryCompaction(direct.request) : undefined;
-        const request = compaction?.request ?? readActiveCompletionRequest(agentId);
+        const verification = kind === "direct" && direct ? hostMemoryVerification(direct.request) : undefined;
+        const request = verification?.request ?? compaction?.request ?? readActiveCompletionRequest(agentId);
         if (request.agentId !== agentId) throw new CompletionError("host_memory_agent_mismatch", "generate");
         const assertActive = () => {
           const priorFailure = rejectedRequests.get(request);
           if (priorFailure) throw new CompletionError(priorFailure, "generate");
-          if (compaction) {
+          if (verification) {
+            if (hostMemoryVerification(request) !== verification) throw new CompletionError("host_memory_call_expired", "generate");
+          } else if (compaction) {
             if (hostHistoryCompaction(request) !== compaction) throw new CompletionError("host_memory_call_expired", "generate");
           } else readActiveCompletionRequest(agentId, request.sessionId, request.sessionKey);
           args[2]?.signal?.throwIfAborted();
@@ -126,6 +132,7 @@ export function registerHostMemoryProvider(
           boundRequest = request;
           assertActive();
           direct.consumed = true;
+          outputObserver = direct.observeOutput;
           const messages = snapshot.messages.map(message => {
             if (message.role === "user" && typeof message.content === "string") return { role: message.role, content: message.content };
             if (message.role === "assistant" && message.content.length === 1 && message.content[0]?.type === "text") {
@@ -185,7 +192,7 @@ export function registerHostMemoryProvider(
             throw new CompletionError(reject(error), "generate");
           }
         } });
-        if (kind !== "agent" || !outputObserver) return streamed;
+        if (!outputObserver) return streamed;
         let observed: { body: string; result: Promise<AssistantMessage> } | undefined;
         const authorize = (value: AssistantMessage): Promise<AssistantMessage> => {
           const message = structuredClone(value);

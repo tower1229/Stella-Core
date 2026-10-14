@@ -2,6 +2,7 @@ import { createHostContextTurnStore, type CommitHostContextTurn } from "./opencl
 import { withHostHistoryCompaction, hostHistoryCompaction, assertHostHistoryCompaction, publishHostHistoryCompaction } from "./openclaw/host-history-compaction.js";
 import { resolveManagedHostTimezone } from "./openclaw/host-context-prompt.js";
 import { createFragmentReadTool, FRAGMENT_READ_DESCRIPTION, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "./openclaw/fragment-read-tool.js";
+import { createHostMemoryAcceptance } from "./openclaw/host-memory-acceptance.js";
 import { createNativeMemoryReader } from "./openclaw/native-memory-reader.js";
 import type { SourceAccessDescriptor, SourceAccessProvider } from "./canghai/source-access.js";
 import { HostContextAuthority, type ContextFragment } from "./openclaw/host-context-authority.js";
@@ -295,7 +296,7 @@ export default definePluginEntry({
       const binding = await loadPraxisRuntimeBinding(loaded);
       return CatalogReader.load(loaded.canghaiRoot, binding.catalogPath);
     });
-    const initialization = registerStellaInitialization(api, config, undefined, async () => archiveRetention.blockers());
+    const initialization = registerStellaInitialization(api, config, undefined, async () => archiveRetention.blockers(), createHostMemoryAcceptance(api, config));
     const prepareRequestHistoryRebuilds = async ({ request, loaded, resolver, before, after, journalPath,
       evidenceRefs, ownerId, modelRef, audience, durability, assertCurrent, extraChangedPaths }: {
       request: BoundTurnRequest; loaded: LoadedConsciousness; resolver: EpisodeEvidenceResolver; before: CatalogReader;
