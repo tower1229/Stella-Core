@@ -519,3 +519,26 @@ be disguised as an intermediate generation. Later batches revalidate the latest 
 generation and preserve idempotency; the full operation completes only when its whole scope does.
 This settles the execution boundary, not its schema or implementation. See
 [the staged reassessment contract](contracts/MEMORY-LIFECYCLE.md#分批重评与中间代发布).
+
+## D-057 — Core owns memory consolidation; native Dreaming remains disabled
+
+**Decision (owner approved, 2026-10-15):** Replace the proposed native Dreaming
+generation path in Issue #23 with explicit Core-managed consolidation. The pinned
+OpenClaw 2026.8.2 public interfaces do not expose a complete native input and
+publication boundary that carries Core source eligibility and generation. Native
+Dreaming diagnostics remain counterexamples, never evidence of qualified success.
+
+Consolidation uses retained Evidence, structured proposal and independent semantic
+verification, the existing LearningChange / MemoryTransaction / view migration and
+recovery protocols. It preserves source roles and uncertainty and creates scoped
+candidate hypotheses, without promoting assistant or third-party text into owner
+facts. A distinct persistent operator grant and exact model processing permission
+are required. Original modification/deletion, permission revocation or generation
+conflict prevents publication or later consumption. Recovery reuses the approved
+plan; it cannot infer a new consolidation or resend a business reply.
+
+This scope change does not make memory lifecycle optional or clear unknown Host
+entrances. #35 covers the twelve-capability integration, #36 frozen admission,
+#37 real main scenarios and #38 the full fault matrix. Private material, paid model
+calls, production configuration and persistent scheduling remain outside this
+local implementation authorization.

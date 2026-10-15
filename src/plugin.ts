@@ -96,6 +96,7 @@ import { registerStellaInitialization } from "./openclaw/initialization-registra
 import { InitializationError } from "./openclaw/initialization.js";
 import { registerManagedHostContextEngine, STELLA_CONTEXT_ENGINE, ManagedHostContextEngine } from "./openclaw/host-context-engine.js";
 import { HOST_MEMORY_PROVIDER, isHostConsumptionRevalidation, registerHostMemoryProvider, withHostModelConsumption } from "./openclaw/host-memory-provider.js";
+import { registerMemoryConsolidation } from "./openclaw/memory-consolidation.js";
 import { assertHostMemoryConsumptionSupported } from "./openclaw/host-memory.js";
 import { hostContextExecutionHash } from "./openclaw/host-memory-inventory.js";
 import { NativeMemoryRecall, isNativeMemoryOwner, nativeMemoryConfiguration } from "./openclaw/native-active-memory.js";
@@ -546,6 +547,11 @@ export default definePluginEntry({
         });
       }
     };
+    registerMemoryConsolidation(api, config, { resolveModelRef: resolveLiveModelRef, durability(loaded) {
+      ensureDurability(loaded);
+      if (!durability) throw new CatalogError("critical_durability_required");
+      return durability;
+    } });
     const createRuntime = async (
       loaded: LoadedConsciousness,
       request?: BoundTurnRequest,

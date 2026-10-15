@@ -96,6 +96,7 @@ try {
     "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
     "dist/src/openclaw/host-memory.js",
     "dist/src/openclaw/host-memory-acceptance.js", "dist/src/openclaw/host-memory-verification.js",
+    "dist/src/openclaw/memory-consolidation.js", "dist/src/openclaw/memory-consolidation-scope.js",
     "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
     "dist/src/openclaw/fragment-read-tool.js",
     "dist/src/openclaw/native-memory-reader.js", "dist/src/canghai/native-memory-origin.js",
@@ -255,6 +256,7 @@ try {
     "--admission-replay", "--cancel", "--cancel-preparation", "--managed", "--advice-revision", "--outcome", "--question-recovery",
     "--advice-evidence-recovery", "--advice-revision-recovery", "--outcome-recovery", "--outcome-history-recovery",
     "--standalone-compact", "--standalone-compact-stale", "--standalone-compact-grant-denied", "--standalone-compact-persist-failure",
+    "--core-consolidation", "--core-consolidation-source-stale", "--core-consolidation-revoked", "--core-consolidation-recovery",
     "--history-view-followup", "--source-deletion-history", "--completion-lifecycle", "--completion-status-changed", ...HOST_MEMORY_BOUNDARY_FLAGS,
     ...NATIVE_MEMORY_CONSUMPTION_FLAGS];
   // Each probe owns its Host state and synthetic repositories. Never repack or
@@ -271,6 +273,16 @@ try {
         }, report => {
           if (HOST_MEMORY_BOUNDARY_FLAGS.includes(flag)) assertHostMemoryBoundaryReport(report, flag);
           if (NATIVE_MEMORY_CONSUMPTION_FLAGS.includes(flag)) assertNativeMemoryConsumptionReport(report, flag);
+          if (flag.startsWith("--core-consolidation")) {
+            assert.equal(report.coreConsolidation.nativeDreamingExecuted, false);
+            if (["--core-consolidation-source-stale", "--core-consolidation-revoked"].includes(flag)) assert.equal(report.coreConsolidation.invalidatedBeforePublication, true);
+            else {
+              assert.equal(report.coreConsolidation.restartFinalConsumptionVerified, true);
+              assert.equal(report.coreConsolidation.generationBound, true);
+              assert.equal(report.coreConsolidation.deletedSourceFinalCalls, 0);
+              assert.equal(report.coreConsolidation.recovered, flag === "--core-consolidation-recovery");
+            }
+          }
           if (flag === "--outcome-recovery") {
             assert.equal(report.persistence.recovery.blocked, true);
             assert.equal(report.persistence.recovery.pendingTransactionPreserved, true);
