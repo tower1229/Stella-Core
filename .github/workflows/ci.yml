@@ -5,14 +5,96 @@ on:
   pull_request:
 
 jobs:
-  verify:
+  prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
+    outputs:
+      source-sha: ${{ steps.source.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+      - id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
-      - run: npm run verify
+      - name: Check, test, build and freeze one package
+        run: npm run test:package -- --prepare .artifacts/ci/prepared
+        env:
+          STELLA_ACCEPTANCE_RECEIPT_PATH: .artifacts/ci/prepare-receipt/receipt.json
+      - name: Upload frozen package and compiled harness
+        uses: actions/upload-artifact@v4
+        with:
+          name: stella-prepared
+          path: .artifacts/ci/prepared
+          if-no-files-found: error
+      - name: Preserve preparation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stella-prepare-receipt
+          path: .artifacts/ci/prepare-receipt
+          if-no-files-found: error
+
+  probes:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [memory-access, native-chain, main-1, main-2, main-3, main-4, final]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source-sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: stella-prepared
+          path: .artifacts/ci/prepared
+      - name: Verify assigned cases against the frozen package
+        run: npm run test:package -- --shard "${{ matrix.shard }}" --prepared .artifacts/ci/prepared
+        env:
+          STELLA_ACCEPTANCE_RECEIPT_PATH: .artifacts/ci/shard-${{ matrix.shard }}/receipt.json
+      - name: Preserve incremental case receipts and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stella-shard-${{ matrix.shard }}
+          path: .artifacts/ci/shard-${{ matrix.shard }}
+          if-no-files-found: error
+
+  verify:
+    if: always()
+    needs: [prepare, probes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source-sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: stella-*
+          path: .artifacts/ci/downloaded
+      - name: Require all 81 unique cases and successful jobs
+        if: always()
+        run: node scripts/package-ci-aggregate.mjs .artifacts/ci/downloaded .artifacts/ci/aggregate
+        env:
+          STELLA_CI_JOB_RESULTS: ${{ toJSON(needs) }}
+      - name: Preserve aggregate verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stella-aggregate
+          path: .artifacts/ci/aggregate
+          if-no-files-found: error
