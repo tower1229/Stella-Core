@@ -561,3 +561,19 @@ Source 和 Policy 保留稳定 ID 及历史语义版本；唯一的完全相同�
 公开 CatalogReader 对待评对象报告 reassessment_pending；retrieve 和 request-local USER／MEMORY 视图携带 pendingReassessment，公共诊断只输出待评数量。中间代可继续读取原始证据及有效事项，待评理解不被当作不存在。currentWorkReady 仅在该事项通过当前依赖／权限／个人视图校验且没有未完成的事项专属 scoped understanding 时成立；它不代替 Host 对具体回答输入和投递前的最终复核。后台调度、全部 Host 摘要治理和私人 main 激活不由本入口自动启用。
 
 `tests/synchronize.test.ts` 覆盖中间发布、请求视图、原文 retrieve、跨批重启及幂等、批间新来源版本、critical push 中断、当前事项依赖待评拒绝、v1 迁移和进度损坏拒绝。证据属于 synthetic_contract（临时 Git 仓库及本地合成远端、注入模型），不签发 G-05／G-06／C-08／M-11 整组、真实模型、真实 main 或自然反馈验收。
+
+### 2026-10-15 Core 受管记忆整理（D-057，Issue #23 范围调整）
+
+主人明确批准以 Core 整理替代原生 Dreaming 生成。原生 Dreaming 保持显式关闭；此前原生成功生成及陈旧日记的诊断，不能当作 Core 合法生成链的证据。M-12 的来源、代际和消费约束同样适用于替代能力。未知声明入口继续 fail-closed，不凭替代能力清除 `host_memory_consumption_unverifiable`，不改变任何 required 能力。
+
+入口 `stella.consolidateMemory({operationId,request,evidenceRefs})` 只接受本机 `operator.admin`、managed_durable_write 和仓库处理许可中的独立 `operatorMemoryConsolidation: true`。客户端须在 requesterIds，确切 guarded 模型须在 modelRefs／viewProcessingModelRefs 并具备 Host LLM completion 许可；既有恢复、压缩或 memory_access 验收授权不能代替此授权。没有调度、副作用投递或直接读取 Host 私有数据库。
+
+显式选定的 Evidence 在原文读取前先核验 Source 与 Evidence 两级策略的 ownerId 和学习用途；原文与已有理解通过现有 resolver 和来源策略读取，结构化 LLM 提案后独立复核，并执行来源解释约束。仅可新增 `kind: hypothesis`、`status: candidate`、`scope.global: false` 的理解，不能覆写主人原文、框架、工作状态或将助手／第三方发言变成主人事实。无有用更新或重大歧义分别记录 no_change／needs_clarification，不虚构理解。
+
+全部模型可见原文及已有候选均进入新理解的版本依赖。生成前后、真实受控传输和发布时重验当前资料、许可、Host 配置和模型；模型返回值必须与真实传输输出的 opaque receipt 一致。LearningChange、源 catalog 的 before hash、新 generation、所需 view migration 和 critical Git 同步经既有 MemoryTransaction 原子发布。并发代际、来源修改／删除、撤权、取消或必需视图不能重建时明确失败，未同步事务保持屏障。
+
+同 operationId 及相同请求／Evidence 只恢复已批准计划，不重新生成；不同请求冲突。重启使用当前权限复核，原件变化不得重放陈旧内容。发布后的候选通过现有 request-local MEMORY／最终消费链进入主人私聊，仍为候选；来源变化及撤权后不能经候选、旧会话或摘要复活。群聊、channel、子代理、cron 或未知受众不继承整理权。
+
+durable recoveryRevision 的自身 CAS 更新由当前闭包与 ConsciousnessLoader 同步持有。保留基线已有的精确路径 `reload.hotPrefixes` 声明：该规则没有 reload-plugins 动作，不扩大其他路径例外。未将缺乏因果证据的 noop 实验纳入整理能力；外部指针编辑仍须满足 Core 已持有 revision 和 execution hash。
+
+`tests/memory-consolidation.test.ts` 与 `probe-main-plugin.mjs --core-consolidation{,-source-stale,-revoked,-recovery}` 提供隔离合成契约及真实本地 Host／loopback 证据。它们不证明真实模型质量、私人 main、所有声明入口或整个产品验收完成；包收据须绑定同一源码和 artifact，历史不同 SHA 结果不可拼接。

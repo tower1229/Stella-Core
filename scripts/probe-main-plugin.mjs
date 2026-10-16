@@ -20,6 +20,9 @@ const host = JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf
 assert.equal(host.version, "2026.8.2");
 const outputRejectionProbe = process.argv.includes("--correction-output-rejected");
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
+const consolidationCase = process.argv.find(arg => arg.startsWith("--core-consolidation"))?.slice("--core-consolidation".length) || (process.argv.includes("--core-consolidation") ? "success" : undefined);
+if (consolidationCase) assert.ok(["success", "-source-stale", "-revoked", "-recovery"].includes(consolidationCase));
+const consolidationProbe = Boolean(consolidationCase);
 const nativeCase = process.argv.find(arg => arg.startsWith("--native-memory-"))?.slice("--native-memory-".length);
 const [nativeFamily, nativeState] = nativeCase?.split("-") ?? [];
 if (nativeCase) assert.ok(["fts", "cache", "session", "wiki"].includes(nativeFamily) && ["success", "stale", "mismatch", "missing"].includes(nativeState) && (nativeState !== "missing" || nativeFamily === "cache"));
@@ -111,7 +114,7 @@ const standaloneCompactProbe = standaloneCompactStale || standaloneCompactGrantD
 const historyNativeCompactProbe = process.argv.includes("--history-native-compact");
 const historyViewProbe = sourceDeletionProbe || historyFollowupProbe || historyQueuedNoticeProbe || historyNativeCompactProbe || process.argv.includes("--history-view-rebuild");
 const nativeActiveStale = process.argv.includes("--guarded-active-memory-stale");
-const managedContextProbe = Boolean(audienceScenario || ingressField) || nativeActiveStale || completionLifecycleProbe || outcomeHistoryProbe || standaloneCompactProbe || nativeArtifactProbe || managedBusinessFailure || historyViewProbe || process.argv.includes("--guarded-active-memory") || process.argv.includes("--managed-context");
+const managedContextProbe = consolidationProbe || Boolean(audienceScenario || ingressField) || nativeActiveStale || completionLifecycleProbe || outcomeHistoryProbe || standaloneCompactProbe || nativeArtifactProbe || managedBusinessFailure || historyViewProbe || process.argv.includes("--guarded-active-memory") || process.argv.includes("--managed-context");
 const guardedDreaming = process.argv.includes("--guarded-dreaming");
 const guardedActive = nativeActiveStale || process.argv.includes("--guarded-active-memory");
 const guardedStale = process.argv.includes("--guarded-provider-stale");
@@ -267,6 +270,7 @@ if (correctionProbe) {
   await writeFile(path.join(canghaiRoot, prefix, "personal-access.json"), JSON.stringify({ schemaVersion: "stella.personal-context-access/v1",
     ownerId: "owner-fixture", requesterIds: [audienceScenario === "requester-denied" ? "different-requester" : "cli"], modelRefs: [probeModel], viewProcessingModelRefs: [probeModel], operatorRecovery: true,
     ...(standaloneCompactProbe && !standaloneCompactGrantDenied ? { operatorHistoryCompaction: true } : {}),
+    ...(consolidationProbe ? { operatorMemoryConsolidation: true } : {}),
     purpose: { readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat" }, descriptors: [] }));
 }
 
@@ -669,6 +673,7 @@ export default { ...main, register(api) {
         throw new Error('Recovery must not invoke any semantic model');
       }
       if (${guardedSemantic} && params.purpose === 'stella-core-semantic-routing') return api.runtime.llm.complete(params);
+      if (${consolidationProbe} && params.purpose === 'stella-memory-consolidation') return api.runtime.llm.complete(params);
       if (${standaloneCompactProbe} && params.purpose === 'stella-history-rebuild') return api.runtime.llm.complete(params);
       if (${liveFragment} && ['stella-source-access', 'stella-source-output'].includes(params.purpose)) {
         if (JSON.stringify(params.messages).includes('SYNTHETIC_DENIED_NEIGHBOR')) throw new Error('live_semantic_input_leaked_neighbor');
@@ -697,7 +702,7 @@ export default { ...main, register(api) {
         let result;
         if (params.purpose === 'stella-personal-views') result = { requestHash: value.requestHash, selections: value.candidates.map(c => ({ handle: c.handle, view: 'memory' })) };
         else if (value.proposalHash) result = { requestHash: value.requestHash, proposalHash: value.proposalHash, valid: true };
-        else if (${outcomeHistoryProbe} || ${sourceDeletionProbe} && existsSync(${JSON.stringify(path.join(temp, "source-deletion-phase"))}) || ${historyFollowupProbe || standaloneCompactProbe} && existsSync(${JSON.stringify(path.join(temp, "history-followup-phase"))})) {
+        else if (${consolidationProbe} && existsSync(${JSON.stringify(path.join(temp, "consolidation-followup-phase"))}) || ${outcomeHistoryProbe} || ${sourceDeletionProbe} && existsSync(${JSON.stringify(path.join(temp, "source-deletion-phase"))}) || ${historyFollowupProbe || standaloneCompactProbe} && existsSync(${JSON.stringify(path.join(temp, "history-followup-phase"))})) {
           result = { requestHash: value.requestHash, disposition: 'no_change', clarification: null,
             reviewedHandles: value.candidates.map(c => c.handle), rationale: 'Synthetic follow-up has no new correction', replacements: [] };
         } else {
@@ -789,6 +794,33 @@ const provider = createServer(async (request, response) => {
   for await (const chunk of request) chunks.push(chunk);
   const requestBody = Buffer.concat(chunks).toString('utf8');
   const parsedRequest = JSON.parse(requestBody);
+  if (consolidationProbe && parsedRequest.messages?.length === 1 && typeof parsedRequest.messages[0].content === "string" &&
+      ["Consolidate the explicitly selected retained evidence", "Independently verify this proposed consolidation"].some(prefix => parsedRequest.messages[0].content.startsWith(prefix))) {
+    const prompt = parsedRequest.messages[0].content, data = JSON.parse(prompt.split("\n").at(-1));
+    await writeFile(path.join(temp, `consolidation-model-${providerRequests}.json`), requestBody);
+    if (!data.proposalHash) {
+      if (consolidationCase === "-source-stale") {
+        const selected = JSON.parse(await readFile(path.join(temp, "consolidation-selected-payload.json"), "utf8"));
+        await rm(selected.path);
+      }
+      if (consolidationCase === "-revoked") {
+        const grantFile = path.join(canghaiRoot, "50_PersonalAgent/stella/personal-access.json");
+        const grant = JSON.parse(await readFile(grantFile, "utf8")); delete grant.operatorMemoryConsolidation;
+        await writeFile(grantFile, JSON.stringify(grant));
+      }
+      if (consolidationCase === "-recovery") await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", path.join(temp, "missing-consolidation-remote.git")]);
+    }
+    const result = data.proposalHash ? { requestHash: data.requestHash, proposalHash: data.proposalHash, valid: true }
+      : { requestHash: data.requestHash, disposition: "update", clarification: null, rationale: "Synthetic retained source supports a scoped candidate.",
+        reviewedHandles: data.candidates.map(c => c.handle), replacements: [{ handle: null, group: "understandings", record: {
+          kind: "hypothesis", status: "candidate", statement: "SYNTHETIC_CORE_CONSOLIDATED_CANDIDATE",
+          scope: { workIds: [], contexts: ["synthetic writing"], domains: ["writing"], global: false },
+          supportRefs: data.ownerEvidence.map(e => e.ref), counterRefs: [], dependencyRefs: [] } }] };
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ id: "core-consolidation", object: "chat.completion", created: 1, model: "probe",
+      choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(result) }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })); return;
+  }
   if (guardedSemantic && requestBody.includes("Semantically classify one user turn for Stella Cortex")) {
     providerRequests--;
     semanticProviderRequests++;
@@ -801,7 +833,7 @@ const provider = createServer(async (request, response) => {
     return;
   }
 
-  if (audienceScenario || ingressField || cancellationProbe || skillReadProbe || fragmentProbe || historyViewProbe || standaloneCompactProbe || outcomeHistoryProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
+  if (consolidationProbe || audienceScenario || ingressField || cancellationProbe || skillReadProbe || fragmentProbe || historyViewProbe || standaloneCompactProbe || outcomeHistoryProbe) await writeFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), requestBody);
   observedSkillResult = parsedRequest.messages?.filter((message) => message.role === "tool");
   providerReceivedSkillBody ||= parsedRequest.messages?.some((message) => message.role === "tool" &&
     JSON.stringify(message.content).includes("No private data.")) === true;
@@ -959,7 +991,7 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
     search: { backend: "local", corpus: "wiki" } } } } : {}), ...(guardedActive ? { "active-memory": { enabled: true, config: {
     enabled: true, mode: "always", queryMode: "message", agents: ["probe"], model: probeModel, toolsAllow: ["stella_read_fragment"], timeoutMs: 120000, logging: true,
   } } } : {}), "stella-core": { enabled: true,
-    llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : standaloneCompactProbe ? { allowModelOverride: true, allowedModels: [probeModel], allowedCompletionModels: [probeModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
+    llm: { allowAgentIdOverride: true, ...(liveFragment ? { allowModelOverride: true, allowedModels: [liveModel], allowedCompletionModels: [liveModel] } : standaloneCompactProbe || consolidationProbe ? { allowModelOverride: true, allowedModels: [probeModel], allowedCompletionModels: [probeModel] } : {}) }, hooks: { allowConversationAccess: true }, config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", initializationGatewayAccess: "local_operator_read", dataMode: managed ? "managed_durable_write" : "read_only",
       ...(managed ? { durabilityRemote: "origin", durabilityBranch: "main" } : {}),
       ...(contextKeys ? { contextHistorySignerId: contextKeys.signerId, contextHistoryArchiveRoot: "30_PersonalData/context-history" } : {}) } } } },
   tools: { allow: ["read", "stella_initialize", ...(fragmentProbe || managedContextProbe ? ["stella_read_fragment"] : [])] },
@@ -1008,6 +1040,11 @@ try {
   await connectObserver();
   await waitForInitializationReady();
   if (guardedDreaming) {
+    const inventory = await client.request("stella.initialize", { action: "memory-inventory" });
+    assert.equal(inventory.complete, false);
+    assert.ok(inventory.entries.some(entry => entry.kind === "dreaming" && entry.state === "unverifiable"),
+      "Enabled bundled Dreaming must appear even without a standalone plugin row");
+    await writeFile(path.join(temp, "native-dreaming-inventory.json"), JSON.stringify(inventory, null, 2));
     await mkdir(path.join(workspace, "memory"), { recursive: true });
     await writeFile(path.join(workspace, "memory", new Date().toISOString().slice(0, 10) + ".md"),
       "# Synthetic retained daily log\n\n- SYNTHETIC_UNBOUND_DREAMING_SOURCE: The synthetic project meeting was moved to Tuesday. This retained test fixture has no Core source or policy binding.\n");
@@ -2136,6 +2173,71 @@ try {
     assert.equal(nativeReset.resetBoundaryIncreased, true, JSON.stringify(nativeReset));
     assert.equal(nativeReset.lifecycleRevisionChanged, true, JSON.stringify(nativeReset));
   }
+  let coreConsolidation;
+  if (consolidationProbe) {
+    const { CatalogReader } = await import(buildModule("src/canghai/catalog-reader.js"));
+    const reader = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
+    const selected = reader.catalog.evidence.find(entry => entry.status === "current");
+    assert.ok(selected);
+    const evidenceRef = { id: selected.id, version: selected.version };
+    const evidence = await reader.read(evidenceRef, "evidence"), source = await reader.read(evidence.source, "sources");
+    const payload = source.payloads.find(value => value.sha256 === evidence.payloadSha256);
+    assert.ok(payload && !payload.revision);
+    const selectedPayload = path.join(canghaiRoot, payload.path);
+    await writeFile(path.join(temp, "consolidation-selected-payload.json"), JSON.stringify({ path: selectedPayload, sha256: payload.sha256 }));
+    const params = { operationId: "synthetic_consolidation", request: "Organize these retained observations without inflating owner intent.", evidenceRefs: [evidenceRef] };
+    const before = providerRequests;
+    const catalogBefore = await readFile(path.join(canghaiRoot, "30_PersonalData/memory/catalog.json"), "utf8");
+    coreConsolidation = { caseVersion: "core-consolidation:guarded-generation,restart-consumption,invalidation:v1", scenario: consolidationCase,
+      nativeDreamingExecuted: false, externalModelCalls: 0, model: "loopback-synthetic" };
+    if (["-source-stale", "-revoked"].includes(consolidationCase)) {
+      await assert.rejects(client.request("stella.consolidateMemory", params, { timeoutMs: 330_000 }),
+        consolidationCase === "-source-stale" ? /correction_model_failed|source_unavailable|source_dirty/ : /personal_context_access_changed|correction_model_failed/);
+      assert.equal(providerRequests - before, 1, "Invalidation after proposal cannot reach independent verification or publication");
+      assert.equal(await readFile(path.join(canghaiRoot, "30_PersonalData/memory/catalog.json"), "utf8"), catalogBefore);
+      coreConsolidation.invalidatedBeforePublication = true;
+    } else {
+      if (consolidationCase === "-recovery") {
+        await assert.rejects(client.request("stella.consolidateMemory", params, { timeoutMs: 330_000 }), /critical_sync_failed|durability|memory_consolidation_failed/);
+        await assert.rejects((await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json")).assertCurrent(), /memory_transaction_pending/);
+        await run("git", ["-C", canghaiRoot, "remote", "set-url", "origin", remote]);
+        await client.stopAndWait({ timeoutMs: 2000 }); await gateway.stop();
+        gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+        await connectObserver();
+      }
+      const published = await client.request("stella.consolidateMemory", params, { timeoutMs: 330_000 });
+      assert.equal(providerRequests - before, 2, "Exactly proposal and independent verification use real guarded transport; recovery must not regenerate");
+      const current = await CatalogReader.load(canghaiRoot, "30_PersonalData/memory/catalog.json");
+      assert.notEqual(current.catalog.generationId, reader.catalog.generationId);
+      const candidate = await current.read(published.changeRef, "changes");
+      const target = await current.read(candidate.targetRefs[0], "understandings");
+      assert.equal(target.kind, "hypothesis"); assert.equal(target.status, "candidate"); assert.equal(target.scope.global, false);
+      assert.ok(target.dependencyRefs.some(ref => ref.id === evidenceRef.id && ref.version === evidenceRef.version));
+      const revision = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
+      assert.equal((await run("git", ["--git-dir", remote, "rev-parse", "refs/heads/main"])).stdout.trim(), revision);
+      const replay = await client.request("stella.consolidateMemory", params, { timeoutMs: 330_000 });
+      assert.equal(replay.generationId, published.generationId); assert.equal(providerRequests - before, 2);
+      await client.stopAndWait({ timeoutMs: 2000 }); await gateway.stop();
+      await writeFile(path.join(temp, "consolidation-followup-phase"), "No owner correction in subsequent consumption");
+      gateway = await startExactHostGateway({ cwd: temp, env, openclawBin: path.join(hostRoot, "openclaw.mjs") });
+      await connectObserver(); await waitForInitializationReady();
+      const consumed = await runExactHostEvaluationChat({ request: (method, data) => client.request(method, data, { timeoutMs: 35_000 }),
+        subscribe(listener) { evaluationListeners.add(listener); return () => evaluationListeners.delete(listener); } },
+      { sessionKey: "agent:probe:consolidation-consumer", message: "Use the current writing context.", idempotencyKey: "consolidation-consumer", timeoutMs: 300_000 });
+      assert.equal(consumed.text, "SYNTHETIC_MAIN_ANSWER");
+      assert.ok((await readFile(path.join(temp, `synthetic-provider-${providerRequests}.json`), "utf8")).includes("SYNTHETIC_CORE_CONSOLIDATED_CANDIDATE"));
+      const requestsBeforeDeletion = providerRequests;
+      await rm(selectedPayload);
+      const denied = await client.request("chat.send", { sessionKey: "agent:probe:consolidation-after-deletion", message: "Use the current writing context.", idempotencyKey: "consolidation-after-deletion" });
+      const terminal = await client.request("agent.wait", { runId: denied.runId, timeoutMs: 30_000 }, { timeoutMs: 35_000 });
+      assert.equal(terminal.status, "error", JSON.stringify(terminal));
+      assert.equal(providerRequests, requestsBeforeDeletion, "Deleted source cannot reach the final model through the new candidate");
+      Object.assign(coreConsolidation, { generationBound: true, exactSourceBound: true, criticalSynchronized: true,
+        guardedGenerationRequests: 2, replayRegenerated: false, recovered: consolidationCase === "-recovery",
+        restartFinalConsumptionVerified: true, deletedSourceFinalCalls: 0 });
+    }
+    await writeFile(path.join(temp, "core-consolidation.json"), JSON.stringify(coreConsolidation, null, 2));
+  }
   let standaloneCompaction;
   if (standaloneCompactProbe) {
     const before = providerRequests;
@@ -2239,7 +2341,7 @@ try {
     ? "synthetic managed no-prediction advice; actual main v2 archive, Episode writes, OpenClaw pointer and local bare remote; structured router injected"
     : "synthetic read-only ordinary turn; structured router injected; actual main registration and completion adapter",
     ...(fragmentProbe ? { fragmentSkill: fragmentChecks } : {}), ...(liveEvidence ? { liveEvidence } : {}),
-    managedContextProbe, guardedProvider, guardedActive, guardedPayload, semanticProviderRequests, terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
+    managedContextProbe, guardedProvider, guardedActive, guardedPayload, semanticProviderRequests, coreConsolidation, terminalStatus: terminal.status, providerRequests, userMessages: messages.filter((message) => message.role === "user").length,
     finalAnswers: messages.filter((message) => message.role === "assistant" && JSON.stringify(message).includes("SYNTHETIC_MAIN_ANSWER")).length,
     provesSourceOutputRejection: outputRejectionProbe, provesCorrectionPersistence: correctionProbe && !failureProbe && !cancellationProbe && !guardedStale && !guardedPayload, provesCorrectionRecovery: correctionRecoveryProbe, provesV2Persistence: managed && !correctionProbe && !questionProbe && !cancellationProbe && (!failureProbe || recoveryProbe), provesFailureIsolation: outcomeHistoryRecoveryProbe || failureProbe || cancellationProbe || guardedStale || guardedPayload,
     provesOutcomeRecovery: outcomeHistoryRecoveryProbe || recoveryProbe && outcomeProbe, provesAdviceEvidenceRecovery: adviceTailProbe, admissionReplay,
@@ -2274,7 +2376,7 @@ try {
       ...(nativeActiveStale ? { staleSourceRejected: true, mainModelRequestsAfterInvalidation: 0 } : {}),
       dreamingEnabled: false };
   }
-  assert.equal(report.providerRequests, nativeActiveStale ? 3 : nativeArtifactProbe || guardedPayload ? 0 : guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : guardedActive ? 4 : fragmentProbe ? 6 : skillReadProbe ? 3 : sourceDeletionProbe ? 3 : historyFollowupProbe ? 6 : historyViewProbe ? 2 + (historyView?.nativeCompact?.modelRequests ?? 0) : outcomeHistoryProbe ? 3 : standaloneCompactGrantDenied ? 2 : standaloneCompactStale || standaloneCompactPersistFailure ? 3 : standaloneCompactProbe ? 4 : 1);
+  assert.equal(report.providerRequests, consolidationProbe ? ["-source-stale", "-revoked"].includes(consolidationCase) ? 2 : 4 : nativeActiveStale ? 3 : nativeArtifactProbe || guardedPayload ? 0 : guardedStale ? 1 : liveFragment || correctionRecoveryProbe ? 0 : guardedActive ? 4 : fragmentProbe ? 6 : skillReadProbe ? 3 : sourceDeletionProbe ? 3 : historyFollowupProbe ? 6 : historyViewProbe ? 2 + (historyView?.nativeCompact?.modelRequests ?? 0) : outcomeHistoryProbe ? 3 : standaloneCompactGrantDenied ? 2 : standaloneCompactStale || standaloneCompactPersistFailure ? 3 : standaloneCompactProbe ? 4 : 1);
   if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedSkillBody, true, JSON.stringify(observedSkillResult));
   if (skillReadProbe && !guardedStale && !guardedPayload) assert.equal(providerReceivedInitializationResult, true, JSON.stringify(observedSkillResult));
   if (!liveFragment && !preparationCancellationProbe && !correctionRecoveryProbe && !guardedPayload && !nativeArtifactProbe) assert.equal(providerReceivedInitialization, true, JSON.stringify(initializationInputEvidence));
@@ -2320,7 +2422,8 @@ try {
     assert.ok(nativeSubruns.length > 0, "Observe actual Host-created Dreaming subruns");
     report.nativeDreaming = { scope: "diagnostic", verified: false, managedJobExecuted: true,
       schedulerStatus: finished.status, nativeSubruns: nativeSubruns.length, unboundProjectionWritten: written,
-      nextTurnStatus: next.status, nextTurnBlocker: initialization.category, modelRequestsAfterDreaming: providerRequests - before };
+      nextTurnStatus: next.status, nextTurnBlocker: initialization.category, modelRequestsAfterDreaming: providerRequests - before,
+      coreGenerationBound: false, sourceEligibilityBound: false };
   }
   await writeFile(path.join(temp, "main-completion.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

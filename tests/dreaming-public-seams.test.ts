@@ -1,0 +1,31 @@
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { promisify } from "node:util";
+
+test("exact SDK audit exposes the actual contracts without granting Dreaming publication", async t => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "stella-dreaming-interfaces-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const destination = path.join(temporary, "interfaces.json");
+  await promisify(execFile)(process.execPath, ["scripts/audit-dreaming-public-seams.mjs", destination]);
+  const report = JSON.parse(await readFile(destination, "utf8"));
+  assert.equal(report.schemaVersion, "stella.dreaming-public-interface-audit/v1");
+  assert.equal(report.hostVersion, "2026.8.2");
+  assert.match(report.hostInterfaceSha256, /^[a-f0-9]{64}$/);
+  assert.ok(report.hostFiles.length >= 15);
+  assert.ok(report.hostFiles.every((entry: { path: string; sha256: string }) => !path.isAbsolute(entry.path) && /^[a-f0-9]{64}$/.test(entry.sha256)));
+  const fields = (name: string) => report.types[name].map((field: { name: string }) => field.name);
+  assert.ok(report.hookNames.includes("before_message_write"));
+  assert.deepEqual(fields("PluginHookBeforeMessageWriteEvent"), ["message", "sessionKey", "agentId"]);
+  assert.deepEqual(fields("MemoryPluginPublicArtifact"), ["kind", "workspaceDir", "relativePath", "absolutePath", "agentIds", "contentType"]);
+  assert.deepEqual(fields("MemoryCorpusSupplement"), ["search", "get"]);
+  assert.ok(fields("SubagentRunParams").includes("idempotencyKey"));
+  assert.ok(!fields("SubagentRunParams").includes("sourceRefs"));
+  assert.ok(report.sdk["memory-core-host-runtime-core"].includes("readMemoryArtifactProvenance"));
+  assert.ok(report.nativeSites.some((site: { function: string }) => site.function === "writeMemoryContent"));
+  for (const field of ["qualifiedDreamingVerified", "productionMutation", "issue23Complete"]) assert.equal(report[field], false);
+  assert.equal(report.externalModelRequests, 0);
+});

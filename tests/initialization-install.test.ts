@@ -246,3 +246,47 @@ test("repeat initialization keeps the same receipt and does not claim full_memor
   assert.deepEqual(again.runtime, installed.runtime);
   assert.equal(again.operationId, installed.operationId);
 });
+
+test("maintenance waits for blocked startup isolation to settle and does not grant readiness", async t => {
+  const f = await installFixture(t);
+  await writeFile(path.join(f.source, "uncommitted-input.txt"), "Synthetic interrupted source");
+  let release!: () => void;
+  let entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const isolating = new Promise<void>(resolve => { entered = resolve; });
+  const mutate = f.api.runtime.config.mutateConfigFile.bind(f.api.runtime.config);
+  f.api.runtime.config.mutateConfigFile = async input => { entered(); await held; return mutate(input); };
+  await f.service!.start({ config: f.api.config, stateDir: f.state, logger: f.api.logger } as never);
+  const starting = f.hooks.get("gateway_start")!({}, {});
+  await isolating;
+  assert.equal(f.initialization.status().state, "blocked");
+  let settled = false;
+  const waiting = f.initialization.waitForStartup(new AbortController().signal).then(() => { settled = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, false, "A blocked status must not race its pending Host isolation write");
+  release(); await starting; await waiting;
+  assert.equal(f.initialization.status().state, "blocked");
+  await assert.rejects(f.initialization.assertReady(), /initialization_required/);
+});
+
+test("maintenance startup wait fails before service start and respects cancellation", async t => {
+  const f = await installFixture(t);
+  await assert.rejects(f.initialization.waitForStartup(new AbortController().signal), /gateway_service_not_started/);
+  await f.service!.start({ config: f.api.config, stateDir: f.state, logger: f.api.logger } as never);
+  const cancelled = new AbortController();
+  const waiting = f.initialization.waitForStartup(cancelled.signal);
+  cancelled.abort();
+  await assert.rejects(waiting, /aborted/i);
+  await f.hooks.get("gateway_start")!({}, {});
+  await f.initialization.waitForStartup(new AbortController().signal);
+  assert.equal(f.initialization.status().state, "ready");
+});
+
+test("maintenance startup wait also settles when a late service has no gateway-start event", async t => {
+  const f = await installFixture(t);
+  await f.service!.start({ config: f.api.config, stateDir: f.state, logger: f.api.logger } as never);
+  await f.initialization.waitForStartup(new AbortController().signal);
+  assert.equal(f.initialization.status().state, "ready");
+  await f.service!.stop?.({} as never);
+  await assert.rejects(f.initialization.waitForStartup(new AbortController().signal), /aborted/i);
+});

@@ -2188,3 +2188,39 @@ test("archive reauthenticates main session-current-view when declared sourceRefs
   const sealed = await live.seal({ system: live.publicRules(), messages: [{ role: "user", fragment: restored }] });
   await live.assertConsumption(sealed.consumption, sealed.input);
 });
+
+test("history assessment shares repeated source reads within one sweep and rechecks changed bytes in the next", async t => {
+  const f = await archivedHeadFixture(t);
+  const writer = await f.create();
+  await writer.bindArchivedInput(f.ingressRef);
+  const sealed = await writer.seal({ system: writer.publicRules(), messages: [
+    { role: "user", fragment: writer.currentInput() },
+    { role: "user", fragment: await writer.evidence(f.evidence) },
+  ] });
+  const retained = await persistContextHistory(writer, sealed.consumption, {
+    archiveRoot: "retained-context", signingKey: f.archiveKeys.privateKey, durability: f.durability,
+  });
+  const archive = await loadContextHistory(f.root, { archiveRoot: "retained-context", digest: retained.locator.sha256 }, f.archiveKeys.publicKey);
+  const stored = await readContextHistory(archive, f.root);
+  const graph = readContextArchiveGraph(stored);
+  const uniqueOriginals = new Set(graph.nodes.flatMap(node => node.sources.originals.map(original => canonicalJson(original.ref))));
+  const live = await f.create();
+  let reads = 0;
+  const read = live.resolver.readEvidence.bind(live.resolver);
+  live.resolver.readEvidence = async ref => { reads++; return read(ref); };
+  const assessment = await live.assessHistoryForRebuild(archive);
+  assert.ok(assessment.nodes.every(node => node.eligible));
+  assert.ok(reads <= uniqueOriginals.size * 2, `${reads} original reads for ${uniqueOriginals.size} unique originals; one sweep plus a fresh final check`);
+  let changedDuringSweep = false;
+  live.resolver.readEvidence = async ref => {
+    const value = await read(ref);
+    if (ref.id === f.evidence.id && !changedDuringSweep) {
+      changedDuringSweep = true;
+      await writeFile(path.join(f.root, "current.txt"), "Changed after an earlier node read");
+    }
+    return value;
+  };
+  await assert.rejects(live.assessHistoryForRebuild(archive), /payload_digest_mismatch|source_unavailable|source_dirty/);
+  assert.equal(changedDuringSweep, true, "The final fresh batch must reject an edit after a shared first read");
+  await assert.rejects(live.assessHistoryForRebuild(archive), /payload_digest_mismatch|source_unavailable|source_dirty/);
+});

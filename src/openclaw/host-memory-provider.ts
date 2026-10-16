@@ -8,6 +8,7 @@ import type { BoundTurnRequest } from "./turn-request.js";
 import { hostHistoryCompaction } from "./host-history-compaction.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { hostMemoryVerification } from "./host-memory-verification.js";
+import { memoryConsolidation } from "./memory-consolidation-scope.js";
 
 type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
 type StreamResult = Awaited<ReturnType<Stream>>;
@@ -101,12 +102,15 @@ export function registerHostMemoryProvider(
         const direct = directCalls.getStore();
         const compaction = kind === "direct" && direct ? hostHistoryCompaction(direct.request) : undefined;
         const verification = kind === "direct" && direct ? hostMemoryVerification(direct.request) : undefined;
-        const request = verification?.request ?? compaction?.request ?? readActiveCompletionRequest(agentId);
+        const consolidation = kind === "direct" && direct ? memoryConsolidation(direct.request) : undefined;
+        const request = consolidation?.request ?? verification?.request ?? compaction?.request ?? readActiveCompletionRequest(agentId);
         if (request.agentId !== agentId) throw new CompletionError("host_memory_agent_mismatch", "generate");
         const assertActive = () => {
           const priorFailure = rejectedRequests.get(request);
           if (priorFailure) throw new CompletionError(priorFailure, "generate");
-          if (verification) {
+          if (consolidation) {
+            if (memoryConsolidation(request) !== consolidation) throw new CompletionError("host_memory_call_expired", "generate");
+          } else if (verification) {
             if (hostMemoryVerification(request) !== verification) throw new CompletionError("host_memory_call_expired", "generate");
           } else if (compaction) {
             if (hostHistoryCompaction(request) !== compaction) throw new CompletionError("host_memory_call_expired", "generate");
