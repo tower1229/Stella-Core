@@ -724,6 +724,21 @@ export class HostContextAuthority {
     const checkedRecords: FragmentRecord[] = [];
     const eligibleRecords = new Map<string, FragmentRecord>();
     const integrityRefs = new Map<string, VersionedRef>();
+    // Nodes repeat their complete inherited source closure. Read identical
+    // inputs once in this assessment sweep, while comparing every node's own
+    // digest and closure. The fresh final batch below is deliberately separate;
+    // these promises never authorize a later assessment or model consumption.
+    const objects = new Map<string, Promise<Record<string, unknown>>>();
+    const historicalEvidence = new Map<string, Promise<Record<string, unknown>>>();
+    const sourceObjects = new Map<string, Promise<Record<string, unknown>>>();
+    const evidenceObjects = new Map<string, Promise<OriginalEvidence>>();
+    const integrityChecks = new Map<string, Promise<void>>();
+    const payloadChecks = new Map<string, Promise<void>>();
+    const once = <T>(cache: Map<string, Promise<T>>, key: string, read: () => Promise<T>): Promise<T> => {
+      let value = cache.get(key);
+      if (!value) { value = read(); cache.set(key, value); }
+      return value;
+    };
     for (const node of graph.nodes) {
       const sources = node.sources;
       const dependencies = new Map(sources.dependencies.map(dependency => [refKey(dependency.ref), dependency]));
@@ -752,7 +767,7 @@ export class HostContextAuthority {
       // excluded nodes. One invalid parent cannot hide damage in another branch.
       for (const dependency of dependencies.values()) {
         if (!this.resolver.reader.eligible(dependency.ref)) continue;
-        const object = await this.resolver.reader.read(dependency.ref);
+        const object = await once(objects, refKey(dependency.ref), () => this.resolver.reader.read(dependency.ref));
         check(jsonDigest(object) === dependency.digest, "host_context_dependency_changed");
         currentDependencies.set(refKey(dependency.ref), dependency);
         if (String(object.schemaVersion).startsWith("stella.source-policy/")) {
@@ -763,11 +778,11 @@ export class HostContextAuthority {
       for (const original of sources.originals) {
         if (!this.resolver.reader.eligible(original.ref)) {
           if (this.resolver.reader.entry(original.ref).status === "current") {
-            const evidence = await this.resolver.reader.read(original.ref, "evidence", "historical");
+            const evidence = await once(historicalEvidence, refKey(original.ref), () => this.resolver.reader.read(original.ref, "evidence", "historical"));
             check(validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef), "host_context_archive_invalid");
             if (this.resolver.reader.eligible(evidence.source) && this.resolver.reader.eligible(evidence.policyRef)) {
               await accessible(async () => {
-                await this.resolver.assertCurrentEvidencePayloadIntegrity(original.ref);
+                await once(integrityChecks, refKey(original.ref), () => this.resolver.assertCurrentEvidencePayloadIntegrity(original.ref));
                 integrityRefs.set(refKey(original.ref), original.ref);
               });
             }
@@ -775,7 +790,7 @@ export class HostContextAuthority {
           continue;
         }
         await accessible(async () => {
-          const value = await this.resolver.readEvidence(original.ref);
+          const value = await once(evidenceObjects, refKey(original.ref), () => this.resolver.readEvidence(original.ref));
           check(jsonDigest(value) === original.digest, "host_context_evidence_changed");
           originals.push(value);
         });
@@ -783,10 +798,13 @@ export class HostContextAuthority {
       for (const payload of sources.payloads) {
         if (!this.resolver.reader.eligible(payload.source)) continue;
         await accessible(async () => {
-          const source = await this.resolver.reader.read(payload.source, "sources");
+          const source = await once(sourceObjects, refKey(payload.source), () => this.resolver.reader.read(payload.source, "sources"));
           check(validMemoryRef(source.policyRef) && currentDependencies.has(refKey(source.policyRef)), "host_context_payload_dependency_missing");
-          await this.resolver.assertSourceAccess(payload.source, source.policyRef);
-          await this.resolver.reader.readPayload(payload.source, payload.sha256);
+          const policyRef = source.policyRef;
+          await once(payloadChecks, canonicalJson(payload), async () => {
+            await this.resolver.assertSourceAccess(payload.source, policyRef);
+            await this.resolver.reader.readPayload(payload.source, payload.sha256);
+          });
           payloads.push(payload);
         });
       }

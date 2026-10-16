@@ -85,6 +85,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   let status: Status = { state: "not_started" };
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
+  let serviceStarted = false;
   let waitingForMemoryIdle = false;
   let initializer: StellaInitializer | undefined;
   const captureCapabilityBinding = async (capabilityId?: string): Promise<CapabilityVersionBinding> => {
@@ -483,6 +484,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   api.registerService({
     id: "stella-initialization",
     start(ctx) {
+      serviceStarted = true;
       stateDir = ctx.stateDir;
       reportHealth = (result) => {
         if (result.state === "blocked") ctx.serviceHealth?.reportFailure(new InitializationError(result.category!));
@@ -655,7 +657,28 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       return { content: [{ type: "text" as const, text: JSON.stringify(result) }], details: result, isError: result.state === "blocked" };
     },
   }, { names: ["stella_initialize"] });
-  return { initialize, rollback, assertReady, async assertRun(runId: string) {
+  return { initialize, rollback, assertReady, async waitForStartup(signal: AbortSignal) {
+    // A blocked startup may still be applying Host isolation. Maintenance can
+    // recover its fenced transaction only after those effects settle, before
+    // reserving the repository; waiting while holding that reservation would
+    // deadlock the startup writer's existing memory-idle gate.
+    if (!serviceStarted) throw new InitializationError("gateway_service_not_started");
+    const cancellation = AbortSignal.any([signal, shutdown.signal]);
+    const wait = async (pending: Promise<unknown>) => {
+      cancellation.throwIfAborted();
+      let cancel = () => {};
+      try {
+        await Promise.race([pending, new Promise<never>((_, reject) => {
+          cancel = () => reject(cancellation.reason);
+          cancellation.addEventListener("abort", cancel, { once: true });
+        })]);
+        cancellation.throwIfAborted();
+      } finally { cancellation.removeEventListener("abort", cancel); }
+    };
+    cancellation.throwIfAborted();
+    while (inflight) await wait(inflight);
+    cancellation.throwIfAborted();
+  }, async assertRun(runId: string) {
     await assertReady();
     await initializer!.assertRun(runId);
   }, async prepareContextCompilation(request: BoundTurnRequest) {

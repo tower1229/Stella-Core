@@ -547,7 +547,8 @@ export default definePluginEntry({
         });
       }
     };
-    registerMemoryConsolidation(api, config, { resolveModelRef: resolveLiveModelRef, durability(loaded) {
+    registerMemoryConsolidation(api, config, { waitForStartup: signal => initialization.waitForStartup(signal),
+      resolveModelRef: resolveLiveModelRef, durability(loaded) {
       ensureDurability(loaded);
       if (!durability) throw new CatalogError("critical_durability_required");
       return durability;

@@ -39,6 +39,7 @@ export function parseMemoryConsolidation(value: unknown) {
 /** Explicit local maintenance. No scheduler, private Host database or native
  * Dreaming artifact is used. The ordinary learning transaction owns publication. */
 export function registerMemoryConsolidation(api: OpenClawPluginApi, config: Config, ports: {
+  waitForStartup(signal: AbortSignal): Promise<void>;
   resolveModelRef(): string; durability(loaded: LoadedConsciousness): GitCangHaiDurability;
 }) {
   api.registerGatewayMethod("stella.consolidateMemory", async ({ params, client, respond, signal }) => {
@@ -49,6 +50,7 @@ export function registerMemoryConsolidation(api: OpenClawPluginApi, config: Conf
       const input = parseMemoryConsolidation(params);
       const abort = signal ? AbortSignal.any([signal, AbortSignal.timeout(300_000)]) : AbortSignal.timeout(300_000);
       const root = await realpath(config.canghaiRoot);
+      await ports.waitForStartup(abort);
       const result = await withCompletionResourceReservation(process.platform === "win32" ? root.toLowerCase() : root, async () => {
         abort.throwIfAborted();
         // Authority files must be pinned even when recovering partially written
