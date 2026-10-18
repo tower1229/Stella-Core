@@ -14,7 +14,9 @@ import { HOST_MEMORY_ACCEPTANCE_MATRIX, assertHostMemoryAcceptanceReport } from 
 
 const scenario = process.argv[2] ?? "success";
 const nativeProvider = process.argv[3] ?? "memory-core";
-assert.ok(HOST_MEMORY_ACCEPTANCE_MATRIX.some(entry => entry.provider === nativeProvider && entry.scenario === scenario));
+const indexMode = process.argv[4] ?? "fts";
+const vectorIndex = indexMode === "vector";
+assert.ok(HOST_MEMORY_ACCEPTANCE_MATRIX.some(entry => entry.provider === nativeProvider && entry.scenario === scenario && (entry.indexMode ?? "fts") === indexMode));
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = path.resolve(process.env.STELLA_PROBE_PACKAGE_ROOT ?? root);
 const hostRoot = path.resolve(process.env.STELLA_PROBE_HOST_ROOT ?? path.join(root, "node_modules/openclaw"));
@@ -118,10 +120,28 @@ import { resolveCommandAuthorization } from ${JSON.stringify(sdkUrl("command-aut
 import { resolveTurnAudience } from ${JSON.stringify(moduleUrl("src/openclaw/turn-audience.js"))};
 import { appendFileSync, writeFileSync, readFileSync, readdirSync, unlinkSync, existsSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import { loadSqliteVecExtension } from ${JSON.stringify(sdkUrl("memory-core-host-engine-storage.js"))};
 let indexedDbPath;
-const afterRead = actual => {
+const mutateVector = async scenario => {
+  const db = new DatabaseSync(indexedDbPath, { allowExtension: true });
+  try {
+    if (!(await loadSqliteVecExtension({ db })).ok) throw new Error('vector_extension_missing');
+    const selected = db.prepare('SELECT id FROM memory_index_chunks WHERE path = ?').all(${JSON.stringify(nativePath)});
+    const embedding = Array.from({ length: 384 }, (_, index) => index === 1 ? 1 : 0);
+    for (const row of selected) {
+      if (scenario === 'vector-row-missing') db.prepare('DELETE FROM memory_index_chunks_vec WHERE id = ?').run(row.id);
+      if (['vector-row-mismatch', 'vector-invalidated-before-model', 'vector-generation-changed-before-model'].includes(scenario))
+        db.prepare('UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = ?').run(new Float32Array(embedding), row.id);
+      if (scenario === 'vector-generation-changed-before-model') db.prepare('UPDATE memory_index_chunks SET embedding = ? WHERE id = ?').run(JSON.stringify(embedding), row.id);
+    }
+    if (scenario === 'embedding-cache-missing') db.exec('DELETE FROM memory_embedding_cache');
+    if (['embedding-cache-mismatch', 'cache-invalidated-before-model', 'vector-generation-changed-before-model'].includes(scenario))
+      db.prepare('UPDATE memory_embedding_cache SET embedding = ?').run(JSON.stringify(embedding));
+  } finally { db.close(); }
+};
+const afterRead = async actual => {
   appendFileSync(${JSON.stringify(path.join(temp, "native-read.jsonl"))}, JSON.stringify(actual) + '\\n');
-  if (!${JSON.stringify(["native-stale-before-model", "source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated"].includes(scenario))} ||
+  if (!${JSON.stringify(["native-stale-before-model", "source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated", "vector-invalidated-before-model", "cache-invalidated-before-model", "vector-generation-changed-before-model"].includes(scenario))} ||
       existsSync(${JSON.stringify(path.join(temp, "invalidation.json"))})) return;
   const modelCalls = readdirSync(${JSON.stringify(temp)}).filter(name => /^model-[0-9]+[.]json$/.test(name)).length;
   if (${scenario === "native-stale-before-model"}) writeFileSync(${JSON.stringify(nativeFile)}, ${JSON.stringify(changedNativeText)});
@@ -135,6 +155,7 @@ const afterRead = actual => {
     if (${nativeProvider === "memory-wiki"}) unlinkSync(${JSON.stringify(path.join(vault, ".openclaw-wiki/log.jsonl"))});
     else { const db = new DatabaseSync(indexedDbPath); try { db.exec('UPDATE memory_index_chunk_provenance SET observed_at = observed_at + 1'); } finally { db.close(); } }
   }
+  if (${JSON.stringify(vectorIndex)}) await mutateVector(${JSON.stringify(scenario)});
   writeFileSync(${JSON.stringify(path.join(temp, "invalidation.json"))}, JSON.stringify({ scenario: ${JSON.stringify(scenario)}, modelCalls, nativeBodyRetained: existsSync(${JSON.stringify(nativeFile)}) }));
 };
 export default { ...main, register(api) {
@@ -151,7 +172,7 @@ export default { ...main, register(api) {
       const get = entry.supplement.get.bind(entry.supplement);
       entry.supplement.get = async input => {
         if (${scenario === "native-mismatch"}) writeFileSync(${JSON.stringify(nativeFile)}, ${JSON.stringify(changedNativeText)});
-        const actual = await get(input); afterRead(actual); return actual;
+        const actual = await get(input); await afterRead(actual); return actual;
       };
       respond(true, { wiki: true }); return;
     }
@@ -160,7 +181,15 @@ export default { ...main, register(api) {
     const { manager } = await runtime.getMemorySearchManager({ cfg: api.runtime.config.current(), agentId: 'probe' });
     if (!manager) throw new Error('native_manager_missing');
     if (${scenario !== "index-missing"}) await manager.sync({ force: true });
+    let vectorSearch;
+    if (${vectorIndex && scenario !== "index-missing"}) {
+      const query = 'Which earlier observation is authorized for this verification?';
+      const hits = await manager.search(query, { maxResults: 32, minScore: 0.1, sources: ['memory'], sessionKey: 'agent:probe:main' });
+      vectorSearch = { query, hits, status: manager.status() };
+      writeFileSync(${JSON.stringify(path.join(temp, "native-vector-search.json"))}, JSON.stringify(vectorSearch));
+    }
     const status = manager.status(); indexedDbPath = status.dbPath; await manager.close();
+    if (${JSON.stringify(vectorIndex && ["vector-row-missing", "vector-row-mismatch", "embedding-cache-missing", "embedding-cache-mismatch"].includes(scenario))}) await mutateVector(${JSON.stringify(scenario)});
     const get = runtime.getMemorySearchManager.bind(runtime);
     runtime.getMemorySearchManager = async (...args) => {
       const result = await get(...args);
@@ -171,13 +200,13 @@ export default { ...main, register(api) {
         result.manager.readFile = async (...input) => {
           if (${scenario === "native-mismatch"}) writeFileSync(${JSON.stringify(nativeFile)}, ${JSON.stringify(changedNativeText)});
           const actual = await read(...input);
-          afterRead(actual);
+          await afterRead(actual);
           return actual;
         };
       }
       return result;
     };
-    respond(true, status);
+    respond(true, { ...status, ...(vectorSearch ? { vectorSearch } : {}) });
   }, { scope: 'operator.admin' });
   main.register({ ...api, logger: { ...api.logger, error(message) {
     appendFileSync(${JSON.stringify(path.join(temp, "diagnostics.jsonl"))}, JSON.stringify({ message }) + '\\n'); api.logger.error(message);
@@ -219,11 +248,22 @@ export default { ...main, register(api) {
 } };
 `);
 let calls = [], finalCalls = 0, embeddingCalls = 0, providerError;
+let preparationComplete = false;
+const embeddingInputs = [];
 const server = createServer(async (req, res) => {
   try {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     const input = JSON.parse(Buffer.concat(chunks));
-    if (req.url.endsWith("/embeddings")) { embeddingCalls++; throw new Error("Unexpected embedding"); }
+    if (req.url.endsWith("/embeddings")) {
+      assert.ok(vectorIndex && !preparationComplete, "Consumer embeddings forbidden");
+      embeddingCalls++; embeddingInputs.push(input);
+      await writeFile(path.join(temp, `embedding-${embeddingCalls}.json`), JSON.stringify(input));
+      const texts = Array.isArray(input.input) ? input.input : [input.input];
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ object: "list", model: input.model, data: texts.map((text, index) => ({ object: "embedding", index,
+        embedding: Array.from({ length: 384 }, (_, position) => position === (text.includes(original.trim()) || text === "Which earlier observation is authorized for this verification?" ? 0 : 1) ? 1 : 0) })) }));
+      return;
+    }
     calls.push(input); await writeFile(path.join(temp, `model-${calls.length}.json`), JSON.stringify(input));
     const prompt = input.messages.find(message => message.role === "user").content;
     let answer;
@@ -244,8 +284,10 @@ const server = createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
-  memory: { search: { enabled: true, provider: "none", fallback: "none", sources: ["memory"],
-    store: { vector: { enabled: false }, fts: { tokenizer: "unicode61" } }, sync: { onSessionStart: false, onSearch: false, watch: false } } },
+  memory: { search: { enabled: true, provider: vectorIndex ? "openai" : "none", fallback: "none", sources: ["memory"],
+    ...(vectorIndex ? { model: "text-embedding-3-small", remote: { baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: "synthetic-local-only" },
+      cache: { enabled: true }, query: { hybrid: { enabled: false } } } : {}),
+    store: { vector: { enabled: vectorIndex }, fts: { tokenizer: "unicode61" } }, sync: { onSessionStart: false, onSearch: false, watch: false } } },
   ...(nativeProvider === "session-memory" ? { hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } } : {}),
   agents: { defaults: { model: { primary: "stella-guarded/probe" }, ...(scenario === "payload-transform" ? { models: {
     "stella-guarded/probe": { params: { extra_body: { messages: [{ role: "user", content: "UNBOUND_PAYLOAD" }] } } } } } : {}) }, entries: { probe: { workspace } } },
@@ -284,6 +326,16 @@ try {
     await writeFile(path.join(temp, "wiki.compile.json"), JSON.stringify(compiled));
   }
   const nativeStatus = await rpc("stella.syntheticPrepareIndex", {});
+  preparationComplete = true;
+  const preparationEmbeddingRequests = embeddingCalls;
+  let nativeVectorQueryVerified = false;
+  if (vectorIndex && scenario !== "index-missing") {
+    const search = nativeStatus.vectorSearch;
+    assert.equal(search.status.vector.index.state, "complete"); assert.equal(search.status.fallback, undefined);
+    assert.ok(search.hits.some(hit => hit.path === nativePath && hit.snippet.includes(original.trim())));
+    assert.ok(embeddingInputs.some(input => input.input === search.query || Array.isArray(input.input) && input.input.includes(search.query)));
+    nativeVectorQueryVerified = true;
+  }
   const before = await run("git", ["-C", canghaiRoot, "status", "--porcelain"]); assert.equal(before.stdout.trim(), "");
   let result, category;
   try { result = await rpc("stella.initialize", { action: "accept-capability", capabilityId: "memory_access", runId: `memory-${scenario}` }); }
@@ -309,7 +361,11 @@ try {
       "payload-transform": "source_access_model_failed", "unbound-output": "host_memory_acceptance_model_receipt_required", "unbound-source-verdict": "source_access_model_failed",
       "changed-source-verdict": "source_access_model_failed", "native-stale-before-model": nativeProvider === "memory-wiki" ? "native_memory_read_unverifiable" : "native_memory_payload_changed",
       "source-deleted-before-model": "source_dirty", "grant-revoked-before-model": "source_dirty",
-      "native-cache-invalidated": nativeProvider === "memory-wiki" ? "native_memory_read_unverifiable" : "native_memory_index_changed" }[scenario];
+      "native-cache-invalidated": nativeProvider === "memory-wiki" ? "native_memory_read_unverifiable" : "native_memory_index_changed",
+      "vector-row-missing": "native_memory_vector_unverifiable", "vector-row-mismatch": "native_memory_vector_payload_changed",
+      "embedding-cache-missing": "native_memory_embedding_cache_unverifiable", "embedding-cache-mismatch": "native_memory_embedding_cache_unverifiable",
+      "vector-invalidated-before-model": "native_memory_vector_payload_changed", "cache-invalidated-before-model": "native_memory_embedding_cache_unverifiable",
+      "vector-generation-changed-before-model": "native_memory_index_changed" }[scenario];
     assert.ok(category?.includes(expected), JSON.stringify({ category, expected })); assert.equal(result, undefined); assert.equal(finalCalls, 0);
   }
   if (providerError) throw providerError;
@@ -346,7 +402,7 @@ try {
     }
   }
   const nativeReads = await readFile(path.join(temp, "native-read.jsonl"), "utf8").then(body => body.trim().split("\n").filter(Boolean).length).catch(error => { if (error.code === "ENOENT") return 0; throw error; });
-  assert.equal(embeddingCalls, 0);
+  assert.equal(embeddingCalls - preparationEmbeddingRequests, 0);
   if (["grant-denied", "source-denied", "payload-transform", "unbound-source-verdict"].includes(scenario)) assert.equal(calls.length, 0);
   const sourceChanged = ["generation-changed", "source-deleted-before-model", "grant-revoked-before-model"].includes(scenario);
   if (!sourceChanged) assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
@@ -358,9 +414,10 @@ try {
     producerEvidence: producerReport ? process.env.STELLA_NATIVE_PRODUCERS_REPORT : undefined, modelRequestsAfterInvalidation, invalidation,
     sourceRepository: { root: canghaiRoot, revision: (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), fixture: "synthetic" },
     scope: "native_fragment_guarded_direct", fixture: "synthetic", fullMemoryBindingValid: true, nativeReads, modelCalls: calls.length, finalCalls,
-    consumerEmbeddingRequests: embeddingCalls, capabilityPassed: Boolean(result), category,
+    nativeIndexMode: indexMode, nativeVectorQueryVerified, preparationEmbeddingRequests,
+    consumerEmbeddingRequests: embeddingCalls - preparationEmbeddingRequests, capabilityPassed: Boolean(result), category,
     sourceUnchanged: !sourceChanged, receiptInvalidatedByGeneration: scenario === "generation-changed", audienceDenials,
     dreamingEnabled: false, dreamingExecuted: false, fullMemoryAccepted: false, privateMainAccepted: false, realModelAccepted: false, issue23Complete: false };
-  assertHostMemoryAcceptanceReport(report, scenario, nativeProvider);
+  assertHostMemoryAcceptanceReport(report, scenario, nativeProvider, indexMode);
   await writeFile(path.join(temp, "host-memory-acceptance.json"), JSON.stringify(report, null, 2)); process.stdout.write(JSON.stringify(report));
 } finally { visitor?.stop(); admin?.stop(); await gateway?.stop(); await new Promise(resolve => server.close(resolve)); }

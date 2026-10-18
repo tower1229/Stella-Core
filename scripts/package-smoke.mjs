@@ -217,10 +217,10 @@ try {
     assert.equal(report.nativeWikiCompileExecuted, true); assert.equal(report.stellaConsumptionVerified, false);
     assert.equal(report.nativeCompiledClaimRead, true);
   });
-  for (const { provider, scenario, flag } of HOST_MEMORY_ACCEPTANCE_MATRIX) {
-    await probe(flag, "probe-host-memory-acceptance.mjs", [scenario, provider], {
+  for (const { provider, scenario, flag, indexMode } of HOST_MEMORY_ACCEPTANCE_MATRIX) {
+    await probe(flag, "probe-host-memory-acceptance.mjs", [scenario, provider, indexMode ?? "fts"], {
       STELLA_NATIVE_PRODUCERS_REPORT: path.join(nativeProducers.evidenceDirectory, "native-memory-producers.json"),
-    }, report => assertHostMemoryAcceptanceReport(report, scenario, provider));
+    }, report => assertHostMemoryAcceptanceReport(report, scenario, provider, indexMode));
   }
   await probe("main-native-artifact-active-memory", "probe-main-plugin.mjs",
     ["--native-artifact", path.join(active.evidenceDirectory, "native-active-memory.json")], {}, report => {

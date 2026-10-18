@@ -9,17 +9,22 @@ export const HOST_MEMORY_BOUNDARY_FLAGS = Object.freeze([
 export const NATIVE_MEMORY_CONSUMPTION_FLAGS = Object.freeze([...['fts', 'cache', 'session', 'wiki'].flatMap(family =>
   ['success', 'stale', 'mismatch'].map(state => `--native-memory-${family}-${state}`)), '--native-memory-cache-missing']);
 export const HOST_MEMORY_ACCEPTANCE_SCENARIOS = Object.freeze(["success", "grant-denied", "source-denied", "native-mismatch", "index-missing", "payload-transform", "generation-changed", "unbound-output", "unbound-source-verdict", "changed-source-verdict", "native-stale-before-model"]);
-export const HOST_MEMORY_ACCEPTANCE_MATRIX = Object.freeze(["memory-core", "session-memory", "memory-wiki"].flatMap(provider =>
+export const HOST_VECTOR_ACCEPTANCE_SCENARIOS = Object.freeze(["success", "grant-denied", "source-denied", "native-mismatch", "index-missing",
+  "native-stale-before-model", "source-deleted-before-model", "grant-revoked-before-model", "vector-row-missing", "vector-row-mismatch",
+  "embedding-cache-missing", "embedding-cache-mismatch", "vector-invalidated-before-model", "cache-invalidated-before-model", "vector-generation-changed-before-model"]);
+export const HOST_MEMORY_ACCEPTANCE_MATRIX = Object.freeze([...["memory-core", "session-memory", "memory-wiki"].flatMap(provider =>
   [...HOST_MEMORY_ACCEPTANCE_SCENARIOS, ...(provider === "memory-core" ? [] : ["source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated"])].map(scenario =>
-    ({ provider, scenario, flag: `memory-access-${provider === "memory-core" ? "" : `${provider}-`}${scenario}` }))));
+    ({ provider, scenario, flag: `memory-access-${provider === "memory-core" ? "" : `${provider}-`}${scenario}` }))),
+  ...HOST_VECTOR_ACCEPTANCE_SCENARIOS.map(scenario => ({ provider: "memory-core", indexMode: "vector", scenario, flag: `memory-access-vector-${scenario}` }))]);
 const nativeProbes = family => NATIVE_MEMORY_CONSUMPTION_FLAGS.filter(flag => flag.startsWith(`--native-memory-${family}-`)).map(flag => flag.slice(2));
 const acceptanceProbes = provider => HOST_MEMORY_ACCEPTANCE_MATRIX.filter(entry => entry.provider === provider).map(entry => entry.flag);
+const vectorProbes = HOST_MEMORY_ACCEPTANCE_MATRIX.filter(entry => entry.indexMode === "vector").map(entry => entry.flag);
 
 // This is an evidence index, never an admission receipt. A common final-input
 // rejection proves that boundary, not every native producer upstream of it.
 const coverage = {
-  memory_index: { probes: ["fragment-skill", "source-audience-owner", "guarded-active-memory", ...nativeProbes("fts"), ...nativeProbes("cache")],
-    gaps: ["Native FTS exact-location reads and vector-index/cache preparation are scoped proofs; vector semantic retrieval, QMD and arbitrary plugins remain unverified."] },
+  memory_index: { probes: ["fragment-skill", "source-audience-owner", "guarded-active-memory", ...nativeProbes("fts"), ...nativeProbes("cache"), ...vectorProbes],
+    gaps: ["Native vector candidate preparation and exact-location vector/cache-bound consumption are scoped proofs; permissioned query embeddings during ordinary consumption, QMD and arbitrary plugins remain unverified."] },
   session_summary: { probes: ["standalone-compact", "standalone-compact-stale", "history-view-followup", ...nativeProbes("session")],
     gaps: ["Evidence covers Core signed summaries, not every native summary producer."] },
   bootstrap: { probes: ["initialization", "host-ingress-bootstrap", "source-audience-owner"],
@@ -28,7 +33,7 @@ const coverage = {
     gaps: ["Scoped to signed target-session history; other transports are not certified."] },
   compaction: { probes: ["standalone-compact", "standalone-compact-stale", "standalone-compact-grant-denied", "standalone-compact-persist-failure"],
     gaps: ["Native sessions.compact remains rejected; success uses explicit Core compaction authority."] },
-  prompt_cache: { probes: ["guarded-active-memory", "guarded-active-memory-stale", "guarded-provider-stale", ...nativeProbes("cache"), ...nativeProbes("wiki")],
+  prompt_cache: { probes: ["guarded-active-memory", "guarded-active-memory-stale", "guarded-provider-stale", ...nativeProbes("cache"), ...nativeProbes("wiki"), ...vectorProbes],
     gaps: ["Embedding reindex cache and native Wiki reads are scoped evidence; remote provider prompt caches and arbitrary harness caches remain unverified."] },
   context_engine: { probes: ["managed-context-history", "managed-context-persistence-failure", "managed-context-native-control", "main-native-artifact-active-memory"],
     gaps: ["Only the selected managed engine and target Agent are governed; native control is diagnostic."] },
@@ -49,17 +54,26 @@ export const HOST_MEMORY_EVIDENCE_PROBES = Object.freeze([...new Set([
   ...HOST_MEMORY_ACCEPTANCE_MATRIX.map(entry => entry.flag),
 ])]);
 
-export function assertHostMemoryAcceptanceReport(report, scenario, provider = "memory-core") {
-  assert.ok(HOST_MEMORY_ACCEPTANCE_MATRIX.some(entry => entry.scenario === scenario && entry.provider === provider));
+export function assertHostMemoryAcceptanceReport(report, scenario, provider = "memory-core", indexMode = "fts") {
+  assert.ok(HOST_MEMORY_ACCEPTANCE_MATRIX.some(entry => entry.scenario === scenario && entry.provider === provider && (entry.indexMode ?? "fts") === indexMode));
   assert.equal(report.schemaVersion, "stella.host-memory-acceptance-probe/v1");
   assert.equal(report.nativeProvider, provider);
+  assert.equal(report.nativeIndexMode, indexMode);
   assert.equal(report.scope, "native_fragment_guarded_direct");
   assert.equal(report.fullMemoryBindingValid, true);
   assert.equal(report.consumerEmbeddingRequests, 0);
+  if (indexMode === "vector") {
+    assert.equal(report.modelRequestsAfterInvalidation, 0);
+    if (scenario !== "index-missing") {
+      assert.equal(report.nativeVectorQueryVerified, true);
+      assert.ok(report.preparationEmbeddingRequests > 0);
+    }
+  }
   const passed = ["success", "generation-changed"].includes(scenario);
   assert.equal(report.capabilityPassed, passed);
   assert.equal(report.finalCalls, passed ? 1 : 0);
   if (["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(scenario) || provider === "memory-wiki" && scenario === "native-cache-invalidated") assert.ok(report.nativeReads >= 2);
+  else if (indexMode === "vector" && scenario.endsWith("before-model")) assert.ok(report.nativeReads >= 1);
   else assert.equal(report.nativeReads, ["native-mismatch", "source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated"].includes(scenario) || provider === "memory-wiki" && scenario === "index-missing" ? 1 : 0);
   if (provider !== "memory-core") {
     assert.equal(report.nativeProducerVerified, true);
@@ -158,9 +172,9 @@ export function alignHostMemoryEvidence({ nativeEntrances, pluginIds, probes, co
     references([flag.slice(2)]);
     assertNativeMemoryConsumptionReport(byName.get(flag.slice(2)).report, flag);
   }
-  for (const { provider, scenario, flag } of HOST_MEMORY_ACCEPTANCE_MATRIX) {
+  for (const { provider, scenario, flag, indexMode } of HOST_MEMORY_ACCEPTANCE_MATRIX) {
     references([flag]);
-    assertHostMemoryAcceptanceReport(byName.get(flag).report, scenario, provider);
+    assertHostMemoryAcceptanceReport(byName.get(flag).report, scenario, provider, indexMode);
   }
   const producer = byName.get("native-memory-producers")?.report;
   assert.equal(producer?.nativeSessionNewExecuted, true); assert.equal(producer?.nativeWikiCompileExecuted, true);

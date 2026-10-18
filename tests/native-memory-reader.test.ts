@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { resolveMemorySearchConfig } from "openclaw/plugin-sdk/memory-core-host-engine-foundation";
+import { loadSqliteVecExtension } from "openclaw/plugin-sdk/memory-core-host-engine-storage";
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { clearMemoryPluginState, registerMemoryCapability, registerMemoryCorpusSupplement, type MemoryPluginCapability } from "openclaw/plugin-sdk/memory-host-core";
 import { createNativeMemoryReader } from "../src/openclaw/native-memory-reader.js";
@@ -29,16 +30,16 @@ function fixture(t: TestContext) {
     plugins: { entries: { "memory-core": { enabled: true }, "memory-wiki": { enabled: true } } } };
   const dbPath = resolveMemorySearchConfig(config, "stella")!.store.databasePath;
   mkdirSync(path.dirname(dbPath), { recursive: true });
-  const db = new DatabaseSync(dbPath);
+  const db = new DatabaseSync(dbPath, { allowExtension: true });
   t.after(() => { db.close(); rmSync(root, { recursive: true, force: true });
     if (previous === undefined) delete process.env.OPENCLAW_STATE_DIR; else process.env.OPENCLAW_STATE_DIR = previous; });
   db.exec(`CREATE TABLE memory_index_chunks (id TEXT, path TEXT, source TEXT, start_line INTEGER, end_line INTEGER,
-    text TEXT, hash TEXT, model TEXT);
+    text TEXT, hash TEXT, model TEXT, embedding TEXT DEFAULT '[]');
     CREATE TABLE memory_index_sources (path TEXT, source TEXT, hash TEXT);
     CREATE TABLE memory_index_chunk_provenance (chunk_id TEXT, origin_class TEXT, session_kind TEXT,
       observed_at INTEGER, supersedes_key TEXT);
     CREATE VIRTUAL TABLE memory_index_chunks_fts USING fts5(id UNINDEXED, path UNINDEXED, source UNINDEXED, start_line UNINDEXED, end_line UNINDEXED, model UNINDEXED, text);
-    INSERT INTO memory_index_chunks VALUES ('chunk', 'memory/retained.md', 'memory', 1, 1, 'Retained source fragment.', 'chunk-hash', 'fts-only');
+    INSERT INTO memory_index_chunks (id, path, source, start_line, end_line, text, hash, model) VALUES ('chunk', 'memory/retained.md', 'memory', 1, 1, 'Retained source fragment.', 'chunk-hash', 'fts-only');
     INSERT INTO memory_index_chunks_fts (id, path, source, start_line, end_line, model, text) SELECT id, path, source, start_line, end_line, model, text FROM memory_index_chunks;
     INSERT INTO memory_index_sources VALUES ('memory/retained.md', 'memory', 'source-hash');
     INSERT INTO memory_index_chunk_provenance VALUES ('chunk', 'owner', 'interactive', 1, NULL);`);
@@ -213,4 +214,65 @@ test("verified Wiki read digests bind compiled claim lookup and reject absent ca
   f.setResult(null);
   await assert.rejects(read(wiki, original, f.current), /native_memory_read_unverifiable/);
   assert.equal(observations.length, 2);
+});
+
+async function vectorFixture(t: TestContext) {
+  const f = fixture(t);
+  assert.equal((await loadSqliteVecExtension({ db: f.db })).ok, true);
+  f.config.memory!.search = { ...f.config.memory!.search, provider: "openai", model: "synthetic-embedding",
+    store: { vector: { enabled: true } }, cache: { enabled: true } };
+  f.setStatus({ vector: { enabled: true, index: { state: "complete" } } });
+  f.db.exec(`CREATE VIRTUAL TABLE memory_index_chunks_vec USING vec0(id TEXT PRIMARY KEY, embedding FLOAT[3]);
+    CREATE TABLE memory_index_meta (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE memory_embedding_cache (provider TEXT, model TEXT, provider_key TEXT, hash TEXT, embedding TEXT, dims INTEGER);
+    UPDATE memory_index_chunks SET model = 'synthetic-embedding', embedding = '[1,0,0]';
+    UPDATE memory_index_chunks_fts SET model = 'synthetic-embedding';
+    INSERT INTO memory_index_meta VALUES ('memory_vector_rebuild_v1', 'clean');`);
+  f.db.prepare("INSERT INTO memory_index_meta VALUES ('memory_index_meta_v1', ?)").run(JSON.stringify({
+    provider: "openai", model: "synthetic-embedding", providerKey: "a".repeat(64), vectorDims: 3 }));
+  f.db.prepare("INSERT INTO memory_embedding_cache VALUES ('openai', 'synthetic-embedding', ?, 'chunk-hash', '[1,0,0]', 3)").run("a".repeat(64));
+  f.db.prepare("INSERT INTO memory_index_chunks_vec VALUES ('chunk', ?)").run(new Float32Array([1, 0, 0]));
+  return f;
+}
+
+test("native vector-backed reads bind the actual vector and embedding cache without search", async t => {
+  t.after(clearMemoryPluginState);
+  const f = await vectorFixture(t), observations: string[] = [];
+  const read = createNativeMemoryReader(f.api, "stella", "agent:stella:main", value => observations.push(value.digest));
+  assert.equal(await read(origin, original, f.current), original.text);
+  assert.deepEqual(f.calls, ["manager", "authorize", "read", "close"]);
+  f.db.exec("UPDATE memory_index_chunks SET embedding = '[0,1,0]'; UPDATE memory_embedding_cache SET embedding = '[0,1,0]'");
+  f.db.prepare("UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = 'chunk'").run(new Float32Array([0, 1, 0]));
+  assert.equal(await read(origin, original, f.current), original.text);
+  assert.notEqual(observations[0], observations[1], "Vector/cache changes must change the consumption digest");
+});
+
+test("a complete vector marker cannot certify missing or changed selected vector bytes", async t => {
+  t.after(clearMemoryPluginState);
+  const f = await vectorFixture(t);
+  f.db.prepare("UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = 'chunk'").run(new Float32Array([0, 1, 0]));
+  await assert.rejects(f.reader(origin, original, f.current), /native_memory_vector_payload_changed/);
+  f.db.exec("DELETE FROM memory_index_chunks_vec WHERE id = 'chunk'");
+  await assert.rejects(f.reader(origin, original, f.current), /native_memory_vector_unverifiable/);
+  assert.equal(f.calls.filter(call => call === "read" || call === "authorize").length, 0);
+});
+
+test("vector consumption rejects absent or mismatched cache and explicit rebuild state", async t => {
+  t.after(clearMemoryPluginState);
+  const f = await vectorFixture(t);
+  for (const sql of ["UPDATE memory_embedding_cache SET embedding = '[0,1,0]'", "DELETE FROM memory_embedding_cache"]) {
+    f.db.exec(sql);
+    await assert.rejects(f.reader(origin, original, f.current), /native_memory_embedding_cache_unverifiable/);
+  }
+  f.db.exec("UPDATE memory_index_meta SET value = '1' WHERE key = 'memory_vector_rebuild_v1'");
+  await assert.rejects(f.reader(origin, original, f.current), /native_memory_vector_unverifiable/);
+  assert.equal(f.calls.filter(call => call === "read" || call === "authorize").length, 0);
+});
+
+test("concurrent vector invalidation wins before native file read", async t => {
+  t.after(clearMemoryPluginState);
+  const f = await vectorFixture(t);
+  f.afterAuthorize(() => f.db.prepare("UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = 'chunk'").run(new Float32Array([0, 1, 0])));
+  await assert.rejects(f.reader(origin, original, f.current), /native_memory_vector_payload_changed/);
+  assert.deepEqual(f.calls, ["manager", "authorize", "close"]);
 });

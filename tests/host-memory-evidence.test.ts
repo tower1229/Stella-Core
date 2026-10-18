@@ -7,7 +7,7 @@ type Input = { nativeEntrances: readonly string[]; pluginIds: readonly string[];
 // Plain Node acceptance tooling is outside the runtime TypeScript compilation.
 const evidence = await import(new URL("../../scripts/lib/host-memory-evidence.mjs", import.meta.url).href) as {
   HOST_MEMORY_EVIDENCE_PROBES: readonly string[];
-  HOST_MEMORY_ACCEPTANCE_MATRIX: ReadonlyArray<{ flag: string; scenario: string; provider: string }>;
+  HOST_MEMORY_ACCEPTANCE_MATRIX: ReadonlyArray<{ flag: string; scenario: string; provider: string; indexMode?: string }>;
   alignHostMemoryEvidence(input: Input): { aligned: boolean; complete: boolean; fullMemoryAccepted: boolean;
     issue23Complete: boolean; native: unknown[]; observedEntries: Array<{ kind: string; status: string; gaps?: string[] }> };
 };
@@ -27,10 +27,11 @@ function fixture(): Input {
       revokedBeforeContinuation: scenario === "revoked", modelRequestsAfterRevocation: 0, semanticCalls: 0,
       ...(flag === "native-memory-producers" ? { nativeSessionNewExecuted: true, nativeWikiCompileExecuted: true, nativeCompiledClaimRead: true } : {}),
       ...(acceptance ? { schemaVersion: "stella.host-memory-acceptance-probe/v1", scope: "native_fragment_guarded_direct", fullMemoryBindingValid: true,
+        nativeIndexMode: acceptanceCase!.indexMode ?? "fts", nativeVectorQueryVerified: true, preparationEmbeddingRequests: 2,
         nativeProvider: acceptanceCase!.provider, nativeProducerVerified: true, wikiCompiledClaimRequired: acceptanceCase!.provider === "memory-wiki", modelRequestsAfterInvalidation: 0,
         consumerEmbeddingRequests: 0, capabilityPassed: ["success", "generation-changed"].includes(acceptance),
         finalCalls: ["success", "generation-changed"].includes(acceptance) ? 1 : 0,
-        nativeReads: ["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(acceptance) || acceptanceCase!.provider === "memory-wiki" && acceptance === "native-cache-invalidated" ? 2 : ["native-mismatch", "source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated"].includes(acceptance) || acceptanceCase!.provider === "memory-wiki" && acceptance === "index-missing" ? 1 : 0,
+        nativeReads: ["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(acceptance) || acceptanceCase!.provider === "memory-wiki" && acceptance === "native-cache-invalidated" ? 2 : ["native-mismatch", "source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated", "vector-invalidated-before-model", "cache-invalidated-before-model", "vector-generation-changed-before-model"].includes(acceptance) || acceptanceCase!.provider === "memory-wiki" && acceptance === "index-missing" ? 1 : 0,
         modelCalls: ["grant-denied", "source-denied", "payload-transform", "unbound-source-verdict"].includes(acceptance) ? 0 : 1,
         receiptInvalidatedByGeneration: acceptance === "generation-changed", dreamingExecuted: false, privateMainAccepted: false, issue23Complete: false } : {}),
       ...(native ? { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily: native[0], nativeState: native[1],
@@ -120,12 +121,28 @@ test("audience evidence requires actual consumption and rejects disclosure after
 
 test("backend certification requires native producer, claim cache and zero calls after invalidation", () => {
   for (const [flag, patch] of [
+    ["memory-access-success", { nativeIndexMode: "vector" }],
     ["memory-access-session-memory-success", { nativeProducerVerified: false }],
     ["memory-access-memory-wiki-success", { wikiCompiledClaimRequired: false }],
     ["memory-access-memory-wiki-success", { nativeProvider: "memory-core" }],
     ["memory-access-session-memory-source-deleted-before-model", { finalCalls: 1 }],
     ["memory-access-memory-wiki-grant-revoked-before-model", { modelRequestsAfterInvalidation: 1 }],
     ["memory-access-memory-wiki-native-cache-invalidated", { capabilityPassed: true }],
+  ] as const) {
+    const input = fixture(); Object.assign(input.probes.find(probe => probe.flag === flag)!.report, patch);
+    assert.throws(() => evidence.alignHostMemoryEvidence(input));
+  }
+});
+
+
+test("vector evidence requires actual native query preparation and forbids consumer embedding calls", () => {
+  for (const [flag, patch] of [
+    ["memory-access-vector-success", { nativeVectorQueryVerified: false }],
+    ["memory-access-vector-success", { preparationEmbeddingRequests: 0 }],
+    ["memory-access-vector-success", { nativeIndexMode: "fts" }],
+    ["memory-access-vector-success", { consumerEmbeddingRequests: 1 }],
+    ["memory-access-vector-vector-invalidated-before-model", { modelRequestsAfterInvalidation: 1 }],
+    ["memory-access-vector-cache-invalidated-before-model", { capabilityPassed: true }],
   ] as const) {
     const input = fixture(); Object.assign(input.probes.find(probe => probe.flag === flag)!.report, patch);
     assert.throws(() => evidence.alignHostMemoryEvidence(input));

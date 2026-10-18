@@ -25,7 +25,7 @@ import { assertHostMemoryVerification, hostMemoryVerification, withHostMemoryVer
 import { hostMemoryConfigurationHash } from "./host-memory-inventory.js";
 import type { StellaDataMode } from "../praxis/episode-store.js";
 
-export const HOST_MEMORY_ACCEPTANCE_CASES = "host-memory-access:explicit-operator-grant,source-verdict-output,native-fragment,memory-core,session-memory,wiki-claim-cache,guarded-direct-consumption:v2";
+export const HOST_MEMORY_ACCEPTANCE_CASES = "host-memory-access:explicit-operator-grant,source-verdict-output,native-fragment,memory-core,session-memory,wiki-claim-cache,vector-cache-binding,guarded-direct-consumption:v3";
 type Config = { canghaiRoot: string; manifestPath: string; recoveryRevision: string; agentId: string; dataMode?: StellaDataMode };
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
 

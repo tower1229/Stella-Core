@@ -13,7 +13,9 @@ function check(value: unknown, category: string): asserts value { if (!value) th
 
 type MemoryRuntime = NonNullable<MemoryPluginCapability["runtime"]>;
 type NativeStorage = Pick<typeof import("openclaw/plugin-sdk/memory-core-host-engine-storage"),
-  "MEMORY_INDEX_FTS_TABLE" | "MEMORY_INDEX_CHUNKS_TABLE" | "MEMORY_INDEX_SOURCES_TABLE" | "MEMORY_INDEX_CHUNK_PROVENANCE_TABLE">;
+  "MEMORY_INDEX_FTS_TABLE" | "MEMORY_INDEX_CHUNKS_TABLE" | "MEMORY_INDEX_SOURCES_TABLE" | "MEMORY_INDEX_CHUNK_PROVENANCE_TABLE" |
+  "MEMORY_INDEX_META_TABLE" | "MEMORY_INDEX_VECTOR_TABLE" | "MEMORY_EMBEDDING_CACHE_TABLE">;
+type SearchSettings = NonNullable<ReturnType<typeof import("openclaw/plugin-sdk/memory-core-host-engine-foundation").resolveMemorySearchConfig>>;
 type NativeHit = Parameters<NonNullable<MemoryRuntime["authorizeSearchHits"]>>[0]["hits"][number];
 const originClasses = ["owner", "agent", "untrusted", "system"] as const;
 const sessionKinds = ["interactive", "cron", "heartbeat", "subagent", "unknown"] as const;
@@ -24,7 +26,7 @@ function member<T extends string>(value: unknown, values: readonly T[]): value i
 // Exact native index lookup executes an already selected locator. The public
 // search API can bootstrap/rebuild even with lexicalOnly, so it is not safe at
 // this processing boundary. Read the pinned public storage schema read-only.
-function readIndexedHit(db: DatabaseSync, origin: NativeMemoryOrigin, originalText: string, schema: NativeStorage) {
+function readIndexedHit(db: DatabaseSync, origin: NativeMemoryOrigin, originalText: string, schema: NativeStorage, settings: SearchSettings) {
   const { MEMORY_INDEX_FTS_TABLE, MEMORY_INDEX_CHUNKS_TABLE, MEMORY_INDEX_SOURCES_TABLE, MEMORY_INDEX_CHUNK_PROVENANCE_TABLE } = schema;
   let rows: Record<string, unknown>[];
   try {
@@ -57,7 +59,50 @@ function readIndexedHit(db: DatabaseSync, origin: NativeMemoryOrigin, originalTe
         sessionKind: row.session_kind, observedAt: row.observed_at,
         ...(typeof row.supersedes_key === "string" && row.supersedes_key.trim() ? { supersedesKey: row.supersedes_key } : {}) } };
   });
-  return { hits, fingerprint: JSON.stringify(rows) };
+  const vector = settings.store.vector.enabled && settings.provider !== "none"
+    ? readVectorBinding(db, rows, schema, settings) : undefined;
+  return { hits, fingerprint: JSON.stringify({ rows, vector }) };
+}
+
+// The Host's "complete" marker does not inspect individual vector/cache bytes.
+// Verify only the already selected chunks; never rank candidates or embed text.
+function readVectorBinding(db: DatabaseSync, chunks: Record<string, unknown>[], schema: NativeStorage, settings: SearchSettings) {
+  const { MEMORY_INDEX_META_TABLE, MEMORY_INDEX_VECTOR_TABLE, MEMORY_INDEX_CHUNKS_TABLE, MEMORY_EMBEDDING_CACHE_TABLE } = schema;
+  try {
+    const persisted = db.prepare(`SELECT key, value FROM ${MEMORY_INDEX_META_TABLE} WHERE key IN (?, ?) ORDER BY key`)
+      .all("memory_index_meta_v1", "memory_vector_rebuild_v1");
+    const serialized = persisted.find(row => row.key === "memory_index_meta_v1")?.value;
+    check(typeof serialized === "string" && serialized.length <= 16_000, "native_memory_vector_unverifiable");
+    const meta: unknown = JSON.parse(serialized);
+    check(isRecord(meta) && meta.provider === settings.provider && meta.model === settings.model &&
+      typeof meta.providerKey === "string" && /^[a-f0-9]{64}$/.test(meta.providerKey) &&
+      Number.isSafeInteger(meta.vectorDims) && Number(meta.vectorDims) > 0 && Number(meta.vectorDims) <= 8192 &&
+      persisted.some(row => row.key === "memory_vector_rebuild_v1" && row.value === "clean"), "native_memory_vector_unverifiable");
+    const dimensions = Number(meta.vectorDims);
+    const bindings = chunks.map(chunk => {
+      const row = db.prepare(`SELECT chunk.embedding, vector.embedding AS vector_embedding FROM ${MEMORY_INDEX_CHUNKS_TABLE} AS chunk
+        JOIN ${MEMORY_INDEX_VECTOR_TABLE} AS vector ON vector.id = chunk.id WHERE chunk.id = ?`).get(String(chunk.id));
+      check(row && chunk.model === meta.model && typeof row.embedding === "string" && row.embedding.length <= 256_000 &&
+        row.vector_embedding instanceof Uint8Array, "native_memory_vector_unverifiable");
+      const embedding: unknown = JSON.parse(row.embedding);
+      check(Array.isArray(embedding) && embedding.length === dimensions && embedding.every(value => typeof value === "number" && Number.isFinite(value)) &&
+        embedding.some(value => value !== 0), "native_memory_vector_unverifiable");
+      const values = new Float32Array(embedding as number[]), vector = row.vector_embedding;
+      check(values.every(Number.isFinite), "native_memory_vector_unverifiable");
+      const bytes = Buffer.from(values.buffer);
+      check(bytes.every((value, index) => value === vector[index]) && bytes.length === vector.length,
+        "native_memory_vector_payload_changed");
+      const cache = settings.cache.enabled ? db.prepare(`SELECT provider, model, provider_key, hash, embedding, dims
+        FROM ${MEMORY_EMBEDDING_CACHE_TABLE} WHERE provider = ? AND model = ? AND provider_key = ? AND hash = ?`)
+        .get(settings.provider, settings.model, String(meta.providerKey), String(chunk.hash)) : undefined;
+      if (settings.cache.enabled) check(cache && cache.dims === dimensions && cache.embedding === row.embedding, "native_memory_embedding_cache_unverifiable");
+      return { id: chunk.id, embedding: row.embedding, vector: bytesVersion(bytes), ...(cache ? { cache } : {}) };
+    });
+    return { persisted, bindings };
+  } catch (error) {
+    if (error instanceof CatalogError) throw error;
+    throw new CatalogError("native_memory_vector_unverifiable");
+  }
 }
 
 /** Host search ranks candidates, but cannot choose or authorize personal evidence.
@@ -112,12 +157,19 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
     const settings = resolveMemorySearchConfig(config, agentId);
     check(settings?.enabled && settings.store.driver === "sqlite", "native_memory_index_unavailable");
     let db: DatabaseSync;
-    try { db = new DatabaseSync(settings.store.databasePath, { readOnly: true }); }
+    const vectorEnabled = settings.store.vector.enabled && settings.provider !== "none";
+    try { db = new DatabaseSync(settings.store.databasePath, { readOnly: true, allowExtension: vectorEnabled }); }
     catch { throw new CatalogError("native_memory_index_unavailable"); }
     let manager: Awaited<ReturnType<MemoryRuntime["getMemorySearchManager"]>>["manager"] = null;
     let text: string;
     let nativeDigest: string;
     try {
+      if (vectorEnabled) {
+        const loaded = await storage.loadSqliteVecExtension({ db, extensionPath: settings.store.vector.extensionPath });
+        db.enableLoadExtension(false);
+        await assertCurrent();
+        check(loaded.ok, "native_memory_vector_unavailable");
+      }
       const loaded = await runtime.getMemorySearchManager({ cfg: config, agentId, purpose: "status" });
       manager = loaded.manager;
       await assertCurrent();
@@ -129,20 +181,22 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
           status.dirty === false && (status.chunks ?? 0) > 0 && status.fts?.enabled === true && status.fts.available === true && !status.lastSyncError && !status.fallback &&
           isRecord(status.custom?.indexIdentity) && status.custom.indexIdentity.status === "valid",
           "native_memory_index_unverifiable");
+        if (vectorEnabled) check(status.vector?.enabled === true && status.vector.index?.state === "complete" &&
+          !status.vector.loadError, "native_memory_vector_unverifiable");
       };
       assertIndex();
-      const indexed = readIndexedHit(db, origin, original.text, storage);
+      const indexed = readIndexedHit(db, origin, original.text, storage, settings);
       const hits = await runtime.authorizeSearchHits({ cfg: config, agentId,
         requesterSessionKey: sessionKey, sandboxed: false, hits: indexed.hits });
       await assertCurrent();
       assertIndex();
-      check(readIndexedHit(db, origin, original.text, storage).fingerprint === indexed.fingerprint, "native_memory_index_changed");
+      check(readIndexedHit(db, origin, original.text, storage, settings).fingerprint === indexed.fingerprint, "native_memory_index_changed");
       check(hits.some(hit => hit.path === origin.path && hit.startLine <= origin.fromLine &&
         hit.endLine >= origin.fromLine + origin.lineCount - 1), "native_memory_index_miss");
       result = await loaded.manager.readFile({ relPath: origin.path, from: origin.fromLine, lines: origin.lineCount });
       await assertCurrent();
       assertIndex();
-      check(readIndexedHit(db, origin, original.text, storage).fingerprint === indexed.fingerprint, "native_memory_index_changed");
+      check(readIndexedHit(db, origin, original.text, storage, settings).fingerprint === indexed.fingerprint, "native_memory_index_changed");
       check(isRecord(result) && result.status === "ok" && result.path === origin.path && result.from === origin.fromLine &&
         result.lines === origin.lineCount && typeof result.text === "string", "native_memory_read_unverifiable");
       // The pinned public read codec removes the last empty file line and may
