@@ -182,3 +182,35 @@ test("native index cannot certify an unrelated indexed body for an authorized lo
   await assert.rejects(f.reader(origin, original, f.current), /native_memory_index_payload_changed/);
   assert.deepEqual(f.calls, ["manager", "close"]);
 });
+
+test("verified native read digests bind index identity and never observe rejected bytes", async t => {
+  t.after(clearMemoryPluginState);
+  const f = fixture(t), observations: Array<{ origin: NativeMemoryOrigin; digest: string }> = [];
+  const read = createNativeMemoryReader(f.api, "stella", "agent:stella:main", value => observations.push(value));
+  await read(origin, original, f.current);
+  await read(origin, original, f.current);
+  assert.deepEqual(observations[0], observations[1]);
+  assert.deepEqual(observations[0]!.origin, origin);
+  assert.match(observations[0]!.digest, /^sha256:[a-f0-9]{64}$/);
+  f.db.exec("UPDATE memory_index_chunks SET hash = 'second-chunk-hash'");
+  await read(origin, original, f.current);
+  assert.notEqual(observations[0]!.digest, observations[2]!.digest);
+  f.setResult({ status: "ok", path: origin.path, from: 1, lines: 1, text: "Changed bytes" });
+  await assert.rejects(read(origin, original, f.current), /native_memory_payload_changed/);
+  assert.equal(observations.length, 3);
+});
+
+test("verified Wiki read digests bind compiled claim lookup and reject absent cache", async t => {
+  t.after(clearMemoryPluginState);
+  const f = fixture(t), observations: Array<{ origin: NativeMemoryOrigin; digest: string }> = [];
+  const read = createNativeMemoryReader(f.api, "stella", "agent:stella:main", value => observations.push(value));
+  const wiki = { ...origin, provider: "memory-wiki" as const, claimId: "compiled-claim" };
+  f.setResult({ corpus: "wiki", path: origin.path, fromLine: 1, lineCount: 1, content: original.text });
+  await read(wiki, original, f.current);
+  await read(wiki, original, f.current);
+  assert.deepEqual(observations[0], observations[1]);
+  assert.deepEqual(observations[0]!.origin, wiki);
+  f.setResult(null);
+  await assert.rejects(read(wiki, original, f.current), /native_memory_read_unverifiable/);
+  assert.equal(observations.length, 2);
+});

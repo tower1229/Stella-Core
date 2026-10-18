@@ -590,3 +590,7 @@ Stella 1.0 的方法价值保留在 skills，迁移去向如下。按语义选�
 执行通过当前来源访问判断读取独立留存原件，再经真实 `stella_read_fragment` 原生回读、当前 FTS／provenance／内容验证和 `stella-guarded` simple-completion 最终消费。签发收据要求工具和实际模型传输私有对象证明；合成返回、未知载荷改写、索引或来源失效均拒绝。只返回版本绑定的摘要收据，不发布业务回答、写入理解或推进恢复点。收据使用独立 cases 摘要，绑定源码、安装包、Host、配置、模型、策略、恢复点、catalog generation 与 native origin。原生正文及索引字节仍在每次获准读取时验证，不能凭旧收据授权后续回读。
 
 该收据只清除 `capability_acceptance_missing:memory_access`。`host_memory_consumption_unverifiable` 和其他 required capability 继续独立阻断普通 `full_memory` 运行；scope 为 `native_fragment_guarded_direct`，不能推定已认证 Host agent replay、compaction、cache 或其他记忆插件。正式打包矩阵纳入成功、处理许可拒绝、来源策略拒绝、原生正文失配、缺少索引、未知 payload 变换、代际变化及无真实模型收据、伪造来源语义判决、改写实际判决及读取后原生正文变化十一项；同提交／同包执行完成前不声称完整交付。
+
+2026-10-18 受限认证扩展：同一入口接受 `session-memory` 与具有明确 `claimId` 的 `memory-wiki` 原生定位。前者使用固定版本内置会话 hook 的实际产物及只读 FTS／provenance 回读，后者要求原生编译 claim 缓存解析，不以页面路径替代失效 claim。每次成功回读的原生定位、索引或编译查询结果、实际返回值合成摘要，纳入执行收据；同一次认证后续回读必须与首次摘要完全一致。此摘要不授予来源读取权，不能替代每次实际读取的来源、权限、代际及模型消费校验。
+
+扩展矩阵对两个新增后端分别复用上述十一项，并验证读取后来源删除、处理许可撤回和原生索引／编译缓存失效；这些失效后不得再发出模型请求。测试产物来自真实 Host `/new` 和 Wiki 编译，完整留存于合成沧海副本。Dreaming 显式关闭，普通 `full_memory` 门禁及受众隔离不变；该限定认证不表示其他 Host 入口、真实模型或私人主会话已验收。

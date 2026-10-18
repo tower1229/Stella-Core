@@ -25,7 +25,7 @@ import { assertHostMemoryVerification, hostMemoryVerification, withHostMemoryVer
 import { hostMemoryConfigurationHash } from "./host-memory-inventory.js";
 import type { StellaDataMode } from "../praxis/episode-store.js";
 
-export const HOST_MEMORY_ACCEPTANCE_CASES = "host-memory-access:explicit-operator-grant,source-verdict-output,native-fragment,guarded-direct-consumption:v1";
+export const HOST_MEMORY_ACCEPTANCE_CASES = "host-memory-access:explicit-operator-grant,source-verdict-output,native-fragment,memory-core,session-memory,wiki-claim-cache,guarded-direct-consumption:v2";
 type Config = { canghaiRoot: string; manifestPath: string; recoveryRevision: string; agentId: string; dataMode?: StellaDataMode };
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
 
@@ -70,10 +70,9 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
     check(validMemoryRef(evidence.source), "invalid_evidence");
     const source = await reader.read(evidence.source, "sources");
     const origin = parseNativeMemoryOrigin(source.nativeMemory);
-    // Other native backends retain their existing business gates until their
-    // scoped dependency capture and constrained cases are implemented.
-    check(origin.provider === "memory-core" && origin.agentId === config.agentId && origin.hostVersion === api.runtime.version,
+    check(origin.agentId === config.agentId && origin.hostVersion === api.runtime.version,
       "host_memory_acceptance_origin_unsupported");
+    check(origin.provider !== "memory-wiki" || origin.claimId !== undefined, "host_memory_acceptance_claim_required");
     const selected = resolveDefaultModelForAgent({ cfg: live, agentId: config.agentId });
     const modelRef = `${selected.provider}/${selected.model}`;
     check(selected.provider === HOST_MEMORY_PROVIDER, "host_memory_guarded_provider_required");
@@ -161,7 +160,26 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
         evidenceCutoff: new Date().toISOString(), trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
       () => { throw new CatalogError("host_memory_acceptance_source_expansion_forbidden"); });
       const original = await resolver.readEvidence(state.specification.evidenceRef);
-      const readNative = createNativeMemoryReader(api, config.agentId, request.sessionKey);
+      let nativeDigest: string | undefined;
+      const readVerifiedNative = createNativeMemoryReader(api, config.agentId, request.sessionKey, observation => {
+        check(canonicalJson(observation.origin) === canonicalJson(state.origin), "host_memory_acceptance_origin_changed");
+        check(nativeDigest === undefined || nativeDigest === observation.digest, "host_memory_acceptance_native_changed");
+        nativeDigest = observation.digest;
+        // Arm this before returning the first native read. Post-tool source
+        // judgments are model calls too and cannot precede native revalidation.
+        assertNativeCurrent ??= async () => {
+          check(await readVerifiedNative(state.origin, original, assertAuthorityCurrent) === original.text, "native_memory_payload_changed");
+        };
+      });
+      const readNative = async (...args: Parameters<typeof readVerifiedNative>) => {
+        await args[2]();
+        // Source semantics are checked before and after the native operation.
+        // Its inner awaits recheck the exact source/configuration authority,
+        // without issuing another model call before native bytes are verified.
+        const text = await readVerifiedNative(args[0], args[1], assertAuthorityCurrent);
+        await args[2]();
+        return text;
+      };
       let toolDigest: string | undefined;
       const tool = createFragmentReadTool({ resolver, originals: [original], descriptors: state.processing.config.descriptors,
         processingAuthority: authority, assertCurrent, readNative,
@@ -172,13 +190,7 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
           toolDigest = bytesVersion(canonicalJson({ call: observed.toolCallId, arguments: observed.arguments, output: observed.output }));
         } });
       await tool.execute(`memory_acceptance_${request.runId}`, { action: "read", handle: "F1" }, signal);
-      check(toolDigest, "host_memory_acceptance_fragment_required");
-      // Tool completion cannot lease a stale native body to a later transport.
-      // Recheck this already-authorized exact fragment at every final-model
-      // boundary, without a new search, sync, embedding or source selection.
-      assertNativeCurrent = async () => {
-        check(await readNative(state.origin, original, assertAuthorityCurrent) === original.text, "native_memory_payload_changed");
-      };
+      check(toolDigest && nativeDigest, "host_memory_acceptance_fragment_required");
       const evidence = await state.reader.read(original.ref, "evidence");
       check(validMemoryRef(evidence.policyRef), "invalid_evidence");
       assertProcessingStage(authority, await state.reader.read(evidence.policyRef, "policies"), "derive");
@@ -195,7 +207,7 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
       });
       check(modelDigest, "host_memory_acceptance_model_receipt_required");
       return { outcome: "passed", executionDigest: bytesVersion(canonicalJson({ scope: "native_fragment_guarded_direct", host: input.host,
-        generation: state.reader.catalog.generationId, toolDigest, modelDigest, dependencies: before })) };
+        generation: state.reader.catalog.generationId, nativeDigest, toolDigest, modelDigest, dependencies: before })) };
     }));
   } };
 }

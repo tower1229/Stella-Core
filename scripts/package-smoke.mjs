@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertProbeDreamingDisabled, assertSourceUnchanged,
   fileManifest, installedPackageRoot, sha256, sourceIdentity, treeManifest } from "./lib/package-evidence.mjs";
-import { alignHostMemoryEvidence, assertHostMemoryAcceptanceReport, assertHostMemoryBoundaryReport, assertNativeMemoryConsumptionReport, HOST_MEMORY_BOUNDARY_FLAGS, NATIVE_MEMORY_CONSUMPTION_FLAGS, HOST_MEMORY_ACCEPTANCE_SCENARIOS } from "./lib/host-memory-evidence.mjs";
+import { alignHostMemoryEvidence, assertHostMemoryAcceptanceReport, assertHostMemoryBoundaryReport, assertNativeMemoryConsumptionReport, HOST_MEMORY_BOUNDARY_FLAGS, NATIVE_MEMORY_CONSUMPTION_FLAGS, HOST_MEMORY_ACCEPTANCE_MATRIX } from "./lib/host-memory-evidence.mjs";
 
 // Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
 // generator or cron.run is invoked; full_memory remains independently blocked.
@@ -204,9 +204,6 @@ try {
       throw error;
     }
   }
-  for (const scenario of HOST_MEMORY_ACCEPTANCE_SCENARIOS) {
-    await probe(`memory-access-${scenario}`, "probe-host-memory-acceptance.mjs", [scenario], {}, report => assertHostMemoryAcceptanceReport(report, scenario));
-  }
   const active = await probe("native-active-memory-artifact", "probe-native-active-memory.mjs", [], {}, report => {
     assert.equal(report.scope, "native-artifact-generation");
     assert.equal(report.nativeReadExecuted, true);
@@ -220,6 +217,11 @@ try {
     assert.equal(report.nativeWikiCompileExecuted, true); assert.equal(report.stellaConsumptionVerified, false);
     assert.equal(report.nativeCompiledClaimRead, true);
   });
+  for (const { provider, scenario, flag } of HOST_MEMORY_ACCEPTANCE_MATRIX) {
+    await probe(flag, "probe-host-memory-acceptance.mjs", [scenario, provider], {
+      STELLA_NATIVE_PRODUCERS_REPORT: path.join(nativeProducers.evidenceDirectory, "native-memory-producers.json"),
+    }, report => assertHostMemoryAcceptanceReport(report, scenario, provider));
+  }
   await probe("main-native-artifact-active-memory", "probe-main-plugin.mjs",
     ["--native-artifact", path.join(active.evidenceDirectory, "native-active-memory.json")], {}, report => {
       assert.equal(report.providerRequests, 0); assert.equal(report.finalAnswers, 0);

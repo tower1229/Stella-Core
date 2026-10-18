@@ -5,6 +5,9 @@ import { CatalogError } from "../canghai/catalog-reader.js";
 import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "../canghai/native-memory-origin.js";
 import type { OriginalEvidence } from "../praxis/episode-evidence.js";
 import { isRecord } from "../shared/type-guards.js";
+import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
+
+export type NativeMemoryReadObservation = { origin: NativeMemoryOrigin; digest: string };
 
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
 
@@ -60,7 +63,8 @@ function readIndexedHit(db: DatabaseSync, origin: NativeMemoryOrigin, originalTe
 /** Host search ranks candidates, but cannot choose or authorize personal evidence.
  * This reader looks up only a fragment already selected by Core's semantic path.
  * Actual native bytes must equal its independently retained, admitted original. */
-export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string, sessionKey: string) {
+export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string, sessionKey: string,
+  observeVerifiedRead?: (observation: NativeMemoryReadObservation) => void) {
   return async (value: NativeMemoryOrigin, original: OriginalEvidence, assertCurrent: () => Promise<void>): Promise<string> => {
     await assertCurrent();
     const origin = parseNativeMemoryOrigin(value);
@@ -91,6 +95,7 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
       check(isRecord(result) && result.corpus === "wiki" && result.path === origin.path && result.fromLine === origin.fromLine &&
         result.lineCount === origin.lineCount && typeof result.content === "string", "native_memory_read_unverifiable");
       check(result.content === original.text, "native_memory_payload_changed");
+      observeVerifiedRead?.({ origin, digest: bytesVersion(canonicalJson({ origin, hits, result })) });
       return result.content;
     }
     check(origin.path.startsWith("memory/"), "native_memory_path_forbidden");
@@ -111,6 +116,7 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
     catch { throw new CatalogError("native_memory_index_unavailable"); }
     let manager: Awaited<ReturnType<MemoryRuntime["getMemorySearchManager"]>>["manager"] = null;
     let text: string;
+    let nativeDigest: string;
     try {
       const loaded = await runtime.getMemorySearchManager({ cfg: config, agentId, purpose: "status" });
       manager = loaded.manager;
@@ -146,11 +152,13 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
         ? `\n\n[More content available. Use from=${result.nextFrom} to continue.]` : "";
       check(result.text === body + notice && (result.truncated !== true || notice.length > 0), "native_memory_payload_changed");
       text = result.text.slice(0, body.length) + (original.text.endsWith("\n") ? "\n" : "");
+      nativeDigest = bytesVersion(canonicalJson({ origin, indexed: indexed.fingerprint, result }));
     } finally {
       db.close();
       await manager?.close?.();
     }
     await assertCurrent();
+    observeVerifiedRead?.({ origin, digest: nativeDigest });
     return text;
   };
 }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cp, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
@@ -9,10 +10,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse, stringify } from "yaml";
 import { createFixture, initializeFixtureRepository, prepareInitializationFixture } from "../.test-dist/tests/consciousness-fixture.js";
 import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
-import { HOST_MEMORY_ACCEPTANCE_SCENARIOS } from "./lib/host-memory-evidence.mjs";
+import { HOST_MEMORY_ACCEPTANCE_MATRIX, assertHostMemoryAcceptanceReport } from "./lib/host-memory-evidence.mjs";
 
 const scenario = process.argv[2] ?? "success";
-assert.ok(HOST_MEMORY_ACCEPTANCE_SCENARIOS.includes(scenario));
+const nativeProvider = process.argv[3] ?? "memory-core";
+assert.ok(HOST_MEMORY_ACCEPTANCE_MATRIX.some(entry => entry.provider === nativeProvider && entry.scenario === scenario));
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = path.resolve(process.env.STELLA_PROBE_PACKAGE_ROOT ?? root);
 const hostRoot = path.resolve(process.env.STELLA_PROBE_HOST_ROOT ?? path.join(root, "node_modules/openclaw"));
@@ -27,10 +29,27 @@ const temp = await mkdtemp(path.join(os.tmpdir(), "stella-host-memory-acceptance
 process.stderr.write(`Constrained memory evidence: ${temp}\n`);
 const state = path.join(temp, "state"), workspace = path.join(temp, "workspace"), plugin = path.join(temp, "plugin");
 await Promise.all([state, workspace, plugin].map(dir => mkdir(dir)));
-await mkdir(path.join(workspace, "memory"));
-const original = "SYNTHETIC_CONSTRAINED_NATIVE_ORIGINAL\n";
-const nativeFile = path.join(workspace, "memory/verified.md");
-await writeFile(nativeFile, original);
+const vault = path.join(temp, "vault");
+let producerReport, nativeSource;
+if (nativeProvider !== "memory-core") {
+  assert.ok(process.env.STELLA_NATIVE_PRODUCERS_REPORT, "Native certification requires actual Host producer evidence");
+  producerReport = JSON.parse(await readFile(process.env.STELLA_NATIVE_PRODUCERS_REPORT));
+  assert.equal(producerReport.schemaVersion, "stella.native-memory-producers/v1");
+  assert.equal(producerReport.hostVersion, "2026.8.2"); assert.equal(producerReport.dreamingEnabled, false);
+  assert.equal(producerReport.nativeSessionNewExecuted, true); assert.equal(producerReport.nativeWikiCompileExecuted, true);
+  assert.equal(producerReport.nativeCompiledClaimRead, true);
+  nativeSource = producerReport.artifacts.find(entry => entry.provider === nativeProvider); assert.ok(nativeSource);
+  assert.equal(createHash("sha256").update(await readFile(nativeSource.rawPath)).digest("hex"), nativeSource.rawSha256);
+  await cp(producerReport.workspace, workspace, { recursive: true });
+  await cp(producerReport.vault, vault, { recursive: true });
+}
+await mkdir(path.join(workspace, "memory"), { recursive: true });
+const original = nativeSource?.text ?? "SYNTHETIC_CONSTRAINED_NATIVE_ORIGINAL\n";
+const changedNativeText = original.replace("SYNTHETIC_", "SYNTHETIC_CHANGED_");
+assert.notEqual(changedNativeText, original);
+const nativePath = nativeSource?.nativePath ?? "memory/verified.md";
+const nativeFile = path.join(nativeProvider === "memory-wiki" ? vault : workspace, nativePath);
+if (!nativeSource) await writeFile(nativeFile, original);
 const canghaiRoot = await createFixture();
 await prepareInitializationFixture(canghaiRoot, "probe");
 const base = "50_PersonalAgent/stella";
@@ -47,8 +66,8 @@ const retained = "30_PersonalData/memory/native-retained.md";
 await writeFile(path.join(canghaiRoot, retained), original);
 const imported = await prepareRepositorySource({ root: canghaiRoot, collectionId: "constrained-native", sourceId: "constrained-native",
   relativePath: retained, expectedSha256: bytesVersion(original), capturedAt: "2026-09-01T00:00:00Z", policyRef,
-  nativeMemory: { schemaVersion: "stella.native-memory-origin/v1", hostVersion: "2026.8.2", agentId: "probe", provider: "memory-core",
-    path: "memory/verified.md", fromLine: 1, lineCount: 1 },
+  nativeMemory: { schemaVersion: "stella.native-memory-origin/v1", hostVersion: "2026.8.2", agentId: "probe", provider: nativeProvider,
+    path: nativePath, fromLine: 1, lineCount: nativeSource?.lineCount ?? 1, ...(nativeSource?.claimId ? { claimId: nativeSource.claimId } : {}) },
   objectRoot: "30_PersonalData/memory/objects", reviewedSegments: [{ start: 0, end: Buffer.byteLength(original), policyRef }] });
 for (const object of imported.objects) {
   await mkdir(path.dirname(path.join(canghaiRoot, object.entry.locator.path)), { recursive: true });
@@ -81,15 +100,43 @@ await writeFile(path.join(canghaiRoot, base, "personal-access.json"), canonicalJ
 }));
 await writeFile(path.join(canghaiRoot, base, "memory-acceptance.json"), canonicalJson({ schemaVersion: "stella.host-memory-acceptance/v1",
   request: "Read the configured synthetic native observation for constrained verification.", evidenceRef: { id: evidenceRef.id, version: evidenceRef.version } }));
+if (producerReport) {
+  const retained = path.join(canghaiRoot, "30_PersonalData/native-producer"); await mkdir(retained, { recursive: true });
+  await cp(producerReport.workspace, path.join(retained, "workspace"), { recursive: true });
+  await cp(producerReport.vault, path.join(retained, "vault"), { recursive: true });
+  await cp(path.join(producerReport.evidenceDirectory, "wiki-input.md"), path.join(retained, "wiki-input.md"));
+  await writeFile(path.join(retained, "producer.json"), JSON.stringify(producerReport, null, 2));
+}
 const revision = await initializeFixtureRepository(canghaiRoot);
 await writeFile(path.join(plugin, "package.json"), JSON.stringify({ name: "constrained-memory-probe", type: "module", version: "0.0.0", openclaw: { extensions: ["./index.mjs"] } }));
 await cp(path.join(packageRoot, "openclaw.plugin.json"), path.join(plugin, "openclaw.plugin.json"));
 await writeFile(path.join(plugin, "index.mjs"), `
 import main from ${JSON.stringify(moduleUrl("src/plugin.js"))};
 import { getMemoryCapabilityRegistration } from ${JSON.stringify(sdkUrl("memory-host-core.js"))};
+import { listMemoryCorpusSupplements } from ${JSON.stringify(sdkUrl("memory-core-host-runtime-core.js"))};
 import { resolveCommandAuthorization } from ${JSON.stringify(sdkUrl("command-auth.js"))};
 import { resolveTurnAudience } from ${JSON.stringify(moduleUrl("src/openclaw/turn-audience.js"))};
-import { appendFileSync, writeFileSync, existsSync } from 'node:fs';
+import { appendFileSync, writeFileSync, readFileSync, readdirSync, unlinkSync, existsSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
+let indexedDbPath;
+const afterRead = actual => {
+  appendFileSync(${JSON.stringify(path.join(temp, "native-read.jsonl"))}, JSON.stringify(actual) + '\\n');
+  if (!${JSON.stringify(["native-stale-before-model", "source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated"].includes(scenario))} ||
+      existsSync(${JSON.stringify(path.join(temp, "invalidation.json"))})) return;
+  const modelCalls = readdirSync(${JSON.stringify(temp)}).filter(name => /^model-[0-9]+[.]json$/.test(name)).length;
+  if (${scenario === "native-stale-before-model"}) writeFileSync(${JSON.stringify(nativeFile)}, ${JSON.stringify(changedNativeText)});
+  if (${scenario === "source-deleted-before-model"}) unlinkSync(${JSON.stringify(path.join(canghaiRoot, retained))});
+  if (${scenario === "grant-revoked-before-model"}) {
+    const file = ${JSON.stringify(path.join(canghaiRoot, base, "personal-access.json"))};
+    const config = JSON.parse(readFileSync(file, 'utf8')); config.operatorMemoryAcceptance = false;
+    writeFileSync(file, JSON.stringify(config));
+  }
+  if (${scenario === "native-cache-invalidated"}) {
+    if (${nativeProvider === "memory-wiki"}) unlinkSync(${JSON.stringify(path.join(vault, ".openclaw-wiki/log.jsonl"))});
+    else { const db = new DatabaseSync(indexedDbPath); try { db.exec('UPDATE memory_index_chunk_provenance SET observed_at = observed_at + 1'); } finally { db.close(); } }
+  }
+  writeFileSync(${JSON.stringify(path.join(temp, "invalidation.json"))}, JSON.stringify({ scenario: ${JSON.stringify(scenario)}, modelCalls, nativeBodyRetained: existsSync(${JSON.stringify(nativeFile)}) }));
+};
 export default { ...main, register(api) {
   api.registerGatewayMethod('stella.syntheticAdvanceSource', async ({ params, respond }) => {
     await api.runtime.config.mutateConfigFile({ afterWrite: { mode: 'auto' }, mutate(draft) {
@@ -98,12 +145,22 @@ export default { ...main, register(api) {
     respond(true, { advanced: true });
   }, { scope: 'operator.admin' });
   api.registerGatewayMethod('stella.syntheticPrepareIndex', async ({ respond }) => {
+    if (${nativeProvider === "memory-wiki"}) {
+      const entry = listMemoryCorpusSupplements().find(entry => entry.pluginId === 'memory-wiki');
+      if (!entry) throw new Error('native_wiki_registration_missing');
+      const get = entry.supplement.get.bind(entry.supplement);
+      entry.supplement.get = async input => {
+        if (${scenario === "native-mismatch"}) writeFileSync(${JSON.stringify(nativeFile)}, ${JSON.stringify(changedNativeText)});
+        const actual = await get(input); afterRead(actual); return actual;
+      };
+      respond(true, { wiki: true }); return;
+    }
     const runtime = getMemoryCapabilityRegistration()?.capability.runtime;
     if (!runtime) throw new Error('native_registration_missing');
     const { manager } = await runtime.getMemorySearchManager({ cfg: api.runtime.config.current(), agentId: 'probe' });
     if (!manager) throw new Error('native_manager_missing');
     if (${scenario !== "index-missing"}) await manager.sync({ force: true });
-    const status = manager.status(); await manager.close();
+    const status = manager.status(); indexedDbPath = status.dbPath; await manager.close();
     const get = runtime.getMemorySearchManager.bind(runtime);
     runtime.getMemorySearchManager = async (...args) => {
       const result = await get(...args);
@@ -112,12 +169,9 @@ export default { ...main, register(api) {
         result.manager.search = async () => { throw new Error('consumer_search_forbidden'); };
         result.manager.sync = async () => { throw new Error('consumer_sync_forbidden'); };
         result.manager.readFile = async (...input) => {
-          if (${scenario === "native-mismatch"}) writeFileSync(${JSON.stringify(nativeFile)}, 'SYNTHETIC_UNKNOWN_NATIVE_REPLACEMENT\\n');
+          if (${scenario === "native-mismatch"}) writeFileSync(${JSON.stringify(nativeFile)}, ${JSON.stringify(changedNativeText)});
           const actual = await read(...input);
-          appendFileSync(${JSON.stringify(path.join(temp, "native-read.jsonl"))}, JSON.stringify(actual) + '\\n');
-          if (${scenario === "native-stale-before-model"} && actual.text.includes('SYNTHETIC_CONSTRAINED_NATIVE_ORIGINAL')) {
-            writeFileSync(${JSON.stringify(nativeFile)}, 'SYNTHETIC_NATIVE_CHANGED_AFTER_TOOL_READ\\n');
-          }
+          afterRead(actual);
           return actual;
         };
       }
@@ -192,12 +246,16 @@ const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
   memory: { search: { enabled: true, provider: "none", fallback: "none", sources: ["memory"],
     store: { vector: { enabled: false }, fts: { tokenizer: "unicode61" } }, sync: { onSessionStart: false, onSearch: false, watch: false } } },
+  ...(nativeProvider === "session-memory" ? { hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } } : {}),
   agents: { defaults: { model: { primary: "stella-guarded/probe" }, ...(scenario === "payload-transform" ? { models: {
     "stella-guarded/probe": { params: { extra_body: { messages: [{ role: "user", content: "UNBOUND_PAYLOAD" }] } } } } } : {}) }, entries: { probe: { workspace } } },
   models: { providers: { "stella-guarded": { api: "openai-completions", baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: "synthetic-local-only",
     models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 8192 }] } } },
-  plugins: { allow: ["stella-core", "memory-core"], load: { paths: [plugin] }, entries: {
+  plugins: { allow: ["stella-core", "memory-core", ...(nativeProvider === "memory-wiki" ? ["memory-wiki"] : [])], load: { paths: [plugin] }, entries: {
     "memory-core": { enabled: true, config: { dreaming: { enabled: false } } },
+    ...(nativeProvider === "memory-wiki" ? { "memory-wiki": { enabled: true, config: { vaultMode: "isolated", vault: { scope: "global", path: vault },
+      obsidian: { enabled: false, useOfficialCli: false }, bridge: { enabled: false }, context: { includeCompiledDigestPrompt: false },
+      search: { backend: "local", corpus: "wiki" } } } } : {}),
     "stella-core": { enabled: true, llm: { allowAgentIdOverride: true, allowModelOverride: true,
       allowedModels: ["stella-guarded/probe"], allowedCompletionModels: ["stella-guarded/probe"] }, hooks: { allowConversationAccess: true },
       config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", dataMode: "read_only", initializationGatewayAccess: "local_operator_read" } } } },
@@ -221,6 +279,10 @@ try {
   }
   assert.equal(initialized.state, "ready", JSON.stringify(initialized));
   assert.ok(initialized.runtime.blockers.includes("host_memory_consumption_unverifiable"));
+  if (nativeProvider === "memory-wiki" && scenario !== "index-missing") {
+    const compiled = await rpc("wiki.compile", { agentId: "probe" });
+    await writeFile(path.join(temp, "wiki.compile.json"), JSON.stringify(compiled));
+  }
   const nativeStatus = await rpc("stella.syntheticPrepareIndex", {});
   const before = await run("git", ["-C", canghaiRoot, "status", "--porcelain"]); assert.equal(before.stdout.trim(), "");
   let result, category;
@@ -242,9 +304,12 @@ try {
     }
   } else {
     const expected = { "grant-denied": "operator_memory_acceptance_grant_required", "source-denied": "permission_denied",
-      "native-mismatch": "native_memory_payload_changed", "index-missing": "native_memory_index_unverifiable",
+      "native-mismatch": nativeProvider === "memory-wiki" ? "native_memory_read_unverifiable" : "native_memory_payload_changed",
+      "index-missing": nativeProvider === "memory-wiki" ? "native_memory_read_unverifiable" : "native_memory_index_unverifiable",
       "payload-transform": "source_access_model_failed", "unbound-output": "host_memory_acceptance_model_receipt_required", "unbound-source-verdict": "source_access_model_failed",
-      "changed-source-verdict": "source_access_model_failed", "native-stale-before-model": "native_memory_payload_changed" }[scenario];
+      "changed-source-verdict": "source_access_model_failed", "native-stale-before-model": nativeProvider === "memory-wiki" ? "native_memory_read_unverifiable" : "native_memory_payload_changed",
+      "source-deleted-before-model": "source_dirty", "grant-revoked-before-model": "source_dirty",
+      "native-cache-invalidated": nativeProvider === "memory-wiki" ? "native_memory_read_unverifiable" : "native_memory_index_changed" }[scenario];
     assert.ok(category?.includes(expected), JSON.stringify({ category, expected })); assert.equal(result, undefined); assert.equal(finalCalls, 0);
   }
   if (providerError) throw providerError;
@@ -281,16 +346,21 @@ try {
     }
   }
   const nativeReads = await readFile(path.join(temp, "native-read.jsonl"), "utf8").then(body => body.trim().split("\n").filter(Boolean).length).catch(error => { if (error.code === "ENOENT") return 0; throw error; });
-  if (["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(scenario)) assert.ok(nativeReads >= 2);
-  else assert.equal(nativeReads, scenario === "native-mismatch" ? 1 : 0);
   assert.equal(embeddingCalls, 0);
   if (["grant-denied", "source-denied", "payload-transform", "unbound-source-verdict"].includes(scenario)) assert.equal(calls.length, 0);
-  if (scenario !== "generation-changed") assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
+  const sourceChanged = ["generation-changed", "source-deleted-before-model", "grant-revoked-before-model"].includes(scenario);
+  if (!sourceChanged) assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
+  const invalidation = await readFile(path.join(temp, "invalidation.json"), "utf8").then(JSON.parse).catch(error => { if (error.code === "ENOENT") return undefined; throw error; });
+  const modelRequestsAfterInvalidation = invalidation ? calls.length - invalidation.modelCalls : 0;
+  assert.equal(modelRequestsAfterInvalidation, 0);
   const report = { schemaVersion: "stella.host-memory-acceptance-probe/v1", host: "2026.8.2", evidenceDirectory: temp, scenario,
+    nativeProvider, nativeProducerVerified: Boolean(producerReport), wikiCompiledClaimRequired: nativeProvider === "memory-wiki" && Boolean(nativeSource?.claimId),
+    producerEvidence: producerReport ? process.env.STELLA_NATIVE_PRODUCERS_REPORT : undefined, modelRequestsAfterInvalidation, invalidation,
     sourceRepository: { root: canghaiRoot, revision: (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), fixture: "synthetic" },
     scope: "native_fragment_guarded_direct", fixture: "synthetic", fullMemoryBindingValid: true, nativeReads, modelCalls: calls.length, finalCalls,
     consumerEmbeddingRequests: embeddingCalls, capabilityPassed: Boolean(result), category,
-    sourceUnchanged: scenario !== "generation-changed", receiptInvalidatedByGeneration: scenario === "generation-changed", audienceDenials,
+    sourceUnchanged: !sourceChanged, receiptInvalidatedByGeneration: scenario === "generation-changed", audienceDenials,
     dreamingEnabled: false, dreamingExecuted: false, fullMemoryAccepted: false, privateMainAccepted: false, realModelAccepted: false, issue23Complete: false };
+  assertHostMemoryAcceptanceReport(report, scenario, nativeProvider);
   await writeFile(path.join(temp, "host-memory-acceptance.json"), JSON.stringify(report, null, 2)); process.stdout.write(JSON.stringify(report));
 } finally { visitor?.stop(); admin?.stop(); await gateway?.stop(); await new Promise(resolve => server.close(resolve)); }

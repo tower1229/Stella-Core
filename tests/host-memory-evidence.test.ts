@@ -7,6 +7,7 @@ type Input = { nativeEntrances: readonly string[]; pluginIds: readonly string[];
 // Plain Node acceptance tooling is outside the runtime TypeScript compilation.
 const evidence = await import(new URL("../../scripts/lib/host-memory-evidence.mjs", import.meta.url).href) as {
   HOST_MEMORY_EVIDENCE_PROBES: readonly string[];
+  HOST_MEMORY_ACCEPTANCE_MATRIX: ReadonlyArray<{ flag: string; scenario: string; provider: string }>;
   alignHostMemoryEvidence(input: Input): { aligned: boolean; complete: boolean; fullMemoryAccepted: boolean;
     issue23Complete: boolean; native: unknown[]; observedEntries: Array<{ kind: string; status: string; gaps?: string[] }> };
 };
@@ -16,7 +17,8 @@ function fixture(): Input {
     const scenario = flag.startsWith("source-audience-") ? flag.slice("source-audience-".length) : undefined;
     const field = flag.startsWith("host-ingress-") ? flag.slice("host-ingress-".length) : undefined;
     const native = flag.startsWith("native-memory-") && flag !== "native-memory-producers" ? flag.slice("native-memory-".length).split("-") : undefined;
-    const acceptance = flag.startsWith("memory-access-") ? flag.slice("memory-access-".length) : undefined;
+    const acceptanceCase = evidence.HOST_MEMORY_ACCEPTANCE_MATRIX.find(entry => entry.flag === flag);
+    const acceptance = acceptanceCase?.scenario;
     return { flag, passed: true, coreRevision, artifactSha256, report: {
       schemaVersion: "stella.host-memory-boundary-probe/v1", evidenceDirectory: "/synthetic/evidence", dreamingEnabled: false,
       fullMemoryAccepted: false, realModelAccepted: false, unknownInputConsumed: false, dispatch: [{}], audienceScenario: scenario, ingressField: field,
@@ -25,9 +27,10 @@ function fixture(): Input {
       revokedBeforeContinuation: scenario === "revoked", modelRequestsAfterRevocation: 0, semanticCalls: 0,
       ...(flag === "native-memory-producers" ? { nativeSessionNewExecuted: true, nativeWikiCompileExecuted: true, nativeCompiledClaimRead: true } : {}),
       ...(acceptance ? { schemaVersion: "stella.host-memory-acceptance-probe/v1", scope: "native_fragment_guarded_direct", fullMemoryBindingValid: true,
+        nativeProvider: acceptanceCase!.provider, nativeProducerVerified: true, wikiCompiledClaimRequired: acceptanceCase!.provider === "memory-wiki", modelRequestsAfterInvalidation: 0,
         consumerEmbeddingRequests: 0, capabilityPassed: ["success", "generation-changed"].includes(acceptance),
         finalCalls: ["success", "generation-changed"].includes(acceptance) ? 1 : 0,
-        nativeReads: ["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(acceptance) ? 2 : acceptance === "native-mismatch" ? 1 : 0,
+        nativeReads: ["success", "generation-changed", "native-stale-before-model", "unbound-output"].includes(acceptance) || acceptanceCase!.provider === "memory-wiki" && acceptance === "native-cache-invalidated" ? 2 : ["native-mismatch", "source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated"].includes(acceptance) || acceptanceCase!.provider === "memory-wiki" && acceptance === "index-missing" ? 1 : 0,
         modelCalls: ["grant-denied", "source-denied", "payload-transform", "unbound-source-verdict"].includes(acceptance) ? 0 : 1,
         receiptInvalidatedByGeneration: acceptance === "generation-changed", dreamingExecuted: false, privateMainAccepted: false, issue23Complete: false } : {}),
       ...(native ? { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily: native[0], nativeState: native[1],
@@ -109,6 +112,20 @@ test("audience evidence requires actual consumption and rejects disclosure after
     ["source-audience-revoked", { modelRequestsAfterRevocation: 1 }],
     ["host-ingress-prependContext", { unknownInputConsumed: true }],
     ["host-ingress-bootstrap", { fullMemoryAccepted: true }],
+  ] as const) {
+    const input = fixture(); Object.assign(input.probes.find(probe => probe.flag === flag)!.report, patch);
+    assert.throws(() => evidence.alignHostMemoryEvidence(input));
+  }
+});
+
+test("backend certification requires native producer, claim cache and zero calls after invalidation", () => {
+  for (const [flag, patch] of [
+    ["memory-access-session-memory-success", { nativeProducerVerified: false }],
+    ["memory-access-memory-wiki-success", { wikiCompiledClaimRequired: false }],
+    ["memory-access-memory-wiki-success", { nativeProvider: "memory-core" }],
+    ["memory-access-session-memory-source-deleted-before-model", { finalCalls: 1 }],
+    ["memory-access-memory-wiki-grant-revoked-before-model", { modelRequestsAfterInvalidation: 1 }],
+    ["memory-access-memory-wiki-native-cache-invalidated", { capabilityPassed: true }],
   ] as const) {
     const input = fixture(); Object.assign(input.probes.find(probe => probe.flag === flag)!.report, patch);
     assert.throws(() => evidence.alignHostMemoryEvidence(input));
