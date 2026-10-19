@@ -38,7 +38,8 @@ function fixture(): Input {
         terminalStatus: native[1] === "success" ? "ok" : "error", providerRequests: native[1] === "success" ? 3 : 2,
         finalAnswers: native[1] === "success" ? 1 : 0, actualNativeBytesConsumed: native[1] === "success",
         nativeReadExecuted: native[1] !== "missing", nativeReads: native[1] === "missing" ? [] : [{ result: native[1] === "mismatch" ? null : {} }],
-        nativeConsumerEmbeddingRequests: 0, nativeLookupMode: native[0] === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index", nativeIndexRemoved: native[1] === "missing", staleNativeArtifactRetained: native[1] === "stale",
+        nativeConsumerEmbeddingRequests: native[0] === "query" ? 1 : 0, nativeQueryExact: native[0] === "query",
+        nativeLookupMode: native[0] === "query" ? "authorized-query-readonly-native-vector" : native[0] === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index", nativeIndexRemoved: native[1] === "missing", staleNativeArtifactRetained: native[1] === "stale",
         nativeFinalToolOriginalConsumed: native[1] === "success", wikiCompiledClaimCacheRequired: native[0] === "wiki",
         nativeSource: { claimId: "compiled-claim" }, nativeReadFailure: native[1] === "missing" ? "native_memory_index_unavailable" : native[1] === "mismatch" ? "native_memory_read_unverifiable" : undefined,
         changedNativeBytesRejected: native[1] === "mismatch", modelRequestsAfterInvalidation: 0,
@@ -46,6 +47,13 @@ function fixture(): Input {
         nativePreparation: { cold: { cache: { entries: 1 } }, warm: { cache: { entries: 1 } } } } : {}),
     } as Record<string, unknown> };
   });
+  for (const probe of probes) {
+    const entry = evidence.HOST_MEMORY_ACCEPTANCE_MATRIX.find(entry => entry.flag === probe.flag && entry.indexMode === "query");
+    if (!entry) continue;
+    const before = ["grant-denied", "source-denied", "query-grant-denied", "query-model-denied", "query-endpoint-denied", "query-dimensions-denied", "index-missing", "vector-row-mismatch"].includes(entry.scenario);
+    Object.assign(probe.report, { consumerEmbeddingRequests: before ? 0 : 1, consumerQueryExact: !before,
+      nativeReads: entry.scenario === "success" ? 2 : entry.scenario.endsWith("before-model") ? 1 : 0 });
+  }
   probes.find(probe => probe.flag === "capability-acceptance")!.report.memoryInventory = {
     complete: false, blockers: ["host_memory_consumption_unverifiable"], configurationHash: `sha256:${"c".repeat(64)}`,
     entries: [...HOST_NATIVE_MEMORY_ENTRANCES, "additional_plugin"].map((kind, index) => ({ kind, state: "unverifiable",
@@ -143,6 +151,21 @@ test("vector evidence requires actual native query preparation and forbids consu
     ["memory-access-vector-success", { consumerEmbeddingRequests: 1 }],
     ["memory-access-vector-vector-invalidated-before-model", { modelRequestsAfterInvalidation: 1 }],
     ["memory-access-vector-cache-invalidated-before-model", { capabilityPassed: true }],
+  ] as const) {
+    const input = fixture(); Object.assign(input.probes.find(probe => probe.flag === flag)!.report, patch);
+    assert.throws(() => evidence.alignHostMemoryEvidence(input));
+  }
+});
+
+
+test("query evidence binds the actual request and never accepts preparation-only or post-invalidation calls", () => {
+  for (const [flag, patch] of [
+    ["memory-access-query-success", { consumerEmbeddingRequests: 0 }],
+    ["memory-access-query-success", { consumerQueryExact: false }],
+    ["memory-access-query-success", { finalCalls: 0 }],
+    ["memory-access-query-query-grant-denied", { consumerEmbeddingRequests: 1 }],
+    ["memory-access-query-query-response-zero", { capabilityPassed: true }],
+    ["memory-access-query-query-source-deleted-during-embedding", { modelRequestsAfterInvalidation: 1 }],
   ] as const) {
     const input = fixture(); Object.assign(input.probes.find(probe => probe.flag === flag)!.report, patch);
     assert.throws(() => evidence.alignHostMemoryEvidence(input));

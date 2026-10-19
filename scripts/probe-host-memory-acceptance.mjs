@@ -15,7 +15,9 @@ import { HOST_MEMORY_ACCEPTANCE_MATRIX, assertHostMemoryAcceptanceReport } from 
 const scenario = process.argv[2] ?? "success";
 const nativeProvider = process.argv[3] ?? "memory-core";
 const indexMode = process.argv[4] ?? "fts";
-const vectorIndex = indexMode === "vector";
+const queryIndex = indexMode === "query";
+const vectorIndex = indexMode === "vector" || queryIndex;
+const queryRequest = "Read the configured synthetic native observation for constrained verification.";
 assert.ok(HOST_MEMORY_ACCEPTANCE_MATRIX.some(entry => entry.provider === nativeProvider && entry.scenario === scenario && (entry.indexMode ?? "fts") === indexMode));
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = path.resolve(process.env.STELLA_PROBE_PACKAGE_ROOT ?? root);
@@ -101,7 +103,7 @@ await writeFile(path.join(canghaiRoot, base, "personal-access.json"), canonicalJ
     segment: { payloadSha256: bytesVersion(original), start: 0, end: Buffer.byteLength(original) } }],
 }));
 await writeFile(path.join(canghaiRoot, base, "memory-acceptance.json"), canonicalJson({ schemaVersion: "stella.host-memory-acceptance/v1",
-  request: "Read the configured synthetic native observation for constrained verification.", evidenceRef: { id: evidenceRef.id, version: evidenceRef.version } }));
+  request: queryRequest, ...(queryIndex ? { queryEmbedding: true } : {}), evidenceRef: { id: evidenceRef.id, version: evidenceRef.version } }));
 if (producerReport) {
   const retained = path.join(canghaiRoot, "30_PersonalData/native-producer"); await mkdir(retained, { recursive: true });
   await cp(producerReport.workspace, path.join(retained, "workspace"), { recursive: true });
@@ -109,7 +111,6 @@ if (producerReport) {
   await cp(path.join(producerReport.evidenceDirectory, "wiki-input.md"), path.join(retained, "wiki-input.md"));
   await writeFile(path.join(retained, "producer.json"), JSON.stringify(producerReport, null, 2));
 }
-const revision = await initializeFixtureRepository(canghaiRoot);
 await writeFile(path.join(plugin, "package.json"), JSON.stringify({ name: "constrained-memory-probe", type: "module", version: "0.0.0", openclaw: { extensions: ["./index.mjs"] } }));
 await cp(path.join(packageRoot, "openclaw.plugin.json"), path.join(plugin, "openclaw.plugin.json"));
 await writeFile(path.join(plugin, "index.mjs"), `
@@ -255,13 +256,29 @@ const server = createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     const input = JSON.parse(Buffer.concat(chunks));
     if (req.url.endsWith("/embeddings")) {
-      assert.ok(vectorIndex && !preparationComplete, "Consumer embeddings forbidden");
+      assert.ok(vectorIndex && (!preparationComplete || queryIndex), "Consumer embeddings forbidden");
+      if (preparationComplete) {
+        assert.deepEqual(input.input, [queryRequest], "Only the original query may be embedded");
+        assert.equal(input.model, "text-embedding-3-small");
+        if (scenario === "query-grant-revoked-during-embedding") {
+          const file = path.join(canghaiRoot, base, "personal-access.json"); const grant = JSON.parse(await readFile(file)); delete grant.queryEmbedding;
+          await writeFile(file, JSON.stringify(grant));
+        }
+        if (scenario === "query-source-deleted-during-embedding") await (await import("node:fs/promises")).unlink(path.join(canghaiRoot, retained));
+        if (scenario === "query-generation-changed-during-embedding") { catalog.generationId = "query-next-generation"; await writeFile(catalogPath, canonicalJson(catalog)); }
+        if (scenario.endsWith("during-embedding")) await writeFile(path.join(temp, "invalidation.json"), JSON.stringify({
+          scenario, modelCalls: calls.length, duringQueryEmbedding: true, nativeBodyRetained: true }));
+      }
       embeddingCalls++; embeddingInputs.push(input);
       await writeFile(path.join(temp, `embedding-${embeddingCalls}.json`), JSON.stringify(input));
       const texts = Array.isArray(input.input) ? input.input : [input.input];
       res.setHeader("content-type", "application/json");
-      res.end(JSON.stringify({ object: "list", model: input.model, data: texts.map((text, index) => ({ object: "embedding", index,
-        embedding: Array.from({ length: 384 }, (_, position) => position === (text.includes(original.trim()) || text === "Which earlier observation is authorized for this verification?" ? 0 : 1) ? 1 : 0) })) }));
+      if (preparationComplete && scenario === "query-transport-failed") { res.writeHead(503); res.end("{}"); return; }
+      res.end(JSON.stringify({ object: "list", model: preparationComplete && scenario === "query-response-model-mismatch" ? "wrong-model" : input.model,
+        data: preparationComplete && scenario === "query-response-malformed" ? [] : texts.map((text, index) => ({ object: "embedding", index,
+        embedding: Array.from({ length: preparationComplete && scenario === "query-response-dimensions-mismatch" ? 383 : 384 }, (_, position) =>
+          preparationComplete && scenario === "query-response-zero" ? 0 : position === (preparationComplete && scenario === "query-index-miss" ? 1 :
+            text.includes(original.trim()) || text === "Which earlier observation is authorized for this verification?" || queryIndex && text === queryRequest ? 0 : 1) ? 1 : 0) })) }));
       return;
     }
     calls.push(input); await writeFile(path.join(temp, `model-${calls.length}.json`), JSON.stringify(input));
@@ -282,6 +299,14 @@ const server = createServer(async (req, res) => {
   } catch (error) { providerError ??= error; res.writeHead(400); res.end("{}"); }
 });
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+if (queryIndex && scenario !== "query-grant-denied") {
+  const file = path.join(canghaiRoot, base, "personal-access.json"), grant = JSON.parse(await readFile(file));
+  grant.queryEmbedding = { provider: "openai", model: scenario === "query-model-denied" ? "wrong-model" : "text-embedding-3-small",
+    endpoint: `http://127.0.0.1:${server.address().port}/v1/${scenario === "query-endpoint-denied" ? "wrong/" : ""}embeddings`,
+    dimensions: scenario === "query-dimensions-denied" ? 383 : 384 };
+  await writeFile(file, canonicalJson(grant));
+}
+const revision = await initializeFixtureRepository(canghaiRoot);
 const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
   memory: { search: { enabled: true, provider: vectorIndex ? "openai" : "none", fallback: "none", sources: ["memory"],
@@ -365,7 +390,14 @@ try {
       "vector-row-missing": "native_memory_vector_unverifiable", "vector-row-mismatch": "native_memory_vector_payload_changed",
       "embedding-cache-missing": "native_memory_embedding_cache_unverifiable", "embedding-cache-mismatch": "native_memory_embedding_cache_unverifiable",
       "vector-invalidated-before-model": "native_memory_vector_payload_changed", "cache-invalidated-before-model": "native_memory_embedding_cache_unverifiable",
-      "vector-generation-changed-before-model": "native_memory_index_changed" }[scenario];
+      "vector-generation-changed-before-model": "native_memory_index_changed",
+      "query-grant-denied": "native_query_embedding_grant_required", "query-model-denied": "native_query_embedding_identity_mismatch",
+      "query-endpoint-denied": "native_query_embedding_endpoint_mismatch", "query-dimensions-denied": "native_query_embedding_identity_mismatch",
+      "query-response-model-mismatch": "native_query_embedding_response_invalid", "query-response-dimensions-mismatch": "native_query_embedding_response_invalid",
+      "query-response-zero": "native_query_embedding_response_invalid", "query-response-malformed": "native_query_embedding_response_invalid",
+      "query-transport-failed": "native_query_embedding_transport_failed", "query-index-miss": "native_query_embedding_index_miss",
+      "query-grant-revoked-during-embedding": "source_dirty", "query-source-deleted-during-embedding": "source_dirty",
+      "query-generation-changed-during-embedding": "source_dirty" }[scenario];
     assert.ok(category?.includes(expected), JSON.stringify({ category, expected })); assert.equal(result, undefined); assert.equal(finalCalls, 0);
   }
   if (providerError) throw providerError;
@@ -402,9 +434,11 @@ try {
     }
   }
   const nativeReads = await readFile(path.join(temp, "native-read.jsonl"), "utf8").then(body => body.trim().split("\n").filter(Boolean).length).catch(error => { if (error.code === "ENOENT") return 0; throw error; });
-  assert.equal(embeddingCalls - preparationEmbeddingRequests, 0);
+  const consumerQueries = embeddingInputs.slice(preparationEmbeddingRequests);
+  if (!queryIndex) assert.equal(consumerQueries.length, 0);
+  const consumerQueryExact = consumerQueries.length === 1 && consumerQueries[0].model === "text-embedding-3-small" && canonicalJson(consumerQueries[0].input) === canonicalJson([queryRequest]);
   if (["grant-denied", "source-denied", "payload-transform", "unbound-source-verdict"].includes(scenario)) assert.equal(calls.length, 0);
-  const sourceChanged = ["generation-changed", "source-deleted-before-model", "grant-revoked-before-model"].includes(scenario);
+  const sourceChanged = ["query-grant-revoked-during-embedding", "query-source-deleted-during-embedding", "query-generation-changed-during-embedding", "generation-changed", "source-deleted-before-model", "grant-revoked-before-model"].includes(scenario);
   if (!sourceChanged) assert.equal((await run("git", ["-C", canghaiRoot, "status", "--porcelain"])).stdout.trim(), "");
   const invalidation = await readFile(path.join(temp, "invalidation.json"), "utf8").then(JSON.parse).catch(error => { if (error.code === "ENOENT") return undefined; throw error; });
   const modelRequestsAfterInvalidation = invalidation ? calls.length - invalidation.modelCalls : 0;
@@ -415,7 +449,7 @@ try {
     sourceRepository: { root: canghaiRoot, revision: (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), fixture: "synthetic" },
     scope: "native_fragment_guarded_direct", fixture: "synthetic", fullMemoryBindingValid: true, nativeReads, modelCalls: calls.length, finalCalls,
     nativeIndexMode: indexMode, nativeVectorQueryVerified, preparationEmbeddingRequests,
-    consumerEmbeddingRequests: embeddingCalls - preparationEmbeddingRequests, capabilityPassed: Boolean(result), category,
+    consumerEmbeddingRequests: embeddingCalls - preparationEmbeddingRequests, consumerQueryExact, capabilityPassed: Boolean(result), category,
     sourceUnchanged: !sourceChanged, receiptInvalidatedByGeneration: scenario === "generation-changed", audienceDenials,
     dreamingEnabled: false, dreamingExecuted: false, fullMemoryAccepted: false, privateMainAccepted: false, realModelAccepted: false, issue23Complete: false };
   assertHostMemoryAcceptanceReport(report, scenario, nativeProvider, indexMode);

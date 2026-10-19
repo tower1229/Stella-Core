@@ -91,6 +91,8 @@ Host 适配器要求活跃请求中 SDK 确认的主人身份、私聊范围和�
 
 2026-09-08 私人视图接线：在上述配置中显式增加非空 `viewProcessingModelRefs`（必须是 `modelRefs` 的子集），才授权对应模型在既定主人／请求／用途范围内处理获准原文及其派生视图；缺省不会启用私人视图，既有描述许可不会自动扩大。Host 选择、视图选择器、携带视图的取证模型必须匹配；启用视图的目标 Agent／默认模型存在 fallback 时返回 `personal_view_fallback_route_forbidden`，不能把私人上下文转给未经核准的备用路由。
 
+2026-10-19 查询嵌入许可：`queryEmbedding: {provider: "openai", model, endpoint, dimensions}` 独立授权当前主人私聊原始查询的嵌入处理，与描述／私人视图／受限认证许可分开；不授权文档嵌入、索引重建或 fallback。模型与端点、原生索引身份及实际单次响应必须匹配，并绑定当前请求、用途、来源、代际及后续工具／最终消费；途中撤权或数据变更后不再发出模型请求。固定 Host、只读原生向量查询与范围限制见 [Host 集成查询边界](../04-OPENCLAW-INTEGRATION.md)；完整 profile 的其他门禁保持不变。
+
 `preparePersonalViews` 从当前目录读取 Understanding 和 active／paused OngoingWork，校验全部声明依赖、来源用途、所有者、原始证据和更新依据后，才将候选交给结构化 LLM 选择。返回的 `stella.personal-views/v1` 包含 Host 提供的 requestId／requestHash、generationId、owner_direct 受众、访问排除计数，以及 USER／MEMORY 两个集合。模型只选择每个候选的 user／memory／omit 归属，不改写正文或来源，不生成新人物结论。USER 仅接受有主人原文支持的 active owner_statement；其 work／context／domain 范围完整保留，不变成全局人格指令。候选、争议和写作事项进入 MEMORY 时保留状态、确认／提案／拒绝、未决问题、时间和原始依据。
 
 视图只放入当前请求的取证上下文和 Host appendContext，不改写共享 workspace 文件，也不保存第二份个人模型。生成后、准备完成及交付前的 persist 阶段重新核对目录、对象、原文和处理许可；失效时拒绝使用旧视图。最多 64 个获准候选、512 个依赖快照，选择输入 160000 字符、输出上下文 96000 字符，超限显式失败，不截断成成功。无候选是有范围的空视图，不代表全库无历史。

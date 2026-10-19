@@ -6,6 +6,7 @@ import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "../canghai/nat
 import type { OriginalEvidence } from "../praxis/episode-evidence.js";
 import { isRecord } from "../shared/type-guards.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
+import { readNativeQueryEmbedding, type createNativeQueryEmbedding } from "./native-query-embedding.js";
 
 export type NativeMemoryReadObservation = { origin: NativeMemoryOrigin; digest: string };
 
@@ -61,7 +62,7 @@ function readIndexedHit(db: DatabaseSync, origin: NativeMemoryOrigin, originalTe
   });
   const vector = settings.store.vector.enabled && settings.provider !== "none"
     ? readVectorBinding(db, rows, schema, settings) : undefined;
-  return { hits, fingerprint: JSON.stringify({ rows, vector }) };
+  return { hits, chunkIds: rows.map(row => row.id), vector, fingerprint: JSON.stringify({ rows, vector }) };
 }
 
 // The Host's "complete" marker does not inspect individual vector/cache bytes.
@@ -98,7 +99,7 @@ function readVectorBinding(db: DatabaseSync, chunks: Record<string, unknown>[], 
       if (settings.cache.enabled) check(cache && cache.dims === dimensions && cache.embedding === row.embedding, "native_memory_embedding_cache_unverifiable");
       return { id: chunk.id, embedding: row.embedding, vector: bytesVersion(bytes), ...(cache ? { cache } : {}) };
     });
-    return { persisted, bindings };
+    return { persisted, bindings, identity: { model: String(meta.model), providerKey: String(meta.providerKey), dimensions } };
   } catch (error) {
     if (error instanceof CatalogError) throw error;
     throw new CatalogError("native_memory_vector_unverifiable");
@@ -109,8 +110,11 @@ function readVectorBinding(db: DatabaseSync, chunks: Record<string, unknown>[], 
  * This reader looks up only a fragment already selected by Core's semantic path.
  * Actual native bytes must equal its independently retained, admitted original. */
 export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string, sessionKey: string,
-  observeVerifiedRead?: (observation: NativeMemoryReadObservation) => void) {
-  return async (value: NativeMemoryOrigin, original: OriginalEvidence, assertCurrent: () => Promise<void>): Promise<string> => {
+  observeVerifiedRead?: (observation: NativeMemoryReadObservation) => void,
+  queryEmbedding?: ReturnType<typeof createNativeQueryEmbedding>) {
+  const queryReads = new Map<string, () => Promise<void>>();
+  let revalidation: Promise<void> | undefined;
+  const read = async (value: NativeMemoryOrigin, original: OriginalEvidence, assertCurrent: () => Promise<void>): Promise<string> => {
     await assertCurrent();
     const origin = parseNativeMemoryOrigin(value);
     check(api.runtime.version === "2026.8.2" && origin.hostVersion === api.runtime.version, "native_memory_host_version_unsupported");
@@ -121,6 +125,7 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
     check(original.text.trim().length > 0 && original.text.length <= 12_000, "native_memory_excerpt_budget_exhausted");
     let result: unknown;
     if (origin.provider === "memory-wiki") {
+      check(!queryEmbedding, "native_query_embedding_provider_unsupported");
       const { listMemoryCorpusSupplements } = await import("openclaw/plugin-sdk/memory-core-host-runtime-core");
       await assertCurrent();
       const supplements = listMemoryCorpusSupplements().filter(entry => entry.pluginId === "memory-wiki");
@@ -193,6 +198,35 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
       check(readIndexedHit(db, origin, original.text, storage, settings).fingerprint === indexed.fingerprint, "native_memory_index_changed");
       check(hits.some(hit => hit.path === origin.path && hit.startLine <= origin.fromLine &&
         hit.endLine >= origin.fromLine + origin.lineCount - 1), "native_memory_index_miss");
+      let queryDigest: string | undefined;
+      if (queryEmbedding) {
+        check(indexed.vector, "native_query_embedding_vector_required");
+        const bound = readNativeQueryEmbedding(await queryEmbedding(settings, indexed.vector.identity));
+        await assertCurrent(); await bound.assertCurrent();
+        assertIndex();
+        check(readIndexedHit(db, origin, original.text, storage, settings).fingerprint === indexed.fingerprint, "native_memory_index_changed");
+        // Native sqlite-vec ranking only. No document bytes, index writes,
+        // fallback scan or unadmitted candidate snippets leave this boundary.
+        const vector = Buffer.from(new Float32Array(bound.vector).buffer);
+        let candidates: Record<string, unknown>[];
+        try {
+          const count = db.prepare(`SELECT COUNT(*) AS count FROM ${storage.MEMORY_INDEX_VECTOR_TABLE}`).get()?.count;
+          check(typeof count === "number" && count > 0 && count <= 4096, "native_query_embedding_index_budget_exhausted");
+          candidates = db.prepare(`SELECT chunk.id, chunk.path, chunk.start_line, chunk.end_line, vec_distance_cosine(vector.embedding, ?) AS distance
+            FROM ${storage.MEMORY_INDEX_VECTOR_TABLE} AS vector JOIN ${storage.MEMORY_INDEX_CHUNKS_TABLE} AS chunk ON chunk.id = vector.id
+            WHERE vector.embedding MATCH ? AND k = ? AND chunk.source = 'memory' AND chunk.model = ?
+            ORDER BY distance, chunk.id LIMIT 32`).all(vector, vector, count, indexed.vector.identity.model);
+        } catch (error) {
+          if (error instanceof CatalogError) throw error;
+          throw new CatalogError("native_query_embedding_search_failed");
+        }
+        check(candidates.every(row => typeof row.distance === "number" && Number.isFinite(row.distance)), "native_query_embedding_search_failed");
+        check(candidates.some(row => typeof row.distance === "number" && 1 - row.distance >= settings.query.minScore &&
+          indexed.chunkIds.includes(row.id) && row.path === origin.path &&
+          typeof row.start_line === "number" && row.start_line <= origin.fromLine && typeof row.end_line === "number" &&
+          row.end_line >= origin.fromLine + origin.lineCount - 1), "native_query_embedding_index_miss");
+        queryDigest = bytesVersion(canonicalJson({ receipt: bound.digest, candidates: candidates.map(row => ({ ...row })) }));
+      }
       result = await loaded.manager.readFile({ relPath: origin.path, from: origin.fromLine, lines: origin.lineCount });
       await assertCurrent();
       assertIndex();
@@ -206,13 +240,30 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
         ? `\n\n[More content available. Use from=${result.nextFrom} to continue.]` : "";
       check(result.text === body + notice && (result.truncated !== true || notice.length > 0), "native_memory_payload_changed");
       text = result.text.slice(0, body.length) + (original.text.endsWith("\n") ? "\n" : "");
-      nativeDigest = bytesVersion(canonicalJson({ origin, indexed: indexed.fingerprint, result }));
+      nativeDigest = bytesVersion(canonicalJson({ origin, indexed: indexed.fingerprint, result, ...(queryDigest ? { queryDigest } : {}) }));
     } finally {
       db.close();
       await manager?.close?.();
     }
     await assertCurrent();
     observeVerifiedRead?.({ origin, digest: nativeDigest });
+    const queryKey = canonicalJson([origin, original.ref]);
+    if (queryEmbedding && !queryReads.has(queryKey)) {
+      const expected = nativeDigest;
+      // Captured current callback must be structural: source semantics already
+      // ran before this read, and must not run before later native revalidation.
+      queryReads.set(queryKey, async () => {
+        let observed: string | undefined;
+        const verifier = createNativeMemoryReader(api, agentId, sessionKey, value => { observed = value.digest; }, queryEmbedding);
+        await verifier(origin, original, assertCurrent);
+        check(observed === expected, "native_query_embedding_consumption_changed");
+      });
+    }
     return text;
   };
+  return Object.assign(read, { assertQueryCurrent() {
+    return revalidation ??= (async () => {
+      for (const current of queryReads.values()) await current();
+    })().finally(() => { revalidation = undefined; });
+  } });
 }

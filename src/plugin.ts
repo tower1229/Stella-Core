@@ -4,6 +4,8 @@ import { resolveManagedHostTimezone } from "./openclaw/host-context-prompt.js";
 import { createFragmentReadTool, FRAGMENT_READ_DESCRIPTION, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "./openclaw/fragment-read-tool.js";
 import { createHostMemoryAcceptance } from "./openclaw/host-memory-acceptance.js";
 import { createNativeMemoryReader } from "./openclaw/native-memory-reader.js";
+import { createNativeQueryEmbedding } from "./openclaw/native-query-embedding.js";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import type { SourceAccessDescriptor, SourceAccessProvider } from "./canghai/source-access.js";
 import { HostContextAuthority, type ContextFragment } from "./openclaw/host-context-authority.js";
 import { loadContextHistoryKeys } from "./openclaw/host-context-keys.js";
@@ -25,7 +27,7 @@ import { applyHostCorrection, readAppliedCorrectionContext } from "./learning/ho
 import { prepareRoutingCandidates, readPreparedCortexSources } from "./praxis/routing-context.js";
 import { preparePersonalViews } from "./praxis/personal-views.js";
 import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
-import { createPersonalContextAccess, loadPersonalContextAccess } from "./canghai/personal-context-access.js";
+import { createPersonalContextAccess, loadPersonalContextAccess, readPersonalContextAccessBinding } from "./canghai/personal-context-access.js";
 import type { BoundTurnRequest } from "./openclaw/turn-request.js";
 import { snapshotTurnRequest } from "./openclaw/turn-request.js";
 import { assertPrivateContextAudience, resolveTurnAudience } from "./openclaw/turn-audience.js";
@@ -66,7 +68,7 @@ import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-r
 import type { CortexRoute } from "./routing/router.js";
 import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
 import { registerCompletionAdapter } from "./openclaw/completion-adapter.js";
-import { CompletionError, readActiveCompletionRequest, readCompletionRequest, hasCompletionPersistencePermit, withCompletionResourceReservation, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
+import { CompletionError, readActiveCompletionRequest, readCompletionRequest, readCompletionAbortSignal, hasCompletionPersistencePermit, withCompletionResourceReservation, runCompletionPreparation, completeWithPreparationSignal, PREPARATION_HOOK_TIMEOUT_MS, completionDraftHash, hasCompletionRunPermit, recordCompletionPreparation, readCompletionPreparation,
   type CompletionDraft } from "./openclaw/completion.js";
 import { canonicalJson, bytesVersion } from "./canghai/content-version.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, resolveBoundInputRefs, persistBoundAdvice } from "./praxis/runtime-binding.js";
@@ -1415,8 +1417,34 @@ export default definePluginEntry({
               });
             })() : undefined;
             let managedContext: ManagedHostContextEngine | undefined;
+            const nativeReadCurrent = async () => {
+              readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
+              await initialization.assertRun(runId);
+              await viewProcessing?.assertCurrent();
+              await runtime.evidence.reader.assertCurrent();
+              // Recheck previously admitted source/policy/payload identities
+              // without starting semantic inference before native validation.
+              for (const original of outputOriginals) {
+                const evidence = await runtime.evidence.reader.read(original.ref, "evidence");
+                await runtime.evidence.reader.read(evidence.policyRef as { id: string; version: string }, "policies");
+                const source = await runtime.evidence.reader.read(evidence.source as { id: string; version: string }, "sources");
+                await runtime.evidence.reader.read(source.policyRef as { id: string; version: string }, "policies");
+                await runtime.evidence.reader.readPayload(evidence.source as { id: string; version: string }, String(evidence.payloadSha256));
+              }
+            };
+            const processingConfig = viewProcessing ? await readPersonalContextAccessBinding(viewProcessing.processingGrant) : undefined;
+            const nativeReader = createNativeMemoryReader(api, config.agentId, request.sessionKey, undefined,
+              processingConfig?.config.queryEmbedding && viewProcessing ? createNativeQueryEmbedding({ request, authority: processingAuthority,
+                processingGrant: viewProcessing.processingGrant, currentConfig: () => structuredClone(api.runtime.config.current()) as OpenClawConfig,
+                ...(contextExecutionHash ? { configurationHash: () => hostContextExecutionHash(api.runtime.config.current(), config) } : {}),
+                assertCurrent: nativeReadCurrent, signal: readCompletionAbortSignal(runId) }) : undefined);
             const fragmentTool = viewProcessing ? createFragmentReadTool({ resolver: runtime.evidence,
-              readNative: createNativeMemoryReader(api, config.agentId, request.sessionKey),
+              readNative: processingConfig?.config.queryEmbedding ? async (origin, original, assertSourceCurrent) => {
+                await assertSourceCurrent();
+                const text = await nativeReader(origin, original, nativeReadCurrent);
+                await assertSourceCurrent();
+                return text;
+              } : nativeReader,
               descriptors: viewProcessing.descriptors, originals: outputOriginals,
               processingAuthority,
               ...(contextExecutionHash ? { observeResult: async (receipt: Parameters<ManagedHostContextEngine["observeToolResult"]>[0]) => {
@@ -1644,6 +1672,7 @@ export default definePluginEntry({
               sourceBinding: { catalogPath: binding.catalogPath, runtimeProfileRef: loaded.manifest.identity.runtimeProfileRef },
               ...(preparedRouting ? { routingContext: { prepared: preparedRouting, route: preparedRoute } } : {}),
               assertEvidenceCurrent: async () => {
+                await nativeReader.assertQueryCurrent();
                 await cortexSources?.assertCurrent();
                 await preparedRouting?.assertCurrent();
                 if (correction) await readAppliedCorrectionContext(correction);

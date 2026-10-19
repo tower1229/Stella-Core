@@ -6,25 +6,30 @@ export const HOST_MEMORY_BOUNDARY_FLAGS = Object.freeze([
   ...SOURCE_AUDIENCE_SCENARIOS.map(value => `--source-audience-${value}`),
   ...HOST_INGRESS_FIELDS.map(value => `--host-ingress-${value}`),
 ]);
-export const NATIVE_MEMORY_CONSUMPTION_FLAGS = Object.freeze([...['fts', 'cache', 'session', 'wiki'].flatMap(family =>
-  ['success', 'stale', 'mismatch'].map(state => `--native-memory-${family}-${state}`)), '--native-memory-cache-missing']);
+export const NATIVE_MEMORY_CONSUMPTION_FLAGS = Object.freeze([...['fts', 'cache', 'session', 'wiki', 'query'].flatMap(family =>
+  ['success', 'stale', 'mismatch'].map(state => `--native-memory-${family}-${state}`)), '--native-memory-cache-missing', '--native-memory-query-index']);
 export const HOST_MEMORY_ACCEPTANCE_SCENARIOS = Object.freeze(["success", "grant-denied", "source-denied", "native-mismatch", "index-missing", "payload-transform", "generation-changed", "unbound-output", "unbound-source-verdict", "changed-source-verdict", "native-stale-before-model"]);
 export const HOST_VECTOR_ACCEPTANCE_SCENARIOS = Object.freeze(["success", "grant-denied", "source-denied", "native-mismatch", "index-missing",
   "native-stale-before-model", "source-deleted-before-model", "grant-revoked-before-model", "vector-row-missing", "vector-row-mismatch",
   "embedding-cache-missing", "embedding-cache-mismatch", "vector-invalidated-before-model", "cache-invalidated-before-model", "vector-generation-changed-before-model"]);
+export const HOST_QUERY_ACCEPTANCE_SCENARIOS = Object.freeze(["success", "grant-denied", "source-denied", "query-grant-denied", "query-model-denied", "query-endpoint-denied", "query-dimensions-denied",
+  "query-response-model-mismatch", "query-response-dimensions-mismatch", "query-response-zero", "query-response-malformed", "query-transport-failed", "query-index-miss",
+  "query-grant-revoked-during-embedding", "query-source-deleted-during-embedding", "query-generation-changed-during-embedding",
+  "native-stale-before-model", "source-deleted-before-model", "grant-revoked-before-model", "vector-invalidated-before-model", "cache-invalidated-before-model", "vector-generation-changed-before-model", "index-missing", "vector-row-mismatch"]);
 export const HOST_MEMORY_ACCEPTANCE_MATRIX = Object.freeze([...["memory-core", "session-memory", "memory-wiki"].flatMap(provider =>
   [...HOST_MEMORY_ACCEPTANCE_SCENARIOS, ...(provider === "memory-core" ? [] : ["source-deleted-before-model", "grant-revoked-before-model", "native-cache-invalidated"])].map(scenario =>
     ({ provider, scenario, flag: `memory-access-${provider === "memory-core" ? "" : `${provider}-`}${scenario}` }))),
-  ...HOST_VECTOR_ACCEPTANCE_SCENARIOS.map(scenario => ({ provider: "memory-core", indexMode: "vector", scenario, flag: `memory-access-vector-${scenario}` }))]);
+  ...HOST_VECTOR_ACCEPTANCE_SCENARIOS.map(scenario => ({ provider: "memory-core", indexMode: "vector", scenario, flag: `memory-access-vector-${scenario}` })),
+  ...HOST_QUERY_ACCEPTANCE_SCENARIOS.map(scenario => ({ provider: "memory-core", indexMode: "query", scenario, flag: `memory-access-query-${scenario}` }))]);
 const nativeProbes = family => NATIVE_MEMORY_CONSUMPTION_FLAGS.filter(flag => flag.startsWith(`--native-memory-${family}-`)).map(flag => flag.slice(2));
 const acceptanceProbes = provider => HOST_MEMORY_ACCEPTANCE_MATRIX.filter(entry => entry.provider === provider).map(entry => entry.flag);
-const vectorProbes = HOST_MEMORY_ACCEPTANCE_MATRIX.filter(entry => entry.indexMode === "vector").map(entry => entry.flag);
+const vectorProbes = HOST_MEMORY_ACCEPTANCE_MATRIX.filter(entry => ["vector", "query"].includes(entry.indexMode)).map(entry => entry.flag);
 
 // This is an evidence index, never an admission receipt. A common final-input
 // rejection proves that boundary, not every native producer upstream of it.
 const coverage = {
-  memory_index: { probes: ["fragment-skill", "source-audience-owner", "guarded-active-memory", ...nativeProbes("fts"), ...nativeProbes("cache"), ...vectorProbes],
-    gaps: ["Native vector candidate preparation and exact-location vector/cache-bound consumption are scoped proofs; permissioned query embeddings during ordinary consumption, QMD and arbitrary plugins remain unverified."] },
+  memory_index: { probes: ["fragment-skill", "source-audience-owner", "guarded-active-memory", ...nativeProbes("fts"), ...nativeProbes("cache"), ...nativeProbes("query"), ...vectorProbes],
+    gaps: ["Native vector candidate preparation and exact-location vector/cache-bound consumption are scoped proofs; Explicitly granted original-query embeddings use read-only native vector ranking and admitted fragment consumption; QMD, other embedding adapters and arbitrary plugins remain unverified."] },
   session_summary: { probes: ["standalone-compact", "standalone-compact-stale", "history-view-followup", ...nativeProbes("session")],
     gaps: ["Evidence covers Core signed summaries, not every native summary producer."] },
   bootstrap: { probes: ["initialization", "host-ingress-bootstrap", "source-audience-owner"],
@@ -44,7 +49,7 @@ const coverage = {
 };
 const pluginCoverage = {
   "active-memory": ["guarded-active-memory", "guarded-active-memory-stale", "main-native-artifact-active-memory"],
-  "memory-core": ["native-active-memory-artifact", "capability-acceptance", ...nativeProbes("fts"), ...nativeProbes("cache"), ...acceptanceProbes("memory-core")],
+  "memory-core": ["native-active-memory-artifact", "capability-acceptance", ...nativeProbes("fts"), ...nativeProbes("cache"), ...nativeProbes("query"), ...acceptanceProbes("memory-core")],
   "dreaming": [], "session-memory": ["native-memory-producers", ...nativeProbes("session"), ...acceptanceProbes("session-memory")],
   "memory-wiki": ["native-memory-producers", ...nativeProbes("wiki"), ...acceptanceProbes("memory-wiki")],
 };
@@ -61,6 +66,19 @@ export function assertHostMemoryAcceptanceReport(report, scenario, provider = "m
   assert.equal(report.nativeIndexMode, indexMode);
   assert.equal(report.scope, "native_fragment_guarded_direct");
   assert.equal(report.fullMemoryBindingValid, true);
+  if (indexMode === "query") {
+    const beforeQuery = ["grant-denied", "source-denied", "query-grant-denied", "query-model-denied", "query-endpoint-denied", "query-dimensions-denied", "index-missing", "vector-row-mismatch"].includes(scenario);
+    assert.equal(report.consumerEmbeddingRequests, beforeQuery ? 0 : 1);
+    assert.equal(report.consumerQueryExact, !beforeQuery);
+    assert.equal(report.modelRequestsAfterInvalidation, 0);
+    assert.equal(report.capabilityPassed, scenario === "success");
+    assert.equal(report.finalCalls, scenario === "success" ? 1 : 0);
+    if (scenario === "success") { assert.ok(report.nativeReads >= 2); assert.ok(report.modelCalls > 0); }
+    else if (scenario.endsWith("before-model")) assert.ok(report.nativeReads >= 1);
+    else assert.equal(report.nativeReads, 0);
+    for (const flag of ["dreamingEnabled", "dreamingExecuted", "fullMemoryAccepted", "privateMainAccepted", "realModelAccepted", "issue23Complete"]) assert.equal(report[flag], false);
+    return;
+  }
   assert.equal(report.consumerEmbeddingRequests, 0);
   if (indexMode === "vector") {
     assert.equal(report.modelRequestsAfterInvalidation, 0);
@@ -115,9 +133,12 @@ export function assertNativeMemoryConsumptionReport(report, flag) {
   assert.equal(report.nativeFamily, family); assert.equal(report.nativeState, state);
   assert.equal(report.dreamingEnabled, false); assert.equal(report.fullMemoryAccepted, false);
   assert.equal(report.realModelAccepted, false); assert.equal(report.unknownInputConsumed, false);
-  assert.equal(report.nativeReadExecuted, state !== "missing"); assert.equal(report.nativeReads.length, state === "missing" ? 0 : 1);
-  assert.equal(report.nativeConsumerEmbeddingRequests, 0);
-  assert.equal(report.nativeLookupMode, family === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index");
+  assert.equal(report.nativeReadExecuted, state !== "missing");
+  if (family === "query") assert.ok(report.nativeReads.length >= 1);
+  else assert.equal(report.nativeReads.length, state === "missing" ? 0 : 1);
+  assert.equal(report.nativeConsumerEmbeddingRequests, family === "query" ? 1 : 0);
+  if (family === "query") assert.equal(report.nativeQueryExact, true);
+  assert.equal(report.nativeLookupMode, family === "query" ? "authorized-query-readonly-native-vector" : family === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index");
   if (state === "missing") {
     assert.equal(family, "cache"); assert.equal(report.nativeIndexRemoved, true);
     assert.equal(report.nativeReadFailure, "native_memory_index_unavailable");

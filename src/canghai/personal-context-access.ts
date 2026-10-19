@@ -24,18 +24,31 @@ export type PersonalContextAccess = {
   operatorRecovery?: true;
   operatorHistoryCompaction?: true;
   operatorMemoryAcceptance?: true;
+  queryEmbedding?: { provider: "openai"; model: string; endpoint: string; dimensions: number };
 };
 
 /** An explicitly configured processing grant for reviewed metadata, separate
  * from the source policies. Never created by a model during a question. */
 export function parsePersonalContextAccess(value: unknown): PersonalContextAccess {
   if (!isRecord(value) || value.schemaVersion !== "stella.personal-context-access/v1" ||
-      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs", "operatorRecovery", "operatorHistoryCompaction", "operatorMemoryAcceptance"].includes(k)) ||
+      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs", "operatorRecovery", "operatorHistoryCompaction", "operatorMemoryAcceptance", "queryEmbedding"].includes(k)) ||
       !text(value.ownerId) || !texts(value.requesterIds) || !value.requesterIds.length ||
       !texts(value.modelRefs) || !value.modelRefs.length || !isRecord(value.purpose) ||
       Object.keys(value.purpose).sort().join() !== "deliveryScope,derivePurpose,readPurpose" ||
       !Object.values(value.purpose).every(text) || !Array.isArray(value.descriptors) || value.descriptors.length > 512) {
     throw new CatalogError("invalid_personal_context_access");
+  }
+  if (Object.hasOwn(value, "queryEmbedding")) {
+    const grant = value.queryEmbedding;
+    check(isRecord(grant) && Object.keys(grant).sort().join() === "dimensions,endpoint,model,provider" &&
+      grant.provider === "openai" && text(grant.model) && grant.model.length <= 256 && text(grant.endpoint) &&
+      Number.isSafeInteger(grant.dimensions) && Number(grant.dimensions) > 0 && Number(grant.dimensions) <= 8192,
+    "invalid_query_embedding_grant");
+    let endpoint: URL;
+    try { endpoint = new URL(grant.endpoint); } catch { throw new CatalogError("invalid_query_embedding_grant"); }
+    check(["https:", "http:"].includes(endpoint.protocol) && !endpoint.username && !endpoint.password &&
+      !endpoint.hash && !endpoint.search && endpoint.href === grant.endpoint && endpoint.pathname.endsWith("/embeddings"),
+    "invalid_query_embedding_grant");
   }
   if (Object.hasOwn(value, "operatorRecovery")) check(value.operatorRecovery === true, "invalid_operator_recovery_grant");
   if (Object.hasOwn(value, "operatorMemoryAcceptance")) {

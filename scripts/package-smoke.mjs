@@ -95,7 +95,7 @@ try {
     "dist/src/openclaw/initialization-source.js", "dist/src/openclaw/initialization-templates.js",
     "dist/src/openclaw/initialization-context.js", "dist/src/openclaw/archive-retention-registration.js",
     "dist/src/openclaw/host-memory.js",
-    "dist/src/openclaw/host-memory-acceptance.js", "dist/src/openclaw/host-memory-verification.js",
+    "dist/src/openclaw/native-query-embedding.js", "dist/src/openclaw/host-memory-acceptance.js", "dist/src/openclaw/host-memory-verification.js",
     "dist/src/canghai/archive-cleanup.js", "dist/src/canghai/ingest-progress.js",
     "dist/src/openclaw/fragment-read-tool.js",
     "dist/src/openclaw/native-memory-reader.js", "dist/src/canghai/native-memory-origin.js",

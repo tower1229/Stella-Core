@@ -4,6 +4,8 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createServer } from "node:http";
+import { writeFile } from "node:fs/promises";
 import { resolveMemorySearchConfig } from "openclaw/plugin-sdk/memory-core-host-engine-foundation";
 import { loadSqliteVecExtension } from "openclaw/plugin-sdk/memory-core-host-engine-storage";
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
@@ -12,6 +14,11 @@ import { createNativeMemoryReader } from "../src/openclaw/native-memory-reader.j
 import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "../src/canghai/native-memory-origin.js";
 import { inspectDeclaredHostMemory } from "../src/openclaw/host-memory-inventory.js";
 import type { OriginalEvidence } from "../src/praxis/episode-evidence.js";
+import { bytesVersion } from "../src/canghai/content-version.js";
+import { loadPersonalContextAccess } from "../src/canghai/personal-context-access.js";
+import { createNativeQueryEmbedding } from "../src/openclaw/native-query-embedding.js";
+import { bindProcessingAuthority } from "../src/openclaw/processing-authority.js";
+import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
 
 const origin: NativeMemoryOrigin = { schemaVersion: "stella.native-memory-origin/v1", hostVersion: "2026.8.2",
   agentId: "stella", provider: "memory-core", path: "memory/retained.md", fromLine: 1, lineCount: 1 };
@@ -70,7 +77,7 @@ function fixture(t: TestContext) {
     get: async input => { assert.equal(input.agentSessionKey, "agent:stella:main"); calls.push("wiki.get"); return result; },
   } as Parameters<OpenClawPluginApi["registerMemoryCorpusSupplement"]>[0]);
   const api = { runtime: { version: "2026.8.2", config: { current: () => config } } } as unknown as OpenClawPluginApi;
-  return { calls, config, api, db, reader: createNativeMemoryReader(api, "stella", "agent:stella:main"),
+  return { root, calls, config, api, db, reader: createNativeMemoryReader(api, "stella", "agent:stella:main"),
     setResult: (value: unknown) => { result = value; }, setHits: (value: unknown[]) => { hits = value; },
     setStatus: (patch: Record<string, unknown>) => { status = { ...status, ...patch }; },
     afterAuthorize: (action: () => void) => { afterAuthorize = action; },
@@ -275,4 +282,48 @@ test("concurrent vector invalidation wins before native file read", async t => {
   f.afterAuthorize(() => f.db.prepare("UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = 'chunk'").run(new Float32Array([0, 1, 0])));
   await assert.rejects(f.reader(origin, original, f.current), /native_memory_vector_payload_changed/);
   assert.deepEqual(f.calls, ["manager", "authorize", "close"]);
+});
+
+test("original query transport binds actual native KNN and rejects changed candidates before later consumption", async t => {
+  t.after(clearMemoryPluginState);
+  const f = await vectorFixture(t), calls: unknown[] = [];
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk as Buffer);
+    calls.push(JSON.parse(Buffer.concat(chunks).toString()));
+    res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ model: "synthetic-embedding", data: [{ index: 0, embedding: [1, 0, 0] }] }));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())));
+  const address = server.address(); assert.ok(address && typeof address !== "string");
+  const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  f.config.memory!.search!.fallback = "none";
+  f.config.memory!.search!.remote = { baseUrl, apiKey: "synthetic-local-only" };
+  const providerKey = bytesVersion(JSON.stringify({ provider: "openai", baseUrl, model: "synthetic-embedding",
+    headers: [["Content-Type", "application/json"]] })).slice(7);
+  f.db.prepare("UPDATE memory_index_meta SET value = ? WHERE key = 'memory_index_meta_v1'").run(JSON.stringify({
+    provider: "openai", model: "synthetic-embedding", providerKey, vectorDims: 3 }));
+  f.db.prepare("UPDATE memory_embedding_cache SET provider_key = ?").run(providerKey);
+  // Same direction but different magnitude: the pinned Host scores cosine,
+  // while sqlite-vec's default table distance is Euclidean.
+  f.db.exec("UPDATE memory_index_chunks SET embedding = '[2,0,0]'; UPDATE memory_embedding_cache SET embedding = '[2,0,0]'");
+  f.db.prepare("UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = 'chunk'").run(new Float32Array([2, 0, 0]));
+  const purpose = { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "private" };
+  await writeFile(path.join(f.root, "grant.json"), JSON.stringify({ schemaVersion: "stella.personal-context-access/v1", ownerId: "owner",
+    requesterIds: ["cli"], modelRefs: ["stella-guarded/model"], purpose, descriptors: [],
+    queryEmbedding: { provider: "openai", model: "synthetic-embedding", endpoint: `${baseUrl}/embeddings`, dimensions: 3 } }));
+  const request = snapshotTurnRequest({ agentId: "stella", sessionId: "session", sessionKey: "agent:stella:main",
+    prompt: "Original synthetic query", senderIsOwner: true, senderId: "cli", chatType: "direct" }, "run-query");
+  const authority = bindProcessingAuthority({ request, ownerId: "owner", purpose, modelRef: "stella-guarded/model",
+    deployment: bytesVersion("deployment"), generationId: "one" });
+  const query = createNativeQueryEmbedding({ request, authority, processingGrant: await loadPersonalContextAccess(f.root, "grant.json"),
+    currentConfig: () => f.config, assertCurrent: f.current });
+  const read = createNativeMemoryReader(f.api, "stella", request.sessionKey, undefined, query);
+  await read.assertQueryCurrent();
+  assert.equal(await read(origin, original, f.current), original.text);
+  await read.assertQueryCurrent(); await read.assertQueryCurrent();
+  assert.deepEqual(calls, [{ model: "synthetic-embedding", input: [request.prompt] }]);
+  f.db.exec("INSERT INTO memory_index_chunks SELECT 'other', 'memory/other.md', source, start_line, end_line, text, hash, model, embedding FROM memory_index_chunks WHERE id = 'chunk'");
+  f.db.prepare("INSERT INTO memory_index_chunks_vec VALUES ('other', ?)").run(new Float32Array([1, 0, 0]));
+  await assert.rejects(read.assertQueryCurrent(), /native_query_embedding_consumption_changed/);
+  assert.equal(calls.length, 1, "Revalidation never resends a query or embeds a document");
 });

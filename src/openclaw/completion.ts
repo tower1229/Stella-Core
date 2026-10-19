@@ -104,6 +104,13 @@ export function hasCompletionRunPermit(runId: string | undefined): boolean {
   return Boolean(permit?.active && runId && permit.runId === runId);
 }
 
+/** Transport cancellation must come from the active Core run, never tool data. */
+export function readCompletionAbortSignal(runId: string): AbortSignal {
+  const permit = permits.getStore();
+  if (!hasCompletionRunPermit(runId) || !permit || permit.abortSignal.aborted) throw new CompletionError("invalid_run_permit", "generate");
+  return permit.abortSignal;
+}
+
 export function completionOperationForRun(runId: string | undefined): string | undefined {
   return hasCompletionRunPermit(runId) ? permits.getStore()?.operationId : undefined;
 }

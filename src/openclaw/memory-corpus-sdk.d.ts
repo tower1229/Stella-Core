@@ -8,6 +8,18 @@ declare module "openclaw/plugin-sdk/memory-core-host-runtime-core" {
   }>;
 }
 
+declare module "openclaw/plugin-sdk/memory-core-host-engine-embeddings" {
+  import type { OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
+  import type { SsrFPolicy } from "openclaw/plugin-sdk/ssrf-runtime";
+  export function resolveRemoteEmbeddingClient(input: { provider: string; options: {
+    config: OpenClawConfig; model: string;
+    remote?: NonNullable<ReturnType<typeof import("openclaw/plugin-sdk/memory-core-host-engine-foundation").resolveMemorySearchConfig>>["remote"];
+  }; defaultBaseUrl: string; normalizeModel(model: string): string }):
+    Promise<{ baseUrl: string; model: string; headers: Record<string, string>; ssrfPolicy: SsrFPolicy }>;
+  export function resolveEmbeddingEndpointUrl(baseUrl: string, endpoint: string): string;
+  export function sanitizeEmbeddingCacheHeaders(headers: Record<string, string>, excluded: string[]): string[][];
+}
+
 // OpenClaw 2026.8.2 exposes this pinned storage schema through a public JS
 // facade without declarations. No private Host bundle is imported.
 declare module "openclaw/plugin-sdk/memory-core-host-engine-storage" {

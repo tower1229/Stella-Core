@@ -17,6 +17,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { withCompletionResourceReservation } from "./completion.js";
 import { createFragmentReadTool, readFragmentToolResult } from "./fragment-read-tool.js";
 import { createNativeMemoryReader } from "./native-memory-reader.js";
+import { createNativeQueryEmbedding } from "./native-query-embedding.js";
 import { bindProcessingAuthority, assertProcessingStage } from "./processing-authority.js";
 import { snapshotTurnRequest } from "./turn-request.js";
 import { assertPrivateContextAudience, resolveTurnAudience } from "./turn-audience.js";
@@ -25,15 +26,16 @@ import { assertHostMemoryVerification, hostMemoryVerification, withHostMemoryVer
 import { hostMemoryConfigurationHash } from "./host-memory-inventory.js";
 import type { StellaDataMode } from "../praxis/episode-store.js";
 
-export const HOST_MEMORY_ACCEPTANCE_CASES = "host-memory-access:explicit-operator-grant,source-verdict-output,native-fragment,memory-core,session-memory,wiki-claim-cache,vector-cache-binding,guarded-direct-consumption:v3";
+export const HOST_MEMORY_ACCEPTANCE_CASES = "host-memory-access:explicit-operator-grant,source-verdict-output,native-fragment,memory-core,session-memory,wiki-claim-cache,vector-cache-binding,query-processing-consumption,guarded-direct-consumption:v4";
 type Config = { canghaiRoot: string; manifestPath: string; recoveryRevision: string; agentId: string; dataMode?: StellaDataMode };
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
 
 export function parseHostMemoryAcceptance(value: unknown) {
-  check(isRecord(value) && Object.keys(value).sort().join() === "evidenceRef,request,schemaVersion" &&
+  check(isRecord(value) && Object.keys(value).sort().join() === (value.queryEmbedding === undefined ? "evidenceRef,request,schemaVersion" : "evidenceRef,queryEmbedding,request,schemaVersion") &&
+    (value.queryEmbedding === undefined || value.queryEmbedding === true) &&
     value.schemaVersion === "stella.host-memory-acceptance/v1" && validMemoryRef(value.evidenceRef) &&
     typeof value.request === "string" && value.request.trim() && value.request.length <= 8000, "invalid_host_memory_acceptance");
-  return { evidenceRef: { ...value.evidenceRef }, request: value.request };
+  return { evidenceRef: { ...value.evidenceRef }, request: value.request, ...(value.queryEmbedding === true ? { queryEmbedding: true } : {}) };
 }
 
 /** A single explicitly configured verification target, never a retrieval ranking
@@ -161,6 +163,8 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
       () => { throw new CatalogError("host_memory_acceptance_source_expansion_forbidden"); });
       const original = await resolver.readEvidence(state.specification.evidenceRef);
       let nativeDigest: string | undefined;
+      const queryEmbedding = state.specification.queryEmbedding ? createNativeQueryEmbedding({ request, authority,
+        processingGrant: state.processing, currentConfig: () => structuredClone(api.runtime.config.current()) as OpenClawConfig, assertCurrent: assertAuthorityCurrent, signal }) : undefined;
       const readVerifiedNative = createNativeMemoryReader(api, config.agentId, request.sessionKey, observation => {
         check(canonicalJson(observation.origin) === canonicalJson(state.origin), "host_memory_acceptance_origin_changed");
         check(nativeDigest === undefined || nativeDigest === observation.digest, "host_memory_acceptance_native_changed");
@@ -170,7 +174,7 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
         assertNativeCurrent ??= async () => {
           check(await readVerifiedNative(state.origin, original, assertAuthorityCurrent) === original.text, "native_memory_payload_changed");
         };
-      });
+      }, queryEmbedding);
       const readNative = async (...args: Parameters<typeof readVerifiedNative>) => {
         await args[2]();
         // Source semantics are checked before and after the native operation.

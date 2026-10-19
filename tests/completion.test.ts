@@ -3,7 +3,7 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { registerCompletionTranscriptGuard } from "../src/openclaw/completion-transcript.js";
 import {
-  CompletionError, readCompletionRequest, completionDraftHash, coordinateCompletion, hasCompletionRunPermit,
+  CompletionError, readCompletionRequest, readCompletionAbortSignal, completionDraftHash, coordinateCompletion, hasCompletionRunPermit,
   isCompletionDraftContext, captureCompletionOutput, readCompletionOutput, recordCompletionPreparation, readCompletionPreparation,
   type CompletionPorts, type CompletionReceipt,
 } from "../src/openclaw/completion.js";
@@ -142,9 +142,12 @@ test("cancelled generation cannot persist or publish even when the provider comp
   let release: () => void = () => {};
   const blocked = new Promise<void>((resolve) => { release = resolve; });
   const pending = coordinateCompletion({ ...input, abortSignal: controller.signal }, {
-    ...ports(events), async generateDraft() {
+    ...ports(events), async generateDraft({ abortSignal }) {
+      assert.equal(readCompletionAbortSignal(input.runId), abortSignal);
+      assert.throws(() => readCompletionAbortSignal("different-run"), /invalid_run_permit/);
       await blocked;
       assert.equal(hasCompletionRunPermit(input.runId), false);
+      assert.throws(() => readCompletionAbortSignal(input.runId), /invalid_run_permit/);
       assert.equal(isCompletionDraftContext(), true);
       return draft;
     },

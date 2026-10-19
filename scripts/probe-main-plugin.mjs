@@ -22,7 +22,7 @@ const outputRejectionProbe = process.argv.includes("--correction-output-rejected
 const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
 const nativeCase = process.argv.find(arg => arg.startsWith("--native-memory-"))?.slice("--native-memory-".length);
 const [nativeFamily, nativeState] = nativeCase?.split("-") ?? [];
-if (nativeCase) assert.ok(["fts", "cache", "session", "wiki"].includes(nativeFamily) && ["success", "stale", "mismatch", "missing"].includes(nativeState) && (nativeState !== "missing" || nativeFamily === "cache"));
+if (nativeCase) assert.ok(["fts", "cache", "session", "wiki", "query"].includes(nativeFamily) && ["success", "stale", "mismatch", "missing", ...(nativeFamily === "query" ? ["index"] : [])].includes(nativeState) && (nativeState !== "missing" || nativeFamily === "cache"));
 let producerReport, nativeSource;
 if (nativeCase) {
   assert.ok(process.env.STELLA_NATIVE_PRODUCERS_REPORT, "Native consumption requires a real producer report");
@@ -357,6 +357,15 @@ if (nativeCase) {
   await cp(path.join(producerReport.evidenceDirectory, "wiki-input.md"), path.join(retained, "wiki-input.md"));
   await writeFile(path.join(retained, "producer.json"), JSON.stringify(producerReport, null, 2));
 }
+const queryServer = nativeFamily === "query" ? createServer() : undefined;
+if (queryServer) {
+  await new Promise(resolve => queryServer.listen(0, "127.0.0.1", resolve));
+  const file = path.join(canghaiRoot, "50_PersonalAgent/stella/personal-access.json");
+  const grant = JSON.parse(await readFile(file));
+  grant.queryEmbedding = { provider: "openai", model: "text-embedding-3-small", dimensions: 384,
+    endpoint: `http://127.0.0.1:${queryServer.address().port}/v1/embeddings` };
+  await writeFile(file, JSON.stringify(grant));
+}
 const revision = await initializeFixtureRepository(canghaiRoot);
 const remote = path.join(temp, "canghai.git");
 if (managed) {
@@ -505,6 +514,21 @@ export default { ...main, register(api) {
     });
     api.on('after_tool_call', event => {
       if (event.toolName === 'stella_read_fragment') appendFileSync(${JSON.stringify(path.join(temp, "native-tool-results.jsonl"))}, JSON.stringify(event) + '\\n');
+    });
+    if (${nativeFamily === "query" && nativeState === "index"}) api.on('after_tool_call', async event => {
+      if (event.toolName !== 'stella_read_fragment' || !event.result?.details?.original?.ref) return;
+      const { DatabaseSync } = await import('node:sqlite');
+      const { loadSqliteVecExtension } = await import(${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/memory-core-host-engine-storage.js")).href)});
+      const db = new DatabaseSync(${JSON.stringify(path.join(state, "agents/probe/agent/openclaw-agent.sqlite"))}, { allowExtension: true });
+      try {
+        if (!(await loadSqliteVecExtension({ db })).ok) throw new Error('synthetic_vector_extension_missing');
+        const vector = Array.from({ length: 384 }, (_, index) => index === 1 ? 1 : 0);
+        const selected = db.prepare('SELECT id FROM memory_index_chunks WHERE path = ?').all(${JSON.stringify(nativeSource?.nativePath)});
+        for (const row of selected) db.prepare('UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = ?').run(new Float32Array(vector), row.id);
+        db.prepare('UPDATE memory_index_chunks SET embedding = ? WHERE path = ?').run(JSON.stringify(vector), ${JSON.stringify(nativeSource?.nativePath)});
+        db.prepare('UPDATE memory_embedding_cache SET embedding = ?').run(JSON.stringify(vector));
+      } finally { db.close(); }
+      writeFileSync(${JSON.stringify(path.join(temp, "native-query-index-invalidated.json"))}, JSON.stringify({ afterNativeRead: true }));
     });
     if (${nativeState === "stale"}) api.on('after_tool_call', event => {
       if (event.toolName !== 'stella_read_fragment' || !event.result?.details?.original?.ref) return;
@@ -768,7 +792,8 @@ let nativeRecallRequests = 0;
 let nativeFragmentRead = false;
 let nativeSummaryConsumed = false;
 const embeddingRequests = [];
-const provider = createServer(async (request, response) => {
+const provider = queryServer ?? createServer();
+provider.on("request", async (request, response) => {
   if (nativeCase && request.url?.endsWith('/embeddings')) {
     const chunks = []; for await (const chunk of request) chunks.push(chunk);
     const input = JSON.parse(Buffer.concat(chunks)); embeddingRequests.push({ ...input, observedAt: Date.now() });
@@ -936,12 +961,12 @@ const provider = createServer(async (request, response) => {
     choices: [{ index: 0, message: { role: "assistant", content: "SYNTHETIC_MAIN_ANSWER" }, finish_reason: "stop" }],
     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
 });
-await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
+if (!queryServer) await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
 const configPath = path.join(state, "openclaw.json");
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
-  ...(nativeCase ? { memory: { search: { enabled: true, provider: nativeFamily === "cache" ? "openai" : "none", fallback: "none",
+  ...(nativeCase ? { memory: { search: { enabled: true, provider: ["cache", "query"].includes(nativeFamily) ? "openai" : "none", fallback: "none",
     model: "text-embedding-3-small", remote: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", batch: { enabled: false } },
-    sources: ["memory"], cache: { enabled: true }, store: { vector: { enabled: nativeFamily === "cache" }, fts: { tokenizer: "unicode61" } },
+    sources: ["memory"], cache: { enabled: true }, store: { vector: { enabled: ["cache", "query"].includes(nativeFamily) }, fts: { tokenizer: "unicode61" } },
     sync: { onSessionStart: false, onSearch: false, watch: false }, query: { minScore: 0 } } },
     hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } } : {}),
   agents: { defaults: { model: { primary: probeModel }, ...(standaloneCompactProbe ? { compaction: { model: "synthetic-compaction/probe" } } : {}), ...(guardedPayload ? { models: {
@@ -1124,11 +1149,20 @@ try {
           throw error;
         });
         const reads = readLog.trim() ? readLog.trim().split("\n").map(JSON.parse) : [];
-        assert.equal(reads.length, nativeState === "missing" ? 0 : 1,
+        assert.ok(nativeFamily === "query" ? reads.length >= 1 : reads.length === (nativeState === "missing" ? 0 : 1),
           "Only an available authorized index permits the actual native read");
         const nativeConsumerEmbeddingRequests = embeddingRequests.length - embeddingRequestsBeforeConsumption;
-        assert.equal(nativeConsumerEmbeddingRequests, 0, "Native consumption cannot emit query or rebuild embeddings");
+        assert.equal(nativeConsumerEmbeddingRequests, nativeFamily === "query" ? 1 : 0, "Only the explicitly granted original query may be embedded");
+        const queryRequests = embeddingRequests.slice(embeddingRequestsBeforeConsumption);
+        if (nativeFamily === "query") {
+          assert.equal(queryRequests[0].model, "text-embedding-3-small");
+          assert.deepEqual(queryRequests[0].input, ["Synthetic source audience acceptance"]);
+        }
         const toolResults = (await readFile(path.join(temp, "native-tool-results.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+        if (nativeState === "index") {
+          assert.ok(gateway.diagnostics().includes("native_query_embedding_consumption_changed"), gateway.diagnostics());
+          assert.deepEqual(JSON.parse(await readFile(path.join(temp, "native-query-index-invalidated.json"))), { afterNativeRead: true });
+        }
         const mismatchCategory = nativeFamily === "wiki" ? "native_memory_read_unverifiable" : "native_memory_payload_changed";
         if (nativeState === "missing") assert.ok(toolResults.some(row => row.error?.includes("native_memory_index_unavailable")),
           "An absent native index must fail explicitly without bootstrapping or reading the retained copy");
@@ -1151,8 +1185,8 @@ try {
         Object.assign(report, { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily, nativeState,
           producerReport: process.env.STELLA_NATIVE_PRODUCERS_REPORT, nativeSource, nativePreparation, nativeBackend: backend, nativeReads: reads, nativeToolResults: toolResults,
           nativeReadExecuted: nativeState !== "missing", nativeIndexRemoved: nativeState === "missing",
-          nativeConsumerEmbeddingRequests, embeddingRequestsBeforeConsumption,
-          nativeLookupMode: nativeFamily === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index",
+          nativeConsumerEmbeddingRequests, embeddingRequestsBeforeConsumption, nativeQueryExact: nativeFamily === "query",
+          nativeLookupMode: nativeFamily === "query" ? "authorized-query-readonly-native-vector" : nativeFamily === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index",
           actualNativeBytesConsumed: nativeState === "success", staleNativeArtifactRetained: nativeState === "stale",
           changedNativeBytesRejected: nativeState === "mismatch", modelRequestsAfterInvalidation: nativeState === "success" ? undefined : 0,
           embeddingRequests: embeddingRequests.length, authorizedFragmentConsumed: nativeState === "success",
