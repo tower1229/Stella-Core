@@ -1,7 +1,7 @@
 project: Stella Core
 version_target: "3.0 Alpha"
 status: alpha-integration-and-evidence-validation
-updated_at: "2026-09-07"
+updated_at: "2026-10-20"
 
 mission: >-
   Become the owner's increasingly accurate digital counterpart and
@@ -29,6 +29,9 @@ repositories:
 
 runtime_strategy:
   host: OpenClaw
+  development_model: google/gemini-3.8-flash
+  development_model_decided_at: "2026-10-20"
+  development_model_acceptance: requires_new_model_receipts; historical_evidence_keeps_original_model
   target_host_version: "2026.8.2"
   minimum_claimed_host_version: "2026.8.1"
   minimum_version_independently_verified: false

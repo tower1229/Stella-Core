@@ -101,7 +101,7 @@ export function registerMemoryConsolidation(api: OpenClawPluginApi, config: Conf
             prompt: string; maxTokens: number; assertInputsCurrent?: () => Promise<void>;
           }) => {
             await assertCurrent();
-            const params = { agentId: config.agentId, model: modelRef, purpose: "stella-memory-consolidation", temperature: 0,
+            const params = { agentId: config.agentId, model: modelRef, purpose: "stella-memory-consolidation",
               maxTokens, signal: abort, messages: [{ role: "user" as const, content: prompt }] };
             let observedText: string | undefined;
             const output = await withHostModelConsumption({ request, modelRef, params,

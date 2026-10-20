@@ -15,8 +15,9 @@ test("portable continuity suite resolves explicit versioned inputs, rejects lega
     semantic_dimensions: [{ id: "meaning", required: true, condition: "Keep unknown unknown" }] };
   try {
     await emit("suite.json", suite);
-    await emit("judge.json", { schema_version: "stella.continuity-judge-policy/v1", id: "judge", model: "google/gemini-3.1-pro-preview",
-      host_version: "2026.8.2", prompt_version: "stella.recovery-continuity/v1", temperature: 0, attempts: 1 });
+    const policy = { schema_version: "stella.continuity-judge-policy/v2", id: "judge", model: "google/gemini-3.8-flash",
+      host_version: "2026.8.2", prompt_version: "stella.recovery-continuity/v1", thinking_level: "low", attempts: 1 };
+    await emit("judge.json", policy);
     await emit("probe.json", { schema_version: "stella.continuity-probe/v1", id: "identity", message: "Synthetic prompt" });
     await emit("rubric.json", rubric);
     assert.equal((await loadContinuitySuite(root, "path:suite.json")).probes[0]!.message, "Synthetic prompt");
@@ -27,6 +28,15 @@ test("portable continuity suite resolves explicit versioned inputs, rejects lega
       await assert.rejects(loadContinuitySuite(root, "path:suite.json"), { message: "continuity_suite_validation_failed" });
     }
     await emit("suite.json", suite);
+    for (const invalid of [
+      { ...policy, schema_version: "stella.continuity-judge-policy/v1", model: "google/gemini-3.1-pro-preview", temperature: 0 },
+      { ...policy, model: "google/gemini-3.1-pro-preview" }, { ...policy, temperature: 0 },
+      { ...policy, thinking_level: "minimal" }, { ...policy, top_p: 0.9 },
+    ]) {
+      await emit("judge.json", invalid);
+      await assert.rejects(loadContinuitySuite(root, "path:suite.json"), /validation_failed/);
+    }
+    await emit("judge.json", policy);
     await emit("rubric.json", { ...rubric, semantic_dimensions: rubric.structural_assertions });
     await assert.rejects(loadContinuitySuite(root, "path:suite.json"), /validation_failed/);
   } finally { await rm(root, { recursive: true, force: true }); }

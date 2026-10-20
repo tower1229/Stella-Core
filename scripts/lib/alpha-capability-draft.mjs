@@ -9,7 +9,7 @@ export function alphaCapabilityDraft({ base, bindingPath, acceptancePath }) {
   const files = definitions.map(([id, entryPoint]) => ({ path: `${base}/capability-${id}.json`, object: {
     schemaVersion: "stella.alpha-capability-binding/v1", capabilityId: id, hostVersion: "2026.8.2",
     entryPoint, praxisBindingRef: `path:${bindingPath}`,
-    ...(id === "structured_model" ? { provider: "google", model: "gemini-3.1-pro-preview" } : {}),
+    ...(id === "structured_model" ? { provider: "google", model: "gemini-3.8-flash" } : {}),
   } }));
   const capabilities = [{ id: "transcript_archive", required: true, adapter_id: "openclaw-transcript-2026.8.2", adapter_version: "1",
     config_ref: `path:${bindingPath}`, acceptance_ref: `path:${acceptancePath}`, required_secret_refs: [] },

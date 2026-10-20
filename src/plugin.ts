@@ -349,7 +349,7 @@ export default definePluginEntry({
           currentByView: new Map(needed.map(viewId => [viewId, current])),
           complete: async ({ prompt, maxTokens }) => {
             const answer = await completeModel({ agentId: config.agentId, model: modelRef,
-              purpose: "stella-history-rebuild", temperature: 0, maxTokens,
+              purpose: "stella-history-rebuild", maxTokens,
               messages: [{ role: "user", content: prompt }] });
             return { text: answer.text, modelRef: `${answer.provider}/${answer.model}` };
           },
@@ -518,7 +518,7 @@ export default definePluginEntry({
     let durability: GitCangHaiDurability | undefined;
 
     const evidenceComplete = (input: { prompt: string; maxTokens: number }) => completeModel({
-      agentId: config.agentId, purpose: "stella-original-action-evidence", maxTokens: input.maxTokens, temperature: 0,
+      agentId: config.agentId, purpose: "stella-original-action-evidence", maxTokens: input.maxTokens,
       messages: [{ role: "user", content: input.prompt }],
     });
     const ensureDurability = (loaded: LoadedConsciousness) => {
@@ -602,7 +602,7 @@ export default definePluginEntry({
           ...(processingAuthority ? { processingAuthority } : {}),
           complete: async ({ prompt, maxTokens }) => {
             const result = await completeModel({ agentId: config.agentId, model: modelRef,
-              purpose: "stella-source-access", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] });
+              purpose: "stella-source-access", maxTokens, messages: [{ role: "user", content: prompt }] });
             if (`${result.provider}/${result.model}` !== modelRef) throw new CatalogError("personal_context_model_mismatch");
             return result;
           },
@@ -714,7 +714,7 @@ export default definePluginEntry({
               complete: async ({ prompt, maxTokens }) => {
                 try {
                   const result = await completeModel({ agentId: config.agentId, model: modelRef, purpose: "stella-history-rebuild",
-                    temperature: 0, maxTokens, signal: abortSignal, messages: [{ role: "user", content: prompt }] }, assertCurrent);
+                    maxTokens, signal: abortSignal, messages: [{ role: "user", content: prompt }] }, assertCurrent);
                   return { text: result.text, modelRef: `${result.provider}/${result.model}` };
                 } catch (error) {
                   const category = error instanceof CatalogError || error instanceof CompletionError || error instanceof ConsciousnessLoadError
@@ -844,7 +844,7 @@ export default definePluginEntry({
             objectRoot: binding.archive.objectRoot, episodeRoot, purpose: { ...binding.purpose, evidenceCutoff: new Date().toISOString(),
               trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER, HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, durability: durability!, abortSignal,
             complete: (input: { prompt: string; maxTokens: number }) => api.runtime.llm.complete({ agentId: config.agentId, purpose: `stella-${recoveryKind}-recovery-evidence`, signal: abortSignal,
-              temperature: 0, maxTokens: input.maxTokens, messages: [{ role: "user", content: input.prompt }] }),
+              maxTokens: input.maxTokens, messages: [{ role: "user", content: input.prompt }] }),
           };
           let contextHistory;
           recoveryStage = "context";
@@ -935,7 +935,7 @@ export default definePluginEntry({
               durability: durability!, signal: signal ? AbortSignal.any([signal, abortSignal]) : abortSignal, assertCurrent, modelRef: viewProcessing.modelRef,
               processingAuthority, processingGrant: viewProcessing.processingGrant,
               complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
-                purpose: "stella-correction", temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] }),
+                purpose: "stella-correction", maxTokens, messages: [{ role: "user", content: prompt }] }),
               viewRebuilds: context => prepareRequestHistoryRebuilds({ ...context, request, loaded,
                 ownerId: viewProcessing.ownerId, modelRef: viewProcessing.modelRef, audience, durability: durability!, assertCurrent }),
             }));
@@ -1160,7 +1160,7 @@ export default definePluginEntry({
                   now: turnNow,
                   complete: async ({ prompt, maxTokens }) => {
                     const result = await completeModel({ agentId: config.agentId, model: modelRef,
-                      purpose: "stella-temporal-scope", maxTokens, temperature: 0, messages: [{ role: "user", content: prompt }] });
+                      purpose: "stella-temporal-scope", maxTokens, messages: [{ role: "user", content: prompt }] });
                     if (`${result.provider}/${result.model}` !== modelRef) throw new CatalogError("personal_view_model_mismatch");
                     return result;
                   },
@@ -1190,7 +1190,7 @@ export default definePluginEntry({
               processingAuthority, processingGrant: viewProcessing.processingGrant,
               resolver: runtime.evidence, assertProcessingCurrent: viewProcessing.assertCurrent,
               complete: ({ prompt, maxTokens }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
-                purpose: "stella-personal-views", maxTokens, temperature: 0, messages: [{ role: "user", content: prompt }] }),
+                purpose: "stella-personal-views", maxTokens, messages: [{ role: "user", content: prompt }] }),
             }) : undefined;
             if (loaded.praxisPlaybookItems.length) throw new EpisodeV2Error("legacy_learning_migration_required");
             let loadedForTurn: LoadedConsciousness = {
@@ -1237,7 +1237,7 @@ export default definePluginEntry({
                     await viewProcessing?.assertCurrent();
                     const result = await completeModel({ agentId: config.agentId,
                       ...(viewProcessing ? { model: viewProcessing.modelRef } : {}), purpose: "stella-question-evidence",
-                      maxTokens: input.maxTokens, temperature: 0, messages: [{ role: "user", content: input.prompt }] }, cortexSources ? async () => {
+                      maxTokens: input.maxTokens, messages: [{ role: "user", content: input.prompt }] }, cortexSources ? async () => {
                         await cortexSources.assertCurrent();
                         await personalViews?.assertCurrent();
                       } : undefined);
@@ -1310,7 +1310,7 @@ export default definePluginEntry({
               const selected = await runtime.selectedEpisode(episodeRef);
               const planned = await prepareEvidenceBoundOutcome({ request: request.prompt, selected, recordedAt: new Date().toISOString(),
                 resolver: runtime.evidence, complete: input => completeModel({ agentId: config.agentId,
-                  purpose: "stella-original-action-evidence", maxTokens: input.maxTokens, temperature: 0,
+                  purpose: "stella-original-action-evidence", maxTokens: input.maxTokens,
                   messages: [{ role: "user", content: input.prompt }] }, cortexSources?.assertCurrent) });
               outcomeContext = { prepared: planned };
               await runtime.selectedEpisode(episodeRef);
@@ -1428,7 +1428,7 @@ export default definePluginEntry({
                 question: request.prompt, originals: outputOriginals, resolver: runtime.evidence, modelRef: viewProcessing.modelRef,
                 assertCurrent: viewProcessing.assertCurrent,
                 complete: ({ prompt, maxTokens, signal }) => completeModel({ agentId: config.agentId, model: viewProcessing.modelRef,
-                  purpose: "stella-source-output", temperature: 0, maxTokens, signal, messages: [{ role: "user", content: prompt }] }),
+                  purpose: "stella-source-output", maxTokens, signal, messages: [{ role: "user", content: prompt }] }),
               });
             })() : undefined;
             let managedContext: ManagedHostContextEngine | undefined;
@@ -1530,7 +1530,7 @@ export default definePluginEntry({
                 history.push(Buffer.byteLength(await authority.renderContext([restored])) <= 32_000 ? restored
                   : await authority.summarize([restored], async ({ prompt, maxTokens }) => {
                     const result = await completeModel({ agentId: config.agentId, model: modelRef, purpose: "stella-context-summary",
-                      temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] });
+                      maxTokens, messages: [{ role: "user", content: prompt }] });
                     return { text: result.text, modelRef: `${result.provider}/${result.model}` };
                   }));
               }
@@ -1580,7 +1580,7 @@ export default definePluginEntry({
                 persistSummary: async context => { await archiveContext(context); },
                 complete: async ({ prompt, maxTokens }) => {
                   const result = await completeModel({ agentId: config.agentId, model: modelRef, purpose: "stella-context-summary",
-                    temperature: 0, maxTokens, messages: [{ role: "user", content: prompt }] });
+                    maxTokens, messages: [{ role: "user", content: prompt }] });
                   return { text: result.text, modelRef: `${result.provider}/${result.model}` };
                 },
               });

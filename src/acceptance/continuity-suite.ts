@@ -15,8 +15,8 @@ export type ContinuityRubric = {
 };
 export type ContinuitySuite = {
   id: string; version: string; requiredCapabilities: string[];
-  judgePolicy: { model: "google/gemini-3.1-pro-preview"; host_version: "2026.8.2";
-    prompt_version: "stella.recovery-continuity/v1"; temperature: number; attempts: 1 };
+  judgePolicy: { model: "google/gemini-3.8-flash"; host_version: "2026.8.2";
+    prompt_version: "stella.recovery-continuity/v1"; thinking_level: "low"; attempts: 1 };
   probes: Array<{ id: string; required: boolean; message: string; rubric: ContinuityRubric }>;
 };
 
@@ -37,9 +37,11 @@ export async function loadContinuitySuite(root: string, ref: string): Promise<Co
       Array.isArray(suite.required_capabilities) && suite.required_capabilities.every(nonempty) &&
       new Set(suite.required_capabilities).size === suite.required_capabilities.length && suite.required_capabilities.includes("structured_model"));
     const policy = await read(suite.judge_policy_ref);
-    check(policy.schema_version === "stella.continuity-judge-policy/v1" && id(policy.id) &&
-      policy.model === "google/gemini-3.1-pro-preview" && policy.host_version === "2026.8.2" &&
-      policy.prompt_version === "stella.recovery-continuity/v1" && policy.temperature === 0 && policy.attempts === 1);
+    check(policy.schema_version === "stella.continuity-judge-policy/v2" && id(policy.id) &&
+      policy.model === "google/gemini-3.8-flash" && policy.host_version === "2026.8.2" &&
+      policy.prompt_version === "stella.recovery-continuity/v1" && policy.thinking_level === "low" && policy.attempts === 1 &&
+      !["temperature", "top_p", "top_k", "candidate_count", "frequency_penalty", "presence_penalty",
+        "topP", "topK", "candidateCount", "frequencyPenalty", "presencePenalty"].some(key => key in policy));
     const probes: ContinuitySuite["probes"] = [];
     for (const entry of suite.cases) {
       check(isRecord(entry) && id(entry.id) && typeof entry.required === "boolean" && !probes.some((probe) => probe.id === entry.id));

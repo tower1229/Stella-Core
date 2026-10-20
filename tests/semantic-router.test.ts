@@ -41,6 +41,7 @@ test("missing response semantics and forced advice over material unknowns fail e
 test("semantic router preserves structured Praxis meaning and candidate selection", async () => {
   const router = createSemanticRouter(
     async (params) => {
+      assert.equal("temperature" in params, false, "Gemini 3.8 does not support sampling parameters");
       if (params.purpose === "stella-core-open-episode-selection") {
         return { text: JSON.stringify({ openEpisodeRef: "path:open-episode.json" }) };
       }

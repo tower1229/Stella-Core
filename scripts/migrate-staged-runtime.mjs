@@ -56,14 +56,14 @@ await create(delegationPath, stringify({ schema_version: "stella.delegation-regi
 const deliveryPath = `${base}/delivery-policy.yaml`;
 await create(deliveryPath, stringify({ schema_version: "stella.delivery-policy/v1", timezone: "Asia/Shanghai",
   allowed_windows: [], max_initiations_per_day: 0, channel_ref: "host-chat" }));
-const model = { provider: "google", model: "gemini-3.1-pro-preview", required_capabilities: ["structured_model"] };
+const model = { provider: "google", model: "gemini-3.8-flash", required_capabilities: ["structured_model"] };
 const capabilityDraft = alphaCapabilityDraft({ base, bindingPath, acceptancePath });
 for (const file of capabilityDraft.files) await create(file.path, canonicalJson(file.object));
 const profile = { schema_version: "stella.runtime-profile/v1", agent_id: "main", language: "zh-CN", timezone: "Asia/Shanghai", contract_profile: "alpha_praxis",
   models: Object.fromEntries(["main", "router", "learning", "framework_compiler"].map((id) => [id, model])),
   capabilities: capabilityDraft.capabilities,
   source_policies_ref: `path:${policyRegistryPath}`,
-  memory: { catalog_ref: `path:${migration.catalogPath}`, semantic_provider: "google/gemini-3.1-pro-preview", required_views: [], archive_max_rpo_seconds: 300 },
+  memory: { catalog_ref: `path:${migration.catalogPath}`, semantic_provider: "google/gemini-3.8-flash", required_views: [], archive_max_rpo_seconds: 300 },
   autonomy: { research_enabled: false, proactive_delivery_enabled: false, delivery_policy_ref: `path:${deliveryPath}`, delegation_registry_ref: `path:${delegationPath}` },
 };
 // Do not invent active learning from legacy summaries. Keep the old registry and every body.

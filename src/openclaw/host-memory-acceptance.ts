@@ -122,7 +122,7 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
     const resourceScope = process.platform === "win32" ? root.toLowerCase() : root;
     return withCompletionResourceReservation(resourceScope, () => withHostMemoryVerification({ request, signal, assertCurrent }, async () => {
       const complete = async (purpose: string, prompt: string, observeOutput?: (receipt: HostModelOutputReceipt) => Promise<void>) => {
-        const params = { agentId: config.agentId, model: state.modelRef, purpose, temperature: 0, maxTokens: 8192, signal,
+        const params = { agentId: config.agentId, model: state.modelRef, purpose, maxTokens: 8192, signal,
           messages: [{ role: "user" as const, content: prompt }] };
         let consumed = false;
         let outputText: string | undefined;

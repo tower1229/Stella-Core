@@ -13,16 +13,31 @@ async function configure(context) {
   const { PREPARATION_HOOK_TIMEOUT_MS } = await import(pathToFileURL(path.join(
     context.consumerRoot, "node_modules/@tower1229/stella-core/dist/src/openclaw/completion.js")).href);
   config.plugins.entries["stella-core"].hooks.timeouts.before_prompt_build = PREPARATION_HOOK_TIMEOUT_MS;
+  const modelRef = "google/gemini-3.8-flash";
+  const google = config.models?.providers?.google;
+  if (google?.api !== "google-generative-ai" || !Array.isArray(google.models) ||
+    !config.agents?.defaults?.models) throw new Error("v2_acceptance_requires_explicit_google_provider");
+  const samplingKeys = ["temperature", "topP", "topK", "candidateCount", "frequencyPenalty", "presencePenalty",
+    "top_p", "top_k", "candidate_count", "frequency_penalty", "presence_penalty"];
+  const paramsForFlash = params => Object.fromEntries(Object.entries(params ?? {}).filter(([key]) => !samplingKeys.includes(key)));
   for (const id of [context.agentId, harness.judgeAgentId]) {
     const agent = config.agents?.entries?.[id];
-    if (agent?.model !== "google/gemini-3.1-pro-preview" || !Array.isArray(agent.skills) || agent.skills.length ||
-      !Array.isArray(agent.tools?.deny) || !agent.tools.deny.includes("*") ||
-      (agent.params?.temperature !== undefined && agent.params.temperature !== 0)) {
+    if (!agent || !Array.isArray(agent.skills) || agent.skills.length ||
+      !Array.isArray(agent.tools?.deny) || !agent.tools.deny.includes("*")) {
       throw new Error("v2_acceptance_requires_exact_Gemini_and_isolated_agents");
     }
+    agent.model = modelRef;
+    agent.params = paramsForFlash(agent.params);
   }
-  const model = config.agents.defaults.models["google/gemini-3.1-pro-preview"];
-  model.params = { ...model.params, temperature: 0 };
+  const defaults = config.agents.defaults;
+  const previousRef = typeof defaults.model === "string" ? defaults.model : defaults.model?.primary;
+  const previous = defaults.models[modelRef] ?? defaults.models[previousRef] ?? {};
+  defaults.models[modelRef] = { ...previous, params: paramsForFlash(previous.params) };
+  defaults.model = modelRef;
+  defaults.thinkingDefault = "low";
+  google.models = google.models.filter(model => model.id !== "gemini-3.8-flash");
+  google.models.push({ id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", reasoning: true, input: ["text"],
+    cost: { input: 1.5, output: 7.5, cacheRead: 0.15, cacheWrite: 0 }, contextWindow: 1_048_576, maxTokens: 65_536 });
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   return harness;
 }

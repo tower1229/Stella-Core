@@ -26,7 +26,7 @@ const harness = await adapter.createEvaluationHarness({ agentId: "main", canghai
 const config = JSON.parse(await readFile(configPath, "utf8"));
 const agentId = harness.judgeAgentId;
 assert.ok(agentId && agentId !== "main");
-assert.equal(config.agents.entries[agentId].model, "google/gemini-3.1-pro-preview");
+assert.equal(config.agents.entries[agentId].model, "google/gemini-3.8-flash");
 // Provider discovery is itself a bundled plugin. Allow only Google, without
 // Stella or business plugins, so repository context cannot enter this probe.
 config.plugins = { enabled: true, allow: ["google"], entries: { google: { enabled: true }, "stella-core": { enabled: false } } };
@@ -84,10 +84,10 @@ try {
     assert.equal(replies.length, 1);
     assistant = replies[0].message;
     assert.equal(assistant.provider, "google");
-    assert.equal(assistant.model, "gemini-3.1-pro-preview");
+    assert.equal(assistant.model, "gemini-3.8-flash");
     assert.equal(assistant.content.filter((part) => part.type === "text").map((part) => part.text).join("\n"), result.text);
   } finally { db.close(); }
-  const receipt = { schemaVersion: "stella.gemini-capability-probe/v1", hostVersion, configuredModel: "google/gemini-3.1-pro-preview",
+  const receipt = { schemaVersion: "stella.gemini-capability-probe/v1", hostVersion, configuredModel: "google/gemini-3.8-flash",
     transport: "chat.send", runId: result.runId, singleNativeFinal: true, strictJsonMatched: true, privateContextSent: false,
     responseSha256: createHash("sha256").update(result.text).digest("hex"),
     observedProvider: assistant.provider, observedModel: assistant.model, persistedAssistantMatched: true,

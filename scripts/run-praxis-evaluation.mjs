@@ -205,9 +205,9 @@ async function runPrivateExactHostEvaluation() {
     const completeHostConfig = JSON.parse(await readFile(hostEnv.OPENCLAW_CONFIG_PATH, "utf8"));
     for (const agentId of [targetAgentId, harness.judgeAgentId]) {
       const agent = completeHostConfig.agents?.entries?.[agentId];
-      if (agent?.model !== "google/gemini-3.1-pro-preview" || !Array.isArray(agent.skills) || agent.skills.length ||
+      if (agent?.model !== "google/gemini-3.8-flash" || !Array.isArray(agent.skills) || agent.skills.length ||
         !Array.isArray(agent.tools?.deny) || !agent.tools.deny.includes("*")) {
-        throw new Error("Evaluation requires pinned Gemini 3.1 Pro and tool-free isolated agents");
+        throw new Error("Evaluation requires pinned Gemini 3.8 Flash and tool-free isolated agents");
       }
     }
     assertStellaHostConfig(hostConfig, {
@@ -315,7 +315,7 @@ async function runPrivateExactHostEvaluation() {
             observation });
           await writeFile(path.join(isolatedRoot, "evaluation-evidence.json"), JSON.stringify({
             schemaVersion: "stella.evaluation-evidence/v1", execution, publicRevision,
-            configuredModel: "google/gemini-3.1-pro-preview", rubricVersion: PRAXIS_RUBRIC_VERSION,
+            configuredModel: "google/gemini-3.8-flash", rubricVersion: PRAXIS_RUBRIC_VERSION,
             scope: "diagnostic; isolated per-case writable copies and local synchronization, not original private remote durability proof",
             cases: evidenceRecords,
           }, null, 2), { mode: 0o600 });

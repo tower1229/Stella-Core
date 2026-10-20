@@ -12,7 +12,6 @@ import {
 
 export type RoutingCompletion = (params: {
   maxTokens: number;
-  temperature: number;
   purpose: string;
   systemPrompt: string;
   messages: Array<{ role: "user"; content: string }>;
@@ -257,7 +256,6 @@ async function selectRelevantOpenEpisode(
     try {
       result = await complete({
         maxTokens: 4_096,
-        temperature: 0,
         purpose: "stella-core-open-episode-selection",
         systemPrompt: attempt === 0 ? systemPrompt : `${systemPrompt} ${repairInstruction}`,
         messages: [{ role: "user", content: prompt }],
@@ -470,7 +468,6 @@ export function createSemanticRouter(
           // The Host output budget also covers reasoning; 2,000 truncated valid
           // Gemini route responses before the JSON object was complete.
           maxTokens: 8_192,
-          temperature: 0,
           purpose: "stella-core-semantic-routing",
           systemPrompt: attempt === 0
             ? systemPrompt

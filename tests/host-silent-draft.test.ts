@@ -31,7 +31,7 @@ test("exact Host empty-payload policy does not cover a Gemini private draft with
   // thinking triggers a continuation even though a complete answer exists.
   assert.equal(shouldTreatEmptyAssistantReplyAsSilent({ ...input, payloadCount: 1 }), false);
   assert.equal(typeof resolveReasoningOnlyRetryInstruction({ ...input, payloadCount: 1,
-    provider: "google", modelId: "gemini-3.1-pro-preview", modelApi: "google-generative-ai" }), "string");
+    provider: "google", modelId: "gemini-3.8-flash", modelApi: "google-generative-ai" }), "string");
   assert.equal(parsePrivateAssistantDraft(assistant), "Synthetic complete answer");
   assert.throws(() => parsePrivateAssistantDraft({ ...assistant, content: [] }), /empty_private_draft/);
 });

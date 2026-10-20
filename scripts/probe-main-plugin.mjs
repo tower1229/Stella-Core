@@ -47,7 +47,7 @@ if (ingressField) assert.ok(["prependSystemContext", "appendSystemContext", "pre
 const liveFragment = process.argv.includes("--fragment-live");
 const fragmentProbe = liveFragment || process.argv.includes("--fragment-skill");
 const nativeFragmentFixture = Boolean(audienceScenario) || process.argv.includes("--guarded-active-memory") || process.argv.includes("--guarded-active-memory-stale");
-const liveModel = "google/gemini-3.1-pro-preview";
+const liveModel = "google/gemini-3.8-flash";
 let liveProvider;
 if (liveFragment) {
   assert.ok(process.env.STELLA_LIVE_HOST_CONFIG, "STELLA_LIVE_HOST_CONFIG is required for explicitly authorized synthetic model acceptance");
@@ -713,12 +713,12 @@ export default { ...main, register(api) {
       if (${preparationCancellationProbe}) return api.runtime.llm.complete(params);
       if (${fragmentProbe || nativeFragmentFixture} && params.purpose === 'stella-source-access') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
           policyRef: value.policyRef, segment: value.segment, applicable: true, scenarios: ['synthetic'], topicRequested: true, topicExplicitlyNamed: true }) };
       }
       if (${correctionProbe} && params.purpose === 'stella-source-output') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash,
           draftHash: value.draftHash, sourcesHash: value.sourcesHash, compliant: ${!outputRejectionProbe}, violations: ${JSON.stringify(outputRejectionProbe ? ["quotation_not_authorized"] : [])} }) };
       }
       if (${correctionProbe} && ['stella-correction', 'stella-personal-views'].includes(params.purpose)) {
@@ -736,7 +736,7 @@ export default { ...main, register(api) {
             supportRefs: value.ownerEvidence.map(e => e.ref), counterRefs: [], dependencyRefs: [] } }] };
           if (${historyViewProbe} && existsSync(${JSON.stringify(path.join(temp, "published-history-view.json"))})) result.replacements[0].handle = value.candidates.find(c => c.group === 'understandings')?.handle ?? null;
         }
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : 'probe')}, text: JSON.stringify(result) };
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : 'probe')}, text: JSON.stringify(result) };
       }
       if (${historyViewProbe || outcomeHistoryProbe} && params.purpose === 'stella-history-rebuild') {
         appendFileSync(${JSON.stringify(path.join(temp, "history-rebuild-prompts.jsonl"))}, JSON.stringify(params.messages) + '\\n');
@@ -750,7 +750,7 @@ export default { ...main, register(api) {
       if (params.purpose === 'stella-core-open-episode-selection') return { provider: ${JSON.stringify(guardedProvider ? probeProvider : 'synthetic')}, model: ${JSON.stringify(guardedProvider ? 'probe' : 'injected')}, text: JSON.stringify({ openEpisodeRef: ${JSON.stringify(adviceRevisionProbe ? outcomeSeed.episodeRef : null)} }) };
       if (params.purpose === 'stella-question-evidence') {
         const input = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : correctionProbe ? probeProvider : 'synthetic')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.1-pro-preview' : correctionProbe ? 'probe' : 'injected')}, text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : correctionProbe ? probeProvider : 'synthetic')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : correctionProbe ? 'probe' : 'injected')}, text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
           claims: [], unresolvedLeads: input.provisionalRoute.materialUnknowns.map((question) => ({ question, material: true, reason: 'Synthetic unknown' })),
           stoppingReason: 'Synthetic configured source scope', suggestedResponseKind: input.provisionalRoute.responseKind }) };
       }
@@ -770,7 +770,7 @@ export default { ...main, register(api) {
           predictionAssessment: 'unresolved', learning: seed.learning });
         throw new Error('Unexpected synthetic completion phase');
       }
-      return { provider: ${JSON.stringify(liveFragment ? "google" : correctionProbe ? probeProvider : "synthetic")}, model: ${JSON.stringify(liveFragment ? "gemini-3.1-pro-preview" : correctionProbe ? "probe" : "injected")}, text: JSON.stringify(${JSON.stringify(managed && !questionProbe && !correctionProbe ? {
+      return { provider: ${JSON.stringify(liveFragment ? "google" : correctionProbe ? probeProvider : "synthetic")}, model: ${JSON.stringify(liveFragment ? "gemini-3.8-flash" : correctionProbe ? "probe" : "injected")}, text: JSON.stringify(${JSON.stringify(managed && !questionProbe && !correctionProbe ? {
       mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["social"], stakes: "low", reversibility: "high",
       needsTwin: true, needsFramework: true, needsReality: true, needsExternalResearch: false, candidateTwinRefs: [], candidateFrameworks: [], candidatePraxisRefs: [],
       situation: { actors: ["self"], observations: ["Synthetic question"], interpretations: [], unknowns: [], userGoals: ["Choose a reversible step"], constraints: [] },
@@ -1001,10 +1001,10 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
     sources: ["memory"], cache: { enabled: true }, store: { vector: { enabled: ["cache", "query"].includes(nativeFamily) }, fts: { tokenizer: "unicode61" } },
     sync: { onSessionStart: false, onSearch: false, watch: false }, query: { minScore: 0 } } },
     hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } } : {}),
-  agents: { defaults: { model: { primary: probeModel }, ...(standaloneCompactProbe ? { compaction: { model: "synthetic-compaction/probe" } } : {}), ...(guardedPayload ? { models: {
+  agents: { defaults: { model: { primary: probeModel }, ...(liveFragment ? { thinkingDefault: "low" } : {}), ...(standaloneCompactProbe ? { compaction: { model: "synthetic-compaction/probe" } } : {}), ...(guardedPayload ? { models: {
     [probeModel]: { params: { extra_body: { messages: [{ role: "user", content: "SYNTHETIC_UNBOUND_OLD_UNDERSTANDING" }] } } },
   } } : {}) }, entries: { probe: { workspace } } },
-  models: { providers: { ...(standaloneCompactProbe ? { "synthetic-compaction": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", api: "openai-completions", models: [{ id: "probe", name: "synthetic compaction", contextWindow: 262144, maxTokens: 256 }] } } : {}), ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.1-pro-preview", name: "Gemini acceptance", contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
+  models: { providers: { ...(standaloneCompactProbe ? { "synthetic-compaction": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", api: "openai-completions", models: [{ id: "probe", name: "synthetic compaction", contextWindow: 262144, maxTokens: 256 }] } } : {}), ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.8-flash", name: "Gemini 3.8 Flash acceptance", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
     api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: managedContextProbe ? 262144 : 32768, maxTokens: 256 }] } } },
   plugins: { ...(managedContextProbe ? { slots: { contextEngine: "stella-core" } } : {}), allow: ["stella-core", ...(guardedDreaming || nativeCase ? ["memory-core"] : []), ...(nativeFamily === "wiki" ? ["memory-wiki"] : []), ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedDreaming ? { "memory-core": { enabled: true, config: { dreaming: {
     enabled: true, frequency: "0 0 * * *", model: probeModel,

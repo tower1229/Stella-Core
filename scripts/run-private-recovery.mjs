@@ -150,9 +150,9 @@ process.stderr.write(`Private recovery evidence: ${isolatedRoot}\n`);
   const fullHostConfig = JSON.parse(await readFile(hostConfigPath, "utf8"));
   for (const agentId of [targetAgentId, harness.evidenceAgentId]) {
     const agent = fullHostConfig.agents?.entries?.[agentId];
-    if (agent?.model !== "google/gemini-3.1-pro-preview" || !Array.isArray(agent.skills) || agent.skills.length ||
+    if (agent?.model !== "google/gemini-3.8-flash" || !Array.isArray(agent.skills) || agent.skills.length ||
       !Array.isArray(agent.tools?.deny) || !agent.tools.deny.includes("*")) {
-      throw new Error("Recovery requires pinned Gemini 3.1 Pro and tool-free isolated agents");
+      throw new Error("Recovery requires pinned Gemini 3.8 Flash and tool-free isolated agents");
     }
   }
   const { stdout: hostConfigOutput } = await runOpenClaw([

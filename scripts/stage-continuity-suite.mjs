@@ -48,8 +48,8 @@ for (const item of definitions) {
     semantic_dimensions: [{ id: "evidence-boundary", required: true, condition: item.semantic }] });
   cases.push({ id: item.id, required: true, probe_ref, rubric_ref });
 }
-const judge_policy_ref = await emit("judge-policy.json", { schema_version: "stella.continuity-judge-policy/v1", id: "continuity-judge",
-  model: "google/gemini-3.1-pro-preview", host_version: "2026.8.2", prompt_version: "stella.recovery-continuity/v1", temperature: 0, attempts: 1 });
+const judge_policy_ref = await emit("judge-policy.json", { schema_version: "stella.continuity-judge-policy/v2", id: "continuity-judge",
+  model: "google/gemini-3.8-flash", host_version: "2026.8.2", prompt_version: "stella.recovery-continuity/v1", thinking_level: "low", attempts: 1 });
 const suiteRef = await emit("suite.json", { schema_version: "stella.continuity-suite/v1", id: "private-recovery", version: "2.0.0",
   required_capabilities: ["structured_model", "source_read"], judge_policy_ref, cases });
 await loadContinuitySuite(root, suiteRef);
