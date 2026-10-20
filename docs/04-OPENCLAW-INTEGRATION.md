@@ -587,6 +587,8 @@ Stella 1.0 的方法价值保留在 skills，迁移去向如下。按语义选�
 
 2026-10-14 受限记忆认证入口：`stella.initialize({action: "accept-capability", capabilityId: "memory_access", runId})` 要求本机 `operator.admin`、当前处理配置中显式 `operatorMemoryAcceptance: true`、客户端在 `requesterIds` 内，以及确切模型同时具备描述／私人视图／Host LLM 处理许可。此许可缺省关闭，与恢复及独立压缩许可分开。配置能力须为 required `stella.memory-access/v1`，其 `config_ref` 指向闭合的 `stella.host-memory-acceptance/v1` 对象 `{schemaVersion, request, evidenceRef}`。验收执行配置中明确指定的当前 Evidence；自然语言来源使用判断仍由结构化 LLM 完成。首次范围限定到合法 `full_memory` 绑定和 `memory-core` 原生片段，Dreaming 必须显式关闭。
 
+2026-10-15 主人批准的 Core 记忆整理替代能力（D-057）：`stella.consolidateMemory({operationId,request,evidenceRefs})` 要求本机 `operator.admin`、独立 `operatorMemoryConsolidation: true`、确切 guarded 模型的仓库及 Host completion 许可和 managed_durable_write。它复用学习事务生成有完整来源依赖的 scoped candidate hypothesis，并在原子发布、恢复和最终消费时继续校验来源／权限／generation；原生 Dreaming 显式关闭，不启动后台任务。详见 [Core 整理契约](contracts/MEMORY-LIFECYCLE.md#2026-10-15-core-受管记忆整理d-057issue-23-范围调整)。未知 Host 入口与完整 profile 的独立门禁不变。
+
 执行通过当前来源访问判断读取独立留存原件，再经真实 `stella_read_fragment` 原生回读、当前 FTS／provenance／内容验证和 `stella-guarded` simple-completion 最终消费。签发收据要求工具和实际模型传输私有对象证明；合成返回、未知载荷改写、索引或来源失效均拒绝。只返回版本绑定的摘要收据，不发布业务回答、写入理解或推进恢复点。收据使用独立 cases 摘要，绑定源码、安装包、Host、配置、模型、策略、恢复点、catalog generation 与 native origin。原生正文及索引字节仍在每次获准读取时验证，不能凭旧收据授权后续回读。
 
 该收据只清除 `capability_acceptance_missing:memory_access`。`host_memory_consumption_unverifiable` 和其他 required capability 继续独立阻断普通 `full_memory` 运行；scope 为 `native_fragment_guarded_direct`，不能推定已认证 Host agent replay、compaction、cache 或其他记忆插件。正式打包矩阵纳入成功、处理许可拒绝、来源策略拒绝、原生正文失配、缺少索引、未知 payload 变换、代际变化及无真实模型收据、伪造来源语义判决、改写实际判决及读取后原生正文变化十一项；同提交／同包执行完成前不声称完整交付。

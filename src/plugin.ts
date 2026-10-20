@@ -64,6 +64,7 @@ import {
   type StellaDataMode,
 } from "./praxis/episode-store.js";
 import { createOpenClawRecoveryPointerWriter } from "./openclaw/recovery-pointer.js";
+import { recoveryFailureDiagnostic, type RecoveryStage } from "./openclaw/recovery-diagnostics.js";
 import { createSemanticRouter, SemanticRoutingError } from "./routing/semantic-router.js";
 import type { CortexRoute } from "./routing/router.js";
 import { registerCompletionTranscriptGuard } from "./openclaw/completion-transcript.js";
@@ -98,6 +99,7 @@ import { registerStellaInitialization } from "./openclaw/initialization-registra
 import { InitializationError } from "./openclaw/initialization.js";
 import { registerManagedHostContextEngine, STELLA_CONTEXT_ENGINE, ManagedHostContextEngine } from "./openclaw/host-context-engine.js";
 import { HOST_MEMORY_PROVIDER, isHostConsumptionRevalidation, registerHostMemoryProvider, withHostModelConsumption } from "./openclaw/host-memory-provider.js";
+import { registerMemoryConsolidation } from "./openclaw/memory-consolidation.js";
 import { assertHostMemoryConsumptionSupported } from "./openclaw/host-memory.js";
 import { hostContextExecutionHash } from "./openclaw/host-memory-inventory.js";
 import { NativeMemoryRecall, isNativeMemoryOwner, nativeMemoryConfiguration } from "./openclaw/native-active-memory.js";
@@ -548,6 +550,12 @@ export default definePluginEntry({
         });
       }
     };
+    registerMemoryConsolidation(api, config, { waitForStartup: signal => initialization.waitForStartup(signal),
+      resolveModelRef: resolveLiveModelRef, durability(loaded) {
+      ensureDurability(loaded);
+      if (!durability) throw new CatalogError("critical_durability_required");
+      return durability;
+    } });
     const createRuntime = async (
       loaded: LoadedConsciousness,
       request?: BoundTurnRequest,
@@ -817,6 +825,7 @@ export default definePluginEntry({
 
     for (const recoveryKind of ["outcome", "question"] as const) {
       api.registerGatewayMethod(recoveryKind === "outcome" ? "stella.recoverOutcome" : "stella.recoverQuestionEvidence", async ({ params, client, respond, signal }) => {
+        let recoveryStage: RecoveryStage = "admission";
         try {
           if (client?.connect.role !== "operator" || !client.connect.scopes?.includes("operator.admin")) {
             throw new CompletionError("recovery_admin_required", "admission");
@@ -826,7 +835,9 @@ export default definePluginEntry({
             throw new CompletionError("invalid_recovery_request", "admission");
           }
           if (config.dataMode !== "managed_durable_write") throw new CompletionError("critical_durability_required", "admission");
+          recoveryStage = "binding";
           const { loaded, binding, episodeRoot, assertCurrent: assertRecoveryCurrent } = await loadOutcomeRecoveryBinding(config.canghaiRoot, config.manifestPath, config.recoveryRevision);
+          recoveryStage = "durability";
           ensureDurability(loaded);
           const abortSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(300_000)]) : AbortSignal.timeout(300_000);
           const recoveryInput = { root: loaded.canghaiRoot, operationId: params.operationId, catalogPath: binding.catalogPath,
@@ -836,6 +847,7 @@ export default definePluginEntry({
               temperature: 0, maxTokens: input.maxTokens, messages: [{ role: "user", content: input.prompt }] }),
           };
           let contextHistory;
+          recoveryStage = "context";
           if (recoveryKind === "outcome") {
             if (!config.contextHistorySignerId || !config.contextHistoryArchiveRoot) throw new CatalogError("host_context_history_configuration_required");
             const keys = await loadContextHistoryKeys({ stateDirectory: api.runtime.state.resolveStateDir(),
@@ -854,13 +866,16 @@ export default definePluginEntry({
                 if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
               } };
           }
+          recoveryStage = "runtime";
+          const questionPurpose = recoveryKind === "question" ? (await createRuntime(loaded)).runtime.evidence.purpose : undefined;
+          recoveryStage = "recover";
           const result = recoveryKind === "outcome" ? await recoverPendingOutcome({ ...recoveryInput, contextHistory }) :
-            await recoverPendingQuestion({ ...recoveryInput, purpose: (await createRuntime(loaded)).runtime.evidence.purpose });
+            await recoverPendingQuestion({ ...recoveryInput, purpose: questionPurpose! });
           respond(true, { ...result, replyResent: false });
         } catch (error) {
           const category = error instanceof CompletionError || error instanceof EpisodeV2Error || error instanceof MemoryTransactionError || error instanceof CatalogError
             ? error.category : `${recoveryKind}_recovery_failed`;
-          api.logger.error(`Stella recovery: ${category}`);
+          api.logger.error(`Stella recovery: ${category} ${JSON.stringify(recoveryFailureDiagnostic(recoveryStage, error))}`);
           respond(false, undefined, { code: "UNAVAILABLE", message: `Stella recovery failed: ${category}` });
         }
       }, { scope: "operator.admin", profileAccess: "required" });

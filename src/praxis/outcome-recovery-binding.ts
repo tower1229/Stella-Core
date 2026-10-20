@@ -18,10 +18,11 @@ export async function loadOutcomeRecoveryBinding(root: string, manifestPath: str
   const assertCurrent = async () => {
     try {
       for (const file of paths) {
-        const { stdout } = await run("git", ["-C", loaded.canghaiRoot, "ls-tree", recoveryRevision, "--", file]);
+        const { stdout } = await run("git", ["--no-optional-locks", "-C", loaded.canghaiRoot, "ls-tree", recoveryRevision, "--", file]);
         if (!/^100(644|755) blob [a-f0-9]{40}\t/.test(stdout)) throw new Error("Untracked recovery authority");
       }
-      await run("git", ["-C", loaded.canghaiRoot, "diff", "--exit-code", recoveryRevision, "--", ...paths]);
+      // Porcelain diff can refresh the index even with optional locks disabled.
+      await run("git", ["--no-optional-locks", "-c", "diff.autoRefreshIndex=false", "-C", loaded.canghaiRoot, "diff", "--exit-code", recoveryRevision, "--", ...paths]);
     } catch { throw new EpisodeV2Error("recovery_binding_changed"); }
   };
   await assertCurrent();

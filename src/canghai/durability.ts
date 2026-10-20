@@ -190,7 +190,7 @@ export class GitCangHaiDurability {
     if (paths.length === 0) throw new Error("Durability commit requires at least one path");
     await this.#assertBranch();
     await execFileAsync("git", ["-C", this.#root, "add", "--", ...paths]);
-    const { stdout: changed } = await execFileAsync("git", ["-C", this.#root, "diff", "--cached", "--name-only", "--", ...paths]);
+    const { stdout: changed } = await execFileAsync("git", ["--no-optional-locks", "-c", "diff.autoRefreshIndex=false", "-C", this.#root, "diff", "--cached", "--name-only", "--", ...paths]);
     if (changed.trim()) {
       if (kind === "critical") this.#criticalSynchronized = false;
       try {
@@ -209,7 +209,7 @@ export class GitCangHaiDurability {
     return this.#enqueue(async () => {
       const file = validateRepositoryPath(repositoryPath);
       await execFileAsync("git", ["-C", this.#root, "ls-files", "--error-unmatch", "--", file]);
-      await execFileAsync("git", ["-C", this.#root, "diff", "--exit-code", "HEAD", "--", file]);
+      await execFileAsync("git", ["--no-optional-locks", "-c", "diff.autoRefreshIndex=false", "-C", this.#root, "diff", "--exit-code", "HEAD", "--", file]);
       await this.#ensureInitialized();
       await this.#push();
     });

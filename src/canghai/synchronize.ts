@@ -115,7 +115,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   const assertTree = async (revision: string, allowed: string[] = []) => {
     await active();
     check((await git(ports.root, "rev-parse", "HEAD")).trim() === revision, "write_conflict");
-    const status = (await git(ports.root, "status", "--porcelain=v1", "-z", "--untracked-files=all")).split("\0").filter(Boolean);
+    const status = (await git(ports.root, "--no-optional-locks", "status", "--porcelain=v1", "-z", "--untracked-files=all")).split("\0").filter(Boolean);
     const permitted = new Set([...allowed, ".stella-memory-transaction.json", ".stella-memory-transaction.json.lock"]);
     check(status.every(line => permitted.has(line.slice(3))), "write_conflict");
   };

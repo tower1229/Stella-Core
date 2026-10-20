@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, realpath, chmod, stat } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, realpath, chmod, stat, utimes } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -50,6 +50,22 @@ async function fixture(t: { after(fn: () => Promise<void>): void }, verify: Init
   };
   return { source, workspace, state, config, ports, recipe, git, initializer: new StellaInitializer(workspace, state, config, ports), fenced: () => fenced };
 }
+
+test("read-only initialization planning leaves the Git index unchanged", async t => {
+  const f = await fixture(t);
+  const optionalLocks = process.env.GIT_OPTIONAL_LOCKS;
+  process.env.GIT_OPTIONAL_LOCKS = "1";
+  try {
+    const index = await readFile(path.join(f.source, ".git/index"));
+    const changedTime = new Date(Date.now() + 5_000);
+    await utimes(path.join(f.source, "0.txt"), changedTime, changedTime);
+    await f.initializer.plan();
+    assert.deepEqual(await readFile(path.join(f.source, ".git/index")), index);
+  } finally {
+    if (optionalLocks === undefined) delete process.env.GIT_OPTIONAL_LOCKS;
+    else process.env.GIT_OPTIONAL_LOCKS = optionalLocks;
+  }
+});
 
 test("initializes reviewed bootstrap and skills, preserving unrelated files", async (t) => {
   const f = await fixture(t);

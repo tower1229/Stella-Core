@@ -25,13 +25,14 @@ export type PersonalContextAccess = {
   operatorHistoryCompaction?: true;
   operatorMemoryAcceptance?: true;
   queryEmbedding?: { provider: "openai"; model: string; endpoint: string; dimensions: number };
+  operatorMemoryConsolidation?: true;
 };
 
 /** An explicitly configured processing grant for reviewed metadata, separate
  * from the source policies. Never created by a model during a question. */
 export function parsePersonalContextAccess(value: unknown): PersonalContextAccess {
   if (!isRecord(value) || value.schemaVersion !== "stella.personal-context-access/v1" ||
-      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs", "operatorRecovery", "operatorHistoryCompaction", "operatorMemoryAcceptance", "queryEmbedding"].includes(k)) ||
+      Object.keys(value).some(k => !["schemaVersion", "ownerId", "requesterIds", "modelRefs", "purpose", "descriptors", "viewProcessingModelRefs", "operatorRecovery", "operatorHistoryCompaction", "operatorMemoryAcceptance", "queryEmbedding", "operatorMemoryConsolidation"].includes(k)) ||
       !text(value.ownerId) || !texts(value.requesterIds) || !value.requesterIds.length ||
       !texts(value.modelRefs) || !value.modelRefs.length || !isRecord(value.purpose) ||
       Object.keys(value.purpose).sort().join() !== "deliveryScope,derivePurpose,readPurpose" ||
@@ -54,6 +55,10 @@ export function parsePersonalContextAccess(value: unknown): PersonalContextAcces
   if (Object.hasOwn(value, "operatorMemoryAcceptance")) {
     check(value.operatorMemoryAcceptance === true && Array.isArray(value.viewProcessingModelRefs) && value.viewProcessingModelRefs.length > 0,
       "invalid_operator_memory_acceptance_grant");
+  }
+  if (Object.hasOwn(value, "operatorMemoryConsolidation")) {
+    check(value.operatorMemoryConsolidation === true && Array.isArray(value.viewProcessingModelRefs) && value.viewProcessingModelRefs.length > 0,
+      "invalid_operator_memory_consolidation_grant");
   }
   if (Object.hasOwn(value, "operatorHistoryCompaction")) {
     check(value.operatorHistoryCompaction === true && Array.isArray(value.viewProcessingModelRefs) && value.viewProcessingModelRefs.length > 0,

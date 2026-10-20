@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { listenOnLoopback } from "./loopback-server.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveMemorySearchConfig } from "openclaw/plugin-sdk/memory-core-host-engine-foundation";
 import { bytesVersion } from "../src/canghai/content-version.js";
@@ -15,6 +16,7 @@ import { hostContextExecutionHash } from "../src/openclaw/host-memory-inventory.
 
 async function fixture(t: TestContext, managed = false, signal?: AbortSignal) {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-query-embedding-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
   let payload: unknown = { model: "synthetic-embedding", data: [{ index: 0, embedding: [1, 0, 0] }] };
   let status = 200, afterRequest = async () => {}, current = true;
   const calls: unknown[] = [];
@@ -24,9 +26,7 @@ async function fixture(t: TestContext, managed = false, signal?: AbortSignal) {
     await afterRequest();
     res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(payload));
   });
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
-  t.after(async () => { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-    await rm(root, { recursive: true, force: true }); });
+  await listenOnLoopback(t, server);
   const address = server.address(); assert.ok(address && typeof address !== "string");
   const baseUrl = `http://127.0.0.1:${address.port}/v1`;
   const config = { memory: { search: { enabled: true, provider: "openai", model: "synthetic-embedding", fallback: "none",
@@ -58,6 +58,13 @@ test("query embedding has a closed independent processing grant", () => {
     purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "private" }, descriptors: [] };
   const grant = { provider: "openai", model: "embedding", endpoint: "https://example.invalid/v1/embeddings", dimensions: 384 };
   assert.deepEqual(parsePersonalContextAccess({ ...base, queryEmbedding: grant }).queryEmbedding, grant);
+  const consolidation = { ...base, viewProcessingModelRefs: base.modelRefs, operatorMemoryConsolidation: true };
+  assert.equal(parsePersonalContextAccess(consolidation).queryEmbedding, undefined);
+  const combined = parsePersonalContextAccess({ ...consolidation, queryEmbedding: grant });
+  assert.deepEqual(combined.queryEmbedding, grant);
+  assert.equal(combined.operatorMemoryConsolidation, true);
+  assert.equal(parsePersonalContextAccess({ ...base, queryEmbedding: grant }).operatorMemoryConsolidation, undefined);
+  assert.throws(() => parsePersonalContextAccess({ ...combined, operatorMemoryConsolidation: false }), /invalid_operator_memory_consolidation_grant/);
   for (const patch of [{ provider: "arbitrary-plugin" }, { dimensions: 0 }, { dimensions: 8193 }, { model: "" }, { batch: true },
     { endpoint: "https://secret@example.invalid/v1/embeddings" }, { endpoint: "https://example.invalid/v1/embeddings?x=1" }])
     assert.throws(() => parsePersonalContextAccess({ ...base, queryEmbedding: { ...grant, ...patch } }), /invalid_query_embedding_grant/);

@@ -539,6 +539,24 @@ test("recovery Gateway method rejects missing admin authority and caller-supplie
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("recovery diagnostics retain the failure stage without exposing caller content", async () => {
+  const root = await createFixture();
+  try {
+    const errors: string[] = [];
+    const hooks = registerPlugin(root, await initializeFixtureRepository(root), undefined, "managed_durable_write", errors);
+    const privateInput = "private-caller-content-must-not-be-logged";
+    let response: unknown;
+    await requireHook(hooks, "gateway:stella.recoverQuestionEvidence")({
+      client: { connect: { role: "operator", scopes: ["operator.admin"] } },
+      params: { operationId: privateInput },
+      respond(ok: boolean, _payload: unknown, error: { message: string }) { response = { ok, error }; },
+    }, {});
+    assert.deepEqual(response, { ok: false, error: { code: "UNAVAILABLE", message: "Stella recovery failed: invalid_recovery_request" } });
+    assert.ok(errors.some(message => message.includes('"stage":"admission"')));
+    assert.ok(errors.every(message => !message.includes(privateInput) && !message.includes(root)));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("main outcome route requests evidence clarification without closing an unauthenticated report", async () => {
   const root = await createFixture();
   try {

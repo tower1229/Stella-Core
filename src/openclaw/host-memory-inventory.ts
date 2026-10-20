@@ -59,17 +59,57 @@ export function inspectDeclaredHostMemory(input: {
   entries.push({ identityHash: bytesVersion("hook:session-memory"), kind: "session-memory",
     state: sessionMemoryDisabled ? "disabled" : "unverifiable",
     reason: sessionMemoryDisabled ? "host_reports_disabled" : "hook_input_provenance_unavailable" });
-  const seen = new Set<string>();
+  const hooks = input.config.hooks?.internal;
+  const declared = input.config.plugins?.entries ?? {};
+  const pluginPaths = input.config.plugins?.load?.paths ?? [], hookPaths = hooks?.load?.extraDirs ?? [];
+  const allowed = input.config.plugins?.allow ?? [];
+  if ([Object.keys(declared), Object.keys(hooks?.entries ?? {}), pluginPaths, hookPaths, allowed].some(values => values.length > 512)) {
+    throw new CatalogError("invalid_host_memory_inventory");
+  }
+  for (const [kind, paths] of [["additional_plugin_loader", pluginPaths], ["additional_internal_hook_loader", hookPaths]] as const) {
+    for (const directory of new Set(paths)) entries.push({ identityHash: bytesVersion(`${kind}:${directory}`), kind,
+      state: "unverifiable", reason: "declared_loader_inventory_unavailable" });
+  }
+  for (const [id, declaration] of Object.entries(hooks?.entries ?? {})) {
+    if (id === "session-memory") continue;
+    const disabled = hooks?.enabled === false || declaration.enabled === false;
+    entries.push({ identityHash: bytesVersion(`hook:${id}`), kind: "additional_internal_hook",
+      state: disabled ? "disabled" : "unverifiable",
+      reason: disabled ? "host_reports_disabled" : "hook_input_provenance_unavailable" });
+  }
+  const observed = new Map<string, { installed: boolean; enabled: boolean }>();
   for (const plugin of inventory.plugins) {
     if (!isRecord(plugin) || typeof plugin.id !== "string" || !plugin.id || typeof plugin.installed !== "boolean" ||
-        typeof plugin.enabled !== "boolean" || seen.has(plugin.id)) throw new CatalogError("invalid_host_memory_inventory");
-    seen.add(plugin.id);
-    if (!plugin.installed || plugin.id === "stella-core") continue;
-    entries.push({ identityHash: bytesVersion(`plugin:${plugin.id}`),
-      kind: memoryPlugins.has(plugin.id) ? plugin.id : "additional_plugin",
-      state: plugin.enabled ? "unverifiable" : "disabled",
-      reason: plugin.enabled ? "plugin_input_provenance_unavailable" : "host_reports_disabled" });
+        typeof plugin.enabled !== "boolean" || observed.has(plugin.id)) throw new CatalogError("invalid_host_memory_inventory");
+    observed.set(plugin.id, { installed: plugin.installed, enabled: plugin.enabled });
   }
+  // A configured but missing plugin is a gap, not evidence of absence. Keep
+  // configured identities even when plugins.list cannot report their code.
+  const ids = new Set([...Object.keys(declared), ...allowed, ...observed.keys()]);
+  if (ids.size > 512) throw new CatalogError("invalid_host_memory_inventory");
+  for (const id of [...ids].sort()) {
+    const plugin = observed.get(id), declaration = declared[id];
+    if (id === "stella-core" || !plugin?.installed && declaration === undefined && !allowed.includes(id) && !plugin?.enabled) continue;
+    const conflict = plugin?.enabled === true && declaration?.enabled === false ||
+      plugin?.installed === true && plugin.enabled === false && declaration?.enabled === true;
+    const disabled = !conflict && (declaration?.enabled === false || plugin?.installed === true && plugin.enabled === false);
+    entries.push({ identityHash: bytesVersion(`plugin:${id}`),
+      kind: memoryPlugins.has(id) ? id : "additional_plugin", state: disabled ? "disabled" : "unverifiable",
+      reason: conflict ? "host_plugin_state_conflict" : disabled ? "host_reports_disabled" :
+        !plugin?.installed ? "declared_plugin_inventory_missing" : "plugin_input_provenance_unavailable" });
+  }
+  // Dreaming is bundled inside memory-core: it need not have a plugins.list
+  // row of its own. An explicit disable is diagnostic only; neither omission
+  // nor a cron completion binds native output to a Core Memory Generation.
+  const core = observed.get("memory-core"), coreConfig = declared["memory-core"];
+  const coreConflict = core?.enabled === true && coreConfig?.enabled === false ||
+    core?.installed === true && core.enabled === false && coreConfig?.enabled === true;
+  const dreaming = coreConfig?.config?.dreaming;
+  const dreamingDisabled = isRecord(dreaming) && dreaming.enabled === false || !coreConflict &&
+    (coreConfig?.enabled === false || core?.installed === true && core.enabled === false);
+  entries.push({ identityHash: bytesVersion("memory-core:dreaming"), kind: "dreaming",
+    state: dreamingDisabled ? "disabled" : "unverifiable",
+    reason: dreamingDisabled ? "host_reports_disabled" : "native_dreaming_generation_binding_unavailable" });
   const model = resolveDefaultModelForAgent({ cfg: input.config, agentId: input.agentId });
   return {
     schemaVersion: "stella.host-memory-inventory/v1", scope: "declared_host_memory", complete: false,

@@ -170,7 +170,8 @@ export class StellaInitializer {
 
   private async recipe(): Promise<{ recipe: Materialization; compiled?: CompiledInitializationSource }> {
     check(/^[a-f0-9]{40}$/.test(this.source.revision), "invalid_source_revision");
-    const git = async (args: string[]) => (await run("git", ["-c", "core.fsmonitor=false", "-C", this.source.root, ...args])).stdout.trim();
+    // Inspect the source without competing for the memory transaction's Git index lock.
+    const git = async (args: string[]) => (await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", this.source.root, ...args])).stdout.trim();
     for (let attempt = 0; ; attempt++) {
       check(await git(["rev-parse", "HEAD"]) === this.source.revision, "source_revision_mismatch");
       const status = await git(["status", "--porcelain"]);

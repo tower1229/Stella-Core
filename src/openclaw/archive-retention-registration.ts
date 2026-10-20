@@ -41,7 +41,7 @@ async function observe(agentId: string, store: string | undefined): Promise<stri
 }
 
 async function archived(reader: CatalogReader, agentId: string, remote: string, branch: string): Promise<Set<string>> {
-  const git = async (args: string[]) => (await run("git", ["-C", reader.root, ...args], { timeout: 10_000, maxBuffer: 1024 * 1024 })).stdout.trim();
+  const git = async (args: string[]) => (await run("git", ["--no-optional-locks", "-C", reader.root, ...args], { timeout: 10_000, maxBuffer: 1024 * 1024 })).stdout.trim();
   const revision = await git(["rev-parse", "HEAD"]);
   if (await git(["status", "--porcelain", "--untracked-files=all"])) throw new CatalogError("archive_not_committed");
   const remoteHead = await git(["ls-remote", "--exit-code", "--", remote, `refs/heads/${branch}`]);

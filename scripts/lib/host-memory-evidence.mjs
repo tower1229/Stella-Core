@@ -229,7 +229,7 @@ export function alignHostMemoryEvidence({ nativeEntrances, pluginIds, probes, co
     scope: "declared entrances; Dreaming-disabled synthetic exact Host", aligned: true, complete: false,
     fullMemoryAccepted: false, issue23Complete: false, blockers: ["host_memory_consumption_unverifiable"],
     native, plugins, observedEntries: [...observed.values()].map(row => ({ ...row, status: "observed_only",
-      ...(row.kind === "additional_plugin" ? { gaps: ["Opaque installed plugin has no producer-specific consumption proof; preserve the complete-profile blocker."] } : {}) })),
+      ...(row.kind.startsWith("additional_") ? { gaps: ["Opaque declared plugin, hook or loader has no producer-specific consumption proof; preserve the complete-profile blocker."] } : {}) })),
     audiences: SOURCE_AUDIENCE_SCENARIOS.map(kind => ({ kind, evidence: references([`source-audience-${kind}`]) })),
     constrainedMemoryAccess: { scope: "native_fragment_guarded_direct", fullMemoryBindingValid: true,
       businessAdmission: false, providers: ["memory-core", "session-memory", "memory-wiki"], evidence: references(HOST_MEMORY_ACCEPTANCE_MATRIX.map(entry => entry.flag)),

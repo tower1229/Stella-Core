@@ -97,7 +97,7 @@ export async function coordinateArchiveCleanup(input: {
     const diagnostics = await ports.durability.diagnostics();
     check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision, "archive_sync_pending");
     await ports.reader.assertCurrent();
-    const { stdout: status } = await run("git", ["-C", ports.reader.root, "status", "--porcelain", "--untracked-files=all"]);
+    const { stdout: status } = await run("git", ["--no-optional-locks", "-C", ports.reader.root, "status", "--porcelain", "--untracked-files=all"]);
     check(status.trim() === "" || isLiveMemoryMutationDirt(status.trim()), "archive_not_committed");
     const { stdout: revision } = await run("git", ["-C", ports.reader.root, "rev-parse", "HEAD"]);
     check(revision.trim() === diagnostics.synchronizedRevision, "archive_sync_pending");

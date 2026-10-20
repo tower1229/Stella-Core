@@ -87,7 +87,7 @@ export async function startExactHostGateway({ cwd, env, openclawBin, diagnosticP
           diagnostics: () => startupOutput
             .split("\n")
             .filter((line) =>
-              diagnosticPrefixes.some(prefix => line.includes(prefix)) || line.includes("Stella host memory:") || line.includes("Stella initialization") || line.includes("Stella Praxis") || line.includes("Stella semantic routing failed") || line.includes("Stella turn preparation failed") || line.includes("Stella evidence assessment attempts:")
+              diagnosticPrefixes.some(prefix => line.includes(prefix)) || line.includes("Stella recovery:") || line.includes("Stella host memory:") || line.includes("Stella initialization") || line.includes("Stella Praxis") || line.includes("Stella semantic routing failed") || line.includes("Stella turn preparation failed") || line.includes("Stella evidence assessment attempts:")
             )
             .slice(-20)
             .join("\n"),

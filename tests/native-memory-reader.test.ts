@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createServer } from "node:http";
+import { listenOnLoopback } from "./loopback-server.js";
 import { writeFile } from "node:fs/promises";
 import { resolveMemorySearchConfig } from "openclaw/plugin-sdk/memory-core-host-engine-foundation";
 import { loadSqliteVecExtension } from "openclaw/plugin-sdk/memory-core-host-engine-storage";
@@ -292,8 +293,7 @@ test("original query transport binds actual native KNN and rejects changed candi
     calls.push(JSON.parse(Buffer.concat(chunks).toString()));
     res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ model: "synthetic-embedding", data: [{ index: 0, embedding: [1, 0, 0] }] }));
   });
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())));
+  await listenOnLoopback(t, server);
   const address = server.address(); assert.ok(address && typeof address !== "string");
   const baseUrl = `http://127.0.0.1:${address.port}/v1`;
   f.config.memory!.search!.fallback = "none";

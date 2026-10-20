@@ -1,7 +1,7 @@
 import { withMemoryMutationLock } from "../src/canghai/memory-transaction.js";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { promisify } from "node:util";
@@ -135,6 +135,24 @@ test("accepts only an active compatible manifest at the explicit recovery revisi
     });
     assert.equal(loaded.recoveryRevision, recoveryRevision);
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("read-only activation validation leaves the Git index unchanged", async () => {
+  const root = await createFixture();
+  const optionalLocks = process.env.GIT_OPTIONAL_LOCKS;
+  process.env.GIT_OPTIONAL_LOCKS = "1";
+  try {
+    const recoveryRevision = await initializeFixtureRepository(root);
+    const index = await readFile(path.join(root, ".git/index"));
+    const changedTime = new Date(Date.now() + 5_000);
+    await utimes(path.join(root, "50_PersonalAgent/stella/manifest.yaml"), changedTime, changedTime);
+    await loadConsciousness(root, undefined, { recoveryRevision, coreVersion: "3.0.0-alpha.0", openclawVersion: "2026.8.2" });
+    assert.deepEqual(await readFile(path.join(root, ".git/index")), index);
+  } finally {
+    if (optionalLocks === undefined) delete process.env.GIT_OPTIONAL_LOCKS;
+    else process.env.GIT_OPTIONAL_LOCKS = optionalLocks;
     await rm(root, { recursive: true, force: true });
   }
 });

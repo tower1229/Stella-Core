@@ -893,7 +893,9 @@ async function validateActivationGate(
   let currentBranch: string | undefined;
   try {
     const revisionResult = await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"]);
+    // Background authority checks must not refresh the index while persistence stages files.
     const statusResult = await execFileAsync("git", [
+      "--no-optional-locks",
       "-C",
       root,
       "status",

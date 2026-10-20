@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -69,6 +69,26 @@ test("recovery bindings tolerate pending business files but reject changed autho
   const file = path.join(root, context.binding.configPath);
   await writeFile(file, `${await readFile(file, "utf8")}\n`);
   await assert.rejects(loadOutcomeRecoveryBinding(root, loaded.manifestPath, revision), /recovery_binding_changed/);
+});
+
+test("read-only recovery authority validation leaves the Git index unchanged", async t => {
+  const root = await createFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const optionalLocks = process.env.GIT_OPTIONAL_LOCKS;
+  process.env.GIT_OPTIONAL_LOCKS = "1";
+  try {
+    const revision = await initializeFixtureRepository(root);
+    const manifestPath = "50_PersonalAgent/stella/manifest.yaml";
+    const index = await readFile(path.join(root, ".git/index"));
+    const changedTime = new Date(Date.now() + 5_000);
+    await utimes(path.join(root, manifestPath), changedTime, changedTime);
+    const binding = await loadOutcomeRecoveryBinding(root, manifestPath, revision);
+    await binding.assertCurrent();
+    assert.deepEqual(await readFile(path.join(root, ".git/index")), index);
+  } finally {
+    if (optionalLocks === undefined) delete process.env.GIT_OPTIONAL_LOCKS;
+    else process.env.GIT_OPTIONAL_LOCKS = optionalLocks;
+  }
 });
 
 test("runtime binding requires declared profile resources without promoting not-evaluated acceptance", async (t) => {
