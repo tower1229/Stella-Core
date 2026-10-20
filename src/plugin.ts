@@ -4,6 +4,7 @@ import { resolveManagedHostTimezone } from "./openclaw/host-context-prompt.js";
 import { createFragmentReadTool, FRAGMENT_READ_DESCRIPTION, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "./openclaw/fragment-read-tool.js";
 import { createHostMemoryAcceptance } from "./openclaw/host-memory-acceptance.js";
 import { createNativeMemoryReader } from "./openclaw/native-memory-reader.js";
+import { parseNativeMemoryOrigin } from "./canghai/native-memory-origin.js";
 import { createNativeQueryEmbedding } from "./openclaw/native-query-embedding.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import type { SourceAccessDescriptor, SourceAccessProvider } from "./canghai/source-access.js";
@@ -1453,13 +1454,21 @@ export default definePluginEntry({
                 processingGrant: viewProcessing.processingGrant, currentConfig: () => structuredClone(api.runtime.config.current()) as OpenClawConfig,
                 ...(contextExecutionHash ? { configurationHash: () => hostContextExecutionHash(api.runtime.config.current(), config) } : {}),
                 assertCurrent: nativeReadCurrent, signal: readCompletionAbortSignal(runId) }) : undefined);
+            // Native originals can also enter the initial evidence/personal-view
+            // fragments. Bind their index before Agent admission, even when the
+            // Agent never calls the fragment tool, and retain it for later checks.
+            for (const original of outputOriginals) {
+              const evidence = await runtime.evidence.reader.read(original.ref, "evidence");
+              const source = await runtime.evidence.reader.read(evidence.source as { id: string; version: string }, "sources");
+              if (source.nativeMemory !== undefined) await nativeReader(parseNativeMemoryOrigin(source.nativeMemory), original, nativeReadCurrent);
+            }
             const fragmentTool = viewProcessing ? createFragmentReadTool({ resolver: runtime.evidence,
-              readNative: processingConfig?.config.queryEmbedding ? async (origin, original, assertSourceCurrent) => {
+              readNative: async (origin, original, assertSourceCurrent) => {
                 await assertSourceCurrent();
                 const text = await nativeReader(origin, original, nativeReadCurrent);
                 await assertSourceCurrent();
                 return text;
-              } : nativeReader,
+              },
               descriptors: viewProcessing.descriptors, originals: outputOriginals,
               processingAuthority,
               ...(contextExecutionHash ? { observeResult: async (receipt: Parameters<ManagedHostContextEngine["observeToolResult"]>[0]) => {
@@ -1687,7 +1696,7 @@ export default definePluginEntry({
               sourceBinding: { catalogPath: binding.catalogPath, runtimeProfileRef: loaded.manifest.identity.runtimeProfileRef },
               ...(preparedRouting ? { routingContext: { prepared: preparedRouting, route: preparedRoute } } : {}),
               assertEvidenceCurrent: async () => {
-                await nativeReader.assertQueryCurrent();
+                await nativeReader.assertCurrent();
                 await cortexSources?.assertCurrent();
                 await preparedRouting?.assertCurrent();
                 if (correction) await readAppliedCorrectionContext(correction);

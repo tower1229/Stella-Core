@@ -141,3 +141,11 @@ test("Core cancellation prevents query dispatch and invalidates an in-flight res
   await assert.rejects(during.embedding(during.settings, during.index), /native_query_embedding_cancelled/);
   assert.equal(during.calls.length, 1);
 });
+
+
+test("configured Gemini native query cannot acquire an unsupported Core processing grant", () => {
+  const base = { schemaVersion: "stella.personal-context-access/v1", ownerId: "owner", requesterIds: ["cli"], modelRefs: ["guarded/model"],
+    purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "private" }, descriptors: [] };
+  assert.throws(() => parsePersonalContextAccess({ ...base, queryEmbedding: { provider: "gemini", model: "gemini-embedding-001",
+    dimensions: 3072, endpoint: "https://example.invalid/v1beta/models/gemini-embedding-001:embedContent" } }), /invalid_query_embedding_grant/);
+});

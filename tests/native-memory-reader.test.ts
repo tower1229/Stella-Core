@@ -318,12 +318,50 @@ test("original query transport binds actual native KNN and rejects changed candi
   const query = createNativeQueryEmbedding({ request, authority, processingGrant: await loadPersonalContextAccess(f.root, "grant.json"),
     currentConfig: () => f.config, assertCurrent: f.current });
   const read = createNativeMemoryReader(f.api, "stella", request.sessionKey, undefined, query);
-  await read.assertQueryCurrent();
+  await read.assertCurrent();
   assert.equal(await read(origin, original, f.current), original.text);
-  await read.assertQueryCurrent(); await read.assertQueryCurrent();
+  await read.assertCurrent(); await read.assertCurrent();
   assert.deepEqual(calls, [{ model: "synthetic-embedding", input: [request.prompt] }]);
   f.db.exec("INSERT INTO memory_index_chunks SELECT 'other', 'memory/other.md', source, start_line, end_line, text, hash, model, embedding FROM memory_index_chunks WHERE id = 'chunk'");
   f.db.prepare("INSERT INTO memory_index_chunks_vec VALUES ('other', ?)").run(new Float32Array([1, 0, 0]));
-  await assert.rejects(read.assertQueryCurrent(), /native_query_embedding_consumption_changed/);
+  await assert.rejects(read.assertCurrent(), /native_query_embedding_consumption_changed/);
   assert.equal(calls.length, 1, "Revalidation never resends a query or embeds a document");
+});
+
+
+test("native exact reads without query embeddings revalidate the original index generation", async t => {
+  t.after(clearMemoryPluginState);
+  const f = fixture(t);
+  await f.reader(origin, original, f.current);
+  await f.reader.assertCurrent();
+  f.db.exec("UPDATE memory_index_chunks SET hash = 'replacement-generation'");
+  await assert.rejects(f.reader.assertCurrent(), /native_memory_consumption_changed/);
+});
+
+test("native exact reads revalidate source authority before another model call", async t => {
+  t.after(clearMemoryPluginState);
+  const f = fixture(t);
+  await f.reader(origin, original, f.current);
+  f.revoke();
+  await assert.rejects(f.reader.assertCurrent(), /source_revoked/);
+});
+
+
+test("a second native read cannot replace the first consumed index identity", async t => {
+  t.after(clearMemoryPluginState);
+  const f = fixture(t);
+  await f.reader(origin, original, f.current);
+  f.db.exec("UPDATE memory_index_chunks SET hash = 'new-index-identity'");
+  await f.reader(origin, original, f.current);
+  await assert.rejects(f.reader.assertCurrent(), /native_memory_consumption_changed/);
+});
+
+test("native compiled claims are revalidated after the first successful read", async t => {
+  t.after(clearMemoryPluginState);
+  const f = fixture(t), wiki = { ...origin, provider: "memory-wiki" as const, claimId: "compiled-claim" };
+  f.setResult({ corpus: "wiki", path: origin.path, fromLine: 1, lineCount: 1, content: original.text });
+  await f.reader(wiki, original, f.current);
+  await f.reader.assertCurrent();
+  f.setResult(null);
+  await assert.rejects(f.reader.assertCurrent(), /native_memory_read_unverifiable/);
 });

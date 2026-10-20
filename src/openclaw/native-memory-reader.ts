@@ -108,11 +108,26 @@ function readVectorBinding(db: DatabaseSync, chunks: Record<string, unknown>[], 
 
 /** Host search ranks candidates, but cannot choose or authorize personal evidence.
  * This reader looks up only a fragment already selected by Core's semantic path.
- * Actual native bytes must equal its independently retained, admitted original. */
+ * Actual native bytes must equal its independently retained, admitted original.
+ * The current callback must only check structure/authority: consumption replays it
+ * before semantic processing is permitted. */
 export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string, sessionKey: string,
   observeVerifiedRead?: (observation: NativeMemoryReadObservation) => void,
   queryEmbedding?: ReturnType<typeof createNativeQueryEmbedding>) {
-  const queryReads = new Map<string, () => Promise<void>>();
+  const verifiedReads = new Map<string, () => Promise<void>>();
+  const retainRead = (origin: NativeMemoryOrigin, original: OriginalEvidence, assertCurrent: () => Promise<void>, expected: string) => {
+    const key = canonicalJson([origin, original.ref]);
+    if (verifiedReads.has(key)) return;
+    const retainedOrigin = structuredClone(origin), retainedOriginal = structuredClone(original);
+    // Recheck the first successfully consumed generation, including exact reads
+    // that never embed a query. Caller mutation or another read cannot replace it.
+    verifiedReads.set(key, async () => {
+      let observed: string | undefined;
+      const verifier = createNativeMemoryReader(api, agentId, sessionKey, value => { observed = value.digest; }, queryEmbedding);
+      await verifier(retainedOrigin, retainedOriginal, assertCurrent);
+      check(observed === expected, queryEmbedding ? "native_query_embedding_consumption_changed" : "native_memory_consumption_changed");
+    });
+  };
   let revalidation: Promise<void> | undefined;
   const read = async (value: NativeMemoryOrigin, original: OriginalEvidence, assertCurrent: () => Promise<void>): Promise<string> => {
     await assertCurrent();
@@ -145,7 +160,9 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
       check(isRecord(result) && result.corpus === "wiki" && result.path === origin.path && result.fromLine === origin.fromLine &&
         result.lineCount === origin.lineCount && typeof result.content === "string", "native_memory_read_unverifiable");
       check(result.content === original.text, "native_memory_payload_changed");
-      observeVerifiedRead?.({ origin, digest: bytesVersion(canonicalJson({ origin, hits, result })) });
+      const digest = bytesVersion(canonicalJson({ origin, hits, result }));
+      retainRead(origin, original, assertCurrent, digest);
+      observeVerifiedRead?.({ origin, digest });
       return result.content;
     }
     check(origin.path.startsWith("memory/"), "native_memory_path_forbidden");
@@ -247,23 +264,12 @@ export function createNativeMemoryReader(api: OpenClawPluginApi, agentId: string
     }
     await assertCurrent();
     observeVerifiedRead?.({ origin, digest: nativeDigest });
-    const queryKey = canonicalJson([origin, original.ref]);
-    if (queryEmbedding && !queryReads.has(queryKey)) {
-      const expected = nativeDigest;
-      // Captured current callback must be structural: source semantics already
-      // ran before this read, and must not run before later native revalidation.
-      queryReads.set(queryKey, async () => {
-        let observed: string | undefined;
-        const verifier = createNativeMemoryReader(api, agentId, sessionKey, value => { observed = value.digest; }, queryEmbedding);
-        await verifier(origin, original, assertCurrent);
-        check(observed === expected, "native_query_embedding_consumption_changed");
-      });
-    }
+    retainRead(origin, original, assertCurrent, nativeDigest);
     return text;
   };
-  return Object.assign(read, { assertQueryCurrent() {
+  return Object.assign(read, { assertCurrent() {
     return revalidation ??= (async () => {
-      for (const current of queryReads.values()) await current();
+      for (const current of verifiedReads.values()) await current();
     })().finally(() => { revalidation = undefined; });
   } });
 }

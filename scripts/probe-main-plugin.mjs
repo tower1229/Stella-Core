@@ -23,11 +23,27 @@ const correctionRecoveryProbe = process.argv.includes("--correction-recovery");
 const consolidationCase = process.argv.find(arg => arg.startsWith("--core-consolidation"))?.slice("--core-consolidation".length) || (process.argv.includes("--core-consolidation") ? "success" : undefined);
 if (consolidationCase) assert.ok(["success", "-source-stale", "-revoked", "-recovery"].includes(consolidationCase));
 const consolidationProbe = Boolean(consolidationCase);
+const temp = await mkdtemp(path.join(os.tmpdir(), "stella-main-completion-"));
 const nativeCase = process.argv.find(arg => arg.startsWith("--native-memory-"))?.slice("--native-memory-".length);
 const [nativeFamily, nativeState] = nativeCase?.split("-") ?? [];
-if (nativeCase) assert.ok(["fts", "cache", "session", "wiki", "query"].includes(nativeFamily) && ["success", "stale", "mismatch", "missing", ...(nativeFamily === "query" ? ["index"] : [])].includes(nativeState) && (nativeState !== "missing" || nativeFamily === "cache"));
+const nativeSuccess = ["success", "rebuilt"].includes(nativeState);
+const googleAgent = process.argv.includes("--google-agent");
+const nativeQueryControl = process.argv.includes("--native-query-control");
+assert.ok(!nativeQueryControl || nativeFamily === "gemini");
+assert.ok(!googleAgent || nativeFamily === "gemini", "Google Agent control is limited to synthetic Gemini native fixtures");
+if (nativeCase) assert.ok(["fts", "cache", "session", "wiki", "query", "gemini"].includes(nativeFamily) && ["success", "stale", "mismatch", "missing", ...(["query", "gemini"].includes(nativeFamily) ? ["index"] : []), ...(nativeFamily === "gemini" ? ["edit", "delete", "revoked", "generation", "oldindex", "policy", "rebuilt"] : [])].includes(nativeState) && (nativeState !== "missing" || ["cache", "gemini"].includes(nativeFamily)));
 let producerReport, nativeSource;
-if (nativeCase) {
+if (nativeFamily === "gemini") {
+  const producerWorkspace = path.join(temp, "synthetic-producer");
+  await mkdir(path.join(producerWorkspace, "memory"), { recursive: true });
+  const text = nativeState === "rebuilt" ? "SYNTHETIC_ALLOWED_FRAGMENT_GEMINI_REBUILT\n" : "SYNTHETIC_ALLOWED_FRAGMENT_GEMINI\n";
+  const rawPath = path.join(producerWorkspace, "memory/retained.md");
+  await writeFile(rawPath, text);
+  nativeSource = { provider: "memory-core", nativePath: "memory/retained.md", rawPath,
+    rawSha256: createHash("sha256").update(text).digest("hex"), text, fromLine: 1, lineCount: 1 };
+  producerReport = { schemaVersion: "stella.synthetic-memory-source/v1", hostVersion: host.version,
+    workspace: producerWorkspace, artifacts: [nativeSource], privateDataCopied: false };
+} else if (nativeCase) {
   assert.ok(process.env.STELLA_NATIVE_PRODUCERS_REPORT, "Native consumption requires a real producer report");
   producerReport = JSON.parse(await readFile(process.env.STELLA_NATIVE_PRODUCERS_REPORT, "utf8"));
   assert.equal(producerReport.schemaVersion, "stella.native-memory-producers/v1");
@@ -122,7 +138,8 @@ const guardedPayload = process.argv.includes("--guarded-payload-transform");
 const guardedSemantic = process.argv.includes("--guarded-semantic");
 const guardedProvider = nativeNewPassThrough || managedContextProbe || guardedPayload || guardedDreaming || guardedActive || guardedSemantic || guardedStale || process.argv.includes("--guarded-provider");
 const probeProvider = guardedProvider ? "stella-guarded" : "stella-smoke";
-const probeModel = liveFragment ? liveModel : `${probeProvider}/probe`;
+const probeModelId = googleAgent ? "gemini-3.8-flash" : "probe";
+const probeModel = liveFragment ? liveModel : `${probeProvider}/${probeModelId}`;
 const correctionProbe = managedContextProbe || fragmentProbe || outputRejectionProbe || correctionRecoveryProbe || process.argv.includes("--correction");
 const questionRecoveryProbe = process.argv.includes("--question-recovery");
 const admissionReplayProbe = process.argv.includes("--admission-replay");
@@ -135,14 +152,13 @@ const failureProbe = nativeActiveStale || completionStatusChanged || nativeArtif
 const outcomeProbe = outcomeHistoryProbe || process.argv.includes("--outcome") || failureProbe && !correctionProbe && !questionRecoveryProbe && !adviceTailProbe;
 const questionProbe = process.argv.includes("--question-evidence") || process.argv.includes("--question-durable") || questionRecoveryProbe || admissionReplayProbe;
 const managed = correctionProbe || process.argv.includes("--managed") || cancellationProbe || adviceRevisionProbe || outcomeProbe || process.argv.includes("--question-durable") || questionRecoveryProbe || adviceTailProbe || admissionReplayProbe;
-const temp = await mkdtemp(path.join(os.tmpdir(), "stella-main-completion-"));
 // Resolve dependencies from the tested package's consumer, not the development checkout.
 const snapshotParent = path.join(packageRoot, ".artifacts");
 await mkdir(snapshotParent, { recursive: true });
 const coreSnapshot = await mkdtemp(path.join(snapshotParent, "main-probe-build-"));
 const coreDist = path.join(coreSnapshot, "dist");
 await cp(path.join(packageRoot, "dist"), coreDist, { recursive: true });
-if (nativeCase) {
+if (nativeCase && nativeFamily !== "gemini") {
   // Record the response at Core's public native-read seam. Host may replace its
   // runtime capability object during config reload, so wrapping one manager
   // instance is insufficient. This isolated Core copy adds observation only.
@@ -357,8 +373,10 @@ if (nativeCase) {
   const retained = path.join(canghaiRoot, "30_PersonalData/native-producer");
   await mkdir(retained, { recursive: true });
   await cp(producerReport.workspace, path.join(retained, "workspace"), { recursive: true });
-  await cp(producerReport.vault, path.join(retained, "vault"), { recursive: true });
-  await cp(path.join(producerReport.evidenceDirectory, "wiki-input.md"), path.join(retained, "wiki-input.md"));
+  if (nativeFamily !== "gemini") {
+    await cp(producerReport.vault, path.join(retained, "vault"), { recursive: true });
+    await cp(path.join(producerReport.evidenceDirectory, "wiki-input.md"), path.join(retained, "wiki-input.md"));
+  }
   await writeFile(path.join(retained, "producer.json"), JSON.stringify(producerReport, null, 2));
 }
 const queryServer = nativeFamily === "query" ? createServer() : undefined;
@@ -369,6 +387,12 @@ if (queryServer) {
   grant.queryEmbedding = { provider: "openai", model: "text-embedding-3-small", dimensions: 384,
     endpoint: `http://127.0.0.1:${queryServer.address().port}/v1/embeddings` };
   await writeFile(file, JSON.stringify(grant));
+}
+if (nativeState === "rebuilt") {
+  const file = path.join(canghaiRoot, "30_PersonalData/memory/catalog.json");
+  const value = JSON.parse(await readFile(file)); value.generationId = "synthetic-rebuilt-generation";
+  await writeFile(file, JSON.stringify(value));
+  await writeFile(path.join(canghaiRoot, "30_PersonalData/native-producer/previous-source.txt"), "SYNTHETIC_ALLOWED_FRAGMENT_GEMINI\n");
 }
 const revision = await initializeFixtureRepository(canghaiRoot);
 const remote = path.join(temp, "canghai.git");
@@ -385,7 +409,7 @@ await Promise.all([state, plugin, workspace].map((directory) => mkdir(directory)
 const nativeVault = path.join(temp, "native-vault");
 if (nativeCase) {
   await cp(path.join(producerReport.workspace, "memory"), path.join(workspace, "memory"), { recursive: true });
-  await cp(producerReport.vault, nativeVault, { recursive: true });
+  if (nativeFamily !== "gemini") await cp(producerReport.vault, nativeVault, { recursive: true });
 }
 const contextKeys = managedContextProbe ? await (await import(buildModule("src/openclaw/host-context-keys.js"))).initializeContextHistoryKeys({
   stateDirectory: state, repositoryRoot: canghaiRoot, agentId: "probe" }) : undefined;
@@ -506,27 +530,46 @@ export default { ...main, register(api) {
         if (!runtime) throw new Error('actual_memory_core_registration_missing');
         const { manager } = await runtime.getMemorySearchManager({ cfg: api.runtime.config.current(), agentId: 'probe' });
         if (!manager) throw new Error('actual_native_manager_unavailable');
+        let rebuild;
+        if (${nativeState === "rebuilt"}) {
+          const file = ${JSON.stringify(nativeSource ? path.join(workspace, nativeSource.nativePath) : "")};
+          writeFileSync(file, 'SYNTHETIC_ALLOWED_FRAGMENT_GEMINI\\n');
+          await manager.sync({ force: true });
+          const prior = manager.status();
+          const { DatabaseSync } = await import('node:sqlite');
+          const indexed = () => { const db = new DatabaseSync(prior.dbPath, { readOnly: true });
+            try { return db.prepare('SELECT hash, text FROM memory_index_chunks WHERE path = ? ORDER BY id').all(${JSON.stringify(nativeSource?.nativePath)}); }
+            finally { db.close(); } };
+          const before = indexed();
+          writeFileSync(file, ${JSON.stringify(nativeSource?.text)});
+          await manager.sync({ force: true });
+          rebuild = { prior, before, after: indexed(), generationId: 'synthetic-rebuilt-generation' };
+          record({ operation: 'generation-rebuild', rebuild });
+        }
         await manager.sync({ force: true });
         const cold = manager.status();
         record({ operation: 'cold-sync', status: cold });
         await manager.sync({ force: true });
         const warm = manager.status();
         record({ operation: 'warm-sync', status: warm });
+        const nativeQuery = ${nativeQueryControl} ? await manager.search('Synthetic source audience acceptance',
+          { maxResults: 32, minScore: 0, sources: ['memory'], sessionKey: 'agent:probe:main-completion' }) : undefined;
+        if (nativeQuery) record({ operation: 'native-query-control', hits: nativeQuery });
         await manager.close();
-        respond(true, { cold, warm });
+        respond(true, { cold, warm, ...(rebuild ? { rebuild } : {}), ...(nativeQuery ? { nativeQuery } : {}) });
       } catch(error) { respond(false, undefined, { code: 'UNAVAILABLE', message: String(error) }); }
     });
     api.on('after_tool_call', event => {
       if (event.toolName === 'stella_read_fragment') appendFileSync(${JSON.stringify(path.join(temp, "native-tool-results.jsonl"))}, JSON.stringify(event) + '\\n');
     });
-    if (${nativeFamily === "query" && nativeState === "index"}) api.on('after_tool_call', async event => {
+    if (${["query", "gemini"].includes(nativeFamily) && nativeState === "index"}) api.on('after_tool_call', async event => {
       if (event.toolName !== 'stella_read_fragment' || !event.result?.details?.original?.ref) return;
       const { DatabaseSync } = await import('node:sqlite');
       const { loadSqliteVecExtension } = await import(${JSON.stringify(pathToFileURL(path.join(hostRoot, "dist/plugin-sdk/memory-core-host-engine-storage.js")).href)});
       const db = new DatabaseSync(${JSON.stringify(path.join(state, "agents/probe/agent/openclaw-agent.sqlite"))}, { allowExtension: true });
       try {
         if (!(await loadSqliteVecExtension({ db })).ok) throw new Error('synthetic_vector_extension_missing');
-        const vector = Array.from({ length: 384 }, (_, index) => index === 1 ? 1 : 0);
+        const vector = Array.from({ length: ${nativeFamily === "gemini" ? 3072 : 384} }, (_, index) => index === 1 ? 1 : 0);
         const selected = db.prepare('SELECT id FROM memory_index_chunks WHERE path = ?').all(${JSON.stringify(nativeSource?.nativePath)});
         for (const row of selected) db.prepare('UPDATE memory_index_chunks_vec SET embedding = ? WHERE id = ?').run(new Float32Array(vector), row.id);
         db.prepare('UPDATE memory_index_chunks SET embedding = ? WHERE path = ?').run(JSON.stringify(vector), ${JSON.stringify(nativeSource?.nativePath)});
@@ -541,6 +584,41 @@ export default { ...main, register(api) {
         nativeArtifactRetained: existsSync(${JSON.stringify(nativeSource ? path.join(nativeFamily === "wiki" ? nativeVault : workspace, nativeSource.nativePath) : "")}) }));
     });
   }
+  if (${nativeFamily === "gemini" && ["edit", "delete", "revoked", "generation", "oldindex", "policy"].includes(nativeState)}) api.on('after_tool_call', async event => {
+    if (event.toolName !== 'stella_read_fragment' || !event.result?.details?.original?.ref) return;
+    const action = ${JSON.stringify(nativeState)};
+    const root = ${JSON.stringify(canghaiRoot)};
+    const expectedPath = { edit: '30_PersonalData/memory/fragments.txt', delete: '30_PersonalData/memory/fragments.txt',
+      generation: '30_PersonalData/memory/catalog.json', policy: '30_PersonalData/memory/fragment-open.json' }[action];
+    const git = (...args) => execFileSync('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-C', root, ...args], { encoding: 'utf8' }).trim();
+    const before = { head: git('rev-parse', 'HEAD'), status: git('status', '--porcelain=v1'),
+      ...(expectedPath ? { bytes: readFileSync(root + '/' + expectedPath, 'utf8') } : {}) };
+    if (action === 'edit') writeFileSync(${JSON.stringify(fragmentOriginalPath)}, 'SYNTHETIC_REPLACED_ORIGINAL\\n');
+    if (action === 'delete') unlinkSync(${JSON.stringify(fragmentOriginalPath)});
+    if (action === 'revoked') {
+      const file = ${JSON.stringify(path.join(canghaiRoot, "50_PersonalAgent/stella/personal-access.json"))};
+      const value = JSON.parse(readFileSync(file, 'utf8')); value.requesterIds = ['revoked']; writeFileSync(file, JSON.stringify(value));
+    }
+    if (action === 'generation') {
+      const file = ${JSON.stringify(path.join(canghaiRoot, "30_PersonalData/memory/catalog.json"))};
+      const value = JSON.parse(readFileSync(file, 'utf8')); value.generationId = 'synthetic-next-generation'; writeFileSync(file, JSON.stringify(value));
+    }
+    if (action === 'policy') {
+      const file = root + '/' + expectedPath; const value = JSON.parse(readFileSync(file, 'utf8'));
+      value.readPurposes = []; value.derivePurposes = []; writeFileSync(file, JSON.stringify(value));
+    }
+    if (action === 'oldindex') {
+      const { DatabaseSync } = await import('node:sqlite');
+      const db = new DatabaseSync(${JSON.stringify(path.join(state, "agents/probe/agent/openclaw-agent.sqlite"))});
+      try { const row = db.prepare("SELECT value FROM memory_index_meta WHERE key = 'memory_index_meta_v1'").get();
+        const value = JSON.parse(row.value); value.providerKey = '0'.repeat(64);
+        db.prepare("UPDATE memory_index_meta SET value = ? WHERE key = 'memory_index_meta_v1'").run(JSON.stringify(value));
+      } finally { db.close(); }
+    }
+    writeFileSync(${JSON.stringify(path.join(temp, "gemini-invalidation.json"))}, JSON.stringify({ action, afterAuthorizedFragmentRead: true, expectedPath, before,
+      after: { head: git('rev-parse', 'HEAD'), status: git('status', '--porcelain=v1'),
+        ...(expectedPath ? { bytes: existsSync(root + '/' + expectedPath) ? readFileSync(root + '/' + expectedPath, 'utf8') : null } : {}) } }));
+  });
   if (${Boolean(ingressField && ingressField !== "bootstrap")}) api.on('before_prompt_build', () => {
     appendFileSync(${JSON.stringify(path.join(temp, "ingress-hook.jsonl"))}, JSON.stringify({ entry: ${JSON.stringify(ingressField)} }) + '\\n');
     return { [${JSON.stringify(ingressField)}]: 'SYNTHETIC_UNBOUND_HOST_MEMORY' };
@@ -713,12 +791,12 @@ export default { ...main, register(api) {
       if (${preparationCancellationProbe}) return api.runtime.llm.complete(params);
       if (${fragmentProbe || nativeFragmentFixture} && params.purpose === 'stella-source-access') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : probeModelId)}, text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef,
           policyRef: value.policyRef, segment: value.segment, applicable: true, scenarios: ['synthetic'], topicRequested: true, topicExplicitlyNamed: true }) };
       }
       if (${correctionProbe} && params.purpose === 'stella-source-output') {
         const value = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : 'probe')}, text: JSON.stringify({ requestHash: value.requestHash,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : probeModelId)}, text: JSON.stringify({ requestHash: value.requestHash,
           draftHash: value.draftHash, sourcesHash: value.sourcesHash, compliant: ${!outputRejectionProbe}, violations: ${JSON.stringify(outputRejectionProbe ? ["quotation_not_authorized"] : [])} }) };
       }
       if (${correctionProbe} && ['stella-correction', 'stella-personal-views'].includes(params.purpose)) {
@@ -736,7 +814,7 @@ export default { ...main, register(api) {
             supportRefs: value.ownerEvidence.map(e => e.ref), counterRefs: [], dependencyRefs: [] } }] };
           if (${historyViewProbe} && existsSync(${JSON.stringify(path.join(temp, "published-history-view.json"))})) result.replacements[0].handle = value.candidates.find(c => c.group === 'understandings')?.handle ?? null;
         }
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : 'probe')}, text: JSON.stringify(result) };
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : probeProvider)}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : probeModelId)}, text: JSON.stringify(result) };
       }
       if (${historyViewProbe || outcomeHistoryProbe} && params.purpose === 'stella-history-rebuild') {
         appendFileSync(${JSON.stringify(path.join(temp, "history-rebuild-prompts.jsonl"))}, JSON.stringify(params.messages) + '\\n');
@@ -747,10 +825,10 @@ export default { ...main, register(api) {
         return { provider: ${JSON.stringify(probeProvider)}, model: 'probe', text: JSON.stringify({ summary: ${JSON.stringify(sourceDeletionProbe ? 'SYNTHETIC_POST_DELETE_CURRENT' : outcomeHistoryProbe ? 'SYNTHETIC_OUTCOME_CURRENT' : 'SYNTHETIC_NEW_PREMISE')} }) };
       }
 
-      if (params.purpose === 'stella-core-open-episode-selection') return { provider: ${JSON.stringify(guardedProvider ? probeProvider : 'synthetic')}, model: ${JSON.stringify(guardedProvider ? 'probe' : 'injected')}, text: JSON.stringify({ openEpisodeRef: ${JSON.stringify(adviceRevisionProbe ? outcomeSeed.episodeRef : null)} }) };
+      if (params.purpose === 'stella-core-open-episode-selection') return { provider: ${JSON.stringify(guardedProvider ? probeProvider : 'synthetic')}, model: ${JSON.stringify(guardedProvider ? probeModelId : 'injected')}, text: JSON.stringify({ openEpisodeRef: ${JSON.stringify(adviceRevisionProbe ? outcomeSeed.episodeRef : null)} }) };
       if (params.purpose === 'stella-question-evidence') {
         const input = JSON.parse(params.messages[0].content.split('\\n').at(-1));
-        return { provider: ${JSON.stringify(liveFragment ? 'google' : correctionProbe ? probeProvider : 'synthetic')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : correctionProbe ? 'probe' : 'injected')}, text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
+        return { provider: ${JSON.stringify(liveFragment ? 'google' : correctionProbe ? probeProvider : 'synthetic')}, model: ${JSON.stringify(liveFragment ? 'gemini-3.8-flash' : correctionProbe ? probeModelId : 'injected')}, text: JSON.stringify({ status: input.provisionalRoute.evidenceStatus,
           claims: [], unresolvedLeads: input.provisionalRoute.materialUnknowns.map((question) => ({ question, material: true, reason: 'Synthetic unknown' })),
           stoppingReason: 'Synthetic configured source scope', suggestedResponseKind: input.provisionalRoute.responseKind }) };
       }
@@ -770,7 +848,7 @@ export default { ...main, register(api) {
           predictionAssessment: 'unresolved', learning: seed.learning });
         throw new Error('Unexpected synthetic completion phase');
       }
-      return { provider: ${JSON.stringify(liveFragment ? "google" : correctionProbe ? probeProvider : "synthetic")}, model: ${JSON.stringify(liveFragment ? "gemini-3.8-flash" : correctionProbe ? "probe" : "injected")}, text: JSON.stringify(${JSON.stringify(managed && !questionProbe && !correctionProbe ? {
+      return { provider: ${JSON.stringify(liveFragment ? "google" : correctionProbe ? probeProvider : "synthetic")}, model: ${JSON.stringify(liveFragment ? "gemini-3.8-flash" : correctionProbe ? probeModelId : "injected")}, text: JSON.stringify(${JSON.stringify(managed && !questionProbe && !correctionProbe ? {
       mode: "praxis", responseKind: "action_advice", evidenceStatus: "sufficient", materialUnknowns: [], domains: ["social"], stakes: "low", reversibility: "high",
       needsTwin: true, needsFramework: true, needsReality: true, needsExternalResearch: false, candidateTwinRefs: [], candidateFrameworks: [], candidatePraxisRefs: [],
       situation: { actors: ["self"], observations: ["Synthetic question"], interpretations: [], unknowns: [], userGoals: ["Choose a reversible step"], constraints: [] },
@@ -799,6 +877,31 @@ let nativeSummaryConsumed = false;
 const embeddingRequests = [];
 const provider = queryServer ?? createServer();
 provider.on("request", async (request, response) => {
+  if (nativeFamily === 'gemini' && request.url === '/v1beta/models/gemini-embedding-001:embedContent') {
+    const chunks = []; for await (const chunk of request) chunks.push(chunk);
+    const input = JSON.parse(Buffer.concat(chunks));
+    assert.equal(nativeQueryControl, true);
+    assert.deepEqual(input, { content: { parts: [{ text: 'Synthetic source audience acceptance' }] }, taskType: 'RETRIEVAL_QUERY' });
+    embeddingRequests.push({ ...input, observedAt: Date.now() });
+    await writeFile(path.join(temp, 'native-gemini-query.json'), JSON.stringify(input));
+    response.setHeader('content-type','application/json'); response.end(JSON.stringify({ embedding: { values:
+      Array.from({ length:3072 }, (_,i) => i === 0 ? 1 : 0) } })); return;
+  }
+  if (nativeFamily === "gemini" && request.url?.includes(':batchEmbedContents')) {
+    const chunks = []; for await (const chunk of request) chunks.push(chunk);
+    const input = JSON.parse(Buffer.concat(chunks));
+    assert.equal(request.url, '/v1beta/models/gemini-embedding-001:batchEmbedContents');
+    assert.ok(input.requests.length > 0);
+    for (const value of input.requests) {
+      assert.equal(value.model, 'models/gemini-embedding-001'); assert.equal(value.taskType, 'RETRIEVAL_DOCUMENT');
+      assert.equal(value.content.parts.length, 1); assert.equal(typeof value.content.parts[0].text, 'string');
+      assert.ok(value.content.parts[0].text.length <= 16000, 'Only bounded synthetic workspace documents may be indexed');
+    }
+    embeddingRequests.push({ ...input, observedAt: Date.now() });
+    await writeFile(path.join(temp, `embedding-${embeddingRequests.length}.json`), JSON.stringify(input));
+    response.setHeader('content-type', 'application/json');
+    response.end(JSON.stringify({ embeddings: input.requests.map(() => ({ values: Array.from({ length: 3072 }, (_, i) => i === 0 ? 1 : 0) })) })); return;
+  }
   if (nativeCase && request.url?.endsWith('/embeddings')) {
     const chunks = []; for await (const chunk of request) chunks.push(chunk);
     const input = JSON.parse(Buffer.concat(chunks)); embeddingRequests.push({ ...input, observedAt: Date.now() });
@@ -818,7 +921,24 @@ provider.on("request", async (request, response) => {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
   const requestBody = Buffer.concat(chunks).toString('utf8');
-  const parsedRequest = JSON.parse(requestBody);
+  const wireRequest = JSON.parse(requestBody);
+  let parsedRequest = wireRequest;
+  if (googleAgent) {
+    assert.ok(request.url.startsWith('/v1beta/models/gemini-3.8-flash:streamGenerateContent'));
+    await writeFile(path.join(temp, `google-provider-${providerRequests}.json`), requestBody);
+    const messages = [];
+    for (const item of wireRequest.contents ?? []) for (const part of item.parts ?? []) {
+      if (part.functionResponse) messages.push({ role: 'tool', content: part.functionResponse.response.output ?? part.functionResponse.response.error });
+      else if (typeof part.text === 'string') messages.push({ role: item.role === 'model' ? 'assistant' : 'user', content: part.text });
+    }
+    parsedRequest = { messages };
+  }
+  const googleResponse = parts => {
+    const value = { responseId: `synthetic-google-${providerRequests}`, modelVersion: probeModelId,
+      candidates: [{ index: 0, content: { role: 'model', parts }, finishReason: 'STOP' }],
+      usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 } };
+    response.setHeader('content-type', 'text/event-stream'); response.end(`data: ${JSON.stringify(value)}\n\n`);
+  };
   if (consolidationProbe && parsedRequest.messages?.length === 1 && typeof parsedRequest.messages[0].content === "string" &&
       ["Consolidate the explicitly selected retained evidence", "Independently verify this proposed consolidation"].some(prefix => parsedRequest.messages[0].content.startsWith(prefix))) {
     const prompt = parsedRequest.messages[0].content, data = JSON.parse(prompt.split("\n").at(-1));
@@ -883,6 +1003,7 @@ provider.on("request", async (request, response) => {
     const steps = [["stella_read_fragment", { action: "list" }], ["stella_read_fragment", { action: "read", handle: "F1" }]];
     if (providerRequests <= steps.length) {
       const [name, args] = steps[providerRequests - 1];
+      if (googleAgent) { googleResponse([{ functionCall: { id: `audience-${providerRequests}`, name, args }, thoughtSignature: 'c3ludGhldGlj' }]); return; }
       response.end(JSON.stringify({ id: "audience-tool", object: "chat.completion", created: 1, model: "probe",
         choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: `audience-${providerRequests}`, type: "function",
           function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: "tool_calls" }],
@@ -989,23 +1110,33 @@ provider.on("request", async (request, response) => {
       usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
     return;
   }
+  if (googleAgent) { googleResponse([{ text: 'SYNTHETIC_MAIN_ANSWER' }]); return; }
   response.end(JSON.stringify({ id: "synthetic-main", object: "chat.completion", created: 1, model: "probe",
     choices: [{ index: 0, message: { role: "assistant", content: "SYNTHETIC_MAIN_ANSWER" }, finish_reason: "stop" }],
     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
 });
 if (!queryServer) await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
 const configPath = path.join(state, "openclaw.json");
+let mainMemorySnapshot;
+if (nativeFamily === "gemini") {
+  assert.ok(process.env.STELLA_MAIN_MEMORY_CONFIG, "A filtered nonsecret main configuration snapshot is required");
+  mainMemorySnapshot = JSON.parse(await readFile(process.env.STELLA_MAIN_MEMORY_CONFIG));
+  assert.deepEqual(Object.keys(mainMemorySnapshot.memorySearch).sort(), ["model", "provider"]);
+  assert.equal(mainMemorySnapshot.memorySearch.provider, "gemini");
+  assert.equal(mainMemorySnapshot.memorySearch.model, "gemini-embedding-001");
+}
 await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
-  ...(nativeCase ? { memory: { search: { enabled: true, provider: ["cache", "query"].includes(nativeFamily) ? "openai" : "none", fallback: "none",
-    model: "text-embedding-3-small", remote: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", batch: { enabled: false } },
-    sources: ["memory"], cache: { enabled: true }, store: { vector: { enabled: ["cache", "query"].includes(nativeFamily) }, fts: { tokenizer: "unicode61" } },
+  ...(nativeCase ? { memory: { search: { enabled: true, provider: nativeFamily === "gemini" ? mainMemorySnapshot.memorySearch.provider : ["cache", "query"].includes(nativeFamily) ? "openai" : "none", fallback: "none",
+    model: nativeFamily === "gemini" ? mainMemorySnapshot.memorySearch.model : "text-embedding-3-small", remote: { baseUrl: `http://127.0.0.1:${provider.address().port}/${nativeFamily === "gemini" ? "v1beta" : "v1"}`, apiKey: "synthetic-local-only", batch: { enabled: false } },
+    sources: ["memory"], cache: { enabled: true }, store: { vector: { enabled: ["cache", "query", "gemini"].includes(nativeFamily) }, fts: { tokenizer: "unicode61" } },
     sync: { onSessionStart: false, onSearch: false, watch: false }, query: { minScore: 0 } } },
-    hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } } : {}),
-  agents: { defaults: { model: { primary: probeModel }, ...(liveFragment ? { thinkingDefault: "low" } : {}), ...(standaloneCompactProbe ? { compaction: { model: "synthetic-compaction/probe" } } : {}), ...(guardedPayload ? { models: {
+    ...(nativeFamily === "gemini" ? {} : { hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } }) } : {}),
+  agents: { defaults: { model: { primary: probeModel }, ...(liveFragment || googleAgent ? { thinkingDefault: "low" } : {}), ...(standaloneCompactProbe ? { compaction: { model: "synthetic-compaction/probe" } } : {}), ...(guardedPayload ? { models: {
     [probeModel]: { params: { extra_body: { messages: [{ role: "user", content: "SYNTHETIC_UNBOUND_OLD_UNDERSTANDING" }] } } },
   } } : {}) }, entries: { probe: { workspace } } },
-  models: { providers: { ...(standaloneCompactProbe ? { "synthetic-compaction": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", api: "openai-completions", models: [{ id: "probe", name: "synthetic compaction", contextWindow: 262144, maxTokens: 256 }] } } : {}), ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.8-flash", name: "Gemini 3.8 Flash acceptance", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only",
-    api: "openai-completions", models: [{ id: "probe", name: "probe", contextWindow: managedContextProbe ? 262144 : 32768, maxTokens: 256 }] } } },
+  models: { providers: { ...(standaloneCompactProbe ? { "synthetic-compaction": { baseUrl: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic-local-only", api: "openai-completions", models: [{ id: "probe", name: "synthetic compaction", contextWindow: 262144, maxTokens: 256 }] } } : {}), ...(liveFragment ? { google: { ...liveProvider, models: [{ id: "gemini-3.8-flash", name: "Gemini 3.8 Flash acceptance", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } : {}), [probeProvider]: { baseUrl: `http://127.0.0.1:${provider.address().port}${googleAgent ? "" : "/v1"}`, apiKey: "synthetic-local-only",
+    api: googleAgent ? "google-generative-ai" : "openai-completions", models: [{ id: probeModelId, name: probeModelId,
+      ...(googleAgent ? { reasoning: true } : {}), contextWindow: managedContextProbe ? 262144 : 32768, maxTokens: googleAgent ? 8192 : 256 }] } } },
   plugins: { ...(managedContextProbe ? { slots: { contextEngine: "stella-core" } } : {}), allow: ["stella-core", ...(guardedDreaming || nativeCase ? ["memory-core"] : []), ...(nativeFamily === "wiki" ? ["memory-wiki"] : []), ...(guardedActive ? ["active-memory"] : []), ...(liveFragment ? ["google"] : [])], load: { paths: [plugin] }, entries: { ...(guardedDreaming ? { "memory-core": { enabled: true, config: { dreaming: {
     enabled: true, frequency: "0 0 * * *", model: probeModel,
     phases: { light: { enabled: true, limit: 3, lookbackDays: 7, execution: { model: probeModel } }, rem: { enabled: false },
@@ -1131,7 +1262,7 @@ try {
         if (!["pending", "timeout"].includes(terminal.status) || terminal.endedAt != null) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);
-      const denied = !audienceAllowed || audienceScenario === "revoked" || Boolean(nativeCase && nativeState !== "success");
+      const denied = !audienceAllowed || audienceScenario === "revoked" || Boolean(nativeCase && !nativeSuccess);
       assert.equal(terminal.status, denied ? "error" : "ok", JSON.stringify(terminal));
       const dispatch = (await readFile(path.join(temp, "audience-dispatch.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
       assert.equal(dispatch.length, 1);
@@ -1153,7 +1284,7 @@ try {
         assert.equal(status.category, expectedCategory, JSON.stringify(status));
         initializationBlocker = status.category;
       } else if (denied && !nativeCase) assert.ok(gateway.diagnostics().includes(expectedCategory), gateway.diagnostics());
-      assert.equal(providerRequests, nativeCase ? nativeState === "success" ? 3 : 2 : audienceScenario === "owner" ? 3 : audienceScenario === "revoked" ? 2 : 0);
+      assert.equal(providerRequests, nativeCase ? nativeSuccess ? 3 : nativeFamily === "gemini" && ["missing", "mismatch"].includes(nativeState) ? 0 : 2 : audienceScenario === "owner" ? 3 : audienceScenario === "revoked" ? 2 : 0);
       if (audienceScenario && !audienceAllowed) {
         assert.equal(semantic.length, 0, "Rejected audiences/requesters must be stopped before semantic disclosure");
         assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), before);
@@ -1182,11 +1313,11 @@ try {
       if (nativeCase) {
         const backend = nativeFamily === "wiki" ? [] : (await readFile(path.join(temp, "native-backend.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
         const readLog = await readFile(path.join(temp, "native-consumed.jsonl"), "utf8").catch(error => {
-          if (nativeState === "missing" && error.code === "ENOENT") return "";
+          if ((nativeState === "missing" || nativeFamily === "gemini") && error.code === "ENOENT") return "";
           throw error;
         });
         const reads = readLog.trim() ? readLog.trim().split("\n").map(JSON.parse) : [];
-        assert.ok(nativeFamily === "query" ? reads.length >= 1 : reads.length === (nativeState === "missing" ? 0 : 1),
+        assert.ok(nativeFamily === "gemini" ? reads.length === 0 : nativeFamily === "query" ? reads.length >= 1 : reads.length === (nativeState === "missing" ? 0 : 1),
           "Only an available authorized index permits the actual native read");
         const nativeConsumerEmbeddingRequests = embeddingRequests.length - embeddingRequestsBeforeConsumption;
         assert.equal(nativeConsumerEmbeddingRequests, nativeFamily === "query" ? 1 : 0, "Only the explicitly granted original query may be embedded");
@@ -1195,23 +1326,64 @@ try {
           assert.equal(queryRequests[0].model, "text-embedding-3-small");
           assert.deepEqual(queryRequests[0].input, ["Synthetic source audience acceptance"]);
         }
-        const toolResults = (await readFile(path.join(temp, "native-tool-results.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+        const toolLog = await readFile(path.join(temp, "native-tool-results.jsonl"), "utf8").catch(error => {
+          if (nativeFamily === 'gemini' && ['missing','mismatch'].includes(nativeState) && error.code === 'ENOENT') return '';
+          throw error;
+        });
+        const toolResults = toolLog.trim() ? toolLog.trim().split("\n").map(JSON.parse) : [];
         if (nativeState === "index") {
-          assert.ok(gateway.diagnostics().includes("native_query_embedding_consumption_changed"), gateway.diagnostics());
+          assert.ok(gateway.diagnostics().includes(nativeFamily === "gemini" ? "native_memory_consumption_changed" : "native_query_embedding_consumption_changed"), gateway.diagnostics());
           assert.deepEqual(JSON.parse(await readFile(path.join(temp, "native-query-index-invalidated.json"))), { afterNativeRead: true });
         }
         const mismatchCategory = nativeFamily === "wiki" ? "native_memory_read_unverifiable" : "native_memory_payload_changed";
-        if (nativeState === "missing") assert.ok(toolResults.some(row => row.error?.includes("native_memory_index_unavailable")),
+        if (nativeState === "missing") assert.ok(nativeFamily === "gemini" ? gateway.diagnostics().includes("native_memory_index_unavailable") : toolResults.some(row => row.error?.includes("native_memory_index_unavailable")),
           "An absent native index must fail explicitly without bootstrapping or reading the retained copy");
         if (nativeState === "mismatch") {
-          assert.ok(toolResults.some(row => row.error?.includes(mismatchCategory)),
+          assert.ok(nativeFamily === "gemini" ? gateway.diagnostics().includes(mismatchCategory) : toolResults.some(row => row.error?.includes(mismatchCategory)),
             "The actual native tool must explicitly reject changed bytes or their invalidated compiled claim");
           if (nativeFamily === "wiki") assert.equal(reads[0].result, null,
             "Changing the native page must invalidate the compiled claim lookup, without a page-path fallback");
         }
         if (nativeState === "stale") assert.deepEqual(JSON.parse(await readFile(path.join(temp, "native-source-stale.json"))),
           { afterNativeRead: true, nativeArtifactRetained: true });
-        if (nativeFamily === "cache") {
+        if (nativeFamily === "gemini" && ["edit", "delete", "revoked", "generation", "oldindex", "policy"].includes(nativeState)) {
+          const invalidation = JSON.parse(await readFile(path.join(temp, "gemini-invalidation.json")));
+          assert.equal(invalidation.action, nativeState); assert.equal(invalidation.afterAuthorizedFragmentRead, true);
+          if (["edit", "delete", "generation", "policy"].includes(nativeState)) {
+            assert.equal(invalidation.before.status, ""); assert.equal(invalidation.after.head, invalidation.before.head);
+            assert.ok(invalidation.after.status.endsWith(invalidation.expectedPath));
+            assert.notEqual(invalidation.after.bytes, invalidation.before.bytes);
+            if (nativeState === 'delete') assert.equal(invalidation.after.bytes, null);
+            if (nativeState === 'edit') assert.equal(invalidation.after.bytes, 'SYNTHETIC_REPLACED_ORIGINAL\n');
+            if (nativeState === 'generation') assert.equal(JSON.parse(invalidation.after.bytes).generationId, 'synthetic-next-generation');
+            if (nativeState === 'policy') assert.deepEqual(JSON.parse(invalidation.after.bytes).readPurposes, []);
+            assert.equal(invalidation.after.status.split('\n').length, 1, 'The injected source is the only changed file');
+            const expectedRevision = invalidation.before.head;
+            const verifierRoot = path.join(temp, 'independent-' + nativeState);
+            await run('git', ['clone','--quiet','--shared','--no-checkout', canghaiRoot, verifierRoot]);
+            await run('git', ['-C',verifierRoot,'checkout','--quiet','--detach', expectedRevision]);
+            const { loadConsciousness } = await import(buildModule('src/canghai/manifest.js'));
+            const { CatalogReader } = await import(buildModule('src/canghai/catalog-reader.js'));
+            const options = { recoveryRevision: expectedRevision,
+              coreVersion: (await import(buildModule('src/plugin.js'))).STELLA_CORE_COMPATIBILITY_VERSION,
+              openclawVersion: host.version, dataMode: 'managed_durable_write' };
+            await loadConsciousness(verifierRoot, undefined, options);
+            const pinned = await CatalogReader.load(verifierRoot, '30_PersonalData/memory/catalog.json');
+            const target = path.join(verifierRoot, invalidation.expectedPath);
+            if (invalidation.after.bytes === null) await rm(target);
+            else await writeFile(target, invalidation.after.bytes);
+            await assert.rejects(loadConsciousness(verifierRoot, undefined, options), error =>
+              error.category === 'stella_recovery_revision_invalid' && error.message === `CangHai checkout must be clean at configured recovery revision ${expectedRevision}`);
+            if (nativeState === 'generation') {
+              await assert.rejects(pinned.assertCurrent(), error => error.category === 'stale_generation');
+              assert.ok(['stella_recovery_revision_invalid','stale_generation'].some(category => gateway.diagnostics().includes(category)), gateway.diagnostics());
+            } else assert.ok(gateway.diagnostics().includes('stella_recovery_revision_invalid'), gateway.diagnostics());
+            await writeFile(path.join(temp,'independent-invalidation-proof.json'), JSON.stringify({ cleanAccepted: true,
+              changedFileOnly: invalidation.expectedPath, recoveryCategory: 'stella_recovery_revision_invalid',
+              ...(nativeState === 'generation' ? { generationCategory: 'stale_generation' } : {}) }));
+          } else assert.ok(gateway.diagnostics().includes(nativeState === 'revoked' ? 'personal_context_access_changed' : 'native_memory_'), gateway.diagnostics());
+        }
+        if (["cache", "gemini"].includes(nativeFamily)) {
           assert.ok(nativePreparation.cold.cache.entries > 0 && nativePreparation.warm.cache.entries > 0);
           assert.ok(embeddingRequests.length > 0);
           const cold = backend.find(row => row.operation === "cold-sync"), warm = backend.find(row => row.operation === "warm-sync");
@@ -1219,18 +1391,47 @@ try {
           assert.equal(embeddingRequests.filter(row => row.observedAt > cold.observedAt && row.observedAt <= warm.observedAt).length, 0,
             "Forced native reindex must reuse embeddings without requesting fresh chunk embeddings");
         }
+        if (nativeFamily === 'gemini') {
+          for (let i = 1; i <= providerRequests; i++) {
+            const raw = JSON.parse(await readFile(path.join(temp, `${googleAgent ? 'google' : 'synthetic'}-provider-${i}.json`)));
+            const value = JSON.stringify(raw);
+            if (i <= 2) assert.equal(value.includes(nativeSource.text.trim()), true,
+              'The initial admitted evidence bundle also contains native originals and must be covered by native validation');
+          }
+          if (nativeState === 'rebuilt') {
+            const rebuilt = nativePreparation.rebuild; assert.equal(rebuilt.generationId, 'synthetic-rebuilt-generation');
+            assert.ok(rebuilt.before.every(row => !row.text.includes('GEMINI_REBUILT')));
+            assert.ok(rebuilt.after.some(row => row.text.includes('GEMINI_REBUILT')));
+            assert.notDeepEqual(rebuilt.before, rebuilt.after);
+          }
+        }
+        if (nativeQueryControl) {
+          assert.ok(nativePreparation.nativeQuery.some(hit => hit.path === nativeSource.nativePath));
+          assert.ok((await readFile(path.join(temp,'native-gemini-query.json'),'utf8')).includes('RETRIEVAL_QUERY'));
+        }
         Object.assign(report, { schemaVersion: "stella.native-memory-consumption/v1", nativeFamily, nativeState,
-          producerReport: process.env.STELLA_NATIVE_PRODUCERS_REPORT, nativeSource, nativePreparation, nativeBackend: backend, nativeReads: reads, nativeToolResults: toolResults,
-          nativeReadExecuted: nativeState !== "missing", nativeIndexRemoved: nativeState === "missing",
+          producerReport: nativeFamily === "gemini" ? producerReport : process.env.STELLA_NATIVE_PRODUCERS_REPORT, mainMemorySnapshot, nativeSource, nativePreparation, nativeBackend: backend, nativeReads: reads, nativeToolResults: toolResults,
+          nativeReadExecuted: nativeState !== "missing", packageNativeReadInstrumented: nativeFamily !== "gemini",
+          realApiRequests: 0, privateDataCopied: false, sessionMemoryEnabled: nativeFamily === "gemini" ? false : undefined,
+          configuredVectorProvider: nativeFamily === "gemini" ? "gemini" : undefined,
+          finalTransport: googleAgent ? 'google-generative-ai-loopback' : 'openai-completions-loopback', modelRef: probeModel,
+          nativeGeminiQueryProtocolExecuted: nativeQueryControl, coreGeminiQueryBindingAccepted: false,
+          initialEvidenceBundleNativeValidated: nativeFamily === 'gemini',
+          independentInvalidationProof: nativeFamily === 'gemini' && ['edit','delete','generation','policy'].includes(nativeState)
+            ? JSON.parse(await readFile(path.join(temp,'independent-invalidation-proof.json'))) : undefined,
+          sourceInvalidationProof: nativeFamily === 'gemini' && ['edit','delete','generation','policy','revoked','oldindex'].includes(nativeState)
+            ? JSON.parse(await readFile(path.join(temp, 'gemini-invalidation.json'))) : undefined,
+          queryVectorRetrievalAccepted: nativeFamily === "query", nativeIndexRemoved: nativeState === "missing",
           nativeConsumerEmbeddingRequests, embeddingRequestsBeforeConsumption, nativeQueryExact: nativeFamily === "query",
           nativeLookupMode: nativeFamily === "query" ? "authorized-query-readonly-native-vector" : nativeFamily === "wiki" ? "compiled-corpus" : "readonly-exact-fts-index",
-          actualNativeBytesConsumed: nativeState === "success", staleNativeArtifactRetained: nativeState === "stale",
-          changedNativeBytesRejected: nativeState === "mismatch", modelRequestsAfterInvalidation: nativeState === "success" ? undefined : 0,
-          embeddingRequests: embeddingRequests.length, authorizedFragmentConsumed: nativeState === "success",
-          nativeFinalToolOriginalConsumed: nativeState === "success",
+          actualNativeBytesConsumed: nativeSuccess, staleNativeArtifactRetained: nativeState === "stale",
+          changedNativeBytesRejected: nativeState === "mismatch", modelRequestsAfterInvalidation: nativeSuccess ? undefined : 0,
+          modelRequestsAfterNativeToolFailure: nativeSuccess ? undefined : 0,
+          embeddingRequests: embeddingRequests.length, authorizedFragmentConsumed: nativeSuccess,
+          nativeFinalToolOriginalConsumed: nativeSuccess,
           wikiCompiledClaimCacheRequired: nativeFamily === "wiki",
           nativeReadFailure: nativeState === "missing" ? "native_memory_index_unavailable" : nativeState === "mismatch" ? mismatchCategory : undefined,
-          embeddingCacheReuseVerified: nativeFamily === "cache",
+          embeddingCacheReuseVerified: ["cache", "gemini"].includes(nativeFamily),
           diagnostics: gateway.diagnostics() });
       }
       await writeFile(path.join(temp, "host-memory-boundary.json"), JSON.stringify(report, null, 2));
