@@ -1159,6 +1159,37 @@ test("derived archive consumption rechecks upstream payload bytes even when its 
   await assert.rejects(authority.evidence(derived), /payload_digest_mismatch/);
 });
 
+for (const change of ["edit", "delete", "policy"] as const) {
+test(`final history consumption rechecks integrity after late original validation: ${change}`, async t => {
+  const f = await fixture(t);
+  const authority = await f.create();
+  const fragment = await authority.evidence(f.evidence);
+  const sealed = await authority.seal({ system: authority.publicRules(), messages: [{ role: "user", fragment }] });
+  const read = authority.resolver.readEvidence.bind(authority.resolver);
+  let changed = false;
+  authority.resolver.readEvidence = async ref => {
+    const original = await read(ref);
+    if (ref.id === f.evidence.id && !changed) {
+      changed = true;
+      if (change === "edit") await writeFile(path.join(f.root, "current.txt"), "Edited after the earlier integrity check");
+      else if (change === "delete") await rm(path.join(f.root, "current.txt"));
+      else {
+        const evidence = await authority.resolver.reader.read(f.evidence, "evidence");
+        const entry = authority.resolver.reader.entry(evidence.policyRef as VersionedRef);
+        const file = path.join(f.root, entry.locator.path);
+        const policy = JSON.parse(await readFile(file, "utf8"));
+        policy.readPurposes = [];
+        await writeFile(file, canonicalJson(policy));
+      }
+    }
+    return original;
+  };
+  await assert.rejects(authority.assertConsumption(sealed.consumption, sealed.input),
+    change === "edit" ? /payload_digest_mismatch/ : change === "delete" ? /source_unavailable/ : /locator_digest_mismatch/);
+  assert.equal(changed, true);
+});
+}
+
 test("a summary inherits every source dependency and fresh evidence remains consumable after source replacement", async t => {
   const f = await fixture(t);
   const old = await f.create();

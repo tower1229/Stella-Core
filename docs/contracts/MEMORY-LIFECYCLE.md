@@ -313,6 +313,14 @@ Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许�
 
 `--standalone-compact` 要求真实摘要调用、签名视图同步及重启后旧会话的最终模型消费；`--standalone-compact-stale` 在摘要模型收到输入后物理删除原件，要求零视图发布和零代际提交；`--standalone-compact-grant-denied` 要求缺少显式授权时零摘要模型请求。`--standalone-compact-persist-failure` 要求远端同步失败时保留事务屏障，未同步视图不可被后续读取。失败启动留下的 Host 隔离未恢复时，不得凭旧初始化收据报告 ready；来源与已安装内容完整复核通过后，才按既有隔离日志恢复原配置，退役注册不能继续修改 Host 隔离。`scripts/verify-host-memory.mjs` 将当前源清单、同一包摘要、原版 Host 前后清单及限定入口矩阵收敛到一份收据，单独记录未提交候选版本；不替代要求干净源码的 package 验收。Dreaming 关闭且不执行，完整 `full_memory` 阻塞继续保留，合成模型结果不等于真实模型或私人主链验收。
 
+#### 2026-10-20 历史最终消费的原件末次复核
+
+签名会话恢复、摘要及原生召回仍继承原件和策略依赖。较早一次原件回读完成后，归档签名和原生消费检查还可能异步等待；目录代际未变不能证明这些等待期间原件未被修改、删除或撤销策略。最终消费验证在这些检查之后，再读取完整依赖对象并核对每个已授权原件的 payload 字节，不重新发起语义判断、不从 Host 观察文本生成来源许可。
+
+`probe-managed-host-context.mjs` 的 `STELLA_CONTEXT_LATE_SOURCE_CHANGE=edit|delete|policy` 在第一轮已签名归档并完成本地同步、第二轮恢复签名历史后，于原件检查返回和最终完整性复核之间注入变化。验收要求第一轮正常消费，第二轮旧历史零 transport、零回答投递、零新历史发布；正常两轮路径继续恢复和消费旧会话。这里的 remote 仅是临时本地 bare Git fixture，模型仅为 loopback 合成响应；它不证明真实模型或私人 main 通过。
+
+入口盘点必须区分配置启用、宿主默认可达、显式关闭及潜在未核实。memory-core 或 compaction 配置存在，不证明某次模型已消费；未声明的 session-memory 钩子、provider prompt cache 和其他加载器也不能凭缺省字段认定关闭。原生 Dreaming、Active Memory 的显式关闭不得被报告为执行成功。上述补强不是文件系统原子锁或完整入口认证，`host_memory_consumption_unverifiable` 继续保留。
+
 #### 2026-10-13 原生索引与记忆插件消费接缝
 
 原生定位 `stella.native-memory-origin/v1` 保存在已留存 Source 内，参与不可变版本计算，限定 provider、Host `2026.8.2`、agent、相对路径和最多 120 行的精确范围。Core 的 LLM 完成来源语义选择后，片段工具才访问原生索引；原生排序不能授予访问权或扩展本轮证据集合。`memory-core` 使用公开 SDK 固定存储 schema，以 SQLite 只读连接定位确切 FTS 行，同时核对 canonical chunk、来源 hash、provenance 和已准入原文范围；公开 status manager 验证已有索引身份及可用状态，公开 `authorizeSearchHits` 按当前会话核对宿主权限，再由原生 manager 回读文件；内置 `session-memory` 另要求显式启用钩子。Wiki 使用公开 corpus supplement 传递当前 agent 和 session，不依赖仅供官方插件使用的 Gateway 转发权限。

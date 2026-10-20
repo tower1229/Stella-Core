@@ -555,6 +555,22 @@ export class HostContextAuthority {
       await readContextHistory(archive, this.resolver.reader.root, this.resolver.reader);
     }
     for (const revalidate of new Set(records.flatMap(record => record.consumptionChecks ?? []))) await revalidate();
+    // Archive/native revalidation may await after the earlier original read.
+    // Recheck exact repository bytes after those callbacks, without performing
+    // another semantic authorization or treating the catalog hash as a payload
+    // freshness proof. This includes originals inherited by restored history.
+    const finalPayloads = new Map(payloads.map(payload => [canonicalJson(payload), payload]));
+    for (const { ref, digest } of dependencies.values()) {
+      const object = await this.resolver.reader.read(ref);
+      check(jsonDigest(object) === digest, "host_context_dependency_changed");
+      if (originals.has(refKey(ref))) {
+        check(object.schemaVersion === "stella.memory-evidence/v1" && validMemoryRef(object.source) &&
+          typeof object.payloadSha256 === "string", "host_context_payload_dependency_missing");
+        const payload = { source: object.source, sha256: object.payloadSha256 };
+        finalPayloads.set(canonicalJson(payload), payload);
+      }
+    }
+    for (const payload of finalPayloads.values()) await this.resolver.reader.readPayload(payload.source, payload.sha256);
     for (const entry of configurationInputs) {
       check(await configurationInputDigest(this.resolver.reader.root, entry.path) === entry.sha256,
         "host_context_configuration_input_changed");

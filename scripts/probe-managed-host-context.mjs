@@ -51,6 +51,9 @@ const keyScope = { stateDirectory: state, repositoryRoot: catalog.root, agentId:
 const keys = await initializeContextHistoryKeys(keyScope);
 const failPersistence = process.env.STELLA_CONTEXT_FAIL_PERSISTENCE === "1";
 const nativeControl = process.env.STELLA_CONTEXT_NATIVE_CONTROL === "1";
+const lateSourceChange = process.env.STELLA_CONTEXT_LATE_SOURCE_CHANGE;
+assert.ok(lateSourceChange === undefined || ["edit", "delete", "policy"].includes(lateSourceChange));
+assert.ok(!lateSourceChange || !nativeControl && !failPersistence, "Late integrity cases require the managed successful first-turn path");
 const source = await realpath(await createFixture());
 const recipe = await prepareInitializationFixture(source, "probe");
 const nativeDirectory = process.env.STELLA_NATIVE_ACTIVE_EVIDENCE;
@@ -97,7 +100,7 @@ await writeFile(path.join(plugin, "openclaw.plugin.json"), JSON.stringify({ id: 
   activation: { onStartup: true, onAgentHarnesses: ["openclaw"] }, configSchema: { type: "object", additionalProperties: false } }));
 await writeFile(path.join(plugin, "index.mjs"), `
 import { appendFileSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, unlink } from 'node:fs/promises';
 import { CatalogReader } from ${JSON.stringify(moduleUrl("canghai/catalog-reader.js"))};
 import { GitCangHaiDurability } from ${JSON.stringify(moduleUrl("canghai/durability.js"))};
 import { loadContextHistoryHead, publishContextHistoryHead } from ${JSON.stringify(moduleUrl("openclaw/host-context-head.js"))};
@@ -107,7 +110,7 @@ import { HostContextAuthority } from ${JSON.stringify(moduleUrl("openclaw/host-c
 import { ManagedHostContextEngine, registerManagedHostContextEngine, STELLA_CONTEXT_ENGINE } from ${JSON.stringify(moduleUrl("openclaw/host-context-engine.js"))};
 import { createHostContextTurnStore } from ${JSON.stringify(moduleUrl("openclaw/host-context-turn-store.js"))};
 import { loadContextHistoryKeys } from ${JSON.stringify(moduleUrl("openclaw/host-context-keys.js"))};
-import { loadContextHistory, persistContextHistory } from ${JSON.stringify(moduleUrl("openclaw/host-context-history.js"))};
+import { loadContextHistory, readContextHistory, persistContextHistory } from ${JSON.stringify(moduleUrl("openclaw/host-context-history.js"))};
 import { prepareHostRequestArchive } from ${JSON.stringify(moduleUrl("canghai/host-request-archive.js"))};
 import { persistHostInputArchive } from ${JSON.stringify(moduleUrl("canghai/archive-writer.js"))};
 import { compileInitializationSource } from ${JSON.stringify(moduleUrl("openclaw/initialization-source.js"))};
@@ -136,7 +139,9 @@ export default { id: 'stella-core', register(api) {
   },{targetAgentId:'probe'});
   registerHostMemoryProvider(api, 'probe', async (request, modelRef, input) => {
     record({kind:'consumption',runId:request.runId,modelRef,input});
-    const engine = prepared(request.runId)?.engine;
+    const value = prepared(request.runId);
+    value?.armLateIntegrityChange?.();
+    const engine = value?.engine;
     if (!engine) throw new Error('probe_context_not_prepared');
     try { await engine.assertConsumption(input); }
     catch(error) { record({kind:'consumption_rejected',runId:request.runId,category:error.category}); throw error; }
@@ -173,6 +178,34 @@ export default { id: 'stella-core', register(api) {
       history.push(await authority.restoreHistory(previous.archive));
       record({kind:'history_restored',runId:request.runId,digest:previous.archive.digest});
     }
+    let lateValidationArmed = false, lateChanged = false;
+    if (${JSON.stringify(Boolean(lateSourceChange))} && previous) {
+      const stored = await readContextHistory(previous.archive, ${JSON.stringify(catalog.root)});
+      const target = stored.originals[0]?.ref;
+      if (!target) throw new Error('probe_historical_original_missing');
+      const read = resolver.readEvidence.bind(resolver);
+      resolver.readEvidence = async ref => {
+        const original = await read(ref);
+        if (lateValidationArmed && !lateChanged && ref.id === target.id && ref.version === target.version) {
+          lateChanged = true;
+          const evidence = await reader.read(ref, 'evidence');
+          const source = await reader.read(evidence.source, 'sources');
+          const payload = source.payloads.find(item => item.sha256 === evidence.payloadSha256);
+          if (!payload || payload.revision !== undefined) throw new Error('probe_live_historical_payload_required');
+          const file = ${JSON.stringify(catalog.root)} + '/' + payload.path;
+          if (${JSON.stringify(lateSourceChange)} === 'delete') await unlink(file);
+          if (${JSON.stringify(lateSourceChange)} === 'edit') await writeFile(file, 'SYNTHETIC_CHANGED_HISTORICAL_INPUT');
+          if (${JSON.stringify(lateSourceChange)} === 'policy') {
+            const entry = reader.entry(evidence.policyRef);
+            const file = ${JSON.stringify(catalog.root)} + '/' + entry.locator.path;
+            const policy = JSON.parse(await readFile(file, 'utf8')); policy.readPurposes = [];
+            await writeFile(file, JSON.stringify(policy));
+          }
+          record({kind:'late_history_invalidated',runId:request.runId,change:${JSON.stringify(lateSourceChange)},boundary:'after_original_read_before_final_integrity'});
+        }
+        return original;
+      };
+    }
     const engine = new ManagedHostContextEngine(request, authority, {system:rules,history,hostTimezone:"UTC",
       async archive(messages) {
         const bytes=JSON.stringify(messages);
@@ -183,7 +216,7 @@ export default { id: 'stella-core', register(api) {
       async complete() {throw new Error('Compaction not exercised by this probe');}});
     const assemble=engine.assemble.bind(engine);
     engine.assemble=async params=>{record({kind:'assemble',runId:request.runId,prompt:params.prompt,expected:request.prompt,messages:params.messages});return assemble(params);};
-    recordCompletionPreparation(request.runId,{engine,authority,keys,previous,request,durability,generationId:reader.catalog.generationId,systemPrompt:await authority.systemPrompt(rules)});
+    recordCompletionPreparation(request.runId,{engine,authority,keys,previous,request,durability,armLateIntegrityChange(){lateValidationArmed=true;},generationId:reader.catalog.generationId,systemPrompt:await authority.systemPrompt(rules)});
   };
   api.on('before_prompt_build', async (_event, ctx) => {
     if(ctx.agentId !== 'probe') return;
@@ -259,9 +292,10 @@ try {
     {sessionKey:"agent:probe:main",message:"Synthetic current input",idempotencyKey:"managed-context",timeoutMs:60000});}
   catch(error){failure=error;}
   if(!nativeControl && !failure && !nativePrompt && !failPersistence){
-    result=await runExactHostEvaluationChat({request:(method,params)=>client.request(method,params,{timeoutMs:35000}),
+    try { result=await runExactHostEvaluationChat({request:(method,params)=>client.request(method,params,{timeoutMs:35000}),
       subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener);}},
-      {sessionKey:"agent:probe:main",message:"Continue the synthetic discussion",idempotencyKey:"managed-context-next",timeoutMs:60000});
+      {sessionKey:"agent:probe:main",message:"Continue the synthetic discussion",idempotencyKey:"managed-context-next",timeoutMs:60000}); }
+    catch(error){failure=error;}
   }
   for(const [index,message] of ["Other Agent initial input","Other Agent next input"].entries()){
     const other=await runExactHostEvaluationChat({request:(method,params)=>client.request(method,params,{timeoutMs:35000}),
@@ -298,7 +332,16 @@ try {
   }else{
   const observed=(await readFile(path.join(temp,"events.jsonl"),"utf8")).trim().split("\n").map(line=>JSON.parse(line));
   assert.ok(observed.some(event=>event.kind==="engine_created"));
-  if(nativePrompt){
+  if(lateSourceChange){
+    assert.ok(failure,"Historical source invalidation must block the next turn");
+    assert.equal(providerRequests,1,"Only the first turn may reach transport");
+    assert.equal(observed.filter(event=>event.kind==='history_restored').length,1);
+    assert.equal(observed.filter(event=>event.kind==='late_history_invalidated' && event.runId==='managed-context-next').length,1);
+    const expected=lateSourceChange==='edit'?'payload_digest_mismatch':lateSourceChange==='delete'?'source_unavailable':'locator_digest_mismatch';
+    assert.ok(observed.some(event=>event.kind==='consumption_rejected' && event.runId==='managed-context-next' && event.category===expected));
+    assert.equal(observed.filter(event=>event.kind==='history_persisted').length,1);
+    assert.ok(!events.some(event=>event.event==='chat' && event.payload?.runId==='managed-context-next' && event.payload?.state==='final'));
+  }else if(nativePrompt){
     assert.ok(failure,"Unbound native memory must be rejected");assert.equal(providerRequests,0);
     const containsArtifact = messages => messages.some(message => {
       const text = typeof message.content === "string" ? message.content
@@ -362,7 +405,8 @@ try {
     durableHostTurnCommitted:observed.some(event=>event.kind==='turn_committed'),
     coreHistoryPersisted:observed.some(event=>event.kind==='history_persisted'),
     nextTurnRestored:observed.some(event=>event.kind==='history_restored'),
-    nextTurnHistoryConsumed:!nativePrompt && !failPersistence,
+    nextTurnHistoryConsumed:!nativePrompt && !failPersistence && !lateSourceChange,
+    lateSourceChange,lateSourceInvalidationBlocked:Boolean(lateSourceChange),modelRequestsAfterInvalidation:lateSourceChange?0:undefined,externalModelRequests:0,
     otherAgentHistoryConsumed:true,
     otherAgentCompactionConsumed:true,
     historyPersistenceFailureBlocked:failPersistence && !nativePrompt,
