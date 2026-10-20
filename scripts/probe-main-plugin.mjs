@@ -9,7 +9,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createFixture, initializeFixtureRepository, prepareInitializationFixture } from "../.test-dist/tests/consciousness-fixture.js";
-import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
+import { observeExactHostRunTerminal, startExactHostGateway } from "./lib/exact-host-gateway.mjs";
 
 const run = promisify(execFile);
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -1282,13 +1282,10 @@ try {
     assert.equal(aborted.aborted, true);
   }
   if (!completionLifecycleProbe && !failureProbe && !cancellationProbe && !guardedStale && !guardedPayload) liveFragment ? assert.ok(sent.text.includes("SYNTHETIC_MAIN_ANSWER")) : assert.equal(sent.text, "SYNTHETIC_MAIN_ANSWER");
-  let terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60_000 }, { timeoutMs: 65_000 });
-  if (nativeActiveStale) {
-    const deadline = Date.now() + 600_000;
-    while ((terminal.status === "pending" || terminal.status === "timeout") && terminal.endedAt == null && Date.now() < deadline) {
-      terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 30_000 }, { timeoutMs: 35_000 });
-    }
-  }
+  let terminal = await observeExactHostRunTerminal({ runId: sent.runId,
+    timeoutMs: nativeActiveStale ? 600_000 : 300_000,
+    readTerminal: params => client.request("agent.wait", params, { timeoutMs: 35_000 }),
+  });
   if (completionLifecycleProbe) {
     const deadline = Date.now() + 120_000;
     for (;;) {

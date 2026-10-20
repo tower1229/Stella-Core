@@ -23,6 +23,26 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+export async function observeExactHostRunTerminal(input) {
+  const { runId, readTerminal, timeoutMs = 300_000, intervalMs = 50 } = input;
+  if (typeof runId !== "string" || !runId || typeof readTerminal !== "function" ||
+      !Number.isFinite(timeoutMs) || timeoutMs <= 0 || !Number.isFinite(intervalMs) || intervalMs <= 0) {
+    throw new Error("exact_host_terminal_invalid");
+  }
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error("exact_host_terminal_observation_timeout");
+    const terminal = await readTerminal({ runId, timeoutMs: Math.min(30_000, remaining) });
+    if (!terminal || typeof terminal !== "object" || terminal.runId !== runId || typeof terminal.status !== "string") {
+      throw new Error("exact_host_terminal_invalid");
+    }
+    if ((terminal.status !== "pending" && terminal.status !== "timeout") || terminal.endedAt != null ||
+        !["queue", "gateway_draining"].includes(terminal.timeoutPhase)) return terminal;
+    await delay(Math.max(0, Math.min(intervalMs, deadline - Date.now())));
+  }
+}
+
 export async function inspectExactHostSourceTransition(input) {
   const { beforeRevision, afterRevision, timeoutMs = 180_000, intervalMs = 50 } = input;
   if (![beforeRevision, afterRevision].every(value => typeof value === "string" && /^[a-f0-9]{40}$/.test(value)) ||
