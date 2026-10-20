@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse, stringify } from "yaml";
 import { createFixture, initializeFixtureRepository, prepareInitializationFixture } from "../.test-dist/tests/consciousness-fixture.js";
-import { startExactHostGateway } from "./lib/exact-host-gateway.mjs";
+import { startExactHostGateway, inspectExactHostSourceTransition } from "./lib/exact-host-gateway.mjs";
 import { HOST_MEMORY_ACCEPTANCE_MATRIX, assertHostMemoryAcceptanceReport } from "./lib/host-memory-evidence.mjs";
 
 const scenario = process.argv[2] ?? "success";
@@ -160,6 +160,9 @@ const afterRead = async actual => {
   writeFileSync(${JSON.stringify(path.join(temp, "invalidation.json"))}, JSON.stringify({ scenario: ${JSON.stringify(scenario)}, modelCalls, nativeBodyRetained: existsSync(${JSON.stringify(nativeFile)}) }));
 };
 export default { ...main, register(api) {
+  api.registerGatewayMethod('stella.syntheticSourceRevision', ({ respond }) => {
+    respond(true, { revision: api.runtime.config.current().plugins.entries['stella-core'].config.recoveryRevision });
+  }, { scope: 'operator.admin' });
   api.registerGatewayMethod('stella.syntheticAdvanceSource', async ({ params, respond }) => {
     await api.runtime.config.mutateConfigFile({ afterWrite: { mode: 'auto' }, mutate(draft) {
       draft.plugins.entries['stella-core'].config.recoveryRevision = params.revision;
@@ -376,7 +379,11 @@ try {
       await run("git", ["-C", canghaiRoot, "-c", "user.name=Synthetic", "-c", "user.email=synthetic@example.invalid", "commit", "-qm", "Advance synthetic generation"]);
       const next = (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim();
       await rpc("stella.syntheticAdvanceSource", { revision: next });
-      const status = await rpc("stella.initialize", { action: "status" });
+      // Config-file persistence acknowledges before the Host applies its live
+      // recovery pointer. Inspect the new generation only after that boundary.
+      const status = await inspectExactHostSourceTransition({ beforeRevision: revision, afterRevision: next,
+        readRevision: async () => (await rpc("stella.syntheticSourceRevision", {})).revision,
+        readStatus: () => rpc("stella.initialize", { action: "status" }) });
       assert.ok(status.runtime?.blockers.includes("capability_acceptance_missing:memory_access"), JSON.stringify(status));
     }
   } else {

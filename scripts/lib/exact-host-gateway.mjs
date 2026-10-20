@@ -23,6 +23,22 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+export async function inspectExactHostSourceTransition(input) {
+  const { beforeRevision, afterRevision, timeoutMs = 180_000, intervalMs = 50 } = input;
+  if (![beforeRevision, afterRevision].every(value => typeof value === "string" && /^[a-f0-9]{40}$/.test(value)) ||
+      beforeRevision === afterRevision || !Number.isFinite(timeoutMs) || timeoutMs <= 0 ||
+      !Number.isFinite(intervalMs) || intervalMs <= 0) throw new Error("exact_host_source_invalid");
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const revision = await input.readRevision();
+    if (typeof revision !== "string" || !/^[a-f0-9]{40}$/.test(revision)) throw new Error("exact_host_source_invalid");
+    if (Date.now() >= deadline) throw new Error("exact_host_source_transition_timeout");
+    if (revision === afterRevision) return input.readStatus();
+    if (revision !== beforeRevision) throw new Error("exact_host_source_changed");
+    await delay(Math.min(intervalMs, deadline - Date.now()));
+  }
+}
+
 async function waitForExit(child, milliseconds) {
   if (child.exitCode !== null || child.signalCode !== null) return;
   await Promise.race([
