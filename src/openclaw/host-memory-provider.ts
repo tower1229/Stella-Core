@@ -9,6 +9,7 @@ import { hostHistoryCompaction } from "./host-history-compaction.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { hostMemoryVerification } from "./host-memory-verification.js";
 import { memoryConsolidation } from "./memory-consolidation-scope.js";
+import { isRecord } from "../shared/type-guards.js";
 
 type Stream = NonNullable<ReturnType<NonNullable<ProviderPlugin["wrapStreamFn"]>>>;
 type StreamResult = Awaited<ReturnType<Stream>>;
@@ -181,14 +182,34 @@ export function registerHostMemoryProvider(
           // payload replacement must never acquire the Context's authority.
           try {
             assertActive();
-            const candidate = structuredClone(payload);
+            // Google's public SDK callback receives transport options as well
+            // as wire fields. AbortSignal is not JSON and structuredClone loses
+            // its brand. Keep only this exact bound control outside the copy;
+            // callbacks still cannot introduce or replace transport authority.
+            // Simple completion projects model.api to an opaque internal alias;
+            // the public sourceApi field identifies the actual wire protocol.
+            const wireApi = context.sourceApi ?? target.api;
+            const hasGoogleSignal = wireApi === "google-generative-ai" && isRecord(payload) &&
+              isRecord(payload.config) && "abortSignal" in payload.config;
+            let wirePayload = payload;
+            if (hasGoogleSignal && isRecord(payload) && isRecord(payload.config)) {
+              if (payload.config.abortSignal !== options?.signal) throw new CompletionError("host_memory_transport_control_unbound", "generate");
+              const config = { ...payload.config };
+              delete config.abortSignal;
+              wirePayload = { ...payload, config };
+            }
+            const candidate = structuredClone(wirePayload);
             const before = JSON.stringify(candidate);
             const replacement = await onPayload?.(candidate, { ...payloadModel });
             assertActive();
             const outgoing = structuredClone(replacement === undefined ? candidate : replacement);
             if (JSON.stringify(outgoing) !== before) throw new CompletionError("host_memory_payload_transform_unbound", "generate");
+            if (hasGoogleSignal && isRecord(outgoing) && isRecord(outgoing.config) && "abortSignal" in outgoing.config) {
+              throw new CompletionError("host_memory_transport_control_unbound", "generate");
+            }
             await assertCurrent();
             assertActive();
+            if (hasGoogleSignal && isRecord(outgoing) && isRecord(outgoing.config)) outgoing.config.abortSignal = options?.signal;
             return outgoing;
           } catch (error) {
             // Native streams invoke this after transport() has returned. Keep
@@ -200,6 +221,14 @@ export function registerHostMemoryProvider(
         let observed: { body: string; result: Promise<AssistantMessage> } | undefined;
         const authorize = (value: AssistantMessage): Promise<AssistantMessage> => {
           const message = structuredClone(value);
+          // The pinned SDK materializes omitted optional metadata as undefined.
+          // Its JSON representation omits these fields; keep all actual values,
+          // model-visible content and unknown fields subject to strict encoding.
+          if (message.responseId === undefined) delete message.responseId;
+          for (const part of message.content) {
+            if (part.type === "text" && part.textSignature === undefined) delete part.textSignature;
+            if (part.type === "thinking" && part.thinkingSignature === undefined) delete part.thinkingSignature;
+          }
           const body = canonicalJson(message);
           if (observed) {
             if (observed.body !== body) return rejectedStream(target, reject(new CompletionError("host_model_output_changed", "generate"))).result();

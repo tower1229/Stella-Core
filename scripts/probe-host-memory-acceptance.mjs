@@ -15,6 +15,14 @@ import { HOST_MEMORY_ACCEPTANCE_MATRIX, assertHostMemoryAcceptanceReport } from 
 const scenario = process.argv[2] ?? "success";
 const nativeProvider = process.argv[3] ?? "memory-core";
 const indexMode = process.argv[4] ?? "fts";
+const googleWire = process.argv.includes("--google-wire");
+if (googleWire) {
+  const allowed = indexMode === "fts" ? ["success", "grant-denied", "native-stale-before-model"]
+    : indexMode === "vector" ? ["source-deleted-before-model"] : [];
+  assert.ok(nativeProvider === "memory-core" && allowed.includes(scenario), "Google wire smoke has an explicit bounded scenario set");
+}
+const probeModelId = googleWire ? "gemini-3.8-flash" : "probe";
+const probeModelRef = `stella-guarded/${probeModelId}`;
 const queryIndex = indexMode === "query";
 const vectorIndex = indexMode === "vector" || queryIndex;
 const queryRequest = "Read the configured synthetic native observation for constrained verification.";
@@ -83,7 +91,7 @@ const profilePath = path.join(canghaiRoot, base, "runtime-profile.yaml");
 const profile = parse(await readFile(profilePath, "utf8"));
 profile.agent_id = "probe"; profile.contract_profile = "full_memory";
 profile.memory.semantic_provider = "stella-structured-llm"; profile.memory.required_views = ["current_understanding", "ongoing_work"];
-for (const role of Object.values(profile.models)) { role.provider = "stella-guarded"; role.model = "probe"; role.required_capabilities = []; }
+for (const role of Object.values(profile.models)) { role.provider = "stella-guarded"; role.model = probeModelId; role.required_capabilities = []; }
 const lifecycle = profile.capabilities.find(capability => capability.id === "transcript_archive");
 lifecycle.id = "memory_lifecycle"; lifecycle.adapter_id = "stella.memory-lifecycle";
 const bindingPath = path.join(canghaiRoot, base, "praxis-binding.json");
@@ -96,8 +104,8 @@ profile.capabilities.push(...[
   acceptance_ref: `path:${base}/capability-acceptance.json`, required_secret_refs: [] })));
 await writeFile(profilePath, stringify(profile));
 await writeFile(path.join(canghaiRoot, base, "personal-access.json"), canonicalJson({
-  schemaVersion: "stella.personal-context-access/v1", ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: ["stella-guarded/probe"],
-  viewProcessingModelRefs: ["stella-guarded/probe"], purpose: binding.purpose,
+  schemaVersion: "stella.personal-context-access/v1", ownerId: "owner-fixture", requesterIds: ["cli"], modelRefs: [probeModelRef],
+  viewProcessingModelRefs: [probeModelRef], purpose: binding.purpose,
   ...(scenario === "grant-denied" ? {} : { operatorMemoryAcceptance: true }),
   descriptors: [{ sourceRef: imported.sourceRef, policyRef, description: "The explicitly requested synthetic native observation",
     segment: { payloadSha256: bytesVersion(original), start: 0, end: Buffer.byteLength(original) } }],
@@ -215,6 +223,59 @@ export default { ...main, register(api) {
   main.register({ ...api, logger: { ...api.logger, error(message) {
     appendFileSync(${JSON.stringify(path.join(temp, "diagnostics.jsonl"))}, JSON.stringify({ message }) + '\\n'); api.logger.error(message);
   } }, registerProvider(provider) {
+    if (${googleWire} && provider.id === 'stella-guarded') {
+      const wrap = provider.wrapSimpleCompletionStreamFn;
+      provider = { ...provider, wrapSimpleCompletionStreamFn(context) {
+        const original = context.streamFn;
+        const bound = wrap({ ...context, streamFn: original ? async (model, input, options) => {
+          const rawStream = await original(model, input, {
+          ...options, async onPayload(payload, payloadModel) {
+            const describeControl = value => ({ keys: Object.keys(value ?? {}), configKeys: Object.keys(value?.config ?? {}),
+              signalType: typeof value?.config?.abortSignal?.addEventListener, signalSame: value?.config?.abortSignal === options?.signal });
+            const before = describeControl(payload);
+            const result = await options?.onPayload?.(payload, payloadModel);
+            writeFileSync(${JSON.stringify(path.join(temp, "transport-control.json"))}, JSON.stringify({ api: model.api, sourceApi: context.sourceApi,
+              optionSignalType: typeof options?.signal?.addEventListener, before, after: describeControl(result ?? payload) }));
+            return result;
+          },
+          });
+          return { async *[Symbol.asyncIterator]() {
+            for await (const event of rawStream) {
+              if (event.type === 'done') {
+                const undefinedPaths = [];
+                const walk = (value, key) => {
+                  if (value === undefined) undefinedPaths.push(key);
+                  else if (value && typeof value === 'object') for (const [name, child] of Object.entries(value)) walk(child, key + '.' + name);
+                };
+                walk(event.message, 'message');
+                writeFileSync(${JSON.stringify(path.join(temp, "sdk-message-shape.json"))}, JSON.stringify({ undefinedPaths }));
+              }
+              appendFileSync(${JSON.stringify(path.join(temp, "sdk-events.jsonl"))}, JSON.stringify(event) + String.fromCharCode(10));
+              yield event;
+            }
+          }, async result() {
+            const message = await rawStream.result();
+            appendFileSync(${JSON.stringify(path.join(temp, "sdk-output.jsonl"))}, JSON.stringify(message) + '\\n');
+            return message;
+          } };
+        } : undefined });
+        return async (...args) => {
+          const stream = await bound(...args);
+          return { async *[Symbol.asyncIterator]() {
+            for await (const event of stream) {
+              appendFileSync(${JSON.stringify(path.join(temp, "guard-events.jsonl"))}, JSON.stringify(event) + String.fromCharCode(10));
+              yield event;
+            }
+          }, async result() {
+            const message = await stream.result();
+            appendFileSync(${JSON.stringify(path.join(temp, "guard-output.jsonl"))}, JSON.stringify(message) + '\\n');
+            if (message.stopReason === 'error') writeFileSync(${JSON.stringify(path.join(temp, "transport-error.json"))},
+              JSON.stringify({ error: message.errorMessage, api: message.api, provider: message.provider, model: message.model }));
+            return message;
+          } };
+        };
+      } };
+    }
     if (${scenario === "payload-transform"} && provider.id === 'stella-guarded') {
       const wrap = provider.wrapSimpleCompletionStreamFn;
       provider = { ...provider, wrapSimpleCompletionStreamFn(context) {
@@ -242,7 +303,13 @@ export default { ...main, register(api) {
     if (${scenario === "unbound-output"} && params.purpose === 'stella-memory-access-verification') {
       return { provider: 'stella-guarded', model: 'probe', text: 'Forged successful completion' };
     }
-    const actual = await api.runtime.llm.complete(params);
+    let actual;
+    try { actual = await api.runtime.llm.complete(params); }
+    catch (error) {
+      writeFileSync(${JSON.stringify(path.join(temp, "completion-error.json"))}, JSON.stringify({ name: error.name, message: error.message }));
+      throw error;
+    }
+    if (${googleWire}) appendFileSync(${JSON.stringify(path.join(temp, "host-output.jsonl"))}, JSON.stringify({ purpose: params.purpose, result: actual }) + '\\n');
     if (${scenario === "changed-source-verdict"} && params.purpose === 'stella-source-access') {
       const verdict = JSON.parse(actual.text); verdict.topicExplicitlyNamed = false;
       return { ...actual, text: JSON.stringify(verdict) };
@@ -251,6 +318,7 @@ export default { ...main, register(api) {
   } } } });
 } };
 `);
+await run(process.execPath, ["--check", path.join(plugin, "index.mjs")]);
 let calls = [], finalCalls = 0, embeddingCalls = 0, providerError;
 let preparationComplete = false;
 const embeddingInputs = [];
@@ -284,8 +352,19 @@ const server = createServer(async (req, res) => {
             text.includes(original.trim()) || text === "Which earlier observation is authorized for this verification?" || queryIndex && text === queryRequest ? 0 : 1) ? 1 : 0) })) }));
       return;
     }
+    if (googleWire) {
+      await writeFile(path.join(temp, "google-wire-input.json"), JSON.stringify({ url: req.url, body: input }), { mode: 0o600 });
+      assert.ok(new URL(req.url, "http://127.0.0.1").pathname.endsWith(`/models/${probeModelId}:streamGenerateContent`));
+      assert.equal(input.generationConfig?.thinkingConfig?.thinkingLevel?.toLowerCase(), "low", "Isolated direct completion must explicitly request low reasoning");
+      assert.ok(!["temperature", "topP", "topK", "candidateCount", "frequencyPenalty", "presencePenalty"].some(key => key in input.generationConfig));
+      assert.ok(!input.tools?.length && !input.cachedContent);
+      assert.equal(input.contents.length, 1);
+      assert.equal(input.contents[0].role, "user");
+      assert.ok(input.contents[0].parts.every(part => typeof part.text === "string" && Object.keys(part).length === 1));
+    }
     calls.push(input); await writeFile(path.join(temp, `model-${calls.length}.json`), JSON.stringify(input));
-    const prompt = input.messages.find(message => message.role === "user").content;
+    const prompt = googleWire ? input.contents[0].parts.map(part => part.text).join("")
+      : input.messages.find(message => message.role === "user").content;
     let answer;
     if (prompt.startsWith("Judge the semantic relationship")) {
       assert.ok(!prompt.includes(original.trim()), "source access must see metadata only");
@@ -296,10 +375,23 @@ const server = createServer(async (req, res) => {
       const consumed = JSON.parse(prompt); assert.equal(consumed.original.text, original); finalCalls++;
       answer = "SYNTHETIC_VERIFIED_NATIVE_CONSUMPTION";
     }
+    if (googleWire) {
+      const googleResponse = { modelVersion: probeModelId,
+        candidates: [{ index: 0, content: { role: "model", parts: [{ text: answer }] }, finishReason: "STOP" }],
+        usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 } };
+      await writeFile(path.join(temp, `google-response-${calls.length}.json`), JSON.stringify(googleResponse));
+      res.setHeader("content-type", "text/event-stream");
+      res.end(`data: ${JSON.stringify(googleResponse)}\n\n`);
+      return;
+    }
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ id: "synthetic-constrained", object: "chat.completion", created: 1, model: "probe",
       choices: [{ index: 0, message: { role: "assistant", content: answer }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
-  } catch (error) { providerError ??= error; res.writeHead(400); res.end("{}"); }
+  } catch (error) {
+    providerError ??= error;
+    await writeFile(path.join(temp, "provider-error.json"), JSON.stringify({ name: error.name, message: error.message }));
+    res.writeHead(400); res.end("{}");
+  }
 });
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 if (queryIndex && scenario !== "query-grant-denied") {
@@ -317,17 +409,18 @@ await writeFile(configPath, JSON.stringify({ gateway: { mode: "local" },
       cache: { enabled: true }, query: { hybrid: { enabled: false } } } : {}),
     store: { vector: { enabled: vectorIndex }, fts: { tokenizer: "unicode61" } }, sync: { onSessionStart: false, onSearch: false, watch: false } } },
   ...(nativeProvider === "session-memory" ? { hooks: { internal: { enabled: true, entries: { "session-memory": { enabled: true, llmSlug: false } } } } } : {}),
-  agents: { defaults: { model: { primary: "stella-guarded/probe" }, ...(scenario === "payload-transform" ? { models: {
-    "stella-guarded/probe": { params: { extra_body: { messages: [{ role: "user", content: "UNBOUND_PAYLOAD" }] } } } } } : {}) }, entries: { probe: { workspace } } },
-  models: { providers: { "stella-guarded": { api: "openai-completions", baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: "synthetic-local-only",
-    models: [{ id: "probe", name: "probe", contextWindow: 32768, maxTokens: 8192 }] } } },
+  agents: { defaults: { model: { primary: probeModelRef }, ...(scenario === "payload-transform" ? { models: {
+    [probeModelRef]: { params: { extra_body: { messages: [{ role: "user", content: "UNBOUND_PAYLOAD" }] } } } } } : {}) }, entries: { probe: { workspace } } },
+  models: { providers: { "stella-guarded": { api: googleWire ? "google-generative-ai" : "openai-completions",
+    baseUrl: `http://127.0.0.1:${server.address().port}${googleWire ? "" : "/v1"}`, apiKey: "synthetic-local-only",
+    models: [{ id: probeModelId, name: probeModelId, ...(googleWire ? { reasoning: true } : {}), contextWindow: 32768, maxTokens: 8192 }] } } },
   plugins: { allow: ["stella-core", "memory-core", ...(nativeProvider === "memory-wiki" ? ["memory-wiki"] : [])], load: { paths: [plugin] }, entries: {
     "memory-core": { enabled: true, config: { dreaming: { enabled: false } } },
     ...(nativeProvider === "memory-wiki" ? { "memory-wiki": { enabled: true, config: { vaultMode: "isolated", vault: { scope: "global", path: vault },
       obsidian: { enabled: false, useOfficialCli: false }, bridge: { enabled: false }, context: { includeCompiledDigestPrompt: false },
       search: { backend: "local", corpus: "wiki" } } } } : {}),
     "stella-core": { enabled: true, llm: { allowAgentIdOverride: true, allowModelOverride: true,
-      allowedModels: ["stella-guarded/probe"], allowedCompletionModels: ["stella-guarded/probe"] }, hooks: { allowConversationAccess: true },
+      allowedModels: [probeModelRef], allowedCompletionModels: [probeModelRef] }, hooks: { allowConversationAccess: true },
       config: { canghaiRoot, recoveryRevision: revision, agentId: "probe", dataMode: "read_only", initializationGatewayAccess: "local_operator_read" } } } },
   tools: { allow: ["read", "stella_initialize", "stella_read_fragment"] },
 }));
@@ -450,11 +543,22 @@ try {
   const invalidation = await readFile(path.join(temp, "invalidation.json"), "utf8").then(JSON.parse).catch(error => { if (error.code === "ENOENT") return undefined; throw error; });
   const modelRequestsAfterInvalidation = invalidation ? calls.length - invalidation.modelCalls : 0;
   assert.equal(modelRequestsAfterInvalidation, 0);
+  let googleOutputChecks;
+  if (googleWire && calls.length) {
+    const messages = async file => (await readFile(path.join(temp, file), "utf8")).trim().split("\n").map(JSON.parse)
+      .filter(event => event.type === "done").map(event => event.message);
+    const sdkMessages = await messages("sdk-events.jsonl"), guardedMessages = await messages("guard-events.jsonl");
+    assert.equal(sdkMessages.length, calls.length);
+    assert.deepEqual(guardedMessages, sdkMessages, "Optional metadata normalization must preserve the complete serialized SDK output");
+    googleOutputChecks = { sdkMessages: sdkMessages.length, serializedOutputUnchanged: true };
+  }
   const report = { schemaVersion: "stella.host-memory-acceptance-probe/v1", host: "2026.8.2", evidenceDirectory: temp, scenario,
+    ...(googleOutputChecks ? { googleOutputChecks } : {}),
     nativeProvider, nativeProducerVerified: Boolean(producerReport), wikiCompiledClaimRequired: nativeProvider === "memory-wiki" && Boolean(nativeSource?.claimId),
     producerEvidence: producerReport ? process.env.STELLA_NATIVE_PRODUCERS_REPORT : undefined, modelRequestsAfterInvalidation, invalidation,
     sourceRepository: { root: canghaiRoot, revision: (await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), fixture: "synthetic" },
-    scope: "native_fragment_guarded_direct", fixture: "synthetic", fullMemoryBindingValid: true, nativeReads, modelCalls: calls.length, finalCalls,
+    scope: "native_fragment_guarded_direct", fixture: "synthetic", transport: googleWire ? "google-generative-ai-loopback" : "openai-completions-loopback",
+    modelRef: probeModelRef, externalModelRequests: 0, fullMemoryBindingValid: true, nativeReads, modelCalls: calls.length, finalCalls,
     nativeIndexMode: indexMode, nativeVectorQueryVerified, preparationEmbeddingRequests,
     consumerEmbeddingRequests: embeddingCalls - preparationEmbeddingRequests, consumerQueryExact, capabilityPassed: Boolean(result), category,
     sourceUnchanged: !sourceChanged, receiptInvalidatedByGeneration: scenario === "generation-changed", audienceDenials,

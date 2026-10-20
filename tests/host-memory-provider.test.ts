@@ -250,3 +250,72 @@ for (const scenario of ["concurrent failure", "cross-session child", "unlicensed
     });
   });
 }
+
+for (const api of ["google-generative-ai", "synthetic-projected-simple-api"] as const) {
+  for (const scenario of ["success", "optional output metadata", "defined output metadata", "changed body", "replacement signal", "undefined signal", "SDK signal mismatch", "cancelled"] as const) {
+    test(`Google ${api} direct transport preserves bound cancellation and rejects mutation: ${scenario}`, async () => {
+      type Payload = { model: string; contents: Array<{ role: string; parts: Array<{ text: string }> }>; config: { abortSignal?: AbortSignal } };
+      let provider!: ProviderPlugin;
+      const accepted = ["success", "optional output metadata", "defined output metadata"].includes(scenario);
+      let wireReached = 0, observed = 0;
+      const cancel = new AbortController();
+      const request = snapshotTurnRequest({ agentId: "stella", sessionId: "google-verification", sessionKey: "agent:stella:main",
+        prompt: "Authorized original", senderId: "cli", senderIsOwner: true, chatType: "direct" }, `google-${scenario}`);
+      registerHostMemoryProvider({ registerProvider(value: ProviderPlugin) { provider = value; }, logger: { error() {} } } as unknown as OpenClawPluginApi,
+        "stella", async () => assert.fail("Verification cannot authorize ordinary agent consumption"));
+      const model = { provider: "stella-guarded", id: "gemini-3.8-flash", api } as Parameters<Stream>[0];
+      const direct = provider.wrapSimpleCompletionStreamFn!({ provider: model.provider, modelId: model.id, agentId: "stella",
+        ...(api === "synthetic-projected-simple-api" ? { sourceApi: "google-generative-ai" } : {}),
+        streamFn: (async (target, _input, options) => {
+          const payload: Payload = { model: target.id, contents: [{ role: "user", parts: [{ text: request.prompt }] }],
+            config: { abortSignal: scenario === "SDK signal mismatch" ? new AbortController().signal : options?.signal } };
+          const outgoing = (await options?.onPayload?.(payload, { ...target, api: "google-generative-ai" }) ?? payload) as Payload;
+          wireReached++;
+          assert.equal(outgoing.config.abortSignal, cancel.signal);
+          assert.equal(typeof outgoing.config.abortSignal?.addEventListener, "function");
+          assert.deepEqual(outgoing.contents, payload.contents);
+          const response: Response = { ...answer, api: "google-generative-ai", provider: model.provider, model: model.id };
+          if (scenario === "optional output metadata" || scenario === "defined output metadata") {
+            const defined = scenario === "defined output metadata";
+            response.responseId = defined ? "synthetic-response" : undefined;
+            response.content = [{ type: "text", text: "Transport succeeded", textSignature: defined ? "text-signature" : undefined },
+              { type: "thinking", thinking: "Synthetic reasoning", thinkingSignature: defined ? "thinking-signature" : undefined }];
+          }
+          return { async *[Symbol.asyncIterator]() { yield { type: "done", reason: "stop", message: response }; }, async result() { return response; } };
+        }) satisfies Stream })!;
+      const verify = withHostMemoryVerification({ request, signal: cancel.signal, assertCurrent: async () => {} }, async () => {
+        const message = await withHostModelConsumption({ request, modelRef: `${model.provider}/${model.id}`,
+          params: { signal: cancel.signal, messages: [{ role: "user", content: request.prompt }] },
+          assertCurrent: () => assertHostMemoryVerification(request), async observeOutput(receipt) {
+            const output = readHostModelOutput(receipt);
+            assert.equal(output.request, request);
+            if (scenario === "optional output metadata") {
+              assert.equal(Object.hasOwn(output.message, "responseId"), false);
+              assert.equal(Object.hasOwn(output.message.content[0]!, "textSignature"), false);
+              assert.equal(Object.hasOwn(output.message.content[1]!, "thinkingSignature"), false);
+            }
+            if (scenario === "defined output metadata") {
+              assert.equal(output.message.responseId, "synthetic-response");
+              assert.deepEqual(output.message.content, [{ type: "text", text: "Transport succeeded", textSignature: "text-signature" },
+                { type: "thinking", thinking: "Synthetic reasoning", thinkingSignature: "thinking-signature" }]);
+            }
+            observed++;
+          } }, async () => (await direct(model, { messages: [{ role: "user", content: request.prompt, timestamp: 0 }] }, {
+            signal: cancel.signal, onPayload(value) {
+              const candidate = value as Payload;
+              assert.equal("abortSignal" in candidate.config, false, "Wire callbacks do not receive cancellation authority");
+              if (scenario === "changed body") candidate.contents[0]!.parts[0]!.text = "Unknown old memory";
+              if (scenario === "replacement signal") candidate.config.abortSignal = new AbortController().signal;
+              if (scenario === "undefined signal") candidate.config.abortSignal = undefined;
+              if (scenario === "cancelled") cancel.abort();
+            },
+          })).result());
+        assert.equal(message.stopReason, accepted ? "stop" : scenario === "cancelled" ? "aborted" : "error");
+      });
+      if (scenario === "cancelled") await assert.rejects(verify, error => error === cancel.signal.reason);
+      else await verify;
+      assert.equal(wireReached, accepted ? 1 : 0);
+      assert.equal(observed, accepted ? 1 : 0);
+    });
+  }
+}
