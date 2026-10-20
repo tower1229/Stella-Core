@@ -3,7 +3,7 @@ import test from "node:test";
 import path from "node:path";
 import { readFile, writeFile, rm, realpath, symlink } from "node:fs/promises";
 import { createFixture, prepareInitializationFixture } from "./consciousness-fixture.js";
-import { compileInitializationSource, readCompiledContextRules } from "../src/openclaw/initialization-source.js";
+import { assertCompiledContextRulesCurrent, compileInitializationSource, readCompiledContextRules } from "../src/openclaw/initialization-source.js";
 import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
 import { isRecord } from "../src/shared/type-guards.js";
 
@@ -219,4 +219,21 @@ test("identical public rule bytes do not reuse authority after a reviewed source
   assert.deepEqual(first.materialization, second.materialization);
   assert.deepEqual(readCompiledContextRules(first).rules, readCompiledContextRules(second).rules);
   assert.notEqual(readCompiledContextRules(first).digest, readCompiledContextRules(second).digest);
+  await assert.rejects(assertCompiledContextRulesCurrent(first), /source_pin_mismatch/);
+  await assertCompiledContextRulesCurrent(second);
+});
+
+test("serialized compiler outputs cannot acquire live source validation authority", async t => {
+  const f = await fixture(t); const compiled = await f.compile();
+  await assertCompiledContextRulesCurrent(compiled);
+  await assert.rejects(assertCompiledContextRulesCurrent({ ...compiled }), /host_context_compilation_unbound/);
+});
+
+test("compiler snapshots reviewed document pins before asynchronous reads", async t => {
+  const f = await fixture(t);
+  const compiling = f.compile();
+  f.document.projection_recipes[0]!.input_refs[0]!.sha256 = "sha256:" + "a".repeat(64);
+  const compiled = await compiling;
+  await assertCompiledContextRulesCurrent(compiled);
+  await assert.rejects(f.compile(), /source_pin_mismatch|unmapped_projection_input/);
 });

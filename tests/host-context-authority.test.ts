@@ -2255,3 +2255,22 @@ test("history assessment shares repeated source reads within one sweep and reche
   assert.equal(changedDuringSweep, true, "The final fresh batch must reject an edit after a shared first read");
   await assert.rejects(live.assessHistoryForRebuild(archive), /payload_digest_mismatch|source_unavailable|source_dirty/);
 });
+
+for (const change of ["edit", "delete", "revoke"] as const) {
+test(`cached bootstrap compilation cannot outlive its reviewed inputs: ${change}`, async t => {
+  const f = await fixture(t);
+  const authority = await f.create();
+  const sealed = await authority.seal({ system: authority.publicRules(), messages: [{ role: "user", fragment: authority.currentInput() }] });
+  await authority.assertConsumption(sealed.consumption, sealed.input);
+  const recipe = f.recipe.projection_recipes.find(entry => entry.target === "AGENTS.md")!;
+  const pin = change === "revoke" ? recipe.exposure_policy_ref : recipe.input_refs[0]!;
+  const file = path.join(f.initializationRoot, pin.ref.slice(5));
+  if (change === "delete") await rm(file);
+  else if (change === "edit") await writeFile(file, "SYNTHETIC_CHANGED_REVIEWED_BOOTSTRAP");
+  else {
+    const policy = JSON.parse(await readFile(file, "utf8")); policy.audiences = [];
+    await writeFile(file, canonicalJson(policy));
+  }
+  await assert.rejects(authority.assertConsumption(sealed.consumption, sealed.input), /host_context_compilation_source_changed/);
+});
+}

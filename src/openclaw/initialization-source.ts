@@ -43,6 +43,21 @@ export type CompiledInitializationSource = { materialization: Materialization; c
 
 type CompiledContextRules = { agentId: string; hostVersion: string; digest: string; rules: Record<string, { text: string; version: string }> };
 const compiledContextRules = new WeakMap<CompiledInitializationSource, CompiledContextRules>();
+const compiledContextInputs = new WeakMap<CompiledInitializationSource, { root: string; sources: Array<{ path: string; sha256: string }> }>();
+
+/** A compiler receipt retains live input pins independently of callers' caches.
+ * This checks reviewed source/exposure bytes, never observed Host bootstrap text.
+ * Installation, run admission and the materialization locator remain separate. */
+export async function assertCompiledContextRulesCurrent(compiled: CompiledInitializationSource): Promise<void> {
+  const binding = compiledContextInputs.get(compiled);
+  check(binding && compiledContextRules.has(compiled), "host_context_compilation_unbound");
+  for (const source of binding.sources) {
+    let bytes: Buffer;
+    try { bytes = await readRepositoryBytes(binding.root, source.path); }
+    catch { throw new InitializationSourceError("source_pin_unavailable"); }
+    check(bytesVersion(bytes) === source.sha256, "source_pin_mismatch");
+  }
+}
 
 /** Only successful compilation can mint this authority. Mutable installation
  * buffers and serialized compiler results cannot change or recreate it. */
@@ -56,6 +71,9 @@ export function readCompiledContextRules(compiled: CompiledInitializationSource)
 export async function compileInitializationSource(root: string, document: unknown,
   target: { agentId: string; hostVersion: string; skillRegistryRef?: string; contractProfile?: "alpha_praxis" | "full_memory";
     requiredCapabilities?: readonly string[] }): Promise<CompiledInitializationSource> {
+  root = path.resolve(root);
+  document = structuredClone(document);
+  target = { ...target, ...(target.requiredCapabilities ? { requiredCapabilities: [...target.requiredCapabilities] } : {}) };
   // Installing reviewed instructions is distinct from admitting a cognitive run.
   // Required capabilities stay blocked until constrained acceptance stores a current receipt.
   const runtimeBlockers = new Set<string>();
@@ -327,5 +345,7 @@ export async function compileInitializationSource(root: string, document: unknow
       target: { agentId: target.agentId, hostVersion: target.hostVersion, skillRegistryRef: target.skillRegistryRef ?? null,
         contractProfile: target.contractProfile ?? null, requiredCapabilities: target.requiredCapabilities ?? [] }, document,
       sources: [...sourceBindings].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0) })), rules });
+  compiledContextInputs.set(compiled, { root, sources: [...sourceBindings].map(([path, sha256]) => ({ path, sha256 })) });
+  await assertCompiledContextRulesCurrent(compiled);
   return compiled;
 }

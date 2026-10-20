@@ -52,6 +52,9 @@ const keys = await initializeContextHistoryKeys(keyScope);
 const failPersistence = process.env.STELLA_CONTEXT_FAIL_PERSISTENCE === "1";
 const nativeControl = process.env.STELLA_CONTEXT_NATIVE_CONTROL === "1";
 const lateSourceChange = process.env.STELLA_CONTEXT_LATE_SOURCE_CHANGE;
+const bootstrapChange = process.env.STELLA_CONTEXT_BOOTSTRAP_CHANGE;
+assert.ok(bootstrapChange === undefined || ["edit", "delete", "revoke", "generation", "extra"].includes(bootstrapChange));
+assert.ok(!bootstrapChange || !lateSourceChange && !nativeControl && !failPersistence, "Bootstrap cases require an independent managed run");
 assert.ok(lateSourceChange === undefined || ["edit", "delete", "policy"].includes(lateSourceChange));
 assert.ok(!lateSourceChange || !nativeControl && !failPersistence, "Late integrity cases require the managed successful first-turn path");
 const source = await realpath(await createFixture());
@@ -94,7 +97,14 @@ if (dreamingDirectory) {
   nativePrompt = bytes.toString("utf8");
   assert.ok(nativePrompt.includes("SYNTHETIC_NATIVE_DREAM_NARRATIVE"));
 }
-await writeFile(path.join(workspace, "AGENTS.md"), "Synthetic managed context probe.\n");
+const { compileInitializationSource: compileBootstrap } = await import(moduleUrl("openclaw/initialization-source.js"));
+const { verifyInitializationContext } = await import(moduleUrl("openclaw/initialization-context.js"));
+const compiledBootstrap = await compileBootstrap(source, recipe, { agentId: "probe", hostVersion: host.version });
+for (const file of compiledBootstrap.materialization.files) {
+  const destination = path.join(workspace, file.target);
+  await mkdir(path.dirname(destination), { recursive: true });
+  await writeFile(destination, compiledBootstrap.contents.get(file.target), { mode: file.executable ? 0o700 : 0o600 });
+}
 await writeFile(path.join(plugin, "package.json"), JSON.stringify({ name: "stella-core", version: "0.0.0", type: "module", openclaw: { extensions: ["./index.mjs"] } }));
 await writeFile(path.join(plugin, "openclaw.plugin.json"), JSON.stringify({ id: "stella-core", providers: ["stella-guarded"],
   activation: { onStartup: true, onAgentHarnesses: ["openclaw"] }, configSchema: { type: "object", additionalProperties: false } }));
@@ -113,7 +123,7 @@ import { loadContextHistoryKeys } from ${JSON.stringify(moduleUrl("openclaw/host
 import { loadContextHistory, readContextHistory, persistContextHistory } from ${JSON.stringify(moduleUrl("openclaw/host-context-history.js"))};
 import { prepareHostRequestArchive } from ${JSON.stringify(moduleUrl("canghai/host-request-archive.js"))};
 import { persistHostInputArchive } from ${JSON.stringify(moduleUrl("canghai/archive-writer.js"))};
-import { compileInitializationSource } from ${JSON.stringify(moduleUrl("openclaw/initialization-source.js"))};
+import { compileInitializationSource, readCompiledContextRules } from ${JSON.stringify(moduleUrl("openclaw/initialization-source.js"))};
 import { bindProcessingAuthority } from ${JSON.stringify(moduleUrl("openclaw/processing-authority.js"))};
 import { registerCompletionAdapter } from ${JSON.stringify(moduleUrl("openclaw/completion-adapter.js"))};
 import { readActiveCompletionRequest, hasCompletionRunPermit, hasCompletionPersistencePermit, completionDraftHash, recordCompletionPreparation, readCompletionPreparation } from ${JSON.stringify(moduleUrl("openclaw/completion.js"))};
@@ -141,6 +151,8 @@ export default { id: 'stella-core', register(api) {
     record({kind:'consumption',runId:request.runId,modelRef,input});
     const value = prepared(request.runId);
     value?.armLateIntegrityChange?.();
+    const bootstrapMutation = await value?.invalidateBootstrap?.();
+    if (bootstrapMutation === 'extra') input.systemPrompt += String.fromCharCode(10) + 'SYNTHETIC_UNREVIEWED_BOOTSTRAP';
     const engine = value?.engine;
     if (!engine) throw new Error('probe_context_not_prepared');
     try { await engine.assertConsumption(input); }
@@ -160,6 +172,7 @@ export default { id: 'stella-core', register(api) {
     reader = await CatalogReader.load(${JSON.stringify(catalog.root)}, 'catalog.json');
     const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => {throw new Error('Unexpected semantic operation');});
     const compilation = await compileInitializationSource(${JSON.stringify(source)}, ${JSON.stringify(recipe)}, {agentId:'probe',hostVersion:api.runtime.version});
+    await writeFile(${JSON.stringify(temp)} + '/expected-bootstrap-' + request.runId + '.json', JSON.stringify(readCompiledContextRules(compilation)));
     const current = {request,modelRef:'stella-guarded/probe',deployment:bytesVersion('synthetic-deployment'),generationId:reader.catalog.generationId,
       purpose:{readPurpose:purpose.readPurpose,derivePurpose:purpose.derivePurpose,deliveryScope:purpose.deliveryScope},
       configurationHash:bytesVersion('synthetic-config'),compilation};
@@ -178,6 +191,26 @@ export default { id: 'stella-core', register(api) {
       history.push(await authority.restoreHistory(previous.archive));
       record({kind:'history_restored',runId:request.runId,digest:previous.archive.digest});
     }
+    let bootstrapChanged = false;
+    const invalidateBootstrap = async () => {
+      const change = ${JSON.stringify(bootstrapChange)};
+      if (!change || bootstrapChanged) return;
+      bootstrapChanged = true;
+      const recipe = ${JSON.stringify(recipe)}.projection_recipes.find(entry => entry.target === 'AGENTS.md');
+      if (change === 'edit' || change === 'delete' || change === 'revoke') {
+        const pin = change === 'revoke' ? recipe.exposure_policy_ref : recipe.input_refs[0];
+        const file = ${JSON.stringify(source)} + '/' + pin.ref.slice(5);
+        if (change === 'delete') await unlink(file);
+        else if (change === 'edit') await writeFile(file, 'SYNTHETIC_CHANGED_REVIEWED_BOOTSTRAP');
+        else { const policy = JSON.parse(await readFile(file, 'utf8')); policy.audiences=[]; await writeFile(file, JSON.stringify(policy)); }
+      }
+      if (change === 'generation') {
+        const file = ${JSON.stringify(catalog.root)} + '/catalog.json';
+        const catalog = JSON.parse(await readFile(file, 'utf8')); catalog.generationId='bootstrap-new-generation'; await writeFile(file, JSON.stringify(catalog));
+      }
+      record({kind:'bootstrap_invalidated',runId:request.runId,change,boundary:'compiled_source_to_final_provider_gate'});
+      return change;
+    };
     let lateValidationArmed = false, lateChanged = false;
     if (${JSON.stringify(Boolean(lateSourceChange))} && previous) {
       const stored = await readContextHistory(previous.archive, ${JSON.stringify(catalog.root)});
@@ -216,7 +249,7 @@ export default { id: 'stella-core', register(api) {
       async complete() {throw new Error('Compaction not exercised by this probe');}});
     const assemble=engine.assemble.bind(engine);
     engine.assemble=async params=>{record({kind:'assemble',runId:request.runId,prompt:params.prompt,expected:request.prompt,messages:params.messages});return assemble(params);};
-    recordCompletionPreparation(request.runId,{engine,authority,keys,previous,request,durability,armLateIntegrityChange(){lateValidationArmed=true;},generationId:reader.catalog.generationId,systemPrompt:await authority.systemPrompt(rules)});
+    recordCompletionPreparation(request.runId,{engine,authority,keys,previous,request,durability,armLateIntegrityChange(){lateValidationArmed=true;},invalidateBootstrap,generationId:reader.catalog.generationId,systemPrompt:await authority.systemPrompt(rules)});
   };
   api.on('before_prompt_build', async (_event, ctx) => {
     if(ctx.agentId !== 'probe') return;
@@ -276,6 +309,11 @@ try {
     models:{providers:{"stella-guarded":{baseUrl:`http://127.0.0.1:${provider.address().port}/v1`,api:"openai-completions",apiKey:"synthetic-local-only",models:[{id:"probe",name:"probe",contextWindow:32768,maxTokens:512}]},
       "synthetic-other":{baseUrl:`http://127.0.0.1:${provider.address().port}/v1`,api:"openai-completions",apiKey:"synthetic-local-only",models:[{id:"other",name:"other",contextWindow:32768,maxTokens:512}]}}},
     plugins:{slots:{contextEngine:nativeControl?"legacy":"stella-core"},allow:["stella-core"],load:{paths:[plugin]},entries:{"memory-core":{config:{dreaming:{enabled:false}}},"stella-core":{enabled:true,hooks:{allowConversationAccess:true}}}},tools:{deny:["*"]}}),{mode:0o600});
+  const bootstrapConfig = JSON.parse(await readFile(configPath, "utf8"));
+  await verifyInitializationContext({ workspace, agentId: "probe", currentConfig: () => bootstrapConfig,
+    files: compiledBootstrap.materialization.files });
+  await writeFile(path.join(temp, "bootstrap-loader-proof.json"), JSON.stringify({ hostVersion: host.version,
+    scope: "original-Host-bounded-bootstrap-loader", files: compiledBootstrap.materialization.files.map(({ target, sha256 }) => ({ target, sha256 })) }));
   const env = {...process.env,OPENCLAW_STATE_DIR:state,OPENCLAW_CONFIG_PATH:configPath}; delete env.NODE_OPTIONS;
   gateway=await startExactHostGateway({cwd:temp,env,openclawBin:path.join(hostRoot,"openclaw.mjs"),diagnosticPrefixes:["context", "Context"]});
   await new Promise((resolve,reject)=>{
@@ -332,7 +370,15 @@ try {
   }else{
   const observed=(await readFile(path.join(temp,"events.jsonl"),"utf8")).trim().split("\n").map(line=>JSON.parse(line));
   assert.ok(observed.some(event=>event.kind==="engine_created"));
-  if(lateSourceChange){
+  if(bootstrapChange){
+    assert.ok(failure,"Bootstrap source change must not authorize a model call");
+    assert.equal(providerRequests,0);
+    assert.equal(observed.filter(event=>event.kind==='bootstrap_invalidated' && event.runId==='managed-context').length,1);
+    const expected=bootstrapChange==='generation'?'stale_generation':bootstrapChange==='extra'?'host_context_input_changed':'host_context_compilation_source_changed';
+    assert.ok(observed.some(event=>event.kind==='consumption_rejected' && event.category===expected));
+    assert.ok(!observed.some(event=>event.kind==='history_persisted'));
+    assert.ok(!events.some(event=>event.event==='chat' && event.payload?.runId==='managed-context' && event.payload?.state==='final'));
+  }else if(lateSourceChange){
     assert.ok(failure,"Historical source invalidation must block the next turn");
     assert.equal(providerRequests,1,"Only the first turn may reach transport");
     assert.equal(observed.filter(event=>event.kind==='history_restored').length,1);
@@ -371,6 +417,10 @@ try {
     assert.equal(result.text,"SYNTHETIC_MANAGED_CONTEXT_ANSWER");assert.equal(providerRequests,2);
     assert.equal(observed.filter(event=>event.kind==="history_restored").length,1);
     assert.equal(observed.filter(event=>event.kind==="history_persisted").length,2);
+    const firstInput=JSON.parse(await readFile(path.join(temp,"model-input-1.json"),"utf8"));
+    const expectedBootstrap=JSON.parse(await readFile(path.join(temp,"expected-bootstrap-managed-context.json"),"utf8"));
+    const system=firstInput.messages.filter(message=>message.role==='system').map(message=>message.content).join('\n');
+    assert.ok(Object.values(expectedBootstrap.rules).every(rule=>system.includes(rule.text.trim())),"Every reviewed rule must reach actual final input");
     const secondInput=JSON.parse(await readFile(path.join(temp,"model-input-2.json"),"utf8"));
     const users=secondInput.messages.filter(message=>message.role==="user");
     assert.equal(users.length,2);
@@ -401,11 +451,11 @@ try {
     assert.equal(snapshot.input.messages.at(-1).content[0].text,"SYNTHETIC_MANAGED_CONTEXT_ANSWER");
   }
   const report={hostVersion:host.version,scope:"managed-context-host-seam",model:"synthetic-loopback",productionMainVerified:false,
-    firstTurnConsumed:!nativePrompt,nativeArtifactRejected:Boolean(nativePrompt),providerRequests,
+    bootstrapLoaderVerified:true,firstTurnConsumed:!nativePrompt && !bootstrapChange,bootstrapRulesConsumed:!nativePrompt && !failPersistence && !lateSourceChange && !bootstrapChange,bootstrapSourceChange:bootstrapChange,bootstrapInvalidationBlocked:Boolean(bootstrapChange),nativeArtifactRejected:Boolean(nativePrompt),providerRequests,
     durableHostTurnCommitted:observed.some(event=>event.kind==='turn_committed'),
     coreHistoryPersisted:observed.some(event=>event.kind==='history_persisted'),
     nextTurnRestored:observed.some(event=>event.kind==='history_restored'),
-    nextTurnHistoryConsumed:!nativePrompt && !failPersistence && !lateSourceChange,
+    nextTurnHistoryConsumed:!nativePrompt && !failPersistence && !lateSourceChange && !bootstrapChange,
     lateSourceChange,lateSourceInvalidationBlocked:Boolean(lateSourceChange),modelRequestsAfterInvalidation:lateSourceChange?0:undefined,externalModelRequests:0,
     otherAgentHistoryConsumed:true,
     otherAgentCompactionConsumed:true,

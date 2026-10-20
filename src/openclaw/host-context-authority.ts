@@ -19,7 +19,7 @@ import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
 import { assertProcessingAuthority, assertProcessingStage, type ProcessingAuthority } from "./processing-authority.js";
 import type { BoundTurnRequest } from "./turn-request.js";
-import { readCompiledContextRules, type CompiledInitializationSource } from "./initialization-source.js";
+import { assertCompiledContextRulesCurrent, InitializationSourceError, readCompiledContextRules, type CompiledInitializationSource } from "./initialization-source.js";
 import { readFragmentToolDefinition, readFragmentToolResult, type FragmentToolResultReceipt, type createFragmentReadTool } from "./fragment-read-tool.js";
 import { readHostModelOutput, type HostMemoryInput, type HostModelOutputReceipt } from "./host-memory-provider.js";
 import { assembleManagedSystemPrompt, projectManagedMessages, projectQueuedHostControlPrompt, queuedHostPrompt } from "./host-context-prompt.js";
@@ -130,6 +130,11 @@ export class HostContextAuthority {
     const { readPurpose, derivePurpose, deliveryScope } = this.resolver.purpose;
     check(canonicalJson({ readPurpose, derivePurpose, deliveryScope }) === canonicalJson(this.#authority.purpose), "host_context_purpose_mismatch");
     check(this.resolver.reader.catalog.generationId === current.generationId, "host_context_generation_mismatch");
+    try { await assertCompiledContextRulesCurrent(current.compilation); }
+    catch (error) {
+      if (error instanceof InitializationSourceError) throw new CatalogError("host_context_compilation_source_changed");
+      throw error;
+    }
     await this.resolver.reader.assertCurrent();
     check(!this.#closed, "host_context_expired");
   }

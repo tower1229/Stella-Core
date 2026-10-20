@@ -321,6 +321,14 @@ Core 直接语义调用经 `wrapSimpleCompletionStreamFn` 使用私有异步许�
 
 入口盘点必须区分配置启用、宿主默认可达、显式关闭及潜在未核实。memory-core 或 compaction 配置存在，不证明某次模型已消费；未声明的 session-memory 钩子、provider prompt cache 和其他加载器也不能凭缺省字段认定关闭。原生 Dreaming、Active Memory 的显式关闭不得被报告为执行成功。上述补强不是文件系统原子锁或完整入口认证，`host_memory_consumption_unverifiable` 继续保留。
 
+#### 2026-10-20 Bootstrap 编译凭据与钩子装载边界
+
+Bootstrap 编译凭据在进程内独立保存其实际读取的源文件及曝光／skill 策略固定摘要。编译完成前和每次最终上下文消费都重新核对这些输入，缓存编译对象不能延长来源有效期；复制或序列化对象不能生成新凭据。调用方仍须验证 materialization 定位、安装文件、运行准入和当前配置，本补强不替代完整初始化契约。
+
+固定 Host 探针将编译输出安装到隔离 workspace，使用原生 bounded bootstrap loader 验证完整加载，再确认所有已审查规则进入最终模型输入。`STELLA_CONTEXT_BOOTSTRAP_CHANGE=edit|delete|revoke|generation|extra` 分别覆盖来源修改／删除、曝光撤权、目录旧代次和额外未绑定输入；失败必须是零模型请求、零新历史发布和零回答投递。正常场景继续保留两轮历史消费，不能通过关闭 bootstrap 通过。
+
+Bundled `session-memory` 只有在内部钩子配置／机器级安装实际选中时才由启动路径加载。默认缺省与显式配置的 `/new` 对照单独记录；合成对照中的启用不构成生产启用或生成产物的消费授权。其 `Conversation Summary` 保存最近若干条对话快照，默认不进行语义摘要；可选 LLM 仅用于 filename slug。未实际选中的入口不得当作已完成消费绑定，若将来启用仍须原生来源、目录授权和最终消费证明。`full_memory` 独立门禁继续保留。
+
 #### 2026-10-13 原生索引与记忆插件消费接缝
 
 原生定位 `stella.native-memory-origin/v1` 保存在已留存 Source 内，参与不可变版本计算，限定 provider、Host `2026.8.2`、agent、相对路径和最多 120 行的精确范围。Core 的 LLM 完成来源语义选择后，片段工具才访问原生索引；原生排序不能授予访问权或扩展本轮证据集合。`memory-core` 使用公开 SDK 固定存储 schema，以 SQLite 只读连接定位确切 FTS 行，同时核对 canonical chunk、来源 hash、provenance 和已准入原文范围；公开 status manager 验证已有索引身份及可用状态，公开 `authorizeSearchHits` 按当前会话核对宿主权限，再由原生 manager 回读文件；内置 `session-memory` 另要求显式启用钩子。Wiki 使用公开 corpus supplement 传递当前 agent 和 session，不依赖仅供官方插件使用的 Gateway 转发权限。
