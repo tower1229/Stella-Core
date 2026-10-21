@@ -80,7 +80,7 @@ export async function withHostModelConsumption<T>(
 export function registerHostMemoryProvider(
   api: OpenClawPluginApi,
   agentId: string,
-  assertConsumption: (request: BoundTurnRequest, modelRef: string, input: HostMemoryInput) => Promise<void>,
+  assertConsumption: (request: BoundTurnRequest, modelRef: string, input: HostMemoryInput, sourceApi: string) => Promise<void>,
   observeOutput?: (receipt: HostModelOutputReceipt) => Promise<void>,
   resolveNativeRecall?: (request: BoundTurnRequest, sessionId: string | undefined) => Promise<{
     assertConsumption(input: HostMemoryInput): Promise<void>;
@@ -91,6 +91,7 @@ export function registerHostMemoryProvider(
     const transport = context.streamFn;
     return async (...args: Parameters<Stream>) => {
       let boundRequest: BoundTurnRequest | undefined;
+      let closeControl = () => {};
       const reject = (error: unknown): string => {
         const category = boundRequest && rejectedRequests.get(boundRequest) || failureCategory(error);
         if (boundRequest) rejectedRequests.set(boundRequest, category);
@@ -166,7 +167,7 @@ export function registerHostMemoryProvider(
           });
           assertCurrent = () => revalidation.run(true, () => native
             ? native.assertConsumption(structuredClone(consumption))
-            : assertConsumption(request, modelRef, structuredClone(consumption)));
+            : assertConsumption(request, modelRef, structuredClone(consumption), context.sourceApi ?? target.api));
           if (native) outputObserver = receipt => native.observeOutput(receipt);
         }
         await assertCurrent();
@@ -176,7 +177,24 @@ export function registerHostMemoryProvider(
         const onPayload = options?.onPayload;
         const outputInput: HostMemoryInput = structuredClone({ systemPrompt: snapshot.systemPrompt ?? "", messages: snapshot.messages,
           tools: (snapshot.tools ?? []).map(({ name, description, parameters }) => ({ name, description, parameters })) });
-        const streamed = await transport(target, snapshot, { ...options, async onPayload(payload, payloadModel) {
+        const wireApi = context.sourceApi ?? target.api;
+        const controls = kind === "agent" && wireApi === "google-generative-ai"
+          ? await import("openclaw/plugin-sdk/provider-transport-control").catch(() => {
+            throw new CompletionError("host_memory_transport_control_unavailable", "generate");
+          }) : undefined;
+        if (controls && !options?.signal) throw new CompletionError("host_memory_transport_control_unbound", "generate");
+        const controlCall = controls?.createProviderTransportControlCall({ runId: request.runId,
+          modelRef, sourceApi: wireApi, callerSignal: options!.signal! });
+        if (controls && controlCall) closeControl = () => controls.closeProviderTransportControlCall(controlCall);
+        const assertControl = (signal: unknown): AbortSignal | undefined => {
+          if (controls && controlCall) {
+            try { return controls.assertProviderTransportControlSignal(controlCall, signal); }
+            catch { throw new CompletionError("host_memory_transport_control_unbound", "generate"); }
+          }
+          if (signal !== options?.signal) throw new CompletionError("host_memory_transport_control_unbound", "generate");
+          return options?.signal;
+        };
+        const invokeTransport = () => transport(target, snapshot, { ...options, async onPayload(payload, payloadModel) {
           // The pinned Host applies extra_body through this callback *after*
           // provider Context validation. Observation is allowed; an unbound
           // payload replacement must never acquire the Context's authority.
@@ -184,16 +202,17 @@ export function registerHostMemoryProvider(
             assertActive();
             // Google's public SDK callback receives transport options as well
             // as wire fields. AbortSignal is not JSON and structuredClone loses
-            // its brand. Keep only this exact bound control outside the copy;
-            // callbacks still cannot introduce or replace transport authority.
+            // its brand. Retain the exact independently bound Host control
+            // outside the copy; callbacks cannot replace transport authority.
             // Simple completion projects model.api to an opaque internal alias;
             // the public sourceApi field identifies the actual wire protocol.
-            const wireApi = context.sourceApi ?? target.api;
             const hasGoogleSignal = wireApi === "google-generative-ai" && isRecord(payload) &&
               isRecord(payload.config) && "abortSignal" in payload.config;
+            if (controlCall && !hasGoogleSignal) throw new CompletionError("host_memory_transport_control_unbound", "generate");
+            let boundGoogleSignal: AbortSignal | undefined;
             let wirePayload = payload;
             if (hasGoogleSignal && isRecord(payload) && isRecord(payload.config)) {
-              if (payload.config.abortSignal !== options?.signal) throw new CompletionError("host_memory_transport_control_unbound", "generate");
+              boundGoogleSignal = assertControl(payload.config.abortSignal);
               const config = { ...payload.config };
               delete config.abortSignal;
               wirePayload = { ...payload, config };
@@ -209,7 +228,10 @@ export function registerHostMemoryProvider(
             }
             await assertCurrent();
             assertActive();
-            if (hasGoogleSignal && isRecord(outgoing) && isRecord(outgoing.config)) outgoing.config.abortSignal = options?.signal;
+            if (hasGoogleSignal && isRecord(outgoing) && isRecord(outgoing.config)) {
+              assertControl(boundGoogleSignal);
+              outgoing.config.abortSignal = boundGoogleSignal;
+            }
             return outgoing;
           } catch (error) {
             // Native streams invoke this after transport() has returned. Keep
@@ -217,7 +239,9 @@ export function registerHostMemoryProvider(
             throw new CompletionError(reject(error), "generate");
           }
         } });
-        if (!outputObserver) return streamed;
+        const streamed = await (controls && controlCall
+          ? controls.withProviderTransportControlCall(controlCall, invokeTransport) : invokeTransport());
+        if (!outputObserver && !controlCall) return streamed;
         let observed: { body: string; result: Promise<AssistantMessage> } | undefined;
         const authorize = (value: AssistantMessage): Promise<AssistantMessage> => {
           const message = structuredClone(value);
@@ -243,7 +267,7 @@ export function registerHostMemoryProvider(
               assertActive();
               const receipt: HostModelOutputReceipt = Object.freeze({ kind: "model_output" });
               modelOutputs.set(receipt, { request, modelRef, input: outputInput, message: structuredClone(message) });
-              await outputObserver!(receipt);
+              await outputObserver?.(receipt);
               assertActive();
               return message;
             } catch (error) { return rejectedStream(target, reject(error), options?.signal?.aborted === true).result(); }
@@ -253,17 +277,20 @@ export function registerHostMemoryProvider(
         };
         return {
           async *[Symbol.asyncIterator]() {
-            for await (const event of streamed) {
-              if (event.type !== "done") { yield event; continue; }
-              const message = await authorize(event.message);
-              if (message.stopReason === "error" || message.stopReason === "aborted") {
-                yield { type: "error", reason: message.stopReason, error: message };
-              } else yield { ...event, message };
-            }
+            try {
+              for await (const event of streamed) {
+                if (event.type !== "done") { yield event; continue; }
+                const message = await authorize(event.message);
+                if (message.stopReason === "error" || message.stopReason === "aborted") {
+                  yield { type: "error", reason: message.stopReason, error: message };
+                } else yield { ...event, message };
+              }
+            } finally { closeControl(); }
           },
-          async result() { return authorize(await streamed.result()); },
+          async result() { try { return await authorize(await streamed.result()); } finally { closeControl(); } },
         };
       } catch (error) {
+        closeControl();
         return rejectedStream(args[0], reject(error), args[2]?.signal?.aborted === true);
       }
     };

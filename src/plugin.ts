@@ -104,7 +104,7 @@ import { registerMemoryConsolidation } from "./openclaw/memory-consolidation.js"
 import { assertHostMemoryConsumptionSupported } from "./openclaw/host-memory.js";
 import { hostContextExecutionHash } from "./openclaw/host-memory-inventory.js";
 import { NativeMemoryRecall, isNativeMemoryOwner, nativeMemoryConfiguration } from "./openclaw/native-active-memory.js";
-import { loadHostReplayProjection } from "./openclaw/host-context-replay.js";
+import { assertHostReplayTarget, loadHostReplayProjection, resolveHostReplayTarget, type HostReplayTarget } from "./openclaw/host-context-replay.js";
 
 export const STELLA_CORE_COMPATIBILITY_VERSION = "3.0.0-alpha.0";
 
@@ -248,6 +248,7 @@ const managedContextRequests = new WeakSet<BoundTurnRequest>();
 type PreparedPrompt = { prependSystemContext?: string; appendContext?: string; systemPrompt?: string; toolsAllow?: string[] };
 
 type PreparedTurn = {
+  replayTarget?: HostReplayTarget;
   promptContext?: PreparedPrompt;
   managedContext?: ManagedHostContextEngine;
   nativeMemory?: NativeMemoryRecall;
@@ -461,7 +462,7 @@ export default definePluginEntry({
         return prepared.managedContext;
       } };
     }, { targetAgentId: config.agentId });
-    registerHostMemoryProvider(api, config.agentId, async (request, modelRef, input) => {
+    registerHostMemoryProvider(api, config.agentId, async (request, modelRef, input, sourceApi) => {
       const prepared = readCompletionPreparation(request.runId) as PreparedTurn | undefined;
       if (prepared?.outcome !== "ready" || !prepared.admitted) {
         throw new CompletionError("host_memory_consumption_not_admitted", "generate");
@@ -471,6 +472,7 @@ export default definePluginEntry({
         if (managed && !prepared.managedContext) throw new CatalogError("host_context_preparation_required");
         if (managed && !prepared.assertContextConfigurationCurrent) throw new CatalogError("host_context_configuration_required");
         prepared.assertContextConfigurationCurrent?.();
+        assertHostReplayTarget(prepared.replayTarget, modelRef, sourceApi);
         await prepared.managedContext?.assertConsumption(input);
         if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
         await assertPreparedProcessingAuthority(prepared, request);
@@ -1433,6 +1435,7 @@ export default definePluginEntry({
               });
             })() : undefined;
             let managedContext: ManagedHostContextEngine | undefined;
+            const replayTarget = contextExecutionHash ? resolveHostReplayTarget(api.runtime.config.current(), modelRef) : undefined;
             const nativeReadCurrent = async () => {
               readCompletionRequest(runId, config.agentId, request.sessionId, request.sessionKey);
               await initialization.assertRun(runId);
@@ -1571,7 +1574,7 @@ export default definePluginEntry({
               };
               managedContext = new ManagedHostContextEngine(request, authority, { system, history,
                 nativeMemory: () => preparedTurn?.nativeMemory,
-                projectReplay: await loadHostReplayProjection(api.runtime.version),
+                projectReplay: await loadHostReplayProjection(api.runtime.version, replayTarget),
                 hostTimezone: resolveManagedHostTimezone(api.runtime.config.current().agents?.defaults?.userTimezone),
                 archive: async messages => {
                   await assertArchiveAllowed(runtime.evidence.reader);
@@ -1691,6 +1694,7 @@ export default definePluginEntry({
             }
             preparedTurn = {
               promptContext, managedContext, commitContextTurn, persistContextHistory: persistManagedHistory, publishContextHistory: publishManagedHistory,
+              ...(replayTarget ? { replayTarget } : {}),
               fragmentTool, outcome: "ready", checkSourceOutput, assertContextConfigurationCurrent, outcomeContext,
               ...(prepareNativeMemory ? { prepareNativeMemory } : {}),
               sourceBinding: { catalogPath: binding.catalogPath, runtimeProfileRef: loaded.manifest.identity.runtimeProfileRef },

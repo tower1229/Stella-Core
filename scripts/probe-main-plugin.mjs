@@ -28,6 +28,8 @@ const nativeCase = process.argv.find(arg => arg.startsWith("--native-memory-"))?
 const [nativeFamily, nativeState] = nativeCase?.split("-") ?? [];
 const nativeSuccess = ["success", "rebuilt"].includes(nativeState);
 const googleAgent = process.argv.includes("--google-agent");
+const googleExtraArgument = process.argv.includes("--google-extra-argument");
+assert.ok(!googleExtraArgument || googleAgent);
 const nativeQueryControl = process.argv.includes("--native-query-control");
 assert.ok(!nativeQueryControl || nativeFamily === "gemini");
 assert.ok(!googleAgent || nativeFamily === "gemini", "Google Agent control is limited to synthetic Gemini native fixtures");
@@ -924,7 +926,13 @@ provider.on("request", async (request, response) => {
   const wireRequest = JSON.parse(requestBody);
   let parsedRequest = wireRequest;
   if (googleAgent) {
-    assert.ok(request.url.startsWith('/v1beta/models/gemini-3.8-flash:streamGenerateContent'));
+    // Pinned Host supplies apiVersion:'' for an explicit custom base URL.
+    // The SDK therefore uses the configured loopback origin plus this path.
+    const wireUrl = new URL(request.url, 'http://127.0.0.1');
+    await writeFile(path.join(temp, `google-provider-${providerRequests}-route.json`), JSON.stringify({ method: request.method, path: wireUrl.pathname, query: wireUrl.search }));
+    assert.equal(request.method, 'POST');
+    assert.equal(wireUrl.pathname, '/models/gemini-3.8-flash:streamGenerateContent');
+    assert.equal(wireUrl.searchParams.get('alt'), 'sse');
     await writeFile(path.join(temp, `google-provider-${providerRequests}.json`), requestBody);
     const messages = [];
     for (const item of wireRequest.contents ?? []) for (const part of item.parts ?? []) {
@@ -1002,7 +1010,8 @@ provider.on("request", async (request, response) => {
     assert.ok(!requestBody.includes("SYNTHETIC_DENIED_NEIGHBOR"));
     const steps = [["stella_read_fragment", { action: "list" }], ["stella_read_fragment", { action: "read", handle: "F1" }]];
     if (providerRequests <= steps.length) {
-      const [name, args] = steps[providerRequests - 1];
+      const [name, selectedArgs] = steps[providerRequests - 1];
+      const args = googleExtraArgument && providerRequests === 2 ? { ...selectedArgs, extra: "SYNTHETIC_UNAUTHORIZED_PARAMETER" } : selectedArgs;
       if (googleAgent) { googleResponse([{ functionCall: { id: `audience-${providerRequests}`, name, args }, thoughtSignature: 'c3ludGhldGlj' }]); return; }
       response.end(JSON.stringify({ id: "audience-tool", object: "chat.completion", created: 1, model: "probe",
         choices: [{ index: 0, message: { role: "assistant", content: null, tool_calls: [{ id: `audience-${providerRequests}`, type: "function",
@@ -1262,7 +1271,7 @@ try {
         if (!["pending", "timeout"].includes(terminal.status) || terminal.endedAt != null) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       } while (Date.now() < deadline);
-      const denied = !audienceAllowed || audienceScenario === "revoked" || Boolean(nativeCase && !nativeSuccess);
+      const denied = googleExtraArgument || !audienceAllowed || audienceScenario === "revoked" || Boolean(nativeCase && !nativeSuccess);
       assert.equal(terminal.status, denied ? "error" : "ok", JSON.stringify(terminal));
       const dispatch = (await readFile(path.join(temp, "audience-dispatch.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
       assert.equal(dispatch.length, 1);
@@ -1284,7 +1293,7 @@ try {
         assert.equal(status.category, expectedCategory, JSON.stringify(status));
         initializationBlocker = status.category;
       } else if (denied && !nativeCase) assert.ok(gateway.diagnostics().includes(expectedCategory), gateway.diagnostics());
-      assert.equal(providerRequests, nativeCase ? nativeSuccess ? 3 : nativeFamily === "gemini" && ["missing", "mismatch"].includes(nativeState) ? 0 : 2 : audienceScenario === "owner" ? 3 : audienceScenario === "revoked" ? 2 : 0);
+      assert.equal(providerRequests, nativeCase ? googleExtraArgument ? 2 : nativeSuccess ? 3 : nativeFamily === "gemini" && ["missing", "mismatch"].includes(nativeState) ? 0 : 2 : audienceScenario === "owner" ? 3 : audienceScenario === "revoked" ? 2 : 0);
       if (audienceScenario && !audienceAllowed) {
         assert.equal(semantic.length, 0, "Rejected audiences/requesters must be stopped before semantic disclosure");
         assert.equal((await run("git", ["-C", canghaiRoot, "rev-parse", "HEAD"])).stdout.trim(), before);
@@ -1331,6 +1340,10 @@ try {
           throw error;
         });
         const toolResults = toolLog.trim() ? toolLog.trim().split("\n").map(JSON.parse) : [];
+        if (googleExtraArgument) {
+          assert.ok(toolResults.some(row => row.error?.includes("invalid_fragment_request")), 'Extra arguments must be rejected by the actual tool');
+          assert.equal(finalAnswers, 0); assert.equal(providerRequests, 2);
+        }
         if (nativeState === "index") {
           assert.ok(gateway.diagnostics().includes(nativeFamily === "gemini" ? "native_memory_consumption_changed" : "native_query_embedding_consumption_changed"), gateway.diagnostics());
           assert.deepEqual(JSON.parse(await readFile(path.join(temp, "native-query-index-invalidated.json"))), { afterNativeRead: true });
@@ -1414,6 +1427,7 @@ try {
           nativeReadExecuted: nativeState !== "missing", packageNativeReadInstrumented: nativeFamily !== "gemini",
           realApiRequests: 0, privateDataCopied: false, sessionMemoryEnabled: nativeFamily === "gemini" ? false : undefined,
           configuredVectorProvider: nativeFamily === "gemini" ? "gemini" : undefined,
+          extraArgumentsRejected: googleExtraArgument,
           finalTransport: googleAgent ? 'google-generative-ai-loopback' : 'openai-completions-loopback', modelRef: probeModel,
           nativeGeminiQueryProtocolExecuted: nativeQueryControl, coreGeminiQueryBindingAccepted: false,
           initialEvidenceBundleNativeValidated: nativeFamily === 'gemini',
@@ -1428,7 +1442,7 @@ try {
           changedNativeBytesRejected: nativeState === "mismatch", modelRequestsAfterInvalidation: nativeSuccess ? undefined : 0,
           modelRequestsAfterNativeToolFailure: nativeSuccess ? undefined : 0,
           embeddingRequests: embeddingRequests.length, authorizedFragmentConsumed: nativeSuccess,
-          nativeFinalToolOriginalConsumed: nativeSuccess,
+          nativeFinalToolOriginalConsumed: nativeSuccess && !googleExtraArgument,
           wikiCompiledClaimCacheRequired: nativeFamily === "wiki",
           nativeReadFailure: nativeState === "missing" ? "native_memory_index_unavailable" : nativeState === "mismatch" ? mismatchCategory : undefined,
           embeddingCacheReuseVerified: ["cache", "gemini"].includes(nativeFamily),

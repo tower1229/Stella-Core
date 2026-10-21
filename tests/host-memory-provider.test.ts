@@ -130,7 +130,8 @@ for (const scenario of ["reject unbound input", "isolate input during asynchrono
     tools: [{ name: "read", description: "Read an authorized fragment", parameters: { type: "object" } }],
   };
   const api = { registerProvider(value: ProviderPlugin) { provider = value; }, logger: { error() {} } };
-  registerHostMemoryProvider(api as unknown as OpenClawPluginApi, "stella", async (_request, _model, snapshot) => {
+  registerHostMemoryProvider(api as unknown as OpenClawPluginApi, "stella", async (_request, _model, snapshot, sourceApi) => {
+    assert.equal(sourceApi, "openai-completions");
     assert.deepEqual(snapshot, {
       systemPrompt: "Unbound historical summary",
       messages: [{ role: "user", content: "Current question", timestamp: 0 }],
@@ -145,7 +146,7 @@ for (const scenario of ["reject unbound input", "isolate input during asynchrono
     snapshot.messages.length = 0;
     snapshot.tools[0]!.description = "Verifier replacement";
   });
-  const stream = provider?.wrapStreamFn?.({ provider: "stella-guarded", modelId: "model", agentId: "stella",
+  const stream = provider?.wrapStreamFn?.({ provider: "stella-guarded", modelId: "model", agentId: "stella", sourceApi: "openai-completions",
     streamFn: async (model, sent, options) => {
       transportStarts++;
       const payload = { model: "model", messages: structuredClone(sent.messages) };

@@ -140,7 +140,15 @@ export function projectContextTrace(trace: ContextInputTrace, input: HostMemoryI
   const projections = input.messages.map((message, index) => append({ nodes: trace.nodes,
     roots: [...new Set([trace.messages[index]!, ...(index === input.messages.length - 1 ? currentParents : [])])] },
     "host_format", canonicalJson(visibleContextMessage(message))));
-  return { nodes: nodesOf([trace, ...projections]), system: trace.system, messages: projections.map(value => value.roots[0]!) };
+  const originalSystem = trace.nodes.find(node => node.id === trace.system);
+  check(originalSystem?.producer === "system");
+  const systemContent = canonicalJson({ systemPrompt: input.systemPrompt, tools: input.tools });
+  // Authority selected the projection before this structural operation. Retain
+  // its original system node as a parent so assistant basis digests bind the
+  // actual projected tools without erasing their original source closure.
+  const system = originalSystem.content === systemContent ? { nodes: trace.nodes, roots: [trace.system] }
+    : append({ nodes: trace.nodes, roots: [trace.system] }, "system", systemContent);
+  return { nodes: nodesOf([system, ...projections]), system: system.roots[0]!, messages: projections.map(value => value.roots[0]!) };
 }
 
 export function parseContextSources(value: unknown, canonical = true): ContextNodeSources {
