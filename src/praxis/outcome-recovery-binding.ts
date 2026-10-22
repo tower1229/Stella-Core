@@ -1,3 +1,4 @@
+import { assertRecoveryReadBinding, freezeRecoveryReadBinding, type RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -8,7 +9,14 @@ import { EpisodeV2Error } from "./episode-v2.js";
 
 const run = promisify(execFile);
 /** Pending business files may differ, but recovery authority must still match the configured revision. */
-export async function loadOutcomeRecoveryBinding(root: string, manifestPath: string, recoveryRevision: string) {
+export async function loadOutcomeRecoveryBinding(root: string, manifestPath: string, recoveryRevision: string, provided?: RecoveryReadBinding) {
+  const recovery = provided ? freezeRecoveryReadBinding(provided, { agentId: provided.expected.binding.agentId, canghaiRoot: root, manifestPath }) : undefined;
+  const assertRecovery = async () => {
+    if (!recovery) return;
+    if (recovery.expected.revision !== recoveryRevision) throw new EpisodeV2Error("recovery_binding_changed");
+    await assertRecoveryReadBinding(recovery, { agentId: recovery.expected.binding.agentId, canghaiRoot: root, manifestPath });
+  };
+  await assertRecovery();
   if (!/^[a-f0-9]{40}$/i.test(recoveryRevision)) throw new EpisodeV2Error("recovery_binding_changed");
   const loaded = await loadConsciousness(root, manifestPath);
   if (loaded.manifest.runtimeState.activationStatus !== "active") throw new EpisodeV2Error("recovery_binding_inactive");
@@ -16,6 +24,7 @@ export async function loadOutcomeRecoveryBinding(root: string, manifestPath: str
   const paths = [...new Set([path.relative(loaded.canghaiRoot, loaded.manifestPath).replaceAll("\\", "/"), binding.configPath, ...binding.profileAuthorityPaths,
     ...loaded.bootstrapDocuments.map((document) => parseCangHaiRef(document.ref).relativePath)])];
   const assertCurrent = async () => {
+    await assertRecovery();
     try {
       for (const file of paths) {
         const { stdout } = await run("git", ["--no-optional-locks", "-C", loaded.canghaiRoot, "ls-tree", recoveryRevision, "--", file]);
@@ -24,7 +33,8 @@ export async function loadOutcomeRecoveryBinding(root: string, manifestPath: str
       // Porcelain diff can refresh the index even with optional locks disabled.
       await run("git", ["--no-optional-locks", "-c", "diff.autoRefreshIndex=false", "-C", loaded.canghaiRoot, "diff", "--exit-code", recoveryRevision, "--", ...paths]);
     } catch { throw new EpisodeV2Error("recovery_binding_changed"); }
+    await assertRecovery();
   };
   await assertCurrent();
-  return { loaded, binding, assertCurrent, episodeRoot: parseCangHaiRef(loaded.manifest.praxis.episodeRootRef).relativePath };
+  return { loaded, binding, assertCurrent, ...(recovery ? { recoveryAuthority: recovery.expected } : {}), episodeRoot: parseCangHaiRef(loaded.manifest.praxis.episodeRootRef).relativePath };
 }

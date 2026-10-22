@@ -1,3 +1,5 @@
+import type { RecoveryAuthoritySnapshot } from "../canghai/recovery-authority-contract.js";
+import { DEFAULT_MANIFEST_PATH } from "../canghai/manifest.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
@@ -21,7 +23,7 @@ export function hostMemoryConfigurationHash(config: unknown): string {
  * Source revision, generation and payload eligibility remain separate gates. */
 export function hostContextExecutionHash(config: unknown, expected: {
   agentId: string; canghaiRoot: string; recoveryRevision: string;
-}): string {
+}, authority?: RecoveryAuthoritySnapshot): string {
   let snapshot: unknown;
   try { snapshot = JSON.parse(JSON.stringify(config)); }
   catch { throw new CatalogError("host_context_configuration_required"); }
@@ -32,11 +34,27 @@ export function hostContextExecutionHash(config: unknown, expected: {
   if (!isRecord(entry) || entry.enabled === false || !isRecord(entry.config) ||
       (entry.config.agentId ?? "stella") !== expected.agentId || entry.config.canghaiRoot !== expected.canghaiRoot ||
       entry.config.dataMode !== "managed_durable_write") throw new CatalogError("host_context_configuration_scope_mismatch");
-  if (!/^[a-f0-9]{40}$/i.test(expected.recoveryRevision) || entry.config.recoveryRevision !== expected.recoveryRevision) {
+  if (!/^[a-f0-9]{40}$/i.test(expected.recoveryRevision)) throw new CatalogError("host_context_recovery_binding_changed");
+  if (authority !== undefined && (!authority || typeof authority !== "object" ||
+      (authority.mode !== "core_checkpoint" && authority.mode !== "legacy_config") || !authority.binding ||
+      authority.revision !== expected.recoveryRevision || typeof authority.token !== "string" || !authority.token ||
+      authority.binding.agentId !== expected.agentId || authority.binding.repositoryRoot !== expected.canghaiRoot ||
+      authority.binding.manifestPath !== (entry.config.manifestPath ?? DEFAULT_MANIFEST_PATH))) {
+    throw new CatalogError("host_context_recovery_binding_changed");
+  }
+  if (authority?.mode === "core_checkpoint") {
+    if (authority.revision !== expected.recoveryRevision || !authority.token || authority.binding.agentId !== expected.agentId ||
+        authority.binding.repositoryRoot !== expected.canghaiRoot ||
+        authority.binding.manifestPath !== (entry.config.manifestPath ?? DEFAULT_MANIFEST_PATH)) {
+      throw new CatalogError("host_context_recovery_binding_changed");
+    }
+  } else if (entry.config.recoveryRevision !== expected.recoveryRevision || authority && authority.mode !== "legacy_config") {
     throw new CatalogError("host_context_recovery_binding_changed");
   }
   delete entry.config.recoveryRevision;
-  return bytesVersion(canonicalJson({ schemaVersion: "stella.host-context-execution-config/v1", configuration: snapshot }));
+  return bytesVersion(canonicalJson(authority?.mode === "core_checkpoint"
+    ? { schemaVersion: "stella.host-context-execution-config/v2", configuration: snapshot, authority }
+    : { schemaVersion: "stella.host-context-execution-config/v1", configuration: snapshot }));
 }
 
 /** Inventory evidence is diagnostic; neither an enabled plugin nor an absent

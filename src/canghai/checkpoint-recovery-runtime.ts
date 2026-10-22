@@ -1,3 +1,4 @@
+import { ownsExclusiveFileLock } from "./exclusive-file-lock.js";
 import { execFile } from "node:child_process";
 import { constants, type Stats } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
@@ -204,7 +205,12 @@ export async function openCheckpointRecoveryRuntime(options: CheckpointRecoveryR
       const index = utf8(await git(["ls-files", "-v", "-z"])).split("\0").filter(Boolean);
       check(index.every(entry => entry.startsWith("H ")), "checkpoint_runtime_dirty");
       const status = utf8(await git(["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignored=matching", "--ignore-submodules=none", "--no-renames"]));
-      const entries = status.split("\0").filter(Boolean);
+      const allEntries = status.split("\0").filter(Boolean);
+      const ownLockEntry = "?? " + MARKER + ".lock";
+      if (allEntries.includes(ownLockEntry)) {
+        check(await ownsExclusiveFileLock(path.join(root, MARKER)), "checkpoint_runtime_dirty");
+      }
+      const entries = allEntries.filter(entry => entry !== ownLockEntry);
       check(entries.every(entry => entry === "?? " + MARKER), "checkpoint_runtime_dirty");
       const marker = await workingFile(MARKER, MAX_JOURNAL, true);
       if (journal === undefined) check(marker === null && entries.length === 0, "checkpoint_runtime_pending");

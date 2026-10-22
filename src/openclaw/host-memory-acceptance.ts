@@ -1,3 +1,5 @@
+import { captureRecoveryReadBinding, assertRecoveryReadBinding, type RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
+import type { RecoveryAuthorityResolver } from "../canghai/recovery-authority-contract.js";
 import { randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
 import type { OpenClawConfig, OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
@@ -40,17 +42,25 @@ export function parseHostMemoryAcceptance(value: unknown) {
 
 /** A single explicitly configured verification target, never a retrieval ranking
  * algorithm or ordinary full_memory admission. No business writes or delivery. */
-export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Config) {
-  const load = async () => {
+export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Config, authority?: RecoveryAuthorityResolver) {
+  const load = async (fixed?: RecoveryReadBinding) => {
+    const recovery = fixed ?? (authority ? await captureRecoveryReadBinding(config, authority) : undefined);
+    if (recovery) {
+      check(recovery.resolver === authority, "host_memory_acceptance_configuration_changed");
+      await assertRecoveryReadBinding(recovery, config);
+    }
     const live = structuredClone(api.runtime.config.current()) as OpenClawConfig;
     const plugin = live.plugins?.entries?.["stella-core"];
     check(plugin?.enabled && plugin.config?.canghaiRoot === config.canghaiRoot && plugin.config.agentId === config.agentId &&
       typeof plugin.config.recoveryRevision === "string", "host_memory_acceptance_configuration_changed");
+    if (recovery?.expected.mode === "legacy_config") {
+      check(plugin.config.recoveryRevision === recovery.expected.revision, "host_memory_acceptance_configuration_changed");
+    }
     check(live.plugins?.entries?.["memory-core"]?.config?.dreaming &&
       isRecord(live.plugins.entries["memory-core"].config!.dreaming) &&
       live.plugins.entries["memory-core"].config!.dreaming.enabled === false, "dreaming_disabled_required");
     const loaded = await loadConsciousness(config.canghaiRoot, config.manifestPath, {
-      recoveryRevision: plugin.config.recoveryRevision, coreVersion: "3.0.0-alpha.0", openclawVersion: api.runtime.version, dataMode: config.dataMode,
+      recoveryRevision: recovery?.expected.revision ?? plugin.config.recoveryRevision, coreVersion: "3.0.0-alpha.0", openclawVersion: api.runtime.version, dataMode: config.dataMode,
     });
     const document = loaded.bootstrapDocuments.find(item => item.field === "identity.runtimeProfileRef");
     check(document, "runtime_profile_required");
@@ -81,18 +91,21 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
     const routes = [live.agents?.defaults?.model, live.agents?.entries?.[config.agentId]?.model,
       live.agents?.list?.find(agent => agent.id === config.agentId)?.model];
     check(!routes.some(route => route && typeof route !== "string" && route.fallbacks?.length), "personal_view_fallback_route_forbidden");
-    return { binding, processing, reader, specification, origin, modelRef, revision: plugin.config.recoveryRevision,
-      configurationHash: hostMemoryConfigurationHash(live) };
+    if (recovery) await assertRecoveryReadBinding(recovery, config);
+    return { binding, processing, reader, specification, origin, modelRef, revision: recovery?.expected.revision ?? plugin.config.recoveryRevision,
+      recovery, configurationHash: hostMemoryConfigurationHash(live) };
   };
-  const captureDependencies = async () => {
-    const state = await load();
+  const captureDependencies = async (fixed?: RecoveryReadBinding) => {
+    const state = await load(fixed);
     await state.reader.assertCurrent(); await state.processing.assertCurrent();
     // Capture authority metadata only. Native payload/index bytes must wait for
     // source_access_context. This receipt never authorizes a future native read;
     // each read still validates the actual live index and native body.
-    return bytesVersion(canonicalJson({ generation: state.reader.catalog, origin: state.origin, configurationHash: state.configurationHash }));
+    if (state.recovery) await assertRecoveryReadBinding(state.recovery, config);
+    return bytesVersion(canonicalJson({ generation: state.reader.catalog, origin: state.origin, configurationHash: state.configurationHash,
+      ...(state.recovery ? { authority: state.recovery.expected } : {}) }));
   };
-  return { captureDependencies, async verify(input: {
+  return { captureDependencies: () => captureDependencies(), async verify(input: {
     host: CapabilityHostBinding; clientId: string; signal?: AbortSignal; assertRunCurrent(): Promise<void>;
   }): Promise<{ outcome: "passed"; executionDigest: string }> {
     check(input.host.purpose.kind === "adapter_verification" && input.host.purpose.capabilityId === "memory_access", "capability_purpose_mismatch");
@@ -105,11 +118,12 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
     const request = snapshotTurnRequest({ agentId: config.agentId, sessionId: randomUUID(), sessionKey: `agent:${config.agentId}:main`,
       prompt: state.specification.request, senderId: input.clientId, senderIsOwner: true, chatType: "direct" }, input.host.runId);
     assertPrivateContextAudience(resolveTurnAudience(request));
-    const before = await captureDependencies();
+    const before = await captureDependencies(state.recovery);
     const assertAuthorityCurrent = async () => {
       signal.throwIfAborted(); await input.assertRunCurrent();
       await state.processing.assertCurrent(); await state.reader.assertCurrent();
-      check(await captureDependencies() === before, "host_memory_acceptance_dependencies_changed");
+      if (state.recovery) await assertRecoveryReadBinding(state.recovery, config);
+      check(await captureDependencies(state.recovery) === before, "host_memory_acceptance_dependencies_changed");
       signal.throwIfAborted();
     };
     let assertNativeCurrent: (() => Promise<void>) | undefined;
@@ -150,7 +164,8 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
         return result;
       };
       const authority = bindProcessingAuthority({ request, ownerId: state.processing.config.ownerId, purpose: state.binding.purpose,
-        modelRef: state.modelRef, deployment: bytesVersion(canonicalJson({ source: api.source, revision: state.revision })),
+        modelRef: state.modelRef, deployment: bytesVersion(canonicalJson({ source: api.source, revision: state.revision,
+          ...(state.recovery ? { authority: state.recovery.expected } : {}) })),
         generationId: state.reader.catalog.generationId });
       const sourceAccess = createPersonalContextAccess({ request, modelRef: state.modelRef, binding: state.processing,
         processingAuthority: authority, signal, assertRequestCurrent() {
