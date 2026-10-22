@@ -108,6 +108,13 @@
           "local"
         ],
         "description": "Explicit checkpoint-mode owner ingress retention only; commits locally and does not run an Agent or deliver a generated reply."
+      },
+      "agentMemory": {
+        "type": "string",
+        "enum": [
+          "fresh_tools"
+        ],
+        "description": "Explicit limited stock Host Agent mode: fresh owner/direct session and retained evidence tools; full_memory remains unavailable."
       }
     },
     "allOf": [
@@ -180,6 +187,28 @@
             "dataMode": {
               "const": "local_write"
             }
+          }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "agentMemory"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            }
+          },
+          "not": {
+            "required": [
+              "requestArchive"
+            ]
           }
         }
       }

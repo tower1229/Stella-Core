@@ -1,3 +1,4 @@
+import { registerCheckpointAgentSupply } from "./checkpoint-agent-supply.js";
 import { registerCheckpointRequestIngress } from "./checkpoint-request-ingress.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
@@ -18,12 +19,13 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
     if (closed) { runtime.close(); throw new RecoveryAuthorityError("recovery_scope_closed"); }
     return runtime;
   };
+  const supply = registerCheckpointAgentSupply(api, config, current);
   const ingress = registerCheckpointRequestIngress(api, config, current);
   const status = async (reload = false) => {
     const runtime = await current(), recovery = reload ? (await runtime.load()).recovery : await runtime.capture();
     await runtime.assert(recovery);
     return { authority: recovery.expected, loadedRevision: reload ? recovery.expected.revision : null, materialized: null, consumed: false,
-      ingress: ingress.status(), capabilities: { ownerIngressArchive: config.requestArchive === "local", checkpoint: true, localArchiveInternal: config.dataMode === "local_write", hostBootstrap: false, agentMemory: false, full_memory: false },
+      ingress: ingress.status(), supply: supply.status(), capabilities: { ownerIngressArchive: config.requestArchive === "local", checkpoint: true, localArchiveInternal: config.dataMode === "local_write", hostBootstrap: false, agentMemory: false, freshSessionTools: config.agentMemory === "fresh_tools", full_memory: false },
       blockers: ["checkpoint_host_bootstrap_not_migrated", "checkpoint_agent_writers_not_migrated"] };
   };
   api.registerGatewayMethod("stella.checkpoint", async ({ params, respond }) => {
@@ -51,10 +53,9 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
       return { content: [{ type: "text" as const, text: JSON.stringify(result) }], details: result };
     },
   }, { names: ["stella_initialize"] });
-  api.on("before_agent_run", async (_event, ctx) => ctx.agentId !== config.agentId ? { outcome: "pass" } :
-    { outcome: "block", category: "checkpoint_agent_writers_not_migrated", reason: "Checkpoint Agent migration is incomplete", message: "Core checkpoint maintenance is available; Stella Agent memory has not been migrated." }, { priority: 10_000 });
+  api.on("before_agent_run", (event, ctx) => supply.beforeAgentRun(event, ctx), { priority: 10_000 });
   api.registerService({ id: "stella-checkpoint", start: async () => {}, async stop() {
-    closed = true; ingress.close();
+    closed = true; ingress.close(); supply.close();
     if (pending) { try { (await pending).close(); } catch { /* Failed startup has no usable scope. */ } }
   } });
   return { status };
