@@ -9,6 +9,7 @@ import { createCheckpointPluginRuntime, parseCheckpointPluginConfig } from "../s
 import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import { prepareHostRequestArchive } from "../src/canghai/host-request-archive.js";
 import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
+import { captureCheckpointHostRequest } from "../src/openclaw/checkpoint-host-request.js";
 import { CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
 import { createAgentSupplySource, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
 
@@ -18,7 +19,7 @@ async function fixture(t: TestContext, options: Parameters<typeof createAgentSup
   const authority = path.join(parent, "authority"), state = path.join(parent, "host-state"), storePath = path.join(parent, "sessions.json");
   await mkdir(authority); await mkdir(state);
   const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools" };
-  const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, config } } } };
+  const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
   const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
   await upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } });
   const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), factories: Function[] = [], stops: Function[] = [], beforeDeliver: Function[] = [];
@@ -49,7 +50,7 @@ async function fixture(t: TestContext, options: Parameters<typeof createAgentSup
       if (gate?.block) throw new Error(gate.blockReason); }
     return tool.execute(callId, value, controller.signal);
   }
-  return { ...source, config, live, authority, state, storePath, observation, rpc, hooks, factories, tool, toolContext, event, context, agent, controller, beforeDeliver, ingress, admit, execute, stops, counts: () => ({ models, configWrites }) };
+  return { ...source, config, live, api, authority, state, storePath, observation, rpc, hooks, factories, tool, toolContext, event, context, agent, controller, beforeDeliver, ingress, admit, execute, stops, counts: () => ({ models, configWrites }) };
 }
 
 test("stock Host orchestration fixture can call retained data tools and continue its model loop", async t => {
@@ -144,4 +145,58 @@ test("an old Host tool grant cannot adopt a later committed checkpoint B", async
   await assert.rejects(f.execute({ action: "list" }));
   assert.equal(await f.beforeDeliver[0]!({ text: "Old A draft" }), null);
   assert.deepEqual((await f.rpc("status")).payload.authority, accepted.authority);
+});
+
+
+test("public payload gate covers a Host facade without appendBeforeDeliver", async t => {
+  const f = await fixture(t); delete f.context.dispatcher.appendBeforeDeliver;
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  await f.execute({ action: "list" });
+  const event = { payload: { text: "Synthetic source-current answer" }, kind: "final", runId: f.agent.runId, sessionKey: f.agent.sessionKey };
+  const context = { channelId: "webchat", sessionKey: f.agent.sessionKey };
+  assert.deepEqual((await f.hooks.get("reply_payload_sending")!(event, context)).payload, event.payload);
+  assert.equal((await f.hooks.get("reply_payload_sending")!({ ...event, sessionKey: undefined }, { channelId: "webchat" })).cancel, true);
+  assert.equal((await f.hooks.get("reply_payload_sending")!(event, { ...context, sessionKey: "agent:other:wrong" })).cancel, true);
+  assert.equal((await f.hooks.get("reply_payload_sending")!({ ...event, runId: "unrecognized" }, { ...context, runId: f.agent.runId })).cancel, true);
+  f.live.plugins.entries["stella-core"].enabled = false;
+  assert.equal((await f.hooks.get("reply_payload_sending")!(event, context)).cancel, true);
+  assert.equal((await f.hooks.get("reply_payload_sending")!({ ...event, runId: "different-run" }, context)).cancel, true);
+});
+
+test("public delivery check returns explicit cancellation before a slow Host hook can fail open", async t => {
+  const f = await fixture(t); await f.ingress(); await f.admit();
+  const original = CatalogReader.prototype.assertCurrent;
+  CatalogReader.prototype.assertCurrent = async () => new Promise<void>(() => {});
+  try {
+    const result = await f.hooks.get("reply_payload_sending")!({ payload: { text: "Must not escape" }, kind: "final", runId: f.agent.runId, sessionKey: f.agent.sessionKey }, { channelId: "webchat" });
+    assert.equal(result.cancel, true); assert.equal(result.reason, "checkpoint_agent_delivery_check_timeout");
+  } finally { CatalogReader.prototype.assertCurrent = original; }
+});
+
+
+test("readonly Host ingress does not fabricate an absent Host timestamp", async t => {
+  const f = await fixture(t); delete f.event.ctx.Timestamp;
+  const before = Date.now(), input = captureCheckpointHostRequest(f.api, parseCheckpointPluginConfig(f.config), f.event, f.context, f.controller.signal);
+  assert.equal(input.request.hostMessageTimestamp, undefined); assert.ok(Date.parse(input.capturedAt) >= before && Date.parse(input.capturedAt) <= Date.now());
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  assert.ok((await f.execute({ action: "list" })).details.items[0].preview.includes(SUPPLY_MARKER));
+});
+
+
+test("missing or withdrawn public conversation-hook permission blocks native handoff and further supply", async t => {
+  for (const kind of ["missing", "withdrawn", "prompt-disabled"] as const) await t.test(kind, async t => {
+    const f = await fixture(t);
+    if (kind === "withdrawn") { await f.ingress(); await f.admit(); await f.execute({ action: "list" }); }
+    if (kind === "prompt-disabled") f.live.plugins.entries["stella-core"].hooks.allowPromptInjection = false;
+    else delete f.live.plugins.entries["stella-core"].hooks.allowConversationAccess;
+    if (kind === "withdrawn") {
+      await assert.rejects(f.execute({ action: "read", handle: "E1" }), /checkpoint_agent_hook_permission_required/);
+      assert.equal(await f.beforeDeliver[0]!({ text: "Stale synthetic answer" }), null);
+    } else {
+      assert.equal((await f.ingress()).handled, true);
+      assert.equal((await f.rpc("status")).payload.supply.category, "checkpoint_agent_hook_permission_required");
+      assert.equal((await f.admit()).outcome, "block");
+    }
+    assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+  });
 });

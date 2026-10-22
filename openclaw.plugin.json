@@ -8,7 +8,8 @@
   "contracts": {
     "tools": [
       "stella_initialize",
-      "stella_read_fragment"
+      "stella_read_fragment",
+      "stella_memory_data"
     ]
   },
   "activation": {

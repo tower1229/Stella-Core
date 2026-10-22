@@ -15,8 +15,11 @@ export function captureCheckpointHostRequest(api: OpenClawPluginApi, config: Che
   const signal = AbortSignal.any([shutdown, ...ctx.abortSignal ? [ctx.abortSignal] : []]);
   const active = () => signal.throwIfAborted();
   const sessionKey = event.sessionKey ?? event.ctx.SessionKey, timestamp = event.ctx.Timestamp, prompt = event.ctx.Body, runId = event.runId;
-  check(sessionKey && runId && Number.isSafeInteger(timestamp) && Number(timestamp) >= 0 && typeof prompt === "string" && prompt.trim(), "checkpoint_ingress_identity_missing");
-  const capturedAt = new Date(Number(timestamp)).toISOString();
+  check(sessionKey && runId && (timestamp === undefined || Number.isSafeInteger(timestamp) && Number(timestamp) >= 0) &&
+    typeof prompt === "string" && prompt.trim(), "checkpoint_ingress_identity_missing");
+  // Read-only tool admission uses Core's receive clock, not a fabricated Host event time.
+  // Archival ingress retains its separate requirement for an actual Host timestamp.
+  const capturedAt = new Date().toISOString();
   const env = { OPENCLAW_STATE_DIR: api.runtime.state.resolveStateDir() };
   const facts = () => {
     active();
@@ -26,6 +29,7 @@ export function captureCheckpointHostRequest(api: OpenClawPluginApi, config: Che
     check(event.runId === runId && (event.sessionKey ?? event.ctx.SessionKey) === sessionKey && event.ctx.Body === prompt && event.ctx.Timestamp === timestamp, "checkpoint_ingress_request_changed");
     const live = api.runtime.config.current() as OpenClawConfig, entry = live.plugins?.entries?.["stella-core"];
     check(entry?.enabled === true && canonicalJson(parseCheckpointPluginConfig(entry.config)) === canonicalJson(config), "checkpoint_ingress_configuration_changed");
+    check(entry.hooks?.allowConversationAccess === true && entry.hooks?.allowPromptInjection !== false, "checkpoint_agent_hook_permission_required");
     const sender = resolveCommandAuthorization({ ctx: event.ctx, cfg: live, commandAuthorized: event.ctx.CommandAuthorized });
     check(sender.senderIsOwner && sender.senderId && event.ctx.ChatType === "direct", "private_context_audience_forbidden");
     return { sender, storePath: resolveStorePath(live.session?.store, { agentId: config.agentId, env }) };
@@ -34,7 +38,7 @@ export function captureCheckpointHostRequest(api: OpenClawPluginApi, config: Che
   const entry = getSessionEntry({ agentId: config.agentId, sessionKey, storePath, env, readConsistency: "latest", hydrateSkillPromptRefs: false });
   check(entry?.sessionId, "checkpoint_ingress_session_unavailable");
   const request = snapshotTurnRequest({ agentId: config.agentId, sessionId: entry.sessionId, sessionKey, prompt,
-    senderId: first.sender.senderId, senderIsOwner: true, chatType: "direct", hostMessageTimestamp: Number(timestamp) }, runId);
+    senderId: first.sender.senderId, senderIsOwner: true, chatType: "direct", ...(timestamp === undefined ? {} : { hostMessageTimestamp: Number(timestamp) }) }, runId);
   assertPrivateContextAudience(resolveTurnAudience(request));
   const assertCurrent = async () => {
     assertPrivateContextAudience(resolveTurnAudience(request));

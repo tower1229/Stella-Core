@@ -54,12 +54,40 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
     }
     const result = await grant.resolver.readEvidence(ref); await assertGrant(grant, signal, toolActive); return result;
   };
+  const guardDelivery = async <T>(grant: Grant, payload: T): Promise<T | null> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const invalidate = (reason: string) => { grant.active = false; grant.deliveryOpen = false; last = { state: "blocked", category: reason }; return null; };
+    const validation = (async () => {
+      try {
+        check(grant.deliveryOpen && grant.admitted, "checkpoint_agent_scope_closed");
+        await assertGrant(grant); for (const ref of grant.released.values()) await original(grant, ref); await assertGrant(grant);
+        assertAlive(grant); check(grant.deliveryOpen, "checkpoint_agent_scope_closed"); return payload;
+      } catch (error) { return invalidate(category(error)); }
+    })();
+    // This budget is shorter than the registered public hook's 15s Host budget.
+    // A slow/failed check becomes an explicit cancel, never a Host fail-open timeout.
+    try { return await Promise.race([validation, new Promise<null>(resolve => { timer = setTimeout(() => resolve(invalidate("checkpoint_agent_delivery_check_timeout")), 2_000); })]); }
+    finally { if (timer) clearTimeout(timer); }
+  };
   if (enabled) {
+    api.on("reply_payload_sending", async (event, ctx) => {
+      const key = event.sessionKey ?? ctx.sessionKey, runId = event.runId ?? ctx.runId;
+      const grant = runId ? grants.get(runId) : undefined;
+      const knownRun = grant || ctx.runId && grants.has(ctx.runId);
+      const targetKey = [event.sessionKey, ctx.sessionKey].some(value => value && parseAgentSessionKey(value)?.agentId === config.agentId);
+      if (!knownRun && !targetKey) return;
+      if (!grant || !key || key !== grant.ingress.request.sessionKey ||
+        event.sessionKey !== undefined && event.sessionKey !== grant.ingress.request.sessionKey ||
+        ctx.sessionKey !== undefined && ctx.sessionKey !== grant.ingress.request.sessionKey ||
+        event.runId !== undefined && ctx.runId !== undefined && event.runId !== ctx.runId)
+        return { cancel: true, reason: "checkpoint_agent_delivery_scope_unavailable" };
+      const payload = await guardDelivery(grant, event.payload);
+      return payload ? { payload } : { cancel: true, reason: last?.category ?? "checkpoint_agent_delivery_unavailable" };
+    }, { priority: 10_000, timeoutMs: 15_000 });
     api.on("reply_dispatch", async (event, ctx) => {
       const key = event.sessionKey ?? event.ctx.SessionKey;
       if (!key || parseAgentSessionKey(key)?.agentId !== config.agentId || event.ctx.CommandTurn && event.ctx.CommandTurn.kind !== "normal") return;
       try {
-        check(typeof ctx.dispatcher.appendBeforeDeliver === "function", "checkpoint_agent_delivery_guard_unavailable");
         const ingress = captureCheckpointHostRequest(api, config, event, ctx, shutdown.signal);
         check(!runs.has(ingress.request.runId) && runs.size < 64, "checkpoint_agent_duplicate_or_capacity");
         runs.add(ingress.request.runId);
@@ -74,10 +102,9 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
           async () => { throw new CatalogError("checkpoint_agent_semantic_dispatch_forbidden"); });
         const grant: Grant = { ingress, runtime, recovery: loaded.recovery, resolver, active: true, deliveryOpen: true, admitted: false, handles: new Map(), released: new Map() };
         await assertGrant(grant); grants.set(ingress.request.runId, grant);
-        ctx.dispatcher.appendBeforeDeliver(async payload => {
-          try { check(grant.deliveryOpen && grant.admitted, "checkpoint_agent_scope_closed"); await assertGrant(grant); for (const ref of grant.released.values()) await original(grant, ref); await assertGrant(grant); assertAlive(grant); check(grant.deliveryOpen, "checkpoint_agent_scope_closed"); return payload; }
-          catch (error) { grant.active = false; grant.deliveryOpen = false; last = { state: "blocked", category: category(error) }; return null; }
-        });
+        // Some Host ingress paths expose only an abort-aware dispatcher facade.
+        // Its outer dispatcher still runs the registered public payload gate.
+        ctx.dispatcher.appendBeforeDeliver?.(payload => guardDelivery(grant, payload));
         last = { state: "prepared" };
         // No takeover: the native Host dispatch now runs its normal Agent and tools.
         return;

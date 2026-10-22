@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { createServer } from "node:http";
 import net from "node:net";
 import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
@@ -12,16 +13,22 @@ const root = await realpath(process.cwd());
 assert.equal(root, "/Users/zangtao/Workspace/tower1229/Stella-Core");
 const attempt = process.argv[2], compilation = process.argv[3];
 assert.match(attempt ?? "", /^[a-z][a-z0-9]{0,15}$/); assert.match(compilation ?? "", /^a[0-9]+$/);
-const art = path.join(root, ".artifacts/suqing-batch6-20261022"), out = path.join(art, "host-probe-" + attempt);
+const art = path.resolve(process.env.STELLA_AGENT_SUPPLY_ARTIFACTS ?? path.join(root, ".artifacts/suqing-batch6-20261022"));
+assert.ok(art.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(art) === art);
+const out = path.join(art, "host-probe-" + attempt);
 await mkdir(out, { mode: 0o700 });
 const ownerPath = path.join(art, "host-probe-owner.json"), owner = { pid: process.pid, attempt, startedAtUtc: new Date().toISOString() };
 await writeFile(ownerPath, JSON.stringify(owner), { flag: "wx" });
-const compiled = path.join(art, "compiled-" + compilation);
+const compiled = path.resolve(process.env.STELLA_AGENT_SUPPLY_COMPILED ?? path.join(art, "compiled-" + compilation));
+assert.ok(compiled.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(compiled) === compiled);
 const { createAgentSupplySource, SUPPLY_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
 const { GatewayClient } = await import("openclaw/plugin-sdk/gateway-runtime");
 const source = await createAgentSupplySource(), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
 const state = process.env.OPENCLAW_STATE_DIR, configPath = process.env.OPENCLAW_CONFIG_PATH;
 assert.ok(state?.startsWith(art + "/") && configPath?.startsWith(state + "/"));
+const cache = process.env.XDG_CACHE_HOME;
+assert.ok(cache && path.isAbsolute(cache) && cache.startsWith(state + "/") && await realpath(cache) === cache,
+  "The stock SQLite worker requires an isolated public XDG_CACHE_HOME before SDK imports");
 for (const dir of [authority, workspace, plugin, state, process.env.OPENCLAW_HOME]) await mkdir(dir, { recursive: true });
 for (const name of ["AGENTS", "SOUL", "IDENTITY", "USER", "MEMORY"]) await writeFile(path.join(workspace, name + ".md"), `# Synthetic ${name}\nIsolated stock Host acceptance; no private material.\n`);
 const logPath = path.join(out, "public-events.jsonl");
@@ -31,17 +38,18 @@ await writeFile(path.join(plugin, "package.json"), JSON.stringify({ name: "@synt
 // Instrument only public callback arguments/results. Preserve the Host envelope.
 await writeFile(path.join(plugin, "index.mjs"), `import core from ${JSON.stringify(pathToFileURL(path.join(compiled, "src/plugin.js")).href)};
 import { appendFileSync } from 'node:fs';
-const record = value => appendFileSync(${JSON.stringify(logPath)}, JSON.stringify(value)+'\n');
+const record = value => appendFileSync(${JSON.stringify(logPath)}, JSON.stringify(value)+String.fromCharCode(10));
 export default {id:'stella-core',name:'Stella public supply probe',configSchema:core.configSchema,register(api){
  core.register({...api,on(name,handler,options){api.on(name,async(event,ctx)=>{
   const before = {name,runId:ctx.runId??event.runId,sessionId:ctx.sessionId,sessionKey:ctx.sessionKey??event.sessionKey,
     senderIsOwner:event.senderIsOwner,requester:ctx.requester,toolCallId:ctx.toolCallId,toolName:event.toolName,
-    historyCount:Array.isArray(event.messages)?event.messages.length:undefined,chatType:event.ctx?.ChatType};
+    historyCount:Array.isArray(event.messages)?event.messages.length:undefined,chatType:event.ctx?.ChatType,
+    ingressBodyType:typeof event.ctx?.Body,ingressTimestamp:event.ctx?.Timestamp,ingressTimestampType:typeof event.ctx?.Timestamp};
   record({...before,phase:'before'}); const result=await handler(event,ctx); record({...before,phase:'after',result});return result;
  },options)},registerTool(factory,options){api.registerTool(ctx=>{
  const tool=typeof factory==='function'?factory(ctx):factory;
  if(!tool||Array.isArray(tool)||tool.name!=='stella_memory_data')return tool;
- return {...tool,async execute(...args){record({name:'tool_execute',sessionId:ctx.sessionId,sessionKey:ctx.sessionKey,senderIsOwner:ctx.senderIsOwner,requesterSenderId:ctx.requesterSenderId});
+ return {...tool,async execute(...args){record({name:'tool_execute',callId:args[0],input:args[1],sessionId:ctx.sessionId,sessionKey:ctx.sessionKey,senderIsOwner:ctx.senderIsOwner,requesterSenderId:ctx.requesterSenderId});
  const result=await tool.execute(...args);record({name:'tool_result',result});return result;}};
  },options)}});
 }};`);
@@ -76,10 +84,10 @@ try {
   const allocator = net.createServer(); await new Promise(resolve => allocator.listen(0, "127.0.0.1", resolve)); const gatewayPort = allocator.address().port;
   await new Promise(resolve => allocator.close(resolve));
   const token = randomBytes(32).toString("hex"), port = provider.address().port;
-  const config = { gateway: { mode: "local" }, commands: { ownerAllowFrom: ["*"] }, agents: { ownership: "explicit", defaults: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] }, thinkingDefault: "low" },
+  const config = { logging: { file: path.join(out, "gateway.log") }, gateway: { mode: "local" }, memory: { search: { enabled: false } }, hooks: { internal: { enabled: false, entries: { "session-memory": { enabled: false } } } }, commands: { ownerAllowFrom: ["*"] }, agents: { ownership: "explicit", defaults: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] }, thinkingDefault: "low" },
     entries: { synthetic: { workspace } } }, models: { providers: { google: { api: "google-generative-ai", apiKey: "synthetic-loopback-only", baseUrl: `http://127.0.0.1:${port}`,
       models: [{ id: "gemini-3.8-flash", name: "Synthetic Google loopback", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } },
-    plugins: { allow: ["stella-core", "google"], load: { paths: [plugin] }, entries: { "stella-core": { enabled: true, config: { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority,
+    plugins: { slots: { memory: "none" }, allow: ["stella-core", "google"], load: { paths: [plugin] }, entries: { "memory-core": { enabled: false }, "stella-core": { enabled: true, config: { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority,
       canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools" } } } }, tools: { allow: ["stella_memory_data"] } };
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   const sandbox = `(version 1)\n(allow default)\n(deny file-read* (subpath "/Users/zangtao"))\n(allow file-read-metadata (literal "/Users/zangtao") (literal "/Users/zangtao/Workspace") (literal "/Users/zangtao/Workspace/tower1229") (literal "/Users/zangtao/.nvm") (literal "/Users/zangtao/.nvm/versions") (literal "/Users/zangtao/.nvm/versions/node"))\n(allow file-read* (subpath ${JSON.stringify(root)}) (subpath "/Users/zangtao/.nvm/versions/node/v24.22.1"))\n(deny file-write* (subpath "/Users/zangtao"))\n(allow file-write* (subpath ${JSON.stringify(out)}) (subpath ${JSON.stringify(state)}) (subpath ${JSON.stringify(process.env.OPENCLAW_HOME)}))\n(deny network-outbound)\n(allow network-outbound (remote ip "localhost:*"))\n(deny process-exec (literal "/bin/ps") (literal "/usr/bin/ps"))\n`;
@@ -88,11 +96,11 @@ try {
   const args = ["-f", profile, process.execPath, path.join(root, "node_modules/openclaw/openclaw.mjs"), "gateway", "run", "--allow-unconfigured", "--bind", "loopback", "--auth", "token", "--port", String(gatewayPort), "--ws-log", "compact"];
   child = spawn("/usr/bin/sandbox-exec", args, { cwd: out, env, stdio: ["ignore", "pipe", "pipe"] });
   result.gateway = { pid: child.pid, command: ["/usr/bin/sandbox-exec", ...args], port: gatewayPort, sandboxed: true }; await save();
-  let output = ""; const capture = chunk => { output += String(chunk); };
+  let output = ""; const capture = chunk => { output += String(chunk); appendFileSync(path.join(out, "gateway-live.log"), chunk); };
   child.stdout.on("data", capture); child.stderr.on("data", capture);
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("isolated_gateway_start_timeout")), 45000);
-    const interval = setInterval(() => { if (output.includes("listening on")) { clearTimeout(timer); clearInterval(interval); resolve(); } }, 100);
+    const interval = setInterval(() => { if (output.includes("stella-core failed to load")) { clearTimeout(timer); clearInterval(interval); reject(new Error("isolated_core_plugin_load_failed")); } else if (output.includes("[gateway] ready")) { result.gateway.ready = true; clearTimeout(timer); clearInterval(interval); resolve(); } }, 100);
     child.once("exit", code => { clearTimeout(timer); clearInterval(interval); reject(new Error(`isolated_gateway_exited_${code}`)); });
   }).finally(async () => { await writeFile(path.join(out, "gateway-start.log"), output); });
   await new Promise((resolve, reject) => {
