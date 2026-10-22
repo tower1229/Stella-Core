@@ -1,3 +1,4 @@
+import { registerCheckpointPlugin } from "./openclaw/checkpoint-plugin-registration.js";
 import { ConsciousnessLoader } from "./openclaw/consciousness-loader.js";
 import { createHostContextTurnStore, type CommitHostContextTurn } from "./openclaw/host-context-turn-store.js";
 import { withHostHistoryCompaction, hostHistoryCompaction, assertHostHistoryCompaction, publishHostHistoryCompaction } from "./openclaw/host-history-compaction.js";
@@ -252,6 +253,14 @@ export default definePluginEntry({
     "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
 
   register(api) {
+    if (isRecord(api.pluginConfig) && api.pluginConfig.recoveryAuthority === "core_checkpoint") {
+      registerCheckpointPlugin(api);
+      return;
+    }
+    if (isRecord(api.pluginConfig) && api.pluginConfig.recoveryAuthority !== undefined && api.pluginConfig.recoveryAuthority !== "legacy_config") {
+      throw new Error("Stella Core config.recoveryAuthority is invalid");
+    }
+    if (isRecord(api.pluginConfig) && api.pluginConfig.checkpointStateDirectory !== undefined) throw new Error("Legacy authority cannot configure a checkpoint state directory");
     const config = parsePluginConfig(api.pluginConfig);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
     const archiveRetention = registerArchiveRetention(api, config, async () => {

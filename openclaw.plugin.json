@@ -22,7 +22,6 @@
     "additionalProperties": false,
     "required": [
       "canghaiRoot",
-      "recoveryRevision",
       "dataMode"
     ],
     "properties": {
@@ -88,7 +87,69 @@
         "type": "string",
         "minLength": 1,
         "description": "Repository-relative retained Core context archive directory; requires managed durable writes and a pinned signing key."
+      },
+      "recoveryAuthority": {
+        "type": "string",
+        "enum": [
+          "legacy_config",
+          "core_checkpoint"
+        ],
+        "default": "legacy_config",
+        "description": "Explicit authority mode. Core checkpoint is restricted maintenance; Agent memory is blocked until migrated."
+      },
+      "checkpointStateDirectory": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Explicit existing canonical state directory outside CangHai, required only in core_checkpoint mode. Never auto-initialized."
       }
-    }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            }
+          },
+          "required": [
+            "recoveryAuthority"
+          ]
+        },
+        "then": {
+          "required": [
+            "checkpointStateDirectory"
+          ],
+          "properties": {
+            "dataMode": {
+              "enum": [
+                "read_only",
+                "local_write"
+              ]
+            },
+            "initializationGatewayAccess": false,
+            "durabilityRemote": false,
+            "durabilityBranch": false,
+            "archiveRetention": false,
+            "contextHistorySignerId": false,
+            "contextHistoryArchiveRoot": false
+          },
+          "not": {
+            "required": [
+              "recoveryRevision"
+            ]
+          }
+        },
+        "else": {
+          "required": [
+            "recoveryRevision"
+          ],
+          "not": {
+            "required": [
+              "checkpointStateDirectory"
+            ]
+          }
+        }
+      }
+    ]
   }
 }

@@ -6,6 +6,12 @@ import { bytesVersion, canonicalJson } from "./content-version.js";
 import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin-sdk/file-lock";
 import { isRecord } from "../shared/type-guards.js";
 import { migrateSynchronizationState } from "./synchronization-state.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { ownsExclusiveFileLock, withExclusiveFileLock } from "./exclusive-file-lock.js";
+import type { CheckpointRecoveryRuntime, RecoveryAuthoritySnapshot } from "./recovery-authority-contract.js";
+
+const run = promisify(execFile);
 
 import type { MemoryFileEncoding, MemoryTransactionPlan } from "./memory-transaction-plan.js";
 import { parseMemoryTransactionJournal, serializeMemoryTransactionJournal } from "./memory-transaction-journal.js";
@@ -65,6 +71,7 @@ export async function assertMemoryTransactionReadable(root: string, synchronizat
 
 /** True when this process still holds the exclusive memory-mutation lock for root. */
 export async function ownsMemoryMutationLock(root: string): Promise<boolean> {
+  if (await ownsExclusiveFileLock(path.join(root, markerName))) return true;
   const held = readLocks.get(await realpath(root));
   return Boolean(held?.active &&
     await text(path.join(held.root, `${markerName}.lock`)) === held.bytes);
@@ -129,7 +136,7 @@ async function writeEncoded(file: string, content: string, encoding: MemoryFileE
       await handle.writeFile(Buffer.from(content, "base64"));
       await handle.sync();
     } finally { await handle.close(); }
-    await rename(staging, file);
+    await rename(staging, file); await syncDirectory(path.dirname(file));
   } finally { try { await unlink(staging); } catch (error) { if (!missing(error)) throw error; } }
 }
 
@@ -146,12 +153,19 @@ export function parseRecordedMemoryTransaction(bytes: string, expectedOperationI
   catch { throw new MemoryTransactionError("invalid_transaction_journal"); }
 }
 
-type TransactionPorts = {
+export type CheckpointTransactionRecovery = Readonly<{
+  authority: CheckpointRecoveryRuntime;
+  expected: RecoveryAuthoritySnapshot;
+  /** A new B-bound check of permission/source/generation. Never reuse or upgrade an A closure. */
+  assertPublication(accepted: RecoveryAuthoritySnapshot): Promise<void>;
+}>;
+export type TransactionPorts = {
   validate(): Promise<void>;
   persist(paths: string[], operationId: string): Promise<void>;
   confirmPreviouslyCommitted(journalPath: string): Promise<void>;
   /** Optional view publication gate after durable persist and before the fence is released. */
   publishView?(): Promise<void>;
+  recovery?: CheckpointTransactionRecovery;
 };
 async function location(root: string, relative: string, create = false): Promise<string> {
   check(relative && !path.isAbsolute(relative) && !relative.includes("\\") && relative.split("/").every((part) =>
@@ -171,13 +185,18 @@ async function location(root: string, relative: string, create = false): Promise
   await text(file);
   return file;
 }
+async function syncDirectory(directory: string): Promise<void> {
+  const handle = await open(directory, "r");
+  try { await handle.sync(); } finally { await handle.close(); }
+}
 async function writeNew(file: string, content: string): Promise<void> {
   const handle = await open(file, "wx", 0o600);
   try { await handle.writeFile(content, "utf8"); await handle.sync(); } finally { await handle.close(); }
+  await syncDirectory(path.dirname(file));
 }
 async function replace(file: string, content: string): Promise<void> {
   const staging = path.join(path.dirname(file), `.transaction-${randomUUID()}.staging`);
-  try { await writeNew(staging, content); await rename(staging, file); }
+  try { await writeNew(staging, content); await rename(staging, file); await syncDirectory(path.dirname(file)); }
   finally { try { await unlink(staging); } catch (error) { if (!missing(error)) throw error; } }
 }
 
@@ -200,28 +219,76 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
   // A separate exclusive handle prevents two retries of the same durable intent from executing together.
   const rootStat = await lstat(resolved);
   check(rootStat.isDirectory() && !rootStat.isSymbolicLink(), "unsafe_transaction_path");
-  const lock = await acquireMutationLock(resolved);
-  const key = await realpath(resolved);
-  const held = { root: resolved, bytes: "", active: true };
-  try {
-    held.bytes = (await text(path.join(resolved, `${markerName}.lock`)))!;
-    check(held.bytes !== null, "memory_lock_missing");
-    readLocks.set(key, held);
+  const recovery = ports.recovery;
+  // A v2 journal can never silently fall back to a legacy writer, even on replay.
+  check(Boolean(plan.recoveryCheckpoint) === Boolean(recovery), "transaction_recovery_required");
+  const expected = recovery ? JSON.parse(canonicalJson(recovery.expected)) as RecoveryAuthoritySnapshot : undefined;
+  if (recovery) {
+    check(recovery.authority.mode === "core_checkpoint" && expected?.mode === "core_checkpoint" &&
+      canonicalJson(expected.binding) === canonicalJson(plan.recoveryCheckpoint!.binding) &&
+      expected.binding.repositoryRoot === resolved &&
+      expected.revision === plan.recoveryCheckpoint!.expected.revision &&
+      expected.token === plan.recoveryCheckpoint!.expected.token &&
+      typeof recovery.assertPublication === "function" && !ports.publishView, "transaction_recovery_mismatch");
+  }
+  const head = async () => (await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", resolved, "rev-parse", "HEAD"])).stdout.trim();
+  const publish = async () => {
+    checkActive();
+    if (!recovery) { await ports.publishView?.(); return; }
+    const result = await recovery.authority.confirmCommitted({ revision: await head(), journalPath: plan.journalPath });
+    const checkpoint = result.checkpoint;
+    const accepted: RecoveryAuthoritySnapshot = Object.freeze({ mode: "core_checkpoint", binding: Object.freeze({ ...checkpoint.binding }),
+      revision: checkpoint.revision, token: checkpoint.token });
+    // Only the authenticated CAS result establishes B. Never re-read and adopt current state.
+    await recovery.authority.assertCurrent(accepted);
+    checkActive();
+    await recovery.assertPublication(accepted);
+    checkActive();
+    // Re-authenticate the same B/journal after the final asynchronous publication gate.
+    // This catches changed/deleted payloads and source files, not only an unchanged checkpoint tuple.
+    const verified = await recovery.authority.confirmCommitted({ revision: accepted.revision, journalPath: plan.journalPath });
+    check(verified.checkpoint.revision === accepted.revision && verified.checkpoint.token === accepted.token, "transaction_publication_changed");
+    checkActive();
+    await recovery.authority.assertCurrent(accepted);
+  };
+  const execute = async () => {
     const pending = await text(marker);
     check(pending === null || pending === intent, "memory_transaction_conflict");
-    const journal = await location(resolved, plan.journalPath, true);
-    const recorded = await text(journal);
+    // Validate journal location without creating directories on a stale operation.
+    const journal = path.join(resolved, plan.journalPath);
+    let recorded: string | null;
+    try { recorded = await text(await location(resolved, plan.journalPath)); }
+    catch (error) { if (!missing(error)) throw error; recorded = null; }
     check(recorded === null || recorded === intent, "transaction_operation_conflict");
-    if (recorded !== null && pending === null) {
-      await ports.confirmPreviouslyCommitted(plan.journalPath);
-      checkActive();
+    if (recorded !== null && (pending === null || recovery && await head() !== expected!.revision)) {
+      // Accepted-but-unpublished recovery and completed retries require the same B gate.
+      const owner = { root: resolved, intent, active: true };
+      try { await owners.run(owner, async () => {
+        if (recovery) await publish();
+        else await ports.confirmPreviouslyCommitted(plan.journalPath);
+        checkActive();
+        if (pending !== null) {
+          check(await text(marker) === intent, "memory_transaction_conflict");
+          checkActive(); // Linearization point: no intervening await before marker deletion.
+          await unlink(marker); await syncDirectory(resolved);
+        }
+      }); } finally { owner.active = false; }
       return { operationId: plan.operationId, journalPath: plan.journalPath, replayed: true };
     }
+    if (recovery) {
+      await recovery.authority.assertCurrent(expected!);
+      check(await head() === expected!.revision, "transaction_recovery_revision_mismatch");
+      if (pending === null) {
+        const status = (await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", resolved, "status", "--porcelain", "--untracked-files=all"])).stdout.trim();
+        check(status === `?? ${markerName}.lock`, "transaction_recovery_dirty");
+      }
+    }
+    checkActive();
+    await location(resolved, plan.journalPath, true);
     const targets = await Promise.all(plan.files.map((file) => location(resolved, file.path, true)));
     for (let index = 0; index < plan.files.length; index++) {
       const file = plan.files[index]!;
-      const encoding = normalizeEncoding(file.encoding);
-      const current = await readEncoded(targets[index]!, encoding);
+      const current = await readEncoded(targets[index]!, normalizeEncoding(file.encoding));
       check(current === file.before || pending !== null && current === file.after, "transaction_version_conflict");
     }
     if (pending === null) await writeNew(marker, intent);
@@ -231,9 +298,7 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
       checkActive();
       for (let index = 0; index < plan.files.length; index++) {
         checkActive();
-        const file = plan.files[index]!;
-        const target = targets[index]!;
-        const encoding = normalizeEncoding(file.encoding);
+        const file = plan.files[index]!, target = targets[index]!, encoding = normalizeEncoding(file.encoding);
         const current = await readEncoded(target, encoding);
         check(current === file.before || current === file.after, "transaction_version_conflict");
         if (current !== file.after) await writeEncoded(target, file.after, encoding);
@@ -242,21 +307,26 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
       checkActive();
       await ports.persist(paths, plan.operationId);
       checkActive();
-      await ports.publishView?.();
+      await publish();
       checkActive();
       check(await text(marker) === intent, "memory_transaction_conflict");
-      await unlink(marker);
+      checkActive(); // Linearization point: no intervening await before marker deletion.
+      await unlink(marker); await syncDirectory(resolved);
     }); } catch (error) {
-      if (await text(journal) === null && (await Promise.all(targets.map((target) => text(target))))
+      if (await text(journal) === null && (await Promise.all(targets.map((target, index) => readEncoded(target, normalizeEncoding(plan.files[index]!.encoding)))))
         .every((current, index) => current === plan.files[index]!.before) && await text(marker) === intent) {
-        await unlink(marker);
+        await unlink(marker); await syncDirectory(resolved);
       }
       throw error;
     } finally { owner.active = false; }
     return { operationId: plan.operationId, journalPath: plan.journalPath, replayed: pending !== null };
-  } finally {
-    held.active = false;
-    readLocks.delete(key);
-    await lock.release();
-  }
+  };
+  if (recovery) return withExclusiveFileLock(path.join(resolved, markerName), execute);
+  const lock = await acquireMutationLock(resolved), key = await realpath(resolved);
+  const held = { root: resolved, bytes: "", active: true };
+  try {
+    held.bytes = (await text(path.join(resolved, `${markerName}.lock`)))!;
+    check(held.bytes !== null, "memory_lock_missing"); readLocks.set(key, held);
+    return await execute();
+  } finally { held.active = false; readLocks.delete(key); await lock.release(); }
 }

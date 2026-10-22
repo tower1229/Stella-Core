@@ -1,3 +1,4 @@
+import type { RecoveryAuthoritySnapshot } from "../canghai/recovery-authority-contract.js";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, unlink, open } from "node:fs/promises";
@@ -112,6 +113,8 @@ export type InitializationPlan = {
   workspace: string;
   changes: Change[];
   previousReceipt: Receipt | null;
+  /** Core pending records retain their original tuple across restarts; absent in legacy journals. */
+  recoveryAuthority?: RecoveryAuthoritySnapshot;
   hostIdentity?: { before: HostIdentity | null; after: HostIdentity };
   planHash: string;
 };
@@ -137,6 +140,11 @@ export type InitializationPorts = {
   readIdentity?(): Promise<HostIdentity | null>;
   applyIdentity?(before: HostIdentity | null, after: HostIdentity | null, allowAlreadyApplied: boolean): Promise<void>;
   release(): Promise<void>;
+  /** Explicit scoped lock adapter; legacy acquisition is retained only when absent. */
+  withLock?<T>(target: string, work: () => Promise<T>): Promise<T>;
+  /** Core opt-in protects unowned paths and previously confirmed file modes. */
+  strictOwnership?: boolean;
+  recoveryAuthority?: RecoveryAuthoritySnapshot;
 };
 
 export class StellaInitializer {
@@ -154,6 +162,12 @@ export class StellaInitializer {
     // Keep the durable fence if Host drain/isolation fails: active turns must remain gated
     // (active_turn_drain_required) until the operator retries after the turn settles.
     await this.ports.fence();
+  }
+
+  private async withLock<T>(work: () => Promise<T>): Promise<T> {
+    if (this.ports.withLock) return this.ports.withLock(path.join(this.stateRoot, "initialization"), work);
+    const lock = await this.acquire();
+    try { return await work(); } finally { await lock.release(); }
   }
 
   private async acquire(): Promise<{ release(): Promise<void> }> {
@@ -217,9 +231,33 @@ export class StellaInitializer {
     return bytes.toString("base64");
   }
 
+  private recoveryAuthority(): RecoveryAuthoritySnapshot {
+    const authority = this.ports.recoveryAuthority;
+    check(authority?.mode === "core_checkpoint" && authority.binding.repositoryRoot === this.source.root &&
+      authority.binding.agentId === this.source.agentId && authority.revision === this.source.revision &&
+      typeof authority.token === "string" && authority.token.length > 0, "initialization_checkpoint_binding_required");
+    return JSON.parse(canonicalJson(authority)) as RecoveryAuthoritySnapshot;
+  }
+  private async ownedModes(previous: Receipt): Promise<Map<string, number>> {
+    const archived = await read(this.stateRoot, `operations/${previous.operationId}.json`);
+    check(archived, "initialization_ownership_evidence_required");
+    const oldPlan = JSON.parse(Buffer.from(archived, "base64").toString("utf8")) as InitializationPlan;
+    const { planHash, ...body } = oldPlan;
+    check(bytesVersion(canonicalJson(body)) === planHash && oldPlan.operationId === previous.operationId && oldPlan.workspace === this.workspace &&
+      oldPlan.agentId === this.source.agentId && Array.isArray(oldPlan.changes), "initialization_ownership_evidence_required");
+    const modes = new Map<string, number>();
+    for (const file of previous.files) {
+      const old = oldPlan.changes.find(change => change.target === file.target);
+      check(old && typeof old.after === "string" && bytesVersion(Buffer.from(old.after, "base64")) === file.hash && typeof old.executable === "boolean", "initialization_ownership_evidence_required");
+      modes.set(file.target, old.executable ? 0o700 : 0o600);
+    }
+    return modes;
+  }
+
   async plan(): Promise<InitializationPlan> {
     const { recipe } = await this.recipe();
     const changes: Change[] = [];
+    const previous = await this.receipt();
     for (const file of recipe.files) {
       const after = await this.sourceContent(file);
       check(after && bytesVersion(Buffer.from(after, "base64")) === file.sha256, "source_content_mismatch");
@@ -229,7 +267,12 @@ export class StellaInitializer {
       changes.push({ target: file.target, before: await read(this.workspace, file.target), beforeMode: await mode(this.workspace, file.target), after, executable: file.executable });
     }
     check(changes.filter((file) => bootstrap.includes(file.target)).reduce((sum, file) => sum + Buffer.from(file.after!, "base64").toString("utf8").length, 0) <= 60000, "bootstrap_truncated");
-    const previous = await this.receipt();
+    if (this.ports.strictOwnership) {
+      for (const change of changes) check(change.before === null || previous?.files.some(file => file.target === change.target), "host_file_unowned");
+      if (previous) for (const [target, confirmedMode] of await this.ownedModes(previous)) {
+        check(await mode(this.workspace, target) === confirmedMode, "projection_mode_drift");
+      }
+    }
     if (previous) for (const file of previous.files) {
       const current = await read(this.workspace, file.target);
       check(current !== null && bytesVersion(Buffer.from(current, "base64")) === file.hash, "projection_drift");
@@ -242,7 +285,7 @@ export class StellaInitializer {
     }
     const plan = { schemaVersion: "stella.initialization-plan/v1" as const, operationId: `init_${randomUUID()}`,
       sourceRevision: this.source.revision, agentId: recipe.agentId, recipeHash: bytesVersion(canonicalJson(recipe)), workspace: this.workspace, changes,
-      previousReceipt: previous, ...(hostIdentity ? { hostIdentity } : {}) };
+      previousReceipt: previous, ...(this.ports.strictOwnership ? { recoveryAuthority: this.recoveryAuthority() } : {}), ...(hostIdentity ? { hostIdentity } : {}) };
     check(Buffer.byteLength(canonicalJson(plan)) <= 24 * 1024 * 1024, "materialization_resource_exhausted");
     return { ...plan, planHash: bytesVersion(canonicalJson(plan)) };
   }
@@ -263,7 +306,10 @@ export class StellaInitializer {
   }
 
   async assertCurrent(): Promise<Receipt> {
-    return (await this.currentContext()).receipt;
+    this.active();
+    const receipt = (await this.currentContext()).receipt;
+    this.active();
+    return receipt;
   }
 
   private async currentContext(): Promise<{ receipt: Receipt; compiled?: CompiledInitializationSource }> {
@@ -360,11 +406,21 @@ export class StellaInitializer {
   async apply(plan: InitializationPlan): Promise<Receipt> {
     this.active();
     await mkdir(this.stateRoot, { recursive: true, mode: 0o700 });
-    const lock = await this.acquire();
-    try {
+    return this.withLock(async () => {
       check(await read(this.stateRoot, "rollback-pending.json") === null, "rollback_pending");
       const { planHash, ...body } = plan;
       check(bytesVersion(canonicalJson(body)) === planHash && plan.agentId === this.source.agentId && plan.workspace === this.workspace && plan.sourceRevision === this.source.revision, "stale_plan");
+      if (this.ports.strictOwnership) {
+        check(plan.recoveryAuthority && canonicalJson(plan.recoveryAuthority) === canonicalJson(this.recoveryAuthority()), "initialization_checkpoint_pending_unverified");
+        const priorModes = plan.previousReceipt ? await this.ownedModes(plan.previousReceipt) : new Map<string, number>();
+        for (const change of plan.changes) {
+          if (change.before !== null) {
+            const previous = plan.previousReceipt?.files.find(file => file.target === change.target);
+            check(previous && bytesVersion(Buffer.from(change.before, "base64")) === previous.hash, "host_file_unowned");
+            check(change.beforeMode === priorModes.get(change.target), "projection_mode_drift");
+          }
+        }
+      }
       const { recipe } = await this.recipe();
       check(bytesVersion(canonicalJson(recipe)) === plan.recipeHash, "stale_plan");
       const previous = await this.receipt();
@@ -433,15 +489,14 @@ export class StellaInitializer {
       await unlink(await safeFile(this.stateRoot, "pending.json"));
       await syncDirectory(this.stateRoot);
       return receipt;
-    } finally { await lock.release(); }
+    });
   }
 
   /** Restores original bytes and modes, but leaves admission fenced until a new source is verified. */
   async rollback(operationId: string): Promise<void> {
     this.active();
     check(/^init_[a-f0-9-]{36}$/.test(operationId), "invalid_operation");
-    const lock = await this.acquire();
-    try {
+    return this.withLock(async () => {
       const archived = await read(this.stateRoot, `operations/${operationId}.json`);
       check(archived, "operation_not_found");
       const plan = JSON.parse(Buffer.from(archived, "base64").toString("utf8")) as InitializationPlan;
@@ -491,7 +546,7 @@ export class StellaInitializer {
       await write(this.stateRoot, `operations/${operationId}.rolled-back`, Buffer.from("rolled back; initialization required\n").toString("base64"));
       await unlink(await safeFile(this.stateRoot, "rollback-pending.json"));
       await syncDirectory(this.stateRoot);
-    } finally { await lock.release(); }
+    });
   }
 
   async bindRun(runId: string): Promise<void> {

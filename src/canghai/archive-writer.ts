@@ -1,3 +1,4 @@
+import { persistCheckpointArchive, type CheckpointArchivePorts } from "./checkpoint-archive.js";
 import { randomUUID } from "node:crypto";
 import { link, lstat, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import path from "node:path";
@@ -15,6 +16,7 @@ import { withMemoryMutationLock } from "./memory-transaction.js";
 import { applyViewMigration, assertViewMigration, planViewMigration, rebuildsFromViewFiles, type ViewRebuildAdmission } from "./view-migration.js";
 
 type ArchiveWriterPorts = {
+  checkpoint?: CheckpointArchivePorts;
   persist(paths: string[], operationId: string): Promise<void>;
   confirmPreviouslyCommitted(operationPath: string): Promise<void>;
   /** Structured rebuild admissions for required views whose inputs changed. Replay reads recorded viewFiles. */
@@ -69,6 +71,7 @@ export async function persistHostInputArchive(input: {
   const frozen = { ...input, archive: JSON.parse(canonicalJson(input.archive)) as HostInputArchive,
     purpose: { ...input.purpose },
     retentionGuarantees: input.retentionGuarantees ?? DEFAULT_RETENTION_GUARANTEES };
+  if (ports.checkpoint) return persistCheckpointArchive(frozen, ports.checkpoint);
   return withMemoryMutationLock(input.reader.root, () => persistArchive(frozen, ports));
 }
 
