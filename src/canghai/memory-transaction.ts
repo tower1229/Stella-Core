@@ -202,7 +202,7 @@ async function replace(file: string, content: string): Promise<void> {
 
 /** Only the verified transaction may see its unpublished multi-file state. */
 export async function applyMemoryTransaction(root: string, value: MemoryTransactionPlan, ports: TransactionPorts,
-  abortSignal?: AbortSignal): Promise<{ operationId: string; journalPath: string; replayed: boolean }> {
+  abortSignal?: AbortSignal): Promise<{ operationId: string; journalPath: string; replayed: boolean; authority?: RecoveryAuthoritySnapshot }> {
   const plan: MemoryTransactionPlan = JSON.parse(canonicalJson(value));
   const resolved = path.resolve(root);
   const checkActive = () => check(!abortSignal?.aborted, "operation_cancelled");
@@ -232,6 +232,7 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
       typeof recovery.assertPublication === "function" && !ports.publishView, "transaction_recovery_mismatch");
   }
   const head = async () => (await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", resolved, "rev-parse", "HEAD"])).stdout.trim();
+  let publishedAuthority: RecoveryAuthoritySnapshot | undefined;
   const publish = async () => {
     checkActive();
     if (!recovery) { await ports.publishView?.(); return; }
@@ -250,6 +251,7 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
     check(verified.checkpoint.revision === accepted.revision && verified.checkpoint.token === accepted.token, "transaction_publication_changed");
     checkActive();
     await recovery.authority.assertCurrent(accepted);
+    publishedAuthority = accepted;
   };
   const execute = async () => {
     const pending = await text(marker);
@@ -273,7 +275,7 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
           await unlink(marker); await syncDirectory(resolved);
         }
       }); } finally { owner.active = false; }
-      return { operationId: plan.operationId, journalPath: plan.journalPath, replayed: true };
+      return { operationId: plan.operationId, journalPath: plan.journalPath, replayed: true, ...(publishedAuthority ? { authority: publishedAuthority } : {}) };
     }
     if (recovery) {
       await recovery.authority.assertCurrent(expected!);
@@ -319,7 +321,7 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
       }
       throw error;
     } finally { owner.active = false; }
-    return { operationId: plan.operationId, journalPath: plan.journalPath, replayed: pending !== null };
+    return { operationId: plan.operationId, journalPath: plan.journalPath, replayed: pending !== null, ...(publishedAuthority ? { authority: publishedAuthority } : {}) };
   };
   if (recovery) return withExclusiveFileLock(path.join(resolved, markerName), execute);
   const lock = await acquireMutationLock(resolved), key = await realpath(resolved);

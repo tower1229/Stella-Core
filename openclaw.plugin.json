@@ -101,6 +101,13 @@
         "type": "string",
         "minLength": 1,
         "description": "Explicit existing canonical state directory outside CangHai, required only in core_checkpoint mode. Never auto-initialized."
+      },
+      "requestArchive": {
+        "type": "string",
+        "enum": [
+          "local"
+        ],
+        "description": "Explicit checkpoint-mode owner ingress retention only; commits locally and does not run an Agent or deliver a generated reply."
       }
     },
     "allOf": [
@@ -131,7 +138,13 @@
             "durabilityBranch": false,
             "archiveRetention": false,
             "contextHistorySignerId": false,
-            "contextHistoryArchiveRoot": false
+            "contextHistoryArchiveRoot": false,
+            "requestArchive": {
+              "type": "string",
+              "enum": [
+                "local"
+              ]
+            }
           },
           "not": {
             "required": [
@@ -147,6 +160,26 @@
             "required": [
               "checkpointStateDirectory"
             ]
+          }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "requestArchive"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            },
+            "dataMode": {
+              "const": "local_write"
+            }
           }
         }
       }

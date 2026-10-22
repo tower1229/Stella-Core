@@ -14,22 +14,23 @@ import { StellaInitializer, type InitializationPorts, type InitializationSource 
 
 const run = promisify(execFile);
 export type CheckpointPluginConfig = Readonly<{ recoveryAuthority: "core_checkpoint"; checkpointStateDirectory: string;
-  canghaiRoot: string; manifestPath: string; agentId: string; dataMode: "read_only" | "local_write" }>;
+  canghaiRoot: string; manifestPath: string; agentId: string; dataMode: "read_only" | "local_write"; requestArchive?: "local" }>;
 export function parseCheckpointPluginConfig(value: unknown): CheckpointPluginConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new RecoveryAuthorityError("checkpoint_configuration_invalid");
   const config = value as Record<string, unknown>;
-  const allowed = ["recoveryAuthority", "checkpointStateDirectory", "canghaiRoot", "manifestPath", "agentId", "dataMode"];
+  const allowed = ["recoveryAuthority", "checkpointStateDirectory", "canghaiRoot", "manifestPath", "agentId", "dataMode", "requestArchive"];
   if (Object.keys(config).some(key => !allowed.includes(key)) || config.recoveryAuthority !== "core_checkpoint" ||
     typeof config.canghaiRoot !== "string" || !path.isAbsolute(config.canghaiRoot) ||
     typeof config.checkpointStateDirectory !== "string" || !path.isAbsolute(config.checkpointStateDirectory) ||
     !["read_only", "local_write"].includes(String(config.dataMode)) ||
+    config.requestArchive !== undefined && (config.requestArchive !== "local" || config.dataMode !== "local_write") ||
     config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,199}$/.test(config.agentId)) ||
     config.manifestPath !== undefined && (typeof config.manifestPath !== "string" || !config.manifestPath)) {
     throw new RecoveryAuthorityError("checkpoint_configuration_invalid");
   }
   return Object.freeze({ recoveryAuthority: "core_checkpoint", canghaiRoot: config.canghaiRoot, checkpointStateDirectory: config.checkpointStateDirectory,
     manifestPath: config.manifestPath as string | undefined ?? "50_PersonalAgent/stella/manifest.yaml", agentId: config.agentId as string | undefined ?? "stella",
-    dataMode: config.dataMode as "read_only" | "local_write" });
+    dataMode: config.dataMode as "read_only" | "local_write", ...(config.requestArchive === "local" ? { requestArchive: "local" as const } : {}) });
 }
 
 /** One resolver per registration. No config writer, implicit seed or mutable current-operation slot. */
@@ -70,7 +71,7 @@ export async function createCheckpointPluginRuntime(input: CheckpointPluginConfi
       const checkActive = () => { active(); cancellation.throwIfAborted(); };
       checkActive();
       const publication = input.assertPublication;
-      return persistCheckpointArchive(input, {
+      const result = await persistCheckpointArchive(input, {
         signal: cancellation,
         recovery: { authority: runtime, expected: fixed.expected, async assertPublication(accepted) {
           checkActive(); await publication?.(accepted); checkActive();
@@ -84,6 +85,8 @@ export async function createCheckpointPluginRuntime(input: CheckpointPluginConfi
           checkActive();
         },
       });
+      if (!result.authority) throw new RecoveryAuthorityError("checkpoint_publication_receipt_missing");
+      return { ...result, authority: result.authority };
     },
     /** Explicit file materialization only. Caller supplies existing Host fence/verify/identity adapters.
      * Each operation owns one fixed authority and fresh initializer; receipts do not prove Agent consumption.

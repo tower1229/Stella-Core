@@ -1,5 +1,5 @@
 import path from "node:path";
-import { lstat } from "node:fs/promises";
+import { readCheckpointCommittedDocument } from "./checkpoint-committed-document.js";
 import { CatalogError, CatalogReader, parseMemoryCatalog, validMemoryRef, type MemoryCatalog } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import type { HostInputArchive } from "./host-input-archive.js";
@@ -54,24 +54,39 @@ export async function persistCheckpointArchive(input: Input, ports: CheckpointAr
     const journalPath = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.checkpoint.json`);
     // Replay must use the recorded original tuple and bytes. Never regenerate expected from HEAD/current.
     let plan: MemoryTransactionPlan | undefined;
-    try {
-      const file = path.join(reader.root, journalPath), stat = await lstat(file);
-      check(stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1, "unsafe_archive_locator");
-      plan = await readRecordedMemoryTransaction(reader.root, operationId, journalPath);
-    } catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
+    try { plan = await readRecordedMemoryTransaction(reader.root, operationId, journalPath); }
+    catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT") &&
+          !(error && typeof error === "object" && "category" in error && error.category === "pending_transaction_not_found")) throw error;
+    }
     let generationId: string;
     if (plan) {
       check(plan.journalPath === journalPath && plan.recoveryCheckpoint &&
         canonicalJson(plan.recoveryCheckpoint.binding) === canonicalJson(ports.recovery.expected.binding) &&
         canonicalJson(plan.recoveryCheckpoint.expected) === canonicalJson({ revision: ports.recovery.expected.revision, token: ports.recovery.expected.token }), "archive_operation_conflict");
-      for (const file of [{ path: archive.payload.path, after: archive.payload.bytes }, ...archive.objects.map(object => ({ path: object.entry.locator.path, after: object.bytes }))]) {
-        check(plan.files.some(saved => saved.path === file.path && saved.after === file.after && saved.before === null), "archive_operation_conflict");
+      const beforeBytes = await readCheckpointCommittedDocument(reader.root, ports.recovery.expected.revision, reader.catalogPath);
+      check(bytesVersion(beforeBytes) === reader.catalogHash, "archive_operation_conflict");
+      const before = parseMemoryCatalog(JSON.parse(beforeBytes));
+      let after = JSON.parse(canonicalJson(before)) as MemoryCatalog;
+      for (const object of archive.objects) {
+        check(!after[object.group].some(entry => entry.id === object.ref.id), "archive_operation_conflict");
+        after[object.group].push(object.entry);
       }
-      const catalog = plan.files.find(file => file.path === reader.catalogPath);
-      check(catalog && catalog.encoding !== "base64", "archive_journal_invalid");
-      generationId = parseMemoryCatalog(JSON.parse(catalog!.after)).generationId;
-      check(plan.files.some(file => file.path === businessPath && file.before === null &&
-        file.after === canonicalJson({ ...business, generationId })), "archive_operation_conflict");
+      after.parentGenerationId = before.generationId;
+      after.generationId = `generation_${bytesVersion(canonicalJson([reader.catalogHash, archive, purpose])).slice(7)}`;
+      const migration = planViewMigration({ before, after, rebuilds: await ports.viewRebuilds?.(after.generationId) });
+      after = applyViewMigration(after, migration); parseMemoryCatalog(after); generationId = after.generationId;
+      const files = [
+        { path: archive.payload.path, before: null, after: archive.payload.bytes },
+        ...archive.objects.map(object => ({ path: object.entry.locator.path, before: null, after: object.bytes })),
+        ...migration.files.map(file => { check(typeof file.after === "string", "required_view_rebuild_invalid"); return { ...file, after: file.after! }; }),
+        { path: businessPath, before: null, after: canonicalJson({ ...business, generationId }) },
+        { path: reader.catalogPath, before: canonicalJson(before), after: canonicalJson(after) },
+      ];
+      // A checksum is not an authorization. Rebuild the entire business plan from A;
+      // reject extra files, changed purposes, paths or catalog edits even if rehashed.
+      check(canonicalJson(plan) === canonicalJson({ operationId, journalPath, recoveryCheckpoint: { binding: ports.recovery.expected.binding,
+        expected: { revision: ports.recovery.expected.revision, token: ports.recovery.expected.token } }, files }), "archive_operation_conflict");
     } else {
       await ports.recovery.authority.assertCurrent(ports.recovery.expected);
       const current = await CatalogReader.load(reader.root, reader.catalogPath);

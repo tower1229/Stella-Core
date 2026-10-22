@@ -1,3 +1,8 @@
+import { prepareHostRequestArchive } from "../canghai/host-request-archive.js";
+import { prepareHostInputArchive } from "../canghai/host-input-archive.js";
+import type { createCheckpointPluginRuntime } from "../openclaw/checkpoint-plugin-runtime.js";
+import type { RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
+import type { RecoveryAuthoritySnapshot } from "../canghai/recovery-authority-contract.js";
 import path from "node:path";
 import { collectContextSources, type ContextSources } from "../praxis/context-sources.js";
 import { readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
@@ -45,16 +50,47 @@ export async function readAppliedCorrectionContext(receipt: object): Promise<App
 }
 
 /** Canonical Host input custody, before any semantic correction or answer generation. */
-export async function archiveCorrectionInput(input: {
-  request: BoundTurnRequest; original: HostInputSnapshot | HostRequestSnapshot; ownerId: string; reader: CatalogReader;
+type ArchiveCorrectionInput = {
+  request: BoundTurnRequest; original: HostInputSnapshot | HostRequestSnapshot; ownerId: string;
   archive: { policyRef: VersionedRef; objectRoot: string; payloadRoot: string };
-  purpose: EpisodeEvidenceResolver["purpose"]; durability: GitCangHaiDurability; signal: AbortSignal;
+  purpose: EpisodeEvidenceResolver["purpose"]; signal: AbortSignal;
   assertCurrent: () => Promise<void>;
   /** Fail-closed defaults: do_not_retain requires explicit Host guarantees before any disk write. */
   retentionGuarantees?: HostRetentionGuarantees;
-}) {
+} & ({ reader: CatalogReader; durability: GitCangHaiDurability; checkpoint?: never } | { reader: Pick<CatalogReader, "root" | "catalogPath" | "catalogHash">; durability?: never; checkpoint: {
+  runtime: Awaited<ReturnType<typeof createCheckpointPluginRuntime>>; recovery: RecoveryReadBinding;
+  /** Host scope/access only; distinct from the old A-bound processing closure. */
+  assertPublication(accepted: RecoveryAuthoritySnapshot): Promise<void>;
+} });
+export async function archiveCorrectionInput(input: ArchiveCorrectionInput) {
   const request = structuredClone(input.request), original = structuredClone(input.original);
   const guarantees = input.retentionGuarantees ?? DEFAULT_RETENTION_GUARANTEES;
+  if (input.checkpoint) {
+    input.signal.throwIfAborted();
+    await input.assertCurrent();
+    check(request.senderIsOwner && request.senderId && request.chatType === "direct", "correction_host_request_mismatch");
+    const operationId = `correction_archive_${bytesVersion(canonicalJson([request.agentId, request.sessionKey, request.runId])).slice(7)}`;
+    let archive;
+    if (original.schemaVersion === "stella.host-request-snapshot/v1") {
+      check(canonicalJson(request) === canonicalJson(original.request), "correction_host_request_mismatch");
+      archive = prepareHostRequestArchive(original, { ...input.archive, ownerId: input.ownerId });
+    } else {
+      check(request.agentId === original.agentId && request.sessionId === original.sessionId && request.sessionKey === original.sessionKey &&
+        request.prompt === original.text && request.requestHash === bytesVersion(original.text), "correction_host_request_mismatch");
+      archive = prepareHostInputArchive(original, { ...input.archive, speaker: { id: input.ownerId, role: "owner" } });
+    }
+    const checkpoint = input.checkpoint;
+    const receipt = await checkpoint.runtime.archiveLocal({ reader: input.reader, archive, operationId, recovery: checkpoint.recovery,
+      purpose: input.purpose, signal: input.signal, assertPublication: checkpoint.assertPublication });
+    const recovery = Object.freeze({ resolver: checkpoint.recovery.resolver, expected: receipt.authority });
+    await checkpoint.runtime.assert(recovery);
+    const current = await CatalogReader.load(input.reader.root, input.reader.catalogPath);
+    const resolver = new EpisodeEvidenceResolver(current, input.purpose, async () => { throw new CatalogError("archive_semantic_inference_forbidden"); });
+    for (const ref of receipt.evidenceRefs) await resolver.readEvidence(ref);
+    await checkpoint.runtime.assert(recovery); input.signal.throwIfAborted();
+    return { operationId, evidenceRefs: receipt.evidenceRefs, sourceRefs: [receipt.sourceRef], resolver,
+      revision: receipt.authority.revision, recovery, persistenceStatus: "local_committed" as const };
+  }
   await input.assertCurrent();
   const diagnostics = await input.durability.diagnostics();
   const expectedRevision = diagnostics.localRevision;
@@ -120,10 +156,11 @@ export async function archiveCorrectionInput(input: {
     sourceRefs: result.sourceRefs,
     resolver,
     revision: result.durability.localRevision,
+    persistenceStatus: "synchronized" as const,
   };
 }
 
-export async function applyHostCorrection(input: Parameters<typeof archiveCorrectionInput>[0] & {
+export async function applyHostCorrection(input: Omit<ArchiveCorrectionInput, "durability" | "checkpoint" | "reader"> & { reader: CatalogReader; durability: GitCangHaiDurability; checkpoint?: never } & {
   modelRef: string; complete: Parameters<typeof prepareCorrection>[0]["complete"];
   processingAuthority: ProcessingAuthority;
   processingGrant?: object;

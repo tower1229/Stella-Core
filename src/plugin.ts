@@ -260,7 +260,7 @@ export default definePluginEntry({
     if (isRecord(api.pluginConfig) && api.pluginConfig.recoveryAuthority !== undefined && api.pluginConfig.recoveryAuthority !== "legacy_config") {
       throw new Error("Stella Core config.recoveryAuthority is invalid");
     }
-    if (isRecord(api.pluginConfig) && api.pluginConfig.checkpointStateDirectory !== undefined) throw new Error("Legacy authority cannot configure a checkpoint state directory");
+    if (isRecord(api.pluginConfig) && (api.pluginConfig.checkpointStateDirectory !== undefined || api.pluginConfig.requestArchive !== undefined)) throw new Error("Legacy authority cannot configure a checkpoint state directory");
     const config = parsePluginConfig(api.pluginConfig);
     const consciousness = new ConsciousnessLoader(config, api.runtime.version);
     const archiveRetention = registerArchiveRetention(api, config, async () => {
