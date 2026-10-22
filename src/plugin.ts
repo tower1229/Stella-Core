@@ -1,3 +1,4 @@
+import { ConsciousnessLoader } from "./openclaw/consciousness-loader.js";
 import { createHostContextTurnStore, type CommitHostContextTurn } from "./openclaw/host-context-turn-store.js";
 import { withHostHistoryCompaction, hostHistoryCompaction, assertHostHistoryCompaction, publishHostHistoryCompaction } from "./openclaw/host-history-compaction.js";
 import { resolveManagedHostTimezone } from "./openclaw/host-context-prompt.js";
@@ -199,50 +200,6 @@ function parsePluginConfig(raw: unknown): StellaCoreConfig {
   };
 }
 
-class ConsciousnessLoader {
-  #cached?: { loaded: LoadedConsciousness; at: number };
-  #inflight?: Promise<LoadedConsciousness>;
-
-  constructor(
-    private readonly config: StellaCoreConfig,
-    private readonly openclawVersion: string,
-    private readonly ttlMs = 1_000,
-  ) {}
-
-  setRecoveryRevision(recoveryRevision: string): void {
-    this.config.recoveryRevision = recoveryRevision;
-    this.#cached = undefined;
-  }
-
-  async load(): Promise<LoadedConsciousness> {
-    const now = Date.now();
-    if (this.#cached && now - this.#cached.at <= this.ttlMs) {
-      return this.#cached.loaded;
-    }
-
-    if (!this.#inflight) {
-      this.#inflight = loadConsciousness(
-        this.config.canghaiRoot,
-        this.config.manifestPath,
-        {
-          recoveryRevision: this.config.recoveryRevision,
-          coreVersion: STELLA_CORE_COMPATIBILITY_VERSION,
-          openclawVersion: this.openclawVersion,
-          dataMode: this.config.dataMode,
-        },
-      )
-        .then((loaded) => {
-          this.#cached = { loaded, at: Date.now() };
-          return loaded;
-        })
-        .finally(() => {
-          this.#inflight = undefined;
-        });
-    }
-
-    return this.#inflight;
-  }
-}
 
 const managedContextRequests = new WeakSet<BoundTurnRequest>();
 type PreparedPrompt = { prependSystemContext?: string; appendContext?: string; systemPrompt?: string; toolsAllow?: string[] };

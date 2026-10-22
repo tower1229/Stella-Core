@@ -20,6 +20,8 @@ export type CangHaiDurabilityOptions = {
   now?: () => number;
   schedule?: Schedule;
   onRevision?: (revision: string) => void | Promise<void>;
+  /** Explicit journal-bound Core checkpoint mode. No initialize/diagnostics side-effect recovery. */
+  checkpointRecovery?: Readonly<{ confirmRevision(revision: string): Promise<void> }>;
   onStage?: (stage: CangHaiDurabilityStage) => void | Promise<void>;
 };
 
@@ -55,6 +57,7 @@ export class GitCangHaiDurability {
   readonly #now: () => number;
   readonly #schedule: Schedule;
   readonly #onRevision?: (revision: string) => void | Promise<void>;
+  readonly #checkpointMode: boolean;
   readonly #onStage?: (stage: CangHaiDurabilityStage) => void | Promise<void>;
   #pendingNormalSince?: number;
   #synchronizedRevision?: string;
@@ -97,7 +100,17 @@ export class GitCangHaiDurability {
       timer.unref();
       return timer;
     });
-    this.#onRevision = options.onRevision;
+    this.#checkpointMode = options.checkpointRecovery !== undefined;
+    if (this.#checkpointMode) {
+      const recovery = options.checkpointRecovery;
+      if (recovery === null || typeof recovery !== "object" || typeof recovery.confirmRevision !== "function") {
+        throw new Error("Checkpoint recovery requires an explicit confirmation callback");
+      }
+      if (options.onRevision !== undefined) throw new Error("Checkpoint and legacy recovery callbacks are mutually exclusive");
+      this.#onRevision = recovery.confirmRevision.bind(recovery);
+    } else {
+      this.#onRevision = options.onRevision;
+    }
     this.#onStage = options.onStage;
   }
 
@@ -218,7 +231,7 @@ export class GitCangHaiDurability {
   async #confirmRecoveryPointer(): Promise<string> {
     const { stdout } = await execFileAsync("git", ["-C", this.#root, "rev-parse", "HEAD"]);
     const revision = stdout.trim();
-    if (revision === this.#confirmedPointerRevision) return revision;
+    if (!this.#checkpointMode && revision === this.#confirmedPointerRevision) return revision;
     await this.#onStage?.("recovery_pointer_cas");
     await this.#onRevision?.(revision);
     this.#confirmedPointerRevision = revision;
@@ -316,6 +329,14 @@ export class GitCangHaiDurability {
     }
     if (records.some(({ subject }) => !subject.startsWith("[stella:normal] ") && !subject.startsWith("[stella:critical] "))) {
       throw new Error("Managed durability requires explicit reconciliation of unknown pending commits");
+    }
+    if (this.#checkpointMode) {
+      // Recovered Git history is not permission to acquire a new checkpoint expectation.
+      // An explicit operation, bound to its original journal, must confirm/synchronize it.
+      this.#pendingNormalSince = records[0]!.timestamp;
+      this.#criticalSynchronized = false;
+      this.#initialized = true;
+      return;
     }
     if (records.some(({ subject }) => subject.startsWith("[stella:critical] "))) {
       try {

@@ -7,6 +7,9 @@ import { acquireFileLock, reclaimDefinitelyStaleFileLock } from "openclaw/plugin
 import { isRecord } from "../shared/type-guards.js";
 import { migrateSynchronizationState } from "./synchronization-state.js";
 
+import type { MemoryFileEncoding, MemoryTransactionPlan } from "./memory-transaction-plan.js";
+import { parseMemoryTransactionJournal, serializeMemoryTransactionJournal } from "./memory-transaction-journal.js";
+
 const markerName = ".stella-memory-transaction.json";
 // OpenClaw can reload the plugin registration when its recovery pointer changes.
 // Delivery hooks and the in-flight writer must share the same live lock ownership.
@@ -99,17 +102,7 @@ export async function withMemoryMutationLock<T>(root: string, work: () => Promis
   } finally { held.active = false; readLocks.delete(key); await lock.release(); }
 }
 
-export type MemoryFileEncoding = "utf8" | "base64";
-export type MemoryFileChange = {
-  path: string;
-  before: string | null;
-  after: string;
-  /** Default utf8. base64 stores original binary bytes in the journal without UTF-8 corruption. */
-  encoding?: MemoryFileEncoding;
-};
-export type MemoryTransactionPlan = { operationId: string; journalPath: string; files: MemoryFileChange[];
-  /** Locator only. Recovery must authenticate the archive with deployment-owned keys. */
-  contextArchive?: { archiveRoot: string; digest: string } };
+export type { MemoryFileEncoding, MemoryFileChange, MemoryTransactionPlan } from "./memory-transaction-plan.js";
 
 function normalizeEncoding(value: unknown): MemoryFileEncoding {
   return value === "base64" ? "base64" : "utf8";
@@ -149,32 +142,10 @@ export async function readRecordedMemoryTransaction(root: string, expectedOperat
 
 /** Decode the same exact journal contract for both recovery and consumers. */
 export function parseRecordedMemoryTransaction(bytes: string, expectedOperationId?: string): MemoryTransactionPlan {
-  let value: unknown;
-  try { value = JSON.parse(bytes); } catch { throw new MemoryTransactionError("invalid_transaction_journal"); }
-  if (!isRecord(value) || value.schemaVersion !== "stella.memory-transaction/v1" ||
-      typeof value.operationId !== "string" || !/^[a-zA-Z][a-zA-Z0-9_-]{0,199}$/.test(value.operationId) ||
-      (expectedOperationId !== undefined && value.operationId !== expectedOperationId) ||
-      typeof value.journalPath !== "string" || !Array.isArray(value.files) || !value.files.every((file) =>
-        isRecord(file) && typeof file.path === "string" && (file.before === null || typeof file.before === "string") &&
-        typeof file.after === "string" && (file.encoding === undefined || file.encoding === "utf8" || file.encoding === "base64"))) {
-    throw new MemoryTransactionError("invalid_transaction_journal");
-  }
-  if (value.contextArchive !== undefined && (!isRecord(value.contextArchive) ||
-    Object.keys(value.contextArchive).sort().join() !== "archiveRoot,digest" ||
-    typeof value.contextArchive.archiveRoot !== "string" || typeof value.contextArchive.digest !== "string" ||
-    !/^sha256:[a-f0-9]{64}$/.test(value.contextArchive.digest))) throw new MemoryTransactionError("invalid_transaction_journal");
-  const plan: MemoryTransactionPlan = { operationId: value.operationId, journalPath: value.journalPath,
-    ...(isRecord(value.contextArchive) ? { contextArchive: { archiveRoot: String(value.contextArchive.archiveRoot), digest: String(value.contextArchive.digest) } } : {}),
-    files: value.files.map((file) => ({
-      path: file.path,
-      before: file.before,
-      after: file.after,
-      ...(normalizeEncoding(file.encoding) === "base64" ? { encoding: "base64" as const } : {}),
-    })) };
-  check(canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...plan, planHash: bytesVersion(canonicalJson(plan)) }) === bytes,
-    "invalid_transaction_journal");
-  return plan;
+  try { return parseMemoryTransactionJournal(bytes, expectedOperationId); }
+  catch { throw new MemoryTransactionError("invalid_transaction_journal"); }
 }
+
 type TransactionPorts = {
   validate(): Promise<void>;
   persist(paths: string[], operationId: string): Promise<void>;
@@ -224,7 +195,7 @@ export async function applyMemoryTransaction(root: string, value: MemoryTransact
   check(plan.files.every((file) => (file.before === null || typeof file.before === "string") && typeof file.after === "string" &&
       (file.encoding === undefined || file.encoding === "utf8" || file.encoding === "base64")) &&
     Buffer.byteLength(canonicalJson(plan), "utf8") <= 16 * 1024 * 1024, "invalid_transaction_plan");
-  const intent = canonicalJson({ schemaVersion: "stella.memory-transaction/v1", ...plan, planHash: bytesVersion(canonicalJson(plan)) });
+  const intent = serializeMemoryTransactionJournal(plan);
   const marker = path.join(resolved, markerName);
   // A separate exclusive handle prevents two retries of the same durable intent from executing together.
   const rootStat = await lstat(resolved);
