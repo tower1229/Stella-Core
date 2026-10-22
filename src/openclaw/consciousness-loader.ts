@@ -11,10 +11,14 @@ export class ConsciousnessLoader {
   constructor(private readonly config: Config, openclawVersion: string, ttlMs = 1_000, authority?: RecoveryAuthorityResolver) {
     this.#authority = authority ?? createLegacyRecoveryAuthority({ agentId: config.agentId,
       repositoryRoot: config.canghaiRoot, manifestPath: config.manifestPath }, () => config.recoveryRevision);
-    const { canghaiRoot, manifestPath, dataMode } = config;
-    this.#loader = new RecoveryBoundLoader({ authority: this.#authority, ttlMs, load: snapshot =>
-      loadConsciousness(canghaiRoot, manifestPath, { recoveryRevision: snapshot.revision,
-        coreVersion: "3.0.0-alpha.0", openclawVersion, dataMode }) });
+    const { canghaiRoot, manifestPath, agentId, dataMode } = config;
+    this.#loader = new RecoveryBoundLoader({ authority: this.#authority, ttlMs, load: snapshot => {
+      if (snapshot.binding.repositoryRoot !== canghaiRoot || snapshot.binding.manifestPath !== manifestPath || snapshot.binding.agentId !== agentId) {
+        throw new RecoveryAuthorityError("recovery_loader_binding_mismatch");
+      }
+      return loadConsciousness(canghaiRoot, manifestPath, { recoveryRevision: snapshot.revision,
+        coreVersion: "3.0.0-alpha.0", openclawVersion, dataMode });
+    } });
   }
   setRecoveryRevision(revision: string): void {
     if (this.#authority.mode !== "legacy_config") throw new RecoveryAuthorityError("recovery_checkpoint_setter_forbidden");

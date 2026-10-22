@@ -1,6 +1,6 @@
 # 肃清第二批：SQ-06 隔离 checkpoint 运行接线
 
-本批在 `4233e2acdb98b0b5cc8661d1d045ce46289c7183` 上完成一条可审计的纯 Core 隔离闭环：显式初始化 A → 固定原 expected 的 v2 journal → 实际本地 Git 提交 B → checkpoint 精确 CAS → 重开 resolver/loader 读取 B。最终类型检查通过，针对测试 **36/36** 通过，零失败、取消、跳过。最终提交、逐文件 SHA256 和命令/退出码见 `.artifacts/suqing-batch2-20261022/delivery.json` 与 `verification-a4/`。
+本批在 `4233e2acdb98b0b5cc8661d1d045ce46289c7183` 上完成一条可审计的纯 Core 隔离闭环：显式初始化 A → 固定原 expected 的 v2 journal → 实际本地 Git 提交 B → checkpoint 精确 CAS → 重开 resolver/loader 读取 B。最终类型检查通过，针对测试 **37/37** 通过，零失败、取消、跳过。最终提交、逐文件 SHA256 和命令/退出码见 `.artifacts/suqing-batch2-20261022/delivery.json` 与 `verification-a5/`。
 
 **SQ-06 整体仍未完成。** 生产插件默认继续 legacy 模式；本批没有新增面向用户的 checkpoint 配置开关、切换全部 reader、迁移真实沧海、启用 full_memory 或构建可安装发布包。不能把隔离读取 B 说成 OpenClaw/Agent 最终消费 B。
 
@@ -12,7 +12,7 @@
 - `memory-transaction.ts` 复用 codec，原 mutation lock、pending marker 和发布流程保留。现有业务 writer 本批尚不自动创建 v2 原 expected；隔离调用方在操作开始时显式冻结它。
 - `GitCangHaiDurability.checkpointRecovery` 接收绑定单个不可变 journalPath 的回调，和 legacy `onRevision` 互斥，非法回调构造时拒绝。checkpoint 模式每次确认都重新认证，不能因 SHA 相同跳过 token/journal 检查。
 - `RecoveryBoundLoader` 每次读取 authority；cache/inflight 按完整快照和本地 invalidation 代次隔离。晚完成的 A 不能覆盖 B 或删除 B 的 inflight，失败不升级 expected、不回退到旧 cache。
-- `ConsciousnessLoader` 从 plugin.ts 抽出并共享上述 loader。默认仍显式使用 legacy 配置；checkpoint setter 禁止修改旧配置指针。所有来源、权限、新鲜度与 full_memory 门禁保留。
+- `ConsciousnessLoader` 从 plugin.ts 抽出并共享上述 loader。默认仍显式使用 legacy 配置；checkpoint setter 禁止修改旧配置指针；注入 authority 的 agent/root/manifest 绑定与 loader 配置不符时，在读取文件前拒绝。所有来源、权限、新鲜度与 full_memory 门禁保留。
 
 日志版本只允许严格字符串，数组/嵌套数组即使有正确摘要也拒绝。codec 保留旧格式声明支持的显式 `encoding:"utf8"` 字段，避免抽取后写入被无必要拒绝；这还修复了原 decoder 规范化时丢弃该字段导致精确重放拒绝的问题。无 encoding 的旧 canonical golden 与 base64 golden 保持原字节。
 
@@ -34,17 +34,17 @@
 | 迁移主路径 | 真实本地 Git A→B、durability callback、checkpoint CAS、重开 resolver 与 loader | 合成 manifest/记忆；loader 通过 fixture Git blob 读取，不是 Agent 消费 |
 | 故障接续 | commit 后 CAS 前失败；接受后确认丢失；同 O 重放且不多提交/换 token | 确定性异常注入；本批不是 SIGKILL 崩溃矩阵 |
 | 拒绝 | 缺锁、missing、脏初始化、缺 manifest、v1、binding、journal 改写、无关 HEAD、operation 复用、stale token、pending 初始化 | 未穷尽全部 Git/文件系统/消费者故障 |
-| 缓存 | 晚 A、同 SHA 换 token、invalidate/ABA、cache 每次校验、TTL、共享 inflight、错误传递、legacy setter | 进程内 deterministic barriers，无模型请求 |
+| 缓存 | 晚 A、同 SHA 换 token、invalidate/ABA、cache 每次校验、TTL、共享 inflight、错误传递、legacy setter | 进程内 deterministic barriers，无模型请求；loader 配置/authority 绑定不符提前拒绝 |
 | Codec | v1/v2 canonical golden、未知字段、摘要、原 expected、版本数组、显式 utf8 | 不把 codec 通过当作完整 transaction/权限验收 |
 | durability 观察 | unsynced critical history diagnostics 不调用确认或同步；非法/mixed callback 构造拒绝 | 会读取夹具本地 bare remote；无 `git push`，也没有远端 API |
 
-测试文件：`checkpoint-recovery-runtime.test.ts`、`recovery-bound-loader.test.ts`、`memory-transaction-journal.test.ts`。36 包含负例分组的 4 个子测试。首批的 38 个测试没有在本批重复运行，也没有累加为本版本通过数。
+测试文件：`checkpoint-recovery-runtime.test.ts`、`recovery-bound-loader.test.ts`、`memory-transaction-journal.test.ts`。37 包含负例分组的 4 个子测试。首批的 38 个测试没有在本批重复运行，也没有累加为本版本通过数。
 
-过程日志如实保留：a1 类型缩窄错误，已修复；a2 全项目类型通过，但独立编译漏带仓库已有的 `file-lock-sdk.d.ts`，已修正编译输入；a3 使用相同源码的 a2 类型检查，35/35 通过；显式 utf8 兼容修复后 a4 全部重验，36/36 通过。失败批次没有算通过。
+过程日志如实保留：a1 类型缩窄错误，已修复；a2 全项目类型通过，但独立编译漏带仓库已有的 `file-lock-sdk.d.ts`，已修正编译输入；a3 使用相同源码的 a2 类型检查，35/35 通过；显式 utf8 兼容修复后 a4 全部重验，36/36 通过；收尾补 loader/authority 绑定一致性后 a5 全部重验，37/37 通过。失败批次没有算通过。
 
 独立只读审查发现并修复版本 coercion 与 callback 校验两项缺陷；runtime 的原 expected、单父/路径/字节认证未发现必须修复项。尚未实际覆盖 merge commit、额外 committed 路径、错误 before、runtime base64 和精确 pending 正反例，不声称这些分支已测。首批原子写/崩溃证据仍独立归档，不能代替新迁移全矩阵。
 
-唯一运行登记、PID、命令、源码 hashes、退出码见 `verification-a4/result.json`。编译文件清单见 `compiled-identity.json`；不是 Host 发布包身份。编译输出只写项目 `.artifacts`，夹具只写本轮 `/tmp/stella-checkpoint-*` 并由自身 cleanup 清理，没有新写 Documents、Desktop 或 iCloud。
+唯一运行登记、PID、命令、源码 hashes、退出码见 `verification-a5/result.json`。编译文件清单见 `compiled-identity.json`；不是 Host 发布包身份。编译输出只写项目 `.artifacts`，夹具只写本轮 `/tmp/stella-checkpoint-*` 并由自身 cleanup 清理，没有新写 Documents、Desktop 或 iCloud。
 
 ## 真实锁与尚未接线项
 

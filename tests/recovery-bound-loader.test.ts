@@ -182,3 +182,15 @@ test("ConsciousnessLoader legacy setter remains compatible; checkpoint setter is
   assert.throws(() => core.setRecoveryRevision(revisionB), hasCategory("recovery_checkpoint_setter_forbidden"));
   assert.equal(coreConfig.recoveryRevision, revisionA);
 });
+
+
+test("ConsciousnessLoader refuses mismatched authority binding before reading files", async () => {
+  const config = { canghaiRoot: binding.repositoryRoot, manifestPath: binding.manifestPath, agentId: binding.agentId,
+    recoveryRevision: revisionA, dataMode: "read_only" as const };
+  for (const changed of [{ ...binding, agentId: "another-agent" }, { ...binding, repositoryRoot: "/synthetic/another" },
+    { ...binding, manifestPath: "another-manifest.json" }]) {
+    const f = authority({ ...snapshot(), binding: changed });
+    const loader = new ConsciousnessLoader(config, "synthetic-host", 1_000, f.port);
+    await assert.rejects(loader.load(), hasCategory("recovery_loader_binding_mismatch"));
+  }
+});
