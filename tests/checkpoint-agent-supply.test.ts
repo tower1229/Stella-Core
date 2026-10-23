@@ -200,3 +200,41 @@ test("missing or withdrawn public conversation-hook permission blocks native han
     assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
   });
 });
+
+
+test("separate public plugin registrations share only original exact-scope permits", async t => {
+  const f = await fixture(t), hooks = new Map<string, Function>(), factories: Function[] = [], stops: Function[] = [];
+  const api = { ...f.api, on(name: string, fn: Function) { hooks.set(name, fn); }, registerTool(factory: Function) { factories.push(factory); },
+    registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); } } as unknown as OpenClawPluginApi;
+  registerCheckpointPlugin(api); t.after(async () => { for (const stop of stops) await stop(); });
+  assert.equal(await f.ingress(), undefined);
+  assert.equal((await hooks.get("before_agent_run")!({ messages: [], senderIsOwner: true }, f.agent)).outcome, "pass");
+  const callId = "synthetic-cross-registration-call", value = { action: "list" };
+  assert.equal(await hooks.get("before_tool_call")!({ toolName: CHECKPOINT_MEMORY_TOOL, params: value }, { ...f.agent, toolName: CHECKPOINT_MEMORY_TOOL, toolCallId: callId, abortSignal: f.controller.signal }), undefined);
+  const tool = factories.map(fn => fn(f.toolContext)).find(value => value?.name === CHECKPOINT_MEMORY_TOOL);
+  assert.ok((await tool.execute(callId, value, f.controller.signal)).details.items[0].preview.includes(SUPPLY_MARKER));
+  assert.equal((await f.hooks.get("reply_payload_sending")!({ payload: { text: "Same original permit" }, runId: f.agent.runId, sessionKey: f.agent.sessionKey }, {})).payload.text, "Same original permit");
+  for (const stop of stops) await stop();
+  await assert.rejects(f.execute({ action: "list" }));
+  assert.equal((await f.admit()).outcome, "block");
+});
+
+test("a different configured scope or a replacement after close cannot adopt an old run", async t => {
+  const f = await fixture(t); await f.ingress();
+  const hooks = new Map<string, Function>();
+  const api = { ...f.api, pluginConfig: { ...f.config, checkpointStateDirectory: path.join(f.authority, "different") },
+    on(name: string, fn: Function) { hooks.set(name, fn); }, registerService() {}, registerTool() {}, registerGatewayMethod() {} } as unknown as OpenClawPluginApi;
+  registerCheckpointPlugin(api);
+  assert.equal((await hooks.get("before_agent_run")!({ messages: [], senderIsOwner: true }, f.agent)).outcome, "block");
+  for (const stop of f.stops) await stop();
+  registerCheckpointPlugin({ ...api, pluginConfig: f.config } as OpenClawPluginApi);
+  assert.equal((await hooks.get("before_agent_run")!({ messages: [], senderIsOwner: true }, f.agent)).outcome, "block");
+});
+
+
+test("a source failure before any body release also closes final delivery", async t => {
+  const f = await fixture(t); await f.ingress(); await f.admit();
+  await rm(path.join(f.root, f.archive.payload.path));
+  await assert.rejects(f.execute({ action: "list" }));
+  assert.equal((await f.hooks.get("reply_payload_sending")!({ payload: { text: "Must stay blocked" }, runId: f.agent.runId, sessionKey: f.agent.sessionKey }, {})).cancel, true);
+});
