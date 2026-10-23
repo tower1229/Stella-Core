@@ -12,7 +12,7 @@ import path from "node:path";
 const root = await realpath(process.cwd());
 assert.equal(root, "/Users/zangtao/Workspace/tower1229/Stella-Core");
 const attempt = process.argv[2], compilation = process.argv[3], scenario = process.argv[4] ?? "normal";
-assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list"].includes(scenario));
+assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent"].includes(scenario));
 assert.match(attempt ?? "", /^[a-z][a-z0-9]{0,15}$/); assert.match(compilation ?? "", /^a[0-9]+$/);
 const art = path.resolve(process.env.STELLA_AGENT_SUPPLY_ARTIFACTS ?? path.join(root, ".artifacts/suqing-batch6-20261022"));
 assert.ok(art.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(art) === art);
@@ -57,12 +57,12 @@ export default {id:'stella-core',name:'Stella public supply probe',configSchema:
   else {const file=${JSON.stringify(syntheticPolicyPath)},policy=JSON.parse(readFileSync(file,'utf8'));policy.readPurposes=[];delete policy.version;writeFileSync(file,JSON.stringify(policy));result={kind:${JSON.stringify(scenario)},phase:'tool_result_persist',atUtc:new Date().toISOString(),policyPath:${JSON.stringify(policyEntry.locator.path)},readPurposes:[],publishedCheckpoint:false,qualification:'Synthetic source policy edit, not a published policy/CAS migration'};}
   record({name:'fault_boundary_complete',registrationId,result});
  },{priority:10000});
- core.register({...api,on(name,handler,options){api.on(name,async(event,ctx)=>{
+ core.register({...api,on(name,handler,options){api.on(name,(event,ctx)=>{
   const before = {name,registrationId,runId:ctx.runId??event.runId,sessionId:ctx.sessionId,sessionKey:ctx.sessionKey??event.sessionKey,
     senderIsOwner:event.senderIsOwner,requester:ctx.requester,toolCallId:ctx.toolCallId,toolName:event.toolName,
-    historyCount:Array.isArray(event.messages)?event.messages.length:undefined,chatType:event.ctx?.ChatType,
+    historyCount:Array.isArray(event.messages)?event.messages.length:undefined,chatType:event.ctx?.ChatType,messageRole:event.message?.role,
     ingressBodyType:typeof event.ctx?.Body,ingressTimestamp:event.ctx?.Timestamp,ingressTimestampType:typeof event.ctx?.Timestamp};
-  record({...before,phase:'before'}); const result=await handler(event,ctx); record({...before,phase:'after',result});return result;
+  record({...before,phase:'before'}); const result=handler(event,ctx);const after=value=>{record({...before,phase:'after',result:value});return value;};return result&&typeof result.then==='function'?result.then(after):after(result);
  },options)},registerTool(factory,options){api.registerTool(ctx=>{
  const tool=typeof factory==='function'?factory(ctx):factory;
  if(!tool||Array.isArray(tool)||tool.name!=='stella_memory_data')return tool;
@@ -89,11 +89,22 @@ try {
       await writeFile(path.join(out, `provider-${index}.json`), body);
       result.rawProviderRequests.push({ index, path: request.url, bytes: Buffer.byteLength(body), atUtc: new Date().toISOString(), sourceMarker: body.includes(SUPPLY_MARKER), faultAlreadyApplied: Boolean(result.fault) });
       appendFileSync(logPath, JSON.stringify({ name: "provider_request", ...result.rawProviderRequests.at(-1) }) + "\n"); await save();
+      if (scenario === "revoke_after_sent" && index === 2) {
+        const policy = JSON.parse(await readFile(syntheticPolicyPath, "utf8")); policy.readPurposes = []; delete policy.version;
+        await writeFile(syntheticPolicyPath, JSON.stringify(policy));
+        result.fault = { kind: scenario, phase: "provider_received_request", atUtc: new Date().toISOString(), inFlightRequestIndex: index, publishedCheckpoint: false };
+        appendFileSync(logPath, JSON.stringify({ name: "fault_boundary_complete", result: result.fault }) + "\n"); await save();
+      }
       let parts;
       const stage = scenario === "history" ? (index - 1) % 3 + 1 : index;
       if (stage === 1) {
         assert.ok(!body.includes(SUPPLY_MARKER) && !body.includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"), "Fresh model input must not inherit prior memory or answer");
         assert.ok(JSON.stringify(input.tools).includes("stella_memory_data"));
+        if (scenario === "revoke_before_list") {
+          const policy = JSON.parse(await readFile(syntheticPolicyPath, "utf8")); policy.readPurposes = []; delete policy.version;
+          await writeFile(syntheticPolicyPath, JSON.stringify(policy));
+          result.fault = { kind: scenario, phase: "before_tool_response", atUtc: new Date().toISOString(), publishedCheckpoint: false };
+        }
         if (scenario === "source_before_list") {
           await writeFile(path.join(source.root, source.archive.payload.path), "SYNTHETIC_REPLACEMENT_AFTER_FIRST_MODEL_INPUT");
           result.fault = { kind: scenario, atUtc: new Date().toISOString(), payloadPath: source.archive.payload.path, publishedCheckpoint: false };
@@ -114,8 +125,10 @@ try {
           } finally { writer.close(); }
         }
         parts = [{ functionCall: { name: "stella_memory_data", args: { action: "list" } } }];
-      } else if (["cas_before_list", "source_before_list"].includes(scenario)) {
+      } else if (["cas_before_list", "source_before_list", "revoke_before_list"].includes(scenario)) {
         assert.ok(!body.includes(SUPPLY_MARKER)); parts = [{ text: "SYNTHETIC_REFUSED_SOURCE_DRAFT_4931" }];
+      } else if (scenario === "revoke_after_sent") {
+        parts = [{ text: "SYNTHETIC_STOCK_HOST_ANSWER_4931: Preserve unresolved questions." }];
       } else if (stage === 2) {
         assert.ok(body.includes(SUPPLY_MARKER)); parts = [{ functionCall: { name: "stella_memory_data", args: { action: "read", handle: "E1" } } }];
       } else {
@@ -188,8 +201,17 @@ try {
       dataToolExecutions: publicEvents.filter(value => value.name === "tool_execute").length,
       successfulToolResults: publicEvents.filter(value => value.name === "tool_result").length,
       finalPayloadCancelled: publicEvents.some(value => value.name === "reply_payload_sending" && value.phase === "after" && value.result?.cancel === true),
-      answerStoredInHistory: JSON.stringify(result.history).includes("SYNTHETIC_STOCK_HOST_ANSWER_4931") };
+      answerStoredInHistory: JSON.stringify(result.history).includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"),
+      webchatDeltaWithAnswer: result.events.some(value => value.event === "chat" && value.payload?.state === "delta" && JSON.stringify(value).includes("SYNTHETIC_STOCK_HOST_ANSWER_4931")),
+      webchatFinalWithAnswer: result.events.some(value => value.event === "chat" && value.payload?.state === "final" && JSON.stringify(value).includes("SYNTHETIC_STOCK_HOST_ANSWER_4931")),
+      assistantWritesBlocked: publicEvents.filter(value => value.name === "before_message_write" && value.phase === "after" && value.result?.block).length,
+      requestsStartedAfterFault: result.rawProviderRequests.filter(value => value.faultAlreadyApplied).length };
     if (scenario === "cancel_after_list") { assert.equal(result.fault.accepted, true); assert.equal(count, 1); assert.equal(result.faultOutcome.nextModelRequests, 0); result.passed = true; }
+    else if (scenario === "revoke_after_sent") {
+      assert.equal(count, 2); assert.equal(result.faultOutcome.requestsStartedAfterFault, 0); result.characterized = true;
+      assert.equal(result.faultOutcome.webchatDeltaWithAnswer, false, "Already-sent response still reaches WebChat after policy edit");
+      assert.equal(result.faultOutcome.webchatFinalWithAnswer, false); assert.equal(result.faultOutcome.answerStoredInHistory, false); result.passed = true;
+    }
     else if (scenario === "revoke_after_list") {
       assert.equal(result.faultOutcome.successfulToolResults, 1); assert.equal(result.faultOutcome.finalPayloadCancelled, true);
       result.characterized = true; assert.equal(result.faultOutcome.staleMarkerInNextRequests, false, "Host still forwards previously released preview after policy edit; post-release zero-continuation guarantee not met"); result.passed = true;

@@ -238,3 +238,19 @@ test("a source failure before any body release also closes final delivery", asyn
   await assert.rejects(f.execute({ action: "list" }));
   assert.equal((await f.hooks.get("reply_payload_sending")!({ payload: { text: "Must stay blocked" }, runId: f.agent.runId, sessionKey: f.agent.sessionKey }, {})).cancel, true);
 });
+
+
+test("synchronous transcript gate refuses known-invalid assistants without changing other writers", async t => {
+  const f = await fixture(t), message = { role: "assistant", content: [{ type: "text", text: "Synthetic answer" }] };
+  const event = { message, agentId: f.agent.agentId, sessionKey: f.agent.sessionKey }, ctx = { agentId: f.agent.agentId, sessionKey: f.agent.sessionKey };
+  const gate = f.hooks.get("before_message_write")!;
+  assert.deepEqual(gate(event, ctx), { block: true });
+  assert.equal(gate({ ...event, message: { role: "user", content: "Keep user input" } }, ctx), undefined);
+  assert.equal(gate({ ...event, agentId: "other", sessionKey: "agent:other:fresh" }, { agentId: "other", sessionKey: "agent:other:fresh" }), undefined);
+  await f.ingress(); await f.admit();
+  const allowed = gate(event, ctx); assert.equal(allowed, undefined);
+  assert.deepEqual(gate({ ...event, sessionKey: undefined }, { agentId: f.agent.agentId }), { block: true });
+  assert.deepEqual(gate(event, { ...ctx, sessionKey: "agent:other:fresh" }), { block: true });
+  await rm(path.join(f.root, f.archive.payload.path)); await assert.rejects(f.execute({ action: "list" }));
+  assert.deepEqual(gate(event, ctx), { block: true });
+});

@@ -85,6 +85,25 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
     finally { if (timer) clearTimeout(timer); }
   };
   if (enabled) {
+    // Synchronous transcript append gate: enforce only already-known validity.
+    // It cannot await source revalidation or stop native WebChat stream events.
+    api.on("before_message_write", (event, ctx) => {
+      const key = event.sessionKey ?? ctx.sessionKey;
+      const target = [event.agentId, ctx.agentId].includes(config.agentId) ||
+        [event.sessionKey, ctx.sessionKey].some(value => value && parseAgentSessionKey(value)?.agentId === config.agentId);
+      if (!target) return;
+      const block = () => ({ block: true });
+      try {
+        if (event.message.role !== "assistant") return;
+        if (!key || parseAgentSessionKey(key)?.agentId !== config.agentId ||
+          event.sessionKey !== undefined && ctx.sessionKey !== undefined && event.sessionKey !== ctx.sessionKey ||
+          event.agentId !== undefined && event.agentId !== config.agentId || ctx.agentId !== undefined && ctx.agentId !== config.agentId) return block();
+        const candidates = [...grants.values()].filter(grant => grant.admitted && grant.ingress.request.sessionKey === key);
+        if (candidates.length !== 1) return block();
+        const grant = candidates[0]!;
+        if (!grant.active || !grant.deliveryOpen || shutdown.signal.aborted || grant.ingress.signal.aborted) return block();
+      } catch { return block(); }
+    }, { priority: 10_000 });
     api.on("reply_payload_sending", async (event, ctx) => {
       const key = event.sessionKey ?? ctx.sessionKey, runId = event.runId ?? ctx.runId;
       const grant = runId ? grants.get(runId) : undefined;
