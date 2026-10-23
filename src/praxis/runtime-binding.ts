@@ -46,7 +46,8 @@ function relativeRef(value: unknown): string {
   return parsed.relativePath;
 }
 
-export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Promise<PraxisRuntimeBinding> {
+export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness,
+  options: { sourceSupplyOnly?: true } = {}): Promise<PraxisRuntimeBinding> {
   try {
     const profileDocument = loaded.bootstrapDocuments.find((document) => document.field === "identity.runtimeProfileRef");
     requireValue(profileDocument);
@@ -86,7 +87,10 @@ export async function loadPraxisRuntimeBinding(loaded: LoadedConsciousness): Pro
       const processing = await loadPersonalContextAccess(loaded.canghaiRoot, personalContextAccessPath!);
       requireValue(processing.config.viewProcessingModelRefs?.length && canonicalJson(processing.config.purpose) === canonicalJson(value.purpose));
       for (const model of Object.values(profile.models)) requireValue(processing.config.viewProcessingModelRefs.includes(`${model.provider}/${model.model}`));
-      await validatePersonalContextCatalog(await CatalogReader.load(loaded.canghaiRoot, catalogPath), processing.config);
+      // Limited Host tools authorize exact targets as they are read. Missing
+      // descriptors remain explicit per-item context gaps, not global permission.
+      // Full Praxis/view consumers still require complete reviewed coverage.
+      if (!options.sourceSupplyOnly) await validatePersonalContextCatalog(await CatalogReader.load(loaded.canghaiRoot, catalogPath), processing.config);
       await processing.assertCurrent();
     } else if (profile.memory.required_views.length > 0) {
       // Alpha required views must already be catalog-declared host-history (or other) recipes.

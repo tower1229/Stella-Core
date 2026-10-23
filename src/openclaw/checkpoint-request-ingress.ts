@@ -140,7 +140,7 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
           catch (error) { if (!(error && typeof error === "object" && "category" in error && error.category === "pending_transaction_not_found")) throw error; }
           if (pending) return recordedFrame(runtime, config, pending, request);
           const loaded = await runtime.load();
-          const binding = await loadPraxisRuntimeBinding(loaded.loaded); await runtime.assert(loaded.recovery); await assertScope();
+          const binding = await loadPraxisRuntimeBinding(loaded.loaded, { sourceSupplyOnly: true }); await runtime.assert(loaded.recovery); await assertScope();
           const journalPath = `${binding.catalogPath.includes("/") ? binding.catalogPath.slice(0, binding.catalogPath.lastIndexOf("/")) + "/" : ""}operations/${operationId}.checkpoint.json`;
           let completed: MemoryTransactionPlan | undefined;
           try { completed = await readRecordedMemoryTransaction(config.canghaiRoot, operationId, journalPath); }

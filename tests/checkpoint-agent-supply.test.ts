@@ -24,12 +24,23 @@ async function fixture(t: TestContext, options: Parameters<typeof createAgentSup
   const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
   const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
   await upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } });
+  if (options.policyContext) live.agents = { entries: { synthetic: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] } } } };
   const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), factories: Function[] = [], stops: Function[] = [], beforeDeliver: Function[] = [];
   let calls = 0, models = 0, configWrites = 0;
-  const observation: { beforeCurrent?: () => void } = {};
+  const observation: { beforeCurrent?: () => void; beforePolicyComplete?: (params: any) => Promise<void> } = {};
   const api = { pluginConfig: config, config: live, runtime: { version: "2026.8.2", state: { resolveStateDir: () => state },
     config: { current: () => { observation.beforeCurrent?.(); return live; }, async mutateConfigFile() { configWrites++; throw new Error("No config writes"); } },
-    llm: { async complete() { models++; throw new Error("Core must not invoke a model"); } } },
+    llm: { async complete(params: any) {
+      models++; if (!options.policyContext) throw new Error("No policy judgment expected");
+      assert.doesNotMatch(params.messages[0].content, new RegExp(SUPPLY_MARKER));
+      await observation.beforePolicyComplete?.(params);
+      const input = JSON.parse(params.messages[0].content.split("\n").at(-1));
+      return { text: JSON.stringify({ requestHash: input.requestHash, sourceRef: input.sourceRef, policyRef: input.policyRef,
+        applicable: true, scenarios: ["self_reflection"], topicRequested: true, topicExplicitlyNamed: true,
+        ruleChecks: [{ id: "requested_topic", satisfied: options.policyContext === "allow" }] }),
+        provider: "google", model: "gemini-3.8-flash", agentId: "synthetic", usage: {}, execution: { mode: "direct-provider", owner: { kind: "provider", id: "google" } },
+        audit: { caller: { kind: "plugin", id: "stella-core" } } };
+    } } },
     logger: { info() {}, error() {}, warn() {}, debug() {} }, on(name: string, handler: Function) { hooks.set(name, handler); },
     registerGatewayMethod(name: string, handler: Function) { methods.set(name, handler); },
     registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); }, registerTool(factory: Function) { factories.push(factory); },
@@ -137,7 +148,7 @@ test("structured group, channel, cron and subagent keys cannot borrow a direct e
 
 test("configured personal access authority is refused rather than silently omitted", async t => {
   const f = await fixture(t, { sourceAccess: true }); assert.equal((await f.ingress()).handled, true);
-  assert.equal((await f.rpc("status")).payload.supply.category, "checkpoint_agent_access_binding_not_supported");
+  assert.equal((await f.rpc("status")).payload.supply.category, "invalid_personal_context_access");
   assert.equal((await f.admit()).outcome, "block");
 });
 
@@ -405,4 +416,96 @@ test("initial public session header and current accepted owner input are not mis
     if (kind === "unknown-system") record.type = "compaction";
     assert.throws(() => assertInitialOwnerTranscript(kind === "extra-history" ? [header, current, record] : [header, record], request), /checkpoint_agent_history_owner_unknown/);
   });
+});
+
+
+test("catalogs larger than 64 return complete bounded pages with stable authorized handles", async t => {
+  const f = await fixture(t, { additionalEvidence: 66 });
+  await f.ingress(); assert.equal((await f.admit()).outcome, "pass");
+  let cursor: number | null = 0; const handles: string[] = [];
+  do {
+    const page = await f.execute({ action: "list", cursor });
+    assert.ok(page.details.items.length <= 16); assert.deepEqual(page.details.exclusions, {});
+    handles.push(...page.details.items.map((item: any) => item.handle));
+    cursor = page.details.nextCursor;
+  } while (cursor !== null);
+  assert.equal(handles.length, 67); assert.equal(new Set(handles).size, 67);
+  assert.equal(handles.at(-1), "E67");
+  assert.match((await f.execute({ action: "read", handle: "E67" })).details.original.text, /Synthetic retained entry 67/);
+  await assert.rejects(f.execute({ action: "list", cursor: -1 }), /checkpoint_agent_tool_arguments_invalid/);
+  await assert.rejects(f.execute({ action: "list", cursor: 68 }), /checkpoint_agent_cursor_unavailable/);
+  await assert.rejects(f.execute({ action: "read", handle: "E1", cursor: 0 }), /checkpoint_agent_tool_arguments_invalid/);
+});
+
+
+test("fresh tools reuse v3 policy judgments and retain interpretation constraints", async t => {
+  const f = await fixture(t, { policyContext: "allow" });
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const list = await f.execute({ action: "list" }); assert.equal(list.details.items.length, 1);
+  assert.equal(list.details.items[0].usageConstraints[0].rules[0].id, "keep_scope");
+  assert.equal(list.details.items[0].usageConstraints[0].quotePolicy, "summarize_only");
+  assert.deepEqual(list.details.exclusions, {});
+  const read = await f.execute({ action: "read", handle: "E1" });
+  assert.match(read.details.original.text, new RegExp(SUPPLY_MARKER));
+  assert.equal(read.details.original.usageConstraints[0].rules[0].id, "keep_scope");
+  assert.equal(read.details.original.usageConstraints[0].quotePolicy, "summarize_only");
+  assert.equal(f.counts().models, 1); assert.equal(f.counts().configWrites, 0);
+});
+
+test("v3 business refusal excludes an item without supplying its payload or pretending technical failure", async t => {
+  const f = await fixture(t, { policyContext: "deny" });
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const list = await f.execute({ action: "list" }); assert.deepEqual(list.details.items, []);
+  assert.deepEqual(list.details.exclusions, { source_rule_forbidden: 1 }); assert.equal(list.details.examined, 1);
+  assert.equal(list.details.nextCursor, null);
+  await assert.rejects(f.execute({ action: "read", handle: "E1" }), /checkpoint_agent_handle_unavailable/);
+});
+
+
+test("tool-only cancellation reaches the semantic Host call before any original payload read", async t => {
+  const f = await fixture(t, { policyContext: "allow" });
+  await f.ingress(); assert.equal((await f.admit()).outcome, "pass");
+  const toolAbort = new AbortController(); let reads = 0;
+  const readPayload = CatalogReader.prototype.readPayload;
+  CatalogReader.prototype.readPayload = async function(...args: Parameters<typeof readPayload>) {
+    if (this.root === f.root) reads++;
+    return readPayload.apply(this, args);
+  };
+  t.after(() => { CatalogReader.prototype.readPayload = readPayload; });
+  f.observation.beforePolicyComplete = async params => {
+    assert.equal(f.controller.signal.aborted, false); toolAbort.abort();
+    assert.equal(params.signal.aborted, true); params.signal.throwIfAborted();
+  };
+  await assert.rejects(f.execute({ action: "list" }, true, { abortSignal: toolAbort.signal }));
+  assert.equal(reads, 0); assert.equal(f.counts().models, 1);
+});
+
+
+test("a missing reviewed descriptor is reported as unavailable context, not a policy refusal or an original", async t => {
+  const f = await fixture(t, { policyContext: "missing" });
+  await f.ingress(); assert.equal((await f.admit()).outcome, "pass");
+  const list = await f.execute({ action: "list" });
+  assert.deepEqual(list.details.items, []); assert.deepEqual(list.details.exclusions, {});
+  assert.deepEqual(list.details.contextRequired, { personal_context_descriptor_required: 1 });
+  assert.equal(f.counts().models, 0);
+});
+
+
+test("cancellation after policy approval but before payload access does not start an original read", async t => {
+  const f = await fixture(t, { policyContext: "allow" });
+  await f.ingress(); assert.equal((await f.admit()).outcome, "pass");
+  const toolAbort = new AbortController(); let reads = 0;
+  const read = CatalogReader.prototype.read, payload = CatalogReader.prototype.readPayload;
+  CatalogReader.prototype.read = async function(...args: Parameters<typeof read>) {
+    const value = await read.apply(this, args);
+    if (this.root === f.root && args[1] === "coverage") toolAbort.abort();
+    return value;
+  };
+  CatalogReader.prototype.readPayload = async function(...args: Parameters<typeof payload>) {
+    if (this.root === f.root) reads++;
+    return payload.apply(this, args);
+  };
+  t.after(() => { CatalogReader.prototype.read = read; CatalogReader.prototype.readPayload = payload; });
+  await assert.rejects(f.execute({ action: "list" }, true, { abortSignal: toolAbort.signal }));
+  assert.equal(f.controller.signal.aborted, false); assert.equal(reads, 0);
 });

@@ -8,6 +8,14 @@
 
 支持 `owner/direct/text/retain-v1`、已明确选择的当前源、Core checkpoint/Git/CAS、owner 输入一次归档、受管 bootstrap/声明 skill 的初始化和文件保护。新请求重新取得资格，身份/受众、来源权限、写入或首次读取失败显式拒绝。
 
+### v3 来源策略兼容（源码增量，尚未加载到 main）
+
+`fresh_tools` 可复用既有 `source_access_context` processing grant 和逐来源策略 evaluator，读取 retain v2/v3 的有限摘要上下文；不将策略改成 v1，也不扩展用途、受众或引用许可。公开 Host owner/direct 身份只证明请求者，不能替代请求主题、使用场景和 access rule 的结构化语义判断。判断通过公开 Host `runtime.llm.complete` 执行，绑定当前 Agent、固定模型及本次请求，输入仅为本次问题、已审核描述及相关策略元数据，不能先读原文补描述。真实 provider 的这类辅助调用也是外发及计费，须纳入单独的真实调用授权。
+
+`stella_memory_data list` 每页最多 16 个候选，按 `nextCursor` 继续。`exclusions` 是明确的策略拒绝；`contextRequired` 是缺少语义上下文或精确审核描述，均不供给该对象。损坏、陈旧版本、异常模型结果仍显式失败。合法项目的 list/read 同传 interpretation rules 和 quotePolicy；summary 处理不产生额外 quote grant。提示和元数据供给不保证真实模型永不违反解释或引用约束。
+
+缺少某个分段描述不会授权整文件或伪造片段审核；有限工具逐项验证，完整 Praxis/full_memory 的全覆盖检查保持原样。未决对象可以不供给，但不能把剩余对象的正常结果冒称完整记忆成功。此增量的合成测试和真实源元数据统计见 [v3 兼容报告](suqing-v3-source-access-2026-10-23.md)；历史安装包和旧 Host 结果不作为该增量已通过的证据。
+
 完整 transcript、附件、语义 learning/correction/outcome writer、未知旧会话接管、旧部署平滑迁移、更多资料模式和长历史 compaction 不在本候选内，不以此阻断已验收有限模式。共享 token/cli 只表示同一 Host principal，不证明多个真人身份；多用户或受众变化需独立身份和会话。未知已有历史不得默默认领，应首次新建会话或另行设计迁移。
 
 `stella.checkpoint status` 的 `mode=experimental_owner_chat`、`continuousOwnerChat=true` 表达有限能力。旧 `agentMemory=false` 和 `full_memory=false` 不是已验收完整能力；`fullMemoryBlockers` 仍列完整契约缺口。状态描述不是任意真实数据的验收收据。

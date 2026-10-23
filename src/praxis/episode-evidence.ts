@@ -3,7 +3,7 @@ import { CatalogError, CatalogReader, selectTextEvidence, validMemoryRef } from 
 import { canonicalJson } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { ActualSource, EpisodeV2, VersionedRef } from "./episode-v2.js";
-import { assertSourcePolicyAccess, parseSourcePolicy, type SourceUsageRule } from "../canghai/source-policy.js";
+import { assertSourcePolicyAccess, parseSourcePolicy, type SourceUsageRule, type SourceRestrictions } from "../canghai/source-policy.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { sourceSegments, assertEvidenceSegment, segmentLocator, type SegmentLocator } from "../canghai/source-segments.js";
 
@@ -11,10 +11,11 @@ export type OriginalEvidence = {
   ref: VersionedRef; text: string; role: string; kind: string; independentOriginId: string;
   sourceAdapterId: string; occurredAt: string | null; authoredAt: string | null; capturedAt: string;
   coverageComplete: boolean;
-  usageConstraints?: Array<{ policyRef: VersionedRef; rules: SourceUsageRule[] }>;
+  usageConstraints?: Array<{ policyRef: VersionedRef; rules: SourceUsageRule[]; quotePolicy?: SourceRestrictions["quotePolicy"] }>;
 };
 export type EventWindow = { from?: string | null; to: string };
 export type EvidencePurpose = {
+  signal?: AbortSignal;
   sourceAccess?: SourceAccessProvider;
   readPurpose: string; derivePurpose: string; deliveryScope: string; evidenceCutoff: string;
   /** Optional fact-validity window; distinct from evidenceCutoff (known-by / recorded time). */
@@ -137,6 +138,7 @@ export class EpisodeEvidenceResolver {
       if (segments.length) await this.assertSourceMetadataAccess(evidence.source, policy, segment && segmentLocator(segment));
       else await this.assertSourceAccess(evidence.source, policy);
     }
+    this.purpose.signal?.throwIfAborted();
     await this.reader.readPayload(evidence.source, evidence.payloadSha256);
     await this.reader.assertCurrent();
   }
@@ -189,6 +191,7 @@ export class EpisodeEvidenceResolver {
       check(from == null || Date.parse(evidence.occurredAt) >= Date.parse(from), "evidence_outside_event_window");
       check(Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.eventWindow.to), "evidence_outside_event_window");
     }
+    this.purpose.signal?.throwIfAborted();
     const payload = await this.reader.readPayload(evidence.source, evidence.payloadSha256);
     await this.reader.read(evidence.policyRef, "policies");
     if (!includesRef([evidence.policyRef], source.policyRef)) await this.reader.read(source.policyRef, "policies");
@@ -198,7 +201,8 @@ export class EpisodeEvidenceResolver {
     const usageConstraints: NonNullable<OriginalEvidence["usageConstraints"]> = [];
     for (const policyRef of includesRef([evidence.policyRef], source.policyRef) ? [evidence.policyRef] : [evidence.policyRef, source.policyRef]) {
       const policy = parseSourcePolicy(await this.reader.read(policyRef, "policies"));
-      if (policy.usageRules?.interpretation.length) usageConstraints.push({ policyRef, rules: policy.usageRules.interpretation });
+      if (policy.usageRules?.interpretation.length || policy.restrictions) usageConstraints.push({ policyRef,
+        rules: policy.usageRules?.interpretation ?? [], ...(policy.restrictions ? { quotePolicy: policy.restrictions.quotePolicy } : {}) });
     }
     const original: OriginalEvidence = { ref, text, role: String(evidence.role), kind: String(evidence.kind), sourceAdapterId: source.origin.adapterId,
       ...(usageConstraints.length ? { usageConstraints } : {}),

@@ -196,7 +196,7 @@ test("personal metadata processing requires exact Host requester, model, owner a
   await assert.rejects(access(f.reader, f.target, { ...purpose, deliveryScope: "public" }), /personal_context_purpose_mismatch/);
   const wrongOwner = createPersonalContextAccess({ ...input, binding: { ...binding, config: { ...binding.config, ownerId: "other" } } });
   await assert.rejects(wrongOwner(f.reader, f.target, purpose), /source_access_descriptor_unavailable/);
-  await assert.rejects(access(f.reader, f.other, purpose), /source_access_descriptor_unavailable/);
+  await assert.rejects(access(f.reader, f.other, purpose), /personal_context_descriptor_required/);
   assert.equal(calls, 1);
   active = false;
   await assert.rejects(access(f.reader, f.target, purpose), /expired/);

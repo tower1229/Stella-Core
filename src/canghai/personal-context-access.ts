@@ -111,7 +111,8 @@ export async function loadPersonalContextAccess(root: string, configPath: string
 export function createPersonalContextAccess(input: {
   request: BoundTurnRequest; modelRef: string;
   binding: Awaited<ReturnType<typeof loadPersonalContextAccess>>;
-  assertRequestCurrent: () => void;
+  assertRequestCurrent: () => void | Promise<void>;
+  reuseWithinRequest?: true;
   isPersistenceRevalidation?: () => boolean;
   processingAuthority?: ProcessingAuthority;
   complete: (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
@@ -126,11 +127,11 @@ export function createPersonalContextAccess(input: {
   check(config.modelRefs.includes(modelRef), "personal_context_model_forbidden");
   check(request.requestHash === bytesVersion(request.prompt), "personal_context_request_mismatch");
   const current = async (reader: CatalogReader) => {
-    input.assertRequestCurrent();
+    await input.assertRequestCurrent();
     check(!input.signal?.aborted, "source_access_cancelled");
     await input.binding.assertCurrent();
     await reader.assertCurrent();
-    input.assertRequestCurrent();
+    await input.assertRequestCurrent();
   };
   const provider = createSourceAccessProvider({ request: request.prompt, trigger: "user_requested", presentation: "summary", quoteGrants: [],
     signal: input.signal,
@@ -145,7 +146,7 @@ export function createPersonalContextAccess(input: {
       return structuredClone(descriptor);
     },
     complete: async params => {
-      input.assertRequestCurrent(); await input.binding.assertCurrent(); input.assertRequestCurrent();
+      await input.assertRequestCurrent(); await input.binding.assertCurrent(); await input.assertRequestCurrent();
       return input.complete(params);
     },
   });
@@ -155,12 +156,16 @@ export function createPersonalContextAccess(input: {
       canonicalJson(config.purpose), "personal_context_purpose_mismatch");
     try {
       const key = canonicalJson([sourceAccessKey(target), config.purpose]);
-      if (input.isPersistenceRevalidation?.()) {
+      if (input.isPersistenceRevalidation?.() || input.reuseWithinRequest && decisions.has(key)) {
         const decision = decisions.get(key);
         check(decision, "source_access_revalidation_receipt_required");
         assertSourcePolicyAccess(await reader.read(target.policyRef, "policies"), purpose, decision);
         return structuredClone(decision);
       }
+      // Missing reviewed metadata is a known unavailable-context condition.
+      // Do not conflate it with an arbitrary descriptor/owner/read failure.
+      check(config.descriptors.some(descriptor => sourceAccessKey(descriptor) === sourceAccessKey(target)),
+        "personal_context_descriptor_required");
       const decision = await provider(reader, target, purpose);
       decisions.set(key, structuredClone(decision));
       return decision;

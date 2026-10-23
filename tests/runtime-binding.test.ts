@@ -295,6 +295,13 @@ test("full-memory uses its explicit lifecycle binding and requires private proce
   const load = async () => loadPraxisRuntimeBinding(await loadConsciousness(root));
   const result = await load();
   assert.equal(result.personalContextAccessPath, accessPath);
+  const unresolved = { ...access, descriptors: [{ sourceRef: { id: "unreviewed-source", version: "sha256:" + "0".repeat(64) },
+    policyRef: { id: "unreviewed-policy", version: "sha256:" + "1".repeat(64) }, description: "Synthetic unresolved descriptor." }] };
+  await writeFile(path.join(root, accessPath), JSON.stringify(unresolved));
+  await assert.rejects(load(), /personal_context_descriptor_not_current/);
+  const partial = await loadPraxisRuntimeBinding(await loadConsciousness(root), { sourceSupplyOnly: true });
+  assert.equal(partial.personalContextAccessPath, accessPath);
+  await writeFile(path.join(root, accessPath), JSON.stringify(access));
   const runtime = await createBoundPraxisRuntime(await loadConsciousness(root), result, complete, async () => {});
   assert.equal(runtime.evidence.reader.catalog.generationId, "fixture-empty-v2");
   profile.models.learning.model = "unapproved"; await saveProfile();

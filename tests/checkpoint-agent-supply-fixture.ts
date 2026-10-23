@@ -15,7 +15,7 @@ export const BOOTSTRAP_MARKER = "SYNTHETIC_INSTALLED_BOOTSTRAP_8615";
 export const SKILL_MARKER = "SYNTHETIC_INSTALLED_SKILL_BODY_8615";
 export const SUPPLY_MARKER = "SYNTHETIC_ALLOWED_MEMORY_4931";
 /** Synthetic source builder shared by fixture tests and the isolated stock Host probe. */
-export async function createAgentSupplySource(options: { sourceAccess?: boolean; doNotRetain?: boolean; materialization?: boolean } = {}) {
+export async function createAgentSupplySource(options: { sourceAccess?: boolean; doNotRetain?: boolean; materialization?: boolean; additionalEvidence?: number; policyContext?: "allow" | "deny" | "missing" } = {}) {
   const root = await realpath(await createFixture()), catalogPath = "30_PersonalData/memory/catalog.json";
   const catalog = JSON.parse(await readFile(path.join(root, catalogPath), "utf8"));
   const binding = JSON.parse(await readFile(path.join(root, "50_PersonalAgent/stella/praxis-binding.json"), "utf8"));
@@ -39,7 +39,43 @@ export async function createAgentSupplySource(options: { sourceAccess?: boolean;
     await mkdir(path.dirname(path.join(root, file.path)), { recursive: true }); await writeFile(path.join(root, file.path), file.bytes);
   }
   for (const object of archive.objects) catalog[object.group].push(object.entry);
+  for (let index = 0; index < (options.additionalEvidence ?? 0); index++) {
+    const next = snapshotTurnRequest({ agentId: "synthetic", sessionId: "synthetic-historical-source", sessionKey: "agent:synthetic:retained",
+      prompt: `Synthetic retained entry ${index + 2}.`, senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, `synthetic-source-run-${index + 2}`);
+    const extra = prepareHostRequestArchive({ schemaVersion: "stella.host-request-snapshot/v1", request: next, capturedAt: "2020-01-01T00:00:00Z" }, { ...binding.archive, ownerId: "owner-fixture" });
+    for (const file of [{ path: extra.payload.path, bytes: extra.payload.bytes }, ...extra.objects.map(object => ({ path: object.entry.locator.path, bytes: object.bytes }))]) {
+      await mkdir(path.dirname(path.join(root, file.path)), { recursive: true }); await writeFile(path.join(root, file.path), file.bytes);
+    }
+    for (const object of extra.objects) catalog[object.group].push(object.entry);
+  }
   await writeFile(path.join(root, catalogPath), canonicalJson(catalog));
+  if (options.policyContext) {
+    const refs = new Map<string, { id: string; version: string }>();
+    const replace = (value: any): any => Array.isArray(value) ? value.map(replace) : value && typeof value === "object"
+      ? typeof value.id === "string" && typeof value.version === "string" && refs.has(canonicalJson({ id: value.id, version: value.version }))
+        ? { ...value, ...refs.get(canonicalJson({ id: value.id, version: value.version })) }
+        : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replace(item)])) : value;
+    for (const group of ["policies", "sources", "evidence"]) for (const entry of catalog[group]) {
+      const old = { id: entry.id, version: entry.version }, object = replace(JSON.parse(await readFile(path.join(root, entry.locator.path), "utf8")));
+      if (group === "policies") Object.assign(object, { schemaVersion: "stella.source-policy/v3",
+        restrictions: { sensitivity: "private", quotePolicy: "summarize_only", allowedScenarios: ["self_reflection"], forbiddenScenarios: ["relationship_judgment"] },
+        usageRules: { access: [{ id: "requested_topic", requirement: "Use only for the explicitly requested synthetic topic." }],
+          interpretation: [{ id: "keep_scope", requirement: "Do not generalize the synthetic example." }] } });
+      const version = objectVersion(object); object.version = version; const bytes = canonicalJson(object);
+      await writeFile(path.join(root, entry.locator.path), bytes); entry.version = version; entry.locator.sha256 = bytesVersion(bytes); entry.dependencies = replace(entry.dependencies);
+      refs.set(canonicalJson(old), { id: entry.id, version });
+    }
+    const nextBinding = replace(binding); await writeFile(path.join(root, "50_PersonalAgent/stella/praxis-binding.json"), canonicalJson(nextBinding));
+    const profilePath = path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml"), profile = parseYaml(await readFile(profilePath, "utf8"));
+    profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
+      config_ref: "path:50_PersonalAgent/stella/checkpoint-access.json", acceptance_ref: profile.capabilities[0].acceptance_ref, required_secret_refs: [] });
+    await writeFile(profilePath, stringifyYaml(profile));
+    await writeFile(path.join(root, "50_PersonalAgent/stella/checkpoint-access.json"), canonicalJson({ schemaVersion: "stella.personal-context-access/v1",
+      ownerId: "owner-fixture", requesterIds: ["synthetic-owner"], modelRefs: ["google/gemini-3.8-flash"], purpose: binding.purpose,
+      descriptors: options.policyContext === "missing" ? [] : catalog.sources.map((entry: any) => ({ sourceRef: { id: entry.id, version: entry.version }, policyRef: nextBinding.archive.policyRef,
+        description: "A reviewed synthetic event for self reflection, never original text." })) }));
+    await writeFile(path.join(root, catalogPath), canonicalJson(catalog));
+  }
   if (options.materialization) await prepareInitializationFixture(root, "synthetic", SKILL_MARKER, BOOTSTRAP_MARKER);
   const revision = await initializeFixtureRepository(root);
   return { root, revision, archive, catalogPath, binding };
