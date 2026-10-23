@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { upsertSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
 import { registerCheckpointPlugin } from "../src/openclaw/checkpoint-plugin-registration.js";
@@ -10,15 +12,15 @@ import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import { prepareHostRequestArchive } from "../src/canghai/host-request-archive.js";
 import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
 import { captureCheckpointHostRequest } from "../src/openclaw/checkpoint-host-request.js";
-import { CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
+import { registerCheckpointAgentSupply, CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
 import { createAgentSupplySource, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
 
-async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}) {
+async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false) {
   const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
   t.after(async () => { await rm(source.root, { recursive: true, force: true }); await rm(parent, { recursive: true, force: true }); });
   const authority = path.join(parent, "authority"), state = path.join(parent, "host-state"), storePath = path.join(parent, "sessions.json");
   await mkdir(authority); await mkdir(state);
-  const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools" };
+  const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(automaticArchive ? { requestArchive: "local" } : {}) };
   const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
   const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
   await upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } });
@@ -261,4 +263,60 @@ test("public session lifecycle changes invalidate old request identity", async t
   await upsertSessionEntry({ agentId: "synthetic", sessionKey: f.agent.sessionKey, storePath: f.storePath,
     env: { OPENCLAW_STATE_DIR: f.state }, entry: { sessionId: f.agent.sessionId, lifecycleRevision: "synthetic-reset-revision", updatedAt: 2 } });
   await assert.rejects(f.execute({ action: "read", handle: "E1" }), /checkpoint_ingress_session_changed/);
+});
+
+
+test("owner ingress automatically archives once before normal Agent supply and the next user request reads it", async t => {
+  const f = await fixture(t, {}, true), run = promisify(execFile);
+  const git = async (...args: string[]) => (await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", f.root, ...args])).stdout.trim();
+  const marker = "SYNTHETIC_AUTOMATIC_OWNER_INPUT_7296"; f.event.ctx.Body = marker; delete f.event.ctx.Timestamp;
+  const before = (await f.rpc("status")).payload.authority, received = Date.now();
+  assert.equal(await f.ingress(), undefined);
+  const after = (await f.rpc("status")).payload; assert.equal(after.ingress.state, "local_committed");
+  assert.equal(after.ingress.capturedAtSource, "core_receive_clock"); assert.notEqual(after.authority.token, before.token);
+  assert.equal(await git("rev-list", "--count", `${before.revision}..HEAD`), "1");
+  assert.equal((await f.admit()).outcome, "pass");
+  const list = await f.execute({ action: "list" }), selected = list.details.items.find((item: any) => item.preview === marker); assert.ok(selected);
+  const original = (await f.execute({ action: "read", handle: selected.handle })).details.original;
+  assert.equal(original.text, marker); assert.ok(Date.parse(original.capturedAt) >= received);
+  const reader = await CatalogReader.load(f.root, f.catalogPath), source = await reader.read(reader.catalog.sources.find(entry => entry.id === selected.evidence.id.replace("evidence_", "source_"))!, "sources");
+  const payload = JSON.parse(await readFile(path.join(f.root, (source.payloads as any[])[0].path), "utf8"));
+  assert.equal(payload.request.hostMessageTimestamp, undefined); assert.equal(payload.request.prompt, marker);
+  assert.equal((await f.ingress()).handled, true); // Duplicate grant never reruns archive or model.
+  assert.deepEqual((await f.rpc("status")).payload.authority, after.authority);
+  await f.hooks.get("agent_end")!({}, f.agent);
+  f.event.runId = f.agent.runId = "synthetic-next-automatic-user"; f.event.ctx.Body = "Recall the previous preference";
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const next = await f.execute({ action: "list" }), retained = next.details.items.find((item: any) => item.preview === marker); assert.ok(retained);
+  assert.equal((await f.execute({ action: "read", handle: retained.handle })).details.original.text, marker);
+  const final = (await f.rpc("status")).payload; assert.notEqual(final.authority.token, after.authority.token);
+  assert.equal(await git("rev-list", "--count", `${before.revision}..HEAD`), "2");
+  assert.equal((await CatalogReader.load(f.root, f.catalogPath)).catalog.sources.length, 3);
+  assert.equal(final.capabilities.full_memory, false); assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
+
+test("automatic archive failure never admits Agent execution or advances checkpoint", async t => {
+  for (const kind of ["non-owner", "group", "cancel", "do-not-retain", "invalid-time"] as const) await t.test(kind, async t => {
+    const f = await fixture(t, { doNotRetain: kind === "do-not-retain" }, true), before = (await f.rpc("status")).payload.authority;
+    if (kind === "non-owner") f.event.ctx.SenderId = f.event.ctx.From = "synthetic-outsider";
+    if (kind === "group") f.event.ctx.ChatType = "group";
+    if (kind === "cancel") f.controller.abort();
+    if (kind === "invalid-time") f.event.ctx.Timestamp = Number.NaN;
+    assert.equal((await f.ingress()).handled, true); assert.equal((await f.admit()).outcome, "block");
+    assert.deepEqual((await f.rpc("status")).payload.authority, before); assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+  });
+});
+
+
+test("Agent preparation refuses a checkpoint different from the archive return instead of adopting observation", async t => {
+  const f = await fixture(t), writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); t.after(() => writer.close());
+  const original = await writer.capture(), request = snapshotTurnRequest({ agentId: "synthetic", sessionId: "synthetic-intervening-session",
+    sessionKey: "agent:synthetic:intervening", prompt: "Synthetic intervening publication", senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, "synthetic-intervening-run");
+  const archive = prepareHostRequestArchive({ schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: "2020-01-02T00:00:00Z" }, { ...f.binding.archive, ownerId: "owner-fixture" });
+  const accepted = await writer.archiveLocal({ recovery: original, reader: await CatalogReader.load(f.root, f.catalogPath), archive,
+    operationId: "synthetic-intervening-publication", purpose: f.binding.purpose });
+  const isolatedScope = registerCheckpointAgentSupply(f.api, parseCheckpointPluginConfig(f.config), async () => writer, undefined, async () => ({ recovery: original }));
+  t.after(() => isolatedScope.close());
+  assert.equal((await f.ingress()).handled, true); assert.equal(isolatedScope.status()?.category, "checkpoint_agent_archive_changed");
+  assert.equal((await f.admit()).outcome, "block"); assert.deepEqual((await f.rpc("status")).payload.authority, accepted.authority);
 });

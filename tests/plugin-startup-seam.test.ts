@@ -159,13 +159,13 @@ test("live Host envelope mutation before archive cannot become a successful reta
 });
 
 test("rehashed pre-journal intents cannot authorize their own owner or extra file writes", async t => {
-  for (const attack of ["self-authorized-owner", "extra-file"] as const) await t.test(attack, async t => {
+  for (const attack of ["self-authorized-owner", "extra-file", "host-time"] as const) await t.test(attack, async t => {
     const f = await fixture(t), authority = (await f.rpc("status")).payload.authority;
     const reader = await CatalogReader.load(f.root, "30_PersonalData/memory/catalog.json");
     const binding = JSON.parse(await readFile(path.join(f.root, "50_PersonalAgent/stella/praxis-binding.json"), "utf8"));
     const request = snapshotTurnRequest({ agentId: "synthetic", sessionId: "synthetic-session", sessionKey,
       prompt: f.event.ctx.Body, senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct", hostMessageTimestamp: f.event.ctx.Timestamp }, f.event.runId);
-    const archive = prepareHostRequestArchive({ schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: new Date(f.event.ctx.Timestamp).toISOString() },
+    const archive = prepareHostRequestArchive({ schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: new Date(f.event.ctx.Timestamp + (attack === "host-time" ? -86_400_000 : 0)).toISOString() },
       { ...binding.archive, ownerId: attack === "self-authorized-owner" ? "attacker-chosen-owner" : "owner-fixture" });
     const operationId = `correction_archive_${bytesVersion(canonicalJson([request.agentId, request.sessionKey, request.runId])).slice(7)}`;
     const after = structuredClone(reader.catalog);
@@ -186,7 +186,7 @@ test("rehashed pre-journal intents cannot authorize their own owner or extra fil
     const bytes = serializeMemoryTransactionJournal(plan), marker = path.join(f.root, ".stella-memory-transaction.json");
     await writeFile(marker, bytes);
     assert.equal((await f.dispatch()).handled, true);
-    assert.equal((await f.rpc("status")).payload.ingress.category, "archive_operation_conflict");
+    assert.equal((await f.rpc("status")).payload.ingress.category, attack === "host-time" ? "checkpoint_ingress_replay_conflict" : "archive_operation_conflict");
     assert.deepEqual((await f.rpc("status")).payload.authority, authority);
     assert.equal(await f.git("rev-parse", "HEAD"), f.revision);
     assert.equal(await readFile(marker, "utf8"), bytes);
@@ -210,11 +210,11 @@ test("original authority blob ignores replacement refs and ambient Git redirecti
 });
 
 test("unsupported, denied, cancelled and closed ingress explicitly handles failure without a default Agent path", async t => {
-  for (const kind of ["non-owner", "group", "missing-time", "missing-session", "cancel", "stop"] as const) await t.test(kind, async t => {
+  for (const kind of ["non-owner", "group", "invalid-time", "missing-session", "cancel", "stop"] as const) await t.test(kind, async t => {
     const f = await fixture(t);
     if (kind === "non-owner") f.live.commands.ownerAllowFrom = ["different-owner"];
     if (kind === "group") f.event.ctx.ChatType = "group";
-    if (kind === "missing-time") delete f.event.ctx.Timestamp;
+    if (kind === "invalid-time") f.event.ctx.Timestamp = Number.NaN;
     if (kind === "missing-session") f.event.sessionKey = f.event.ctx.SessionKey = "agent:synthetic:missing";
     if (kind === "cancel") f.controller.abort();
     if (kind === "stop") for (const service of f.registered.services) await service.stop?.();
@@ -245,4 +245,19 @@ test("package metadata stays diagnostic and cannot issue or revalidate an old st
     binding, result: "passed", executionDigest: digest, store });
   await assert.rejects(admitBusinessCapability({ capabilityId: "host_initialization", receipt, captureBinding: capture, store }), /verification_code_identity_unavailable/);
   assert.ok(await store.read(receipt.id));
+});
+
+
+test("missing Host timestamp uses the original Core receive clock across completed operation restart", async t => {
+  const f = await fixture(t); delete f.event.ctx.Timestamp;
+  const earliest = Date.now(); assert.equal((await f.dispatch()).handled, true);
+  const first = (await f.rpc("status")).payload; assert.equal(first.ingress.state, "local_committed"); assert.equal(first.ingress.capturedAtSource, "core_receive_clock");
+  const reader = await CatalogReader.load(f.root, "30_PersonalData/memory/catalog.json"), source = await reader.read(reader.catalog.sources[0]!, "sources");
+  const snapshot = JSON.parse(await readFile(path.join(f.root, (source.payloads as any[])[0].path), "utf8"));
+  assert.equal(snapshot.request.hostMessageTimestamp, undefined); assert.ok(Date.parse(snapshot.capturedAt) >= earliest);
+  for (const service of f.registered.services) await service.stop?.();
+  const restarted = f.reRegister(); assert.equal((await restarted.hooks.get("reply_dispatch")!(f.event, f.context)).handled, true);
+  const second = (await callRpc(restarted, "status")).payload; assert.equal(second.ingress.state, "local_committed", JSON.stringify(second.ingress));
+  assert.deepEqual(second.authority, first.authority); assert.equal(await f.git("rev-parse", "HEAD"), first.authority.revision);
+  assert.equal((await CatalogReader.load(f.root, "30_PersonalData/memory/catalog.json")).catalog.sources.length, 1);
 });

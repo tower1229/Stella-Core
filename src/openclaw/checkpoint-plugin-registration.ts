@@ -21,8 +21,10 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
     return runtime;
   };
   const initialization = createCheckpointInitialization(api, config, current, () => supply.assertIdle());
-  const supply = registerCheckpointAgentSupply(api, config, current, initialization);
   const ingress = registerCheckpointRequestIngress(api, config, current);
+  const supply = registerCheckpointAgentSupply(api, config, current, initialization, config.requestArchive === "local" ? async (event, ctx) => {
+    await initialization.assertAvailable(); return ingress.dispatch(event, ctx);
+  } : undefined);
   const status = async (reload = false) => {
     const runtime = await current(), recovery = reload ? (await runtime.load()).recovery : await runtime.capture();
     await runtime.assert(recovery);

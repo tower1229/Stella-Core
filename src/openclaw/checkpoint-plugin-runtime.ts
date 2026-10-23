@@ -24,7 +24,7 @@ export function parseCheckpointPluginConfig(value: unknown): CheckpointPluginCon
     typeof config.checkpointStateDirectory !== "string" || !path.isAbsolute(config.checkpointStateDirectory) ||
     !["read_only", "local_write"].includes(String(config.dataMode)) ||
     config.requestArchive !== undefined && (config.requestArchive !== "local" || config.dataMode !== "local_write") ||
-    config.agentMemory !== undefined && (config.agentMemory !== "fresh_tools" || config.requestArchive !== undefined) ||
+    config.agentMemory !== undefined && config.agentMemory !== "fresh_tools" ||
     config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,199}$/.test(config.agentId)) ||
     config.manifestPath !== undefined && (typeof config.manifestPath !== "string" || !config.manifestPath)) {
     throw new RecoveryAuthorityError("checkpoint_configuration_invalid");

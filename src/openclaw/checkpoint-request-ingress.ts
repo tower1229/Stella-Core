@@ -1,3 +1,4 @@
+import type { PluginHookReplyDispatchEvent, PluginHookReplyDispatchContext } from "openclaw/plugin-sdk/core";
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { getSessionEntry, resolveStorePath } from "openclaw/plugin-sdk/session-store-runtime";
 import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
@@ -23,14 +24,25 @@ import { parse as parseYaml } from "yaml";
 import type { RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
 
 type Runtime = Awaited<ReturnType<typeof createCheckpointPluginRuntime>>;
-type Frame = { runtime: Runtime; recovery: RecoveryReadBinding; reader: Pick<CatalogReader, "root" | "catalogPath" | "catalogHash">; binding: Pick<PraxisRuntimeBinding, "archive" | "purpose" | "catalogPath">; ownerId: string };
+type Frame = { runtime: Runtime; recovery: RecoveryReadBinding; reader: Pick<CatalogReader, "root" | "catalogPath" | "catalogHash">; binding: Pick<PraxisRuntimeBinding, "archive" | "purpose" | "catalogPath">; ownerId: string; capturedAt: string };
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
 
 /** Recover configuration and original expectation from this one recorded business operation.
  * Actual working bytes, parent Git commit and CAS are still authenticated by the common writer.
  * The new scope contributes its resolver/lifetime only, never its observed revision/token.
  */
-async function recordedFrame(runtime: Runtime, config: CheckpointPluginConfig, plan: MemoryTransactionPlan): Promise<Frame> {
+async function recordedFrame(runtime: Runtime, config: CheckpointPluginConfig, plan: MemoryTransactionPlan, request: ReturnType<typeof snapshotTurnRequest>): Promise<Frame> {
+  // Recover the original receive clock, not an authority, from the recorded request.
+  // The common archive writer still reconstructs and authenticates the entire plan.
+  const originals = plan.files.flatMap(file => {
+    try { const value: unknown = JSON.parse(file.after ?? "null");
+      return isRecord(value) && value.schemaVersion === "stella.host-request-snapshot/v1" &&
+        canonicalJson(value.request) === canonicalJson(request) ? [value] : [];
+    } catch { return []; }
+  });
+  check(originals.length === 1 && typeof originals[0]!.capturedAt === "string" && Number.isFinite(Date.parse(originals[0]!.capturedAt)), "checkpoint_ingress_replay_conflict");
+  const capturedAt = originals[0]!.capturedAt as string;
+  if (request.hostMessageTimestamp !== undefined) check(capturedAt === new Date(request.hostMessageTimestamp).toISOString(), "checkpoint_ingress_replay_conflict");
   const recovery = plan.recoveryCheckpoint;
   check(recovery && recovery.binding.repositoryRoot === config.canghaiRoot && recovery.binding.agentId === config.agentId &&
     recovery.binding.manifestPath === config.manifestPath, "checkpoint_ingress_replay_conflict");
@@ -58,20 +70,21 @@ async function recordedFrame(runtime: Runtime, config: CheckpointPluginConfig, p
   const fresh = await runtime.capture();
   return { runtime, recovery: Object.freeze({ resolver: fresh.resolver, expected: Object.freeze({ mode: "core_checkpoint", binding: Object.freeze({ ...recovery.binding }),
     revision: recovery.expected.revision, token: recovery.expected.token }) }),
-    reader: { root: config.canghaiRoot, catalogPath, catalogHash: bytesVersion(catalogBytes) }, ownerId: policy.ownerId,
+    reader: { root: config.canghaiRoot, catalogPath, catalogHash: bytesVersion(catalogBytes) }, ownerId: policy.ownerId, capturedAt,
     binding: { catalogPath, archive: { policyRef: value.archive.policyRef, objectRoot: value.archive.objectRoot, payloadRoot: value.archive.payloadRoot },
       purpose: { readPurpose: String(purpose.readPurpose), derivePurpose: String(purpose.derivePurpose), deliveryScope: String(purpose.deliveryScope) } } };
 }
 
-/** Public Host ingress → existing business archive writer. Retention-only opt-in;
- * no claimed transcript event, model execution, reply delivery or full_memory admission.
+/** Public Host ingress → existing business archive writer. Standalone retention or
+ * a phase before stock Agent supply; no transcript, delivery or full_memory claim.
  */
 export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config: CheckpointPluginConfig, current: () => Promise<Runtime>) {
   const shutdown = new AbortController(), frames = new Map<string, { identity: string; prepared: Promise<Frame> }>();
-  let last: { state: "local_committed" | "blocked"; revision?: string; category?: string } | null = null;
-  if (config.requestArchive !== "local") return { close() { shutdown.abort(); }, status: () => last };
+  let last: { state: "local_committed" | "blocked"; revision?: string; category?: string; runId?: string; operationId?: string; capturedAtSource?: "host_timestamp" | "core_receive_clock" } | null = null;
+  if (config.requestArchive !== "local") return { close() { shutdown.abort(); }, status: () => last, dispatch: async (_event: PluginHookReplyDispatchEvent, _ctx: PluginHookReplyDispatchContext) => undefined };
+  const continueAgent = config.agentMemory === "fresh_tools";
   const hostEnvironment = { OPENCLAW_STATE_DIR: api.runtime.state.resolveStateDir() };
-  api.on("reply_dispatch", async (event, ctx) => {
+  const dispatch = async (event: PluginHookReplyDispatchEvent, ctx: PluginHookReplyDispatchContext) => {
     const sessionKey = event.sessionKey ?? event.ctx.SessionKey;
     if (!sessionKey || parseAgentSessionKey(sessionKey)?.agentId !== config.agentId) return;
     // Host reset and other commands retain their own parser/lifecycle; they are not owner input archives.
@@ -84,8 +97,10 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
         !event.isTailDispatch && !event.suppressUserDelivery && event.runId &&
         (!event.ctx.SessionKey || event.ctx.SessionKey === sessionKey), "checkpoint_ingress_unsupported");
       const timestamp = event.ctx.Timestamp;
-      check(Number.isSafeInteger(timestamp) && Number(timestamp) >= 0 && typeof event.ctx.Body === "string" && event.ctx.Body.trim(), "checkpoint_ingress_identity_missing");
-      const runId = event.runId!, prompt = event.ctx.Body!, capturedAt = new Date(Number(timestamp)).toISOString();
+      check((timestamp === undefined || Number.isSafeInteger(timestamp) && Number(timestamp) >= 0) && typeof event.ctx.Body === "string" && event.ctx.Body.trim(), "checkpoint_ingress_identity_missing");
+      const runId = event.runId!, prompt = event.ctx.Body!;
+      // This is Core receipt time when the public envelope omits Host event time.
+      const capturedAt = new Date(timestamp === undefined ? Date.now() : Number(timestamp)).toISOString();
       const readFacts = () => {
         active();
         check(ctx.dispatchKind === "agent" && event.sendPolicy === "allow" && !event.images?.length && !event.inboundAudio &&
@@ -104,7 +119,7 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
       const entry = getSessionEntry({ agentId: config.agentId, sessionKey, storePath, env: hostEnvironment, readConsistency: "latest", hydrateSkillPromptRefs: false });
       check(entry?.sessionId, "checkpoint_ingress_session_unavailable");
       const request = snapshotTurnRequest({ agentId: config.agentId, sessionId: entry!.sessionId, sessionKey,
-        prompt, senderId: first.sender.senderId, senderIsOwner: true, chatType: "direct", hostMessageTimestamp: Number(timestamp) }, runId);
+        prompt, senderId: first.sender.senderId, senderIsOwner: true, chatType: "direct", ...(timestamp === undefined ? {} : { hostMessageTimestamp: Number(timestamp) }) }, runId);
       assertPrivateContextAudience(resolveTurnAudience(request));
       const assertScope = async () => {
         const facts = readFacts();
@@ -112,7 +127,7 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
         const session = getSessionEntry({ agentId: config.agentId, sessionKey, storePath, env: hostEnvironment, readConsistency: "latest", hydrateSkillPromptRefs: false });
         check(session?.sessionId === request.sessionId, "checkpoint_ingress_session_changed"); active();
       };
-      const key = canonicalJson([config.agentId, sessionKey, runId]), identity = bytesVersion(canonicalJson({ request, capturedAt }));
+      const key = canonicalJson([config.agentId, sessionKey, runId]), identity = bytesVersion(canonicalJson(request));
       let frame = frames.get(key);
       if (frame) check(frame.identity === identity, "checkpoint_ingress_replay_conflict");
       else {
@@ -123,7 +138,7 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
           let pending: MemoryTransactionPlan | undefined;
           try { pending = await readRecordedMemoryTransaction(config.canghaiRoot, operationId); }
           catch (error) { if (!(error && typeof error === "object" && "category" in error && error.category === "pending_transaction_not_found")) throw error; }
-          if (pending) return recordedFrame(runtime, config, pending);
+          if (pending) return recordedFrame(runtime, config, pending, request);
           const loaded = await runtime.load();
           const binding = await loadPraxisRuntimeBinding(loaded.loaded); await runtime.assert(loaded.recovery); await assertScope();
           const journalPath = `${binding.catalogPath.includes("/") ? binding.catalogPath.slice(0, binding.catalogPath.lastIndexOf("/")) + "/" : ""}operations/${operationId}.checkpoint.json`;
@@ -133,35 +148,40 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
             if (!(error instanceof Error && "code" in error && error.code === "ENOENT") &&
                 !(error && typeof error === "object" && "category" in error && error.category === "pending_transaction_not_found")) throw error;
           }
-          if (completed) return recordedFrame(runtime, config, completed);
+          if (completed) return recordedFrame(runtime, config, completed, request);
           const reader = await CatalogReader.load(config.canghaiRoot, binding.catalogPath), policy = await reader.read(binding.archive.policyRef, "policies");
           check(typeof policy.ownerId === "string" && policy.ownerId, "archive_permission_denied");
           await reader.assertCurrent(); await runtime.assert(loaded.recovery);
-          return { runtime, recovery: loaded.recovery, reader, binding, ownerId: String(policy.ownerId) };
+          return { runtime, recovery: loaded.recovery, reader, binding, ownerId: String(policy.ownerId), capturedAt };
         })();
         frame = { identity, prepared }; frames.set(key, frame);
       }
       const prepared = await frame.prepared; await assertScope();
-      const result = await archiveCorrectionInput({ request, original: { schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt },
+      const result = await archiveCorrectionInput({ request, original: { schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: prepared.capturedAt },
         ownerId: prepared.ownerId, reader: prepared.reader, archive: prepared.binding.archive,
-        purpose: { ...prepared.binding.purpose, evidenceCutoff: capturedAt,
+        purpose: { ...prepared.binding.purpose, evidenceCutoff: prepared.capturedAt,
           trustedAdapters: { user_report: [HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } },
         signal: cancellation, assertCurrent: assertScope,
         checkpoint: { runtime: prepared.runtime, recovery: prepared.recovery, async assertPublication(accepted) {
           await assertScope(); await prepared.runtime.assert({ resolver: prepared.recovery.resolver, expected: accepted });
         } },
       });
-      active(); last = { state: "local_committed", revision: result.revision };
+      active(); last = { state: "local_committed", revision: result.revision, runId, operationId: result.operationId,
+        capturedAtSource: timestamp === undefined ? "core_receive_clock" : "host_timestamp" };
+      if (continueAgent) { check(result.recovery, "checkpoint_agent_archive_receipt_missing"); return { recovery: result.recovery }; }
       try { ctx.recordProcessed("skipped", { reason: "stella_owner_ingress_archived_no_agent" }); } catch { /* Diagnostics never release the default model path. */ }
     } catch (error) {
       const category = error && typeof error === "object" && "category" in error && typeof error.category === "string" ? error.category :
         cancellation.aborted ? "operation_cancelled" : "checkpoint_ingress_failed";
       last = { state: "blocked", category };
       try { ctx.recordProcessed("error", { reason: category }); } catch { /* Keep the explicit handled result. */ }
-    } finally { try { ctx.markIdle("Stella archive-only ingress settled"); } catch { /* Hook exceptions must not create fail-open dispatch. */ } }
+    } finally { if (!continueAgent) try { ctx.markIdle("Stella archive-only ingress settled"); } catch { /* Hook exceptions must not create fail-open dispatch. */ } }
     // The stock hook runner can fail open on a thrown error; return ownership explicitly.
     // The general before_agent_run blocker remains in place for other paths/timeouts.
-    return { handled: true, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } };
+    return { handled: true as const, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } };
+  };
+  if (!continueAgent) api.on("reply_dispatch", async (event, ctx) => {
+    const result = await dispatch(event, ctx); return result && "recovery" in result ? undefined : result;
   }, { priority: 2_000, eligibleDispatchKinds: ["agent"] });
-  return { close() { shutdown.abort(); frames.clear(); }, status: () => last };
+  return { close() { shutdown.abort(); frames.clear(); }, status: () => last, dispatch };
 }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { appendFileSync } from "node:fs";
 import { createServer } from "node:http";
 import net from "node:net";
@@ -12,7 +13,7 @@ import path from "node:path";
 const root = await realpath(process.cwd());
 assert.equal(root, "/Users/zangtao/Workspace/tower1229/Stella-Core");
 const attempt = process.argv[2], compilation = process.argv[3], scenario = process.argv[4] ?? "normal";
-assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent", "next_request", "materialization"].includes(scenario));
+assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent", "next_request", "materialization", "automatic_archive"].includes(scenario));
 assert.match(attempt ?? "", /^[a-z][a-z0-9]{0,15}$/); assert.match(compilation ?? "", /^a[0-9]+$/);
 const art = path.resolve(process.env.STELLA_AGENT_SUPPLY_ARTIFACTS ?? path.join(root, ".artifacts/suqing-batch6-20261022"));
 assert.ok(art.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(art) === art);
@@ -80,13 +81,14 @@ const refreshFault = async () => {
 try {
   let count = 0, userRound = 1;
   const nextMarker = "SYNTHETIC_UPDATED_MEMORY_B_6147", nextAnswer = "SYNTHETIC_UPDATED_ANSWER_B_6147";
+  const automaticMarker = "SYNTHETIC_AUTOMATIC_OWNER_INPUT_7296", automaticInput = `${automaticMarker}: Preserve the author's concrete questions.`;
   provider = createServer(async (request, response) => {
     try {
       assert.equal(request.method, "POST");
       assert.match(request.url, /gemini-3\.8-flash:streamGenerateContent/);
       let body = ""; for await (const chunk of request) body += chunk;
       const input = JSON.parse(body), index = ++count; await refreshFault();
-      assert.ok(index <= (scenario === "materialization" ? 8 : scenario === "next_request" ? 9 : scenario === "history" ? 6 : 3), "Stock Host exceeded the exact synthetic model call budget");
+      assert.ok(index <= (scenario === "automatic_archive" ? 6 : scenario === "materialization" ? 8 : scenario === "next_request" ? 9 : scenario === "history" ? 6 : 3), "Stock Host exceeded the exact synthetic model call budget");
       await writeFile(path.join(out, `provider-${index}.json`), body);
       result.rawProviderRequests.push({ index, path: request.url, bytes: Buffer.byteLength(body), atUtc: new Date().toISOString(), sourceMarker: body.includes(SUPPLY_MARKER), faultAlreadyApplied: Boolean(result.fault), userRound, updatedMemory: body.includes(nextMarker) });
       appendFileSync(logPath, JSON.stringify({ name: "provider_request", ...result.rawProviderRequests.at(-1) }) + "\n"); await save();
@@ -97,8 +99,26 @@ try {
         appendFileSync(logPath, JSON.stringify({ name: "fault_boundary_complete", result: result.fault }) + "\n"); await save();
       }
       let parts;
-      const stage = scenario === "materialization" ? (index - 1) % 4 + 1 : ["history", "next_request"].includes(scenario) ? (index - 1) % 3 + 1 : index;
-      if (scenario === "materialization") {
+      const stage = scenario === "materialization" ? (index - 1) % 4 + 1 : ["history", "next_request", "automatic_archive"].includes(scenario) ? (index - 1) % 3 + 1 : index;
+      if (scenario === "automatic_archive") {
+        if (stage === 1) {
+          assert.ok(!body.includes(SUPPLY_MARKER) && !body.includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"));
+          if (userRound === 2) assert.ok(!body.includes(automaticMarker), "Reset request cannot inherit archived prior input through chat history");
+          const snapshot = JSON.parse(await readFile(path.join(authority, "checkpoint.json"), "utf8"));
+          result.automaticProviderStarts ??= []; result.automaticProviderStarts.push({ userRound, index, atUtc: new Date().toISOString(), checkpoint: snapshot });
+          parts = [{ functionCall: { name: "stella_memory_data", args: { action: "list" } } }];
+        } else if (stage === 2) {
+          const outputs = input.contents.flatMap(item => item.parts ?? []).filter(part => part.functionResponse?.response?.output).map(part => { try { return JSON.parse(part.functionResponse.response.output); } catch { return null; } });
+          const selected = outputs.find(value => Array.isArray(value?.items))?.items.find(item => item.preview.includes(automaticMarker));
+          assert.ok(selected, "Automatically archived real Host input must be listed");
+          parts = [{ functionCall: { name: "stella_memory_data", args: { action: "read", handle: selected.handle } } }];
+        } else {
+          const originals = input.contents.flatMap(item => item.parts ?? []).filter(part => part.functionResponse?.response?.output).map(part => { try { return JSON.parse(part.functionResponse.response.output)?.original; } catch { return null; } }).filter(Boolean);
+          assert.equal(originals.length, 1); assert.equal(originals[0].text, automaticInput); assert.equal(originals[0].role, "owner");
+          assert.equal(originals[0].sourceAdapterId, "openclaw-reply-dispatch-2026.8.2");
+          parts = [{ text: `SYNTHETIC_STOCK_HOST_ANSWER_4931: ${automaticMarker}` }];
+        }
+      } else if (scenario === "materialization") {
         for (const file of ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"]) assert.ok(body.includes(`${BOOTSTRAP_MARKER}_${file}`), `Host omitted materialized ${file}`);
         assert.ok(body.includes("stella-initialization-probe") && body.includes("Managed skill catalogue") && body.includes("Synthetic initialization acceptance only."), "Public Core hook must expose the verified managed skill catalogue");
         if (stage === 1) {
@@ -179,7 +199,7 @@ try {
     entries: { synthetic: { workspace, ...scenario === "materialization" ? { identity: { name: `${BOOTSTRAP_MARKER}_IDENTITY.md`, theme: "Isolated local acceptance", emoji: "🧪" } } : {} } } }, models: { providers: { google: { api: "google-generative-ai", apiKey: "synthetic-loopback-only", baseUrl: `http://127.0.0.1:${port}`,
       models: [{ id: "gemini-3.8-flash", name: "Synthetic Google loopback", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } },
     plugins: { slots: { memory: "none" }, allow: ["stella-core", "google"], load: { paths: [plugin] }, entries: { "memory-core": { enabled: false }, "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config: { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority,
-      canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools" } } } }, tools: { allow: ["stella_memory_data"] } };
+      canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools", ...scenario === "automatic_archive" ? { requestArchive: "local" } : {} } } } }, tools: { allow: ["stella_memory_data"] } };
   configuredCheckpoint = config.plugins.entries["stella-core"].config;
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   const sandbox = `(version 1)\n(allow default)\n(deny file-read* (subpath "/Users/zangtao"))\n(allow file-read-metadata (literal "/Users/zangtao") (literal "/Users/zangtao/Workspace") (literal "/Users/zangtao/Workspace/tower1229") (literal "/Users/zangtao/.nvm") (literal "/Users/zangtao/.nvm/versions") (literal "/Users/zangtao/.nvm/versions/node"))\n(allow file-read* (subpath ${JSON.stringify(root)}) (subpath "/Users/zangtao/.nvm/versions/node/v24.22.1"))\n(deny file-write* (subpath "/Users/zangtao"))\n(allow file-write* (subpath ${JSON.stringify(out)}) (subpath ${JSON.stringify(state)}) (subpath ${JSON.stringify(process.env.OPENCLAW_HOME)}))\n(deny network-outbound)\n(allow network-outbound (remote ip "localhost:*"))\n(deny process-exec (literal "/bin/ps") (literal "/usr/bin/ps"))\n`;
@@ -248,16 +268,62 @@ try {
     await writeFile(path.join(out, "initialization-operation.json"), plan);
     await writeFile(path.join(out, "materialized-files.json"), JSON.stringify(result.materializedFiles, null, 2));
   }
+  if (scenario === "automatic_archive") result.beforeAutomaticArchive = await client.request("stella.checkpoint", { action: "status" });
   result.freshSession = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply", reason: "new" });
-  result.sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: "Use the memory tool to recall my retained writing preference.", idempotencyKey: "synthetic-stock-host-one" });
+  result.sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: scenario === "automatic_archive" ? automaticInput : "Use the memory tool to recall my retained writing preference.", idempotencyKey: "synthetic-stock-host-one" });
   result.terminal = await client.request("agent.wait", { runId: result.sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
   result.status = await client.request("stella.checkpoint", { action: "status" });
   result.history = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 30 });
   await refreshFault();
   assert.equal(result.providerError, undefined); assert.equal(result.status.capabilities.full_memory, false);
-  if (["normal", "history", "next_request", "materialization"].includes(scenario)) {
+  if (["normal", "history", "next_request", "materialization", "automatic_archive"].includes(scenario)) {
     assert.equal(result.terminal.status, "ok", JSON.stringify(result.terminal)); assert.equal(count, scenario === "materialization" ? 4 : 3);
     assert.ok(JSON.stringify(result.history).includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"));
+    if (scenario === "automatic_archive") {
+      const run = promisify(execFile), git = async (...args) => (await run("git", ["--no-optional-locks", "--no-replace-objects", "-c", "core.fsmonitor=false", "-C", source.root, ...args])).stdout.trim();
+      const before = result.beforeAutomaticArchive.authority;
+      assert.equal(result.status.ingress.state, "local_committed", JSON.stringify(result.status.ingress));
+      assert.equal(result.status.ingress.capturedAtSource, "core_receive_clock");
+      assert.equal(result.automaticProviderStarts[0].checkpoint.revision, result.status.authority.revision);
+      assert.equal(result.automaticProviderStarts[0].checkpoint.token, result.status.authority.token);
+      assert.notEqual(result.status.authority.revision, before.revision); assert.notEqual(result.status.authority.token, before.token);
+      assert.equal(await git("rev-list", "--count", `${before.revision}..HEAD`), "1");
+      result.automaticArchive = { trigger: "Public chat.send → Core reply_dispatch owner archive → existing archiveCorrectionInput → Git/CAS → normal Host Agent/tools", before,
+        afterFirst: result.status, directKernelArchiveCalledByHarness: false, firstInput: automaticInput };
+      userRound = 2;
+      result.automaticArchive.reset = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply", reason: "new" });
+      result.automaticArchive.sentNext = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: "Recall the writing preference I previously gave you.", idempotencyKey: "synthetic-stock-host-auto-next" });
+      result.automaticArchive.terminalNext = await client.request("agent.wait", { runId: result.automaticArchive.sentNext.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
+      result.automaticArchive.afterNext = await client.request("stella.checkpoint", { action: "status" });
+      result.automaticArchive.historyNext = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 30 });
+      assert.equal(result.automaticArchive.terminalNext.status, "ok"); assert.equal(count, 6); assert.equal(result.providerError, undefined);
+      assert.equal(result.automaticArchive.afterNext.ingress.state, "local_committed");
+      assert.equal(result.automaticProviderStarts[1].checkpoint.revision, result.automaticArchive.afterNext.authority.revision);
+      assert.equal(result.automaticProviderStarts[1].checkpoint.token, result.automaticArchive.afterNext.authority.token);
+      assert.notEqual(result.automaticArchive.afterNext.authority.token, result.status.authority.token);
+      result.automaticArchive.commits = (await git("rev-list", "--reverse", `${before.revision}..HEAD`)).split("\n");
+      assert.equal(result.automaticArchive.commits.length, 2);
+      const catalog = JSON.parse(await readFile(path.join(source.root, source.catalogPath), "utf8")); assert.equal(catalog.sources.length, 3);
+      result.automaticArchive.retainedInputs = [];
+      for (const entry of catalog.sources) {
+        const document = JSON.parse(await readFile(path.join(source.root, entry.locator.path), "utf8"));
+        if (![result.sent.runId, result.automaticArchive.sentNext.runId].includes(document.origin.upstreamId)) continue;
+        const snapshot = JSON.parse(await readFile(path.join(source.root, document.payloads[0].path), "utf8"));
+        assert.equal(snapshot.request.hostMessageTimestamp, undefined); assert.equal(snapshot.request.senderIsOwner, true);
+        result.automaticArchive.retainedInputs.push(snapshot);
+      }
+      assert.equal(result.automaticArchive.retainedInputs.length, 2);
+      assert.equal(result.automaticArchive.retainedInputs.filter(value => value.request.prompt === automaticInput).length, 1);
+      for (const status of [result.status, result.automaticArchive.afterNext]) {
+        const operationId = status.ingress.operationId;
+        const journal = await readFile(path.join(source.root, path.dirname(source.catalogPath), "operations", `${operationId}.checkpoint.json`), "utf8");
+        await writeFile(path.join(out, `${operationId}.checkpoint.json`), journal);
+      }
+      await writeFile(path.join(out, "retained-owner-inputs.json"), JSON.stringify(result.automaticArchive.retainedInputs, null, 2));
+      result.automaticArchive.boundariesVerified = { publicHostTriggered: true, kernelNotCalledByHarness: true, oneCommitPerUserRequest: true,
+        toolsAndModelContinuationsAddNoCommits: true, nextRequestReadsPriorOwnerOriginal: true, noPriorToolHistoryAtNextRequest: true,
+        noAssistantOutputRelabeledAsOwnerEvidence: true, receiveClockNotHostTimestamp: true };
+    }
     if (scenario === "history") {
       const sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: "SYNTHETIC_REUSE_OLD_HISTORY_4931", idempotencyKey: "synthetic-stock-host-two" });
       const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });

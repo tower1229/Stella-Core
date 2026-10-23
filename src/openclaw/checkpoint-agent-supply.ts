@@ -1,3 +1,4 @@
+import type { PluginHookReplyDispatchEvent, PluginHookReplyDispatchContext, PluginHookReplyDispatchResult } from "openclaw/plugin-sdk/core";
 import type { ManagedCheckpointSkill } from "./checkpoint-initialization.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
@@ -38,7 +39,7 @@ function newScope(): SupplyScope { return { shutdown: new AbortController(), gra
  * Authorized originals are request-local; model/tool continuations reuse them.
  * This does not attest Host prompt history or provide a per-model dispatch gate.
  */
-export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: CheckpointPluginConfig, current: () => Promise<Runtime>, skills?: { readSkill(name: string, signal?: AbortSignal): Promise<ManagedCheckpointSkill>; promptContext(): Promise<string> }) {
+export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: CheckpointPluginConfig, current: () => Promise<Runtime>, skills?: { readSkill(name: string, signal?: AbortSignal): Promise<ManagedCheckpointSkill>; promptContext(): Promise<string> }, beforePrepare?: (event: PluginHookReplyDispatchEvent, ctx: PluginHookReplyDispatchContext) => Promise<PluginHookReplyDispatchResult | { recovery: RecoveryReadBinding } | void>) {
   const enabled = config.agentMemory === "fresh_tools";
   let scopes = scopeStore.tryGetRuntime();
   if (!scopes) { scopes = new Map(); scopeStore.setRuntime(scopes); }
@@ -89,10 +90,25 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
       const key = event.sessionKey ?? event.ctx.SessionKey;
       if (!key || parseAgentSessionKey(key)?.agentId !== config.agentId || event.ctx.CommandTurn && event.ctx.CommandTurn.kind !== "normal") return;
       try {
-        const ingress = captureCheckpointHostRequest(api, config, event, ctx, shutdown.signal);
+        let ingress = captureCheckpointHostRequest(api, config, event, ctx, shutdown.signal);
         check(!runs.has(ingress.request.runId) && runs.size < 64, "checkpoint_agent_duplicate_or_capacity");
         runs.add(ingress.request.runId);
+        let archivedRecovery: RecoveryReadBinding | undefined;
+        if (beforePrepare) {
+          const owned = await beforePrepare(event, ctx);
+          if (owned && "handled" in owned && owned.handled) { scope.last = { state: "blocked", category: "checkpoint_agent_archive_failed" }; return owned; }
+          check(owned && "recovery" in owned, "checkpoint_agent_archive_receipt_missing");
+          archivedRecovery = owned.recovery;
+          await ingress.assertCurrent();
+          // This request has not frozen a memory authority yet. Capture only after
+          // its own authenticated archive transaction has returned the new CAS.
+          ingress = captureCheckpointHostRequest(api, config, event, ctx, shutdown.signal);
+        }
         const runtime = await current(), loaded = await runtime.load(); await ingress.assertCurrent();
+        if (archivedRecovery) {
+          check(canonicalJson(loaded.recovery.expected) === canonicalJson(archivedRecovery.expected), "checkpoint_agent_archive_changed");
+          await runtime.assert(archivedRecovery);
+        }
         const profileDocument = loaded.loaded.bootstrapDocuments.find(value => value.field === "identity.runtimeProfileRef");
         check(profileDocument && parseRuntimeProfile(parseYaml(profileDocument.content)).contract_profile !== "full_memory", "checkpoint_agent_profile_not_supported");
         const binding = await loadPraxisRuntimeBinding(loaded.loaded);
@@ -101,7 +117,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         const resolver = new EpisodeEvidenceResolver(reader, { ...binding.purpose, evidenceCutoff: ingress.capturedAt,
           trustedAdapters: { user_report: [HOST_REQUEST_ARCHIVE_ADAPTER, HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } },
           async () => { throw new CatalogError("checkpoint_agent_semantic_dispatch_forbidden"); });
-        const grant: Grant = { ingress, runtime, recovery: loaded.recovery, resolver, active: true, admitted: false, handles: new Map(), originals: new Map(), skills: new Map() };
+        const grant: Grant = { ingress, runtime, recovery: archivedRecovery ?? loaded.recovery, resolver, active: true, admitted: false, handles: new Map(), originals: new Map(), skills: new Map() };
         await assertGrant(grant); grants.set(ingress.request.runId, grant);
         scope.last = { state: "prepared" };
         // No takeover: the native Host dispatch now runs its normal Agent and tools.

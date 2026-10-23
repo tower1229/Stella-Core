@@ -108,7 +108,7 @@
         "enum": [
           "local"
         ],
-        "description": "Explicit checkpoint-mode owner ingress retention only; commits locally and does not run an Agent or deliver a generated reply."
+        "description": "Explicit checkpoint-mode owner input retention. With agentMemory fresh_tools, archive once before normal Host Agent execution; alone, retain without running an Agent."
       },
       "agentMemory": {
         "type": "string",
@@ -205,11 +205,6 @@
             "recoveryAuthority": {
               "const": "core_checkpoint"
             }
-          },
-          "not": {
-            "required": [
-              "requestArchive"
-            ]
           }
         }
       }
