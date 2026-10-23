@@ -28,12 +28,12 @@ type Ingress = ReturnType<typeof captureCheckpointHostRequest>;
 type Grant = { ingress: Ingress; runtime: Runtime; recovery: RecoveryReadBinding; resolver: EpisodeEvidenceResolver;
   sourceAccessFor: (signal: AbortSignal) => Promise<SourceAccessProvider | undefined>;
   active: boolean; admitted: boolean; handles: Map<string, OriginalEvidence["ref"]>; originals: Map<string, OriginalEvidence>; skills: Map<string, ManagedCheckpointSkill> };
-type SupplyScope = { shutdown: AbortController; grants: Map<string, Grant>; runs: Set<string>;
+type SupplyScope = { shutdown: AbortController; grants: Map<string, Grant>; runs: Set<string>; preparations: Map<string, AbortController>;
   calls: Map<string, { grant: Grant; signal: AbortSignal }>; last: { state: string; category?: string } | null };
 // Gateway ingress and Agent registries may evaluate separate plugin modules.
 // The public SDK slot shares only Core-issued permits for the exact configured scope.
-const scopeStore = createPluginRuntimeStore<Map<string, SupplyScope>>({ key: "stella-core.checkpoint-agent-supply/v3", errorMessage: "checkpoint_supply_not_initialized" });
-function newScope(): SupplyScope { return { shutdown: new AbortController(), grants: new Map(), runs: new Set(), calls: new Map(), last: null }; }
+const scopeStore = createPluginRuntimeStore<Map<string, SupplyScope>>({ key: "stella-core.checkpoint-agent-supply/v4", errorMessage: "checkpoint_supply_not_initialized" });
+function newScope(): SupplyScope { return { shutdown: new AbortController(), grants: new Map(), runs: new Set(), preparations: new Map(), calls: new Map(), last: null }; }
 
 
 /** Stock Host owns the normal Agent/model/tool loop and conversation history.
@@ -48,7 +48,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
   const scopeKey = enabled ? canonicalJson({ config, hostStateDirectory: api.runtime.state.resolveStateDir() }) : "";
   const scope = enabled ? scopes.get(scopeKey) ?? newScope() : newScope();
   if (enabled) scopes.set(scopeKey, scope);
-  const { shutdown, grants, runs, calls } = scope;
+  const { shutdown, grants, runs, preparations, calls } = scope;
   const assertAlive = (grant: Grant, signal?: AbortSignal, toolActive = false) => {
     check(!toolActive || grant.active && grant.admitted, "checkpoint_agent_scope_closed");
     check(!shutdown.signal.aborted && !signal?.aborted && !grant.ingress.signal.aborted, "checkpoint_agent_cancelled");
@@ -56,6 +56,14 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
   const retire = (grant: Grant) => {
     grant.active = false; grant.originals.clear(); grant.skills.clear(); grant.handles.clear();
     for (const [id, call] of calls) if (call.grant === grant) calls.delete(id);
+    const runId = grant.ingress.request.runId;
+    if (grants.get(runId) === grant) grants.delete(runId);
+  };
+  const retireRun = (runId?: string) => {
+    if (!runId) return;
+    const preparing = preparations.get(runId);
+    if (preparing) { preparing.abort(); preparations.delete(runId); }
+    const grant = grants.get(runId); if (grant) retire(grant);
   };
   const assertRequest = async (grant: Grant, signal?: AbortSignal, toolActive = false) => {
     try {
@@ -92,21 +100,29 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
     api.on("reply_dispatch", async (event, ctx) => {
       const key = event.sessionKey ?? event.ctx.SessionKey;
       if (!key || parseAgentSessionKey(key)?.agentId !== config.agentId || event.ctx.CommandTurn && event.ctx.CommandTurn.kind !== "normal") return;
+      // Replay identities and live capacity have different lifetimes. A completed
+      // run remains seen but must not retain a grant or consume a live slot.
+      const preparation = new AbortController();
+      const requestContext = { ...ctx, abortSignal: AbortSignal.any([preparation.signal, ...ctx.abortSignal ? [ctx.abortSignal] : []]) };
+      let reservedRunId: string | undefined, issued = false;
+      const assertPreparing = () => check(reservedRunId && preparations.get(reservedRunId) === preparation &&
+        !preparation.signal.aborted && !shutdown.signal.aborted, "checkpoint_agent_scope_closed");
       try {
-        let ingress = captureCheckpointHostRequest(api, config, event, ctx, shutdown.signal);
-        check(!runs.has(ingress.request.runId) && runs.size < 64, "checkpoint_agent_duplicate_or_capacity");
-        runs.add(ingress.request.runId);
-        await ingress.bindConversation();
+        let ingress = captureCheckpointHostRequest(api, config, event, requestContext, shutdown.signal);
+        check(!runs.has(ingress.request.runId) && preparations.size + grants.size < 64, "checkpoint_agent_duplicate_or_capacity");
+        reservedRunId = ingress.request.runId;
+        runs.add(reservedRunId); preparations.set(reservedRunId, preparation);
+        await ingress.bindConversation(); assertPreparing();
         let archivedRecovery: RecoveryReadBinding | undefined;
         if (beforePrepare) {
-          const owned = await beforePrepare(event, ctx);
+          const owned = await beforePrepare(event, requestContext);
           if (owned && "handled" in owned && owned.handled) { scope.last = { state: "blocked", category: "checkpoint_agent_archive_failed" }; return owned; }
-          check(owned && "recovery" in owned, "checkpoint_agent_archive_receipt_missing");
+          assertPreparing(); check(owned && "recovery" in owned, "checkpoint_agent_archive_receipt_missing");
           archivedRecovery = owned.recovery;
           await ingress.assertCurrent();
           // This request has not frozen a memory authority yet. Capture only after
           // its own authenticated archive transaction has returned the new CAS.
-          ingress = captureCheckpointHostRequest(api, config, event, ctx, shutdown.signal);
+          ingress = captureCheckpointHostRequest(api, config, event, requestContext, shutdown.signal);
         }
         const runtime = await current(), loaded = await runtime.load(); await ingress.assertCurrent();
         if (archivedRecovery) {
@@ -123,7 +139,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
           trustedAdapters: { user_report: [HOST_REQUEST_ARCHIVE_ADAPTER, HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } },
           async () => { throw new CatalogError("checkpoint_agent_semantic_dispatch_forbidden"); });
         const grant: Grant = { ingress, runtime, recovery: archivedRecovery ?? loaded.recovery, resolver, sourceAccessFor, active: true, admitted: false, handles: new Map(), originals: new Map(), skills: new Map() };
-        await assertGrant(grant); grants.set(ingress.request.runId, grant);
+        await assertGrant(grant); assertPreparing(); grants.set(ingress.request.runId, grant); issued = true;
         scope.last = { state: "prepared" };
         // No takeover: the native Host dispatch now runs its normal Agent and tools.
         return;
@@ -131,6 +147,11 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         scope.last = { state: "blocked", category: category(error) };
         try { ctx.recordProcessed("error", { reason: category(error) }); } catch { /* Keep explicit ownership on refusal. */ }
         return { handled: true, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } };
+      } finally {
+        // Only this admission may release its reservation. A rejected duplicate
+        // must not remove another caller's pending slot.
+        if (reservedRunId && preparations.get(reservedRunId) === preparation) preparations.delete(reservedRunId);
+        if (!issued) preparation.abort();
       }
     }, { priority: 2_000, eligibleDispatchKinds: ["agent"] });
     api.on("before_prompt_build", async (_event, ctx) => {
@@ -213,14 +234,15 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         return { content: [{ type: "text", text: canonicalJson(supplied) }], details: supplied };
       },
     }, { names: [CHECKPOINT_MEMORY_TOOL], optional: true });
-    api.on("agent_end", (_event, ctx) => { if (ctx.agentId === config.agentId && ctx.runId) { const grant = grants.get(ctx.runId); if (grant) retire(grant); } });
+    api.on("agent_end", (_event, ctx) => { if (ctx.agentId === config.agentId) retireRun(ctx.runId); });
   }
   return { status: () => scope.last,
-    retireRun(runId?: string) { const grant = runId ? grants.get(runId) : undefined; if (grant) retire(grant); },
-    assertIdle() { check(![...grants.values()].some(grant => grant.active && !grant.ingress.signal.aborted), "active_turn_drain_required"); },
+    retireRun,
+    assertIdle() { check(preparations.size === 0 && ![...grants.values()].some(grant => grant.active && !grant.ingress.signal.aborted), "active_turn_drain_required"); },
     close() {
-      shutdown.abort(); for (const grant of grants.values()) retire(grant);
-      calls.clear(); grants.clear(); if (enabled && scopes.get(scopeKey) === scope) scopes.delete(scopeKey);
+      shutdown.abort(); for (const preparation of preparations.values()) preparation.abort(); preparations.clear();
+      for (const grant of grants.values()) retire(grant);
+      calls.clear(); grants.clear(); runs.clear(); if (enabled && scopes.get(scopeKey) === scope) scopes.delete(scopeKey);
     },
     async beforeAgentRun(event: { messages: unknown[]; senderIsOwner?: boolean }, ctx: { agentId?: string; runId?: string; sessionId?: string; sessionKey?: string }) {
       if (ctx.agentId !== config.agentId) return { outcome: "pass" as const };

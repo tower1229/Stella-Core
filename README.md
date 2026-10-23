@@ -58,6 +58,8 @@ Schema success alone does not verify temporal, cross-record, permission or evide
 
 The opt-in [experimental owner chat guide](docs/EXPERIMENTAL-OWNER-CHAT.md) describes the bounded pure-plugin mode, initialization, continuous conversation, and rollback. It is separate from full memory and Alpha acceptance.
 
+The [Suqing closeout](docs/suqing-closeout-2026-10-23.md) records each scoped exit and remaining boundary; [current request-lifecycle work](docs/mainline-request-lifecycle-2026-10-23.md) tracks the follow-up fixes, CI evidence, and real WebChat prerequisites.
+
 ## Validation and local use
 
 ```bash

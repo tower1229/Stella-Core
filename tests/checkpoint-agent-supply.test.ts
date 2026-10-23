@@ -547,3 +547,62 @@ test("an unselected current profile is refused before automatic archive or check
   const after = await f.rpc("status"); assert.equal(after.payload.supply.category, "checkpoint_webchat_profile_not_bound");
   assert.deepEqual(after.payload.authority, before.payload.authority); assert.equal(after.payload.ingress, null);
 });
+
+
+test("completed owner requests do not exhaust the concurrent capacity and old runs remain refused", { timeout: 120_000 }, async t => {
+  const f = await fixture(t), originalRun = f.event.runId;
+  for (let index = 0; index < 65; index++) {
+    f.event.runId = f.agent.runId = `synthetic-sequential-owner-${index}`;
+    const prepared = await f.ingress();
+    assert.equal(prepared, undefined, `completed request ${index + 1}: ${JSON.stringify((await f.rpc("status")).payload?.supply)}`);
+    assert.equal((await f.admit(index ? [{ role: "assistant", content: "Synthetic prior conversation" }] : [])).outcome, "pass");
+    await f.hooks.get("agent_end")!({}, { ...f.agent });
+  }
+  f.event.runId = f.agent.runId = "synthetic-sequential-owner-0";
+  assert.equal((await f.ingress()).handled, true);
+  assert.equal((await f.admit()).outcome, "block");
+  f.event.runId = f.agent.runId = originalRun;
+  assert.equal(await f.ingress(), undefined);
+  await f.hooks.get("agent_end")!({}, { ...f.agent });
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
+
+test("pending preparations count as live capacity and duplicate refusal cannot release their slot", { timeout: 30_000 }, async t => {
+  const f = await fixture(t);
+  let release!: () => void;
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  let preparationsEntered = 0;
+  const supply = registerCheckpointAgentSupply(f.api, parseCheckpointPluginConfig(f.config), async () => { throw new Error("No runtime needed for owned refusal"); }, undefined,
+    async () => { preparationsEntered++; await barrier; return { handled: true, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } }; });
+  t.after(() => supply.close());
+  const dispatch = (runId: string) => f.hooks.get("reply_dispatch")!({ ...f.event, runId }, f.context);
+  const pending = Array.from({ length: 64 }, (_, index) => dispatch(`synthetic-pending-owner-${index}`));
+  try {
+    assert.throws(() => supply.assertIdle(), /active_turn_drain_required/);
+    assert.equal((await dispatch("synthetic-pending-owner-0")).handled, true);
+    assert.equal((await dispatch("synthetic-pending-over-capacity")).handled, true);
+  } finally { release(); await Promise.all(pending); }
+  assert.equal(preparationsEntered, 64);
+  supply.assertIdle();
+  assert.equal((await dispatch("synthetic-after-owned-refusal")).handled, true);
+  assert.equal(supply.status()?.category, "checkpoint_agent_archive_failed");
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
+
+test("ending a pending preparation prevents its late runtime result from restoring a grant", { timeout: 30_000 }, async t => {
+  const f = await fixture(t), runtime = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2");
+  t.after(() => runtime.close());
+  let enter!: () => void, release!: () => void;
+  const entered = new Promise<void>(resolve => { enter = resolve; });
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const supply = registerCheckpointAgentSupply(f.api, parseCheckpointPluginConfig(f.config), async () => ({ ...runtime,
+    async load() { enter(); await barrier; return runtime.load(); } }));
+  t.after(() => supply.close());
+  const pending = f.ingress();
+  await entered;
+  try { await f.hooks.get("agent_end")!({}, { ...f.agent }); } finally { release(); }
+  assert.equal((await pending)?.handled, true);
+  assert.equal((await f.admit()).outcome, "block");
+  supply.assertIdle();
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
