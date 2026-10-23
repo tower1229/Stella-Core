@@ -54,6 +54,10 @@ migration input. The runtime and fixtures still require migration before v2 acti
 memory formats have logical contracts; their runtime validators remain an implementation obligation.
 Schema success alone does not verify temporal, cross-record, permission or evidence invariants.
 
+## Experimental owner chat
+
+The opt-in [experimental owner chat guide](docs/EXPERIMENTAL-OWNER-CHAT.md) describes the bounded pure-plugin mode, initialization, continuous conversation, and rollback. It is separate from full memory and Alpha acceptance.
+
 ## Validation and local use
 
 ```bash

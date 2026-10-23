@@ -23,26 +23,31 @@ await mkdir(out, { mode: 0o700 });
 const ownerPath = path.join(art, "host-probe-owner.json"), owner = { pid: process.pid, attempt, startedAtUtc: new Date().toISOString() };
 const compiled = path.resolve(process.env.STELLA_AGENT_SUPPLY_COMPILED ?? path.join(art, "compiled-" + compilation));
 assert.ok(compiled.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(compiled) === compiled);
+const packageRoot = process.env.STELLA_AGENT_SUPPLY_PACKAGE_ROOT ? await realpath(process.env.STELLA_AGENT_SUPPLY_PACKAGE_ROOT) : null;
+if (packageRoot) assert.match(path.relative(art, packageRoot), /^consumer(?:-a[0-9]+)?\/node_modules\/@tower1229\/stella-core$/);
+const runtime = packageRoot ? path.join(packageRoot, "dist") : compiled;
+const materialize = scenario === "materialization" || Boolean(packageRoot);
+if (packageRoot) assert.equal(scenario, "continuous_chat");
 await writeFile(ownerPath, JSON.stringify(owner), { flag: "wx" });
 const { createAgentSupplySource, publishAgentSupplySourceRevision, publishAgentSupplyPolicyDenial, SUPPLY_MARKER, BOOTSTRAP_MARKER, SKILL_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
 const { GatewayClient } = await import("openclaw/plugin-sdk/gateway-runtime");
-const source = await createAgentSupplySource({ materialization: scenario === "materialization" }), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
+const source = await createAgentSupplySource({ materialization: materialize }), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
 const state = process.env.OPENCLAW_STATE_DIR, configPath = process.env.OPENCLAW_CONFIG_PATH;
 assert.ok(state?.startsWith(art + "/") && configPath?.startsWith(state + "/"));
 const cache = process.env.XDG_CACHE_HOME;
 assert.ok(cache && path.isAbsolute(cache) && cache.startsWith(state + "/") && await realpath(cache) === cache,
   "The stock SQLite worker requires an isolated public XDG_CACHE_HOME before SDK imports");
 for (const dir of [authority, workspace, plugin, state, process.env.OPENCLAW_HOME]) await mkdir(dir, { recursive: true });
-if (scenario !== "materialization") for (const name of ["AGENTS", "SOUL", "IDENTITY", "USER", "MEMORY"]) await writeFile(path.join(workspace, name + ".md"), `# Synthetic ${name}\nIsolated stock Host acceptance; no private material.\n`);
+if (!materialize) for (const name of ["AGENTS", "SOUL", "IDENTITY", "USER", "MEMORY"]) await writeFile(path.join(workspace, name + ".md"), `# Synthetic ${name}\nIsolated stock Host acceptance; no private material.\n`);
 const logPath = path.join(out, "public-events.jsonl");
 const sourceCatalog = JSON.parse(await readFile(path.join(source.root, source.catalogPath), "utf8"));
 const policyEntry = sourceCatalog.policies.find(value => value.id === source.binding.archive.policyRef.id);
 assert.ok(policyEntry); const syntheticPolicyPath = path.join(source.root, policyEntry.locator.path);
-const manifest = JSON.parse(await readFile(path.join(root, "openclaw.plugin.json"), "utf8"));
+const manifest = JSON.parse(await readFile(path.join(packageRoot ?? root, "openclaw.plugin.json"), "utf8"));
 await writeFile(path.join(plugin, "openclaw.plugin.json"), JSON.stringify(manifest));
 await writeFile(path.join(plugin, "package.json"), JSON.stringify({ name: "@synthetic/stella-stock-host-probe", type: "module", openclaw: { extensions: ["./index.mjs"] } }));
 // Instrument only public callback arguments/results. Preserve the Host envelope.
-await writeFile(path.join(plugin, "index.mjs"), `import core from ${JSON.stringify(pathToFileURL(path.join(compiled, "src/plugin.js")).href)};
+if (!packageRoot) await writeFile(path.join(plugin, "index.mjs"), `import core from ${JSON.stringify(pathToFileURL(path.join(runtime, "src/plugin.js")).href)};
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { abortAgentHarnessRun } from 'openclaw/plugin-sdk/agent-harness-runtime';
 import { getSessionEntry, resolveStorePath } from 'openclaw/plugin-sdk/session-store-runtime';
@@ -74,7 +79,7 @@ export default {id:'stella-core',name:'Stella public supply probe',configSchema:
  const result=await tool.execute(...args);record({name:'tool_result',result});if(args[1]?.action==='list')listCalls.set(args[0],{sessionId:ctx.sessionId,sessionKey:ctx.sessionKey});return result;}};
  },options)}});
 }};`);
-let child, client, provider, configuredCheckpoint, result = { attempt, compilation, scenario, sourceRevision: source.revision, sourceRoot: source.root, rawProviderRequests: [], events: [], passed: false };
+let child, client, provider, configuredCheckpoint, result = { attempt, compilation, scenario, installation: packageRoot ? { packageRoot, entry: path.join(runtime, "src/plugin.js"), directHostLoad: true, observerWrapper: false } : null, sourceRevision: source.revision, sourceRoot: source.root, rawProviderRequests: [], events: [], passed: false };
 const save = () => writeFile(path.join(out, "result.json"), JSON.stringify(result, null, 2) + "\n");
 const refreshFault = async () => {
   if (result.fault) return;
@@ -107,6 +112,7 @@ try {
       if (scenario === "continuous_chat") {
         const outputs = input.contents.flatMap(item => item.parts ?? []).filter(part => part.functionResponse?.response?.output).map(part => { try { return JSON.parse(part.functionResponse.response.output); } catch { return null; } }).filter(Boolean);
         assert.ok(body.includes("history records what was said") && body.includes("not proof of current facts"));
+        if (packageRoot) assert.ok(body.includes(BOOTSTRAP_MARKER) && body.includes("Managed skill catalogue") && body.includes("stella-initialization-probe"), "Installed bootstrap and publicly discovered skill catalogue must reach the actual model input");
         if (stage === 1) {
           const checkpoint = JSON.parse(await readFile(path.join(authority, "checkpoint.json"), "utf8"));
           result.continuousProviderStarts ??= []; result.continuousProviderStarts.push({ userRound, index, checkpoint });
@@ -177,7 +183,7 @@ try {
           result.fault = { kind: scenario, atUtc: new Date().toISOString(), payloadPath: source.archive.payload.path, publishedCheckpoint: false };
         }
         if (scenario === "cas_before_list") {
-          const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(compiled, "src/openclaw/checkpoint-plugin-runtime.js")));
+          const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(runtime, "src/openclaw/checkpoint-plugin-runtime.js")));
           const { CatalogReader } = await import(pathToFileURL(path.join(compiled, "src/canghai/catalog-reader.js")));
           const { prepareHostRequestArchive } = await import(pathToFileURL(path.join(compiled, "src/canghai/host-request-archive.js")));
           const { snapshotTurnRequest } = await import(pathToFileURL(path.join(compiled, "src/openclaw/turn-request.js")));
@@ -221,9 +227,9 @@ try {
   await new Promise(resolve => allocator.close(resolve));
   const token = randomBytes(32).toString("hex"), port = provider.address().port;
   const config = { logging: { level: "debug", file: path.join(out, "gateway.log") }, gateway: { mode: "local" }, memory: { search: { enabled: false } }, hooks: { internal: { enabled: false, entries: { "session-memory": { enabled: false } } } }, commands: { ownerAllowFrom: ["*"] }, agents: { ownership: "explicit", defaults: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] }, thinkingDefault: "low" },
-    entries: { synthetic: { workspace, ...scenario === "materialization" ? { identity: { name: `${BOOTSTRAP_MARKER}_IDENTITY.md`, theme: "Isolated local acceptance", emoji: "🧪" } } : {} } } }, models: { providers: { google: { api: "google-generative-ai", apiKey: "synthetic-loopback-only", baseUrl: `http://127.0.0.1:${port}`,
+    entries: { synthetic: { workspace, ...materialize ? { identity: { name: `${BOOTSTRAP_MARKER}_IDENTITY.md`, theme: "Isolated local acceptance", emoji: "🧪" } } : {} } } }, models: { providers: { google: { api: "google-generative-ai", apiKey: "synthetic-loopback-only", baseUrl: `http://127.0.0.1:${port}`,
       models: [{ id: "gemini-3.8-flash", name: "Synthetic Google loopback", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } },
-    plugins: { slots: { memory: "none" }, allow: ["stella-core", "google"], load: { paths: [plugin] }, entries: { "memory-core": { enabled: false }, "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config: { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority,
+    plugins: { slots: { memory: "none" }, allow: ["stella-core", "google"], load: { paths: [packageRoot ?? plugin] }, entries: { "memory-core": { enabled: false }, "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config: { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority,
       canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools", ...["automatic_archive", "continuous_chat"].includes(scenario) ? { requestArchive: "local" } : {} } } } }, tools: { allow: ["stella_memory_data"] } };
   configuredCheckpoint = config.plugins.entries["stella-core"].config;
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
@@ -272,7 +278,7 @@ try {
   };
   await startGateway();
   result.initialized = await client.request("stella.checkpoint", { action: "initialize", revision: source.revision, operationId: "synthetic-stock-host-init" });
-  if (scenario === "materialization") {
+  if (materialize) {
     result.workspaceBefore = {};
     for (const name of ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md", "skills/stella-initialization-probe/SKILL.md"]) {
       result.workspaceBefore[name] = await readFile(path.join(workspace, name), "utf8").catch(error => { if (error.code === "ENOENT") return null; throw error; });
@@ -326,7 +332,7 @@ try {
       assert.equal(first.status.ingress.state, "local_committed"); assert.equal(first.status.mode, "experimental_owner_chat");
       assert.equal(await git("rev-list", "--count", `${source.revision}..HEAD`), "1");
       result.continuousChat = { rounds: [first], resets: 0, directKernelArchiveCalledByHarness: false, sourceFileRevisionFixture: true };
-      const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(compiled, "src/openclaw/checkpoint-plugin-runtime.js")));
+      const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(runtime, "src/openclaw/checkpoint-plugin-runtime.js")));
       const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(configuredCheckpoint), "2026.8.2");
       try { result.continuousChat.sourceRevision = await publishAgentSupplySourceRevision(source, authority, await writer.capture(), revisedText); }
       finally { writer.close(); }
@@ -344,9 +350,11 @@ try {
       assert.equal(result.providerError, undefined); assert.equal(count, 9);
       const records = (await readFile(logPath, "utf8")).trim().split("\n").map(line => JSON.parse(line));
       const admissions = records.filter(value => value.name === "before_agent_run" && value.phase === "before");
-      assert.ok(admissions.some(value => value.historyCount > 0));
-      result.continuousChat.historyCounts = admissions.map(value => value.historyCount);
-      result.continuousChat.sessionObservations = admissions.map(value => ({sessionId:value.hostSessionId,lifecycleRevision:value.hostLifecycleRevision}));
+      if (!packageRoot) assert.ok(admissions.some(value => value.historyCount > 0));
+      result.continuousChat.historyCounts = packageRoot ? null : admissions.map(value => value.historyCount);
+      result.continuousChat.historyObservation = packageRoot ? "Direct installed entry, no callback instrumentation; complete provider requests and public chat.history show prior conversation" : "public before_agent_run callback";
+      result.continuousChat.setupGatewayRefreshes = result.gatewayRuns.length - 1;
+      result.continuousChat.sessionObservations = packageRoot ? result.continuousChat.rounds.map(value => ({ sessionId: value.history.sessionId, source: "public chat.history; lifecycleRevision not observed" })) : admissions.map(value => ({sessionId:value.hostSessionId,lifecycleRevision:value.hostLifecycleRevision}));
       assert.ok(result.continuousChat.sessionObservations.length >= 3);
       for (const value of result.continuousChat.sessionObservations) assert.deepEqual(value, result.continuousChat.sessionObservations[0]);
       result.continuousChat.commits = (await git("rev-list", "--reverse", `${source.revision}..HEAD`)).split("\n"); assert.equal(result.continuousChat.commits.length, 4);
@@ -356,7 +364,8 @@ try {
         const operationId = round.status.ingress.operationId;
         await writeFile(path.join(out, `${operationId}.checkpoint.json`), await readFile(path.join(source.root, path.dirname(source.catalogPath), "operations", `${operationId}.checkpoint.json`), "utf8"));
       }
-      result.continuousChat.boundariesVerified = { threeSameOwnerSameSessionRequests: true, noResetOrGatewayRestart: true, oneArchivePerUserRequest: true,
+      if (packageRoot) await writeFile(path.join(out, "synthetic-source-revision-B.checkpoint.json"), await readFile(path.join(source.root, result.continuousChat.sourceRevision.journalPath)));
+      result.continuousChat.boundariesVerified = { threeSameOwnerSameSessionRequests: true, noResetOrGatewayRestart: result.gatewayRuns.length === 1, noResetOrGatewayRestartDuringConversation: true, oneArchivePerUserRequest: true,
         currentToolsServeRevisedB: true, oldAStillInHistoryInput: true, perRequestCheckpointProvenance: true, nativeHostContextRetained: true, notSemanticQualityAcceptance: true };
     }
     if (scenario === "automatic_archive") {
@@ -405,7 +414,7 @@ try {
         noAssistantOutputRelabeledAsOwnerEvidence: true, receiveClockNotHostTimestamp: true };
     }
     if (["next_request", "materialization"].includes(scenario)) {
-      const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(compiled, "src/openclaw/checkpoint-plugin-runtime.js")));
+      const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(runtime, "src/openclaw/checkpoint-plugin-runtime.js")));
       const { CatalogReader } = await import(pathToFileURL(path.join(compiled, "src/canghai/catalog-reader.js")));
       const { prepareHostRequestArchive } = await import(pathToFileURL(path.join(compiled, "src/canghai/host-request-archive.js")));
       const { snapshotTurnRequest } = await import(pathToFileURL(path.join(compiled, "src/openclaw/turn-request.js")));

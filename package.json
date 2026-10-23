@@ -10,7 +10,8 @@
     "openclaw.plugin.json",
     "schemas",
     "README.md",
-    "evaluation/praxis-social.synthetic.json"
+    "evaluation/praxis-social.synthetic.json",
+    "docs/EXPERIMENTAL-OWNER-CHAT.md"
   ],
   "scripts": {
     "build": "node scripts/compile.mjs build",
