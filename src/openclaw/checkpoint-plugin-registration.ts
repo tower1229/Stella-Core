@@ -30,8 +30,10 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
     await runtime.assert(recovery);
     const materialized = await initialization.status();
     return { authority: recovery.expected, loadedRevision: reload ? recovery.expected.revision : null, materialized, consumed: false,
-      ingress: ingress.status(), supply: supply.status(), capabilities: { ownerIngressArchive: config.requestArchive === "local", checkpoint: true, localArchiveInternal: config.dataMode === "local_write", hostBootstrap: Boolean(materialized), agentMemory: false, freshSessionTools: config.agentMemory === "fresh_tools", full_memory: false },
-      blockers: [...materialized ? [] : ["checkpoint_host_bootstrap_not_materialized"], "checkpoint_agent_writers_not_migrated"] };
+      mode: config.agentMemory === "fresh_tools" ? "experimental_owner_chat" : "checkpoint_maintenance",
+      ingress: ingress.status(), supply: supply.status(), capabilities: { ownerIngressArchive: config.requestArchive === "local", checkpoint: true, localArchiveInternal: config.dataMode === "local_write", hostBootstrap: Boolean(materialized), agentMemory: false, freshSessionTools: config.agentMemory === "fresh_tools", continuousOwnerChat: config.agentMemory === "fresh_tools", full_memory: false },
+      blockers: config.agentMemory === "fresh_tools" ? [] : ["checkpoint_agent_memory_not_enabled"],
+      fullMemoryBlockers: [...materialized ? [] : ["checkpoint_host_bootstrap_not_materialized"], "checkpoint_semantic_writers_not_migrated", "checkpoint_complete_transcript_not_migrated"] };
   };
   api.registerGatewayMethod("stella.checkpoint", async ({ params, respond, signal }) => {
     try {

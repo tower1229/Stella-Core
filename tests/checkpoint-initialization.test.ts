@@ -123,9 +123,11 @@ test("managed skill supply stays in the existing data tool and busy initializati
   assert.equal((await f.rpc("materialize")).error.message, "active_turn_drain_required");
   await f.hooks.get("agent_end")!({}, agent);
   assert.equal((await f.rpc("materialize")).ok, true);
-  event.runId = agent.runId = "synthetic-rejected-old-history";
+  event.runId = agent.runId = "synthetic-continuous-owner-history";
   await f.hooks.get("reply_dispatch")!(event, { dispatchKind: "agent", cfg: f.live, abortSignal: signal, dispatcher: {}, recordProcessed() {} });
-  assert.equal((await f.hooks.get("before_agent_run")!({ messages: [{ role: "assistant", content: "OLD" }], senderIsOwner: true }, agent)).outcome, "block");
+  assert.equal((await f.hooks.get("before_agent_run")!({ messages: [{ role: "assistant", content: "OLD" }], senderIsOwner: true }, agent)).outcome, "pass");
+  assert.equal((await f.rpc("materialize")).error.message, "active_turn_drain_required");
+  await f.hooks.get("agent_end")!({}, agent);
   assert.equal((await f.rpc("materialize")).ok, true);
   assert.equal(f.live.tools, undefined); assert.equal(f.live.bindings, undefined); assert.equal(f.configWrites(), 0);
 });

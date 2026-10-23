@@ -115,7 +115,7 @@
         "enum": [
           "fresh_tools"
         ],
-        "description": "Explicit limited stock Host Agent mode: fresh owner/direct session and retained evidence tools; full_memory remains unavailable."
+        "description": "Experimental same-owner Host conversation with retained history and fresh Core authority per user request. Existing fresh_tools name is retained for compatibility; full_memory is separate."
       }
     },
     "allOf": [

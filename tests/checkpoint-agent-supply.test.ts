@@ -5,15 +5,15 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
-import { upsertSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
+import { getSessionEntry, patchSessionEntry, upsertSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
 import { registerCheckpointPlugin } from "../src/openclaw/checkpoint-plugin-registration.js";
 import { createCheckpointPluginRuntime, parseCheckpointPluginConfig } from "../src/openclaw/checkpoint-plugin-runtime.js";
 import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import { prepareHostRequestArchive } from "../src/canghai/host-request-archive.js";
 import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
-import { captureCheckpointHostRequest } from "../src/openclaw/checkpoint-host-request.js";
+import { assertInitialOwnerTranscript, captureCheckpointHostRequest } from "../src/openclaw/checkpoint-host-request.js";
 import { registerCheckpointAgentSupply, CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
-import { createAgentSupplySource, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
+import { createAgentSupplySource, publishAgentSupplySourceRevision, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
 
 async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false) {
   const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
@@ -71,7 +71,7 @@ test("stock Host orchestration fixture can call retained data tools and continue
   assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
 });
 
-test("old history, missing ingress, wrong identity and reused request grant remain blocked", async t => {
+test("unknown initial history, missing ingress, wrong identity and reused request grant remain blocked", async t => {
   for (const kind of ["history", "no-ingress", "wrong-session", "reused"] as const) await t.test(kind, async t => {
     const f = await fixture(t); if (kind !== "no-ingress") await f.ingress();
     if (kind === "wrong-session") f.agent.sessionId = "another-session";
@@ -319,4 +319,90 @@ test("Agent preparation refuses a checkpoint different from the archive return i
   t.after(() => isolatedScope.close());
   assert.equal((await f.ingress()).handled, true); assert.equal(isolatedScope.status()?.category, "checkpoint_agent_archive_changed");
   assert.equal((await f.admit()).outcome, "block"); assert.deepEqual((await f.rpc("status")).payload.authority, accepted.authority);
+});
+
+
+test("same owner keeps conversation history while every new request obtains fresh tools and provenance", async t => {
+  const f = await fixture(t, {}, true);
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const first = await f.execute({ action: "list" }), a = first.details.currentMemory;
+  assert.equal(a.userRequest, f.event.runId); await f.hooks.get("agent_end")!({}, f.agent);
+  f.event.runId = f.agent.runId = "synthetic-continuous-next"; f.event.ctx.Body = "Continue the previous conversation";
+  assert.equal(await f.ingress(), undefined);
+  assert.equal((await f.admit([{ role: "assistant", content: "Past conversation remains" }, { role: "toolResult", content: first.content }])).outcome, "pass");
+  const next = await f.execute({ action: "list" }); assert.equal(next.details.currentMemory.userRequest, f.event.runId);
+  assert.notEqual(next.details.currentMemory.checkpointToken, a.checkpointToken);
+  const prompt = await f.hooks.get("before_prompt_build")!({}, f.agent);
+  assert.ok(prompt.appendSystemContext.includes("history records what was said") && prompt.appendSystemContext.includes("not proof of current facts"));
+  const status = (await f.rpc("status")).payload; assert.equal(status.mode, "experimental_owner_chat");
+  assert.equal(status.capabilities.continuousOwnerChat, true); assert.deepEqual(status.blockers, []); assert.equal(status.capabilities.full_memory, false);
+});
+
+test("public session owner binding survives a registration restart without clearing chat history", async t => {
+  const f = await fixture(t); await f.ingress(); assert.equal((await f.admit()).outcome, "pass"); await f.hooks.get("agent_end")!({}, f.agent);
+  const before = getSessionEntry({ agentId: "synthetic", sessionKey: f.agent.sessionKey, storePath: f.storePath, env: { OPENCLAW_STATE_DIR: f.state }, readConsistency: "latest" });
+  assert.ok(before?.pluginExtensions?.["stella-core"]?.["owner-history/v1"]);
+  for (const stop of f.stops) await stop(); registerCheckpointPlugin(f.api);
+  f.event.runId = f.agent.runId = "synthetic-after-registration-restart";
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit([{ role: "assistant", content: "Retained prior history" }])).outcome, "pass");
+  const value = { action: "list" }, callId = "synthetic-restarted-tool";
+  assert.equal(await f.hooks.get("before_tool_call")!({ toolName: CHECKPOINT_MEMORY_TOOL, params: value }, { ...f.agent, toolName: CHECKPOINT_MEMORY_TOOL, toolCallId: callId, abortSignal: f.controller.signal }), undefined);
+  const currentTool = f.factories.map(factory => factory(f.toolContext)).filter(tool => tool?.name === CHECKPOINT_MEMORY_TOOL).at(-1);
+  assert.ok((await currentTool.execute(callId, value, f.controller.signal)).details.items.length);
+});
+
+test("changed owner, account or provider is refused before automatic archive writes", async t => {
+  for (const kind of ["owner", "account", "provider", "surface", "originating-channel"] as const) await t.test(kind, async t => {
+    const f = await fixture(t, {}, true); await f.ingress(); await f.admit(); await f.hooks.get("agent_end")!({}, f.agent);
+    const before = (await f.rpc("status")).payload.authority;
+    f.event.runId = f.agent.runId = "synthetic-different-audience";
+    if (kind === "owner") { f.live.commands.ownerAllowFrom = ["synthetic-owner", "synthetic-other-owner"]; f.event.ctx.SenderId = f.event.ctx.From = "synthetic-other-owner"; }
+    if (kind === "account") f.event.ctx.AccountId = "another-synthetic-account";
+    if (kind === "provider") f.event.ctx.Provider = "another-synthetic-provider";
+    if (kind === "surface") f.event.ctx.Surface = "telegram";
+    if (kind === "originating-channel") f.event.ctx.OriginatingChannel = "telegram";
+    assert.equal((await f.ingress()).handled, true); assert.equal((await f.rpc("status")).payload.supply.category, "checkpoint_agent_history_audience_changed");
+    assert.equal((await f.admit()).outcome, "block"); assert.deepEqual((await f.rpc("status")).payload.authority, before);
+  });
+});
+
+test("a malformed persisted audience binding is rejected instead of adopted", async t => {
+  const f = await fixture(t); await f.ingress(); await f.admit(); await f.hooks.get("agent_end")!({}, f.agent);
+  await patchSessionEntry({ agentId: "synthetic", sessionKey: f.agent.sessionKey, storePath: f.storePath, env: { OPENCLAW_STATE_DIR: f.state }, requireWriteSuccess: true,
+    update(entry) { return { pluginExtensions: { ...entry.pluginExtensions, "stella-core": { "owner-history/v1": { sessionId: f.agent.sessionId, lifecycleRevision: entry.lifecycleRevision ?? null, principal: "forged" } } } }; } });
+  f.event.runId = f.agent.runId = "synthetic-corrupt-binding"; assert.equal((await f.ingress()).handled, true);
+  assert.equal((await f.rpc("status")).payload.supply.category, "checkpoint_agent_history_binding_invalid");
+});
+
+
+test("revised source replaces current tool facts while same-owner prior conversation remains", async t => {
+  const f = await fixture(t); await f.ingress(); await f.admit();
+  const listA = await f.execute({ action: "list" }), originalA = await f.execute({ action: "read", handle: listA.details.items[0].handle });
+  await f.hooks.get("agent_end")!({}, f.agent);
+  const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); t.after(() => writer.close());
+  const textB = "SYNTHETIC_REVISED_PREFERENCE_B_5281: Write concrete open questions first.";
+  await publishAgentSupplySourceRevision(f, f.authority, await writer.capture(), textB);
+  f.event.runId = f.agent.runId = "synthetic-revised-next-request"; f.event.ctx.Body = "Continue our conversation with the current preference";
+  assert.equal(await f.ingress(), undefined);
+  assert.equal((await f.admit([{ role: "assistant", content: "Previous answer" }, { role: "toolResult", content: originalA.content }])).outcome, "pass");
+  const listB = await f.execute({ action: "list" }); assert.equal(listB.details.items.length, 1); assert.equal(listB.details.items[0].preview, textB);
+  assert.ok(!JSON.stringify(listB.details).includes(SUPPLY_MARKER));
+  const readB = await f.execute({ action: "read", handle: listB.details.items[0].handle }); assert.equal(readB.details.original.text, textB);
+  assert.ok(JSON.stringify(originalA.content).includes(SUPPLY_MARKER)); assert.notEqual(readB.details.currentMemory.checkpointToken, originalA.details.currentMemory.checkpointToken);
+});
+
+
+test("initial public session header and current accepted owner input are not mistaken for prior history", async t => {
+  const request = snapshotTurnRequest({ agentId: "synthetic", sessionKey: "agent:synthetic:new", sessionId: "synthetic-created-session", prompt: "Current input", senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, "synthetic-current-run");
+  const header = { type: "session", version: 3, id: request.sessionId }, current = { type: "message", message: { role: "user", content: request.prompt, idempotencyKey: `${request.runId}:user`, __openclaw: { senderIsOwner: true } } };
+  assert.doesNotThrow(() => assertInitialOwnerTranscript([], request)); assert.doesNotThrow(() => assertInitialOwnerTranscript([header, current], request));
+  for (const kind of ["old-run", "old-body", "not-owner", "assistant", "unknown-system", "extra-history"] as const) await t.test(kind, () => {
+    const record = structuredClone(current) as any;
+    if (kind === "old-run") record.message.idempotencyKey = "another-run:user";
+    if (kind === "old-body") record.message.content = "Another input";
+    if (kind === "not-owner") record.message.__openclaw.senderIsOwner = false;
+    if (kind === "assistant") record.message.role = "assistant";
+    if (kind === "unknown-system") record.type = "compaction";
+    assert.throws(() => assertInitialOwnerTranscript(kind === "extra-history" ? [header, current, record] : [header, record], request), /checkpoint_agent_history_owner_unknown/);
+  });
 });

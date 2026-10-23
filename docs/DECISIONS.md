@@ -580,3 +580,17 @@ continuation → answer, followed by a new user request that sees committed memo
 changes and current permissions. full_memory remains unaccepted until its actual
 core capabilities are connected and tested; removing an excluded edge-case gate
 is not whole-project completion. See the current 肃清 plan revision and batch10.
+
+
+D-058 continuous-conversation clarification (2026-10-23): preserve normal Host
+conversation history for the same authenticated principal and session generation;
+do not require a reset on every user request. Historical dialogue and old tool
+outputs are records of past conversation, not current Core facts or permission.
+Each new user request obtains current checkpoint/policy and new data-tool grants;
+model/tool continuations keep this request's authorized supply. A small owner
+binding in the public Host session plugin namespace protects audience continuity,
+not the truth of arbitrary historical content. Unknown unbound old history or
+changed audiences require a new session or explicit migration; no history scrub,
+provider proxy, output buffer, real-time withdrawal or model semantic guarantee
+is introduced. A usable experimental owner-chat mode is distinct from acceptance
+of the complete full_memory product contract.

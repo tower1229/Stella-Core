@@ -5,15 +5,16 @@ import { appendFileSync } from "node:fs";
 import { createServer } from "node:http";
 import net from "node:net";
 import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes, createHash, generateKeyPairSync } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 
 // Started by the local runner with an allow-listed environment, before SDK imports.
 const root = await realpath(process.cwd());
 assert.equal(root, "/Users/zangtao/Workspace/tower1229/Stella-Core");
-const attempt = process.argv[2], compilation = process.argv[3], scenario = process.argv[4] ?? "normal";
-assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent", "next_request", "materialization", "automatic_archive"].includes(scenario));
+const attempt = process.argv[2], compilation = process.argv[3], requestedScenario = process.argv[4] ?? "normal";
+const scenario = requestedScenario === "history" ? "continuous_chat" : requestedScenario;
+assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent", "next_request", "materialization", "automatic_archive", "continuous_chat"].includes(scenario));
 assert.match(attempt ?? "", /^[a-z][a-z0-9]{0,15}$/); assert.match(compilation ?? "", /^a[0-9]+$/);
 const art = path.resolve(process.env.STELLA_AGENT_SUPPLY_ARTIFACTS ?? path.join(root, ".artifacts/suqing-batch6-20261022"));
 assert.ok(art.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(art) === art);
@@ -23,7 +24,7 @@ const ownerPath = path.join(art, "host-probe-owner.json"), owner = { pid: proces
 const compiled = path.resolve(process.env.STELLA_AGENT_SUPPLY_COMPILED ?? path.join(art, "compiled-" + compilation));
 assert.ok(compiled.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(compiled) === compiled);
 await writeFile(ownerPath, JSON.stringify(owner), { flag: "wx" });
-const { createAgentSupplySource, publishAgentSupplyPolicyDenial, SUPPLY_MARKER, BOOTSTRAP_MARKER, SKILL_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
+const { createAgentSupplySource, publishAgentSupplySourceRevision, publishAgentSupplyPolicyDenial, SUPPLY_MARKER, BOOTSTRAP_MARKER, SKILL_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
 const { GatewayClient } = await import("openclaw/plugin-sdk/gateway-runtime");
 const source = await createAgentSupplySource({ materialization: scenario === "materialization" }), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
 const state = process.env.OPENCLAW_STATE_DIR, configPath = process.env.OPENCLAW_CONFIG_PATH;
@@ -44,6 +45,7 @@ await writeFile(path.join(plugin, "package.json"), JSON.stringify({ name: "@synt
 await writeFile(path.join(plugin, "index.mjs"), `import core from ${JSON.stringify(pathToFileURL(path.join(compiled, "src/plugin.js")).href)};
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { abortAgentHarnessRun } from 'openclaw/plugin-sdk/agent-harness-runtime';
+import { getSessionEntry, resolveStorePath } from 'openclaw/plugin-sdk/session-store-runtime';
 import { randomUUID } from 'node:crypto';
 const record = value => appendFileSync(${JSON.stringify(logPath)}, JSON.stringify({atUtc:new Date().toISOString(),...value})+String.fromCharCode(10));
 export default {id:'stella-core',name:'Stella public supply probe',configSchema:core.configSchema,register(api){
@@ -59,7 +61,8 @@ export default {id:'stella-core',name:'Stella public supply probe',configSchema:
   record({name:'fault_boundary_complete',registrationId,result});
  },{priority:10000});
  core.register({...api,on(name,handler,options){api.on(name,(event,ctx)=>{
-  const before = {name,registrationId,runId:ctx.runId??event.runId,sessionId:ctx.sessionId,sessionKey:ctx.sessionKey??event.sessionKey,
+  const entry = ${JSON.stringify(scenario)}==='continuous_chat' && name==='before_agent_run' && ctx.sessionKey ? getSessionEntry({agentId:'synthetic',sessionKey:ctx.sessionKey,storePath:resolveStorePath(api.runtime.config.current().session?.store,{agentId:'synthetic',env:{OPENCLAW_STATE_DIR:api.runtime.state.resolveStateDir()}}),env:{OPENCLAW_STATE_DIR:api.runtime.state.resolveStateDir()},readConsistency:'latest',hydrateSkillPromptRefs:false}) : undefined;
+  const before = {name,registrationId,hostSessionId:entry?.sessionId,hostLifecycleRevision:entry?.lifecycleRevision??null,runId:ctx.runId??event.runId,sessionId:ctx.sessionId,sessionKey:ctx.sessionKey??event.sessionKey,
     senderIsOwner:event.senderIsOwner,requester:ctx.requester,toolCallId:ctx.toolCallId,toolName:event.toolName,
     historyCount:Array.isArray(event.messages)?event.messages.length:undefined,chatType:event.ctx?.ChatType,messageRole:event.message?.role,
     ingressBodyType:typeof event.ctx?.Body,ingressTimestamp:event.ctx?.Timestamp,ingressTimestampType:typeof event.ctx?.Timestamp};
@@ -81,6 +84,7 @@ const refreshFault = async () => {
 try {
   let count = 0, userRound = 1;
   const nextMarker = "SYNTHETIC_UPDATED_MEMORY_B_6147", nextAnswer = "SYNTHETIC_UPDATED_ANSWER_B_6147";
+  const revisedMarker = "SYNTHETIC_REVISED_PREFERENCE_B_5281", revisedText = `${revisedMarker}: Write concrete open questions first.`;
   const automaticMarker = "SYNTHETIC_AUTOMATIC_OWNER_INPUT_7296", automaticInput = `${automaticMarker}: Preserve the author's concrete questions.`;
   provider = createServer(async (request, response) => {
     try {
@@ -88,7 +92,7 @@ try {
       assert.match(request.url, /gemini-3\.8-flash:streamGenerateContent/);
       let body = ""; for await (const chunk of request) body += chunk;
       const input = JSON.parse(body), index = ++count; await refreshFault();
-      assert.ok(index <= (scenario === "automatic_archive" ? 6 : scenario === "materialization" ? 8 : scenario === "next_request" ? 9 : scenario === "history" ? 6 : 3), "Stock Host exceeded the exact synthetic model call budget");
+      assert.ok(index <= (scenario === "continuous_chat" ? 9 : scenario === "automatic_archive" ? 6 : scenario === "materialization" ? 8 : scenario === "next_request" ? 9 : scenario === "history" ? 6 : 3), "Stock Host exceeded the exact synthetic model call budget");
       await writeFile(path.join(out, `provider-${index}.json`), body);
       result.rawProviderRequests.push({ index, path: request.url, bytes: Buffer.byteLength(body), atUtc: new Date().toISOString(), sourceMarker: body.includes(SUPPLY_MARKER), faultAlreadyApplied: Boolean(result.fault), userRound, updatedMemory: body.includes(nextMarker) });
       appendFileSync(logPath, JSON.stringify({ name: "provider_request", ...result.rawProviderRequests.at(-1) }) + "\n"); await save();
@@ -99,8 +103,29 @@ try {
         appendFileSync(logPath, JSON.stringify({ name: "fault_boundary_complete", result: result.fault }) + "\n"); await save();
       }
       let parts;
-      const stage = scenario === "materialization" ? (index - 1) % 4 + 1 : ["history", "next_request", "automatic_archive"].includes(scenario) ? (index - 1) % 3 + 1 : index;
-      if (scenario === "automatic_archive") {
+      const stage = scenario === "materialization" ? (index - 1) % 4 + 1 : ["history", "next_request", "automatic_archive", "continuous_chat"].includes(scenario) ? (index - 1) % 3 + 1 : index;
+      if (scenario === "continuous_chat") {
+        const outputs = input.contents.flatMap(item => item.parts ?? []).filter(part => part.functionResponse?.response?.output).map(part => { try { return JSON.parse(part.functionResponse.response.output); } catch { return null; } }).filter(Boolean);
+        assert.ok(body.includes("history records what was said") && body.includes("not proof of current facts"));
+        if (stage === 1) {
+          const checkpoint = JSON.parse(await readFile(path.join(authority, "checkpoint.json"), "utf8"));
+          result.continuousProviderStarts ??= []; result.continuousProviderStarts.push({ userRound, index, checkpoint });
+          if (userRound > 1) assert.ok(body.includes(SUPPLY_MARKER) && body.includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"), "Past conversation should remain in the actual Host input");
+          parts = [{ functionCall: { name: "stella_memory_data", args: { action: "list" } } }];
+        } else if (stage === 2) {
+          const list = outputs.filter(value => Array.isArray(value.items)).at(-1), marker = userRound === 1 ? SUPPLY_MARKER : revisedMarker;
+          assert.ok(list && list.currentMemory.userRequest === (userRound === 1 ? "synthetic-stock-host-one" : `synthetic-continuous-${userRound}`));
+          const selected = list.items.find(item => item.preview.includes(marker)); assert.ok(selected, "Current list must contain the current source version");
+          if (userRound > 1) assert.ok(!JSON.stringify(list).includes(SUPPLY_MARKER), "Current list must not re-serve revised A from history");
+          parts = [{ functionCall: { name: "stella_memory_data", args: { action: "read", handle: selected.handle } } }];
+        } else {
+          const output = outputs.filter(value => value.original).at(-1), marker = userRound === 1 ? SUPPLY_MARKER : revisedMarker;
+          assert.ok(output && output.original.text.includes(marker)); assert.equal(output.currentMemory.userRequest, userRound === 1 ? "synthetic-stock-host-one" : `synthetic-continuous-${userRound}`);
+          assert.equal(output.currentMemory.checkpointRevision, result.continuousProviderStarts.at(-1).checkpoint.revision);
+          if (userRound > 1) assert.ok(!JSON.stringify(output).includes(SUPPLY_MARKER));
+          parts = [{ text: `SYNTHETIC_STOCK_HOST_ANSWER_4931: round ${userRound} current ${marker}` }];
+        }
+      } else if (scenario === "automatic_archive") {
         if (stage === 1) {
           assert.ok(!body.includes(SUPPLY_MARKER) && !body.includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"));
           if (userRound === 2) assert.ok(!body.includes(automaticMarker), "Reset request cannot inherit archived prior input through chat history");
@@ -199,7 +224,7 @@ try {
     entries: { synthetic: { workspace, ...scenario === "materialization" ? { identity: { name: `${BOOTSTRAP_MARKER}_IDENTITY.md`, theme: "Isolated local acceptance", emoji: "🧪" } } : {} } } }, models: { providers: { google: { api: "google-generative-ai", apiKey: "synthetic-loopback-only", baseUrl: `http://127.0.0.1:${port}`,
       models: [{ id: "gemini-3.8-flash", name: "Synthetic Google loopback", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } },
     plugins: { slots: { memory: "none" }, allow: ["stella-core", "google"], load: { paths: [plugin] }, entries: { "memory-core": { enabled: false }, "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config: { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority,
-      canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools", ...scenario === "automatic_archive" ? { requestArchive: "local" } : {} } } } }, tools: { allow: ["stella_memory_data"] } };
+      canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools", ...["automatic_archive", "continuous_chat"].includes(scenario) ? { requestArchive: "local" } : {} } } } }, tools: { allow: ["stella_memory_data"] } };
   configuredCheckpoint = config.plugins.entries["stella-core"].config;
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   const sandbox = `(version 1)\n(allow default)\n(deny file-read* (subpath "/Users/zangtao"))\n(allow file-read-metadata (literal "/Users/zangtao") (literal "/Users/zangtao/Workspace") (literal "/Users/zangtao/Workspace/tower1229") (literal "/Users/zangtao/.nvm") (literal "/Users/zangtao/.nvm/versions") (literal "/Users/zangtao/.nvm/versions/node"))\n(allow file-read* (subpath ${JSON.stringify(root)}) (subpath "/Users/zangtao/.nvm/versions/node/v24.22.1"))\n(deny file-write* (subpath "/Users/zangtao"))\n(allow file-write* (subpath ${JSON.stringify(out)}) (subpath ${JSON.stringify(state)}) (subpath ${JSON.stringify(process.env.OPENCLAW_HOME)}))\n(deny network-outbound)\n(allow network-outbound (remote ip "localhost:*"))\n(deny process-exec (literal "/bin/ps") (literal "/usr/bin/ps"))\n`;
@@ -219,7 +244,18 @@ try {
   }).finally(async () => { await writeFile(path.join(out, `gateway-start-${result.gateway.startIndex}.log`), output); });
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("isolated_gateway_connect_timeout")), 15000);
-    client = new GatewayClient({ url: `ws://127.0.0.1:${gatewayPort}`, token, env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"], sharedStateMode: "read-only", deviceIdentity: null,
+    let deviceIdentity = null;
+    if (scenario === "continuous_chat") {
+      // Satisfy the public idempotent-create identity requirement with an isolated
+      // in-memory test key. Never load/store a real device identity or auth token.
+      const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+      const publicKeyPem = publicKey.export({ type: "spki", format: "pem" });
+      const deviceId = createHash("sha256").update(publicKey.export({ type: "spki", format: "der" }).subarray(-32)).digest("hex");
+      deviceIdentity = { deviceId, publicKeyPem, privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }) };
+      result.syntheticClientIdentity = { deviceId, privateKeyStorage: "memory_only", clientDeviceAuthTokenPersistence: false, scopesUnchanged: ["operator.admin"] };
+    }
+    client = new GatewayClient({ url: `ws://127.0.0.1:${gatewayPort}`, token, env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"], sharedStateMode: "read-only", deviceIdentity,
+      hostDeps: scenario === "continuous_chat" ? { loadDeviceAuthToken: () => null, storeDeviceAuthToken() {}, clearDeviceAuthToken() {} } : undefined,
       onHelloOk() { clearTimeout(timer); resolve(); }, onConnectError(error) { clearTimeout(timer); reject(error); },
       onEvent(event) { result.events.push(event); } }); client.start();
   });
@@ -268,17 +304,61 @@ try {
     await writeFile(path.join(out, "initialization-operation.json"), plan);
     await writeFile(path.join(out, "materialized-files.json"), JSON.stringify(result.materializedFiles, null, 2));
   }
-  if (scenario === "automatic_archive") result.beforeAutomaticArchive = await client.request("stella.checkpoint", { action: "status" });
-  result.freshSession = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply", reason: "new" });
+  if (["automatic_archive", "continuous_chat"].includes(scenario)) result.beforeAutomaticArchive = await client.request("stella.checkpoint", { action: "status" });
+  if (scenario === "continuous_chat") {
+    result.createdSession = await client.request("sessions.create", { key: "agent:synthetic:fresh-supply", agentId: "synthetic", idempotencyKey: "synthetic-continuous-create" });
+    assert.equal(result.createdSession.ok, true); assert.equal(result.createdSession.key, "agent:synthetic:fresh-supply");
+    assert.ok(!result.createdSession.runStarted && !result.createdSession.runId);
+    result.freshSession = { method: "public sessions.create once; no initial turn or transcript copy", key: result.createdSession.key, resets: 0 };
+  } else result.freshSession = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply", reason: "new" });
   result.sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: scenario === "automatic_archive" ? automaticInput : "Use the memory tool to recall my retained writing preference.", idempotencyKey: "synthetic-stock-host-one" });
   result.terminal = await client.request("agent.wait", { runId: result.sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
   result.status = await client.request("stella.checkpoint", { action: "status" });
   result.history = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 30 });
   await refreshFault();
   assert.equal(result.providerError, undefined); assert.equal(result.status.capabilities.full_memory, false);
-  if (["normal", "history", "next_request", "materialization", "automatic_archive"].includes(scenario)) {
+  if (["normal", "history", "next_request", "materialization", "automatic_archive", "continuous_chat"].includes(scenario)) {
     assert.equal(result.terminal.status, "ok", JSON.stringify(result.terminal)); assert.equal(count, scenario === "materialization" ? 4 : 3);
     assert.ok(JSON.stringify(result.history).includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"));
+    if (scenario === "continuous_chat") {
+      const run = promisify(execFile), git = async (...args) => (await run("git", ["--no-optional-locks", "--no-replace-objects", "-c", "core.fsmonitor=false", "-C", source.root, ...args])).stdout.trim();
+      const first = { sent: result.sent, terminal: result.terminal, status: result.status, history: result.history };
+      assert.equal(first.status.ingress.state, "local_committed"); assert.equal(first.status.mode, "experimental_owner_chat");
+      assert.equal(await git("rev-list", "--count", `${source.revision}..HEAD`), "1");
+      result.continuousChat = { rounds: [first], resets: 0, directKernelArchiveCalledByHarness: false, sourceFileRevisionFixture: true };
+      const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(compiled, "src/openclaw/checkpoint-plugin-runtime.js")));
+      const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(configuredCheckpoint), "2026.8.2");
+      try { result.continuousChat.sourceRevision = await publishAgentSupplySourceRevision(source, authority, await writer.capture(), revisedText); }
+      finally { writer.close(); }
+      assert.equal(await git("rev-list", "--count", `${source.revision}..HEAD`), "2");
+      for (const round of [2, 3]) {
+        userRound = round;
+        const sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: round === 2 ? "Continue our conversation: what is my current writing preference?" : "Use that current preference and keep our discussion context.", idempotencyKey: `synthetic-continuous-${round}` });
+        const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
+        const status = await client.request("stella.checkpoint", { action: "status" }), history = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 80 });
+        assert.equal(terminal.status, "ok"); assert.equal(status.ingress.state, "local_committed"); assert.equal(count, round * 3);
+        assert.equal(history.sessionId, first.history.sessionId);
+        assert.equal(await git("rev-list", "--count", `${source.revision}..HEAD`), String(round + 1));
+        result.continuousChat.rounds.push({ sent, terminal, status, history });
+      }
+      assert.equal(result.providerError, undefined); assert.equal(count, 9);
+      const records = (await readFile(logPath, "utf8")).trim().split("\n").map(line => JSON.parse(line));
+      const admissions = records.filter(value => value.name === "before_agent_run" && value.phase === "before");
+      assert.ok(admissions.some(value => value.historyCount > 0));
+      result.continuousChat.historyCounts = admissions.map(value => value.historyCount);
+      result.continuousChat.sessionObservations = admissions.map(value => ({sessionId:value.hostSessionId,lifecycleRevision:value.hostLifecycleRevision}));
+      assert.ok(result.continuousChat.sessionObservations.length >= 3);
+      for (const value of result.continuousChat.sessionObservations) assert.deepEqual(value, result.continuousChat.sessionObservations[0]);
+      result.continuousChat.commits = (await git("rev-list", "--reverse", `${source.revision}..HEAD`)).split("\n"); assert.equal(result.continuousChat.commits.length, 4);
+      for (let i = 0; i < 3; i++) {
+        const round = result.continuousChat.rounds[i], checkpoint = result.continuousProviderStarts[i].checkpoint;
+        assert.equal(checkpoint.revision, round.status.authority.revision); assert.equal(checkpoint.token, round.status.authority.token);
+        const operationId = round.status.ingress.operationId;
+        await writeFile(path.join(out, `${operationId}.checkpoint.json`), await readFile(path.join(source.root, path.dirname(source.catalogPath), "operations", `${operationId}.checkpoint.json`), "utf8"));
+      }
+      result.continuousChat.boundariesVerified = { threeSameOwnerSameSessionRequests: true, noResetOrGatewayRestart: true, oneArchivePerUserRequest: true,
+        currentToolsServeRevisedB: true, oldAStillInHistoryInput: true, perRequestCheckpointProvenance: true, nativeHostContextRetained: true, notSemanticQualityAcceptance: true };
+    }
     if (scenario === "automatic_archive") {
       const run = promisify(execFile), git = async (...args) => (await run("git", ["--no-optional-locks", "--no-replace-objects", "-c", "core.fsmonitor=false", "-C", source.root, ...args])).stdout.trim();
       const before = result.beforeAutomaticArchive.authority;
@@ -323,16 +403,6 @@ try {
       result.automaticArchive.boundariesVerified = { publicHostTriggered: true, kernelNotCalledByHarness: true, oneCommitPerUserRequest: true,
         toolsAndModelContinuationsAddNoCommits: true, nextRequestReadsPriorOwnerOriginal: true, noPriorToolHistoryAtNextRequest: true,
         noAssistantOutputRelabeledAsOwnerEvidence: true, receiveClockNotHostTimestamp: true };
-    }
-    if (scenario === "history") {
-      const sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: "SYNTHETIC_REUSE_OLD_HISTORY_4931", idempotencyKey: "synthetic-stock-host-two" });
-      const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
-      result.historyIsolation = { reusedTerminal: terminal, modelRequestsAfterReuse: count - 3 }; assert.equal(count, 3);
-      const session = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply-next", reason: "new" });
-      assert.notEqual(session.entry.sessionId, result.freshSession.entry.sessionId);
-      const next = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply-next", message: "SYNTHETIC_NEW_FRESH_REQUEST_4931", idempotencyKey: "synthetic-stock-host-three" });
-      result.historyIsolation.freshTerminal = await client.request("agent.wait", { runId: next.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
-      assert.equal(result.historyIsolation.freshTerminal.status, "ok"); assert.equal(count, 6); result.historyIsolation.distinctPhysicalSession = true;
     }
     if (["next_request", "materialization"].includes(scenario)) {
       const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(compiled, "src/openclaw/checkpoint-plugin-runtime.js")));

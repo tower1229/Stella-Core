@@ -86,3 +86,41 @@ export async function publishAgentSupplyPolicyDenial(source: Awaited<ReturnType<
     async confirmPreviouslyCommitted() { throw new Error("Synthetic fixture requires checkpoint receipt"); },
   });
 }
+
+
+/** Synthetic source-file revision, not a model correction/learning writer. Old A
+ * remains in Git/history while the current catalog names only revised B objects.
+ */
+export async function publishAgentSupplySourceRevision(source: Awaited<ReturnType<typeof createAgentSupplySource>>,
+  stateDirectory: string, recovery: RecoveryReadBinding, replacementText: string) {
+  const git = promisify(execFile), { expected } = recovery;
+  const authority = await openLocalCheckpointRecovery({ stateDirectory, binding: expected.binding });
+  const catalogBefore = await readFile(path.join(source.root, source.catalogPath), "utf8"), catalog = JSON.parse(catalogBefore);
+  for (const group of ["understandings", "works", "changes", "bundles", "views"]) assert.equal(catalog[group].length, 0);
+  const snapshot = JSON.parse(await readFile(path.join(source.root, source.archive.payload.path), "utf8"));
+  const request = snapshotTurnRequest({ ...snapshot.request, prompt: replacementText }, snapshot.request.runId);
+  const revised = prepareHostRequestArchive({ ...snapshot, request }, { ...source.binding.archive, ownerId: "owner-fixture" });
+  // Immutable archive versions remain retained; only the current catalog switches
+  // to B. This fixture does not extend the transaction format with deletion.
+  const changes = new Map<string, MemoryTransactionPlan["files"][number]>();
+  for (const file of [{ path: revised.payload.path, bytes: revised.payload.bytes }, ...revised.objects.map(value => ({ path: value.entry.locator.path, bytes: value.bytes }))]) {
+    changes.set(file.path, { path: file.path, before: changes.get(file.path)?.before ?? null, after: file.bytes });
+  }
+  for (const object of revised.objects) {
+    const index = catalog[object.group].findIndex((entry: any) => entry.id === object.ref.id); assert.ok(index >= 0);
+    catalog[object.group][index] = object.entry;
+  }
+  catalog.parentGenerationId = catalog.generationId; catalog.generationId = "synthetic-source-revision-B";
+  changes.set(source.catalogPath, { path: source.catalogPath, before: catalogBefore, after: canonicalJson(catalog) });
+  const plan = { operationId: "synthetic-source-revision-B", journalPath: "30_PersonalData/memory/operations/synthetic-source-revision-B.checkpoint.json",
+    recoveryCheckpoint: { binding: expected.binding, expected: { revision: expected.revision, token: expected.token } }, files: [...changes.values()] };
+  return applyMemoryTransaction(source.root, plan, {
+    recovery: { authority, expected, async assertPublication(accepted) { await authority.assertCurrent(accepted); } },
+    async validate() { await authority.assertCurrent(expected); },
+    async persist(paths) {
+      await git("git", ["-C", source.root, "add", "--", ...paths]);
+      await git("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-C", source.root,
+        "commit", "--quiet", "-m", "[synthetic] revise current source file", "--", ...paths]);
+    }, async confirmPreviouslyCommitted() { throw new Error("Synthetic fixture requires checkpoint receipt"); },
+  });
+}
