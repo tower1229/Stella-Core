@@ -542,3 +542,41 @@ entrances. #35 covers the twelve-capability integration, #36 frozen admission,
 #37 real main scenarios and #38 the full fault matrix. Private material, paid model
 calls, production configuration and persistent scheduling remain outside this
 local implementation authorization.
+
+
+## D-058 — Experimental simplicity and user-request boundaries
+
+**Decision (owner confirmed, 2026-10-23 01:56:11 UTC):** Stella Core is an
+experimental project. Prefer an elegant, small architecture over exhaustive
+handling of edge cases. Routine comparable engineering tradeoffs may be resolved
+autonomously within the existing authority; this grants no additional production,
+credential, network or permission access.
+
+A **user request** establishes its effective identity, permissions and selected
+memory version. Model/tool continuations within that request are not new user
+requests. Content already lawfully supplied in this request need not be withdrawn
+immediately when policy or source files change during execution. The next user
+request must reload the current authority/permissions and must not silently reuse
+obsolete Host history. Existing public session reset/refresh may provide that
+boundary; do not build a general snapshot-copy system for it.
+
+Retain admission identity/permissions, no first supply of unauthorized sources,
+normal cancellation, transaction/CAS integrity and next-request freshness. Cheap
+checks may remain, but ordinary publication must not suppress an answer based on
+content already admitted in the current request. A per-request cache of data
+already read and authorized is sufficient; it is not a new persisted memory store.
+Never replace a writer's frozen expected value with an observed current value.
+
+Runtime revocation between tool supply and model continuation, or after dispatch,
+and perfect streaming/history output interception are no longer mandatory mainline
+or full_memory gates. Cancel the proposed controlled-provider/output-buffer route;
+keep the stock OpenClaw provider and native Agent/tool loop. Earlier batch8/9
+failures remain valid evidence under their former strict timing semantics, not
+retroactive passes. This decision supersedes those timing-specific acceptance
+requirements, not the remaining source, lifecycle, write or consumer integration.
+
+The immediate acceptance is the native Host Agent → data tool → model
+continuation → answer, followed by a new user request that sees committed memory
+changes and current permissions. full_memory remains unaccepted until its actual
+core capabilities are connected and tested; removing an excluded edge-case gate
+is not whole-project completion. See the current 肃清 plan revision and batch10.

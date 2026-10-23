@@ -23,17 +23,18 @@ const category = (error: unknown) => error && typeof error === "object" && "cate
 type Runtime = Awaited<ReturnType<typeof createCheckpointPluginRuntime>>;
 type Ingress = ReturnType<typeof captureCheckpointHostRequest>;
 type Grant = { ingress: Ingress; runtime: Runtime; recovery: RecoveryReadBinding; resolver: EpisodeEvidenceResolver;
-  active: boolean; deliveryOpen: boolean; admitted: boolean; handles: Map<string, OriginalEvidence["ref"]>; released: Map<string, OriginalEvidence["ref"]> };
-type SupplyScope = { shutdown: AbortController; grants: Map<string, Grant>; sessions: Set<string>; runs: Set<string>;
+  active: boolean; admitted: boolean; handles: Map<string, OriginalEvidence["ref"]>; originals: Map<string, OriginalEvidence> };
+type SupplyScope = { shutdown: AbortController; grants: Map<string, Grant>; runs: Set<string>;
   calls: Map<string, { grant: Grant; signal: AbortSignal }>; last: { state: string; category?: string } | null };
 // Gateway ingress and Agent registries may evaluate separate plugin modules.
 // The public SDK slot shares only Core-issued permits for the exact configured scope.
 const scopeStore = createPluginRuntimeStore<Map<string, SupplyScope>>({ key: "stella-core.checkpoint-agent-supply/v1", errorMessage: "checkpoint_supply_not_initialized" });
-function newScope(): SupplyScope { return { shutdown: new AbortController(), grants: new Map(), sessions: new Set(), runs: new Set(), calls: new Map(), last: null }; }
+function newScope(): SupplyScope { return { shutdown: new AbortController(), grants: new Map(), runs: new Set(), calls: new Map(), last: null }; }
 
 
 /** Stock Host owns the normal Agent/model/tool loop. Core admits one fresh
- * physical session and releases only checked retain/v1 evidence at its tool boundary.
+ * user request with empty Host history and supplies checked retain/v1 evidence.
+ * Authorized originals are request-local; model/tool continuations reuse them.
  * This does not attest Host prompt history or provide a per-model dispatch gate.
  */
 export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: CheckpointPluginConfig, current: () => Promise<Runtime>) {
@@ -43,19 +44,31 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
   const scopeKey = enabled ? canonicalJson({ config, hostStateDirectory: api.runtime.state.resolveStateDir() }) : "";
   const scope = enabled ? scopes.get(scopeKey) ?? newScope() : newScope();
   if (enabled) scopes.set(scopeKey, scope);
-  const { shutdown, grants, sessions, runs, calls } = scope;
+  const { shutdown, grants, runs, calls } = scope;
   const assertAlive = (grant: Grant, signal?: AbortSignal, toolActive = false) => {
     check(!toolActive || grant.active && grant.admitted, "checkpoint_agent_scope_closed");
     check(!shutdown.signal.aborted && !signal?.aborted && !grant.ingress.signal.aborted, "checkpoint_agent_cancelled");
   };
-  const assertGrant = async (grant: Grant, signal?: AbortSignal, toolActive = false) => {
+  const retire = (grant: Grant) => {
+    grant.active = false; grant.originals.clear(); grant.handles.clear();
+    for (const [id, call] of calls) if (call.grant === grant) calls.delete(id);
+  };
+  const assertRequest = async (grant: Grant, signal?: AbortSignal, toolActive = false) => {
     try {
-      assertAlive(grant, signal, toolActive);
-      await grant.ingress.assertCurrent(); await grant.runtime.assert(grant.recovery); await grant.resolver.reader.assertCurrent();
-      assertAlive(grant, signal, toolActive);
-    } catch (error) { grant.active = false; grant.deliveryOpen = false; scope.last = { state: "blocked", category: category(error) }; throw error; }
+      assertAlive(grant, signal, toolActive); await grant.ingress.assertCurrent(); assertAlive(grant, signal, toolActive);
+    } catch (error) { retire(grant); scope.last = { state: "blocked", category: category(error) }; throw error; }
+  };
+  const assertGrant = async (grant: Grant, signal?: AbortSignal, toolActive = false) => {
+    await assertRequest(grant, signal, toolActive);
+    await grant.runtime.assert(grant.recovery); await grant.resolver.reader.assertCurrent();
+    assertAlive(grant, signal, toolActive);
   };
   const original = async (grant: Grant, ref: OriginalEvidence["ref"], signal?: AbortSignal, toolActive = false) => {
+    await assertRequest(grant, signal, toolActive);
+    const key = canonicalJson(ref), cached = grant.originals.get(key);
+    if (cached) return structuredClone(cached);
+    // Check a previously unseen source against this request's frozen authority.
+    // A later publication cannot silently become this request's expected version.
     try {
       await assertGrant(grant, signal, toolActive);
       const evidence = await grant.resolver.reader.read(ref, "evidence");
@@ -66,58 +79,11 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         check(policy.schemaVersion === "stella.source-policy/v1" && parsed.retention === "retain" && !parsed.restrictions && !parsed.usageRules,
           "checkpoint_agent_source_mode_unavailable");
       }
-      const result = await grant.resolver.readEvidence(ref); await assertGrant(grant, signal, toolActive); return result;
-    } catch (error) { grant.active = false; grant.deliveryOpen = false; scope.last = { state: "blocked", category: category(error) }; throw error; }
-  };
-  const guardDelivery = async <T>(grant: Grant, payload: T): Promise<T | null> => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const invalidate = (reason: string) => { grant.active = false; grant.deliveryOpen = false; scope.last = { state: "blocked", category: reason }; return null; };
-    const validation = (async () => {
-      try {
-        check(grant.deliveryOpen && grant.admitted, "checkpoint_agent_scope_closed");
-        await assertGrant(grant); for (const ref of grant.released.values()) await original(grant, ref); await assertGrant(grant);
-        assertAlive(grant); check(grant.deliveryOpen, "checkpoint_agent_scope_closed"); return payload;
-      } catch (error) { return invalidate(category(error)); }
-    })();
-    // This budget is shorter than the registered public hook's 15s Host budget.
-    // A slow/failed check becomes an explicit cancel, never a Host fail-open timeout.
-    try { return await Promise.race([validation, new Promise<null>(resolve => { timer = setTimeout(() => resolve(invalidate("checkpoint_agent_delivery_check_timeout")), 2_000); })]); }
-    finally { if (timer) clearTimeout(timer); }
+      const result = await grant.resolver.readEvidence(ref); await assertGrant(grant, signal, toolActive);
+      grant.originals.set(key, structuredClone(result)); return structuredClone(result);
+    } catch (error) { scope.last = { state: "blocked", category: category(error) }; throw error; }
   };
   if (enabled) {
-    // Synchronous transcript append gate: enforce only already-known validity.
-    // It cannot await source revalidation or stop native WebChat stream events.
-    api.on("before_message_write", (event, ctx) => {
-      const key = event.sessionKey ?? ctx.sessionKey;
-      const target = [event.agentId, ctx.agentId].includes(config.agentId) ||
-        [event.sessionKey, ctx.sessionKey].some(value => value && parseAgentSessionKey(value)?.agentId === config.agentId);
-      if (!target) return;
-      const block = () => ({ block: true });
-      try {
-        if (event.message.role !== "assistant") return;
-        if (!key || parseAgentSessionKey(key)?.agentId !== config.agentId ||
-          event.sessionKey !== undefined && ctx.sessionKey !== undefined && event.sessionKey !== ctx.sessionKey ||
-          event.agentId !== undefined && event.agentId !== config.agentId || ctx.agentId !== undefined && ctx.agentId !== config.agentId) return block();
-        const candidates = [...grants.values()].filter(grant => grant.admitted && grant.ingress.request.sessionKey === key);
-        if (candidates.length !== 1) return block();
-        const grant = candidates[0]!;
-        if (!grant.active || !grant.deliveryOpen || shutdown.signal.aborted || grant.ingress.signal.aborted) return block();
-      } catch { return block(); }
-    }, { priority: 10_000 });
-    api.on("reply_payload_sending", async (event, ctx) => {
-      const key = event.sessionKey ?? ctx.sessionKey, runId = event.runId ?? ctx.runId;
-      const grant = runId ? grants.get(runId) : undefined;
-      const knownRun = grant || ctx.runId && grants.has(ctx.runId);
-      const targetKey = [event.sessionKey, ctx.sessionKey].some(value => value && parseAgentSessionKey(value)?.agentId === config.agentId);
-      if (!knownRun && !targetKey) return;
-      if (!grant || !key || key !== grant.ingress.request.sessionKey ||
-        event.sessionKey !== undefined && event.sessionKey !== grant.ingress.request.sessionKey ||
-        ctx.sessionKey !== undefined && ctx.sessionKey !== grant.ingress.request.sessionKey ||
-        event.runId !== undefined && ctx.runId !== undefined && event.runId !== ctx.runId)
-        return { cancel: true, reason: "checkpoint_agent_delivery_scope_unavailable" };
-      const payload = await guardDelivery(grant, event.payload);
-      return payload ? { payload } : { cancel: true, reason: scope.last?.category ?? "checkpoint_agent_delivery_unavailable" };
-    }, { priority: 10_000, timeoutMs: 15_000 });
     api.on("reply_dispatch", async (event, ctx) => {
       const key = event.sessionKey ?? event.ctx.SessionKey;
       if (!key || parseAgentSessionKey(key)?.agentId !== config.agentId || event.ctx.CommandTurn && event.ctx.CommandTurn.kind !== "normal") return;
@@ -134,11 +100,8 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         const resolver = new EpisodeEvidenceResolver(reader, { ...binding.purpose, evidenceCutoff: ingress.capturedAt,
           trustedAdapters: { user_report: [HOST_REQUEST_ARCHIVE_ADAPTER, HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } },
           async () => { throw new CatalogError("checkpoint_agent_semantic_dispatch_forbidden"); });
-        const grant: Grant = { ingress, runtime, recovery: loaded.recovery, resolver, active: true, deliveryOpen: true, admitted: false, handles: new Map(), released: new Map() };
+        const grant: Grant = { ingress, runtime, recovery: loaded.recovery, resolver, active: true, admitted: false, handles: new Map(), originals: new Map() };
         await assertGrant(grant); grants.set(ingress.request.runId, grant);
-        // Some Host ingress paths expose only an abort-aware dispatcher facade.
-        // Its outer dispatcher still runs the registered public payload gate.
-        ctx.dispatcher.appendBeforeDeliver?.(payload => guardDelivery(grant, payload));
         scope.last = { state: "prepared" };
         // No takeover: the native Host dispatch now runs its normal Agent and tools.
         return;
@@ -157,7 +120,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         check(grant?.active && grant.admitted && event.toolName === CHECKPOINT_MEMORY_TOOL && ctx.toolName === CHECKPOINT_MEMORY_TOOL &&
           ctx.toolCallId && ctx.sessionId === grant.ingress.request.sessionId && ctx.sessionKey === grant.ingress.request.sessionKey && ctx.abortSignal,
           "checkpoint_agent_tool_scope_unavailable");
-        await assertGrant(grant, ctx.abortSignal, true);
+        await assertRequest(grant, ctx.abortSignal, true);
         check(!calls.has(ctx.toolCallId) && calls.size < 256, "checkpoint_agent_tool_replay");
         assertAlive(grant, ctx.abortSignal, true);
         calls.set(ctx.toolCallId, { grant, signal: ctx.abortSignal });
@@ -171,7 +134,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
           ctx.sessionKey === call.grant.ingress.request.sessionKey && ctx.senderIsOwner === true && ctx.requesterSenderId === call.grant.ingress.request.senderId,
           "checkpoint_agent_tool_scope_unavailable");
         const grant = call.grant, cancellation = AbortSignal.any([call.signal, ...signal ? [signal] : []]);
-        await assertGrant(grant, cancellation, true);
+        await assertRequest(grant, cancellation, true);
         check(isRecord(value) && (value.action === "list" && Object.keys(value).join() === "action" || value.action === "read" &&
           typeof value.handle === "string" && Object.keys(value).sort().join() === "action,handle"), "checkpoint_agent_tool_arguments_invalid");
         let output: unknown;
@@ -181,25 +144,25 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
           const items: Array<{ handle: string; evidence: OriginalEvidence["ref"]; preview: string; capturedAt: string }> = [];
           for (const entry of entries) {
             const evidence = await original(grant, entry, cancellation, true), handle = `E${items.length + 1}`;
-            grant.handles.set(handle, entry); grant.released.set(canonicalJson(entry), entry);
+            grant.handles.set(handle, entry);
             items.push({ handle, evidence: evidence.ref, preview: evidence.text.slice(0, 160), capturedAt: evidence.capturedAt });
           }
           output = { generation: grant.resolver.reader.catalog.generationId, items };
         } else {
           const ref = grant.handles.get(String(value.handle)); check(ref, "checkpoint_agent_handle_unavailable");
-          const evidence = await original(grant, ref, cancellation, true); grant.released.set(canonicalJson(ref), ref);
+          const evidence = await original(grant, ref, cancellation, true);
           output = { original: evidence };
         }
-        // All released dependencies are re-read. No async observer after this final check.
-        for (const ref of grant.released.values()) await original(grant, ref, cancellation, true);
-        await assertGrant(grant, cancellation, true); assertAlive(grant, cancellation, true); scope.last = { state: "supplied" };
+        // Cancellation and identity still apply; already-authorized evidence does
+        // not acquire a new permission/version boundary at every model tool step.
+        await assertRequest(grant, cancellation, true); assertAlive(grant, cancellation, true); scope.last = { state: "supplied" };
         return { content: [{ type: "text", text: canonicalJson(output) }], details: output };
       },
     }, { names: [CHECKPOINT_MEMORY_TOOL], optional: true });
-    api.on("agent_end", (_event, ctx) => { if (ctx.agentId === config.agentId && ctx.runId) { const grant = grants.get(ctx.runId); if (grant) grant.active = false; } });
+    api.on("agent_end", (_event, ctx) => { if (ctx.agentId === config.agentId && ctx.runId) { const grant = grants.get(ctx.runId); if (grant) retire(grant); } });
   }
   return { status: () => scope.last, close() {
-      shutdown.abort(); for (const grant of grants.values()) { grant.active = false; grant.deliveryOpen = false; }
+      shutdown.abort(); for (const grant of grants.values()) retire(grant);
       calls.clear(); grants.clear(); if (enabled && scopes.get(scopeKey) === scope) scopes.delete(scopeKey);
     },
     async beforeAgentRun(event: { messages: unknown[]; senderIsOwner?: boolean }, ctx: { agentId?: string; runId?: string; sessionId?: string; sessionKey?: string }) {
@@ -209,10 +172,10 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         const grant = enabled && ctx.runId ? grants.get(ctx.runId) : undefined;
         const admission = { grantPresent: Boolean(grant), active: grant?.active === true, unusedGrant: grant?.admitted === false,
           sessionIdMatches: Boolean(grant && ctx.sessionId === grant.ingress.request.sessionId), sessionKeyMatches: Boolean(grant && ctx.sessionKey === grant.ingress.request.sessionKey),
-          owner: event.senderIsOwner === true, emptyHistory: Array.isArray(event.messages) && event.messages.length === 0, unusedSession: Boolean(ctx.sessionId && !sessions.has(ctx.sessionId)) };
+          owner: event.senderIsOwner === true, emptyHistory: Array.isArray(event.messages) && event.messages.length === 0 };
         if (!Object.values(admission).every(Boolean)) api.logger.debug?.(`Stella checkpoint admission refused: ${canonicalJson(admission)}`);
         check(grant && ctx.sessionId && Object.values(admission).every(Boolean), "checkpoint_agent_fresh_session_required");
-        sessions.add(ctx.sessionId); grant.admitted = true; await assertGrant(grant); scope.last = { state: "admitted" };
+        grant.admitted = true; await assertGrant(grant); scope.last = { state: "admitted" };
         return { outcome: "pass" as const };
       } catch (error) { scope.last = { state: "blocked", category: category(error) }; return { outcome: "block" as const, category: category(error), reason: "Stella fresh-session tool admission failed", message: category(error) }; }
     } };

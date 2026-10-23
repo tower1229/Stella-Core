@@ -12,7 +12,7 @@ import path from "node:path";
 const root = await realpath(process.cwd());
 assert.equal(root, "/Users/zangtao/Workspace/tower1229/Stella-Core");
 const attempt = process.argv[2], compilation = process.argv[3], scenario = process.argv[4] ?? "normal";
-assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent"].includes(scenario));
+assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent", "next_request"].includes(scenario));
 assert.match(attempt ?? "", /^[a-z][a-z0-9]{0,15}$/); assert.match(compilation ?? "", /^a[0-9]+$/);
 const art = path.resolve(process.env.STELLA_AGENT_SUPPLY_ARTIFACTS ?? path.join(root, ".artifacts/suqing-batch6-20261022"));
 assert.ok(art.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(art) === art);
@@ -22,7 +22,7 @@ const ownerPath = path.join(art, "host-probe-owner.json"), owner = { pid: proces
 const compiled = path.resolve(process.env.STELLA_AGENT_SUPPLY_COMPILED ?? path.join(art, "compiled-" + compilation));
 assert.ok(compiled.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(compiled) === compiled);
 await writeFile(ownerPath, JSON.stringify(owner), { flag: "wx" });
-const { createAgentSupplySource, SUPPLY_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
+const { createAgentSupplySource, publishAgentSupplyPolicyDenial, SUPPLY_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
 const { GatewayClient } = await import("openclaw/plugin-sdk/gateway-runtime");
 const source = await createAgentSupplySource(), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
 const state = process.env.OPENCLAW_STATE_DIR, configPath = process.env.OPENCLAW_CONFIG_PATH;
@@ -78,16 +78,17 @@ const refreshFault = async () => {
   const fault = records.find(value => value.name === "fault_boundary_complete"); if (fault) result.fault = fault.result;
 };
 try {
-  let count = 0;
+  let count = 0, userRound = 1;
+  const nextMarker = "SYNTHETIC_UPDATED_MEMORY_B_6147", nextAnswer = "SYNTHETIC_UPDATED_ANSWER_B_6147";
   provider = createServer(async (request, response) => {
     try {
       assert.equal(request.method, "POST");
       assert.match(request.url, /gemini-3\.8-flash:streamGenerateContent/);
       let body = ""; for await (const chunk of request) body += chunk;
       const input = JSON.parse(body), index = ++count; await refreshFault();
-      assert.ok(index <= (scenario === "history" ? 6 : 3), "Stock Host exceeded the exact synthetic model call budget");
+      assert.ok(index <= (scenario === "next_request" ? 9 : scenario === "history" ? 6 : 3), "Stock Host exceeded the exact synthetic model call budget");
       await writeFile(path.join(out, `provider-${index}.json`), body);
-      result.rawProviderRequests.push({ index, path: request.url, bytes: Buffer.byteLength(body), atUtc: new Date().toISOString(), sourceMarker: body.includes(SUPPLY_MARKER), faultAlreadyApplied: Boolean(result.fault) });
+      result.rawProviderRequests.push({ index, path: request.url, bytes: Buffer.byteLength(body), atUtc: new Date().toISOString(), sourceMarker: body.includes(SUPPLY_MARKER), faultAlreadyApplied: Boolean(result.fault), userRound, updatedMemory: body.includes(nextMarker) });
       appendFileSync(logPath, JSON.stringify({ name: "provider_request", ...result.rawProviderRequests.at(-1) }) + "\n"); await save();
       if (scenario === "revoke_after_sent" && index === 2) {
         const policy = JSON.parse(await readFile(syntheticPolicyPath, "utf8")); policy.readPurposes = []; delete policy.version;
@@ -96,9 +97,12 @@ try {
         appendFileSync(logPath, JSON.stringify({ name: "fault_boundary_complete", result: result.fault }) + "\n"); await save();
       }
       let parts;
-      const stage = scenario === "history" ? (index - 1) % 3 + 1 : index;
-      if (stage === 1) {
-        assert.ok(!body.includes(SUPPLY_MARKER) && !body.includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"), "Fresh model input must not inherit prior memory or answer");
+      const stage = ["history", "next_request"].includes(scenario) ? (index - 1) % 3 + 1 : index;
+      if (scenario === "next_request" && userRound === 3) {
+        assert.ok(!body.includes(SUPPLY_MARKER) && !body.includes(nextMarker) && !body.includes(nextAnswer), "New denied request must contain no prior memory/history");
+        parts = index === 7 ? [{ functionCall: { name: "stella_memory_data", args: { action: "list" } } }] : [{ text: "SYNTHETIC_CURRENT_POLICY_DENIED_6147" }];
+      } else if (stage === 1) {
+        assert.ok(!body.includes(SUPPLY_MARKER) && !body.includes("SYNTHETIC_STOCK_HOST_ANSWER_4931") && !body.includes(nextMarker) && !body.includes(nextAnswer), "Fresh model input must not inherit prior memory or answer");
         assert.ok(JSON.stringify(input.tools).includes("stella_memory_data"));
         if (scenario === "revoke_before_list") {
           const policy = JSON.parse(await readFile(syntheticPolicyPath, "utf8")); policy.readPurposes = []; delete policy.version;
@@ -130,11 +134,19 @@ try {
       } else if (scenario === "revoke_after_sent") {
         parts = [{ text: "SYNTHETIC_STOCK_HOST_ANSWER_4931: Preserve unresolved questions." }];
       } else if (stage === 2) {
-        assert.ok(body.includes(SUPPLY_MARKER)); parts = [{ functionCall: { name: "stella_memory_data", args: { action: "read", handle: "E1" } } }];
+        assert.ok(body.includes(SUPPLY_MARKER));
+        let handle = "E1";
+        if (scenario === "next_request" && userRound === 2) {
+          const output = input.contents.flatMap(item => item.parts ?? []).find(part => part.functionResponse)?.functionResponse.response.output;
+          const list = JSON.parse(output); handle = list.items.find(item => item.preview.includes(nextMarker))?.handle;
+          assert.ok(handle && body.includes(nextMarker), "Next request must list newly committed B");
+        }
+        parts = [{ functionCall: { name: "stella_memory_data", args: { action: "read", handle } } }];
       } else {
         assert.ok(body.includes(SUPPLY_MARKER) && body.includes('functionResponse'));
         if (scenario !== "revoke_after_list") assert.ok(body.includes('original'));
-        parts = [{ text: "SYNTHETIC_STOCK_HOST_ANSWER_4931: Preserve unresolved questions." }];
+        parts = [{ text: scenario === "next_request" && userRound === 2 ? `${nextAnswer}: ${nextMarker}` : "SYNTHETIC_STOCK_HOST_ANSWER_4931: Preserve unresolved questions." }];
+        if (scenario === "next_request" && userRound === 2) assert.ok(body.includes(nextMarker));
       }
       const output = { responseId: `synthetic-google-${index}`, modelVersion: "gemini-3.8-flash", candidates: [{ index: 0, content: { role: "model", parts }, finishReason: "STOP" }],
         usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 } };
@@ -179,7 +191,7 @@ try {
   result.history = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 30 });
   await refreshFault();
   assert.equal(result.providerError, undefined); assert.equal(result.status.capabilities.full_memory, false);
-  if (["normal", "history"].includes(scenario)) {
+  if (["normal", "history", "next_request"].includes(scenario)) {
     assert.equal(result.terminal.status, "ok", JSON.stringify(result.terminal)); assert.equal(count, 3);
     assert.ok(JSON.stringify(result.history).includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"));
     if (scenario === "history") {
@@ -191,6 +203,50 @@ try {
       const next = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply-next", message: "SYNTHETIC_NEW_FRESH_REQUEST_4931", idempotencyKey: "synthetic-stock-host-three" });
       result.historyIsolation.freshTerminal = await client.request("agent.wait", { runId: next.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
       assert.equal(result.historyIsolation.freshTerminal.status, "ok"); assert.equal(count, 6); result.historyIsolation.distinctPhysicalSession = true;
+    }
+    if (scenario === "next_request") {
+      const { createCheckpointPluginRuntime, parseCheckpointPluginConfig } = await import(pathToFileURL(path.join(compiled, "src/openclaw/checkpoint-plugin-runtime.js")));
+      const { CatalogReader } = await import(pathToFileURL(path.join(compiled, "src/canghai/catalog-reader.js")));
+      const { prepareHostRequestArchive } = await import(pathToFileURL(path.join(compiled, "src/canghai/host-request-archive.js")));
+      const { snapshotTurnRequest } = await import(pathToFileURL(path.join(compiled, "src/openclaw/turn-request.js")));
+      const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(configuredCheckpoint), "2026.8.2");
+      try {
+        const recovery = await writer.capture(), request = snapshotTurnRequest({ agentId: "synthetic", sessionId: "synthetic-writer-B", sessionKey: "agent:synthetic:archive-B",
+          prompt: `${nextMarker}: Keep the author's concrete questions.`, senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, "synthetic-writer-B");
+        const archive = prepareHostRequestArchive({ schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: "2020-01-02T00:00:00Z" }, { ...source.binding.archive, ownerId: "owner-fixture" });
+        const accepted = await writer.archiveLocal({ recovery, reader: await CatalogReader.load(source.root, source.catalogPath), archive, operationId: "synthetic-user-boundary-B", purpose: source.binding.purpose });
+        assert.notEqual(accepted.authority.token, recovery.expected.token);
+        result.nextRequest = { before: recovery.expected, publishedB: accepted, qualification: "Production Core archive/transaction/CAS writer over synthetic repository; no user data" };
+        // Same logical key, official reset completed before chat.send. No history surgery.
+        result.nextRequest.resetB = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply", reason: "new" });
+        userRound = 2;
+        const sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: "Read my current retained writing preference.", idempotencyKey: "synthetic-stock-host-B" });
+        result.nextRequest.sentB = sent;
+        result.nextRequest.terminalB = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
+        result.nextRequest.historyB = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 30 });
+        assert.equal(result.nextRequest.terminalB.status, "ok"); assert.equal(count, 6);
+        assert.ok(JSON.stringify(result.nextRequest.historyB).includes(nextAnswer));
+        const firstB = await readFile(path.join(out, "provider-4.json"), "utf8");
+        assert.ok(!firstB.includes(SUPPLY_MARKER) && !firstB.includes("SYNTHETIC_STOCK_HOST_ANSWER_4931"));
+        const current = await writer.capture(); assert.equal(current.expected.token, accepted.authority.token);
+        const denied = await publishAgentSupplyPolicyDenial(source, configuredCheckpoint.checkpointStateDirectory, current);
+        assert.ok(denied.authority && denied.authority.token !== current.expected.token);
+        result.nextRequest.publishedC = { ...denied, qualification: "Test-only policy business plan; production transaction/journal/CAS, not a deployed policy editor" };
+        result.nextRequest.resetC = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply", reason: "new" });
+        userRound = 3;
+        const blocked = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: "What current memory may you read?", idempotencyKey: "synthetic-stock-host-C" });
+        result.nextRequest.sentC = blocked;
+        result.nextRequest.terminalC = await client.request("agent.wait", { runId: blocked.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
+        result.nextRequest.historyC = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 30 });
+        result.nextRequest.statusC = await client.request("stella.checkpoint", { action: "status" });
+        assert.equal(result.nextRequest.statusC.authority.token, denied.authority.token);
+        assert.equal(count, 8); assert.equal(result.nextRequest.terminalC.status, "ok");
+        for (const i of [7, 8]) {
+          const request = await readFile(path.join(out, `provider-${i}.json`), "utf8");
+          assert.ok(!request.includes(SUPPLY_MARKER) && !request.includes(nextMarker) && !request.includes(nextAnswer));
+        }
+        result.nextRequest.boundariesVerified = { BLoaded: true, CPolicyAppliedBeforeFirstSupply: true, noOldHistoryInFreshInputs: true, resetBeforeSend: true };
+      } finally { writer.close(); }
     }
     result.passed = true;
   } else {

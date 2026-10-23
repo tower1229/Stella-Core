@@ -62,12 +62,14 @@ test("stock Host orchestration fixture can call retained data tools and continue
   const modelRequests = [{ tool: "list" }, { tool: "read" }, { toolResult: read.content, answer: "Preserve unresolved questions." }];
   assert.equal(modelRequests.length, 3); const payload = { text: modelRequests[2]!.answer };
   await f.hooks.get("agent_end")!({ success: true }, f.agent);
-  assert.deepEqual(await f.beforeDeliver[0]!(payload), payload);
+  assert.equal(f.beforeDeliver.length, 0);
+  assert.equal(f.hooks.has("reply_payload_sending"), false);
+  assert.equal(f.hooks.has("before_message_write"), false);
   assert.equal((await f.rpc("status")).payload.capabilities.full_memory, false);
   assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
 });
 
-test("old history, missing ingress, wrong identity and reused physical session remain blocked", async t => {
+test("old history, missing ingress, wrong identity and reused request grant remain blocked", async t => {
   for (const kind of ["history", "no-ingress", "wrong-session", "reused"] as const) await t.test(kind, async t => {
     const f = await fixture(t); if (kind !== "no-ingress") await f.ingress();
     if (kind === "wrong-session") f.agent.sessionId = "another-session";
@@ -85,17 +87,34 @@ test("tool body gate survives a missing hook and rejects extra arguments, paths 
   await assert.rejects(f.execute({ action: "list" }, true, { runId: "another-run" }), /checkpoint_agent_tool_scope_unavailable/);
 });
 
-test("live revocation, payload deletion, cancellation and registration close prevent further body supply", async t => {
-  for (const kind of ["revoke", "delete", "cancel", "close"] as const) await t.test(kind, async t => {
+test("already-authorized originals survive a request-local source change, but cancellation and close still stop supply", async t => {
+  for (const kind of ["delete", "policy", "cancel", "close"] as const) await t.test(kind, async t => {
     const f = await fixture(t); await f.ingress(); await f.admit();
     const list = await f.execute({ action: "list" }); assert.ok(list.details.items[0].preview.includes(SUPPLY_MARKER));
-    if (kind === "revoke") f.live.plugins.entries["stella-core"].enabled = false;
     if (kind === "delete") await rm(path.join(f.root, f.archive.payload.path));
+    if (kind === "policy") {
+      const catalog = JSON.parse(await readFile(path.join(f.root, f.catalogPath), "utf8"));
+      const file = path.join(f.root, catalog.policies[0].locator.path), document = JSON.parse(await readFile(file, "utf8"));
+      document.readPurposes = []; await writeFile(file, JSON.stringify(document));
+    }
     if (kind === "cancel") f.controller.abort();
     if (kind === "close") for (const stop of f.stops) await stop();
-    await assert.rejects(f.execute({ action: "read", handle: "E1" }));
-    assert.equal(await f.beforeDeliver[0]!({ text: "Stale draft" }), null);
+    if (kind === "cancel" || kind === "close") await assert.rejects(f.execute({ action: "read", handle: "E1" }));
+    else {
+      const read = await f.execute({ action: "read", handle: "E1" }); assert.ok(read.details.original.text.includes(SUPPLY_MARKER));
+      read.details.original.text = "CALLER_MUTATION";
+      assert.ok((await f.execute({ action: "read", handle: "E1" })).details.original.text.includes(SUPPLY_MARKER));
+    }
   });
+});
+
+test("new user request with empty history can reuse a reset physical session but not its old evidence cache", async t => {
+  const f = await fixture(t); await f.ingress(); await f.admit(); await f.execute({ action: "list" });
+  await f.hooks.get("agent_end")!({}, f.agent);
+  await rm(path.join(f.root, f.archive.payload.path));
+  f.event.runId = f.agent.runId = "synthetic-next-user-request";
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  await assert.rejects(f.execute({ action: "list" }));
 });
 
 test("group ingress never creates a normal Agent memory grant", async t => {
@@ -132,9 +151,11 @@ test("agent_end during an asynchronous tool authorization check invalidates body
 });
 
 
-test("an old Host tool grant cannot adopt a later committed checkpoint B", async t => {
+test("cached A remains request-local while the next user request loads committed checkpoint B", async t => {
+  for (const cached of [true, false]) await t.test(cached ? "authorized A" : "unseen A", async t => {
   const f = await fixture(t); await f.ingress(); await f.admit();
   const before = (await f.rpc("status")).payload.authority;
+  if (cached) await f.execute({ action: "list" });
   const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); t.after(() => writer.close());
   const request = snapshotTurnRequest({ agentId: "synthetic", sessionId: "synthetic-other-source", sessionKey: "agent:synthetic:another",
     prompt: "Synthetic independently authorized new event", senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, "synthetic-other-writer");
@@ -142,37 +163,25 @@ test("an old Host tool grant cannot adopt a later committed checkpoint B", async
   const accepted = await writer.archiveLocal({ recovery: await writer.capture(), reader: await CatalogReader.load(f.root, f.catalogPath), archive,
     operationId: "synthetic-independent-writer-B", purpose: f.binding.purpose });
   assert.notEqual(accepted.authority.revision, before.revision); assert.notEqual(accepted.authority.token, before.token);
-  await assert.rejects(f.execute({ action: "list" }));
-  assert.equal(await f.beforeDeliver[0]!({ text: "Old A draft" }), null);
-  assert.deepEqual((await f.rpc("status")).payload.authority, accepted.authority);
-});
-
-
-test("public payload gate covers a Host facade without appendBeforeDeliver", async t => {
-  const f = await fixture(t); delete f.context.dispatcher.appendBeforeDeliver;
+  if (cached) assert.ok((await f.execute({ action: "read", handle: "E1" })).details.original.text.includes(SUPPLY_MARKER));
+  else await assert.rejects(f.execute({ action: "list" }));
+  await f.hooks.get("agent_end")!({}, f.agent);
+  f.event.runId = f.agent.runId = "synthetic-next-request-B";
   assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
-  await f.execute({ action: "list" });
-  const event = { payload: { text: "Synthetic source-current answer" }, kind: "final", runId: f.agent.runId, sessionKey: f.agent.sessionKey };
-  const context = { channelId: "webchat", sessionKey: f.agent.sessionKey };
-  assert.deepEqual((await f.hooks.get("reply_payload_sending")!(event, context)).payload, event.payload);
-  assert.equal((await f.hooks.get("reply_payload_sending")!({ ...event, sessionKey: undefined }, { channelId: "webchat" })).cancel, true);
-  assert.equal((await f.hooks.get("reply_payload_sending")!(event, { ...context, sessionKey: "agent:other:wrong" })).cancel, true);
-  assert.equal((await f.hooks.get("reply_payload_sending")!({ ...event, runId: "unrecognized" }, { ...context, runId: f.agent.runId })).cancel, true);
-  f.live.plugins.entries["stella-core"].enabled = false;
-  assert.equal((await f.hooks.get("reply_payload_sending")!(event, context)).cancel, true);
-  assert.equal((await f.hooks.get("reply_payload_sending")!({ ...event, runId: "different-run" }, context)).cancel, true);
+  const next = await f.execute({ action: "list" });
+  assert.equal(next.details.items.length, 2);
+  assert.ok(next.details.items.some((item: { preview: string }) => item.preview.includes("Synthetic independently authorized new event")));
+  assert.deepEqual((await f.rpc("status")).payload.authority, accepted.authority);
+  });
 });
 
-test("public delivery check returns explicit cancellation before a slow Host hook can fail open", async t => {
+
+test("Host retains native output and history ownership without Core delivery interception", async t => {
   const f = await fixture(t); await f.ingress(); await f.admit();
-  const original = CatalogReader.prototype.assertCurrent;
-  CatalogReader.prototype.assertCurrent = async () => new Promise<void>(() => {});
-  try {
-    const result = await f.hooks.get("reply_payload_sending")!({ payload: { text: "Must not escape" }, kind: "final", runId: f.agent.runId, sessionKey: f.agent.sessionKey }, { channelId: "webchat" });
-    assert.equal(result.cancel, true); assert.equal(result.reason, "checkpoint_agent_delivery_check_timeout");
-  } finally { CatalogReader.prototype.assertCurrent = original; }
+  assert.equal(f.hooks.has("reply_payload_sending"), false);
+  assert.equal(f.hooks.has("before_message_write"), false);
+  assert.equal(f.beforeDeliver.length, 0);
 });
-
 
 test("readonly Host ingress does not fabricate an absent Host timestamp", async t => {
   const f = await fixture(t); delete f.event.ctx.Timestamp;
@@ -191,7 +200,7 @@ test("missing or withdrawn public conversation-hook permission blocks native han
     else delete f.live.plugins.entries["stella-core"].hooks.allowConversationAccess;
     if (kind === "withdrawn") {
       await assert.rejects(f.execute({ action: "read", handle: "E1" }), /checkpoint_agent_hook_permission_required/);
-      assert.equal(await f.beforeDeliver[0]!({ text: "Stale synthetic answer" }), null);
+
     } else {
       assert.equal((await f.ingress()).handled, true);
       assert.equal((await f.rpc("status")).payload.supply.category, "checkpoint_agent_hook_permission_required");
@@ -213,7 +222,7 @@ test("separate public plugin registrations share only original exact-scope permi
   assert.equal(await hooks.get("before_tool_call")!({ toolName: CHECKPOINT_MEMORY_TOOL, params: value }, { ...f.agent, toolName: CHECKPOINT_MEMORY_TOOL, toolCallId: callId, abortSignal: f.controller.signal }), undefined);
   const tool = factories.map(fn => fn(f.toolContext)).find(value => value?.name === CHECKPOINT_MEMORY_TOOL);
   assert.ok((await tool.execute(callId, value, f.controller.signal)).details.items[0].preview.includes(SUPPLY_MARKER));
-  assert.equal((await f.hooks.get("reply_payload_sending")!({ payload: { text: "Same original permit" }, runId: f.agent.runId, sessionKey: f.agent.sessionKey }, {})).payload.text, "Same original permit");
+  assert.equal(f.hooks.has("reply_payload_sending"), false);
   for (const stop of stops) await stop();
   await assert.rejects(f.execute({ action: "list" }));
   assert.equal((await f.admit()).outcome, "block");
@@ -232,25 +241,24 @@ test("a different configured scope or a replacement after close cannot adopt an 
 });
 
 
-test("a source failure before any body release also closes final delivery", async t => {
+test("an unseen source failure denies first supply without claiming Host output control", async t => {
   const f = await fixture(t); await f.ingress(); await f.admit();
   await rm(path.join(f.root, f.archive.payload.path));
   await assert.rejects(f.execute({ action: "list" }));
-  assert.equal((await f.hooks.get("reply_payload_sending")!({ payload: { text: "Must stay blocked" }, runId: f.agent.runId, sessionKey: f.agent.sessionKey }, {})).cancel, true);
+  assert.equal(f.hooks.has("reply_payload_sending"), false);
+  assert.equal(f.hooks.has("before_message_write"), false);
 });
 
+test("source changes before first authorization cannot enter a request-local cache", async t => {
+  const f = await fixture(t); await f.ingress(); await f.admit();
+  await writeFile(path.join(f.root, f.archive.payload.path), "UNAUTHORIZED_REPLACEMENT");
+  await assert.rejects(f.execute({ action: "list" }));
+  await assert.rejects(f.execute({ action: "read", handle: "E1" }), /checkpoint_agent_handle_unavailable/);
+});
 
-test("synchronous transcript gate refuses known-invalid assistants without changing other writers", async t => {
-  const f = await fixture(t), message = { role: "assistant", content: [{ type: "text", text: "Synthetic answer" }] };
-  const event = { message, agentId: f.agent.agentId, sessionKey: f.agent.sessionKey }, ctx = { agentId: f.agent.agentId, sessionKey: f.agent.sessionKey };
-  const gate = f.hooks.get("before_message_write")!;
-  assert.deepEqual(gate(event, ctx), { block: true });
-  assert.equal(gate({ ...event, message: { role: "user", content: "Keep user input" } }, ctx), undefined);
-  assert.equal(gate({ ...event, agentId: "other", sessionKey: "agent:other:fresh" }, { agentId: "other", sessionKey: "agent:other:fresh" }), undefined);
-  await f.ingress(); await f.admit();
-  const allowed = gate(event, ctx); assert.equal(allowed, undefined);
-  assert.deepEqual(gate({ ...event, sessionKey: undefined }, { agentId: f.agent.agentId }), { block: true });
-  assert.deepEqual(gate(event, { ...ctx, sessionKey: "agent:other:fresh" }), { block: true });
-  await rm(path.join(f.root, f.archive.payload.path)); await assert.rejects(f.execute({ action: "list" }));
-  assert.deepEqual(gate(event, ctx), { block: true });
+test("public session lifecycle changes invalidate old request identity", async t => {
+  const f = await fixture(t); await f.ingress(); await f.admit(); await f.execute({ action: "list" });
+  await upsertSessionEntry({ agentId: "synthetic", sessionKey: f.agent.sessionKey, storePath: f.storePath,
+    env: { OPENCLAW_STATE_DIR: f.state }, entry: { sessionId: f.agent.sessionId, lifecycleRevision: "synthetic-reset-revision", updatedAt: 2 } });
+  await assert.rejects(f.execute({ action: "read", handle: "E1" }), /checkpoint_ingress_session_changed/);
 });

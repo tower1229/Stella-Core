@@ -44,7 +44,7 @@ export function captureCheckpointHostRequest(api: OpenClawPluginApi, config: Che
     assertPrivateContextAudience(resolveTurnAudience(request));
     const next = facts(); check(next.storePath === storePath && next.sender.senderId === request.senderId, "checkpoint_ingress_request_changed");
     const session = getSessionEntry({ agentId: config.agentId, sessionKey, storePath, env, readConsistency: "latest", hydrateSkillPromptRefs: false });
-    check(session?.sessionId === request.sessionId, "checkpoint_ingress_session_changed"); active();
+    check(session?.sessionId === request.sessionId && session.lifecycleRevision === entry.lifecycleRevision, "checkpoint_ingress_session_changed"); active();
   };
   return { request, capturedAt, signal, assertCurrent };
 }
