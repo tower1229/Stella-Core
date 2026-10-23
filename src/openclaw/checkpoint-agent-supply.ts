@@ -157,7 +157,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
       async execute(callId, value, signal) {
         const call = calls.get(callId); calls.delete(callId);
         check(call?.grant.active && call.grant.admitted && ctx.sessionId === call.grant.ingress.request.sessionId &&
-          ctx.sessionKey === call.grant.ingress.request.sessionKey && ctx.senderIsOwner === true && ctx.requesterSenderId === call.grant.ingress.request.senderId,
+          ctx.sessionKey === call.grant.ingress.request.sessionKey && ctx.senderIsOwner === true && ctx.requesterSenderId === call.grant.ingress.identity.toolSenderId,
           "checkpoint_agent_tool_scope_unavailable");
         const grant = call.grant, cancellation = AbortSignal.any([call.signal, ...signal ? [signal] : []]);
         await assertRequest(grant, cancellation, true);

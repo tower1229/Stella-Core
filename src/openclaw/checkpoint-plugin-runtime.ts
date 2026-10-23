@@ -14,24 +14,26 @@ import { StellaInitializer, InitializationError, type InitializationPorts, type 
 
 const run = promisify(execFile);
 export type CheckpointPluginConfig = Readonly<{ recoveryAuthority: "core_checkpoint"; checkpointStateDirectory: string;
-  canghaiRoot: string; manifestPath: string; agentId: string; dataMode: "read_only" | "local_write"; requestArchive?: "local"; agentMemory?: "fresh_tools" }>;
+  canghaiRoot: string; manifestPath: string; agentId: string; dataMode: "read_only" | "local_write"; requestArchive?: "local"; agentMemory?: "fresh_tools"; webchatOwnerProfileId?: string }>;
 export function parseCheckpointPluginConfig(value: unknown): CheckpointPluginConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new RecoveryAuthorityError("checkpoint_configuration_invalid");
   const config = value as Record<string, unknown>;
-  const allowed = ["recoveryAuthority", "checkpointStateDirectory", "canghaiRoot", "manifestPath", "agentId", "dataMode", "requestArchive", "agentMemory"];
+  const allowed = ["recoveryAuthority", "checkpointStateDirectory", "canghaiRoot", "manifestPath", "agentId", "dataMode", "requestArchive", "agentMemory", "webchatOwnerProfileId"];
   if (Object.keys(config).some(key => !allowed.includes(key)) || config.recoveryAuthority !== "core_checkpoint" ||
     typeof config.canghaiRoot !== "string" || !path.isAbsolute(config.canghaiRoot) ||
     typeof config.checkpointStateDirectory !== "string" || !path.isAbsolute(config.checkpointStateDirectory) ||
     !["read_only", "local_write"].includes(String(config.dataMode)) ||
     config.requestArchive !== undefined && (config.requestArchive !== "local" || config.dataMode !== "local_write") ||
     config.agentMemory !== undefined && config.agentMemory !== "fresh_tools" ||
+    config.webchatOwnerProfileId !== undefined && (typeof config.webchatOwnerProfileId !== "string" || !config.webchatOwnerProfileId || config.webchatOwnerProfileId.length > 512 || config.webchatOwnerProfileId.trim() !== config.webchatOwnerProfileId || /[\u0000-\u001f\u007f]/.test(config.webchatOwnerProfileId)) ||
     config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,199}$/.test(config.agentId)) ||
     config.manifestPath !== undefined && (typeof config.manifestPath !== "string" || !config.manifestPath)) {
     throw new RecoveryAuthorityError("checkpoint_configuration_invalid");
   }
   return Object.freeze({ recoveryAuthority: "core_checkpoint", canghaiRoot: config.canghaiRoot, checkpointStateDirectory: config.checkpointStateDirectory,
     manifestPath: config.manifestPath as string | undefined ?? "50_PersonalAgent/stella/manifest.yaml", agentId: config.agentId as string | undefined ?? "stella",
-    dataMode: config.dataMode as "read_only" | "local_write", ...(config.requestArchive === "local" ? { requestArchive: "local" as const } : {}), ...(config.agentMemory === "fresh_tools" ? { agentMemory: "fresh_tools" as const } : {}) });
+    dataMode: config.dataMode as "read_only" | "local_write", ...(config.requestArchive === "local" ? { requestArchive: "local" as const } : {}), ...(config.agentMemory === "fresh_tools" ? { agentMemory: "fresh_tools" as const } : {}),
+    ...(typeof config.webchatOwnerProfileId === "string" ? { webchatOwnerProfileId: config.webchatOwnerProfileId } : {}) });
 }
 
 /** One resolver per registration. No config writer, implicit seed or mutable current-operation slot. */

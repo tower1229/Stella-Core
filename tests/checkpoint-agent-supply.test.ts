@@ -15,12 +15,12 @@ import { assertInitialOwnerTranscript, captureCheckpointHostRequest } from "../s
 import { registerCheckpointAgentSupply, CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
 import { createAgentSupplySource, publishAgentSupplySourceRevision, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
 
-async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false) {
+async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile = false) {
   const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
   t.after(async () => { await rm(source.root, { recursive: true, force: true }); await rm(parent, { recursive: true, force: true }); });
   const authority = path.join(parent, "authority"), state = path.join(parent, "host-state"), storePath = path.join(parent, "sessions.json");
   await mkdir(authority); await mkdir(state);
-  const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(automaticArchive ? { requestArchive: "local" } : {}) };
+  const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(webchatProfile ? { webchatOwnerProfileId: "synthetic-profile" } : {}), ...(automaticArchive ? { requestArchive: "local" } : {}) };
   const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
   const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
   await upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } });
@@ -50,10 +50,14 @@ async function fixture(t: TestContext, options: Parameters<typeof createAgentSup
   assert.equal((await rpc("initialize", { revision: source.revision, operationId: "synthetic-initialize" })).ok, true);
   const controller = new AbortController(), event: any = { runId, sessionKey: key, sendPolicy: "allow", inboundAudio: false,
     ctx: { SessionKey: key, Body: "Recall my writing preference", SenderId: "synthetic-owner", From: "synthetic-owner", Provider: "webchat", ChatType: "direct", Timestamp: Date.now(), CommandAuthorized: true } };
+  if (webchatProfile) {
+    delete event.ctx.SenderId; delete event.ctx.From;
+    Object.assign(event.ctx, { Surface: "webchat", GatewayClientScopes: ["operator.admin"], SessionCreation: { via: "operator", actor: { type: "human", source: "profile", id: "synthetic-profile" } } });
+  }
   const context: any = { dispatchKind: "agent", cfg: live, abortSignal: controller.signal,
     dispatcher: { appendBeforeDeliver(fn: Function) { beforeDeliver.push(fn); } }, recordProcessed() {}, markIdle() {} };
   const agent = { agentId: "synthetic", sessionKey: key, sessionId, runId, modelProviderId: "google", modelId: "gemini-3.8-flash" };
-  const toolContext = { agentId: "synthetic", sessionKey: key, sessionId, senderIsOwner: true, requesterSenderId: "synthetic-owner" };
+  const toolContext = { agentId: "synthetic", sessionKey: key, sessionId, senderIsOwner: true, requesterSenderId: webchatProfile ? undefined : "synthetic-owner" };
   const tool = factories.map(factory => factory(toolContext)).find(value => value?.name === CHECKPOINT_MEMORY_TOOL);
   const ingress = () => hooks.get("reply_dispatch")!(event, context);
   const admit = (messages: unknown[] = []) => hooks.get("before_agent_run")!({ prompt: event.ctx.Body, messages, senderIsOwner: true }, agent);
@@ -508,4 +512,38 @@ test("cancellation after policy approval but before payload access does not star
   t.after(() => { CatalogReader.prototype.read = read; CatalogReader.prototype.readPayload = payload; });
   await assert.rejects(f.execute({ action: "list" }, true, { abortSignal: toolAbort.signal }));
   assert.equal(f.controller.signal.aborted, false); assert.equal(reads, 0);
+});
+
+
+test("current profile uses one owner binding across archive, normal Agent tools and continuous history", async t => {
+  const f = await fixture(t, {}, true, true);
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const list = await f.execute({ action: "list" }); assert.ok(list.details.items.length >= 1);
+  const read = await f.execute({ action: "read", handle: "E1" }); assert.ok(read.details.original.text.includes(SUPPLY_MARKER));
+  const entry = getSessionEntry({ agentId: "synthetic", sessionKey: f.agent.sessionKey, storePath: f.storePath, env: { OPENCLAW_STATE_DIR: f.state } });
+  assert.match(JSON.stringify(entry!.pluginExtensions), /openclaw-profile:synthetic-profile/);
+  await f.hooks.get("agent_end")!({ success: true }, f.agent);
+  f.event.runId = f.agent.runId = "synthetic-profile-second"; f.event.ctx.Body = "Synthetic next profile input";
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit([{ role: "assistant", content: "Synthetic previous reply" }])).outcome, "pass");
+  assert.equal((await f.rpc("status")).payload.ingress.state, "local_committed");
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
+
+test("profile replacement or forged tool sender cannot borrow a captured run/session permit", async t => {
+  const f = await fixture(t, {}, false, true);
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  f.toolContext.requesterSenderId = "openclaw-profile:synthetic-profile";
+  await assert.rejects(f.execute({ action: "list" }), /checkpoint_agent_tool_scope_unavailable/);
+  f.toolContext.requesterSenderId = undefined;
+  f.event.ctx.SessionCreation.actor.id = "another-profile";
+  await assert.rejects(f.execute({ action: "list" }), /checkpoint_webchat_profile_not_bound/);
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
+
+test("an unselected current profile is refused before automatic archive or checkpoint publication", async t => {
+  const f = await fixture(t, {}, true, true), before = await f.rpc("status");
+  f.event.ctx.SessionCreation.actor.id = "another-profile";
+  assert.equal((await f.ingress()).handled, true);
+  const after = await f.rpc("status"); assert.equal(after.payload.supply.category, "checkpoint_webchat_profile_not_bound");
+  assert.deepEqual(after.payload.authority, before.payload.authority); assert.equal(after.payload.ingress, null);
 });

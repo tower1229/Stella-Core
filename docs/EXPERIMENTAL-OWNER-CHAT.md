@@ -87,3 +87,20 @@ npm install --prefix <isolated-consumer> --ignore-scripts --no-audit --no-fund <
 确认固定包/hash、Host/Node、独立目录、显式源及所有权、支持的 owner 受众与 retain 策略、初始化/skill 发现及回退备份；先核对状态，再新会话。包只包含显式必要说明 `docs/EXPERIMENTAL-OWNER-CHAT.md` 和 README，四份旧未提交计划/测试不入包。
 
 真实模型小规模验收另需明确批准：Google `gemini-3.8-flash`（low）外部 API/预算与请求上限；使用哪个已有凭据引用且是否允许测试进程读取（不在日志输出）；只发哪些已审阅合成文本到该 provider；独立 Gateway/state 和 conversation hooks 的真实测试范围；如需接入私人源/生产配置、重启或迁移则分别批准。建议先仅合成文本少量同会话请求，逐项看记忆引用与历史区分，不给泛化质量保证。本批不执行任何真实调用。
+
+
+## WebChat 的可信 profile 入口（2026-10-23，第十六批）
+
+在 `core_checkpoint` 模式下，Core 可兼容原版 Host 当前请求的可信 `SessionCreation.actor`。只有 `via=operator`、`actor.type=human`、`actor.source=profile`、WebChat/direct、管理员 owner 以及明确选中的 profile 同时成立时，缺少 transport sender 的网页请求才可使用这条路径。客户端名、设备 ID、显示名、提示词和旧会话 owner 都不补足这个身份。
+
+- 插件配置 `webchatOwnerProfileId` 必须等于当前已认证的原始 profile ID；不自动选择第一个管理员，不创建或更改 Host profile。
+- Core requester 使用独立命名空间 `openclaw-profile:<profileId>`。不会伪装为 Telegram requester，也不会修改 Host 的 `SenderId`。
+- 记忆供给和本地输入归档使用同一个解析器；工具依旧绑定精确的 run/session/一次性 callId 和捕获时的 Host sender。网页 Host sender 缺失不代表取消 run/session 检查。
+- 来源仍遵守自己的 manifest 与策略。若声明 `source_access_context`，尤其当前真实 main 的 v3 来源，则 processing grant 的 `requesterIds` 还须明确包含对应 namespaced requester。这个配置不替代资料用途/受众限制；合法旧 retain 来源也不会被追加强制 LLM 许可框架。
+- 未知旧历史仍不能接管。首次接入可使用新空会话，绑定成功后同 owner 连续聊天无需逐轮 reset。
+
+只读 RPC `stella.identity` 接受空参数 `{}`，要求现有 `operator.admin` scope 和当前已认证 profile。它只返回调用连接自己的 `profileId`、`requesterId`、客户端类型及未检查来源/会话授权的标记；不加载 checkpoint、来源、聊天、bootstrap 或 LLM，也不创建身份或 grant。缺 profile 时显式返回 `checkpoint_webchat_profile_required`。可通过 Control UI 自带 Debug 的 manual RPC 功能使用当前网页连接；另一个 CLI 连接的身份不能冒充这个网页连接。
+
+本批仅完成本地实现和合成验证，没有部署到真实 main，没有修改真实 profile/owner 绑定、grant 或已有会话。仅凭此接口也不承诺当前共享 token 登录已经具备个人 profile；缺失时必须先确认 Host 实际支持的可信身份登录方式，不能以 client/device 标签补造人。
+
+不要用真实 `chat.send` 诊断身份：实测原版 Host 在 Core 拒绝后仍可独立生成 dashboard 标题，因此 `reply_dispatch` 拒绝不保证阻止所有 Host 辅助模型请求。直接只读身份 RPC 避开该聊天路径。本批仅允许 loopback 假模型，未调用真实模型。证据与边界见 [第十六批](suqing-batch16-2026-10-23.md)。

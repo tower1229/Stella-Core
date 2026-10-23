@@ -1,7 +1,7 @@
 import type { PluginHookReplyDispatchEvent, PluginHookReplyDispatchContext } from "openclaw/plugin-sdk/core";
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { getSessionEntry, resolveStorePath } from "openclaw/plugin-sdk/session-store-runtime";
-import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
+import { resolveCheckpointRequestIdentity } from "./checkpoint-request-identity.js";
 import { parseAgentSessionKey } from "openclaw/plugin-sdk/routing";
 import { archiveCorrectionInput } from "../learning/host-correction.js";
 import { CatalogError, CatalogReader, parseMemoryCatalog, validMemoryRef } from "../canghai/catalog-reader.js";
@@ -111,7 +111,7 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
         const live = api.runtime.config.current() as OpenClawConfig;
         const entry = live.plugins?.entries?.["stella-core"];
         check(entry?.enabled === true && canonicalJson(parseCheckpointPluginConfig(entry.config)) === canonicalJson(config), "checkpoint_ingress_configuration_changed");
-        const sender = resolveCommandAuthorization({ ctx: event.ctx, cfg: live, commandAuthorized: event.ctx.CommandAuthorized });
+        const sender = resolveCheckpointRequestIdentity(event.ctx, live, config);
         check(sender.senderIsOwner && sender.senderId && event.ctx.ChatType === "direct", "private_context_audience_forbidden");
         return { live, sender, storePath: resolveStorePath(live.session?.store, { agentId: config.agentId, env: hostEnvironment }) };
       };

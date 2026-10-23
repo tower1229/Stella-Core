@@ -1,3 +1,4 @@
+import { registerCheckpointIdentityDiagnostic } from "./checkpoint-request-identity.js";
 import { createCheckpointInitialization } from "./checkpoint-initialization.js";
 import { registerCheckpointAgentSupply } from "./checkpoint-agent-supply.js";
 import { registerCheckpointRequestIngress } from "./checkpoint-request-ingress.js";
@@ -12,6 +13,7 @@ import { isRecord } from "../shared/type-guards.js";
  */
 export function registerCheckpointPlugin(api: OpenClawPluginApi) {
   const config = parseCheckpointPluginConfig(api.pluginConfig);
+  registerCheckpointIdentityDiagnostic(api);
   let closed = false, pending: ReturnType<typeof createCheckpointPluginRuntime> | undefined;
   const current = async () => {
     if (closed) throw new RecoveryAuthorityError("recovery_scope_closed");

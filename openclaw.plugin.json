@@ -116,6 +116,13 @@
           "fresh_tools"
         ],
         "description": "Experimental same-owner Host conversation with retained history and fresh Core authority per user request. Existing fresh_tools name is retained for compatibility; full_memory is separate."
+      },
+      "webchatOwnerProfileId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\u0000-\\u0020\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\u0000-\\u0020\\u007f])?$",
+        "description": "Explicit owner profile for current authenticated WebChat ingress. Requires a separate source processing requester grant; never aliases a Telegram identity."
       }
     },
     "allOf": [
@@ -195,6 +202,23 @@
         "if": {
           "required": [
             "agentMemory"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "webchatOwnerProfileId"
           ]
         },
         "then": {

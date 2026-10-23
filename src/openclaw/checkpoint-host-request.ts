@@ -1,7 +1,7 @@
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import type { PluginHookReplyDispatchEvent, PluginHookReplyDispatchContext } from "openclaw/plugin-sdk/core";
 import { getSessionEntry, patchSessionEntry, loadTranscriptEventsSync, readTranscriptStatsSync, resolveStorePath } from "openclaw/plugin-sdk/session-store-runtime";
-import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
+import { resolveCheckpointRequestIdentity } from "./checkpoint-request-identity.js";
 import { isRecord } from "../shared/type-guards.js";
 import { CatalogError } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
@@ -50,7 +50,7 @@ export function captureCheckpointHostRequest(api: OpenClawPluginApi, config: Che
     const live = api.runtime.config.current() as OpenClawConfig, entry = live.plugins?.entries?.["stella-core"];
     check(entry?.enabled === true && canonicalJson(parseCheckpointPluginConfig(entry.config)) === canonicalJson(config), "checkpoint_ingress_configuration_changed");
     check(entry.hooks?.allowConversationAccess === true && entry.hooks?.allowPromptInjection !== false, "checkpoint_agent_hook_permission_required");
-    const sender = resolveCommandAuthorization({ ctx: event.ctx, cfg: live, commandAuthorized: event.ctx.CommandAuthorized });
+    const sender = resolveCheckpointRequestIdentity(event.ctx, live, config);
     check(sender.senderIsOwner && sender.senderId && event.ctx.ChatType === "direct", "private_context_audience_forbidden");
     return { sender, storePath: resolveStorePath(live.session?.store, { agentId: config.agentId, env }) };
   };
@@ -68,7 +68,7 @@ export function captureCheckpointHostRequest(api: OpenClawPluginApi, config: Che
     check(session?.sessionId === request.sessionId && session.lifecycleRevision === entry.lifecycleRevision, "checkpoint_ingress_session_changed"); active();
   };
   const namespace = "owner-history/v1", scopeHash = bytesVersion(canonicalJson({ config, storePath, hostStateDirectory: env.OPENCLAW_STATE_DIR }));
-  const readPrincipal = (sender: ReturnType<typeof resolveCommandAuthorization>) => canonicalJson({ senderId: sender.senderId, providerId: sender.providerId ?? null,
+  const readPrincipal = (sender: ReturnType<typeof resolveCheckpointRequestIdentity>) => canonicalJson({ senderId: sender.senderId, providerId: sender.providerId ?? null,
     surface: event.ctx.Surface ?? null, originatingChannel: event.ctx.OriginatingChannel ?? null, provider: event.ctx.Provider ?? null,
     accountId: "AccountId" in event.ctx ? event.ctx.AccountId ?? null : null });
   const principal = readPrincipal(first.sender);
@@ -113,5 +113,5 @@ export function captureCheckpointHostRequest(api: OpenClawPluginApi, config: Che
     check(!(binding && typeof binding === "object" && "firstRunId" in binding && binding.firstRunId === request.runId) || messages.length === 0,
       "checkpoint_agent_history_owner_unknown");
   };
-  return { request, capturedAt, signal, assertCurrent, bindConversation, assertConversation };
+  return { request, identity: first.sender, capturedAt, signal, assertCurrent, bindConversation, assertConversation };
 }
