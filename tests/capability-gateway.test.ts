@@ -6,6 +6,10 @@ import test from "node:test";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { OpenClawConfig, OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { registerStellaInitialization } from "../src/openclaw/initialization-registration.js";
+import { captureInitializationVerificationBinding } from "../src/openclaw/initialization-verification-binding.js";
+import type { InitializationVerificationBinding } from "../src/openclaw/initialization.js";
+import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
+import { withExclusiveFileLock } from "../src/canghai/exclusive-file-lock.js";
 import { createFixture, initializeFixtureRepository, prepareInitializationFixture } from "./consciousness-fixture.js";
 
 type GatewayClient = {
@@ -42,7 +46,7 @@ async function invokeGateway(
   });
 }
 
-test("gateway accept-capability clears one blocker, keeps business closed, and supports invalidate/cancel/auth/G-10", async (t) => {
+test("synthetic gateway capability orchestration clears one blocker, keeps business closed, and supports invalidate/cancel/auth/G-10", async (t) => {
   const canghaiRoot = await createFixture();
   t.after(() => rm(canghaiRoot, { recursive: true, force: true }));
   await prepareInitializationFixture(canghaiRoot, "stella");
@@ -134,8 +138,20 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
     on(name: string, handler: (event: unknown, ctx: unknown) => Promise<unknown>) { hooks.set(name, handler); },
   };
 
+  // These synthetic version bindings exercise gateway/receipt orchestration only.
+  // They are not installed-code identity or evidence of a real Host capability.
+  const captureSyntheticBinding = async (): Promise<InitializationVerificationBinding> => ({
+    core: bytesVersion("synthetic-core"), artifact: bytesVersion("synthetic-artifact"),
+    host: bytesVersion("synthetic-host"), harness: bytesVersion("synthetic-capability-gateway"),
+    source: bytesVersion(revision), profile: bytesVersion(await readFile(profilePath)),
+    policy: bytesVersion("synthetic-policy"), configuration: bytesVersion(canonicalJson(hostConfig)),
+    model: bytesVersion("google/gemini-3.8-flash"), cases: bytesVersion("synthetic-bootstrap-cases"),
+    deployment: bytesVersion("synthetic-deployment"), generation: bytesVersion("synthetic-generation"),
+  });
+  await assert.rejects(captureInitializationVerificationBinding(api as never, pluginConfig), /verification_code_identity_unavailable/);
   const initialization = registerStellaInitialization(api as never, pluginConfig, async (method, params) =>
-    api.runtime.gateway.request(method, params));
+    api.runtime.gateway.request(method, params), undefined, undefined,
+  { captureVerificationBinding: captureSyntheticBinding, withLock: withExclusiveFileLock });
   assert.ok(gatewayHandler);
   await service!.start({ config: api.config, stateDir: state, logger: api.logger } as never);
   await hooks.get("gateway_start")!({}, {});
@@ -172,6 +188,7 @@ test("gateway accept-capability clears one blocker, keeps business closed, and s
     { action: "accept-capability", capabilityId: "unimplemented", runId: "other_capability" },
     { action: "accept-capability", capabilityId: "memory_access", runId: "memory_override", senderIsOwner: true },
     { action: "accept-capability", capabilityId: "memory_access", runId: "memory_override", sourcePath: "/private/source" },
+    { action: "accept-capability", runId: "forged_binding", verificationBinding: await captureSyntheticBinding() },
   ]) {
     const invalid = await invokeGateway(gatewayHandler!, params);
     assert.equal(invalid.ok, false); assert.equal(invalid.error?.code, "INVALID_REQUEST");

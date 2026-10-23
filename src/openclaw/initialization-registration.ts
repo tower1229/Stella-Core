@@ -9,7 +9,7 @@ import { parseCangHaiRef } from "../canghai/ref.js";
 import { CatalogReader, readRepositoryBytes } from "../canghai/catalog-reader.js";
 import { ownsMemoryMutationLock } from "../canghai/memory-transaction.js";
 import { isRecord } from "../shared/type-guards.js";
-import { InitializationError, StellaInitializer, type Materialization } from "./initialization.js";
+import { InitializationError, StellaInitializer, type InitializationPorts, type Materialization } from "./initialization.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import type { HostIdentity } from "./initialization-templates.js";
 import { verifyInitializationContext } from "./initialization-context.js";
@@ -81,7 +81,11 @@ async function materializationSource(config: Config) {
 export function registerStellaInitialization(api: OpenClawPluginApi, config: Config,
   requestHost?: (method: string, params: Record<string, unknown>) => Promise<unknown>,
   additionalRuntimeBlockers: () => Promise<string[]> = async () => [],
-  memoryAcceptance?: ReturnType<typeof createHostMemoryAcceptance>) {
+  memoryAcceptance?: ReturnType<typeof createHostMemoryAcceptance>,
+  // Trusted embedding/fixture ports only; Gateway parameters and plugin config cannot supply them.
+  trustedPorts: { captureVerificationBinding?: () => Promise<InitializationVerificationBinding>; withLock?: InitializationPorts["withLock"] } = {}) {
+  const captureVerificationBinding = trustedPorts.captureVerificationBinding ?? (() => captureInitializationVerificationBinding(api, config));
+  const withLock = trustedPorts.withLock;
   let status: Status = { state: "not_started" };
   let stateDir: string | undefined;
   let inflight: Promise<ScopedStatus> | undefined;
@@ -89,7 +93,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
   let waitingForMemoryIdle = false;
   let initializer: StellaInitializer | undefined;
   const captureCapabilityBinding = async (capabilityId?: string): Promise<CapabilityVersionBinding> => {
-    const installed = await captureInitializationVerificationBinding(api, config);
+    const installed = await captureVerificationBinding();
     const binding = toCapabilityBinding(installed);
     if (capabilityId === "memory_access") {
       if (!memoryAcceptance) throw new InitializationError("host_memory_acceptance_unavailable");
@@ -333,6 +337,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
           root: await realpath(config.canghaiRoot), revision: config.recoveryRevision, ...source,
           agentId: config.agentId, hostVersion: api.runtime.version,
         }, {
+          withLock,
           fence: async () => { await fenceTarget(resolvedState); },
           readIdentity, applyIdentity,
           verify: verifyHost,
@@ -385,7 +390,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
         await realpath(path.join(stateDir ?? resolveStateDir(), "stella-core", "initialization", config.agentId)), {
           root: await realpath(config.canghaiRoot), revision: config.recoveryRevision,
           ...source, agentId: config.agentId, hostVersion: api.runtime.version,
-        }, { fence: unavailable, verify: verifyHost, release: unavailable, readIdentity, applyIdentity: unavailable }, shutdown.signal);
+        }, { withLock, fence: unavailable, verify: verifyHost, release: unavailable, readIdentity, applyIdentity: unavailable }, shutdown.signal);
     }
     if (await hasHostProfileIsolation(initializer.stateRoot, config.agentId)) throw new InitializationError("initialization_required");
     const current = api.runtime.config.current().plugins?.entries?.["stella-core"];
@@ -426,7 +431,7 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
           recoveryState, {
             root: config.canghaiRoot, revision: config.recoveryRevision, recipePath: "unused-for-rollback",
             agentId: config.agentId, hostVersion: api.runtime.version,
-          }, { fence: async () => { await fenceTarget(recoveryState); }, release: async () => {}, readIdentity, applyIdentity,
+          }, { withLock, fence: async () => { await fenceTarget(recoveryState); }, release: async () => {}, readIdentity, applyIdentity,
             verify: async () => { throw new InitializationError("initialization_required"); } }, shutdown.signal);
         await recovery.rollback(operationId);
         status = { state: "blocked", category: "rolled_back_initialization_required", operationId };
@@ -535,11 +540,10 @@ export function registerStellaInitialization(api: OpenClawPluginApi, config: Con
       if (params.action === "verify") {
         if (!client.connId) throw new InitializationError("verification_actor_required");
         await assertBootstrapReady();
-        const capture = () => captureInitializationVerificationBinding(api, config);
         const actorHash = bytesVersion(canonicalJson({ connection: client.connId, request: req.id,
           user: client.authenticatedUserId ?? null, role: client.connect.role }));
-        const proof = await initializer!.verifyCapability(actorHash, capture, signal);
-        await initializer!.assertCapabilityVerification(proof, capture, signal);
+        const proof = await initializer!.verifyCapability(actorHash, captureVerificationBinding, signal);
+        await initializer!.assertCapabilityVerification(proof, captureVerificationBinding, signal);
         respond(true, { verification: proof, runtime: await runtimeStatus(signal) });
         return;
       }

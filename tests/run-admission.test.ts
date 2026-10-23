@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import test from "node:test";
 import { bytesVersion } from "../src/canghai/content-version.js";
+import { withExclusiveFileLock } from "../src/canghai/exclusive-file-lock.js";
 import {
   assertHostProfileIsolated,
   isolateHostProfile,
@@ -42,6 +43,8 @@ async function initFixture(t: { after(fn: () => Promise<void>): void }) {
   await git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "Synthetic"]);
   let fenced = false;
   const ports: InitializationPorts = {
+    // Synthetic fixture uses the Core lock without the legacy SDK's PID lookup.
+    withLock: withExclusiveFileLock,
     fence: async () => { fenced = true; },
     verify: async () => undefined,
     release: async () => { fenced = false; },
@@ -59,7 +62,7 @@ async function initFixture(t: { after(fn: () => Promise<void>): void }) {
   };
 }
 
-test("retained revoke still works after registration shutdown abort", async (t) => {
+test("shutdown permits durable revoke cleanup but never reactivates the cancelled registration", async (t) => {
   const f = await initFixture(t);
   const shutdown = new AbortController();
   const initializer = f.withSignal(shutdown.signal);
@@ -68,8 +71,11 @@ test("retained revoke still works after registration shutdown abort", async (t) 
   await initializer.bindRun("run-sibling");
   shutdown.abort();
   await initializer.revokeActiveRuns("correction_applied", { retainRunId: "run-live" });
-  await initializer.assertRun("run-live");
-  await assert.rejects(initializer.assertRun("run-sibling"), /stale_initialization_run/);
+  await assert.rejects(initializer.assertRun("run-live"), /operation_cancelled/);
+  await assert.rejects(initializer.bindRun("run-after-shutdown"), /operation_cancelled/);
+  // A live initializer sees the persisted cleanup; the aborted instance stays closed.
+  await f.initializer.assertRun("run-live");
+  await assert.rejects(f.initializer.assertRun("run-sibling"), /stale_initialization_run/);
 });
 
 test("correction and capability revoke invalidate old runs; retained run can finish, late persist cannot", async (t) => {
