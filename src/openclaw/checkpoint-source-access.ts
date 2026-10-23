@@ -1,5 +1,5 @@
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
-import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
+import { listAgentIds, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import { CatalogError } from "../canghai/catalog-reader.js";
 import { createPersonalContextAccess, loadPersonalContextAccess } from "../canghai/personal-context-access.js";
 import { canonicalJson } from "../canghai/content-version.js";
@@ -26,22 +26,26 @@ export async function createCheckpointSourceAccess(input: {
       check(typeof value !== "object" || value === null || !value.fallbacks?.length, "checkpoint_source_fallback_forbidden");
     }
     const selected = resolveDefaultModelForAgent({ cfg, agentId: input.agentId });
-    return `${selected.provider}/${selected.model}`;
+    const agents = listAgentIds(cfg), systemAgent = cfg.agents?.defaults?.systemAgent?.agentId;
+    return { ref: `${selected.provider}/${selected.model}`,
+      implicitAgent: agents.length === 1 && agents[0] === input.agentId && (!systemAgent || systemAgent === input.agentId) };
   };
-  const modelRef = model(), processing = await loadPersonalContextAccess(input.root, input.bindingPath);
+  const selected = model(), modelRef = selected.ref, processing = await loadPersonalContextAccess(input.root, input.bindingPath);
   check(canonicalJson(processing.config.purpose) === canonicalJson(input.purpose), "personal_context_purpose_mismatch");
   const current = async () => {
     input.signal.throwIfAborted();
     await input.assertCurrent();
     input.signal.throwIfAborted();
-    check(model() === modelRef, "personal_context_model_changed");
+    check(canonicalJson(model()) === canonicalJson(selected), "personal_context_model_changed");
   };
   await current();
   return createPersonalContextAccess({ request: input.request, modelRef, binding: processing,
     assertRequestCurrent: current, reuseWithinRequest: true, signal: input.signal,
     async complete({ prompt, maxTokens }) {
       await current();
-      const result = await input.api.runtime.llm.complete({ agentId: input.agentId, model: modelRef,
+      // A sole matching Host owner needs no target/model override. A different
+      // or ambiguous fleet still goes through the Host's explicit-agent policy.
+      const result = await input.api.runtime.llm.complete({ ...selected.implicitAgent ? {} : { agentId: input.agentId },
         purpose: "stella-source-access", reasoning: "low", maxTokens, signal: input.signal,
         messages: [{ role: "user", content: prompt }] });
       await current();

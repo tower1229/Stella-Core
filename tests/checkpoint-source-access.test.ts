@@ -86,8 +86,8 @@ test("v3 summary and complete source-specific rule checks use the public pinned 
   assert.deepEqual(context.ruleChecks, { policyRef: f.target.policyRef, checks: [{ id: "exact_topic", satisfied: true }] });
   assert.equal(f.calls.length, 1);
   const call = f.calls[0]!;
-  assert.equal(call.agentId, "synthetic");
-  assert.equal(call.model, "synthetic/model");
+  assert.equal(call.agentId, undefined, "the sole configured Host owner needs no agent override");
+  assert.equal(call.model, undefined, "configured model selection must not request override permission");
   assert.equal(call.reasoning, "low");
   assert.equal(call.purpose, "stella-source-access");
   assert.equal(call.signal, f.controller.signal);
@@ -203,4 +203,16 @@ test("cached success cannot bypass a new catalog generation or changed policy by
     assert.equal(f.calls.length, 1);
     assert.equal(f.payloadReads(), 0);
   }
+});
+
+
+test("multiple configured agents require explicit Host target authorization and a changed fleet cannot inherit an implicit call", async t => {
+  const f = await fixture(t);
+  f.live.agents.entries.other = { model: { primary: "synthetic/model", fallbacks: [] } };
+  await (await f.access())(f.reader, f.target, purpose);
+  assert.equal(f.calls[0]!.agentId, "synthetic"); assert.equal(f.calls[0]!.model, undefined);
+  const second = await fixture(t), access = await second.access();
+  second.live.agents.entries.other = { model: { primary: "synthetic/model", fallbacks: [] } };
+  await assert.rejects(access(second.reader, second.target, purpose), /personal_context_model_changed/);
+  assert.equal(second.calls.length, 0); assert.equal(second.payloadReads(), 0);
 });
