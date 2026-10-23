@@ -10,7 +10,7 @@ import { MAIN_REQUIRED_HISTORY_VIEW_ID, viewRecipePath } from "../src/canghai/vi
 
 const execFileAsync = promisify(execFile);
 
-export async function prepareInitializationFixture(root: string, agentId: string, skillInstructions = "No private data.") {
+export async function prepareInitializationFixture(root: string, agentId: string, skillInstructions = "No private data.", bootstrapMarker = "") {
   const prefix = "50_PersonalAgent/stella";
   const profilePath = path.join(root, prefix, "runtime-profile.yaml");
   const profile: unknown = parse(await readFile(profilePath, "utf8"));
@@ -23,7 +23,7 @@ export async function prepareInitializationFixture(root: string, agentId: string
   const files = [];
   for (const target of ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"]) {
     const content = target === "IDENTITY.md" ? canonicalJson({ schema_version: "stella.display-identity/v2", id: "synthetic-identity",
-      name: "Synthetic Stella", theme: "Isolated local acceptance", emoji: "🧪" }) : `# Synthetic ${target}\nSynthetic isolated Host acceptance.\n`;
+      name: bootstrapMarker ? `${bootstrapMarker}_IDENTITY.md` : "Synthetic Stella", theme: "Isolated local acceptance", emoji: "🧪" }) : `# Synthetic ${target}\nSynthetic isolated Host acceptance.\n${bootstrapMarker ? bootstrapMarker + "_" + target + "\n" : ""}`;
     const source = `${prefix}/host/${target === "IDENTITY.md" ? "display-identity.json" : target}`;
     await writeFile(path.join(root, source), content);
     files.push({ target, source, sha256: bytesVersion(content), executable: false });

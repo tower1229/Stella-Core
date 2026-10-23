@@ -6,14 +6,16 @@ import { openLocalCheckpointRecovery } from "../src/canghai/local-checkpoint-rec
 import type { RecoveryReadBinding } from "../src/canghai/recovery-read-binding.js";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createFixture, initializeFixtureRepository } from "./consciousness-fixture.js";
+import { createFixture, prepareInitializationFixture, initializeFixtureRepository } from "./consciousness-fixture.js";
 import { prepareHostRequestArchive } from "../src/canghai/host-request-archive.js";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { canonicalJson, bytesVersion, objectVersion } from "../src/canghai/content-version.js";
 import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
+export const BOOTSTRAP_MARKER = "SYNTHETIC_INSTALLED_BOOTSTRAP_8615";
+export const SKILL_MARKER = "SYNTHETIC_INSTALLED_SKILL_BODY_8615";
 export const SUPPLY_MARKER = "SYNTHETIC_ALLOWED_MEMORY_4931";
 /** Synthetic source builder shared by fixture tests and the isolated stock Host probe. */
-export async function createAgentSupplySource(options: { sourceAccess?: boolean; doNotRetain?: boolean } = {}) {
+export async function createAgentSupplySource(options: { sourceAccess?: boolean; doNotRetain?: boolean; materialization?: boolean } = {}) {
   const root = await realpath(await createFixture()), catalogPath = "30_PersonalData/memory/catalog.json";
   const catalog = JSON.parse(await readFile(path.join(root, catalogPath), "utf8"));
   const binding = JSON.parse(await readFile(path.join(root, "50_PersonalAgent/stella/praxis-binding.json"), "utf8"));
@@ -38,6 +40,7 @@ export async function createAgentSupplySource(options: { sourceAccess?: boolean;
   }
   for (const object of archive.objects) catalog[object.group].push(object.entry);
   await writeFile(path.join(root, catalogPath), canonicalJson(catalog));
+  if (options.materialization) await prepareInitializationFixture(root, "synthetic", SKILL_MARKER, BOOTSTRAP_MARKER);
   const revision = await initializeFixtureRepository(root);
   return { root, revision, archive, catalogPath, binding };
 }

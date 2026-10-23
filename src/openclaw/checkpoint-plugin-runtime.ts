@@ -10,7 +10,7 @@ import { persistCheckpointArchive, type CheckpointArchivePorts } from "../cangha
 import type { CatalogReader } from "../canghai/catalog-reader.js";
 import type { HostInputArchive } from "../canghai/host-input-archive.js";
 import { RecoveryAuthorityError } from "../canghai/recovery-authority-contract.js";
-import { StellaInitializer, type InitializationPorts, type InitializationSource } from "./initialization.js";
+import { StellaInitializer, InitializationError, type InitializationPorts, type InitializationSource } from "./initialization.js";
 
 const run = promisify(execFile);
 export type CheckpointPluginConfig = Readonly<{ recoveryAuthority: "core_checkpoint"; checkpointStateDirectory: string;
@@ -93,18 +93,22 @@ export async function createCheckpointPluginRuntime(input: CheckpointPluginConfi
      * Each operation owns one fixed authority and fresh initializer; receipts do not prove Agent consumption.
      */
     async prepareInitialization(input: { workspace: string; stateRoot: string;
-      source: Omit<InitializationSource, "root" | "revision" | "agentId" | "hostVersion">; ports: InitializationPorts }) {
+      source: Omit<InitializationSource, "root" | "revision" | "agentId" | "hostVersion">; ports: InitializationPorts; signal?: AbortSignal }) {
       writable();
       const ports = { ...input.ports }, source = { ...input.source, ...(input.source.requiredCapabilities ? { requiredCapabilities: [...input.source.requiredCapabilities] } : {}) };
-      const recovery = await scope.capture();
-      const guarded = async (work: () => Promise<void>) => { await assert(recovery); await work(); await assert(recovery); };
+      const cancellation = AbortSignal.any([shutdown.signal, ...input.signal ? [input.signal] : []]);
+      const checkActive = () => { active(); if (cancellation.aborted) throw new InitializationError("operation_cancelled"); };
+      checkActive(); const recovery = await scope.capture();
+      const guarded = async (work: () => Promise<void>) => { checkActive(); await assert(recovery); await work(); checkActive(); await assert(recovery); };
       const initializer = new StellaInitializer(input.workspace, input.stateRoot,
         Object.freeze({ ...source, root, revision: recovery.expected.revision, agentId: config.agentId, hostVersion }),
         { ...ports, withLock: withExclusiveFileLock, strictOwnership: true, recoveryAuthority: recovery.expected,
           fence: () => guarded(() => ports.fence()), verify: (recipe, host) => guarded(() => ports.verify(recipe, host)),
-          release: () => guarded(() => ports.release()) }, shutdown.signal);
-      const operation = <T>(work: () => Promise<T>) => repository(async () => { await assert(recovery); const result = await work(); await assert(recovery); return result; });
-      return Object.freeze({ recovery, initialize: () => operation(() => initializer.initialize()), assertCurrent: () => operation(() => initializer.assertCurrent()) });
+          release: () => guarded(() => ports.release()) }, cancellation);
+      const operation = <T>(work: () => Promise<T>) => repository(async () => { checkActive(); await assert(recovery); const result = await work(); checkActive(); await assert(recovery); return result; });
+      return Object.freeze({ recovery, initialize: () => operation(() => initializer.initialize()), assertCurrent: () => operation(() => initializer.assertCurrent()),
+        assertSkillRead: (input: unknown) => operation(() => initializer.assertSkillRead(input)),
+        rollback: (operationId: string) => operation(() => initializer.rollback(operationId)) });
     },
     close() { shutdown.abort(); scope.close(); loader.invalidate(); },
   });

@@ -503,6 +503,8 @@ export class StellaInitializer {
       const { planHash, ...body } = plan;
       check(plan.operationId === operationId && plan.agentId === this.source.agentId && plan.workspace === this.workspace &&
         bytesVersion(canonicalJson(body)) === planHash && Array.isArray(plan.changes) && plan.changes.length <= 1024, "invalid_plan");
+      if (this.ports.strictOwnership) check(plan.recoveryAuthority &&
+        canonicalJson(plan.recoveryAuthority) === canonicalJson(this.recoveryAuthority()), "initialization_checkpoint_pending_unverified");
       const pending = await read(this.stateRoot, "pending.json");
       const rollbackPending = await read(this.stateRoot, "rollback-pending.json");
       const currentReceipt = await this.receipt();

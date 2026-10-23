@@ -1,3 +1,4 @@
+import { createCheckpointInitialization } from "./checkpoint-initialization.js";
 import { registerCheckpointAgentSupply } from "./checkpoint-agent-supply.js";
 import { registerCheckpointRequestIngress } from "./checkpoint-request-ingress.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
@@ -19,24 +20,31 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
     if (closed) { runtime.close(); throw new RecoveryAuthorityError("recovery_scope_closed"); }
     return runtime;
   };
-  const supply = registerCheckpointAgentSupply(api, config, current);
+  const initialization = createCheckpointInitialization(api, config, current, () => supply.assertIdle());
+  const supply = registerCheckpointAgentSupply(api, config, current, initialization);
   const ingress = registerCheckpointRequestIngress(api, config, current);
   const status = async (reload = false) => {
     const runtime = await current(), recovery = reload ? (await runtime.load()).recovery : await runtime.capture();
     await runtime.assert(recovery);
-    return { authority: recovery.expected, loadedRevision: reload ? recovery.expected.revision : null, materialized: null, consumed: false,
-      ingress: ingress.status(), supply: supply.status(), capabilities: { ownerIngressArchive: config.requestArchive === "local", checkpoint: true, localArchiveInternal: config.dataMode === "local_write", hostBootstrap: false, agentMemory: false, freshSessionTools: config.agentMemory === "fresh_tools", full_memory: false },
-      blockers: ["checkpoint_host_bootstrap_not_migrated", "checkpoint_agent_writers_not_migrated"] };
+    const materialized = await initialization.status();
+    return { authority: recovery.expected, loadedRevision: reload ? recovery.expected.revision : null, materialized, consumed: false,
+      ingress: ingress.status(), supply: supply.status(), capabilities: { ownerIngressArchive: config.requestArchive === "local", checkpoint: true, localArchiveInternal: config.dataMode === "local_write", hostBootstrap: Boolean(materialized), agentMemory: false, freshSessionTools: config.agentMemory === "fresh_tools", full_memory: false },
+      blockers: [...materialized ? [] : ["checkpoint_host_bootstrap_not_materialized"], "checkpoint_agent_writers_not_migrated"] };
   };
-  api.registerGatewayMethod("stella.checkpoint", async ({ params, respond }) => {
+  api.registerGatewayMethod("stella.checkpoint", async ({ params, respond, signal }) => {
     try {
-      if (!isRecord(params) || !["status", "reload", "initialize"].includes(String(params.action)) ||
-        Object.keys(params).some(key => !(params.action === "initialize" ? ["action", "revision", "operationId"] : ["action"]).includes(key))) {
+      if (!isRecord(params) || typeof params.action !== "string" || !["status", "reload", "initialize", "materialize", "rollback"].includes(params.action) ||
+        Object.keys(params).some(key => !(params.action === "initialize" ? ["action", "revision", "operationId"] : params.action === "rollback" ? ["action", "operationId"] : ["action"]).includes(key))) {
         throw new RecoveryAuthorityError("checkpoint_operation_invalid");
       }
       if (params.action === "initialize") {
         if (typeof params.revision !== "string" || typeof params.operationId !== "string") throw new RecoveryAuthorityError("checkpoint_operation_invalid");
         await (await current()).initializeAuthority({ revision: params.revision, operationId: params.operationId });
+      }
+      if (params.action === "materialize") await initialization.materialize(signal);
+      if (params.action === "rollback") {
+        if (typeof params.operationId !== "string") throw new RecoveryAuthorityError("checkpoint_operation_invalid");
+        respond(true, await initialization.rollback(params.operationId, signal)); return;
       }
       respond(true, await status(params.action === "reload"));
     } catch (error) {
@@ -53,7 +61,11 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
       return { content: [{ type: "text" as const, text: JSON.stringify(result) }], details: result };
     },
   }, { names: ["stella_initialize"] });
-  api.on("before_agent_run", (event, ctx) => supply.beforeAgentRun(event, ctx), { priority: 10_000 });
+  api.on("before_agent_run", async (event, ctx) => {
+    if (ctx.agentId === config.agentId) try { await initialization.assertAvailable(); }
+    catch { supply.retireRun(ctx.runId); return { outcome: "block" as const, category: "initialization_pending", reason: "Core initialization is pending", message: "Complete or recover Core initialization before a new request." }; }
+    return supply.beforeAgentRun(event, ctx);
+  }, { priority: 10_000 });
   api.registerService({ id: "stella-checkpoint", start: async () => {}, async stop() {
     closed = true; ingress.close(); supply.close();
     if (pending) { try { (await pending).close(); } catch { /* Failed startup has no usable scope. */ } }
