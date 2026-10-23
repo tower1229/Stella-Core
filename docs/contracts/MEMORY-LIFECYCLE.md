@@ -1,5 +1,15 @@
 # Memory Lifecycle Contract
 
+> 2026-10-23 肃清范围说明：完整生命周期仍是产品目标；有限
+> `experimental_owner_chat` 按 [D-058](../DECISIONS.md#d-058--experimental-simplicity-and-user-request-boundaries)
+> 和 [D-059](../DECISIONS.md#d-059--core-checkpoint-is-an-explicit-local-authority)
+> 使用原版 Host、Core 外置 checkpoint 和每用户请求重新准入。以下带日期的
+> OpenClaw recoveryRevision 热更新/opaque Host 覆层段落保留为原路线的历史证据，
+> 不构成当前纯插件依赖或验收通过。完整语义 writer、原生索引/wiki、transcript
+> 等未接入能力保持各自限制；运行中撤权/输出拦截已移出必过门槛。
+> 本期逐项出口见 [收尾表](../suqing-closeout-2026-10-23.md)。
+
+
 状态：现行完整产品设计；实现状态见[设计基线](../10-DESIGN-BASELINE.md#6-设计与源码的差异)。
 本契约覆盖资料接入 → 证据检索 → 交互学习 → 来源变更同步。复用 OpenClaw 的记录、搜索、模型与调度；Core 负责语义判断及跨这些能力的一致性。
 
@@ -333,7 +343,7 @@ Bundled `session-memory` 只有在内部钩子配置／机器级安装实际选�
 
 原生定位 `stella.native-memory-origin/v1` 保存在已留存 Source 内，参与不可变版本计算，限定 provider、Host `2026.8.2`、agent、相对路径和最多 120 行的精确范围。Core 的 LLM 完成来源语义选择后，片段工具才访问原生索引；原生排序不能授予访问权或扩展本轮证据集合。`memory-core` 使用公开 SDK 固定存储 schema，以 SQLite 只读连接定位确切 FTS 行，同时核对 canonical chunk、来源 hash、provenance 和已准入原文范围；公开 status manager 验证已有索引身份及可用状态，公开 `authorizeSearchHits` 按当前会话核对宿主权限，再由原生 manager 回读文件；内置 `session-memory` 另要求显式启用钩子。Wiki 使用公开 corpus supplement 传递当前 agent 和 session，不依赖仅供官方插件使用的 Gateway 转发权限。
 
-原生读取必须返回确切已准入原件。只接受固定 Host 原生 memory read 的末尾换行及精确续读提示编解码；未知格式、范围、正文、provider、版本或无命中显式失败。索引、缓存及原生文件仍存在时，留存来源删除或授权变化也必须阻止后续模型消费。每个外部异步边界及工具结果签发前后复核现有来源、代际、处理权威和取消状态；定位不是授权或原生产物收据。消费路径不调用原生 search／sync：固定 Host 的 search 即使设置 lexicalOnly，仍可能在缺失索引时隐式重建；本路径明确拒绝缺失、不完整或失配的索引，且消费期间不发送查询或重建嵌入。宿主后台索引生成的处理授权仍须单独认证，不能凭启用 provider 或主模型许可放行。Core 持久化完成时推进的恢复指针只对 `plugins.entries.stella-core.config.recoveryRevision` 声明公开热更新，避免插件重载中断同一完成操作；恢复点 CAS、初始化当前配置及投影复核不变，其他配置继续走 Host 原有重载规则。
+原生读取必须返回确切已准入原件。只接受固定 Host 原生 memory read 的末尾换行及精确续读提示编解码；未知格式、范围、正文、provider、版本或无命中显式失败。索引、缓存及原生文件仍存在时，留存来源删除或授权变化也必须阻止后续模型消费。每个外部异步边界及工具结果签发前后复核现有来源、代际、处理权威和取消状态；定位不是授权或原生产物收据。消费路径不调用原生 search／sync：固定 Host 的 search 即使设置 lexicalOnly，仍可能在缺失索引时隐式重建；本路径明确拒绝缺失、不完整或失配的索引，且消费期间不发送查询或重建嵌入。宿主后台索引生成的处理授权仍须单独认证，不能凭启用 provider 或主模型许可放行。仅历史 `legacy_config` 路径在 Core 持久化完成时推进的恢复指针对 `plugins.entries.stella-core.config.recoveryRevision` 声明公开热更新，避免插件重载中断同一完成操作；恢复点 CAS、初始化当前配置及投影复核不变，其他配置继续走 Host 原有重载规则。
 
 原生原文也可能已存在于初始 Evidence Bundle／Personal View，因此完整 Agent 在准入前即验证其中所有原生来源，不能等到片段工具被调用才建立索引绑定。开始前索引缺失或正文不符时，首次 Agent 模型请求即被阻止。所有成功的原生读取（包括未启用查询嵌入的精确读取）固定首次实际消费的原件、索引、向量／缓存和原生返回摘要，并在下一次模型消费前重新核对。再次读取不得替换首次身份；普通索引变化以 `native_memory_consumption_changed` 拒绝。复核回调只执行结构、来源及处理权威检查，不能在原生索引验证前发起额外语义请求。该复核覆盖现有原生消费接缝，不等于生产 engine/provider 已经选用。
 
@@ -600,6 +610,6 @@ Source 和 Policy 保留稳定 ID 及历史语义版本；唯一的完全相同�
 
 同 operationId 及相同请求／Evidence 只恢复已批准计划，不重新生成；不同请求冲突。重启使用当前权限复核，原件变化不得重放陈旧内容。发布后的候选通过现有 request-local MEMORY／最终消费链进入主人私聊，仍为候选；来源变化及撤权后不能经候选、旧会话或摘要复活。群聊、channel、子代理、cron 或未知受众不继承整理权。
 
-durable recoveryRevision 的自身 CAS 更新由当前闭包与 ConsciousnessLoader 同步持有。保留基线已有的精确路径 `reload.hotPrefixes` 声明：该规则没有 reload-plugins 动作，不扩大其他路径例外。未将缺乏因果证据的 noop 实验纳入整理能力；外部指针编辑仍须满足 Core 已持有 revision 和 execution hash。
+历史 `legacy_config` 的 durable recoveryRevision 自身 CAS 更新由当前闭包与 ConsciousnessLoader 同步持有。保留基线已有的精确路径 `reload.hotPrefixes` 声明：该规则没有 reload-plugins 动作，不扩大其他路径例外。未将缺乏因果证据的 noop 实验纳入整理能力；外部指针编辑仍须满足 Core 已持有 revision 和 execution hash。
 
 `tests/memory-consolidation.test.ts` 与 `probe-main-plugin.mjs --core-consolidation{,-source-stale,-revoked,-recovery}` 提供隔离合成契约及真实本地 Host／loopback 证据。它们不证明真实模型质量、私人 main、所有声明入口或整个产品验收完成；包收据须绑定同一源码和 artifact，历史不同 SHA 结果不可拼接。

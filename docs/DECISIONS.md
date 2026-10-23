@@ -165,6 +165,12 @@ outcome, and learning while preserving the original prediction snapshot.
 
 ## D-028 — Managed commits advance the persistent recovery pointer before synchronization
 
+**Scope update (2026-10-23):** The OpenClaw configuration pointer below applies only to
+`legacy_config` (including the default when the authority option is omitted). For the
+explicit `core_checkpoint` plugin path, [D-059](#d-059--core-checkpoint-is-an-explicit-local-authority)
+supersedes the pointer location and local persistence sequence. This is not a second
+authority and does not migrate the remaining legacy business writers.
+
 **Decision:** A managed CangHai write is not successful merely because the process-local loader saw
 the new revision. After the CangHai commit, Stella compare-and-sets the persistent OpenClaw recovery
 pointer, then pushes/flushes and refreshes the loader. Pointer failure preserves the commit for
@@ -594,3 +600,56 @@ changed audiences require a new session or explicit migration; no history scrub,
 provider proxy, output buffer, real-time withdrawal or model semantic guarantee
 is introduced. A usable experimental owner-chat mode is distinct from acceptance
 of the complete full_memory product contract.
+
+
+## D-059 — Core checkpoint is an explicit local authority
+
+**Decision (2026-10-23, 肃清 implementation reconciliation):** The opt-in
+`core_checkpoint` plugin path owns a small authority record outside the CangHai
+Git repository. OpenClaw owns execution, cancellation, tools and conversation
+history; Stella does not patch the Host or require a Host configuration-application
+receipt. D-028 remains applicable to `legacy_config` only.
+
+The selected checkpoint stores binding, source revision, random token and the
+latest operation ID/digest. It is not a monotonic epoch, permanent permission ledger
+or complete operation registry. Recovery targets/journals, materialization receipts
+and actual consumer evidence are separate facts; none implies the next stage.
+Each new user request rechecks current source eligibility at its selected checkpoint
+under D-058; a Git-only rollback does not automatically select an old checkpoint or
+restore a prior permission. Repository-external storage prevents an
+ordinary repository reset from also resetting this record; the same operating-system
+account can still alter both. This is no protection against an account/whole-machine
+rollback or a new cryptographic trust boundary.
+
+Initialization requires a pre-existing canonical state directory outside the source
+repository and an explicit selected revision equal to the clean current HEAD, with
+matching manifest bytes and no pending operation. Ordinary reads never seed from
+HEAD or overwrite missing/corrupt authority. `core_checkpoint` rejects the OpenClaw
+configuration field `recoveryRevision`; an internal loader argument of that name
+still validates the explicitly selected tree. No silent dual authority or implicit
+legacy fallback is permitted.
+
+A managed writer authenticates the journal's original expected revision/token and
+one direct-child Git commit, including exact planned paths and before/after bytes.
+CAS compares that frozen tuple. Only its returned B/tokenB establishes the next
+authority; subsequent publication validation and pending-journal confirmation are
+separate steps. Failure may preserve a valid B and pending operation. When eligibility,
+bytes and the original journal remain valid, an exact replay can complete that operation
+without another commit/token advance; mismatches still refuse entry. Stale closures are
+not updated from observation. The journal retains historical operation identity.
+
+The local adapter uses cooperative, exclusive standard-library locks in the fixed
+repository→checkpoint order and the existing mutation fence. Corrupt/occupied or
+crash-left locks refuse entry; no PID enumeration, stealing or automatic reclamation.
+Drain old writers before selecting a different authority; old binaries are not
+implicitly made compatible. New checkpoint files use mode 0600 and file fsync→rename→
+directory fsync. Existing directories are not automatically created/chmodded, and this
+does not claim a complete audit of existing file ownership/permissions or power-loss
+behavior on all filesystems.
+
+The owner-input archive reports `local_committed`: it does not push, enter the normal
+RPO queue, or claim critical/remote durability and server-loss recovery. Existing
+remote synchronization requirements still apply to paths that advertise them.
+Semantic learning/correction/outcome and complete transcript writers remain outside
+this finite experimental mode; they are not silently migrated or reported as
+full_memory. See [current closeout](suqing-closeout-2026-10-23.md).

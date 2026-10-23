@@ -8,6 +8,8 @@
 
 同受众连续会话保留 Host 历史，每个新用户请求重新读取当前 Core checkpoint/权限；历史引用不冒充当前事实。不再要求普通本人对话逐轮 reset。有限实验模式与完整 full_memory 分开，边界及固定构建证据见 [第十三批](suqing-batch13-2026-10-23.md)。
 
+当前有限出口、SQ-00～13 原题及延期/取消/缺证据/授权边界以 [肃清收尾表](suqing-closeout-2026-10-23.md) 补充；原始计划和旧批次保留历史身份。外置 checkpoint 与 legacy 配置指针的替代关系见 [D-059](DECISIONS.md#d-059--core-checkpoint-is-an-explicit-local-authority)。这不关闭完整记忆、真实 main 产品效果或发布验收。
+
 ## 1. 权威与职责
 
 | 内容 | 唯一维护位置 |
@@ -30,6 +32,7 @@ Issue 只定义其明确版本和范围内的工作；已关闭 Issue 的原始�
 
 | 范围 | 必须证明 | 不据此宣称 |
 | --- | --- | --- |
+| 肃清有限实验模式 | 纯插件、初始化/文件保护、本人连续聊天、原话归档/Git/CAS、当前记忆工具和下一请求 freshness | full_memory、完整学习/transcript、真实模型效果或发布已通过 |
 | Alpha | 按需关系／社交决策、真实行动证据、一个 Twin **或** Praxis 学习项、后续使用、远端同步和干净恢复 | 全量个人资料接入、多轮全库取证、写作共思、完整 Twin 更新、持续代办已经实现 |
 | 完整记忆契约 | [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md)的接入、检索、交互学习和同步全部满足；两个代表场景可接续 | 另行缩减六类产品能力，或已经确定新的发布版本 |
 

@@ -57,7 +57,7 @@ sourceBaseline 记录派生历史，允许早于恢复 revision；不得要求�
 
 ## 6. 持久化与恢复点
 
-本地 Git commit 可定位恢复版本，只有同步到明确远端才保护服务器丢失。managed 写入顺序：
+本地 Git commit 可定位恢复版本，只有同步到明确远端才保护服务器丢失。以下同步顺序适用于声明远端 durability 的 managed 路径；OpenClaw 配置中的恢复指针仅属于 `legacy_config`。
 
 ```text
 校验并发布对象 → scoped commit → persistent recovery pointer CAS
@@ -67,6 +67,15 @@ sourceBaseline 记录派生历史，允许早于恢复 revision；不得要求�
 critical 成功必须确认远端；normal 可本地使用但带 remote_pending，RPO 超时显式 breached。RPO 数值必须配置并可观察，不能在代码里悄悄扩大。
 
 pointer CAS 失败保留合法新提交并返回明确错误，不覆盖并发配置；push unknown 先核查远端。按 operationId 和提交记录接续，不重复生成学习。多文件部分发布、人工编辑冲突及 view 失效规则见 [Memory Lifecycle 同步契约](contracts/MEMORY-LIFECYCLE.md#5-来源变更同步)。
+
+`core_checkpoint` 的有限 owner-input 归档另按 [D-059](DECISIONS.md#d-059--core-checkpoint-is-an-explicit-local-authority) 执行：
+
+```text
+冻结原 expected revision/token → journal/计划文件 → scoped direct-child commit
+→ 仓库外 checkpoint 精确 CAS → 来源/业务发布复核 → 确认 journal/pending
+```
+
+该分支只报告 `local_committed`，不执行 push 或 normal RPO 队列，不声称 critical/服务器丢失恢复。checkpoint 是来源权威，不是恢复目标、已物化或已消费收据。正常读取缺失/损坏状态即拒绝；仅显式 initialize 可建立新状态，不能自动采用 HEAD。CAS 后确认失败可留下合法新权威与 pending；重启按原 expected/journal 接续，不另生提交、不把观测值改写为 expected。旧模式默认不变，切换须停止旧 writer 并显式选择来源，不提供自动旧 binary 混跑保证。
 
 恢复过程不能把远端尚未同步的机器本地 commit 称为已经具备抗服务器丢失能力；也不能因旧 pointer 而静默回退到旧认知。
 
