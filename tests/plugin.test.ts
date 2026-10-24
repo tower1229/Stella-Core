@@ -857,7 +857,11 @@ for (const patch of [
         assert.equal((gate as { category: string }).category, "private_context_audience_forbidden");
       }, hooks, { ...hostRequest(prompt), ...patch });
       assert.equal(modelCalls, 0);
-    } finally { await rm(root, { recursive: true, force: true }); }
+    } finally {
+      // Linux may briefly retain a Git pack directory during fixture teardown.
+      // Retry only Node's transient removal errors; persistent cleanup still fails.
+      await rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    }
   });
 }
 

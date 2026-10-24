@@ -54,3 +54,12 @@ functionResponse 属于 user；不能只证明目录列出 Skill 或在提示词
 不能证明模型理解或遵守指令、写作共思效果、普通知识问答质量，也不覆盖其他 harness。
 因此 #31 整体、真实模型验收、私人 main、full_memory 和 #23 均未据此完成；#24 的语义
 writer 迁移另行评估。本批不部署真实 main，不改 source grant 或生产 dev。
+
+
+## Linux CI 的清理失败
+
+`e9bcf521` 的实验 CI 40075449250 有1085/1086项通过；唯一错误是旧 private-preparation
+测试在清理自有临时 Git `.git/objects/pack` 目录时收到 `ENOTEMPTY`，尚未运行 Host 探针。
+同提交的完整能力 prepare 已通过。修复仅为该 fixture 的 `fs.rm` 使用 Node 内建的最多
+3次 transient-error 重试、100ms递增间隔；持久错误仍使测试失败，业务断言不变。
+该次失败保留，不改写为通过；后续结果按精确修复提交的 CI receipt 记录。
