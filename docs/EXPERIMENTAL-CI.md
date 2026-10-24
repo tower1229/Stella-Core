@@ -67,3 +67,16 @@ A→可信 Core 本地纠正→B 后实际 provider 请求采用新 work/ref，�
 wire 同样必须捕获，全部 HTTP 在 provider 关闭后闭合核验；详见
 [只读 Work 供给](CHECKPOINT-WORK-SUPPLY.md)。旧104份数字对应加入 Work 之前的六场景，
 不冒算新七场景已经在旧提交通过。
+
+
+默认关闭的本人纠正工具另用第八份 `correction` 同包报告：在独立合成配置显式选择
+agentCorrection=tool，并仅允许新增写工具。三轮同 owner 同 session 的真实 Host 验证
+问候不触发纠正、当轮真实归档 Evidence 进入一次语义事务、writer返回CAS后同轮读取新
+Work、下一请求归档后仍读取纠正版本。它不扩大原七场景配置或真实 main 权限。
+新增14份 wire 包括6 Agent及8次公开辅助语义调用，八场景共127份；全部请求与回复文件
+绑定本次包、来源、闭合窗口和正常退出。Source原v3策略保留，只有新合成owner archive
+使用独立v1策略，不能拿这套夹具作为真实数据许可变更。
+
+`agentSelectedCorrectionMechanism` 表达假模型驱动的真实 Host 机制，真实自动语义质量
+仍为not_accepted；旧只读Work场景的direct correction callback依旧明确标作stub。
+完整full_memory与152项评估的失败门槛保持原状。边界见[纠正契约](CHECKPOINT-CORRECTION-WRITER.md)。

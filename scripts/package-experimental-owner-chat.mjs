@@ -126,6 +126,18 @@ try {
   }));
   receipt.workReport = { path: workReportPath, sha256: sha256(await readFile(path.join(out, workReportPath))),
     providerFiles: reports.work.providerWires.map(wire => ({ path: `host-work-a1/provider-${wire.index}.json`, sha256: wire.sha256 })) };
+  await run("host-correction", process.execPath, [path.join(root, "scripts/probe-checkpoint-correction-installed.mjs")], {
+    env: { ...await isolatedEnv("correction"), STELLA_CORRECTION_ARTIFACTS: out, STELLA_CORRECTION_ATTEMPT: "a1", STELLA_CORRECTION_PACKAGE_ARTIFACT: artifact } });
+  const correctionReportPath = "host-correction-a1/result.json";
+  reports.correction = JSON.parse(await readFile(path.join(out, correctionReportPath), "utf8"));
+  reports.correction.providerWires = await Promise.all(reports.correction.requests.map(async request => {
+    const body = await readFile(path.join(out, `host-correction-a1/provider-${request.index}.json`), "utf8");
+    const responseBody = await readFile(path.join(out, `host-correction-a1/provider-${request.index}-response.json`), "utf8");
+    return { index: request.index, body, sha256: sha256(body), responseBody, responseSha256: sha256(responseBody) };
+  }));
+  receipt.correctionReport = { path: correctionReportPath, sha256: sha256(await readFile(path.join(out, correctionReportPath))),
+    providerFiles: reports.correction.providerWires.map(wire => ({ path: `host-correction-a1/provider-${wire.index}.json`, sha256: wire.sha256,
+      responsePath: `host-correction-a1/provider-${wire.index}-response.json`, responseSha256: wire.responseSha256 })) };
   receipt.capabilities = assertExperimentalReports(reports, { packageRoot: installed, hostRoot, artifact,
     artifactSha256: receipt.artifactSha256, packageIntegrity: packed.integrity, consumerLockSha256: receipt.consumerLockSha256,
     coreRevision: source.coreRevision, buildIdentitySha256: sha256(await readFile(path.join(installed, "dist/build-identity.json"))) });

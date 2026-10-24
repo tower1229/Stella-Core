@@ -75,5 +75,19 @@ helper13项、旧供给74项以及新增注册供给5项已通过。新注册测
 重复，实测仅一次纠正提交；第一次并发重复锁失败保留于 supply-a4，最小修复保留共享操作
 内部的完整 CAS/reader 检查，外层重复等待者只检查身份和正常取消，不修改锁框架。
 
-以上为合成 Host hooks 与真实本地 Git/CAS；安装包的真实原版 Host 三轮验证另行记录，
-未取得结果前不称其通过。没有修改 main、真实 grant、沧海 dev、Host 或调用真实模型。
+随后固定源码 `236e1a6f4bd41ee42993e7dfe195fec60b857180`，标准 build/pack 后离线安装包
+SHA256 `671b8b1721da442fe84cb050713c780f221c85b0dcc93c1ac9d7689149de46f1`，
+496 个文件逐一匹配。原版 OpenClaw 2026.8.2 同 session 三轮真实 chat.send 通过：问候不
+纠正；本人纠正触发一次写工具、公开 Host 语义调用及 Git/CAS，再在同轮读取新 Work；
+下一用户请求正常归档到新 checkpoint，但仍读取该纠正后的 Work/ref，无需 reset。
+
+14 份完整 loopback wire 分为 Agent6、Source policy3、selector2、proposal/verification/
+interpretation各1；全部语义调用走公开 runtime.llm.complete，没有直接 writer stub。
+三次 owner input archive 与一次 semantic commit 分开核验，LearningChange.inputRefs
+精确属于本轮新归档 Evidence，journal expected 为本轮归档返回B；本轮采纳C仅来自writer
+CAS。provider关闭后核对全部HTTP与闭合窗口；唯一Gateway正常exit0，合成源/运行标记清理。
+
+原件位于 `.artifacts/checkpoint-agent-correction-20261024/` 的helper-a1、root-a1、
+supply-a1..a5及source-a1/.artifacts/correction-installed-a1/host-correction-a1。失败尝试保留，
+不计为通过。机制已由真实 Host + fake provider 验证；真实语义判断质量、main启用、来源
+learn许可和外发/费用仍需各自确认。没有修改 main、真实 grant、沧海 dev、Host 或调用真实模型。

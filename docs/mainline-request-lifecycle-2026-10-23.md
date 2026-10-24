@@ -72,8 +72,9 @@ prepare在check/check:schemas通过后，完整测试8项失败：
    correction/learning/OngoingWork 的 checkpoint 迁移。一个 writing work 的本地纠正 writer
    已按[最小分支契约](CHECKPOINT-CORRECTION-WRITER.md)通过合成 Git/CAS、重启/重放/故障恢复
    验证；只读 Ongoing Work 已通过[正常 Host 接续](CHECKPOINT-WORK-SUPPLY.md)的实际安装包
-   A→本地可信纠正→B 消费验证。自动聊天纠正触发、其他 learning/outcome writer 尚未迁移；
-   不能把原话归档、内部 writer 或只读接续通过冒充 #24 全部完成。
+   A→本地可信纠正→B 消费验证。默认关闭的独立纠正写工具已另行通过[真实 Host 三轮机制验证](CHECKPOINT-CORRECTION-WRITER.md)，
+   用公开工具循环接通本轮归档Evidence→一次CAS→当前/下一请求Work；真实纠正语义质量及
+   其他 learning/outcome writer 尚未验收，不能冒充 #24 全部完成。
    已确认代表场景仍是按需社交判断和写作共思，不为六类能力凑新必过用例。
 
 main仍使用批17包`7d7b660b…`/源码`b07d91bb`和原c595来源，本批没有部署新代码或改真实

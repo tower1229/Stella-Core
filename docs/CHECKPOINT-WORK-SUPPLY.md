@@ -53,7 +53,8 @@ provider-1..9.json。产物不提交；最终 CI 使用最终提交另建同包�
 
 ## 仍未覆盖
 
-当前可用的是已保存 Ongoing Work 的只读接续。正常聊天自动识别纠正、自动调用 writer、
+当前动作只负责已保存 Ongoing Work 的只读接续。默认关闭的独立纠正工具已另按
+[纠正契约](CHECKPOINT-CORRECTION-WRITER.md)验证真实 Host 机制；真实语义识别质量、
 其他 learning/outcome 的 checkpoint 迁移、完整 transcript 和 compaction 不在本项通过范围。
 #24 仍有这些前置与真实行为证据缺口，不能仅凭工具可调用就关闭。旧 main 包未更新；真实
 网页 profile/grant、真实记忆外发和模型费用均需各自完成边界确认。fake模型只验证机制。

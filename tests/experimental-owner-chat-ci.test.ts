@@ -75,6 +75,96 @@ function validWork(common: any) {
     trustedCorrectionCalls: ["proposal-stub", "verification-stub"].map(kind => ({ kind, transport: "local callback, not public Host LLM" })),
     requests, allHttpRequests, providerWires, cases };
 }
+function validCorrection(common: any) {
+  const template = validWork(common), workA = template.cases[0].expectedWork, workB = template.cases[1].expectedWork;
+  const originalPolicy = { id: "synthetic-policy", version: digest("work-policy") }, archivePolicy = { id: "owner-input-v1", version: digest("owner-policy") };
+  const authority = (n: number) => ({ mode: "core_checkpoint", binding: { agentId: "synthetic", repositoryRoot: "/synthetic/source", manifestPath: "synthetic-manifest.yaml" }, revision: String(n).repeat(40), token: `synthetic-token-${n}` });
+  const entry = (id: string) => ({ id, version: digest(id), status: "current" });
+  const catalog: any = { generationId: "initial", policies: [{ ...originalPolicy, status: "current" }, { ...archivePolicy, status: "current" }],
+    sources: [entry("old-source"), entry("old-correction-source")], evidence: [entry("old-evidence"), entry("old-correction-evidence")],
+    coverage: [entry("old-coverage"), entry("old-correction-coverage")], works: [{ ...workA.ref, status: "current" }], changes: [] };
+  const snapshot = (a: any, work: any, files: string[], ingress?: any) => structuredClone({ authority: a, work, catalog,
+    files, status: { authority: a, capabilities: { full_memory: false }, ...(ingress ? { ingress } : {}) } });
+  let current = snapshot(authority(1), workA, []), clock = 1;
+  const requests: any[] = [], allHttpRequests: any[] = [], providerWires: any[] = [], cases: any[] = [], history: string[] = [];
+  const add = (kind: string, test: any, contents: any[], parts: any[], metadata: any = {}) => {
+    const index = requests.length + 1, body = JSON.stringify({ contents }), responseBody = JSON.stringify({ candidates: [{ content: { role: "model", parts } }] });
+    const method = "/models/gemini-3.8-flash:streamGenerateContent?alt=sse", atUtc = "2026-10-24T10:00:00Z";
+    requests.push({ index, kind, case: test.id, method, bytes: Buffer.byteLength(body), atUtc, ...metadata }); allHttpRequests.push({ index, method: "POST", path: method, atUtc });
+    providerWires.push({ index, body, sha256: digest(body).slice(7), responseBody, responseSha256: digest(responseBody).slice(7) });
+  };
+  const prompt = (prefix: string, data: any) => [{ role: "user", parts: [{ text: prefix + "\n" + JSON.stringify(data) }] }];
+  const fn = (name: string, args: any) => ({ role: "model", parts: [{ functionCall: { name, args } }] });
+  const output = (name: string, value: any) => ({ role: "user", parts: [{ functionResponse: { name, response: { output: JSON.stringify(value) } } }] });
+  for (const id of ["greeting", "correction", "next"]) {
+    const correcting = id === "correction", input = id === "greeting" ? "Synthetic greeting" : correcting ? "Synthetic owner correction" : "Resume this corrected work";
+    const runId = `synthetic-${id}`, archiveOp = `archive_${id}`, before = current;
+    const sourceRef = { id: `new-source-${id}`, version: digest(`new-source-${id}`) }, evidenceRef = { id: `new-evidence-${id}`, version: digest(`new-evidence-${id}`) };
+    catalog.sources.push({ ...sourceRef, status: "current" }); catalog.evidence.push({ ...evidenceRef, status: "current" }); catalog.coverage.push(entry(`new-coverage-${id}`)); catalog.generationId = `archived-${id}`;
+    const archiveAuthority = authority(++clock), files = [...before.files, `${archiveOp}.archive.json`, `${archiveOp}.checkpoint.json`];
+    const ingress = { state: "local_committed", runId, operationId: archiveOp, revision: archiveAuthority.revision };
+    const start = snapshot(archiveAuthority, before.work, files, ingress);
+    const test: any = { id, input, sessionKey: "agent:synthetic:same-correction-session", before, sent: { runId }, terminal: { runId, status: "ok" },
+      agentStart: start, archive: { sourceRef, evidenceRef, runId, requestHash: digest(input), policyRef: archivePolicy }, archiveCommit: archiveAuthority.revision,
+      firstProviderIndex: requests.length + 1, ownerArchiveWrites: 1, semanticWrites: correcting ? 1 : 0 };
+    const contents: any[] = [{ role: "user", parts: [{ text: input }] }];
+    if (id === "greeting") {
+      current = start; add("agent", test, contents, [{ text: "Synthetic greeting answer" }], { phase: 1 });
+    } else {
+      const policyBinding = { request: input, requestHash: digest(input), sourceRef: workA.record.sourceRefs?.[0] ?? { id: "old-source", version: digest("old-source") } };
+      const policyCall = () => add("source-policy", test, prompt("Judge the semantic relationship between this request and exactly this source.", policyBinding),
+        [{ text: JSON.stringify({ requestHash: digest(input) }) }], { sourceRef: policyBinding.sourceRef });
+      const baseContents = [...contents]; let receipt: any;
+      if (correcting) {
+        add("agent", test, contents, [{ functionCall: { name: "stella_memory_correct", args: {} } }], { phase: 1 }); policyCall();
+        const ownerEvidence = [{ ref: evidenceRef, text: input }], requestHash = digest(input);
+        add("correction-proposal", test, prompt("Propose one evidence-bound correction or useful work-state update for Stella.", { request: input, requestHash, ownerEvidence }),
+          [{ text: JSON.stringify({ requestHash, disposition: "update" }) }], { ownerEvidenceRef: evidenceRef });
+        const proposalHash = digest("synthetic-approved-proposal");
+        add("correction-verification", test, prompt("Independently verify this proposed correction against the exact owner originals and existing state.", { requestHash, ownerEvidence, proposalHash }),
+          [{ text: JSON.stringify({ requestHash, proposalHash, valid: true }) }]);
+        const bindingHash = digest("synthetic-interpretation"), requirements = [{ id: "keep_scope", handle: "R1" }];
+        add("source-interpretation", test, prompt("Independently check the derived artifact against every supplied source interpretation requirement.", { bindingHash, data: { request: input, requirements } }),
+          [{ text: JSON.stringify({ bindingHash, checks: [{ handle: "R1", satisfied: true }] }) }]);
+        const changeRef = { id: "synthetic-current-change", version: digest("synthetic-current-change") };
+        receipt = { changeRef, operationId: "learn_" + digest("synthetic-current-change").slice(7), disposition: "update", clarification: null, persistenceStatus: "local_committed" };
+        catalog.changes.push({ ...changeRef, status: "current" }); catalog.works[0].status = "superseded"; catalog.works.push({ ...workB.ref, status: "current" }); catalog.generationId = "corrected-work";
+        const correctedAuthority = authority(++clock); test.semanticCommit = correctedAuthority.revision;
+        files.push(`${receipt.operationId}.correction.json`, `${receipt.operationId}.transaction.json`); current = snapshot(correctedAuthority, workB, files, ingress);
+        const memory = { userRequest: runId, checkpointRevision: current.authority.revision, checkpointToken: current.authority.token };
+        test.correction = { receipt, currentMemory: memory, authority: current.authority };
+        baseContents.push(fn("stella_memory_correct", {}), output("stella_memory_correct", { correction: receipt, currentMemory: memory }));
+        add("agent", test, baseContents, [{ functionCall: { name: "stella_memory_data", args: { action: "work" } } }], { phase: 2, correctionVerified: changeRef });
+      } else { current = start; add("agent", test, contents, [{ functionCall: { name: "stella_memory_data", args: { action: "work" } } }], { phase: 1 }); }
+      policyCall();
+      const requestHash = digest(input), candidate = { handle: "V1", group: "works", ref: current.work.ref, record: current.work.record };
+      add("view-selector", test, prompt("Select request-local Stella USER and MEMORY views.", { question: input, requestHash, candidates: [candidate] }),
+        [{ text: JSON.stringify({ requestHash, selections: [{ handle: "V1", view: "memory" }] }) }], { selectedWork: current.work.ref });
+      const supplied = { works: [current.work], exclusions: {}, generation: current.catalog.generationId,
+        currentMemory: { userRequest: runId, checkpointRevision: current.authority.revision, checkpointToken: current.authority.token },
+        usageConstraints: [{ work: current.work.ref, policies: [{ policyRef: originalPolicy, quotePolicy: "summarize_only", rules: [{ id: "keep_scope", requirement: "Do not generalize the synthetic example." }] }] }] };
+      add("agent", test, [...baseContents, fn("stella_memory_data", { action: "work" }), output("stella_memory_data", supplied)], [{ text: "Synthetic current work answer" }],
+        { phase: correcting ? 3 : 2, workVerified: current.work.ref, checkpointRevision: current.authority.revision });
+    }
+    history.push(input, `Synthetic ${id} answer`); test.history = { sessionId: "synthetic-one-session", messages: [...history] };
+    test.after = current; test.lastProviderIndex = requests.length; test.gitCommits = correcting ? [test.archiveCommit, test.semanticCommit] : [test.archiveCommit]; cases.push(test);
+  }
+  return { ...structuredClone(common), installation: template.installation, schemaVersion: "stella.checkpoint-correction-installed/v1",
+    fullMemoryAccepted: false, realModelAccepted: false, realMainAccepted: false, automaticCorrectionMechanismVerified: true,
+    configuration: { ...template.configuration, requestArchive: "local", agentCorrection: "tool" }, syntheticClientIdentity: template.syntheticClientIdentity,
+    gatewayRuns: template.gatewayRuns, syntheticSourceRemoved: true, endedAtUtc: template.endedAtUtc,
+    createdSession: { ok: true, runStarted: false, sessionId: "synthetic-one-session" },
+    source: { initialRevision: cases[0].before.authority.revision, originalWorkPolicyRef: originalPolicy, archivePolicyRef: archivePolicy }, sourceFinalRevision: current.authority.revision,
+    boundaries: { sameOwnerSameSession: true, resets: 0, userRequests: 3, ownerArchiveWrites: 3, semanticWrites: 1, greetingDoesNotCorrect: true,
+      currentHostArchiveEvidenceUsedByCorrection: true, modelSelectedCorrectionTool: true, publicHostSemanticCompletionsOnly: true,
+      sameRoundWorkUsesReturnedCAS: true, nextRequestWorkRemainsCorrected: true, authorialDistinctionsPreserved: true, usageConstraintsReachAgent: true,
+      historyMayRetainPastValues: true, full_memory: false, realSemanticQualityAccepted: false }, cases, requests, allHttpRequests, providerWires };
+}
+function mutateCorrectionWire(reports: any, index: number, mutate: (body: any) => void) {
+  const wire = reports.correction.providerWires[index - 1], body = JSON.parse(wire.body); mutate(body); wire.body = JSON.stringify(body);
+  wire.sha256 = digest(wire.body).slice(7); reports.correction.requests[index - 1].bytes = Buffer.byteLength(wire.body);
+}
+
 function mutateWorkWire(reports: any, index: number, mutate: (body: any) => void) {
   const wire = reports.work.providerWires[index - 1], body = JSON.parse(wire.body); mutate(body);
   wire.body = JSON.stringify(body); wire.sha256 = digest(wire.body).slice(7); reports.work.requests[index - 1].bytes = Buffer.byteLength(wire.body);
@@ -132,7 +222,7 @@ function valid() {
     skill: { ...structuredClone(common), scenario: "materialization", budgetMode: "normal", rawProviderRequests: Array.from({ length: 8 }, (_, index) => ({ index: index + 1 })),
       allHttpRequests: Array.from({ length: 8 }, (_, index) => ({ index: index + 1, method: "POST", path: "/synthetic-loopback" })),
       materialization: { materialized: { receipt: { files: Array(6).fill({}) } }, consumed: false },
-      skillConsumption: { bootstrapSources, skillSource, wireProofs } }, budgetFile: budget("file"), budgetTotal: budget("total"), work: validWork(common) };
+      skillConsumption: { bootstrapSources, skillSource, wireProofs } }, budgetFile: budget("file"), budgetTotal: budget("total"), work: validWork(common), correction: validCorrection(common) };
 }
 function rejects(mutate: (reports: any) => void) { const reports = valid(); mutate(reports); assert.throws(() => evidence.assertExperimentalReports(reports, context)); }
 
@@ -357,6 +447,54 @@ test("work HTTP closure, cleanup and read-only principal boundaries cannot be re
   rejects(reports => { reports.work.configuration.providerBaseUrl = "https://external.example.invalid"; });
   rejects(reports => { reports.work.syntheticClientIdentity.humanProfileClaimed = true; });
   rejects(reports => { reports.work.syntheticClientIdentity.clientDeviceAuthTokenPersistence = true; });
+});
+
+test("Agent-selected correction is an eighth required same-package mechanism report, not semantic quality", () => {
+  const accepted = evidence.assertExperimentalReports(valid(), context);
+  assert.equal(accepted.agentSelectedCorrectionMechanism, "passed"); assert.equal(accepted.automaticSemanticQuality, "not_accepted");
+  rejects(reports => { delete reports.correction; });
+  rejects(reports => { reports.correction.installation.artifactSha256 = "f".repeat(64); });
+  rejects(reports => { reports.correction.installation.buildIdentity.sourceClean = false; });
+  rejects(reports => { reports.correction.boundaries.realSemanticQualityAccepted = true; });
+  rejects(reports => { reports.correction.trustedCorrectionCalls = [{ transport: "local callback" }]; });
+});
+
+test("automatic correction requires current-run new Evidence, one semantic write and real B to C publication", () => {
+  rejects(reports => { reports.correction.cases[1].archive.evidenceRef = reports.correction.cases[1].before.catalog.evidence[0]; });
+  rejects(reports => { reports.correction.cases[1].archive.runId = "old-run"; });
+  rejects(reports => { reports.correction.cases[1].semanticWrites = 0; });
+  rejects(reports => { reports.correction.cases[1].semanticCommit = reports.correction.cases[1].archiveCommit; });
+  rejects(reports => { reports.correction.cases[1].after.authority.token = reports.correction.cases[1].agentStart.authority.token; });
+  rejects(reports => { reports.correction.source.archivePolicyRef = reports.correction.source.originalWorkPolicyRef; });
+  rejects(reports => { reports.correction.cases[2].history.sessionId = "reset-session"; });
+});
+
+test("correction CI reads proposal Evidence and same-round and next-request work from complete actual wires", () => {
+  rejects(reports => { reports.correction.providerWires.pop(); });
+  rejects(reports => { reports.correction.providerWires[0].responseSha256 = "f".repeat(64); });
+  rejects(reports => { mutateCorrectionWire(reports, 4, body => {
+    const part = body.contents[0].parts[0], data = JSON.parse(part.text.split("\n").at(-1)); data.ownerEvidence[0].ref = reports.correction.cases[1].before.catalog.evidence[0];
+    part.text = "Propose one evidence-bound correction or useful work-state update for Stella.\n" + JSON.stringify(data);
+  }); });
+  rejects(reports => { mutateCorrectionWire(reports, 14, body => {
+    const response = body.contents.flatMap((item: any) => item.parts).filter((part: any) => part.functionResponse?.name === "stella_memory_data").at(-1).functionResponse.response;
+    const data = JSON.parse(response.output); data.currentMemory.checkpointRevision = reports.correction.cases[1].after.authority.revision; response.output = JSON.stringify(data);
+  }); });
+  rejects(reports => { mutateCorrectionWire(reports, 10, body => {
+    const response = body.contents.flatMap((item: any) => item.parts).filter((part: any) => part.functionResponse?.name === "stella_memory_data").at(-1).functionResponse.response;
+    const data = JSON.parse(response.output); data.usageConstraints[0].policies[0].rules = []; response.output = JSON.stringify(data);
+  }); });
+  rejects(reports => { reports.correction.requests[3].kind = "local-writer-stub"; });
+});
+
+test("correction greeting, request closure and cleanup cannot be replaced by success flags", () => {
+  rejects(reports => { reports.correction.cases[0].semanticWrites = 1; });
+  rejects(reports => { reports.correction.cases[0].lastProviderIndex++; });
+  rejects(reports => { reports.correction.allHttpRequests.push({ index: 15, method: "POST", path: "/late-title-helper" }); });
+  rejects(reports => { reports.correction.requests[10].case = "correction"; });
+  rejects(reports => { reports.correction.providerDrainError = { message: "late callback" }; });
+  rejects(reports => { reports.correction.gatewayRuns[0].exitCode = 1; });
+  rejects(reports => { reports.correction.syntheticSourceRemoved = false; });
 });
 
 test("probe SIGTERM waits for its registered child cleanup and preserves a failed cancellation", { timeout: 10_000 }, async () => {
