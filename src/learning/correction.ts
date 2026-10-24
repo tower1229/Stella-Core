@@ -1,10 +1,12 @@
 import path from "node:path";
+import { readCheckpointCommittedDocument } from "../canghai/checkpoint-committed-document.js";
 import { verifySourceInterpretation } from "../canghai/source-interpretation.js";
 import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogEntry, type MemoryCatalog } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-version.js";
 import { stableId } from "../canghai/host-input-archive.js";
-import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError, type MemoryFileChange, type MemoryTransactionPlan } from "../canghai/memory-transaction.js";
+import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError, type MemoryFileChange, type MemoryTransactionPlan, type CheckpointTransactionRecovery } from "../canghai/memory-transaction.js";
 import { afterDurablePersistPublishView } from "../canghai/managed-durable-write.js";
+import type { RecoveryAuthoritySnapshot } from "../canghai/recovery-authority-contract.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
 import { EpisodeEvidenceResolver, type OriginalEvidence, type EvidencePurpose } from "../praxis/episode-evidence.js";
@@ -13,6 +15,10 @@ import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
 import { readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
 import { applyViewMigration, planViewMigration, rebuildsFromRecordedPlan, isViewMigrationFile, type ViewMigrationPlan, type ViewRebuildAdmission } from "../canghai/view-migration.js";
+
+/** Trusted Core-only local persistence. Never a Host config/model argument. */
+export type CheckpointCorrectionPorts = Readonly<{ recovery: CheckpointTransactionRecovery;
+  commit(paths: string[], operationId: string): Promise<void> }>;
 
 const VERSION = "stella-correction/v1";
 const RECEIPT_VERSION = "stella-correction/v2";
@@ -57,7 +63,7 @@ async function assertConsolidationOriginalPolicies(reader: CatalogReader, eviden
 }
 
 /** Public learning boundary: replay the approved operation, never infer a second change. */
-export async function learn(input: Parameters<typeof prepareCorrection>[0] & {
+export async function learn(input: Omit<Parameters<typeof prepareCorrection>[0], "checkpoint"> & {
   durability: GitCangHaiDurability; signal: AbortSignal;
 }) {
   input.signal.throwIfAborted();
@@ -84,10 +90,51 @@ export async function learn(input: Parameters<typeof prepareCorrection>[0] & {
     disposition: prepared.disposition, clarification: prepared.clarification };
 }
 
+/** Explicit local branch. Replay uses the original journal tuple and never repeats inference. */
+export async function learnCheckpoint(input: Parameters<typeof prepareCorrection>[0] & {
+  checkpoint: RecoveryAuthoritySnapshot; persistence: CheckpointCorrectionPorts; signal: AbortSignal;
+}) {
+  input.signal.throwIfAborted();
+  check(input.mode !== "consolidation" && input.checkpoint.mode === "core_checkpoint" &&
+    canonicalJson(input.checkpoint) === canonicalJson(input.persistence.recovery.expected), "correction_checkpoint_mismatch");
+  await input.assertProcessingCurrent();
+  const operationId = operationKey(input.operationId), reader = input.resolver.reader;
+  const journal = path.posix.join(path.posix.dirname(reader.catalogPath), "operations", `${operationId}.transaction.json`);
+  let recorded: MemoryTransactionPlan | undefined;
+  try { recorded = await readRecordedMemoryTransaction(reader.root, operationId, journal); }
+  catch (error) {
+    if (!(error instanceof MemoryTransactionError && error.category === "pending_transaction_not_found") &&
+      !(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+  if (recorded) {
+    check(recorded.recoveryCheckpoint && canonicalJson(recorded.recoveryCheckpoint.binding) === canonicalJson(input.checkpoint.binding),
+      "correction_checkpoint_mismatch");
+    const expected: RecoveryAuthoritySnapshot = { mode: "core_checkpoint", binding: recorded.recoveryCheckpoint.binding,
+      revision: recorded.recoveryCheckpoint.expected.revision, token: recorded.recoveryCheckpoint.expected.token };
+    const { replyResent: _replyResent, ...receipt } = await recoverCorrection({ ...input,
+      root: reader.root, catalogPath: reader.catalogPath, purpose: input.resolver.purpose, operationId,
+      checkpoint: { ...input.persistence, recovery: { ...input.persistence.recovery, expected } },
+      requestBinding: { requestHash: bytesVersion(input.request), evidenceRefs: input.evidenceRefs } });
+    check("authority" in receipt, "correction_checkpoint_mismatch");
+    return receipt;
+  }
+  // A current store tuple does not authenticate an arbitrary working catalog.
+  // Anchor new model input to the selected commit; recorded replay instead uses
+  // its own original journal and validates under the existing transaction fence.
+  const committed = await readCheckpointCommittedDocument(reader.root, input.checkpoint.revision, reader.catalogPath);
+  check(bytesVersion(committed) === reader.catalogHash, "correction_checkpoint_catalog_mismatch");
+  await reader.assertCurrent();
+  const prepared = await prepareCorrection(input);
+  return { ...await prepared.persistCheckpoint(input.persistence, input.signal),
+    disposition: prepared.disposition, clarification: prepared.clarification };
+}
+
 /** Receives already archived, authenticated owner evidence. It cannot synthesize a Host message. */
 export async function prepareCorrection(input: {
   /** Consolidation is a separately granted operation, never an owner correction inferred from other people's text. */
   mode?: LearningMode;
+  /** Captured before semantic preparation. Persist cannot adopt a newer observed HEAD. */
+  checkpoint?: RecoveryAuthoritySnapshot;
   processingGrant?: object;
   operationId: string; request: string; ownerId: string; modelRef: string; recordedAt: string;
   evidenceRefs: VersionedRef[]; resolver: EpisodeEvidenceResolver; objectRoot: string;
@@ -99,7 +146,10 @@ export async function prepareCorrection(input: {
     | undefined
     | Promise<readonly ViewRebuildAdmission[] | undefined>;
 }) {
-  input = { ...input, evidenceRefs: structuredClone(input.evidenceRefs) };
+  input = { ...input, evidenceRefs: structuredClone(input.evidenceRefs),
+    ...(input.checkpoint ? { checkpoint: structuredClone(input.checkpoint) } : {}) };
+  if (input.checkpoint) check(input.checkpoint.mode === "core_checkpoint" &&
+    input.checkpoint.binding.repositoryRoot === input.resolver.reader.root, "correction_checkpoint_mismatch");
   check(/^[a-zA-Z][a-zA-Z0-9_-]{0,100}$/.test(input.operationId) &&
     text(input.request) && refs(input.evidenceRefs) && input.evidenceRefs.length > 0 &&
     text(input.recordedAt) && /(?:Z|[+-]\d{2}:\d{2})$/.test(input.recordedAt) && Number.isFinite(Date.parse(input.recordedAt)),
@@ -334,7 +384,9 @@ export async function prepareCorrection(input: {
       ownerId: input.ownerId, modelRef: input.modelRef, evidenceCutoff: input.resolver.purpose.evidenceCutoff }) });
   files.push(...viewMigration.files);
   files.push({ path: reader.catalogPath, before, after: canonicalJson(after) });
-  const plan: MemoryTransactionPlan = { operationId, journalPath, files };
+  const plan: MemoryTransactionPlan = { operationId, journalPath, files,
+    ...(input.checkpoint ? { recoveryCheckpoint: { binding: input.checkpoint.binding,
+      expected: { revision: input.checkpoint.revision, token: input.checkpoint.token } } } : {}) };
   const verify = async (current: CatalogReader) => current.validatePreview(after, objects, async preview => {
     const resolver = new EpisodeEvidenceResolver(preview, input.resolver.purpose, input.resolver.complete);
     for (const evidence of ownerEvidence) {
@@ -345,18 +397,35 @@ export async function prepareCorrection(input: {
     for (const old of changed) check(![...after.understandings, ...after.works].some(entry => key(entry) === old && entry.status === "current"), "stale_correction_target");
   }, { allowWorkChanges: true, viewMigration, viewRebuilds });
   await verify(reader); await inventory.assertCurrent(); await input.assertProcessingCurrent();
+  const validate = async () => {
+    await input.assertProcessingCurrent(); await assertConsolidationGrant(input, reader.root);
+    const current = await CatalogReader.load(reader.root, reader.catalogPath);
+    check([bytesVersion(before), bytesVersion(canonicalJson(after))].includes(current.catalogHash), "stale_generation");
+    await verify(current);
+  };
   return { disposition: proposal.disposition as "update" | "no_change" | "needs_clarification", clarification: proposal.clarification,
     changeRef: { ...changeRef }, targets: structuredClone(targets), generationId: after.generationId, plan: structuredClone(plan),
     viewMigration,
+    async persistCheckpoint(ports: CheckpointCorrectionPorts, signal: AbortSignal) {
+      check(plan.recoveryCheckpoint && !consolidation, "correction_checkpoint_required");
+      const result = await applyMemoryTransaction(reader.root, plan, {
+        validate, persist: ports.commit,
+        async confirmPreviouslyCommitted() { throw new CatalogError("checkpoint_replay_adapter_required"); },
+        recovery: { ...ports.recovery, async assertPublication(accepted) {
+          const current = await CatalogReader.load(reader.root, reader.catalogPath);
+          check(current.catalog.generationId === after.generationId, "stale_generation");
+          await verify(current); await input.assertProcessingCurrent();
+          await ports.recovery.assertPublication(accepted);
+          await verify(await CatalogReader.load(reader.root, reader.catalogPath));
+        } },
+      }, signal);
+      check(result.authority, "correction_checkpoint_mismatch");
+      return { operationId, changeRef, generationId: after.generationId, revision: result.authority.revision,
+        authority: result.authority, persistenceStatus: "local_committed" as const };
+    },
     async persist(durability: GitCangHaiDurability, signal: AbortSignal) {
       await applyMemoryTransaction(reader.root, plan, {
-        async validate() {
-          await input.assertProcessingCurrent();
-          await assertConsolidationGrant(input, reader.root);
-          const current = await CatalogReader.load(reader.root, reader.catalogPath);
-          check([bytesVersion(before), bytesVersion(canonicalJson(after))].includes(current.catalogHash), "stale_generation");
-          await verify(current);
-        },
+        validate,
         async persist(paths, id) { await durability.syncCritical(paths, `stella correction ${id}`); },
         confirmPreviouslyCommitted: file => durability.confirmPreviouslyCommitted(file),
         publishView: async () => {
@@ -380,10 +449,12 @@ export async function recoverCorrection(input: {
   mode?: LearningMode;
   processingGrant?: object;
   root: string; operationId: string; catalogPath: string; objectRoot: string; ownerId: string; modelRef: string;
-  purpose: EvidencePurpose; durability: GitCangHaiDurability; signal: AbortSignal; assertProcessingCurrent: () => Promise<void>;
+  purpose: EvidencePurpose; signal: AbortSignal; assertProcessingCurrent: () => Promise<void>;
   processingAuthority: ProcessingAuthority;
   requestBinding?: { requestHash: string; evidenceRefs: VersionedRef[] };
-}) {
+} & ({ durability: GitCangHaiDurability; checkpoint?: never } | { durability?: never; checkpoint: CheckpointCorrectionPorts })) {
+  const checkpoint = input.checkpoint;
+  check(!checkpoint || input.mode !== "consolidation", "correction_checkpoint_mismatch");
   const invalid = "invalid_correction_transaction";
   const consolidation = input.mode === "consolidation";
   const algorithmVersion = consolidation ? MEMORY_CONSOLIDATION_VERSION : VERSION;
@@ -505,7 +576,7 @@ export async function recoverCorrection(input: {
     return { resolver, originals, noInference };
   };
   await input.assertProcessingCurrent();
-  await applyMemoryTransaction(input.root, plan, {
+  const result = await applyMemoryTransaction(input.root, plan, {
     async validate() {
       await input.assertProcessingCurrent();
       await assertConsolidationGrant(input, input.root);
@@ -519,16 +590,29 @@ export async function recoverCorrection(input: {
       }, { allowWorkChanges: true, viewMigration, viewRebuilds });
       await input.assertProcessingCurrent();
     },
-    persist: async paths => { await input.durability.syncCritical(paths, `stella correction ${input.operationId}`); },
+    persist: async (paths, id) => {
+      if (checkpoint) await checkpoint.commit(paths, id);
+      else await input.durability!.syncCritical(paths, `stella correction ${input.operationId}`);
+    },
     confirmPreviouslyCommitted: async file => {
       await input.assertProcessingCurrent();
       const current = await CatalogReader.load(input.root, input.catalogPath);
       await validateOriginals(current);
       await current.assertCurrent();
       await input.assertProcessingCurrent();
-      await input.durability.confirmPreviouslyCommitted(file);
+      if (checkpoint) throw new CatalogError("checkpoint_replay_adapter_required");
+      await input.durability!.confirmPreviouslyCommitted(file);
     },
-    publishView: async () => {
+    ...(checkpoint ? { recovery: { ...checkpoint.recovery, async assertPublication(accepted: RecoveryAuthoritySnapshot) {
+      await input.assertProcessingCurrent();
+      const current = await CatalogReader.load(input.root, input.catalogPath);
+      check(current.catalog.generationId === after.generationId, "stale_generation");
+      const { resolver, originals, noInference } = await validateOriginals(current);
+      await preparePersonalViews({ resolver, requestId: input.operationId, question: originals.join("\n"), ownerId: input.ownerId,
+        modelRef: input.modelRef, audience: "owner_direct", selection: "all_authorized", processingAuthority: input.processingAuthority,
+        assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
+      await checkpoint.recovery.assertPublication(accepted); await input.assertProcessingCurrent();
+    } } } : { publishView: async () => {
       await input.assertProcessingCurrent(); await assertConsolidationGrant(input, input.root);
       if (consolidation) {
         const { resolver, noInference } = await validateOriginals(await CatalogReader.load(input.root, input.catalogPath));
@@ -537,9 +621,15 @@ export async function recoverCorrection(input: {
           assertProcessingCurrent: input.assertProcessingCurrent, complete: noInference });
       }
       await input.assertProcessingCurrent(); await afterDurablePersistPublishView(input.root);
-    },
+    } }),
   }, input.signal);
-  const diagnostics = await input.durability.diagnostics();
+  if (checkpoint) {
+    check(result.authority, "correction_checkpoint_mismatch");
+    return { operationId: input.operationId, changeRef: receipt.changeRef, generationId: after.generationId,
+      revision: result.authority.revision, authority: result.authority, persistenceStatus: "local_committed" as const,
+      disposition, clarification, replyResent: false };
+  }
+  const diagnostics = await input.durability!.diagnostics();
   check(diagnostics.criticalSynchronized && diagnostics.localRevision === diagnostics.synchronizedRevision, "critical_sync_failed");
   return { operationId: input.operationId, changeRef: receipt.changeRef, generationId: after.generationId, revision: diagnostics.localRevision,
     disposition, clarification, replyResent: false };

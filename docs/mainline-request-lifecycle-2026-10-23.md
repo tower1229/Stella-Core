@@ -69,7 +69,10 @@ prepare在check/check:schemas通过后，完整测试8项失败：
    真实模型/资料外发、凭据使用与费用另定，辅助策略判断和Host标题请求均计入范围。
 4. **行为与完整主线**：#31 的当前安装包 Skill 全文、角色/顺序及指令预算证据按
    [窄项验收说明](SKILL-CONTEXT-ACCEPTANCE.md)收敛；真实模型行为质量仍未验收。按#24及前置收敛
-   correction/learning/OngoingWork的checkpoint迁移，不能把当前原话归档冒充语义学习。
+   correction/learning/OngoingWork 的 checkpoint 迁移。一个 writing work 的本地纠正 writer
+   已按[最小分支契约](CHECKPOINT-CORRECTION-WRITER.md)通过合成 Git/CAS、重启/重放/故障恢复
+   验证；正常 Host 的 Personal Views 消费入口仍待接线，其他 learning/outcome writer 未迁移。
+   不能把原话归档或内部 writer 通过冒充 #24 的真实 Agent 接续。
    已确认代表场景仍是按需社交判断和写作共思，不为六类能力凑新必过用例。
 
 main仍使用批17包`7d7b660b…`/源码`b07d91bb`和原c595来源，本批没有部署新代码或改真实

@@ -9,6 +9,7 @@ import { loadConsciousness } from "../canghai/manifest.js";
 import { withExclusiveFileLock } from "../canghai/exclusive-file-lock.js";
 import { persistCheckpointArchive, type CheckpointArchivePorts } from "../canghai/checkpoint-archive.js";
 import type { CatalogReader } from "../canghai/catalog-reader.js";
+import type { prepareCorrection, CheckpointCorrectionPorts } from "../learning/correction.js";
 import type { HostInputArchive } from "../canghai/host-input-archive.js";
 import { RecoveryAuthorityError } from "../canghai/recovery-authority-contract.js";
 import { StellaInitializer, InitializationError, type InitializationPorts, type InitializationSource } from "./initialization.js";
@@ -91,6 +92,39 @@ export async function createCheckpointPluginRuntime(input: CheckpointPluginConfi
       });
       if (!result.authority) throw new RecoveryAuthorityError("checkpoint_publication_receipt_missing");
       return { ...result, authority: result.authority };
+    },
+    /** Trusted Core correction writer only; no new Agent tool or automatic learning trigger. */
+    async correctLocal(input: Omit<Parameters<typeof prepareCorrection>[0], "checkpoint" | "mode"> & {
+      recovery: RecoveryReadBinding; signal: AbortSignal;
+      assertPublication?: CheckpointCorrectionPorts["recovery"]["assertPublication"];
+    }) {
+      writable();
+      const fixed = freezeRecoveryReadBinding(input.recovery, config);
+      if (fixed.resolver !== scope.resolver || input.resolver.reader.root !== root) throw new RecoveryAuthorityError("recovery_read_binding_mismatch");
+      const cancellation = AbortSignal.any([shutdown.signal, input.signal]);
+      const checkActive = () => { active(); cancellation.throwIfAborted(); };
+      const preparing = async () => { checkActive(); await scope.resolver.assertCurrent(fixed.expected); await input.assertProcessingCurrent(); checkActive(); };
+      await preparing();
+      const { learnCheckpoint } = await import("../learning/correction.js");
+      const result = await learnCheckpoint({ ...input, checkpoint: fixed.expected, signal: cancellation,
+        async complete(args) {
+          await preparing(); await args.assertInputsCurrent?.();
+          const value = await input.complete(args);
+          await args.assertInputsCurrent?.(); await preparing(); return value;
+        },
+        persistence: {
+          recovery: { authority: runtime, expected: fixed.expected, async assertPublication(accepted) {
+            checkActive(); await scope.resolver.assertCurrent(accepted); await input.assertProcessingCurrent();
+            await input.assertPublication?.(accepted); checkActive(); await scope.resolver.assertCurrent(accepted);
+          } },
+          async commit(paths, operationId) {
+            checkActive(); await run("git", ["-C", root, "add", "--", ...paths]); checkActive();
+            await run("git", ["-C", root, "commit", "--quiet", "-m", `[stella:local] ${operationId}`, "--", ...paths]); checkActive();
+          },
+        } });
+      const authority = result.authority;
+      if (!authority) throw new RecoveryAuthorityError("checkpoint_publication_receipt_missing");
+      checkActive(); await scope.resolver.assertCurrent(authority); return { ...result, authority };
     },
     /** Explicit operator-selected producer snapshot; never a model tool or observed-HEAD adoption. */
     async importSnapshot(input: { recovery: RecoveryReadBinding; candidateRoot: string; producerBaseRevision: string;
