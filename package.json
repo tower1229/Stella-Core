@@ -27,7 +27,8 @@
     "candidate": "npm run build --silent && node scripts/create-alpha-candidate.mjs",
     "stella:activate": "npm run build --silent && node scripts/stella-activate.mjs",
     "verify": "npm run test:package",
-    "verify:dreaming-boundary": "node scripts/verify-dreaming-boundary.mjs"
+    "verify:dreaming-boundary": "node scripts/verify-dreaming-boundary.mjs",
+    "verify:experimental": "node scripts/package-experimental-owner-chat.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",

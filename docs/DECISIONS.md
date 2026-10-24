@@ -653,3 +653,36 @@ remote synchronization requirements still apply to paths that advertise them.
 Semantic learning/correction/outcome and complete transcript writers remain outside
 this finite experimental mode; they are not silently migrated or reported as
 full_memory. See [current closeout](suqing-closeout-2026-10-23.md).
+
+
+## D-060 — Coordinate Core and CangHai without disrupting legacy production
+
+**Decision (owner confirmed, 2026-10-23):** Develop Stella Core and CangHai as
+coordinated runtime and data projects. CangHai `dev` is actively used by legacy
+Stella production. Additive development directories may coexist with legacy
+paths; do not move/delete production data, break existing consumers, or switch
+the production source pointer as a side effect of development.
+
+Freeze the smallest producer/consumer handoff: schema and references, source
+revision, policy and trusted request context, declared mutable paths, writer
+ownership and concrete consumption evidence. Do not infer a current CangHai
+layout or authorization from historical commits, installed Skills or a domain
+CLI. A domain interface is not automatically reachable through Core's current
+`stella_memory_data` tool or present in its selected catalog.
+
+Directory compatibility and Git writer isolation are separate. Core checks the
+whole worktree and authenticates an exact direct-child commit against the original
+checkpoint expected tuple. Independent directories do not permit competing writers
+in the same worktree. Agree an isolated development ref/worktree or controlled
+source copy and a single writer; do not create/switch it or alter `dev` production
+on the strength of this design decision alone. Never weaken clean/CAS, substitute
+observed HEAD for expected, or share authority across distinct source bindings.
+
+Keep D-058 simplicity and D-059 authority semantics. Validate synthetic contracts
+and old-reader compatibility before a fixed-version local integration, then
+separately authorize actual identity/grant changes, private-data/model transmission
+and production cutover. Preserve explicit capability gaps; experimental owner-chat
+success does not certify full_memory or the legacy production deployment.
+
+See [Core–CangHai coordination](CORE-CANGHAI-COORDINATION.md) for the source-level
+dependencies, read/write boundaries, handoff questions and ordered joint gates.

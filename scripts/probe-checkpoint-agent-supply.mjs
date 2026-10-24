@@ -8,21 +8,22 @@ import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { randomBytes, createHash, generateKeyPairSync } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import { probeHost, isolatedProbeCommand, onProbeCancellation } from "./lib/isolated-probe-host.mjs";
 
 // Started by the local runner with an allow-listed environment, before SDK imports.
 const root = await realpath(process.cwd());
-assert.equal(root, "/Users/zangtao/Workspace/tower1229/Stella-Core");
+assert.equal(JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).name, "@tower1229/stella-core");
 const attempt = process.argv[2], compilation = process.argv[3], requestedScenario = process.argv[4] ?? "normal";
 const scenario = requestedScenario === "history" ? "continuous_chat" : requestedScenario;
 assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent", "next_request", "materialization", "automatic_archive", "continuous_chat"].includes(scenario));
 assert.match(attempt ?? "", /^[a-z][a-z0-9]{0,15}$/); assert.match(compilation ?? "", /^a[0-9]+$/);
 const art = path.resolve(process.env.STELLA_AGENT_SUPPLY_ARTIFACTS ?? path.join(root, ".artifacts/suqing-batch6-20261022"));
-assert.ok(art.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(art) === art);
+assert.ok(art.startsWith(path.join(root, ".artifacts") + path.sep) && await realpath(art) === art);
 const out = path.join(art, "host-probe-" + attempt);
 await mkdir(out, { mode: 0o700 });
 const ownerPath = path.join(art, "host-probe-owner.json"), owner = { pid: process.pid, attempt, startedAtUtc: new Date().toISOString() };
 const compiled = path.resolve(process.env.STELLA_AGENT_SUPPLY_COMPILED ?? path.join(art, "compiled-" + compilation));
-assert.ok(compiled.startsWith(path.join(root, ".artifacts/suqing-batch")) && await realpath(compiled) === compiled);
+assert.ok((compiled.startsWith(path.join(root, ".artifacts") + path.sep) || compiled === path.join(root, ".test-dist")) && await realpath(compiled) === compiled);
 const packageRoot = process.env.STELLA_AGENT_SUPPLY_PACKAGE_ROOT ? await realpath(process.env.STELLA_AGENT_SUPPLY_PACKAGE_ROOT) : null;
 if (packageRoot) assert.match(path.relative(art, packageRoot), /^consumer(?:-a[0-9]+)?\/node_modules\/@tower1229\/stella-core$/);
 const runtime = packageRoot ? path.join(packageRoot, "dist") : compiled;
@@ -30,7 +31,7 @@ const materialize = scenario === "materialization" || Boolean(packageRoot);
 if (packageRoot) assert.equal(scenario, "continuous_chat");
 await writeFile(ownerPath, JSON.stringify(owner), { flag: "wx" });
 const { createAgentSupplySource, publishAgentSupplySourceRevision, publishAgentSupplyPolicyDenial, SUPPLY_MARKER, BOOTSTRAP_MARKER, SKILL_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
-const { GatewayClient } = await import("openclaw/plugin-sdk/gateway-runtime");
+const { GatewayClient, hostRoot, openclawBin, evidence: hostIdentity } = await probeHost(root);
 const source = await createAgentSupplySource({ materialization: materialize }), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
 const state = process.env.OPENCLAW_STATE_DIR, configPath = process.env.OPENCLAW_CONFIG_PATH;
 assert.ok(state?.startsWith(art + "/") && configPath?.startsWith(state + "/"));
@@ -79,8 +80,10 @@ export default {id:'stella-core',name:'Stella public supply probe',configSchema:
  const result=await tool.execute(...args);record({name:'tool_result',result});if(args[1]?.action==='list')listCalls.set(args[0],{sessionId:ctx.sessionId,sessionKey:ctx.sessionKey});return result;}};
  },options)}});
 }};`);
-let child, client, provider, configuredCheckpoint, result = { attempt, compilation, scenario, installation: packageRoot ? { packageRoot, entry: path.join(runtime, "src/plugin.js"), directHostLoad: true, observerWrapper: false } : null, sourceRevision: source.revision, sourceRoot: source.root, rawProviderRequests: [], events: [], passed: false };
+let child, client, provider, configuredCheckpoint, result = { attempt, compilation, scenario, hostIdentity, installation: packageRoot ? { packageRoot, entry: path.join(runtime, "src/plugin.js"), directHostLoad: true, observerWrapper: false } : null, sourceRevision: source.revision, sourceRoot: source.root, rawProviderRequests: [], events: [], passed: false };
 const save = () => writeFile(path.join(out, "result.json"), JSON.stringify(result, null, 2) + "\n");
+let cleanupPromise;
+onProbeCancellation(signal => { result.passed = false; result.cancelled = signal; result.error = { message: `Interrupted by ${signal}` }; }, cleanup);
 const refreshFault = async () => {
   if (result.fault) return;
   const records = (await readFile(logPath, "utf8").catch(() => "")).trim().split("\n").filter(Boolean).map(line => JSON.parse(line));
@@ -233,14 +236,13 @@ try {
       canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools", ...["automatic_archive", "continuous_chat"].includes(scenario) ? { requestArchive: "local" } : {} } } } }, tools: { allow: ["stella_memory_data"] } };
   configuredCheckpoint = config.plugins.entries["stella-core"].config;
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
-  const sandbox = `(version 1)\n(allow default)\n(deny file-read* (subpath "/Users/zangtao"))\n(allow file-read-metadata (literal "/Users/zangtao") (literal "/Users/zangtao/Workspace") (literal "/Users/zangtao/Workspace/tower1229") (literal "/Users/zangtao/.nvm") (literal "/Users/zangtao/.nvm/versions") (literal "/Users/zangtao/.nvm/versions/node"))\n(allow file-read* (subpath ${JSON.stringify(root)}) (subpath "/Users/zangtao/.nvm/versions/node/v24.22.1"))\n(deny file-write* (subpath "/Users/zangtao"))\n(allow file-write* (subpath ${JSON.stringify(out)}) (subpath ${JSON.stringify(state)}) (subpath ${JSON.stringify(process.env.OPENCLAW_HOME)}))\n(deny network-outbound)\n(allow network-outbound (remote ip "localhost:*"))\n(deny process-exec (literal "/bin/ps") (literal "/usr/bin/ps"))\n`;
-  const profile = path.join(out, "host-sandbox.sb"); await writeFile(profile, sandbox);
   const env = { ...process.env, OPENCLAW_GATEWAY_PORT: String(gatewayPort), OPENCLAW_GATEWAY_TOKEN: token };
-  const args = ["-f", profile, process.execPath, path.join(root, "node_modules/openclaw/openclaw.mjs"), "gateway", "run", "--allow-unconfigured", "--bind", "loopback", "--auth", "token", "--port", String(gatewayPort), "--ws-log", "compact"];
+  const launch = await isolatedProbeCommand({ root, out, state, home: process.env.OPENCLAW_HOME, hostRoot,
+    args: [openclawBin, "gateway", "run", "--allow-unconfigured", "--bind", "loopback", "--auth", "token", "--port", String(gatewayPort), "--ws-log", "compact"] });
   let gatewayStarts = 0;
   const startGateway = async () => {
-  child = spawn("/usr/bin/sandbox-exec", args, { cwd: out, env, stdio: ["ignore", "pipe", "pipe"] });
-  result.gateway = { startIndex: gatewayStarts++, pid: child.pid, command: ["/usr/bin/sandbox-exec", ...args], port: gatewayPort, sandboxed: true }; (result.gatewayRuns ??= []).push(result.gateway); await save();
+  child = spawn(launch.command, launch.args, { cwd: out, env, stdio: ["ignore", "pipe", "pipe"] });
+  result.gateway = { startIndex: gatewayStarts++, pid: child.pid, command: [launch.command, ...launch.args], port: gatewayPort, sandboxed: launch.sandboxed, isolation: launch.isolation }; (result.gatewayRuns ??= []).push(result.gateway); await save();
   let output = ""; const capture = chunk => { output += String(chunk); appendFileSync(path.join(out, "gateway-live.log"), chunk); };
   child.stdout.on("data", capture); child.stderr.on("data", capture);
   await new Promise((resolve, reject) => {
@@ -496,7 +498,9 @@ try {
   }
   result.scope = "Actual isolated installed Host Gateway and native Google Agent/tool loop, loopback fake model only; installed tree identity unverified, full_memory not accepted";
 } catch (error) { result.error = { message: String(error), stack: error?.stack }; }
-finally {
+finally { await cleanup(); }
+async function cleanup() {
+  return cleanupPromise ??= (async () => {
   client?.stop();
   if (child) {
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
@@ -506,8 +510,12 @@ finally {
   }
   if (provider) await new Promise(resolve => provider.close(resolve));
   await rm(source.root, { recursive: true, force: true }); result.sourceFixtureRemoved = true;
+  if (result.cancelled) result.passed = false;
   await save();
   const saved = JSON.parse(await readFile(ownerPath, "utf8")); if (saved.pid === process.pid) await rm(ownerPath);
   console.log(JSON.stringify({ passed: result.passed, error: result.error?.message, providerRequests: result.rawProviderRequests.length, result: path.join(out, "result.json") }));
+
+  })();
 }
+
 if (!result.passed) process.exitCode = 1;

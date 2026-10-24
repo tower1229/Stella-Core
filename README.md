@@ -44,6 +44,8 @@ separate requirement. The Stella 1.0 backup is CangHai dev; local/stella-alpha i
 Both the inspected legacy commit and the distinction are recorded in the requirements document.
 Runtime operations always use an explicitly selected revision.
 
+[Core–CangHai coordination](docs/CORE-CANGHAI-COORDINATION.md) defines the parallel-development handoff and compatibility gates. CangHai `dev` currently serves legacy production; additive development must preserve its paths and source pointer, with separate writer/version coordination.
+
 ## Contracts and schemas
 
 The [contract directory](docs/contracts/README.md) defines the authoritative data and lifecycle rules.
@@ -59,6 +61,8 @@ Schema success alone does not verify temporal, cross-record, permission or evide
 The opt-in [experimental owner chat guide](docs/EXPERIMENTAL-OWNER-CHAT.md) describes the bounded pure-plugin mode, initialization, continuous conversation, and rollback. It is separate from full memory and Alpha acceptance.
 
 The [Suqing closeout](docs/suqing-closeout-2026-10-23.md) records each scoped exit and remaining boundary; [current request-lifecycle work](docs/mainline-request-lifecycle-2026-10-23.md) tracks the follow-up fixes, CI evidence, and real WebChat prerequisites.
+
+[实验模式 CI 范围](docs/EXPERIMENTAL-CI.md) separates the installed synthetic owner-chat check from the independent 152-case complete-capability assessment. A green experimental check does not accept full_memory.
 
 ## Validation and local use
 

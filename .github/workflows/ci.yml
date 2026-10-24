@@ -1,4 +1,4 @@
-name: CI
+name: Full capability assessment
 
 on:
   push:
@@ -91,6 +91,11 @@ jobs:
         run: node scripts/package-ci-aggregate.mjs .artifacts/ci/downloaded .artifacts/ci/aggregate
         env:
           STELLA_CI_JOB_RESULTS: ${{ toJSON(needs) }}
+      - name: Explain independent complete-capability verdict
+        if: always()
+        run: |
+          echo "## Full capability assessment" >> "$GITHUB_STEP_SUMMARY"
+          echo "All 152 legacy/complete-capability probes remain mandatory in this assessment. A failure stays a failure; experimental owner chat has a separate check and does not accept full_memory." >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve aggregate verdict
         if: always()
         uses: actions/upload-artifact@v4

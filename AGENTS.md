@@ -10,6 +10,7 @@
 - 一次用户请求启动时确定有效权限与记忆版本；同一请求内的模型工具续轮不是新的用户请求。本轮已合法供给的资料不承诺即时收回，下一用户请求必须重新读取当前权限/版本，不能沿用旧资格。Host 历史可保留为过去对话，不作为当前 Core 事实或许可凭据；同受众会话不要求逐轮 reset。
 - 保留入场身份/权限、首次来源校验、正常取消、写入事务完整性和跨用户轮次 freshness。运行中 policy 变化及流式/历史输出拦截不再作为主线或 full_memory 必过门槛；保留低复杂度检查时，不应使普通更新阻断已合法供给的本轮任务。
 - 以 [D-058](docs/DECISIONS.md#d-058--experimental-simplicity-and-user-request-boundaries) 解释新范围。历史严格语义的失败证据保留，不改写为通过；full_memory 仍按尚未完成的核心能力判断，不能整体改绿。
+- Stella Core 与沧海仓库协同并行开发，不能孤立设计。沧海 `dev` 正供旧版 Stella 生产使用：新旧目录可并存，不破坏旧路径、移动/删除生产数据或切换生产消费指针。先确认契约与完整可变路径，按明确版本和单写者协调；分目录不等于 Git/事务隔离，不放宽 clean/CAS。遵循 [D-060](docs/DECISIONS.md#d-060--coordinate-core-and-canghai-without-disrupting-legacy-production) 与 [协调约定](docs/CORE-CANGHAI-COORDINATION.md)。
 
 ## Architecture invariants
 

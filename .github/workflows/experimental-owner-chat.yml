@@ -1,0 +1,34 @@
+name: Experimental owner chat
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  experimental-owner-chat:
+    name: Installed experimental owner chat (synthetic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Check source and test one installed package with stock Host
+        run: npm run verify:experimental
+      - name: Preserve exact scope, package and complete synthetic wire evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experimental-owner-chat
+          path: |
+            .artifacts/experimental-owner-chat/*/receipt.json
+            .artifacts/experimental-owner-chat/*/*.tgz
+            .artifacts/experimental-owner-chat/*/consumer-package-lock.json
+            .artifacts/experimental-owner-chat/*/*.stdout
+            .artifacts/experimental-owner-chat/*/*.stderr
+            .artifacts/experimental-owner-chat/*/host-probe-ci/**
+            .artifacts/experimental-owner-chat/*/host-v3-a1/**
+          if-no-files-found: error
