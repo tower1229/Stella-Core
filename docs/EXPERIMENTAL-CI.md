@@ -43,3 +43,5 @@ GitHub Actions runner。fake policy verdict 只验证既有策略机制，不证
 分别验收。历史 full capability 工作流及 full_memory 标志不因此转绿。
 
 操作字段、失败原子性与准备态边界见 [显式数据快照导入](EXPLICIT-SNAPSHOT-IMPORT.md)。
+
+持续归档回归在合成 Host API 夹具中执行 260 次真实 Core/Git/checkpoint 事务，核对首条原话及历史版本可追溯、最后一次当前工具读取、精确重放/冲突和重启接续；另验证 256 个同时进行的不同请求仍受限且结束后释放。它不声称完成 260 次真实 Host 或真实模型调用；安装包的真实 Host 接缝仍由上述独立 loopback 场景证明。

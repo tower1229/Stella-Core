@@ -79,7 +79,7 @@ async function recordedFrame(runtime: Runtime, config: CheckpointPluginConfig, p
  * a phase before stock Agent supply; no transcript, delivery or full_memory claim.
  */
 export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config: CheckpointPluginConfig, current: () => Promise<Runtime>) {
-  const shutdown = new AbortController(), frames = new Map<string, { identity: string; prepared: Promise<Frame> }>();
+  const shutdown = new AbortController(), frames = new Map<string, { identity: string; prepared: Promise<Frame>; users: number }>();
   let last: { state: "local_committed" | "blocked"; revision?: string; category?: string; runId?: string; operationId?: string; capturedAtSource?: "host_timestamp" | "core_receive_clock" } | null = null;
   if (config.requestArchive !== "local") return { close() { shutdown.abort(); }, status: () => last, dispatch: async (_event: PluginHookReplyDispatchEvent, _ctx: PluginHookReplyDispatchContext) => undefined };
   const continueAgent = config.agentMemory === "fresh_tools";
@@ -91,6 +91,7 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
     if (event.ctx.CommandTurn && event.ctx.CommandTurn.kind !== "normal") return;
     const cancellation = AbortSignal.any([shutdown.signal, ...ctx.abortSignal ? [ctx.abortSignal] : []]);
     const active = () => { cancellation.throwIfAborted(); };
+    let releaseFrame: (() => void) | undefined;
     try {
       active();
       check(ctx.dispatchKind === "agent" && event.sendPolicy === "allow" && !event.images?.length && !event.inboundAudio &&
@@ -131,6 +132,8 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
       let frame = frames.get(key);
       if (frame) check(frame.identity === identity, "checkpoint_ingress_replay_conflict");
       else {
+        // Bound concurrent distinct requests. Completed originals, receive clocks
+        // and expected tuples are recovered from the existing Git/journal path.
         check(frames.size < 256, "checkpoint_ingress_capacity");
         const prepared = (async (): Promise<Frame> => {
           const runtime = await current(); await assertScope();
@@ -154,9 +157,14 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
           await reader.assertCurrent(); await runtime.assert(loaded.recovery);
           return { runtime, recovery: loaded.recovery, reader, binding, ownerId: String(policy.ownerId), capturedAt };
         })();
-        frame = { identity, prepared }; frames.set(key, frame);
+        frame = { identity, prepared, users: 0 }; frames.set(key, frame);
       }
-      const prepared = await frame.prepared; await assertScope();
+      const held = frame; held.users++;
+      releaseFrame = () => {
+        held.users--;
+        if (held.users === 0 && frames.get(key) === held) frames.delete(key);
+      };
+      const prepared = await held.prepared; await assertScope();
       const result = await archiveCorrectionInput({ request, original: { schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: prepared.capturedAt },
         ownerId: prepared.ownerId, reader: prepared.reader, archive: prepared.binding.archive,
         purpose: { ...prepared.binding.purpose, evidenceCutoff: prepared.capturedAt,
@@ -175,7 +183,10 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
         cancellation.aborted ? "operation_cancelled" : "checkpoint_ingress_failed";
       last = { state: "blocked", category };
       try { ctx.recordProcessed("error", { reason: category }); } catch { /* Keep the explicit handled result. */ }
-    } finally { if (!continueAgent) try { ctx.markIdle("Stella archive-only ingress settled"); } catch { /* Hook exceptions must not create fail-open dispatch. */ } }
+    } finally {
+      releaseFrame?.();
+      if (!continueAgent) try { ctx.markIdle("Stella archive-only ingress settled"); } catch { /* Hook exceptions must not create fail-open dispatch. */ }
+    }
     // The stock hook runner can fail open on a thrown error; return ownership explicitly.
     // The general before_agent_run blocker remains in place for other paths/timeouts.
     return { handled: true as const, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } };

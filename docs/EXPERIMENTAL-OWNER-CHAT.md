@@ -74,6 +74,12 @@ npm install --prefix <isolated-consumer> --ignore-scripts --no-audit --no-fund <
 
 本候选的真实 Host 验收使用全新合成 workspace/state、loopback fake provider，先初始化物化，再连续三轮，不使用私人资料。
 
+## 持续归档与容量
+
+输入归档的 256 个 frame 限制只约束同时进行的不同请求，不是插件生命周期的总请求额度。成功、失败或取消结束后释放 frame；同一请求的并发调用在全部结束前共享准备结果。原话、接收时间和原 expected 保存在既有 Git／transaction journal，释放内存不会删除归档，也不靠无限缓存维持历史。
+
+已留有 journal 的最近一次请求可幂等重放，重启后仍使用原版本元组；同请求 ID 的不同内容拒绝。没有留下 journal 的失败尝试不再永久占用内存键，重试按新准备处理。已经有后续提交时，旧请求的重放仍可能因陈旧版本被拒绝，不自动回滚或采用当前观测值。该容量修复不扩大完整 transcript 或历史 compaction 的验收范围。
+
 ## 备份、故障与回退
 
 接入前备份目标配置、workspace、明确源 revision/Git 原始留存及外置 checkpoint/初始化状态。受管初始化在 `<checkpointStateDirectory>/initialization/operations/<id>.json` 的变更记录保存原 before 字节、beforeMode 和 previousReceipt，并保存 pending/receipt/fence 等操作状态；备份和所有权依据不是独立的 backups/ownership 目录。保留整个操作状态，不根据时间自动偷锁。失败保持 fence，按原操作重试，不能把 observed 值替换成原 expected。
