@@ -107,6 +107,13 @@ try {
     env: { ...await isolatedEnv("snapshot-import"), STELLA_V3_ATTEMPT: "a2", STELLA_V3_SNAPSHOT_IMPORT: "1" } });
   reports.snapshotImport = JSON.parse(await readFile(path.join(out, "host-v3-a2/result.json"), "utf8"));
   receipt.snapshotImportReport = { path: "host-v3-a2/result.json", sha256: sha256(await readFile(path.join(out, "host-v3-a2/result.json"))) };
+  for (const [name, attempt, budget] of [["skill", "skill", "normal"], ["budgetFile", "budgetfile", "file"], ["budgetTotal", "budgettotal", "total"]]) {
+    await run(`host-${name}`, process.execPath, [path.join(root, "scripts/probe-checkpoint-agent-supply.mjs"), attempt, "a1", "materialization"], {
+      env: { ...await isolatedEnv(name), STELLA_MATERIALIZATION_BUDGET: budget } });
+    const reportPath = `host-probe-${attempt}/result.json`;
+    reports[name] = JSON.parse(await readFile(path.join(out, reportPath), "utf8"));
+    receipt[`${name}Report`] = { path: reportPath, sha256: sha256(await readFile(path.join(out, reportPath))) };
+  }
   receipt.capabilities = assertExperimentalReports(reports, { packageRoot: installed, hostRoot });
   for (let i = 1; i <= 9; i++) assert.ok(JSON.parse(await readFile(path.join(out, `host-probe-ci/provider-${i}.json`), "utf8")).contents);
   assert.deepEqual(await fileManifest(hostRoot, hostFiles), hostBefore, "Known Host metadata/launcher changed");

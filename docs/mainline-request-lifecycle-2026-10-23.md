@@ -57,8 +57,9 @@ prepare在check/check:schemas通过后，完整测试8项失败：
 
 ## 当前主线顺序与没有完成的事项
 
-1. **持续使用**：本批解决64个已结束请求的误阻断；另有归档ingress累计256个frames限制
-   仍待本地修复，需复用持久journal幂等，不增建第二套事务。不能宣称任意长运行已通过。
+1. **持续使用**：64个已结束请求的误阻断已修复；归档 ingress 累计256个 frames 限制
+   也已在 `945d7000` 修复。合成 Host API 夹具验证260次实际 Core/Git 归档及 journal 重放，
+   256仍限制同时活动的不同请求；正常安装包 Host 接缝另行验收，不宣称任意长运行已证明。
 2. **真实网页入场**：现有Chrome只读RPC操作受AppleEvent-1712阻塞，profile未知。
    用户在同一网页Debug/manual RPC调用`stella.identity {}`即可提供元数据；不要用CLI主体、
    显示名或设备ID代替，不重放真实聊天。
@@ -66,7 +67,8 @@ prepare在check/check:schemas通过后，完整测试8项失败：
    `webchatOwnerProfileId=<ID>`与processing grant追加`openclaw-profile:<ID>`，保留原用途/
    受众/逐对象策略及Telegram主体；显式来源新revision/checkpoint CAS。未知旧历史不接管。
    真实模型/资料外发、凭据使用与费用另定，辅助策略判断和Host标题请求均计入范围。
-4. **行为与完整主线**：按#31补实际skill正文/指令预算等消费证据；按#24及前置收敛
+4. **行为与完整主线**：#31 的当前安装包 Skill 全文、角色/顺序及指令预算证据按
+   [窄项验收说明](SKILL-CONTEXT-ACCEPTANCE.md)收敛；真实模型行为质量仍未验收。按#24及前置收敛
    correction/learning/OngoingWork的checkpoint迁移，不能把当前原话归档冒充语义学习。
    已确认代表场景仍是按需社交判断和写作共思，不为六类能力凑新必过用例。
 

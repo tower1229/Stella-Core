@@ -45,3 +45,16 @@ GitHub Actions runner。fake policy verdict 只验证既有策略机制，不证
 操作字段、失败原子性与准备态边界见 [显式数据快照导入](EXPLICIT-SNAPSHOT-IMPORT.md)。
 
 持续归档回归在合成 Host API 夹具中执行 260 次真实 Core/Git/checkpoint 事务，核对首条原话及历史版本可追溯、最后一次当前工具读取、精确重放/冲突和重启接续；另验证 256 个同时进行的不同请求仍受限且结束后释放。它不声称完成 260 次真实 Host 或真实模型调用；安装包的真实 Host 接缝仍由上述独立 loopback 场景证明。
+
+
+#31 的窄项现加入同包必需检查：`skill`、`budgetFile`、`budgetTotal` 三份报告与已有
+continuous/v3/snapshotImport 共用一个安装包和原版 Host。正常 Skill 场景的两次全新合成
+请求产生8份 wire，每份都有五个完整 bootstrap，Skill 全文通过数据工具进入后续请求；
+记录实际 Google system/contents 角色、顺序和全文 hash。完整场景共104份 wire。
+单文件及总字符预算负例必须先取得明确物化拒绝，再真正尝试一次用户请求，核验与该
+run/session 关联的公开准入拒绝，以及 provider 收到的全部 HTTP 为0。前后复核六文件、
+pending/fence 与无成功 receipt；不能把被截断的文件、无关错误或超时算作通过。
+
+预算指公开 bootstrap 字符限额，不是模型输出 token 或费用上限；本项也不证明真实模型
+能遵循 Skill、写作共思质量或其他 harness 的行为。失败与刷新边界见
+[Skill 实际消费与预算验收](SKILL-CONTEXT-ACCEPTANCE.md)。

@@ -15,6 +15,9 @@ const root = await realpath(process.cwd());
 assert.equal(JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).name, "@tower1229/stella-core");
 const attempt = process.argv[2], compilation = process.argv[3], requestedScenario = process.argv[4] ?? "normal";
 const scenario = requestedScenario === "history" ? "continuous_chat" : requestedScenario;
+const budgetMode = process.env.STELLA_MATERIALIZATION_BUDGET ?? "normal";
+assert.ok(["normal", "file", "total"].includes(budgetMode));
+if (budgetMode !== "normal") assert.equal(scenario, "materialization");
 assert.ok(["normal", "history", "cancel_after_list", "revoke_after_list", "cas_before_list", "source_before_list", "revoke_before_list", "revoke_after_sent", "next_request", "materialization", "automatic_archive", "continuous_chat"].includes(scenario));
 assert.match(attempt ?? "", /^[a-z][a-z0-9]{0,15}$/); assert.match(compilation ?? "", /^a[0-9]+$/);
 const art = path.resolve(process.env.STELLA_AGENT_SUPPLY_ARTIFACTS ?? path.join(root, ".artifacts/suqing-batch6-20261022"));
@@ -28,7 +31,7 @@ const packageRoot = process.env.STELLA_AGENT_SUPPLY_PACKAGE_ROOT ? await realpat
 if (packageRoot) assert.match(path.relative(art, packageRoot), /^consumer(?:-a[0-9]+)?\/node_modules\/@tower1229\/stella-core$/);
 const runtime = packageRoot ? path.join(packageRoot, "dist") : compiled;
 const materialize = scenario === "materialization" || Boolean(packageRoot);
-if (packageRoot) assert.equal(scenario, "continuous_chat");
+if (packageRoot) assert.ok(["continuous_chat", "materialization"].includes(scenario));
 await writeFile(ownerPath, JSON.stringify(owner), { flag: "wx" });
 const { createAgentSupplySource, publishAgentSupplySourceRevision, publishAgentSupplyPolicyDenial, SUPPLY_MARKER, BOOTSTRAP_MARKER, SKILL_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
 const { GatewayClient, hostRoot, openclawBin, evidence: hostIdentity } = await probeHost(root);
@@ -80,10 +83,39 @@ export default {id:'stella-core',name:'Stella public supply probe',configSchema:
  const result=await tool.execute(...args);record({name:'tool_result',result});if(args[1]?.action==='list')listCalls.set(args[0],{sessionId:ctx.sessionId,sessionKey:ctx.sessionKey});return result;}};
  },options)}});
 }};`);
-let child, client, provider, configuredCheckpoint, result = { attempt, compilation, scenario, hostIdentity, installation: packageRoot ? { packageRoot, entry: path.join(runtime, "src/plugin.js"), directHostLoad: true, observerWrapper: false } : null, sourceRevision: source.revision, sourceRoot: source.root, rawProviderRequests: [], events: [], passed: false };
+let child, client, provider, configuredCheckpoint, result = { attempt, compilation, scenario, budgetMode, hostIdentity, installation: packageRoot ? { packageRoot, entry: path.join(runtime, "src/plugin.js"), directHostLoad: true, observerWrapper: false } : null, sourceRevision: source.revision, sourceRoot: source.root, rawProviderRequests: [], allHttpRequests: [], events: [], passed: false };
 const save = () => writeFile(path.join(out, "result.json"), JSON.stringify(result, null, 2) + "\n");
 let cleanupPromise;
 onProbeCancellation(signal => { result.passed = false; result.cancelled = signal; result.error = { message: `Interrupted by ${signal}` }; }, cleanup);
+const wireHash = text => "sha256:" + createHash("sha256").update(text).digest("hex");
+function captureSkillPrompt(input, index) {
+  const targets = ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"];
+  const sourceSkill = result.materializedFiles["skills/stella-initialization-probe/SKILL.md"];
+  result.skillConsumption ??= { bootstrapSources: targets.map(target => ({ target, sha256: result.materializedFiles[target].sha256,
+    normalizedSha256: wireHash(result.materializedFiles[target].text.trimEnd()) })),
+    skillSource: { name: "stella-initialization-probe", target: "skills/stella-initialization-probe/SKILL.md", sha256: sourceSkill.sha256 }, wireProofs: [] };
+  const system = input.systemInstruction?.parts?.map(part => part.text ?? "").join("\n"); assert.ok(system);
+  const locations = [], bootstrapHashes = targets.map(target => {
+    const text = result.materializedFiles[target].text.trimEnd(), start = system.indexOf(text);
+    assert.ok(start >= 0, `Required complete ${target} is absent from the real system instruction`);
+    assert.equal(system.indexOf(text, start + text.length), -1, `Duplicate complete ${target}`);
+    locations.push({ target, start }); return { target, sha256: wireHash(system.slice(start, start + text.length)) };
+  });
+  const contents = input.contents.map(content => ({ role: content.role,
+    parts: content.parts.map(part => part.functionResponse ? "functionResponse" : part.functionCall ? "functionCall" : typeof part.text === "string" ? "text" : "unsupported") }));
+  const found = [];
+  for (const [contentIndex, content] of input.contents.entries()) for (const part of content.parts) {
+    if (part.functionResponse?.name !== "stella_memory_data" || typeof part.functionResponse.response?.output !== "string") continue;
+    const output = JSON.parse(part.functionResponse.response.output);
+    if (!output.skill) continue;
+    assert.equal(output.skill.name, "stella-initialization-probe"); assert.equal(output.skill.text, sourceSkill.text);
+    assert.equal(output.skill.sha256, sourceSkill.sha256); assert.equal(wireHash(output.skill.text), sourceSkill.sha256);
+    found.push({ name: output.skill.name, sha256: wireHash(output.skill.text), sourceSha256: sourceSkill.sha256, role: content.role, contentIndex });
+  }
+  assert.equal(found.length, [2, 3, 4, 6, 7, 8].includes(index) ? 1 : 0);
+  result.skillConsumption.wireProofs.push({ index, systemField: "systemInstruction", bootstrapHashes,
+    bootstrapOrder: locations.sort((a, b) => a.start - b.start).map(item => item.target), contents, skill: found[0] ?? null });
+}
 const refreshFault = async () => {
   if (result.fault) return;
   const records = (await readFile(logPath, "utf8").catch(() => "")).trim().split("\n").filter(Boolean).map(line => JSON.parse(line));
@@ -96,6 +128,8 @@ try {
   const automaticMarker = "SYNTHETIC_AUTOMATIC_OWNER_INPUT_7296", automaticInput = `${automaticMarker}: Preserve the author's concrete questions.`;
   provider = createServer(async (request, response) => {
     try {
+      result.allHttpRequests.push({ index: result.allHttpRequests.length + 1, method: request.method, path: request.url, atUtc: new Date().toISOString() });
+      await save();
       assert.equal(request.method, "POST");
       assert.match(request.url, /gemini-3\.8-flash:streamGenerateContent/);
       let body = ""; for await (const chunk of request) body += chunk;
@@ -153,6 +187,7 @@ try {
           parts = [{ text: `SYNTHETIC_STOCK_HOST_ANSWER_4931: ${automaticMarker}` }];
         }
       } else if (scenario === "materialization") {
+        captureSkillPrompt(input, index);
         for (const file of ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"]) assert.ok(body.includes(`${BOOTSTRAP_MARKER}_${file}`), `Host omitted materialized ${file}`);
         assert.ok(body.includes("stella-initialization-probe") && body.includes("Managed skill catalogue") && body.includes("Synthetic initialization acceptance only."), "Public Core hook must expose the verified managed skill catalogue");
         if (stage === 1) {
@@ -234,6 +269,14 @@ try {
       models: [{ id: "gemini-3.8-flash", name: "Synthetic Google loopback", reasoning: true, contextWindow: 1048576, maxTokens: 8192 }] } } },
     plugins: { slots: { memory: "none" }, allow: ["stella-core", "google"], load: { paths: [packageRoot ?? plugin] }, entries: { "memory-core": { enabled: false }, "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config: { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority,
       canghaiRoot: source.root, dataMode: "local_write", agentId: "synthetic", agentMemory: "fresh_tools", ...["automatic_archive", "continuous_chat"].includes(scenario) ? { requestArchive: "local" } : {} } } } }, tools: { allow: ["stella_memory_data"] } };
+  if (scenario === "materialization") {
+    // Exercise public per-agent overrides rather than inheriting a generous default.
+    config.agents.defaults.bootstrapMaxChars = 1;
+    config.agents.entries.synthetic.bootstrapMaxChars = budgetMode === "file" ? 1 : 20000;
+    config.agents.entries.synthetic.bootstrapTotalMaxChars = budgetMode === "total" ? 1 : 150000;
+    result.instructionBudget = { agentId: "synthetic", defaultFileLimit: 1,
+      fileLimit: config.agents.entries.synthetic.bootstrapMaxChars, totalLimit: config.agents.entries.synthetic.bootstrapTotalMaxChars };
+  }
   configuredCheckpoint = config.plugins.entries["stella-core"].config;
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   const env = { ...process.env, OPENCLAW_GATEWAY_PORT: String(gatewayPort), OPENCLAW_GATEWAY_TOKEN: token };
@@ -253,7 +296,7 @@ try {
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("isolated_gateway_connect_timeout")), 15000);
     let deviceIdentity = null;
-    if (scenario === "continuous_chat") {
+    if (["continuous_chat", "materialization"].includes(scenario)) {
       // Satisfy the public idempotent-create identity requirement with an isolated
       // in-memory test key. Never load/store a real device identity or auth token.
       const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -263,7 +306,7 @@ try {
       result.syntheticClientIdentity = { deviceId, privateKeyStorage: "memory_only", clientDeviceAuthTokenPersistence: false, scopesUnchanged: ["operator.admin"] };
     }
     client = new GatewayClient({ url: `ws://127.0.0.1:${gatewayPort}`, token, env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"], sharedStateMode: "read-only", deviceIdentity,
-      hostDeps: scenario === "continuous_chat" ? { loadDeviceAuthToken: () => null, storeDeviceAuthToken() {}, clearDeviceAuthToken() {} } : undefined,
+      hostDeps: ["continuous_chat", "materialization"].includes(scenario) ? { loadDeviceAuthToken: () => null, storeDeviceAuthToken() {}, clearDeviceAuthToken() {} } : undefined,
       onHelloOk() { clearTimeout(timer); resolve(); }, onConnectError(error) { clearTimeout(timer); reject(error); },
       onEvent(event) { result.events.push(event); } }); client.start();
   });
@@ -280,6 +323,54 @@ try {
   };
   await startGateway();
   result.initialized = await client.request("stella.checkpoint", { action: "initialize", revision: source.revision, operationId: "synthetic-stock-host-init" });
+  if (budgetMode !== "normal") {
+    let refusal;
+    try { await client.request("stella.checkpoint", { action: "materialize" }); }
+    catch (error) { refusal = String(error); }
+    const category = budgetMode === "file" ? "host_bootstrap_context_incomplete" : "host_bootstrap_context_missing";
+    assert.ok(refusal?.includes(category), `Expected the precise budget refusal: ${refusal}`);
+    const initRoot = path.join(authority, "initialization");
+    const pendingBefore = await readFile(path.join(initRoot, "pending.json"), "utf8"), pending = JSON.parse(pendingBefore);
+    const operationPath = path.join(initRoot, "operations", `${pending.operationId}.json`);
+    const operationBefore = await readFile(operationPath, "utf8"), operation = JSON.parse(operationBefore);
+    assert.equal(operation.sourceRevision, source.revision); assert.equal(operation.changes.length, 6);
+    const verifyPendingState = async () => {
+      assert.equal(await readFile(path.join(initRoot, "pending.json"), "utf8"), pendingBefore);
+      assert.equal(await readFile(operationPath, "utf8"), operationBefore);
+      const files = [];
+      for (const change of operation.changes) {
+        const bytes = await readFile(path.join(workspace, change.target));
+        assert.deepEqual(bytes, Buffer.from(change.after, "base64"));
+        files.push({ target: change.target, sha256: wireHash(bytes) });
+      }
+      await readFile(path.join(initRoot, "fenced"));
+      assert.equal(await readFile(path.join(initRoot, "receipt.json")).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; }), false);
+      return { pendingSha256: wireHash(pendingBefore), operationSha256: wireHash(operationBefore), files, fenced: true, receiptPresent: false };
+    };
+    result.budgetMaterializationError = refusal;
+    result.budgetStateBefore = await verifyPendingState();
+    const sessionKey = "agent:synthetic:budget-refusal", runId = "synthetic-budget-refusal";
+    result.budgetReset = await client.request("sessions.create", { key: sessionKey, agentId: "synthetic", idempotencyKey: "synthetic-budget-session" });
+    const eventStart = result.events.length;
+    result.budgetAgent = { attempted: true, runId, sessionKey };
+    result.budgetAgent.sent = await client.request("chat.send", { sessionKey,
+      message: "SYNTHETIC_BUDGET_REQUIRED_INSTRUCTIONS: answer only with the complete installed instructions.", idempotencyKey: runId });
+    assert.equal(result.budgetAgent.sent.runId, runId);
+    result.budgetAgent.terminal = await client.request("agent.wait", { runId, timeoutMs: 30000 }, { timeoutMs: 35000 });
+    const observations = result.events.slice(eventStart).filter(event => event.payload?.runId === runId && event.payload?.sessionKey === sessionKey);
+    const refusalEvent = observations.find(event => /initialization_pending|Core initialization is pending|Complete or recover Core initialization/.test(JSON.stringify(event.payload)));
+    assert.ok(refusalEvent, "This exact request must expose an initialization refusal, not an unrelated error or timeout");
+    result.budgetAgent.refusalObservation = { event: refusalEvent.event, runId, sessionKey, payload: refusalEvent.payload, category: "initialization_pending" };
+    result.budgetStateAfter = await verifyPendingState();
+    assert.deepEqual(result.budgetStateAfter, result.budgetStateBefore);
+    assert.equal(result.allHttpRequests.length, 0); assert.equal(result.rawProviderRequests.length, 0);
+    const execute = promisify(execFile);
+    assert.equal((await execute("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", source.root, "rev-parse", "HEAD"])).stdout.trim(), source.revision);
+    result.budgetRefusal = { category, agentAttempted: true, agentBlockedCategory: "initialization_pending",
+      originalFilesPreserved: true, sourceRevisionUnchanged: true, pendingOperationRetained: true, fenced: true,
+      receiptPresent: false, bootstrapFilesWritten: operation.changes.length };
+    result.passed = true;
+  } else {
   if (materialize) {
     result.workspaceBefore = {};
     for (const name of ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md", "skills/stella-initialization-probe/SKILL.md"]) {
@@ -429,13 +520,18 @@ try {
         assert.notEqual(accepted.authority.token, recovery.expected.token);
         result.nextRequest = { before: recovery.expected, publishedB: accepted, qualification: "Production Core archive/transaction/CAS writer over synthetic repository; no user data" };
         if (scenario === "materialization") result.nextRequest.materializationAfterB = await client.request("stella.checkpoint", { action: "materialize" });
-        // Same logical key, official reset completed before chat.send. No history surgery.
-        result.nextRequest.resetB = await client.request("sessions.reset", { key: "agent:synthetic:fresh-supply", reason: "new" });
+        // #31 checks current package instructions in explicit fresh sessions. The
+        // separate continuous_chat scenario proves same-owner conversation reuse.
+        const nextSessionKey = packageRoot && scenario === "materialization" ? "agent:synthetic:skill-supply-B" : "agent:synthetic:fresh-supply";
+        if (packageRoot && scenario === "materialization") {
+          result.nextRequest.freshSessionB = await client.request("sessions.create", { key: nextSessionKey, agentId: "synthetic", idempotencyKey: "synthetic-skill-B-create" });
+          assert.equal(result.nextRequest.freshSessionB.ok, true);
+        } else result.nextRequest.resetB = await client.request("sessions.reset", { key: nextSessionKey, reason: "new" });
         userRound = 2;
-        const sent = await client.request("chat.send", { sessionKey: "agent:synthetic:fresh-supply", message: "Read my current retained writing preference.", idempotencyKey: "synthetic-stock-host-B" });
+        const sent = await client.request("chat.send", { sessionKey: nextSessionKey, message: "Read my current retained writing preference.", idempotencyKey: "synthetic-stock-host-B" });
         result.nextRequest.sentB = sent;
         result.nextRequest.terminalB = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
-        result.nextRequest.historyB = await client.request("chat.history", { sessionKey: "agent:synthetic:fresh-supply", limit: 30 });
+        result.nextRequest.historyB = await client.request("chat.history", { sessionKey: nextSessionKey, limit: 30 });
         assert.equal(result.nextRequest.terminalB.status, "ok"); assert.equal(count, scenario === "materialization" ? 8 : 6);
         assert.ok(JSON.stringify(result.nextRequest.historyB).includes(nextAnswer));
         const firstB = await readFile(path.join(out, scenario === "materialization" ? "provider-5.json" : "provider-4.json"), "utf8");
@@ -495,6 +591,7 @@ try {
       assert.equal(result.faultOutcome.successfulToolResults, 0); assert.equal(result.faultOutcome.staleMarkerInNextRequests, false);
       assert.equal(result.faultOutcome.finalPayloadCancelled, true); result.passed = true;
     }
+  }
   }
   result.scope = "Actual isolated installed Host Gateway and native Google Agent/tool loop, loopback fake model only; installed tree identity unverified, full_memory not accepted";
 } catch (error) { result.error = { message: String(error), stack: error?.stack }; }

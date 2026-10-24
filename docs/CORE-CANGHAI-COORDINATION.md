@@ -107,7 +107,9 @@ Telegram/WebChat 授权、后续更新接纳或 full_memory 已验收；私人�
 格式或拿 npm 版本代替。早期合成 fixture 声明 `<1.0.0` 导致物化拒绝；只在新副本修正兼容
 声明后才通过，失败记录保留，不把元数据修正冒称策略或权限扩展。
 
-下一条接缝是显式 producerBase→candidate 数据投影导入：保留消费侧配置/身份/grant，
+显式 producerBase→candidate 数据投影导入已在 `47f8259b` 实现并验收；该版本的 F/G 联合
+证据保留原身份，不能搬作后续包已通过。`945d7000` 的相关六个解析/导入源码 blob 与该版本
+相同，这是静态契约兼容证据。导入保留消费侧配置/身份/grant，
 原 catalog 与 producerBase 不一致时冲突拒绝，首批不做通用 merge。通过已有精确 journal、
 直接子提交及 CAS 发布 Core 自己的消费 revision；producer candidate 与消费 revision分别记账。
 新的 Source 版本仍需已有 grant 中精确 reviewed descriptor，导入不复制候选 grant或自动
