@@ -19,7 +19,7 @@ type Input = {
 };
 
 /** One pinned public Host model adapter shared by policy and work selection. */
-async function processingContext(input: Input) {
+export async function createCheckpointProcessingContext(input: Input) {
   if (!input.bindingPath) return undefined;
   const model = () => {
     const cfg = structuredClone(input.api.runtime.config.current()) as OpenClawConfig;
@@ -40,7 +40,7 @@ async function processingContext(input: Input) {
   };
   await current();
   return { modelRef, processing, current,
-    async complete(purpose: "stella-source-access" | "stella-personal-views", { prompt, maxTokens }: { prompt: string; maxTokens: number }) {
+    async complete(purpose: "stella-source-access" | "stella-personal-views" | "stella-correction", { prompt, maxTokens }: { prompt: string; maxTokens: number }) {
       await current();
       // A sole matching owner needs no target/model override. An ambiguous
       // fleet still follows the Host's existing explicit-agent policy.
@@ -57,7 +57,7 @@ async function processingContext(input: Input) {
 /** Adapt an admitted owner request to existing source-specific policy judgment.
  * Metadata processing permission does not authorize original source bytes. */
 export async function createCheckpointSourceAccess(input: Input): Promise<SourceAccessProvider | undefined> {
-  const context = await processingContext(input);
+  const context = await createCheckpointProcessingContext(input);
   if (!context) return undefined;
   return createPersonalContextAccess({ request: input.request, modelRef: context.modelRef, binding: context.processing,
     assertRequestCurrent: context.current, reuseWithinRequest: true, signal: input.signal,
@@ -66,7 +66,7 @@ export async function createCheckpointSourceAccess(input: Input): Promise<Source
 
 /** Lazy read-only work projection. No caller-supplied question, identity, or selection. */
 export async function prepareCheckpointWork(input: Input & { resolver: EpisodeEvidenceResolver; recoveryRevision: string }) {
-  const context = await processingContext(input);
+  const context = await createCheckpointProcessingContext(input);
   check(context, "personal_view_processing_grant_required");
   check(context.processing.config.viewProcessingModelRefs?.includes(context.modelRef), "personal_view_processing_grant_mismatch");
   check(typeof input.api.source === "string" && input.api.source.trim(), "plugin_source_binding_required");

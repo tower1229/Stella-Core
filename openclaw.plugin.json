@@ -9,7 +9,8 @@
     "tools": [
       "stella_initialize",
       "stella_read_fragment",
-      "stella_memory_data"
+      "stella_memory_data",
+      "stella_memory_correct"
     ]
   },
   "activation": {
@@ -123,6 +124,13 @@
         "maxLength": 512,
         "pattern": "^[^\\u0000-\\u0020\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\u0000-\\u0020\\u007f])?$",
         "description": "Explicit owner profile for current authenticated WebChat ingress. Requires a separate source processing requester grant; never aliases a Telegram identity."
+      },
+      "agentCorrection": {
+        "type": "string",
+        "enum": [
+          "tool"
+        ],
+        "description": "Explicit opt-in to the separate owner correction write tool. Requires fresh_tools, local input archive, local_write and existing source learn/view/model permissions; absent means disabled."
       }
     },
     "allOf": [
@@ -228,6 +236,34 @@
           "properties": {
             "recoveryAuthority": {
               "const": "core_checkpoint"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "agentCorrection"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority",
+            "agentMemory",
+            "requestArchive"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            },
+            "agentMemory": {
+              "const": "fresh_tools"
+            },
+            "requestArchive": {
+              "const": "local"
+            },
+            "dataMode": {
+              "const": "local_write"
             }
           }
         }

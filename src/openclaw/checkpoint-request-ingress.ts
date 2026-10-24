@@ -23,6 +23,11 @@ import { parseSourcePolicy } from "../canghai/source-policy.js";
 import { parse as parseYaml } from "yaml";
 import type { RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
 
+import type { VersionedRef } from "../praxis/episode-v2.js";
+
+export type CheckpointRequestArchiveReceipt = Readonly<{ recovery: RecoveryReadBinding; evidenceRefs: VersionedRef[]; sourceRefs: VersionedRef[];
+  capturedAt: string; requestHash: string; runId: string }>;
+
 type Runtime = Awaited<ReturnType<typeof createCheckpointPluginRuntime>>;
 type Frame = { runtime: Runtime; recovery: RecoveryReadBinding; reader: Pick<CatalogReader, "root" | "catalogPath" | "catalogHash">; binding: Pick<PraxisRuntimeBinding, "archive" | "purpose" | "catalogPath">; ownerId: string; capturedAt: string };
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
@@ -176,7 +181,13 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
       });
       active(); last = { state: "local_committed", revision: result.revision, runId, operationId: result.operationId,
         capturedAtSource: timestamp === undefined ? "core_receive_clock" : "host_timestamp" };
-      if (continueAgent) { check(result.recovery, "checkpoint_agent_archive_receipt_missing"); return { recovery: result.recovery }; }
+      if (continueAgent) {
+        check(result.recovery, "checkpoint_agent_archive_receipt_missing");
+        const archive: CheckpointRequestArchiveReceipt = Object.freeze({ recovery: result.recovery,
+          evidenceRefs: structuredClone(result.evidenceRefs), sourceRefs: structuredClone(result.sourceRefs),
+          capturedAt: prepared.capturedAt, requestHash: request.requestHash, runId: request.runId });
+        return { recovery: result.recovery, archive };
+      }
       try { ctx.recordProcessed("skipped", { reason: "stella_owner_ingress_archived_no_agent" }); } catch { /* Diagnostics never release the default model path. */ }
     } catch (error) {
       const category = error && typeof error === "object" && "category" in error && typeof error.category === "string" ? error.category :

@@ -16,7 +16,7 @@
 
 缺少某个分段描述不会授权整文件或伪造片段审核；有限工具逐项验证，完整 Praxis/full_memory 的全覆盖检查保持原样。未决对象可以不供给，但不能把剩余对象的正常结果冒称完整记忆成功。此增量的实现及真实源元数据统计见 [v3 兼容报告](suqing-v3-source-access-2026-10-23.md)，标准安装包与原版 Host 的 v3 机制验收见 [第十五批](suqing-batch15-2026-10-23.md)。开发 main 已经用户批准采用兼容源和 checkpoint；当前包、逐项新证据及网页身份/真实推理的未完成边界以 [收尾表](suqing-closeout-2026-10-23.md) 为准。真实源 114 条保留原策略：16 条缺精确审核描述仍不可用，98 条待具体请求语义判定，不代表已全部允许；旧包结果不冒算新包通过。
 
-完整 transcript、附件、Host 自动触发的语义 learning/correction/outcome writer、未知旧会话接管、旧部署平滑迁移、更多资料模式和长历史 compaction 不在本候选内，不以此阻断已验收有限模式。共享 token/cli 只表示同一 Host principal，不证明多个真人身份；多用户或受众变化需独立身份和会话。未知已有历史不得默默认领，应首次新建会话或另行设计迁移。
+完整 transcript、附件、完整 learning/outcome writer 及未显式启用的自动纠正、未知旧会话接管、旧部署平滑迁移、更多资料模式和长历史 compaction 不在本候选内，不以此阻断已验收有限模式。共享 token/cli 只表示同一 Host principal，不证明多个真人身份；多用户或受众变化需独立身份和会话。未知已有历史不得默默认领，应首次新建会话或另行设计迁移。
 
 `stella.checkpoint status` 的 `mode=experimental_owner_chat`、`continuousOwnerChat=true` 表达有限能力。旧 `agentMemory=false` 和 `full_memory=false` 不是已验收完整能力；`fullMemoryBlockers` 仍列完整契约缺口。状态描述不是任意真实数据的验收收据。
 
@@ -82,6 +82,27 @@ quotePolicy 以 `usageConstraints` 元数据保留，summary 用途不产生引�
 
 内部可信 `correctLocal` writer 见 [本地纠正分支](CHECKPOINT-CORRECTION-WRITER.md)；
 读取工具不会触发持久纠正，不新增写工具，也不据此开启 full_memory。
+
+## 可选的本人纠正写工具
+
+默认不注册 `stella_memory_correct`，现有 `stella_memory_data` 仍只读。要在隔离开发环境
+测试此增量，Core 配置需显式增加 `agentCorrection: "tool"`，并已有 `dataMode: "local_write"`、
+`requestArchive: "local"` 和 `agentMemory: "fresh_tools"`；Host 的工具许可还须单独允许
+`stella_memory_correct`。这不是给当前 main 自动开权限的指令。
+
+Agent 依据用户原意选择是否调用，参数只能为 `{}`。Core 只处理本轮已经由 Host 认证并
+归档的用户原话，拒绝另传文本、Evidence、路径、owner 或 expected；继续检查真实 processing
+binding、精确模型/view许可及各来源原有 derive/learn 阶段限制，不新增独立“learn开关”。
+不会给普通问候无条件运行完整纠正，不能把模型自行生成的文字当主人证据。
+
+成功回执只表示 `local_committed`，包含 disposition、clarification、changeRef 和本轮
+currentMemory。Core 仅依据这次 writer 的实际 CAS 返回 C 重绑后续工具供给、清旧缓存，
+并发/重复同轮调用复用同一操作；不从观测 HEAD 升级，不 push。旧对话和最初的系统上下文
+可留作历史，最新成功回执及后续工具结果表示本轮当前版本。clarification 仍是未决问题。
+
+这些机制的合成测试不证明真实模型能正确识别纠正、理解作者或作出学习判断。真实 main
+启用工具、来源许可、真实资料外发及费用仍须独立确认；完整学习/outcome/transcript 与
+full_memory 不因这一可选入口自动通过。具体边界见 [纠正分支契约](CHECKPOINT-CORRECTION-WRITER.md)。
 
 ## 首次初始化与正常聊天
 

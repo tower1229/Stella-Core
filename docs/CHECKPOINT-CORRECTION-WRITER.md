@@ -6,8 +6,8 @@
 
 ## 入口与固定版本
 
-`createCheckpointPluginRuntime(...).correctLocal(input)` 是可信 Core 调用入口，未注册新
-Gateway RPC 或 Agent 工具，也没有自动学习触发。配置仍显式 `core_checkpoint`/
+`createCheckpointPluginRuntime(...).correctLocal(input)` 是可信 Core 调用入口，不注册新的
+Gateway 写 RPC。可选 Agent 适配器仅在 agentCorrection=tool 时注册独立写工具；默认关闭。配置仍显式 `core_checkpoint`/
 `local_write`。调用方传入既有认证 owner Evidence、ProcessingAuthority、准确 owner/model/
 purpose、请求标识和语义准备开始前捕获的 RecoveryReadBinding；不会由模型提供身份或 expected。
 
@@ -57,3 +57,23 @@ Source/Evidence、OngoingWork v1、LearningChange v1、catalog 及现有策略�
 改沧海生产 dev。后续导入仍走显式 producerBase→candidate 与原 CAS/冲突规则，不新增
 后台跟随、通用 merge 或生产迁移。新 writer 的本地结果、生产者固定源、checkpoint 与
 Host 实际消费分别记录，遵守 CORE-CANGHAI-COORDINATION.md。
+
+
+## 可选 Agent 接线增量（2026-10-24）
+
+正常 Host 的公开 reply_dispatch 先走现有输入归档，内部传递这一次操作真实返回的
+Evidence/Source refs、接收时间、run/hash 与 recovery B。新增独立 `stella_memory_correct {}`
+默认关闭，需明确配置和 Host 工具许可；模型不能构造这份归档收据。Source 的 learn 阶段
+复用原 derive/用途/受众约束，没有新增或猜造一个独立许可位。
+
+工具重建 genuine SourceAccess 和固定模型的公开 runtime.llm.complete 适配，避免把旧
+B 的 reader/authority 闭包带到 C 的发布检查。一次请求 Promise 覆盖 writer 与重绑；重复
+调用只复用该结果。C 必须来自本次 CAS，原 data permit/handle/work cache 不可借用 C；
+读工具仍只读。公开回执不暴露 repositoryRoot 或内部 journal 路径。
+
+helper13项、旧供给74项以及新增注册供给5项已通过。新注册测试包含并发两次纠正及完成后
+重复，实测仅一次纠正提交；第一次并发重复锁失败保留于 supply-a4，最小修复保留共享操作
+内部的完整 CAS/reader 检查，外层重复等待者只检查身份和正常取消，不修改锁框架。
+
+以上为合成 Host hooks 与真实本地 Git/CAS；安装包的真实原版 Host 三轮验证另行记录，
+未取得结果前不称其通过。没有修改 main、真实 grant、沧海 dev、Host 或调用真实模型。
