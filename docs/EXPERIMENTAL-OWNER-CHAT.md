@@ -16,7 +16,7 @@
 
 缺少某个分段描述不会授权整文件或伪造片段审核；有限工具逐项验证，完整 Praxis/full_memory 的全覆盖检查保持原样。未决对象可以不供给，但不能把剩余对象的正常结果冒称完整记忆成功。此增量的实现及真实源元数据统计见 [v3 兼容报告](suqing-v3-source-access-2026-10-23.md)，标准安装包与原版 Host 的 v3 机制验收见 [第十五批](suqing-batch15-2026-10-23.md)。开发 main 已经用户批准采用兼容源和 checkpoint；当前包、逐项新证据及网页身份/真实推理的未完成边界以 [收尾表](suqing-closeout-2026-10-23.md) 为准。真实源 114 条保留原策略：16 条缺精确审核描述仍不可用，98 条待具体请求语义判定，不代表已全部允许；旧包结果不冒算新包通过。
 
-完整 transcript、附件、语义 learning/correction/outcome writer、未知旧会话接管、旧部署平滑迁移、更多资料模式和长历史 compaction 不在本候选内，不以此阻断已验收有限模式。共享 token/cli 只表示同一 Host principal，不证明多个真人身份；多用户或受众变化需独立身份和会话。未知已有历史不得默默认领，应首次新建会话或另行设计迁移。
+完整 transcript、附件、Host 自动触发的语义 learning/correction/outcome writer、未知旧会话接管、旧部署平滑迁移、更多资料模式和长历史 compaction 不在本候选内，不以此阻断已验收有限模式。共享 token/cli 只表示同一 Host principal，不证明多个真人身份；多用户或受众变化需独立身份和会话。未知已有历史不得默默认领，应首次新建会话或另行设计迁移。
 
 `stella.checkpoint status` 的 `mode=experimental_owner_chat`、`continuousOwnerChat=true` 表达有限能力。旧 `agentMemory=false` 和 `full_memory=false` 不是已验收完整能力；`fullMemoryBlockers` 仍列完整契约缺口。状态描述不是任意真实数据的验收收据。
 
@@ -61,6 +61,27 @@ npm install --prefix <isolated-consumer> --ignore-scripts --no-audit --no-fund <
 同时按公开 Host 机制显式声明该 Agent/workspace、owner 身份和唯一的所需 provider；本示例没有模型凭据。`allowConversationAccess` 是单独的安全权限，本轮仅已获准的新合成 Gateway，生产/真实会话必须另行授权。不启用 session-memory、Dreaming 或其他记忆插件来冒充本模式能力。
 
 `core_checkpoint` 不配置 `recoveryRevision` 或 legacy `durability`/`initializationGatewayAccess`；不要同时保留两个权威指针。原 `fresh_tools` 名字为兼容保留，现指每用户请求重新准入。
+
+## 当前事项读取
+
+当前源码的 `stella_memory_data {"action":"work"}` 是可选、只读的 Ongoing Work 入口；
+不接受模型另传 question、owner、路径或版本。它以本次 Host 用户输入调用既有语义选择，
+仅返回选中的当前 work/ref、排除项和必要来源规则，保留 confirmed/proposed/rejected/open
+的区别。工具结果仍是派生理解，不是新的 owner 原话或操作许可。
+
+它要求源已声明并加载真实 `source_access_context` binding，且原 grant 的
+`viewProcessingModelRefs` 包含当前精确模型。缺失授权则拒绝该动作，不为已有 raw
+list/read/skill 额外增加视图许可要求；原 profile 已有的必需约束保持不变。
+合法空结果不是“全库没有事项”，策略排除与声明对象缺失分别处理。下一用户请求读取
+新 checkpoint；本请求内可复用已授权 work，仍执行身份与正常取消检查。
+
+原文候选与其他个人视图不会直接作为该动作输出；被选 work 的 policyRef、规则和
+quotePolicy 以 `usageConstraints` 元数据保留，summary 用途不产生引用许可。辅助视图
+选择会将经授权的候选及原始依据交给当前固定模型，属于真实外发/计费范围，真实调用
+仍需独立授权。本地 fake 选择和协议验收不证明真实模型的自然选择或写作质量。
+
+内部可信 `correctLocal` writer 见 [本地纠正分支](CHECKPOINT-CORRECTION-WRITER.md)；
+读取工具不会触发持久纠正，不新增写工具，也不据此开启 full_memory。
 
 ## 首次初始化与正常聊天
 

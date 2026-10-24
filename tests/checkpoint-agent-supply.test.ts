@@ -100,7 +100,10 @@ test("tool body gate survives a missing hook and rejects extra arguments, paths 
   const f = await fixture(t); await f.ingress(); await f.admit();
   await assert.rejects(f.execute({ action: "list" }, false), /checkpoint_agent_tool_scope_unavailable/);
   await assert.rejects(f.execute({ action: "list", path: "private.md" }), /checkpoint_agent_tool_arguments_invalid/);
-  await assert.rejects(f.execute({ action: "read", handle: "E1" }), /checkpoint_agent_handle_unavailable/);
+  await assert.rejects(f.execute({ action: "work", question: "A model cannot replace the owner's request" }), /checkpoint_agent_tool_arguments_invalid/);
+  await assert.rejects(f.execute({ action: "work" }), /personal_view_processing_grant_required/);
+  assert.equal((await f.execute({ action: "list" })).details.items.length, 1, "Optional work permission must not disable existing raw reads");
+  await assert.rejects(f.execute({ action: "read", handle: "not-a-handle" }), /checkpoint_agent_handle_unavailable/);
   await assert.rejects(f.execute({ action: "list" }, true, { runId: "another-run" }), /checkpoint_agent_tool_scope_unavailable/);
 });
 
