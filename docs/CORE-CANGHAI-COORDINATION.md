@@ -26,7 +26,7 @@ Core 工作包只修改 Core；沧海工作包独立核对并修改获准的开�
 | 归档写入 | [checkpoint-archive.ts](../src/canghai/checkpoint-archive.ts) 写声明的 payload/object 根、catalog、所需 view 文件及 catalog 同级 `operations/<id>.archive.json`、`<id>.checkpoint.json` | 完整可变路径闭包与旧目录排除集；仅换 manifest 不会隔离共享 catalog、payload、view 或 journal。当前 owner 输入归档是 `local_committed`，不是完整 transcript/语义学习/远端同步 |
 | 写入一致性 | [checkpoint-recovery-runtime.ts](../src/canghai/checkpoint-recovery-runtime.ts) 校验整树干净、原 expected revision/token、单个直接子提交及精确计划变更；[D-059](DECISIONS.md#d-059--core-checkpoint-is-an-explicit-local-authority) 规定仓库外 authority | 独占写入窗口、准确父版本和原 journal；外部领域写入不能被当作 Core 已认证提交，不能从观测 HEAD 自动升级 expected |
 | Host 文件 | [checkpoint-initialization.ts](../src/openclaw/checkpoint-initialization.ts) 只物化声明 recipe；文件写盘、发现/刷新和实际消费分开 | 受管文件/Skill 所有权、冲突备份与实际生效方式；不覆盖用户 bootstrap，不自动扩大 wiki/RAG/索引任务 |
-| Agent 读／纠正入口 | [checkpoint-agent-supply.ts](../src/openclaw/checkpoint-agent-supply.ts) 的只读 `stella_memory_data` 接受 `list/read/skill/work`；可选独立 `stella_memory_correct {}` 需显式 `agentCorrection:tool` 及 Host 工具许可，默认关闭 | 领域数据先成为入口可读的版本化 Source/Evidence；Work 是已有派生对象的窄供给，Understanding 动作尚待实现。纠正复用原来源用途／派生约束，不从 Skill 文字或本地归档推导语义写入许可；领域 CLI 完成不等于已进入 catalog、工具循环或资料 grant |
+| Agent 读／纠正入口 | [checkpoint-agent-supply.ts](../src/openclaw/checkpoint-agent-supply.ts) 的只读 `stella_memory_data` 接受 `list/read/skill/work/understanding`；可选独立 `stella_memory_correct {}` 需显式 `agentCorrection:tool` 及 Host 工具许可，默认关闭 | 领域数据先成为入口可读的版本化 Source/Evidence；Work 是已有派生对象的窄供给，Understanding 保留当前 USER/MEMORY 分区与 scope/status。纠正复用原来源用途／派生约束，不从 Skill 文字或本地归档推导语义写入许可；领域 CLI 完成不等于已进入 catalog、工具循环或资料 grant |
 
 `full_memory` profile 的来源格式可以被有限工具路径消费，不代表完整能力已经实现或验收。有限实验模式、完整能力诊断和真实模型效果分别记录；沿用 [D-058](DECISIONS.md#d-058--experimental-simplicity-and-user-request-boundaries)，不重新引入运行中撤权、输出缓冲或 provider 代理。
 
@@ -123,4 +123,4 @@ Telegram/WebChat 授权、后续更新接纳或 full_memory 已验收；私人�
 隔离到独立 `codex/finance-skill-isolation-v1` 本地提交；原目录及生产读取集合未因这次
 复制改变，没有同步／安装到旧消费者。它与领域投影候选、私密录入分别交付，不能互相
 冒用版本或授权。下一项只读 Understanding 供给沿用既有格式与权限，无需沧海改 schema；
-本轮已开始实现与合成验收准备，未验收前不能当作已接通。
+本轮三轮同包机制验收通过；真实语义质量、main 及完整能力不据此通过。

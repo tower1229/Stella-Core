@@ -43,3 +43,12 @@ provider 请求／响应、分区／scope／status、原规则、一次 semantic
 本次具体版本与验收结果见[主线矩阵](mainline-global-status-2026-10-24.md)。真实 main
 加载、profile／grant、真实语义质量、模型费用和完整 learning/outcome/full_memory 仍分别
 验收，不从本只读入口推导通过。与沧海的既有 schema、生产 dev 和消费者无变更。
+
+## 本轮机制结果（2026-10-24）
+
+124 项相关回归、27 项 CI 证据检查通过。固定运行源码 `77a26054` 的安装包三轮通过：
+20 份完整 loopback wire，其中 Agent 8、selector 4、Source policy 5，proposal／verification／
+interpretation 各 1；3 次输入归档、1 次语义纠正，同轮旧缓存失效，下轮新 checkpoint
+仍读纠正后的同一 ref。候选假设和 USER.md 字节不变，两个登记 Gateway 正常退出。
+确切完整源码／包 hash、前一整体验收失败及版本区别见[主线矩阵](mainline-global-status-2026-10-24.md)。
+这些数字按证据层级分别记录，不累计为更多已过用例；最终九报告同包 CI 另行绑定其版本。

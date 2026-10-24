@@ -88,3 +88,9 @@ profile/grant/config。完整full_memory和更多#35–39出口仍未关闭；�
 [全局剩余任务矩阵](mainline-global-status-2026-10-24.md)记录固定包、沧海金融代码隔离、
 SQ 节点增量、下一 Understanding 消费缺口及精确授权边界。上文 main 版本是此前最后核验
 记录，本轮未重新部署或声称其现场已刷新。
+
+
+Understanding 的最小消费缺口也已补齐：既有只读数据工具保留 USER/MEMORY、scope/status
+和原来源规则，正常 Host 三轮验证纠正前 A 缓存→本轮纠正 B→同轮／下轮回读 B；不写
+USER.md，不新增 writer 或权限框架。见[供给契约与证据](CHECKPOINT-UNDERSTANDING-SUPPLY.md)。
+其他 Outcome／Prediction／consolidation 依赖仍按全局矩阵后置，没有由此全部迁移。
