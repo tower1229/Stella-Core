@@ -606,3 +606,15 @@ test("ending a pending preparation prevents its late runtime result from restori
   supply.assertIdle();
   assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
 });
+
+
+test("import maintenance refuses preparation before identity/history reads or archive writes", async t => {
+  const f = await fixture(t); let identityReads = 0, archives = 0;
+  f.observation.beforeCurrent = () => { identityReads++; };
+  const supply = registerCheckpointAgentSupply(f.api, parseCheckpointPluginConfig(f.config),
+    async () => { throw new Error("Maintenance must precede runtime loading"); }, undefined,
+    async () => { archives++; }, () => { throw Object.assign(new Error("Maintenance"), { category: "checkpoint_import_in_progress" }); });
+  const refused = await f.ingress();
+  assert.equal(refused.handled, true); assert.equal(supply.status()?.category, "checkpoint_import_in_progress");
+  assert.equal(identityReads, 0); assert.equal(archives, 0); supply.assertIdle();
+});

@@ -41,7 +41,7 @@ function newScope(): SupplyScope { return { shutdown: new AbortController(), gra
  * Authorized originals are request-local; model/tool continuations reuse them.
  * This does not attest Host prompt history or provide a per-model dispatch gate.
  */
-export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: CheckpointPluginConfig, current: () => Promise<Runtime>, skills?: { readSkill(name: string, signal?: AbortSignal): Promise<ManagedCheckpointSkill>; promptContext(): Promise<string> }, beforePrepare?: (event: PluginHookReplyDispatchEvent, ctx: PluginHookReplyDispatchContext) => Promise<PluginHookReplyDispatchResult | { recovery: RecoveryReadBinding } | void>) {
+export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: CheckpointPluginConfig, current: () => Promise<Runtime>, skills?: { readSkill(name: string, signal?: AbortSignal): Promise<ManagedCheckpointSkill>; promptContext(): Promise<string> }, beforePrepare?: (event: PluginHookReplyDispatchEvent, ctx: PluginHookReplyDispatchContext) => Promise<PluginHookReplyDispatchResult | { recovery: RecoveryReadBinding } | void>, assertPreparationAllowed?: () => void) {
   const enabled = config.agentMemory === "fresh_tools";
   let scopes = scopeStore.tryGetRuntime();
   if (!scopes) { scopes = new Map(); scopeStore.setRuntime(scopes); }
@@ -108,6 +108,8 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
       const assertPreparing = () => check(reservedRunId && preparations.get(reservedRunId) === preparation &&
         !preparation.signal.aborted && !shutdown.signal.aborted, "checkpoint_agent_scope_closed");
       try {
+        // Synchronous maintenance gate precedes identity/history binding and any local archive.
+        assertPreparationAllowed?.();
         let ingress = captureCheckpointHostRequest(api, config, event, requestContext, shutdown.signal);
         check(!runs.has(ingress.request.runId) && preparations.size + grants.size < 64, "checkpoint_agent_duplicate_or_capacity");
         reservedRunId = ingress.request.runId;

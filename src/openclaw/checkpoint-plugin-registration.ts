@@ -14,6 +14,7 @@ import { isRecord } from "../shared/type-guards.js";
 export function registerCheckpointPlugin(api: OpenClawPluginApi) {
   const config = parseCheckpointPluginConfig(api.pluginConfig);
   registerCheckpointIdentityDiagnostic(api);
+  let importing = false;
   let closed = false, pending: ReturnType<typeof createCheckpointPluginRuntime> | undefined;
   const current = async () => {
     if (closed) throw new RecoveryAuthorityError("recovery_scope_closed");
@@ -26,7 +27,7 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
   const ingress = registerCheckpointRequestIngress(api, config, current);
   const supply = registerCheckpointAgentSupply(api, config, current, initialization, config.requestArchive === "local" ? async (event, ctx) => {
     await initialization.assertAvailable(); return ingress.dispatch(event, ctx);
-  } : undefined);
+  } : undefined, () => { if (importing) throw new RecoveryAuthorityError("checkpoint_import_in_progress"); });
   const status = async (reload = false) => {
     const runtime = await current(), recovery = reload ? (await runtime.load()).recovery : await runtime.capture();
     await runtime.assert(recovery);
@@ -39,9 +40,27 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
   };
   api.registerGatewayMethod("stella.checkpoint", async ({ params, respond, signal }) => {
     try {
-      if (!isRecord(params) || typeof params.action !== "string" || !["status", "reload", "initialize", "materialize", "rollback"].includes(params.action) ||
-        Object.keys(params).some(key => !(params.action === "initialize" ? ["action", "revision", "operationId"] : params.action === "rollback" ? ["action", "operationId"] : ["action"]).includes(key))) {
+      if (!isRecord(params) || typeof params.action !== "string" || !["status", "reload", "initialize", "materialize", "rollback", "import"].includes(params.action) ||
+        Object.keys(params).some(key => !(params.action === "import" ? ["action", "expectedRevision", "expectedToken", "candidateRoot", "producerBaseRevision", "candidateRevision", "operationId"] : params.action === "initialize" ? ["action", "revision", "operationId"] : params.action === "rollback" ? ["action", "operationId"] : ["action"]).includes(key))) {
         throw new RecoveryAuthorityError("checkpoint_operation_invalid");
+      }
+      if (importing && !["status", "reload"].includes(params.action)) throw new RecoveryAuthorityError("checkpoint_import_in_progress");
+      if (params.action === "import") {
+        if (!["expectedRevision", "expectedToken", "candidateRoot", "producerBaseRevision", "candidateRevision", "operationId"].every(key => typeof params[key] === "string")) {
+          throw new RecoveryAuthorityError("checkpoint_operation_invalid");
+        }
+        supply.assertIdle(); importing = true;
+        try {
+          await initialization.assertAvailable();
+          const runtime = await current(), captured = await runtime.capture();
+          // The resolver/binding come from configuration; expected revision/token are caller-pinned.
+          const recovery = { resolver: captured.resolver, expected: { ...captured.expected,
+            revision: params.expectedRevision as string, token: params.expectedToken as string } };
+          const imported = await runtime.importSnapshot({ recovery, candidateRoot: params.candidateRoot as string,
+            producerBaseRevision: params.producerBaseRevision as string, candidateRevision: params.candidateRevision as string,
+            operationId: params.operationId as string, signal });
+          respond(true, { imported, consumed: false, capabilities: { full_memory: false } }); return;
+        } finally { importing = false; }
       }
       if (params.action === "initialize") {
         if (typeof params.revision !== "string" || typeof params.operationId !== "string") throw new RecoveryAuthorityError("checkpoint_operation_invalid");
@@ -68,6 +87,11 @@ export function registerCheckpointPlugin(api: OpenClawPluginApi) {
     },
   }, { names: ["stella_initialize"] });
   api.on("before_agent_run", async (event, ctx) => {
+    if (ctx.agentId === config.agentId && importing) {
+      supply.retireRun(ctx.runId);
+      return { outcome: "block" as const, category: "checkpoint_import_in_progress",
+        reason: "An explicit Core snapshot import is in progress", message: "Retry after the snapshot import completes." };
+    }
     if (ctx.agentId === config.agentId) try { await initialization.assertAvailable(); }
     catch { supply.retireRun(ctx.runId); return { outcome: "block" as const, category: "initialization_pending", reason: "Core initialization is pending", message: "Complete or recover Core initialization before a new request." }; }
     return supply.beforeAgentRun(event, ctx);

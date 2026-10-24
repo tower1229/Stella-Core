@@ -20,7 +20,12 @@ function valid() {
       boundariesVerified: { oneArchivePerUserRequest: true, currentToolsServeRevisedB: true, noResetOrGatewayRestartDuringConversation: true } } },
     v3: { ...structuredClone(common), cases: [{ id: "allowed", terminal: { status: "ok" }, status },
       { id: "denied_use", terminal: { status: "ok" }, status },
-      { id: "denied_audience", providerRequests: 0, status: { supply: { category: "private_context_audience_forbidden" } } }] } };
+      { id: "denied_audience", providerRequests: 0, status: { supply: { category: "private_context_audience_forbidden" } } }] },
+    snapshotImport: { ...structuredClone(common), cases: [{ id: "allowed", terminal: { status: "ok" }, status, history: { sessionId: "same-snapshot-session" } },
+      { id: "imported", terminal: { status: "ok" }, status, history: { sessionId: "same-snapshot-session", messages: ["SYNTHETIC_V3_IMPORTED_ANSWER"] } }, { id: "denied_audience", providerRequests: 0 }],
+      requests: Array.from({ length: 44 }, () => ({})), snapshotImport: { consumed: false, capabilities: { full_memory: false } },
+      snapshotImportBoundaries: { currentRequestReadsImportedVersion: true, sameSessionNextRequest: true, noResetDuringUpdate: true,
+        staleExpectedRefused: true, authorityUnchangedAfterConflict: true, producerCandidateSeparateFromConsumerCommit: true, grantPredeclaredInFixture: true } } };
 }
 function rejects(mutate: (reports: any) => void) { const reports = valid(); mutate(reports); assert.throws(() => evidence.assertExperimentalReports(reports, context)); }
 
@@ -57,6 +62,16 @@ test("unverified bootstrap and missing policy refusal or audience leakage cannot
   rejects(reports => { reports.v3.cases.pop(); });
   rejects(reports => { reports.v3.cases[2].providerRequests = 1; });
   rejects(reports => { reports.v3.cases[2].status.supply.category = "unknown"; });
+});
+
+test("explicit snapshot import needs actual next-request and conflict evidence", () => {
+  rejects(reports => { delete reports.snapshotImport; });
+  rejects(reports => { reports.snapshotImport.snapshotImportBoundaries.staleExpectedRefused = false; });
+  rejects(reports => { reports.snapshotImport.snapshotImportBoundaries.currentRequestReadsImportedVersion = false; });
+  rejects(reports => { reports.snapshotImport.requests.pop(); });
+  rejects(reports => { reports.snapshotImport.snapshotImport.capabilities.full_memory = true; });
+  rejects(reports => { reports.snapshotImport.cases[1].history.sessionId = "another-session"; });
+  rejects(reports => { reports.snapshotImport.cases[1].history.messages = ["old-answer"]; });
 });
 
 test("probe SIGTERM waits for its registered child cleanup and preserves a failed cancellation", { timeout: 10_000 }, async () => {

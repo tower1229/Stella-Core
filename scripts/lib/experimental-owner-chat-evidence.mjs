@@ -5,7 +5,7 @@ export const NON_ACCEPTANCE = Object.freeze({ fullMemoryAccepted: false, private
 
 // These are public installed-Host observations, not a legacy code-identity receipt.
 export function assertExperimentalReports(reports, { packageRoot, hostRoot }) {
-  assert.deepEqual(Object.keys(reports).sort(), ["continuous", "v3"]);
+  assert.deepEqual(Object.keys(reports).sort(), ["continuous", "snapshotImport", "v3"]);
   for (const report of Object.values(reports)) {
     assert.equal(report.passed, true); assert.equal(report.error, undefined);
     for (const key of Object.keys(NON_ACCEPTANCE)) if (Object.hasOwn(report, key)) assert.equal(report[key], false, `Unexpected product acceptance: ${key}`);
@@ -38,6 +38,17 @@ export function assertExperimentalReports(reports, { packageRoot, hostRoot }) {
   }
   assert.equal(reports.v3.cases[2].providerRequests, 0);
   assert.equal(reports.v3.cases[2].status?.supply?.category, "private_context_audience_forbidden");
+  const snapshot = reports.snapshotImport;
+  assert.deepEqual(snapshot.cases?.map(test => test.id), ["allowed", "imported", "denied_audience"]);
+  assert.equal(snapshot.requests?.length, 44);
+  assert.deepEqual(snapshot.snapshotImportBoundaries, { currentRequestReadsImportedVersion: true, sameSessionNextRequest: true,
+    noResetDuringUpdate: true, staleExpectedRefused: true, authorityUnchangedAfterConflict: true,
+    producerCandidateSeparateFromConsumerCommit: true, grantPredeclaredInFixture: true });
+  assert.equal(snapshot.snapshotImport?.consumed, false); assert.equal(snapshot.snapshotImport?.capabilities?.full_memory, false);
+  assert.equal(snapshot.cases[1].terminal?.status, "ok"); assert.equal(snapshot.cases[2].providerRequests, 0);
+  assert.ok(snapshot.cases[0].history?.sessionId);
+  assert.equal(snapshot.cases[1].history?.sessionId, snapshot.cases[0].history.sessionId);
+  assert.ok(JSON.stringify(snapshot.cases[1].history).includes("SYNTHETIC_V3_IMPORTED_ANSWER"));
   return { initialization: "passed", continuousOwnerChat: "passed", localInputArchive: "passed", nextRequestFreshness: "passed",
-    v3PaginationAndPolicy: "passed", unauthorizedAudience: "passed", full_memory: "not_accepted" };
+    v3PaginationAndPolicy: "passed", explicitSnapshotImport: "passed", unauthorizedAudience: "passed", full_memory: "not_accepted" };
 }

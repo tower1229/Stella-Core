@@ -104,3 +104,5 @@ npm install --prefix <isolated-consumer> --ignore-scripts --no-audit --no-fund <
 本批仅完成本地实现和合成验证，没有部署到真实 main，没有修改真实 profile/owner 绑定、grant 或已有会话。仅凭此接口也不承诺当前共享 token 登录已经具备个人 profile；缺失时必须先确认 Host 实际支持的可信身份登录方式，不能以 client/device 标签补造人。
 
 不要用真实 `chat.send` 诊断身份：实测原版 Host 在 Core 拒绝后仍可独立生成 dashboard 标题，因此 `reply_dispatch` 拒绝不保证阻止所有 Host 辅助模型请求。直接只读身份 RPC 避开该聊天路径。本批仅允许 loopback 假模型，未调用真实模型。证据与边界见 [第十六批](suqing-batch16-2026-10-23.md)。
+
+显式的新来源快照更新使用 operator-admin 的 [数据快照导入](EXPLICIT-SNAPSHOT-IMPORT.md)；不会自动采用 HEAD、合并本地归档冲突或新增资料许可。

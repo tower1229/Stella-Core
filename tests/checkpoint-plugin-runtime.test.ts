@@ -293,3 +293,32 @@ test("Core initialization rejects legacy pending and replays only its persisted 
     assert.deepEqual((await reopened.capture()).expected, original.expected);
   });
 });
+
+
+test("snapshot import is explicit operator maintenance, blocks new runs and never repairs invalid inputs", async t => {
+  const f = await fixture(t); await f.initialize(); const before = await f.runtime.capture();
+  const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), services: { stop(): Promise<void> }[] = [];
+  let configurationWrites = 0;
+  const api = { pluginConfig: f.config, runtime: { version: "2026.8.2", config: {
+    current() { throw new Error("No Host config needed for rejected import"); }, async mutateConfigFile() { configurationWrites++; } } },
+    on(name: string, handler: Function) { hooks.set(name, handler); }, registerTool() {},
+    registerGatewayMethod(name: string, handler: Function, options: { scope: string }) { assert.equal(options.scope, "operator.admin"); methods.set(name, handler); },
+    registerService(service: { stop(): Promise<void> }) { services.push(service); },
+  } as unknown as OpenClawPluginApi;
+  registerCheckpointPlugin(api); t.after(async () => { await services[0]!.stop(); });
+  const invoke = async (params: unknown) => {
+    let response: unknown[] = [];
+    await methods.get("stella.checkpoint")!({ params, respond: (...args: unknown[]) => { response = args; } }); return response;
+  };
+  const input = { action: "import", expectedRevision: before.expected.revision, expectedToken: before.expected.token,
+    candidateRoot: path.join(f.parent, "not-opened"), producerBaseRevision: f.revision, candidateRevision: "invalid-revision", operationId: "invalid-import" };
+  assert.equal((await invoke({ ...input, unexpected: true }))[0], false);
+  const pending = invoke(input);
+  const blocked = await hooks.get("before_agent_run")!({}, { agentId: "synthetic" });
+  assert.equal(blocked.category, "checkpoint_import_in_progress");
+  assert.equal((await pending)[0], false);
+  assert.notEqual((await hooks.get("before_agent_run")!({}, { agentId: "synthetic" })).category, "checkpoint_import_in_progress");
+  assert.deepEqual((await f.runtime.capture()).expected, before.expected);
+  assert.equal(await f.git("rev-parse", "HEAD"), f.revision);
+  assert.equal(await f.git("status", "--porcelain"), ""); assert.equal(configurationWrites, 0);
+});

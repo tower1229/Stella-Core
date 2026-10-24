@@ -31,4 +31,5 @@ jobs:
             .artifacts/experimental-owner-chat/*/*.stderr
             .artifacts/experimental-owner-chat/*/host-probe-ci/**
             .artifacts/experimental-owner-chat/*/host-v3-a1/**
+            .artifacts/experimental-owner-chat/*/host-v3-a2/**
           if-no-files-found: error

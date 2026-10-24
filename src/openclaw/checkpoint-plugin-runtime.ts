@@ -1,4 +1,5 @@
 import path from "node:path";
+import { importCheckpointSnapshot } from "../canghai/checkpoint-snapshot-import.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { openLocalCheckpointRecovery } from "../canghai/local-checkpoint-recovery.js";
@@ -90,6 +91,27 @@ export async function createCheckpointPluginRuntime(input: CheckpointPluginConfi
       });
       if (!result.authority) throw new RecoveryAuthorityError("checkpoint_publication_receipt_missing");
       return { ...result, authority: result.authority };
+    },
+    /** Explicit operator-selected producer snapshot; never a model tool or observed-HEAD adoption. */
+    async importSnapshot(input: { recovery: RecoveryReadBinding; candidateRoot: string; producerBaseRevision: string;
+      candidateRevision: string; operationId: string; signal?: AbortSignal }) {
+      writable();
+      const fixed = freezeRecoveryReadBinding(input.recovery, config);
+      if (fixed.resolver !== scope.resolver) throw new RecoveryAuthorityError("recovery_read_binding_mismatch");
+      const cancellation = AbortSignal.any([shutdown.signal, ...input.signal ? [input.signal] : []]);
+      const checkActive = () => { active(); cancellation.throwIfAborted(); };
+      checkActive();
+      return importCheckpointSnapshot({ root, manifestPath: config.manifestPath, hostVersion,
+        candidateRoot: input.candidateRoot, producerBaseRevision: input.producerBaseRevision,
+        candidateRevision: input.candidateRevision, operationId: input.operationId, expected: fixed.expected }, {
+        authority: runtime, signal: cancellation,
+        async commit(paths, operationId) {
+          checkActive();
+          await run("git", ["-C", root, "add", "--", ...paths]); checkActive();
+          await run("git", ["-C", root, "commit", "--quiet", "-m", `[stella:local] ${operationId}`, "--", ...paths]);
+          checkActive();
+        },
+      });
     },
     /** Explicit file materialization only. Caller supplies existing Host fence/verify/identity adapters.
      * Each operation owns one fixed authority and fresh initializer; receipts do not prove Agent consumption.

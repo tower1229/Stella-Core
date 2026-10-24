@@ -92,3 +92,23 @@ processing grant；开发夹具仅用明确合成身份/策略，真实许可保
 首条联调无必要时不增加 Skill。消费者使用独立固定版本副本，不能与生产者并行推进同一
 HEAD。双方先验证合成资料及原许可允许/拒绝，再以同包原版 Host/loopback 验证最终消费。
 这次回签选定路线，不宣称未知目录和数据已经兼容。
+
+
+## 固定快照联合验收与版本区别（2026-10-24）
+
+纯合成投影已经在原版 OpenClaw 2026.8.2、实际安装 Core 包及 loopback fake provider 上完成
+`list → 现有策略判断 → read → 模型续轮 → 回答`。正常路径 4 次请求、用途拒绝 3 次请求，
+合成共享受众准入拒绝 0 次请求；完整 provider 输入保留 payload、Source/Evidence、字段级
+Git 引用、tool/direct_observation 和金融 partial。此结论不表示真实模型金融质量、真实
+Telegram/WebChat 授权、后续更新接纳或 full_memory 已验收；私人资料与 artifacts 不入库。
+
+消费契约版本与 npm 包版本必须分开：当前 Core 兼容契约为 `3.0.0-alpha.0`，npm 包仍是
+`0.1.0-alpha.0`。生产者应使用实际 loader 校验 `compatibility.stellaCore`，不能只检查 JSON
+格式或拿 npm 版本代替。早期合成 fixture 声明 `<1.0.0` 导致物化拒绝；只在新副本修正兼容
+声明后才通过，失败记录保留，不把元数据修正冒称策略或权限扩展。
+
+下一条接缝是显式 producerBase→candidate 数据投影导入：保留消费侧配置/身份/grant，
+原 catalog 与 producerBase 不一致时冲突拒绝，首批不做通用 merge。通过已有精确 journal、
+直接子提交及 CAS 发布 Core 自己的消费 revision；producer candidate 与消费 revision分别记账。
+新的 Source 版本仍需已有 grant 中精确 reviewed descriptor，导入不复制候选 grant或自动
+放行新来源。原始 Git 对象的本地保留不等于 authority 已接受，更不自动采用生产 dev/HEAD。

@@ -103,6 +103,10 @@ try {
     reports[name] = JSON.parse(await readFile(path.join(out, reportPath), "utf8"));
     receipt[`${name}Report`] = { path: reportPath, sha256: sha256(await readFile(path.join(out, reportPath))) };
   }
+  await run("host-snapshot-import", process.execPath, [path.join(root, "scripts/probe-checkpoint-v3-installed.mjs")], {
+    env: { ...await isolatedEnv("snapshot-import"), STELLA_V3_ATTEMPT: "a2", STELLA_V3_SNAPSHOT_IMPORT: "1" } });
+  reports.snapshotImport = JSON.parse(await readFile(path.join(out, "host-v3-a2/result.json"), "utf8"));
+  receipt.snapshotImportReport = { path: "host-v3-a2/result.json", sha256: sha256(await readFile(path.join(out, "host-v3-a2/result.json"))) };
   receipt.capabilities = assertExperimentalReports(reports, { packageRoot: installed, hostRoot });
   for (let i = 1; i <= 9; i++) assert.ok(JSON.parse(await readFile(path.join(out, `host-probe-ci/provider-${i}.json`), "utf8")).contents);
   assert.deepEqual(await fileManifest(hostRoot, hostFiles), hostBefore, "Known Host metadata/launcher changed");

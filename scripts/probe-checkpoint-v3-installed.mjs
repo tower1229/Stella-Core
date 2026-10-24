@@ -20,6 +20,7 @@ const installed = await realpath(path.join(art, "consumer/node_modules/@tower122
 const attempt = process.env.STELLA_V3_ATTEMPT ?? "a1";
 assert.match(attempt, /^a[0-9]+$/);
 const diagnostic = process.env.STELLA_V3_DIAGNOSTIC === "1";
+const snapshotImport = process.env.STELLA_V3_SNAPSHOT_IMPORT === "1";
 const compiled = await realpath(process.env.STELLA_AGENT_SUPPLY_COMPILED ?? path.join(art, "compiled-a1")), out = path.join(art, "host-v3-" + attempt);
 // Refuse a misconfigured environment before creating any probe artifact/source.
 const state = process.env.OPENCLAW_STATE_DIR, configPath = process.env.OPENCLAW_CONFIG_PATH;
@@ -34,7 +35,7 @@ await writeFile(ownerPath, JSON.stringify({ pid: process.pid, startedAtUtc: new 
 const { GatewayClient, hostRoot, openclawBin, evidence: hostIdentity } = await probeHost(root);
 const { createAgentSupplySource } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
 const exec = promisify(execFile), git = async (dir, ...args) => (await exec("git", ["--no-optional-locks", "--no-replace-objects", "-c", "core.fsmonitor=false", "-C", dir, ...args])).stdout.trim();
-let source, provider, child, client;
+let source, snapshot, provider, child, client;
 const result = { hostIdentity, startedAtUtc: new Date().toISOString(), passed: false,
   installation: { root: installed, entry: path.join(installed, "dist/src/plugin.js"), directHostLoad: !diagnostic, observerWrapper: diagnostic },
   scope: "actual isolated OpenClaw public Agent and runtime.llm.complete; fake Google wire, no real model/private source", requests: [], events: [], cases: [] };
@@ -52,6 +53,11 @@ try {
   await writeFile(grantPath, JSON.stringify(grant));
   await git(source.root, "add", "--", "50_PersonalAgent/stella/checkpoint-access.json");
   await git(source.root, "commit", "--quiet", "-m", "[synthetic] bind reviewed metadata grant to public CLI principal");
+  if (snapshotImport) {
+    const { prepareSnapshotImportFixture } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-snapshot-fixture.js")));
+    snapshot = await prepareSnapshotImportFixture(source, path.join(out, "producer"));
+    result.snapshotFixture = snapshot;
+  }
   source.revision = await git(source.root, "rev-parse", "HEAD");
   const catalog = JSON.parse(await readFile(path.join(source.root, source.catalogPath), "utf8"));
   assert.equal(catalog.evidence.length, 18);
@@ -78,6 +84,7 @@ try {
         const binding = JSON.parse(judgmentPrompt.split("\n").at(-1));
         assert.equal(input.tools?.length ?? 0, 0, "policy completion must have no callable tools");
         assert.ok(!body.includes("Synthetic retained entry") && !body.includes("SYNTHETIC_ALLOWED_MEMORY_4931"), "originals must not enter metadata judgment");
+        if (snapshotImport) assert.ok(!body.includes(snapshot.marker), "imported original must not enter metadata judgment");
         assert.equal(binding.purpose.readPurpose, "alpha_praxis"); assert.equal(binding.purpose.deliveryScope, "host-chat");
         const denied = binding.request.includes("SYNTHETIC_V3_FORBIDDEN_USE");
         const verdict = { requestHash: binding.requestHash, sourceRef: binding.sourceRef, policyRef: binding.policyRef,
@@ -90,12 +97,12 @@ try {
         if (phase === 1) parts = [{ functionCall: { name: "stella_memory_data", args: { action: "list" } } }];
         else if (phase === 2) {
           const page = returned.filter(value => Array.isArray(value.items)).at(-1); assert.ok(page); assert.equal(page.examined, 16); assert.equal(page.nextCursor, 16);
-          assert.equal(page.items.length, activeCase === "allowed" ? 16 : 0);
+          assert.equal(page.items.length, activeCase !== "denied_use" ? 16 : 0);
           if (activeCase === "denied_use") assert.deepEqual(page.exclusions, { source_scenario_forbidden: 16 });
           parts = [{ functionCall: { name: "stella_memory_data", args: { action: "list", cursor: page.nextCursor } } }];
         } else if (phase === 3) {
           const page = returned.filter(value => Array.isArray(value.items)).at(-1); assert.ok(page); assert.equal(page.examined, 2); assert.equal(page.nextCursor, null);
-          if (activeCase === "allowed") {
+          if (activeCase !== "denied_use") {
             assert.deepEqual(page.exclusions, {}); assert.deepEqual(page.contextRequired, {}); assert.equal(page.items.length, 2);
             const selected = page.items.find(item => item.handle === "E18"); assert.ok(selected);
             assert.equal(selected.usageConstraints[0].quotePolicy, "summarize_only"); assert.equal(selected.usageConstraints[0].rules[0].id, "keep_scope");
@@ -106,11 +113,16 @@ try {
             parts = [{ text: "SYNTHETIC_V3_POLICY_REFUSED: no current source supplied for the forbidden use." }];
           }
         } else {
-          assert.equal(activeCase, "allowed"); assert.equal(phase, 4);
+          assert.ok(["allowed", "imported"].includes(activeCase)); assert.equal(phase, 4);
           const read = returned.filter(value => value.original).at(-1); assert.ok(read);
-          assert.equal(read.original.text, "Synthetic retained entry 18."); assert.equal(read.original.usageConstraints[0].quotePolicy, "summarize_only");
+          assert.equal(read.original.text, activeCase === "imported" ? snapshot.marker : "Synthetic retained entry 18.");
+          if (activeCase === "imported") {
+            assert.equal(read.currentMemory.checkpointRevision, result.snapshotImport.imported.authority.revision);
+            assert.deepEqual(read.original.ref, snapshot.evidenceRef);
+            entry.importedOriginalVerified = true; entry.checkpointRevision = read.currentMemory.checkpointRevision;
+          } assert.equal(read.original.usageConstraints[0].quotePolicy, "summarize_only");
           assert.equal(read.original.usageConstraints[0].rules[0].id, "keep_scope");
-          parts = [{ text: "SYNTHETIC_V3_INSTALLED_ANSWER: entry 18 recalled with its original constraints." }];
+          parts = [{ text: activeCase === "imported" ? "SYNTHETIC_V3_IMPORTED_ANSWER: updated entry 18 recalled with its original constraints." : "SYNTHETIC_V3_INSTALLED_ANSWER: entry 18 recalled with its original constraints." }];
         }
       }
       await save();
@@ -156,7 +168,7 @@ const observed=Object.create(api);Object.defineProperty(observed,'runtime',{valu
       onHelloOk() { clearTimeout(timer); resolve(); }, onConnectError(error) { clearTimeout(timer); reject(error); }, onEvent(event) { result.events.push(event); } }); client.start();
   });
   result.initialized = await client.request("stella.checkpoint", { action: "initialize", revision: source.revision, operationId: "synthetic-v3-installed-init" });
-  for (const testCase of [{ id: "allowed", input: "SYNTHETIC_V3_ALLOWED: reflect on the reviewed synthetic writing topic.", expected: "SYNTHETIC_V3_INSTALLED_ANSWER", steps: 4 }, { id: "denied_use", input: "SYNTHETIC_V3_FORBIDDEN_USE: make the forbidden synthetic relationship judgment.", expected: "SYNTHETIC_V3_POLICY_REFUSED", steps: 3 }]) {
+  for (const testCase of [{ id: "allowed", input: "SYNTHETIC_V3_ALLOWED: reflect on the reviewed synthetic writing topic.", expected: "SYNTHETIC_V3_INSTALLED_ANSWER", steps: 4 }, { id: "denied_use", input: "SYNTHETIC_V3_FORBIDDEN_USE: make the forbidden synthetic relationship judgment.", expected: "SYNTHETIC_V3_POLICY_REFUSED", steps: 3 }].filter(value => !snapshotImport || value.id === "allowed")) {
     activeCase = testCase.id; agentStep = 0;
     const sessionKey = `agent:synthetic:v3-${testCase.id}`;
     await client.request("sessions.reset", { key: sessionKey, reason: "new" });
@@ -169,6 +181,36 @@ const observed=Object.create(api);Object.defineProperty(observed,'runtime',{valu
     assert.ok(JSON.stringify(history).includes(testCase.expected)); assert.equal(status.capabilities.full_memory, false);
     const calls = result.requests.filter(value => value.case === testCase.id);
     assert.equal(calls.filter(value => value.kind === "policy").length, 18); assert.equal(calls.filter(value => value.kind === "agent").length, testCase.steps);
+  }
+  if (snapshotImport) {
+    const original = (await client.request("stella.checkpoint", { action: "status" })).authority;
+    const params = { action: "import", expectedRevision: original.revision, expectedToken: original.token,
+      candidateRoot: snapshot.candidateRoot, producerBaseRevision: snapshot.producerBaseRevision,
+      candidateRevision: snapshot.candidateRevision, operationId: "synthetic-explicit-import" };
+    result.snapshotImport = await client.request("stella.checkpoint", params);
+    assert.equal(result.snapshotImport.consumed, false); assert.equal(result.snapshotImport.capabilities.full_memory, false);
+    assert.notEqual(result.snapshotImport.imported.authority.revision, original.revision);
+    assert.notEqual(result.snapshotImport.imported.authority.revision, snapshot.candidateRevision);
+    activeCase = "imported"; agentStep = 0;
+    const sessionKey = "agent:synthetic:v3-allowed"; // Same owner's next request; normal prior dialogue remains.
+    const sent = await client.request("chat.send", { sessionKey, message: "SYNTHETIC_V3_IMPORTED: reflect on the current reviewed synthetic writing topic.", idempotencyKey: "synthetic-v3-imported" });
+    const terminal = await client.request("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 });
+    const status = await client.request("stella.checkpoint", { action: "status" });
+    const history = await client.request("chat.history", { sessionKey, limit: 30 });
+    assert.equal(result.providerError, undefined); assert.equal(terminal.status, "ok"); assert.equal(agentStep, 4);
+    assert.equal(status.authority.revision, result.snapshotImport.imported.authority.revision);
+    assert.equal(history.sessionId, result.cases[0].history.sessionId);
+    assert.ok(JSON.stringify(history).includes("SYNTHETIC_V3_ALLOWED"));
+    assert.ok(JSON.stringify(history).includes("SYNTHETIC_V3_IMPORTED_ANSWER"));
+    result.cases.push({ id: "imported", sent, terminal, status, history });
+    const requestsBeforeConflict = result.requests.length;
+    await assert.rejects(client.request("stella.checkpoint", { ...params, operationId: "synthetic-stale-import" }), error => error.message.includes("checkpoint_runtime_stale"));
+    const afterConflict = await client.request("stella.checkpoint", { action: "status" });
+    assert.deepEqual(afterConflict.authority, status.authority);
+    assert.equal(result.requests.length, requestsBeforeConflict);
+    result.snapshotImportBoundaries = { currentRequestReadsImportedVersion: result.requests.some(value => value.importedOriginalVerified),
+      sameSessionNextRequest: true, noResetDuringUpdate: true, staleExpectedRefused: true, authorityUnchangedAfterConflict: true,
+      producerCandidateSeparateFromConsumerCommit: true, grantPredeclaredInFixture: true };
   }
   activeCase = "denied_audience"; const before = result.requests.length;
   const shared = "agent:synthetic:telegram:group:synthetic-v3-room";

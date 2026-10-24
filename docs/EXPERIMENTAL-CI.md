@@ -33,3 +33,13 @@ GitHub Actions runner。fake policy verdict 只验证既有策略机制，不证
 正常取消、文件所有权和 CAS 仍由完整本地测试与针对 Host 场景覆盖。当前未取消的完整能力
 缺口见 [肃清收尾](suqing-closeout-2026-10-23.md)；沧海联调遵守
 [双项目协调约定](CORE-CANGHAI-COORDINATION.md)。
+
+
+显式快照导入现已纳入同包必需检查：保持正常 v3 允许/拒绝探针，另在同 owner 同 session
+下一用户请求前，经 operator-admin 导入一个已选定的合成 producerBase→candidate。初始
+合成 grant 明确预审两个精确 Source 版本；导入本身不增加或重绑定许可。新增探针保留
+44 份完整请求，检查工具读取采用新内容、消费 commit 与 producer SHA 分离、旧 expected
+冲突拒绝且 authority 不变。候选 Git 对象本地 pin 是准备态；journal/CAS 与实际模型消费
+分别验收。历史 full capability 工作流及 full_memory 标志不因此转绿。
+
+操作字段、失败原子性与准备态边界见 [显式数据快照导入](EXPLICIT-SNAPSHOT-IMPORT.md)。
