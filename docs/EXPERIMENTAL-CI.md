@@ -58,3 +58,12 @@ pending/fence 与无成功 receipt；不能把被截断的文件、无关错误�
 预算指公开 bootstrap 字符限额，不是模型输出 token 或费用上限；本项也不证明真实模型
 能遵循 Skill、写作共思质量或其他 harness 的行为。失败与刷新边界见
 [Skill 实际消费与预算验收](SKILL-CONTEXT-ACCEPTANCE.md)。
+
+
+Ongoing Work 只读接续是第七份必需报告 `work`：同包原版 Host 的两个新会话调用现有工具，
+A→可信 Core 本地纠正→B 后实际 provider 请求采用新 work/ref，并保留来源解释/引用规则。
+该场景另有9份 wire（4 Agent、3 Source policy、2 selector）；与前六场景共113份。
+纠正回调明确为本地 stub，不当作 Host 自动触发或真实语义质量。辅助判断与 selector 的
+wire 同样必须捕获，全部 HTTP 在 provider 关闭后闭合核验；详见
+[只读 Work 供给](CHECKPOINT-WORK-SUPPLY.md)。旧104份数字对应加入 Work 之前的六场景，
+不冒算新七场景已经在旧提交通过。

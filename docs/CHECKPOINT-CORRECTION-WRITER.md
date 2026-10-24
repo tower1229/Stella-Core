@@ -45,9 +45,9 @@ C/tokenC 是新 authority，发布后不拿 B 的旧 closure 检查 C，也不�
 checkpoint A 选定时0模型拒绝，以及发布故障后的原 journal 恢复。既有合法空集合和缺失
 声明对象的规则继续由 Personal Views 回归覆盖。
 
-这不是实际 Host 触发或真实模型质量证明。当前 `stella_memory_data` 仍只有原始 Evidence
-的 list/read 和 Skill；把受许可的 Personal Views 接入正常 Host 请求并证明新会话实际消费，
-是 #24 后续接缝。`checkpoint_semantic_writers_not_migrated` 及 full_memory 标志保持原状，
+这不是实际 Host 自动触发或真实模型质量证明。后续已增加 `stella_memory_data` 的只读
+work 动作，并以安装包、原版 Host 和 loopback 验证新会话实际消费已纠正 Work，见
+[只读供给验收](CHECKPOINT-WORK-SUPPLY.md)。这没有接通聊天自动纠正触发。`checkpoint_semantic_writers_not_migrated` 及 full_memory 标志保持原状，
 不能凭这个可信内部 API 将整体能力标绿。未改真实 main、来源 grant、沧海生产 dev 或 Host。
 
 ## 与沧海协同

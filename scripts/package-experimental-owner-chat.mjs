@@ -63,7 +63,7 @@ try {
   [packed] = JSON.parse(await npm("pack", ["pack", "--json", "--ignore-scripts", "--pack-destination", out]));
   artifact = path.join(out, packed.filename); receipt.artifactSha256 = sha256(await readFile(artifact)); receipt.packageIntegrity = packed.integrity;
   const files = packed.files.map(entry => entry.path);
-  assert.ok(files.includes("dist/src/plugin.js") && files.includes("docs/EXPERIMENTAL-OWNER-CHAT.md"));
+  for (const required of ["dist/src/plugin.js", "docs/EXPERIMENTAL-OWNER-CHAT.md", "docs/CHECKPOINT-WORK-SUPPLY.md", "docs/CHECKPOINT-CORRECTION-WRITER.md"]) assert.ok(files.includes(required), `Required installed package file missing: ${required}`);
   assert.ok(!files.some(file => /^(tests|\.artifacts|dist\/tests)\//.test(file)));
   const consumer = path.join(out, "consumer"); await mkdir(consumer);
   await writeFile(path.join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
@@ -114,7 +114,21 @@ try {
     reports[name] = JSON.parse(await readFile(path.join(out, reportPath), "utf8"));
     receipt[`${name}Report`] = { path: reportPath, sha256: sha256(await readFile(path.join(out, reportPath))) };
   }
-  receipt.capabilities = assertExperimentalReports(reports, { packageRoot: installed, hostRoot });
+  await run("host-work", process.execPath, [path.join(root, "scripts/probe-checkpoint-work-installed.mjs")], {
+    env: { ...await isolatedEnv("work"), STELLA_WORK_ARTIFACTS: out, STELLA_WORK_ATTEMPT: "a1", STELLA_WORK_PACKAGE_ARTIFACT: artifact } });
+  const workReportPath = "host-work-a1/result.json";
+  reports.work = JSON.parse(await readFile(path.join(out, workReportPath), "utf8"));
+  // Load only this probe's fully captured synthetic request set. The helper
+  // independently checks content, constraints and the closed per-case windows.
+  reports.work.providerWires = await Promise.all(reports.work.requests.map(async request => {
+    const body = await readFile(path.join(out, `host-work-a1/provider-${request.index}.json`), "utf8");
+    return { index: request.index, body, sha256: sha256(body) };
+  }));
+  receipt.workReport = { path: workReportPath, sha256: sha256(await readFile(path.join(out, workReportPath))),
+    providerFiles: reports.work.providerWires.map(wire => ({ path: `host-work-a1/provider-${wire.index}.json`, sha256: wire.sha256 })) };
+  receipt.capabilities = assertExperimentalReports(reports, { packageRoot: installed, hostRoot, artifact,
+    artifactSha256: receipt.artifactSha256, packageIntegrity: packed.integrity, consumerLockSha256: receipt.consumerLockSha256,
+    coreRevision: source.coreRevision, buildIdentitySha256: sha256(await readFile(path.join(installed, "dist/build-identity.json"))) });
   for (let i = 1; i <= 9; i++) assert.ok(JSON.parse(await readFile(path.join(out, `host-probe-ci/provider-${i}.json`), "utf8")).contents);
   assert.deepEqual(await fileManifest(hostRoot, hostFiles), hostBefore, "Known Host metadata/launcher changed");
   assert.equal(sha256(await readFile(path.join(consumer, "package-lock.json"))), receipt.consumerLockSha256);

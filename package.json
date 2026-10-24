@@ -12,7 +12,9 @@
     "README.md",
     "evaluation/praxis-social.synthetic.json",
     "docs/EXPERIMENTAL-OWNER-CHAT.md",
-    "docs/EXPLICIT-SNAPSHOT-IMPORT.md"
+    "docs/EXPLICIT-SNAPSHOT-IMPORT.md",
+    "docs/CHECKPOINT-WORK-SUPPLY.md",
+    "docs/CHECKPOINT-CORRECTION-WRITER.md"
   ],
   "scripts": {
     "build": "node scripts/compile.mjs build",
