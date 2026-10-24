@@ -119,7 +119,7 @@ full_memory 不因这一可选入口自动通过。具体边界见 [纠正分支
 1. 核对源的明确 40 hex revision、目录/manifest/policy/retain-v1 archive 契约及干净 Git 状态。只选已审阅目标，不自动采用任意 HEAD。
 2. 提交 `{"action":"initialize","revision":"<selected-40hex>","operationId":"<unique-init-id>"}`。它建立 Core authority，**尚未写 Host 文件**；重复/冲突选择按精确原 expected 处理，不删状态重试。
 3. 需要 Host bootstrap/skill 时，源 runtime-profile v2 必须声明 host_materialization_ref 和受管 recipe。提交 `{"action":"materialize"}`，只物化 recipe 声明文件。常见五文件为 AGENTS/SOUL/IDENTITY/USER/MEMORY.md，skill 是 `skills/<declared-name>/SKILL.md`，实际以 receipt 为准。已有无所有权用户文件冲突不能强覆写。
-4. 首次 skill 发现可能仍见 Host 的空缓存而返回 `skill_unavailable_or_shadowed`。保留 pending、备份和原 operation；使用该目标 Gateway 的正常生命周期刷新后重试同一 `materialize`，不能私改 Host 缓存或伪造发现。此刷新只在首次设置需要时进行；生产重启须授权。
+4. 首次物化可能因公开配置尚未完成运行时应用而返回 `host_identity_reload_pending`，或因 skill 空缓存返回 `skill_unavailable_or_shadowed`。保留已写文件、配置、pending、备份和原 operation；使用该目标 Gateway 的正常生命周期刷新后重试同一 `materialize`，仍须通过原身份／发现校验。不能私改缓存、伪造应用或把 pending 算完成。此刷新只在首次设置需要时进行；生产重启须授权。
 5. 核对 `status.materialized` 的 receipt、文件 hash、公开 skill 发现与实际模型输入；写盘不等于消费。首次新建无旧历史会话，正常聊天。以后同一受众继续该会话，**无需每轮 reset 或重启**。每请求自动归档一次，模型工具续轮不再归档；归档使用 Core 接收时间，缺 Host Timestamp 时不假称事件发生时间。
 
 本候选的真实 Host 验收使用全新合成 workspace/state、loopback fake provider，先初始化物化，再连续三轮，不使用私人资料。

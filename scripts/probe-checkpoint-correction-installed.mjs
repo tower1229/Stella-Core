@@ -324,7 +324,7 @@ try {
   result.initialized = await client.request("stella.checkpoint", { action: "initialize", revision: source.revision, operationId: "synthetic-agent-correction-installed-init" });
   try { result.materialization = await client.request("stella.checkpoint", { action: "materialize" }); }
   catch (error) {
-    assert.match(String(error), /skill_unavailable_or_shadowed/);
+    assert.match(String(error), /(?:skill_unavailable_or_shadowed|host_identity_reload_pending)$/);
     const pending = await readFile(path.join(authority, "initialization/pending.json"), "utf8"), plan = JSON.parse(pending);
     assert.equal(plan.sourceRevision, source.revision); await writeFile(path.join(out, "initialization-pending-before-refresh.json"), pending);
     result.initializationRefresh = { refusal: String(error), originalOperationId: plan.operationId, method: "one normal restart of this same isolated Gateway; config/source/state unchanged" };

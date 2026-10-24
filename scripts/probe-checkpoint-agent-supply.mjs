@@ -381,7 +381,7 @@ try {
     catch (error) {
       // A single normal lifecycle comparison, never a private cache reset or
       // permission change. Preserve and retry the exact Core pending operation.
-      assert.match(String(error), /skill_unavailable_or_shadowed/);
+      assert.match(String(error), /(?:skill_unavailable_or_shadowed|host_identity_reload_pending)$/);
       const pending = await readFile(path.join(authority, "initialization/pending.json"), "utf8"), plan = JSON.parse(pending);
       await writeFile(path.join(out, "initialization-pending-before-refresh.json"), pending);
       assert.equal(plan.sourceRevision, source.revision);
