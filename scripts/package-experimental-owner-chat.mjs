@@ -24,6 +24,8 @@ const receipt = { schemaVersion: "stella.experimental-owner-chat-ci/v1", scope: 
 const save = async () => { await writeFile(path.join(out, "receipt.json.partial"), JSON.stringify(receipt, null, 2)); await rename(path.join(out, "receipt.json.partial"), path.join(out, "receipt.json")); };
 const exec = promisify(execFile), children = new Set();
 for (const name of ["home", "tmp", "cache"]) await mkdir(path.join(out, name), { mode: 0o700 });
+// Match ordinary OS temp semantics for extensionless CommonJS test executables.
+await writeFile(path.join(out, "tmp/package.json"), JSON.stringify({ type: "commonjs" }));
 for (const name of ["npm-user.conf", "npm-global.conf"]) await writeFile(path.join(out, name), "");
 // Deliberately do not forward provider keys, proxies, user npmrc or Host state.
 const env = { PATH: process.env.PATH, LANG: "en_US.UTF-8", HOME: path.join(out, "home"), TMPDIR: path.join(out, "tmp"),
