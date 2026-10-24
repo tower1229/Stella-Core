@@ -37,4 +37,5 @@ jobs:
             .artifacts/experimental-owner-chat/*/host-v3-a2/**
             .artifacts/experimental-owner-chat/*/host-work-a1/**
             .artifacts/experimental-owner-chat/*/host-correction-a1/**
+            .artifacts/experimental-owner-chat/*/host-understanding-a1/**
           if-no-files-found: error

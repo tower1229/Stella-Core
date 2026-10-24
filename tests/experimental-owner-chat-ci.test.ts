@@ -160,6 +160,121 @@ function validCorrection(common: any) {
       sameRoundWorkUsesReturnedCAS: true, nextRequestWorkRemainsCorrected: true, authorialDistinctionsPreserved: true, usageConstraintsReachAgent: true,
       historyMayRetainPastValues: true, full_memory: false, realSemanticQualityAccepted: false }, cases, requests, allHttpRequests, providerWires };
 }
+function validUnderstanding(common: any) {
+  const template = validWork(common), originalPolicy = { id: "understanding-policy", version: digest("understanding-policy") };
+  const archivePolicy = { id: "understanding-owner-input-policy", version: digest("understanding-owner-input-policy") };
+  const oldEvidence = { id: "understanding-owner-original", version: digest("understanding-owner-original") };
+  const scope = { workIds: [], contexts: ["synthetic-writing-project"], domains: ["writing"], global: false };
+  const seed = { schemaVersion: "stella.understanding/v1", scope, supportRefs: [oldEvidence], counterRefs: [], dependencyRefs: [],
+    createdAt: "2020-01-01T00:00:00Z", updatedAt: "2020-01-01T00:00:00Z" };
+  const ownerA = { ref: { id: "synthetic-owner-understanding", version: digest("owner-A") }, record: { ...structuredClone(seed),
+    id: "synthetic-owner-understanding", kind: "owner_statement", status: "active", statement: "Synthetic scoped owner understanding A", originChangeId: "seed-owner" } };
+  const hypothesis = { ref: { id: "synthetic-writing-hypothesis", version: digest("unchanged-hypothesis") }, record: { ...structuredClone(seed),
+    id: "synthetic-writing-hypothesis", kind: "hypothesis", status: "candidate", statement: "Synthetic unaccepted hypothesis H", originChangeId: "seed-hypothesis" } };
+  const authority = (index: number) => ({ mode: "core_checkpoint", binding: { agentId: "synthetic", repositoryRoot: "/synthetic/understanding-source", manifestPath: "manifest.yaml" },
+    revision: String(index).repeat(40), token: `understanding-token-${index}` });
+  const entry = (id: string) => ({ id, version: digest(id), status: "current" });
+  const catalog: any = { generationId: "initial-understanding", works: [], understandings: [{ ...ownerA.ref, status: "current" }, { ...hypothesis.ref, status: "current" }],
+    policies: [{ ...originalPolicy, status: "current" }, { ...archivePolicy, status: "current" }], sources: [entry("old-understanding-source")],
+    evidence: [{ ...oldEvidence, status: "current" }], coverage: [entry("old-understanding-coverage")], changes: [entry("seed-owner"), entry("seed-hypothesis")] };
+  const snapshot = (a: any, owner: any, files: string[], ingress?: any) => structuredClone({ authority: a, understandings: { owner, hypothesis }, catalog, files,
+    status: { authority: a, capabilities: { full_memory: false }, ...(ingress ? { ingress } : {}) } });
+  let current = snapshot(authority(1), ownerA, []), clock = 1, correctionOriginal: any;
+  const requests: any[] = [], allHttpRequests: any[] = [], providerWires: any[] = [], cases: any[] = [], history: string[] = [];
+  const add = (kind: string, test: any, contents: any[], parts: any[], metadata: any = {}) => {
+    const index = requests.length + 1, body = JSON.stringify({ contents }), responseBody = JSON.stringify({ candidates: [{ content: { role: "model", parts } }] });
+    const method = "/models/gemini-3.8-flash:streamGenerateContent?alt=sse", atUtc = "2026-10-24T12:00:00Z";
+    requests.push({ index, kind, case: test.id, method, bytes: Buffer.byteLength(body), atUtc, ...metadata }); allHttpRequests.push({ index, method: "POST", path: method, atUtc });
+    providerWires.push({ index, body, sha256: digest(body).slice(7), responseBody, responseSha256: digest(responseBody).slice(7) });
+  };
+  const prompt = (prefix: string, value: any) => [{ role: "user", parts: [{ text: prefix + "\n" + JSON.stringify(value) }] }];
+  const fn = (name: string, args: any) => ({ role: "model", parts: [{ functionCall: { name, args } }] });
+  const output = (name: string, value: any) => ({ role: "user", parts: [{ functionResponse: { name, response: { output: JSON.stringify(value) } } }] });
+  const dataCall = { name: "stella_memory_data", args: { action: "understanding" } };
+  for (const id of ["before", "correction", "next"]) {
+    const correcting = id === "correction", input = `Synthetic understanding ${id} request`, runId = `understanding-${id}`, archiveOp = `understanding_archive_${id}`, before = current;
+    const sourceRef = { id: `understanding-source-${id}`, version: digest(`understanding-source-${id}`) }, evidenceRef = { id: `understanding-evidence-${id}`, version: digest(`understanding-evidence-${id}`) };
+    catalog.sources.push({ ...sourceRef, status: "current" }); catalog.evidence.push({ ...evidenceRef, status: "current" }); catalog.coverage.push(entry(`understanding-coverage-${id}`)); catalog.generationId = `understanding-archive-${id}`;
+    const a = authority(++clock), files = [...before.files, `${archiveOp}.archive.json`, `${archiveOp}.checkpoint.json`], ingress = { state: "local_committed", runId, operationId: archiveOp, revision: a.revision };
+    const start = snapshot(a, before.understandings.owner, files, ingress);
+    const test: any = { id, input, sessionKey: "agent:synthetic:understanding-session", before, agentStart: start,
+      archive: { sourceRef, evidenceRef, runId, requestHash: digest(input), policyRef: archivePolicy }, archiveCommit: a.revision,
+      sent: { runId }, terminal: { runId, status: "ok" }, firstProviderIndex: requests.length + 1, ownerArchiveWrites: 1, semanticWrites: correcting ? 1 : 0 };
+    const contents: any[] = [{ role: "user", parts: [{ text: input }] }]; current = start;
+    const memory = (state: any) => ({ userRequest: runId, checkpointRevision: state.authority.revision, checkpointToken: state.authority.token });
+    const policy = () => {
+      const binding = { request: input, requestHash: digest(input), sourceRef: { id: "old-understanding-source", version: digest("old-understanding-source") } };
+      add("source-policy", test, prompt("Judge the semantic relationship between this request and exactly this source.", binding), [{ text: JSON.stringify({ requestHash: binding.requestHash }) }], { sourceRef: binding.sourceRef });
+    };
+    const project = (state: any) => {
+      policy(); const candidates = ["owner", "hypothesis"].map((name, offset) => ({ handle: `V${offset + 1}`, group: "understandings", ...state.understandings[name],
+        originals: [{ ref: oldEvidence, text: "Synthetic retained owner original", role: "owner", kind: "reported" }, ...(correctionOriginal && name === "owner" ? [correctionOriginal] : [])] }));
+      const binding = { question: input, requestHash: digest(input), candidates };
+      add("view-selector", test, prompt("Select request-local Stella USER and MEMORY views.", binding), [{ text: JSON.stringify({ requestHash: binding.requestHash,
+        selections: [{ handle: "V1", view: "user" }, { handle: "V2", view: "memory" }] }) }], { selectedUnderstandings: [state.understandings.owner.ref, hypothesis.ref] });
+      const understandings = [{ view: "user", ...state.understandings.owner }, { view: "memory", ...state.understandings.hypothesis }];
+      const policies = [{ policyRef: originalPolicy, quotePolicy: "summarize_only", rules: [{ id: "keep_scope", requirement: "Do not generalize the synthetic example." }] }];
+      return { understandings, currentMemory: memory(state), generation: state.catalog.generationId, exclusions: {}, usageConstraints: understandings.map(item => ({ understanding: item.ref, view: item.view, policies })) };
+    };
+    add("agent", test, contents, [{ functionCall: dataCall }], { phase: 1 });
+    const firstProjection = project(start); contents.push(fn(dataCall.name, dataCall.args), output(dataCall.name, firstProjection));
+    if (correcting) {
+      test.cacheFill = { ownerRef: start.understandings.owner.ref, currentMemory: memory(start) };
+      add("agent", test, contents, [{ functionCall: { name: "stella_memory_correct", args: {} } }], { phase: 2, understandingVerified: { phase: "cached-A", ownerRef: start.understandings.owner.ref } });
+      policy(); const ownerEvidence = [{ ref: evidenceRef, text: input }], requestHash = digest(input);
+      add("correction-proposal", test, prompt("Propose one evidence-bound correction or useful work-state update for Stella.", { request: input, requestHash, ownerEvidence }),
+        [{ text: JSON.stringify({ requestHash, disposition: "update" }) }], { ownerEvidenceRef: evidenceRef });
+      const proposalHash = digest("understanding-approved-proposal");
+      add("correction-verification", test, prompt("Independently verify this proposed correction against the exact owner originals and existing state.", { requestHash, ownerEvidence, proposalHash }), [{ text: JSON.stringify({ requestHash, proposalHash, valid: true }) }]);
+      const bindingHash = digest("understanding-source-interpretation"), requirements = [{ id: "keep_scope", handle: "R1" }];
+      add("source-interpretation", test, prompt("Independently check the derived artifact against every supplied source interpretation requirement.", { bindingHash, data: { request: input, requirements } }), [{ text: JSON.stringify({ bindingHash, checks: [{ handle: "R1", satisfied: true }] }) }]);
+      const changeRef = { id: "understanding-current-change", version: digest("understanding-current-change") };
+      const ownerB = { ref: { id: ownerA.ref.id, version: digest("owner-B") }, record: { ...ownerA.record, statement: "Synthetic scoped owner understanding B", supportRefs: [oldEvidence, evidenceRef], originChangeId: changeRef.id } };
+      catalog.understandings[0].status = "superseded"; catalog.understandings.push({ ...ownerB.ref, status: "current" }); catalog.changes.push({ ...changeRef, status: "current" }); catalog.generationId = "understanding-corrected";
+      const c = authority(++clock), receipt = { changeRef, operationId: "learn_" + digest("understanding-current-change").slice(7), disposition: "update", clarification: null, persistenceStatus: "local_committed" };
+      files.push(`${receipt.operationId}.correction.json`, `${receipt.operationId}.transaction.json`); current = snapshot(c, ownerB, files, ingress);
+      test.semanticCommit = c.revision; test.correction = { receipt, currentMemory: memory(current), authority: c };
+      contents.push(fn("stella_memory_correct", {}), output("stella_memory_correct", { correction: receipt, currentMemory: memory(current) }));
+      add("agent", test, contents, [{ functionCall: dataCall }], { phase: 3, correctionVerified: changeRef });
+      correctionOriginal = { ref: evidenceRef, text: input, role: "owner", kind: "reported" };
+      contents.push(fn(dataCall.name, dataCall.args), output(dataCall.name, project(current)));
+    }
+    const phase = correcting ? 4 : 2;
+    add("agent", test, contents, [{ text: `SYNTHETIC_UNDERSTANDING_${id.toUpperCase()}_ANSWER_5827` }], { phase,
+      understandingVerified: { phase: id === "before" ? "A" : "B", ownerRef: current.understandings.owner.ref, hypothesisRef: hypothesis.ref }, checkpointRevision: current.authority.revision });
+    history.push(input, `SYNTHETIC_UNDERSTANDING_${id.toUpperCase()}_ANSWER_5827`); test.history = { sessionId: "understanding-one-session", messages: [...history] };
+    test.after = current; test.lastProviderIndex = requests.length; test.gitCommits = correcting ? [test.archiveCommit, test.semanticCommit] : [test.archiveCommit]; cases.push(test);
+  }
+  const userHash = digest("Synthetic fixed materialized USER bytes").slice(7);
+  return { ...structuredClone(common), installation: template.installation, schemaVersion: "stella.checkpoint-understanding-installed/v1",
+    fullMemoryAccepted: false, realModelAccepted: false, realMainAccepted: false, currentUnderstandingMechanismVerified: true,
+    configuration: { ...template.configuration, requestArchive: "local", agentCorrection: "tool" }, syntheticClientIdentity: template.syntheticClientIdentity,
+    gatewayRuns: template.gatewayRuns, syntheticSourceRemoved: true, endedAtUtc: template.endedAtUtc,
+    createdSession: { ok: true, runStarted: false, sessionId: "understanding-one-session" },
+    materialization: { materialized: { receipt: { files: [{ target: "USER.md", hash: "sha256:" + userHash }] } } },
+    userFile: { path: "/synthetic/workspace/USER.md", initialSha256: userHash, finalSha256: userHash, unchanged: true },
+    source: { initialRevision: cases[0].before.authority.revision, originalPolicyRef: originalPolicy, archivePolicyRef: archivePolicy,
+      understandingRefs: { owner: ownerA.ref, hypothesis: hypothesis.ref } }, sourceFinalRevision: current.authority.revision,
+    boundaries: { sameOwnerSameSession: true, resets: 0, userRequests: 3, agentRequests: 8, ownerArchiveWrites: 3, semanticWrites: 1,
+      userAndMemoryPartitionsPreserved: true, hypothesisRemainsProvisionalAndUnchanged: true, currentHostArchiveEvidenceUsedByCorrection: true,
+      modelSelectedCorrectionTool: true, publicHostSemanticCompletionsOnly: true, preCorrectionCacheInvalidated: true,
+      sameRoundUnderstandingUsesReturnedCAS: true, nextRequestUnderstandingRemainsCorrected: true, usageConstraintsReachAgent: true,
+      historyMayRetainPastValues: true, full_memory: false, realSemanticQualityAccepted: false }, cases, requests, allHttpRequests, providerWires };
+}
+function mutateUnderstandingWire(reports: any, select: (request: any) => boolean, mutate: (body: any) => void, response = false) {
+  const report = reports.understanding, request = report.requests.find(select); assert.ok(request);
+  const wire = report.providerWires[request.index - 1], field = response ? "responseBody" : "body";
+  const body = JSON.parse(wire[field]); mutate(body); wire[field] = JSON.stringify(body);
+  if (response) wire.responseSha256 = digest(wire[field]).slice(7);
+  else { wire.sha256 = digest(wire[field]).slice(7); request.bytes = Buffer.byteLength(wire[field]); }
+}
+function mutateUnderstandingOutput(reports: any, select: (request: any) => boolean, mutate: (output: any) => void) {
+  mutateUnderstandingWire(reports, select, body => {
+    const response = body.contents.flatMap((item: any) => item.parts).filter((part: any) => part.functionResponse?.name === "stella_memory_data").at(-1).functionResponse.response;
+    const output = JSON.parse(response.output); mutate(output); response.output = JSON.stringify(output);
+  });
+}
+
 function mutateCorrectionWire(reports: any, index: number, mutate: (body: any) => void) {
   const wire = reports.correction.providerWires[index - 1], body = JSON.parse(wire.body); mutate(body); wire.body = JSON.stringify(body);
   wire.sha256 = digest(wire.body).slice(7); reports.correction.requests[index - 1].bytes = Buffer.byteLength(wire.body);
@@ -222,7 +337,7 @@ function valid() {
     skill: { ...structuredClone(common), scenario: "materialization", budgetMode: "normal", rawProviderRequests: Array.from({ length: 8 }, (_, index) => ({ index: index + 1 })),
       allHttpRequests: Array.from({ length: 8 }, (_, index) => ({ index: index + 1, method: "POST", path: "/synthetic-loopback" })),
       materialization: { materialized: { receipt: { files: Array(6).fill({}) } }, consumed: false },
-      skillConsumption: { bootstrapSources, skillSource, wireProofs } }, budgetFile: budget("file"), budgetTotal: budget("total"), work: validWork(common), correction: validCorrection(common) };
+      skillConsumption: { bootstrapSources, skillSource, wireProofs } }, budgetFile: budget("file"), budgetTotal: budget("total"), work: validWork(common), correction: validCorrection(common), understanding: validUnderstanding(common) };
 }
 function rejects(mutate: (reports: any) => void) { const reports = valid(); mutate(reports); assert.throws(() => evidence.assertExperimentalReports(reports, context)); }
 
@@ -495,6 +610,68 @@ test("correction greeting, request closure and cleanup cannot be replaced by suc
   rejects(reports => { reports.correction.providerDrainError = { message: "late callback" }; });
   rejects(reports => { reports.correction.gatewayRuns[0].exitCode = 1; });
   rejects(reports => { reports.correction.syntheticSourceRemoved = false; });
+});
+
+test("Understanding is a ninth same-package report with finite USER/MEMORY acceptance only", () => {
+  const accepted = evidence.assertExperimentalReports(valid(), context); assert.equal(accepted.readOnlyUnderstanding, "passed");
+  rejects(reports => { delete reports.understanding; });
+  rejects(reports => { reports.understanding.installation.artifactSha256 = "f".repeat(64); });
+  rejects(reports => { reports.understanding.installation.buildIdentity.sourceClean = false; });
+  rejects(reports => { reports.understanding.boundaries.realSemanticQualityAccepted = true; });
+  rejects(reports => { reports.understanding.trustedCorrectionCalls = [{ transport: "local callback" }]; });
+});
+
+test("Understanding preserves scoped USER versus provisional MEMORY without candidate originals", () => {
+  const final = (request: any) => request.case === "next" && request.kind === "agent" && request.phase === 2;
+  rejects(reports => { mutateUnderstandingOutput(reports, final, output => { output.understandings[1].view = "user"; }); });
+  rejects(reports => { mutateUnderstandingOutput(reports, final, output => { output.understandings[1].record.status = "active"; }); });
+  rejects(reports => { mutateUnderstandingOutput(reports, final, output => { output.understandings[0].record.scope.global = true; }); });
+  rejects(reports => { mutateUnderstandingOutput(reports, final, output => { output.understandings[0].originals = []; }); });
+  rejects(reports => { mutateUnderstandingOutput(reports, final, output => { output.context = "An unauthorized whole context"; }); });
+  rejects(reports => { mutateUnderstandingOutput(reports, final, output => { output.usageConstraints[0].policies[0].quotePolicy = "allow_quote"; }); });
+  rejects(reports => { for (const test of reports.understanding.cases) for (const state of [test.before, test.agentStart, test.after]) state.understandings.hypothesis.record.status = "active"; });
+});
+
+test("Understanding correction must bind new owner Evidence and invalidate cached A before C and next-request D", () => {
+  rejects(reports => { mutateUnderstandingWire(reports, request => request.kind === "correction-proposal", body => {
+    const part = body.contents[0].parts[0], binding = JSON.parse(part.text.split("\n").at(-1));
+    binding.ownerEvidence[0].ref = reports.understanding.cases[1].before.catalog.evidence[0]; part.text = "Propose one evidence-bound correction or useful work-state update for Stella.\n" + JSON.stringify(binding);
+  }); });
+  rejects(reports => { reports.understanding.cases[1].cacheFill.ownerRef = reports.understanding.cases[1].after.understandings.owner.ref; });
+  rejects(reports => { mutateUnderstandingOutput(reports, request => request.case === "correction" && request.phase === 2, output => {
+    output.currentMemory.checkpointRevision = reports.understanding.cases[1].after.authority.revision;
+  }); });
+  rejects(reports => { mutateUnderstandingOutput(reports, request => request.case === "correction" && request.phase === 4, output => {
+    output.understandings[0] = { view: "user", ...reports.understanding.cases[1].agentStart.understandings.owner };
+  }); });
+  rejects(reports => { mutateUnderstandingOutput(reports, request => request.case === "next" && request.phase === 2, output => {
+    output.currentMemory.checkpointRevision = reports.understanding.cases[1].after.authority.revision;
+  }); });
+  rejects(reports => { reports.understanding.cases[1].after.understandings.owner.record.supportRefs = []; });
+  rejects(reports => { reports.understanding.cases[2].after.understandings.hypothesis.record.statement = "A different hypothesis"; });
+});
+
+test("Understanding keeps USER bytes pinned to the original materialization and one shared physical session", () => {
+  rejects(reports => { delete reports.understanding.userFile; });
+  rejects(reports => { reports.understanding.userFile.finalSha256 = "f".repeat(64); });
+  rejects(reports => { reports.understanding.userFile.initialSha256 = reports.understanding.userFile.finalSha256 = "f".repeat(64); });
+  rejects(reports => { reports.understanding.userFile.unchanged = false; });
+  rejects(reports => { reports.understanding.materialization.materialized.receipt.files = []; });
+  rejects(reports => { reports.understanding.cases[2].history.sessionId = "an-unrelated-session"; });
+});
+
+test("Understanding requires captured responses, closed HTTP windows, three archives and one semantic write", () => {
+  rejects(reports => { reports.understanding.providerWires.pop(); });
+  rejects(reports => { reports.understanding.providerWires[0].responseSha256 = "f".repeat(64); });
+  rejects(reports => { mutateUnderstandingWire(reports, request => request.case === "next" && request.kind === "agent" && request.phase === 1,
+    response => { response.candidates[0].content.parts[0].functionCall.args.action = "work"; }, true); });
+  rejects(reports => { reports.understanding.allHttpRequests.push({ method: "POST", path: "/late-helper" }); });
+  rejects(reports => { reports.understanding.cases[1].semanticWrites = 0; });
+  rejects(reports => { reports.understanding.cases[0].ownerArchiveWrites = 2; });
+  rejects(reports => { reports.understanding.cases[1].lastProviderIndex++; });
+  rejects(reports => { reports.understanding.providerDrainError = { message: "late request" }; });
+  rejects(reports => { reports.understanding.gatewayRuns[0].exitCode = 1; });
+  rejects(reports => { reports.understanding.syntheticSourceRemoved = false; });
 });
 
 test("probe SIGTERM waits for its registered child cleanup and preserves a failed cancellation", { timeout: 10_000 }, async () => {

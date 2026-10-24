@@ -81,7 +81,15 @@ quotePolicy 以 `usageConstraints` 元数据保留，summary 用途不产生引�
 仍需独立授权。本地 fake 选择和协议验收不证明真实模型的自然选择或写作质量。
 
 内部可信 `correctLocal` writer 见 [本地纠正分支](CHECKPOINT-CORRECTION-WRITER.md)；
-读取工具不会触发持久纠正，不新增写工具，也不据此开启 full_memory。
+读取工具不会触发持久纠正；下节独立可选写工具需显式启用，不据此开启 full_memory。
+
+## 当前理解读取
+
+`stella_memory_data {"action":"understanding"}` 只读供给经既有语义选择的当前理解，保留
+USER／MEMORY 分区、scope、status、来源引用与 usageConstraints；候选假设保持暂定。
+视图许可、固定本轮问题和来源规则与 Work 相同，不返回原始候选／通用 context，不写
+USER.md。own correction 成功后清理本轮旧视图缓存，下一请求重新读取。见
+[具体供给契约](CHECKPOINT-UNDERSTANDING-SUPPLY.md)与[当前验收状态](mainline-global-status-2026-10-24.md)。
 
 ## 可选的本人纠正写工具
 

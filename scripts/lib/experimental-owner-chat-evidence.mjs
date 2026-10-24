@@ -361,10 +361,172 @@ export function assertInstalledCorrectionReport(report, expected) {
   assert.equal(report.sourceFinalRevision, cases[2].after.authority.revision);
 }
 
+/** Finite Understanding acceptance: preserve USER/MEMORY and original source
+ * rules across this request's own correction, without materializing USER.md. */
+export function assertInstalledUnderstandingReport(report, expected) {
+  assert.equal(report.schemaVersion, "stella.checkpoint-understanding-installed/v1");
+  assert.equal(report.passed, true); for (const key of ["error", "cancelled", "providerError", "providerDrainError", "trustedCorrectionCalls"]) assert.equal(report[key], undefined);
+  assertInstalledIdentity(report, expected);
+  for (const key of ["fullMemoryAccepted", "realModelAccepted", "realMainAccepted"]) assert.equal(report[key], false);
+  assert.equal(report.currentUnderstandingMechanismVerified, true);
+  assert.deepEqual(report.boundaries, { sameOwnerSameSession: true, resets: 0, userRequests: 3, agentRequests: 8, ownerArchiveWrites: 3, semanticWrites: 1,
+    userAndMemoryPartitionsPreserved: true, hypothesisRemainsProvisionalAndUnchanged: true, currentHostArchiveEvidenceUsedByCorrection: true,
+    modelSelectedCorrectionTool: true, publicHostSemanticCompletionsOnly: true, preCorrectionCacheInvalidated: true,
+    sameRoundUnderstandingUsesReturnedCAS: true, nextRequestUnderstandingRemainsCorrected: true, usageConstraintsReachAgent: true,
+    historyMayRetainPastValues: true, full_memory: false, realSemanticQualityAccepted: false });
+  assert.equal(report.configuration?.requestArchive, "local"); assert.equal(report.configuration.agentCorrection, "tool");
+  assert.equal(report.configuration.model, "google/gemini-3.8-flash"); assert.equal(report.configuration.thinking, "low"); assert.equal(report.configuration.extraLlmPermissions, false);
+  const endpoint = new URL(report.configuration.providerBaseUrl);
+  assert.equal(endpoint.protocol, "http:"); assert.equal(endpoint.hostname, "127.0.0.1"); assert.equal(endpoint.username, ""); assert.equal(endpoint.password, "");
+  const identity = report.syntheticClientIdentity;
+  assert.equal(identity?.clientName, "cli"); assert.equal(identity.mode, "cli"); assert.equal(identity.sourceRequesterId, "cli");
+  assert.equal(identity.privateKeyStorage, "memory_only"); assert.equal(identity.clientDeviceAuthTokenPersistence, false); assert.equal(identity.humanProfileClaimed, false);
+  assert.ok(report.gatewayRuns?.length); for (const gateway of [...report.gatewayRuns, report.gateway]) { assert.equal(gateway?.exitCode, 0); assert.equal(gateway.signalCode, null); }
+  assert.equal(report.syntheticSourceRemoved, true); assert.ok(report.endedAtUtc);
+  const user = report.userFile; assert.equal(user?.unchanged, true); assert.ok(user.path?.endsWith("/USER.md"));
+  assert.match(user.initialSha256, /^[a-f0-9]{64}$/); assert.equal(user.finalSha256, user.initialSha256);
+  const userFiles = report.materialization?.materialized?.receipt?.files?.filter(file => file.target === "USER.md");
+  assert.equal(userFiles?.length, 1); assert.equal(userFiles[0].hash, `sha256:${user.initialSha256}`);
+  const cases = report.cases, requests = report.requests, wires = report.providerWires;
+  assert.deepEqual(cases?.map(test => test.id), ["before", "correction", "next"]);
+  assert.equal(report.createdSession?.ok, true); assert.equal(report.createdSession.runStarted, false); assert.ok(report.createdSession.sessionId);
+  for (const test of cases) assert.equal(test.history?.sessionId, report.createdSession.sessionId);
+  assert.equal(new Set(cases.map(test => test.sessionKey)).size, 1); assert.ok(cases[0].sessionKey); assert.equal(new Set(cases.map(test => test.sent?.runId)).size, 3);
+  const baseline = cases[0].before.understandings;
+  const scope = { workIds: [], contexts: ["synthetic-writing-project"], domains: ["writing"], global: false };
+  assert.deepEqual(report.source?.understandingRefs, { owner: baseline.owner.ref, hypothesis: baseline.hypothesis.ref });
+  assert.ok(!sameRef(report.source.originalPolicyRef, report.source.archivePolicyRef));
+  ref(report.source.originalPolicyRef); ref(report.source.archivePolicyRef);
+  assert.ok(requests?.length > 0 && requests.length <= 40); assert.equal(report.allHttpRequests?.length, requests.length); assert.equal(wires?.length, requests.length);
+  for (const [offset, request] of requests.entries()) {
+    const http = report.allHttpRequests[offset], wire = wires[offset];
+    assert.equal(request.index, offset + 1); assert.equal(http.index, request.index); assert.equal(wire.index, request.index);
+    assert.equal(http.method, "POST"); assert.equal(http.path, request.method); assert.equal(http.atUtc, request.atUtc);
+    assert.match(request.method, /\/gemini-3\.8-flash:(?:streamGenerateContent|generateContent)(?:\?|$)/);
+    assert.equal(wire.sha256, sha256(wire.body)); assert.equal(Buffer.byteLength(wire.body), request.bytes);
+    assert.equal(wire.responseSha256, sha256(wire.responseBody)); assert.ok(correctionParts(wire)?.length);
+    assert.ok(request.kind === "agent" || Object.hasOwn(correctionPrefixes, request.kind));
+    const owners = cases.filter(test => request.index >= test.firstProviderIndex && request.index <= test.lastProviderIndex);
+    assert.equal(owners.length, 1); assert.equal(request.case, owners[0].id);
+  }
+  assert.equal(cases[0].firstProviderIndex, 1); assert.equal(cases[2].lastProviderIndex, requests.length);
+  const ordered = rows => [...rows].sort((a, b) => a.ref.id.localeCompare(b.ref.id));
+  const memory = (value, test, state) => assert.deepEqual(value,
+    { userRequest: test.sent.runId, checkpointRevision: state.authority.revision, checkpointToken: state.authority.token });
+  for (const [offset, test] of cases.entries()) {
+    const correcting = offset === 1, before = test.before, start = test.agentStart, after = test.after;
+    assert.ok(test.sent?.runId); assert.equal(test.terminal?.runId, test.sent.runId); assert.equal(test.terminal.status, "ok");
+    if (offset) { assert.deepEqual(before.authority, cases[offset - 1].after.authority); assert.equal(test.firstProviderIndex, cases[offset - 1].lastProviderIndex + 1); }
+    else assert.equal(before.authority.revision, report.source.initialRevision);
+    for (const state of [before, start, after]) {
+      assert.equal(state.authority?.mode, "core_checkpoint"); assert.match(state.authority.revision, /^[a-f0-9]{40}$/); assert.ok(state.authority.token);
+      assert.deepEqual(state.status?.authority, state.authority); assert.equal(state.status.capabilities?.full_memory, false);
+      assert.equal(state.catalog.works?.length, 0); assert.deepEqual(state.catalog.policies, before.catalog.policies);
+      assert.ok(state.catalog.policies.some(policy => sameRef(policy, report.source.originalPolicyRef) && policy.status === "current"));
+      const selected = state.understandings;
+      for (const name of ["owner", "hypothesis"]) {
+        ref(selected?.[name]?.ref); const record = selected[name].record;
+        assert.equal(record?.schemaVersion, "stella.understanding/v1"); assert.equal(record.id, selected[name].ref.id);
+        assert.deepEqual(record.scope, scope); assert.ok(typeof record.statement === "string" && record.statement);
+        assert.ok(record.supportRefs?.length); for (const name of ["supportRefs", "counterRefs", "dependencyRefs"]) { assert.ok(Array.isArray(record[name])); record[name].forEach(ref); }
+      }
+      assert.equal(selected.owner.record.kind, "owner_statement"); assert.equal(selected.owner.record.status, "active");
+      assert.deepEqual(selected.hypothesis, baseline.hypothesis); assert.equal(selected.hypothesis.record.kind, "hypothesis"); assert.equal(selected.hypothesis.record.status, "candidate");
+    }
+    assert.notEqual(start.authority.token, before.authority.token); assert.equal(start.authority.revision, test.archiveCommit);
+    assert.equal(test.ownerArchiveWrites, 1); assert.equal(test.semanticWrites, correcting ? 1 : 0);
+    assert.deepEqual(test.gitCommits, correcting ? [test.archiveCommit, test.semanticCommit] : [test.archiveCommit]);
+    assert.equal(after.status.ingress?.state, "local_committed"); assert.equal(after.status.ingress.runId, test.sent.runId); assert.equal(after.status.ingress.revision, test.archiveCommit);
+    assert.equal(test.archive?.runId, test.sent.runId); assert.equal(test.archive.requestHash, `sha256:${sha256(test.input)}`);
+    ref(test.archive.sourceRef); ref(test.archive.evidenceRef); assert.deepEqual(test.archive.policyRef, report.source.archivePolicyRef);
+    for (const [group, target] of [["sources", test.archive.sourceRef], ["evidence", test.archive.evidenceRef]]) {
+      assert.ok(!before.catalog[group].some(entry => sameRef(entry, target))); assert.ok(start.catalog[group].some(entry => sameRef(entry, target) && entry.status === "current"));
+    }
+    for (const group of ["sources", "evidence", "coverage"]) assert.equal(after.catalog[group].length - before.catalog[group].length, 1);
+    const added = after.files.filter(file => !before.files.includes(file)), archives = added.filter(file => file.endsWith(".archive.json")), changes = added.filter(file => file.endsWith(".correction.json"));
+    assert.equal(archives.length, 1); assert.equal(archives[0], `${after.status.ingress.operationId}.archive.json`); assert.equal(changes.length, correcting ? 1 : 0);
+    assert.equal(after.catalog.changes.length - before.catalog.changes.length, correcting ? 1 : 0);
+    const window = requests.slice(test.firstProviderIndex - 1, test.lastProviderIndex), kinds = kind => window.filter(request => request.kind === kind), agents = kinds("agent");
+    assert.equal(agents.length, correcting ? 4 : 2); assert.deepEqual(agents.map(request => request.phase), agents.map((_, index) => index + 1));
+    assert.equal(agents[0].index, test.firstProviderIndex); assert.equal(agents.at(-1).index, test.lastProviderIndex);
+    assert.ok(texts(JSON.parse(wires[agents[0].index - 1].body)).some(text => text.includes(test.input)));
+    assert.equal(kinds("view-selector").length, correcting ? 2 : 1); assert.ok(kinds("source-policy").length);
+    for (const kind of ["correction-proposal", "correction-verification", "source-interpretation"]) assert.equal(kinds(kind).length, correcting ? 1 : 0);
+    const projections = correcting ? [start, after] : [after]; let selector = 0;
+    for (const request of window.filter(request => request.kind !== "agent")) {
+      const wire = JSON.parse(wires[request.index - 1].body), binding = promptBinding(wire, correctionPrefixes[request.kind]), verdict = correctionVerdict(wires[request.index - 1]);
+      assert.equal(wire.tools?.length ?? 0, 0);
+      if (request.kind === "source-policy") {
+        assert.equal(binding.request, test.input); assert.equal(binding.requestHash, test.archive.requestHash); assert.deepEqual(request.sourceRef, binding.sourceRef);
+        assert.equal(verdict.requestHash, binding.requestHash); assert.ok(!wires[request.index - 1].body.includes("SYNTHETIC_ALLOWED_MEMORY_4931"));
+      } else if (request.kind === "view-selector") {
+        const state = projections[selector++]; assert.equal(binding.question, test.input); assert.equal(binding.requestHash, test.archive.requestHash); assert.equal(binding.candidates?.length, 2);
+        assert.deepEqual(request.selectedUnderstandings, [state.understandings.owner.ref, state.understandings.hypothesis.ref]);
+        const selections = [];
+        for (const candidate of binding.candidates) {
+          const name = sameRef(candidate.ref, state.understandings.owner.ref) ? "owner" : sameRef(candidate.ref, state.understandings.hypothesis.ref) ? "hypothesis" : null;
+          assert.ok(name); assert.equal(candidate.group, "understandings"); assert.deepEqual({ ref: candidate.ref, record: candidate.record }, state.understandings[name]); assert.ok(candidate.originals?.length);
+          if (name === "owner") for (const support of candidate.record.supportRefs) assert.ok(candidate.originals.some(original => sameRef(original.ref, support) && original.role === "owner" && ["reported", "direct_observation"].includes(original.kind)));
+          selections.push({ handle: candidate.handle, view: name === "owner" ? "user" : "memory" });
+        }
+        assert.deepEqual(verdict, { requestHash: binding.requestHash, selections });
+      } else if (request.kind === "source-interpretation") {
+        assert.equal(binding.data.request, test.input); assert.ok(binding.data.requirements.some(rule => rule.id === "keep_scope")); assert.equal(verdict.bindingHash, binding.bindingHash);
+        assert.deepEqual(verdict.checks, binding.data.requirements.map(rule => ({ handle: rule.handle, satisfied: true })));
+      } else {
+        assert.equal(binding.requestHash, test.archive.requestHash); assert.equal(binding.ownerEvidence?.length, 1); assert.deepEqual(binding.ownerEvidence[0].ref, test.archive.evidenceRef); assert.equal(binding.ownerEvidence[0].text, test.input);
+        assert.equal(verdict.requestHash, binding.requestHash);
+        if (request.kind === "correction-proposal") { assert.equal(binding.request, test.input); assert.deepEqual(request.ownerEvidenceRef, test.archive.evidenceRef); assert.equal(verdict.disposition, "update"); }
+        else { assert.equal(verdict.proposalHash, binding.proposalHash); assert.equal(verdict.valid, true); }
+      }
+    }
+    const requested = agents.map(agent => correctionParts(wires[agent.index - 1]).filter(part => part.functionCall).map(part => part.functionCall));
+    const dataCall = { name: "stella_memory_data", args: { action: "understanding" } };
+    assert.deepEqual(requested, correcting ? [[dataCall], [{ name: "stella_memory_correct", args: {} }], [dataCall], []] : [[dataCall], []]);
+    const outputs = (agent, name) => {
+      const values = [], wire = JSON.parse(wires[agent.index - 1].body);
+      for (const content of wire.contents) for (const part of content.parts ?? []) {
+        if (part.functionCall) assert.equal(content.role, "model");
+        if (part.functionResponse?.name === name) { assert.equal(content.role, "user"); const raw = part.functionResponse.response.output; values.push(typeof raw === "string" ? JSON.parse(raw) : raw); }
+      }
+      return values;
+    };
+    const assertProjection = (agent, state, phase) => {
+      const supplied = outputs(agent, "stella_memory_data").at(-1); assert.deepEqual(Object.keys(supplied).sort(), ["currentMemory", "exclusions", "generation", "understandings", "usageConstraints"]);
+      const projected = [{ view: "user", ...state.understandings.owner }, { view: "memory", ...state.understandings.hypothesis }];
+      assert.deepEqual(ordered(supplied.understandings), ordered(projected)); supplied.understandings.forEach(item => assert.deepEqual(Object.keys(item).sort(), ["record", "ref", "view"]));
+      assert.deepEqual(supplied.exclusions, {}); assert.equal(supplied.generation, state.catalog.generationId); memory(supplied.currentMemory, test, state);
+      const policies = [{ policyRef: report.source.originalPolicyRef, quotePolicy: "summarize_only", rules: [{ id: "keep_scope", requirement: "Do not generalize the synthetic example." }] }];
+      assert.deepEqual(ordered(supplied.usageConstraints.map(item => ({ ...item, ref: item.understanding }))), ordered(projected.map(item => ({ understanding: item.ref, view: item.view, policies, ref: item.ref }))));
+      assert.ok(!JSON.stringify(supplied).includes("SYNTHETIC_ALLOWED_MEMORY_4931"));
+      const proof = { phase, ownerRef: state.understandings.owner.ref, ...(phase === "cached-A" ? {} : { hypothesisRef: state.understandings.hypothesis.ref }) };
+      assert.deepEqual(agent.understandingVerified, proof); if (phase !== "cached-A") assert.equal(agent.checkpointRevision, state.authority.revision);
+    };
+    if (correcting) {
+      assertProjection(agents[1], start, "cached-A"); assert.deepEqual(test.cacheFill?.ownerRef, start.understandings.owner.ref); memory(test.cacheFill.currentMemory, test, start);
+      const receipt = test.correction?.receipt; assert.deepEqual(Object.keys(receipt).sort(), ["changeRef", "clarification", "disposition", "operationId", "persistenceStatus"]);
+      assert.equal(receipt.persistenceStatus, "local_committed"); assert.equal(receipt.disposition, "update"); assert.equal(receipt.clarification, null); ref(receipt.changeRef);
+      assert.equal(changes[0], `${receipt.operationId}.correction.json`); assert.ok(after.catalog.changes.some(entry => sameRef(entry, receipt.changeRef)));
+      assert.deepEqual(after.authority, test.correction.authority); assert.equal(test.semanticCommit, after.authority.revision); memory(test.correction.currentMemory, test, after);
+      assert.notEqual(after.authority.token, start.authority.token); assert.notEqual(after.authority.revision, start.authority.revision);
+      assert.deepEqual(outputs(agents[2], "stella_memory_correct").at(-1), { correction: receipt, currentMemory: test.correction.currentMemory }); assert.deepEqual(agents[2].correctionVerified, receipt.changeRef);
+      assert.notDeepEqual(after.understandings.owner.ref, test.cacheFill.ownerRef); assert.notEqual(after.understandings.owner.record.statement, start.understandings.owner.record.statement);
+      assert.ok(after.understandings.owner.record.supportRefs.some(value => sameRef(value, test.archive.evidenceRef)));
+      for (const support of start.understandings.owner.record.supportRefs) assert.ok(after.understandings.owner.record.supportRefs.some(value => sameRef(value, support)));
+      for (const name of ["scope", "counterRefs", "dependencyRefs"]) assert.deepEqual(after.understandings.owner.record[name], start.understandings.owner.record[name]);
+    } else { assert.equal(test.correction, undefined); assert.equal(test.semanticCommit, undefined); assert.deepEqual(after.authority, start.authority); }
+    assertProjection(agents.at(-1), after, offset === 0 ? "A" : "B");
+    assert.ok(JSON.stringify(test.history).includes(`SYNTHETIC_UNDERSTANDING_${test.id.toUpperCase()}_ANSWER_5827`));
+  }
+  assert.deepEqual(cases[0].after.understandings, baseline); assert.deepEqual(cases[1].before.understandings, baseline);
+  assert.deepEqual(cases[2].before.understandings, cases[1].after.understandings); assert.deepEqual(cases[2].after.understandings, cases[1].after.understandings);
+  assert.equal(report.sourceFinalRevision, cases[2].after.authority.revision);
+}
+
 // These are public installed-Host observations, not a legacy code-identity receipt.
 export function assertExperimentalReports(reports, expected) {
   const { packageRoot, hostRoot } = expected;
-  assert.deepEqual(Object.keys(reports).sort(), ["budgetFile", "budgetTotal", "continuous", "correction", "skill", "snapshotImport", "v3", "work"]);
+  assert.deepEqual(Object.keys(reports).sort(), ["budgetFile", "budgetTotal", "continuous", "correction", "skill", "snapshotImport", "understanding", "v3", "work"]);
   for (const report of Object.values(reports)) {
     assert.equal(report.passed, true); assert.equal(report.error, undefined);
     for (const key of Object.keys(NON_ACCEPTANCE)) if (Object.hasOwn(report, key)) assert.equal(report[key], false, `Unexpected product acceptance: ${key}`);
@@ -376,6 +538,7 @@ export function assertExperimentalReports(reports, expected) {
   }
   assertInstalledWorkReport(reports.work, expected);
   assertInstalledCorrectionReport(reports.correction, expected);
+  assertInstalledUnderstandingReport(reports.understanding, expected);
   assertSkillConsumption(reports.skill); assertBudgetRefusal(reports.budgetFile, "file"); assertBudgetRefusal(reports.budgetTotal, "total");
   const chat = reports.continuous, rounds = chat.continuousChat?.rounds;
   assert.equal(chat.scenario, "continuous_chat"); assert.equal(rounds?.length, 3);
@@ -413,5 +576,5 @@ export function assertExperimentalReports(reports, expected) {
   assert.ok(JSON.stringify(snapshot.cases[1].history).includes("SYNTHETIC_V3_IMPORTED_ANSWER"));
   return { initialization: "passed", continuousOwnerChat: "passed", localInputArchive: "passed", nextRequestFreshness: "passed",
     v3PaginationAndPolicy: "passed", explicitSnapshotImport: "passed", unauthorizedAudience: "passed",
-    managedSkillConsumption: "passed", instructionBudgetRefusal: "passed", readOnlyWorkContinuation: "passed", agentSelectedCorrectionMechanism: "passed", automaticSemanticQuality: "not_accepted", automaticHostCorrection: "not_accepted", full_memory: "not_accepted" };
+    managedSkillConsumption: "passed", instructionBudgetRefusal: "passed", readOnlyWorkContinuation: "passed", readOnlyUnderstanding: "passed", agentSelectedCorrectionMechanism: "passed", automaticSemanticQuality: "not_accepted", automaticHostCorrection: "not_accepted", full_memory: "not_accepted" };
 }

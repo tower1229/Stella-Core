@@ -63,7 +63,7 @@ try {
   [packed] = JSON.parse(await npm("pack", ["pack", "--json", "--ignore-scripts", "--pack-destination", out]));
   artifact = path.join(out, packed.filename); receipt.artifactSha256 = sha256(await readFile(artifact)); receipt.packageIntegrity = packed.integrity;
   const files = packed.files.map(entry => entry.path);
-  for (const required of ["dist/src/plugin.js", "docs/EXPERIMENTAL-OWNER-CHAT.md", "docs/CHECKPOINT-WORK-SUPPLY.md", "docs/CHECKPOINT-CORRECTION-WRITER.md"]) assert.ok(files.includes(required), `Required installed package file missing: ${required}`);
+  for (const required of ["dist/src/plugin.js", "docs/EXPERIMENTAL-OWNER-CHAT.md", "docs/CHECKPOINT-WORK-SUPPLY.md", "docs/CHECKPOINT-UNDERSTANDING-SUPPLY.md", "docs/CHECKPOINT-CORRECTION-WRITER.md"]) assert.ok(files.includes(required), `Required installed package file missing: ${required}`);
   assert.ok(!files.some(file => /^(tests|\.artifacts|dist\/tests)\//.test(file)));
   const consumer = path.join(out, "consumer"); await mkdir(consumer);
   await writeFile(path.join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
@@ -138,6 +138,18 @@ try {
   receipt.correctionReport = { path: correctionReportPath, sha256: sha256(await readFile(path.join(out, correctionReportPath))),
     providerFiles: reports.correction.providerWires.map(wire => ({ path: `host-correction-a1/provider-${wire.index}.json`, sha256: wire.sha256,
       responsePath: `host-correction-a1/provider-${wire.index}-response.json`, responseSha256: wire.responseSha256 })) };
+  await run("host-understanding", process.execPath, [path.join(root, "scripts/probe-checkpoint-understanding-installed.mjs")], {
+    env: { ...await isolatedEnv("understanding"), STELLA_UNDERSTANDING_ARTIFACTS: out, STELLA_UNDERSTANDING_ATTEMPT: "a1", STELLA_UNDERSTANDING_PACKAGE_ARTIFACT: artifact } });
+  const understandingReportPath = "host-understanding-a1/result.json";
+  reports.understanding = JSON.parse(await readFile(path.join(out, understandingReportPath), "utf8"));
+  reports.understanding.providerWires = await Promise.all(reports.understanding.requests.map(async request => {
+    const body = await readFile(path.join(out, `host-understanding-a1/provider-${request.index}.json`), "utf8");
+    const responseBody = await readFile(path.join(out, `host-understanding-a1/provider-${request.index}-response.json`), "utf8");
+    return { index: request.index, body, sha256: sha256(body), responseBody, responseSha256: sha256(responseBody) };
+  }));
+  receipt.understandingReport = { path: understandingReportPath, sha256: sha256(await readFile(path.join(out, understandingReportPath))),
+    providerFiles: reports.understanding.providerWires.map(wire => ({ path: `host-understanding-a1/provider-${wire.index}.json`, sha256: wire.sha256,
+      responsePath: `host-understanding-a1/provider-${wire.index}-response.json`, responseSha256: wire.responseSha256 })) };
   receipt.capabilities = assertExperimentalReports(reports, { packageRoot: installed, hostRoot, artifact,
     artifactSha256: receipt.artifactSha256, packageIntegrity: packed.integrity, consumerLockSha256: receipt.consumerLockSha256,
     coreRevision: source.coreRevision, buildIdentitySha256: sha256(await readFile(path.join(installed, "dist/build-identity.json"))) });

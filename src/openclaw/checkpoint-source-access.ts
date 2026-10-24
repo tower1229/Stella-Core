@@ -18,7 +18,7 @@ type Input = {
   assertCurrent: () => Promise<void>;
 };
 
-/** One pinned public Host model adapter shared by policy and work selection. */
+/** One pinned public Host model adapter shared by policy and personal-view selection. */
 export async function createCheckpointProcessingContext(input: Input) {
   if (!input.bindingPath) return undefined;
   const model = () => {
@@ -64,8 +64,10 @@ export async function createCheckpointSourceAccess(input: Input): Promise<Source
     complete: args => context.complete("stella-source-access", args) });
 }
 
-/** Lazy read-only work projection. No caller-supplied question, identity, or selection. */
-export async function prepareCheckpointWork(input: Input & { resolver: EpisodeEvidenceResolver; recoveryRevision: string }) {
+type ViewInput = Input & { resolver: EpisodeEvidenceResolver; recoveryRevision: string };
+
+/** Bind both narrow view projections to the same genuine request and source rules. */
+async function prepareCheckpointViews(input: ViewInput, catalogMismatch: string) {
   const context = await createCheckpointProcessingContext(input);
   check(context, "personal_view_processing_grant_required");
   check(context.processing.config.viewProcessingModelRefs?.includes(context.modelRef), "personal_view_processing_grant_mismatch");
@@ -73,7 +75,7 @@ export async function prepareCheckpointWork(input: Input & { resolver: EpisodeEv
   const reader = input.resolver.reader;
   check(reader.root === input.root, "recovery_read_binding_mismatch");
   const committed = await readCheckpointCommittedDocument(input.root, input.recoveryRevision, reader.catalogPath);
-  check(bytesVersion(committed) === reader.catalogHash, "work_checkpoint_catalog_mismatch");
+  check(bytesVersion(committed) === reader.catalogHash, catalogMismatch);
   await reader.assertCurrent();
   const authority = bindProcessingAuthority({ request: input.request, ownerId: context.processing.config.ownerId,
     modelRef: context.modelRef, purpose: input.purpose, generationId: reader.catalog.generationId,
@@ -86,6 +88,12 @@ export async function prepareCheckpointWork(input: Input & { resolver: EpisodeEv
     assertProcessingCurrent: context.current, selection: "model",
     complete: args => context.complete("stella-personal-views", args) });
   await prepared.assertCurrent(); await context.current();
+  return { reader, prepared };
+}
+
+/** Lazy read-only work projection. No caller-supplied question, identity, or selection. */
+export async function prepareCheckpointWork(input: ViewInput) {
+  const { reader, prepared } = await prepareCheckpointViews(input, "work_checkpoint_catalog_mismatch");
   // Candidate.originals and context contain other data; never return them from
   // this narrow tool. The renderer has authorized each selected work dependency.
   const selected = prepared.view.memory.filter(item => item.group === "works");
@@ -96,5 +104,22 @@ export async function prepareCheckpointWork(input: Input & { resolver: EpisodeEv
   });
   return { generation: reader.catalog.generationId,
     works: selected.map(item => ({ ref: { ...item.ref }, record: structuredClone(item.record) })),
+    exclusions: { ...prepared.view.exclusions }, ...(usageConstraints.length ? { usageConstraints } : {}) };
+}
+
+
+/** Preserve the renderer's USER/MEMORY distinction, including provisional scope.
+ * Derived statements remain interpretations, never new evidence or tool authority. */
+export async function prepareCheckpointUnderstanding(input: ViewInput) {
+  const { reader, prepared } = await prepareCheckpointViews(input, "understanding_checkpoint_catalog_mismatch");
+  const selected = (["user", "memory"] as const).flatMap(view =>
+    prepared.view[view].filter(item => item.group === "understandings").map(item => ({ view, item })));
+  const usageConstraints = selected.flatMap(({ view, item }) => {
+    const policies = [...new Map(item.originals.flatMap(original => original.usageConstraints ?? [])
+      .map(policy => [canonicalJson(policy), structuredClone(policy)])).values()];
+    return policies.length ? [{ understanding: { ...item.ref }, view, policies }] : [];
+  });
+  return { generation: reader.catalog.generationId,
+    understandings: selected.map(({ view, item }) => ({ view, ref: { ...item.ref }, record: structuredClone(item.record) })),
     exclusions: { ...prepared.view.exclusions }, ...(usageConstraints.length ? { usageConstraints } : {}) };
 }
