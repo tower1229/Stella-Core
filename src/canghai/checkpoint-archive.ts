@@ -81,7 +81,7 @@ export async function persistCheckpointArchive(input: Input, ports: CheckpointAr
         ...archive.objects.map(object => ({ path: object.entry.locator.path, before: null, after: object.bytes })),
         ...migration.files.map(file => { check(typeof file.after === "string", "required_view_rebuild_invalid"); return { ...file, after: file.after! }; }),
         { path: businessPath, before: null, after: canonicalJson({ ...business, generationId }) },
-        { path: reader.catalogPath, before: canonicalJson(before), after: canonicalJson(after) },
+        { path: reader.catalogPath, before: beforeBytes, after: canonicalJson(after) },
       ];
       // A checksum is not an authorization. Rebuild the entire business plan from A;
       // reject extra files, changed purposes, paths or catalog edits even if rehashed.
@@ -92,6 +92,9 @@ export async function persistCheckpointArchive(input: Input, ports: CheckpointAr
       const current = await CatalogReader.load(reader.root, reader.catalogPath);
       await permissions(current);
       check(current.catalogHash === reader.catalogHash, "stale_generation");
+      // The CAS authenticates exact committed bytes, including valid JSON formatting.
+      const beforeBytes = await readCheckpointCommittedDocument(reader.root, ports.recovery.expected.revision, reader.catalogPath);
+      check(bytesVersion(beforeBytes) === current.catalogHash, "stale_generation");
       let after = JSON.parse(canonicalJson(current.catalog)) as MemoryCatalog;
       for (const object of archive.objects) {
         const entries = after[object.group];
@@ -109,7 +112,7 @@ export async function persistCheckpointArchive(input: Input, ports: CheckpointAr
         ...archive.objects.map(object => ({ path: object.entry.locator.path, before: null, after: object.bytes })),
         ...migration.files.map(file => { check(typeof file.after === "string", "required_view_rebuild_invalid"); return { ...file, after: file.after! }; }),
         { path: businessPath, before: null, after: canonicalJson({ ...business, generationId }) },
-        { path: reader.catalogPath, before: canonicalJson(current.catalog), after: canonicalJson(after) },
+        { path: reader.catalogPath, before: beforeBytes, after: canonicalJson(after) },
       ] };
     }
     const result = await applyMemoryTransaction(reader.root, plan, {

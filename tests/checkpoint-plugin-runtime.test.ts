@@ -20,10 +20,15 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type { HostIdentity } from "../src/openclaw/initialization-templates.js";
 
 const run = promisify(execFile), catalogPath = "30_PersonalData/memory/catalog.json";
-async function fixture(t: TestContext) {
+async function fixture(t: TestContext, catalogFormat?: "pretty-lf" | "pretty-crlf") {
   const root = await realpath(await createFixture()), parent = await realpath(await mkdtemp("/tmp/stella-checkpoint-plugin-"));
   t.after(async () => { await rm(root, { recursive: true, force: true }); await rm(parent, { recursive: true, force: true }); });
   const materialization = await prepareInitializationFixture(root, "synthetic");
+  if (catalogFormat) {
+    const file = path.join(root, catalogPath);
+    const pretty = JSON.stringify(JSON.parse(await readFile(file, "utf8")), null, 2) + "\n";
+    await writeFile(file, catalogFormat === "pretty-crlf" ? pretty.replace(/\n/g, "\r\n") : pretty);
+  }
   const revision = await initializeFixtureRepository(root);
   const stateDirectory = path.join(parent, "authority"), workspace = path.join(parent, "workspace"), stateRoot = path.join(parent, "initialization");
   await mkdir(stateDirectory); await mkdir(workspace); await mkdir(stateRoot);
@@ -53,6 +58,43 @@ async function fixture(t: TestContext) {
   return { root, parent, revision, config, runtime, git, reader, archive, purpose, initialization, initialize, verified: () => verified };
 }
 const fails = (category: string) => (error: unknown) => { assert.ok(error && typeof error === "object" && "category" in error); assert.equal(error.category, category); return true; };
+
+test("checkpoint archive preserves exact formatted catalog bytes through publication failure and restart replay", async t => {
+  for (const format of ["pretty-lf", "pretty-crlf"] as const) await t.test(format, async t => {
+    const f = await fixture(t, format); await f.initialize();
+    const before = await f.runtime.capture(), archive = f.archive();
+    const originalBytes = await readFile(path.join(f.root, catalogPath), "utf8");
+    assert.notEqual(originalBytes, canonicalJson(JSON.parse(originalBytes)));
+    const input = { reader: f.reader, archive, operationId: "formatted-catalog-archive", recovery: before, purpose: f.purpose };
+    await assert.rejects(f.runtime.archiveLocal({ ...input, async assertPublication() { throw new Error("Synthetic formatted publication failure"); } }), /Synthetic formatted publication failure/);
+    const revisionB = await f.git("rev-parse", "HEAD"), accepted = await f.runtime.capture();
+    assert.notEqual(revisionB, f.revision); assert.equal(accepted.expected.revision, revisionB);
+    const plan = await readRecordedMemoryTransaction(f.root, input.operationId);
+    assert.equal(plan.files.find(file => file.path === catalogPath)!.before, originalBytes);
+    assert.equal(plan.recoveryCheckpoint!.expected.revision, f.revision);
+    f.runtime.close();
+    const reopened = await createCheckpointPluginRuntime(f.config, "2026.8.2"); t.after(() => reopened.close());
+    const freshScope = await reopened.capture();
+    const replayed = await reopened.archiveLocal({ ...input, recovery: { resolver: freshScope.resolver, expected: before.expected } });
+    assert.equal(replayed.replayed, true); assert.equal(await f.git("rev-parse", "HEAD"), revisionB);
+    assert.deepEqual((await reopened.capture()).expected, accepted.expected);
+    assert.equal(await readFile(path.join(f.root, archive.payload.path), "utf8"), archive.payload.bytes);
+    await assert.rejects(readFile(path.join(f.root, ".stella-memory-transaction.json")), { code: "ENOENT" });
+    assert.equal(await f.git("status", "--porcelain"), "");
+  });
+});
+
+test("uncommitted catalog reformatting still rejects before archive writes", async t => {
+  const f = await fixture(t, "pretty-lf"); await f.initialize();
+  const before = await f.runtime.capture(), archive = f.archive();
+  const file = path.join(f.root, catalogPath), originalBytes = await readFile(file, "utf8");
+  await writeFile(file, originalBytes.replace(/\n/g, "\r\n"));
+  await assert.rejects(f.runtime.archiveLocal({ reader: f.reader, archive, operationId: "uncommitted-format", recovery: before, purpose: f.purpose }), fails("stale_generation"));
+  assert.equal(await f.git("rev-parse", "HEAD"), f.revision);
+  assert.deepEqual((await f.runtime.capture()).expected, before.expected);
+  await assert.rejects(readFile(path.join(f.root, archive.payload.path)), { code: "ENOENT" });
+  await assert.rejects(readFile(path.join(f.root, ".stella-memory-transaction.json")), { code: "ENOENT" });
+});
 
 test("actual initialization, retained archive Git commit, checkpoint publication, reload and reopen form one local loop", async t => {
   const f = await fixture(t);
