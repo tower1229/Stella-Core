@@ -16,11 +16,11 @@ import { StellaInitializer, InitializationError, type InitializationPorts, type 
 
 const run = promisify(execFile);
 export type CheckpointPluginConfig = Readonly<{ recoveryAuthority: "core_checkpoint"; checkpointStateDirectory: string;
-  canghaiRoot: string; manifestPath: string; agentId: string; dataMode: "read_only" | "local_write"; requestArchive?: "local"; agentMemory?: "fresh_tools"; agentCorrection?: "tool"; webchatOwnerProfileId?: string }>;
+  canghaiRoot: string; manifestPath: string; agentId: string; dataMode: "read_only" | "local_write"; requestArchive?: "local"; agentMemory?: "fresh_tools"; agentCorrection?: "tool"; webchatOwnerProfileId?: string; webchatOwnerDeviceId?: string }>;
 export function parseCheckpointPluginConfig(value: unknown): CheckpointPluginConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new RecoveryAuthorityError("checkpoint_configuration_invalid");
   const config = value as Record<string, unknown>;
-  const allowed = ["recoveryAuthority", "checkpointStateDirectory", "canghaiRoot", "manifestPath", "agentId", "dataMode", "requestArchive", "agentMemory", "agentCorrection", "webchatOwnerProfileId"];
+  const allowed = ["recoveryAuthority", "checkpointStateDirectory", "canghaiRoot", "manifestPath", "agentId", "dataMode", "requestArchive", "agentMemory", "agentCorrection", "webchatOwnerProfileId", "webchatOwnerDeviceId"];
   if (Object.keys(config).some(key => !allowed.includes(key)) || config.recoveryAuthority !== "core_checkpoint" ||
     typeof config.canghaiRoot !== "string" || !path.isAbsolute(config.canghaiRoot) ||
     typeof config.checkpointStateDirectory !== "string" || !path.isAbsolute(config.checkpointStateDirectory) ||
@@ -29,6 +29,7 @@ export function parseCheckpointPluginConfig(value: unknown): CheckpointPluginCon
     config.agentMemory !== undefined && config.agentMemory !== "fresh_tools" ||
     config.agentCorrection !== undefined && (config.agentCorrection !== "tool" || config.agentMemory !== "fresh_tools" || config.requestArchive !== "local" || config.dataMode !== "local_write") ||
     config.webchatOwnerProfileId !== undefined && (typeof config.webchatOwnerProfileId !== "string" || !config.webchatOwnerProfileId || config.webchatOwnerProfileId.length > 512 || config.webchatOwnerProfileId.trim() !== config.webchatOwnerProfileId || /[\u0000-\u001f\u007f]/.test(config.webchatOwnerProfileId)) ||
+    config.webchatOwnerDeviceId !== undefined && (typeof config.webchatOwnerDeviceId !== "string" || config.webchatOwnerDeviceId.length !== 64 || !/^[a-f0-9]{64}$/.test(config.webchatOwnerDeviceId) || config.webchatOwnerProfileId !== undefined || config.agentMemory !== "fresh_tools") ||
     config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,199}$/.test(config.agentId)) ||
     config.manifestPath !== undefined && (typeof config.manifestPath !== "string" || !config.manifestPath)) {
     throw new RecoveryAuthorityError("checkpoint_configuration_invalid");
@@ -37,7 +38,8 @@ export function parseCheckpointPluginConfig(value: unknown): CheckpointPluginCon
     manifestPath: config.manifestPath as string | undefined ?? "50_PersonalAgent/stella/manifest.yaml", agentId: config.agentId as string | undefined ?? "stella",
     dataMode: config.dataMode as "read_only" | "local_write", ...(config.requestArchive === "local" ? { requestArchive: "local" as const } : {}), ...(config.agentMemory === "fresh_tools" ? { agentMemory: "fresh_tools" as const } : {}),
     ...(config.agentCorrection === "tool" ? { agentCorrection: "tool" as const } : {}),
-    ...(typeof config.webchatOwnerProfileId === "string" ? { webchatOwnerProfileId: config.webchatOwnerProfileId } : {}) });
+    ...(typeof config.webchatOwnerProfileId === "string" ? { webchatOwnerProfileId: config.webchatOwnerProfileId } : {}),
+    ...(typeof config.webchatOwnerDeviceId === "string" ? { webchatOwnerDeviceId: config.webchatOwnerDeviceId } : {}) });
 }
 
 /** One resolver per registration. No config writer, implicit seed or mutable current-operation slot. */

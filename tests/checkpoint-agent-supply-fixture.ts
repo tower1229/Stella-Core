@@ -15,7 +15,7 @@ export const BOOTSTRAP_MARKER = "SYNTHETIC_INSTALLED_BOOTSTRAP_8615";
 export const SKILL_MARKER = "SYNTHETIC_INSTALLED_SKILL_BODY_8615";
 export const SUPPLY_MARKER = "SYNTHETIC_ALLOWED_MEMORY_4931";
 /** Synthetic source builder shared by fixture tests and the isolated stock Host probe. */
-export async function createAgentSupplySource(options: { sourceAccess?: boolean; doNotRetain?: boolean; materialization?: boolean; additionalEvidence?: number; policyContext?: "allow" | "deny" | "missing" } = {}) {
+export async function createAgentSupplySource(options: { sourceAccess?: boolean; doNotRetain?: boolean; materialization?: boolean; additionalEvidence?: number; policyContext?: "allow" | "deny" | "missing"; requesterId?: string } = {}) {
   const root = await realpath(await createFixture()), catalogPath = "30_PersonalData/memory/catalog.json";
   const catalog = JSON.parse(await readFile(path.join(root, catalogPath), "utf8"));
   const binding = JSON.parse(await readFile(path.join(root, "50_PersonalAgent/stella/praxis-binding.json"), "utf8"));
@@ -75,6 +75,14 @@ export async function createAgentSupplySource(options: { sourceAccess?: boolean;
       descriptors: options.policyContext === "missing" ? [] : catalog.sources.map((entry: any) => ({ sourceRef: { id: entry.id, version: entry.version }, policyRef: nextBinding.archive.policyRef,
         description: "A reviewed synthetic event for self reflection, never original text." })) }));
     await writeFile(path.join(root, catalogPath), canonicalJson(catalog));
+  }
+  if (options.requesterId && !options.policyContext) {
+    const profilePath = path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml"), profile = parseYaml(await readFile(profilePath, "utf8"));
+    profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
+      config_ref: "path:50_PersonalAgent/stella/checkpoint-access.json", acceptance_ref: profile.capabilities[0].acceptance_ref, required_secret_refs: [] });
+    await writeFile(profilePath, stringifyYaml(profile));
+    await writeFile(path.join(root, "50_PersonalAgent/stella/checkpoint-access.json"), canonicalJson({ schemaVersion: "stella.personal-context-access/v1",
+      ownerId: "owner-fixture", requesterIds: [options.requesterId], modelRefs: ["google/gemini-3.8-flash"], purpose: binding.purpose, descriptors: [] }));
   }
   if (options.materialization) await prepareInitializationFixture(root, "synthetic", SKILL_MARKER, BOOTSTRAP_MARKER);
   const revision = await initializeFixtureRepository(root);

@@ -142,6 +142,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
           await runtime.assert(archivedRecovery);
         }
         const binding = await loadPraxisRuntimeBinding(loaded.loaded, { sourceSupplyOnly: true });
+        check(ingress.identity.kind !== "gateway_device" || binding.personalContextAccessPath, "checkpoint_device_source_grant_required");
         const reader = await CatalogReader.load(config.canghaiRoot, binding.catalogPath);
         const grant: Grant = { ingress, runtime, recovery: archivedRecovery ?? loaded.recovery,
           resolver: new EpisodeEvidenceResolver(reader, { ...binding.purpose, evidenceCutoff: ingress.capturedAt,

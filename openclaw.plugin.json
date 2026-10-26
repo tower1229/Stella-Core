@@ -125,6 +125,13 @@
         "pattern": "^[^\\u0000-\\u0020\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\u0000-\\u0020\\u007f])?$",
         "description": "Explicit owner profile for current authenticated WebChat ingress. Requires a separate source processing requester grant; never aliases a Telegram identity."
       },
+      "webchatOwnerDeviceId": {
+        "type": "string",
+        "minLength": 64,
+        "maxLength": 64,
+        "pattern": "^[a-f0-9]{64}$",
+        "description": "Opt-in owner device for direct WebChat admin requests without a human profile. Mutually exclusive with webchatOwnerProfileId. Identifies the device holder, requires a separate source grant, and does not isolate people sharing that browser."
+      },
       "agentCorrection": {
         "type": "string",
         "enum": [
@@ -238,6 +245,16 @@
               "const": "core_checkpoint"
             }
           }
+        }
+      },
+      {
+        "if": {
+          "required": ["webchatOwnerDeviceId"]
+        },
+        "then": {
+          "required": ["recoveryAuthority", "agentMemory"],
+          "properties": { "recoveryAuthority": { "const": "core_checkpoint" }, "agentMemory": { "const": "fresh_tools" } },
+          "not": { "required": ["webchatOwnerProfileId"] }
         }
       },
       {

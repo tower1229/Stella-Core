@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
-import { profileRequesterId, resolveCheckpointRequestIdentity, registerCheckpointIdentityDiagnostic } from "../src/openclaw/checkpoint-request-identity.js";
+import { deviceRequesterId, profileRequesterId, resolveCheckpointRequestIdentity, registerCheckpointIdentityDiagnostic } from "../src/openclaw/checkpoint-request-identity.js";
 import { parseCheckpointPluginConfig } from "../src/openclaw/checkpoint-plugin-runtime.js";
 import { createPersonalContextAccess, loadPersonalContextAccess } from "../src/canghai/personal-context-access.js";
 import { Ajv } from "ajv";
@@ -73,15 +73,47 @@ test("identity RPC touches only the actual caller metadata, with no runtime or s
   let handler: Function | undefined, options: unknown;
   const api = { registerGatewayMethod(name: string, fn: Function, opts: unknown) { assert.equal(name, "stella.identity"); handler = fn; options = opts; },
     get runtime() { throw Error("Identity diagnostic must not read runtime config, source, state or LLM"); } } as unknown as OpenClawPluginApi;
-  registerCheckpointIdentityDiagnostic(api); assert.deepEqual(options, { scope: "operator.admin", profileAccess: "required" });
+  registerCheckpointIdentityDiagnostic(api); assert.deepEqual(options, { scope: "operator.admin", profileAccess: "independent" });
   const call = async (params: any, client: any) => { let result: any; await handler!({ params, client, respond: (ok: boolean, payload: any, error: any) => { result = { ok, payload, error }; } }); return result; };
   const client = { connect: { role: "operator", scopes: ["operator.admin"], client: { id: "openclaw-control-ui" } }, authenticatedUserProfile: { profileId, displayName: "Not disclosed", linkedEmails: ["not-disclosed.invalid"] } };
   const result = await call({}, client); assert.equal(result.ok, true); assert.equal(result.payload.requesterId, requester);
   assert.doesNotMatch(JSON.stringify(result), /Not disclosed|not-disclosed/);
   assert.equal(result.payload.sourceAuthorization, "not_checked");
-  assert.equal((await call({}, { ...client, authenticatedUserProfile: undefined })).error.message, "checkpoint_webchat_profile_required");
+  const missing = await call({}, { ...client, authenticatedUserProfile: undefined });
+  assert.equal(missing.ok, true); assert.equal(missing.payload.profileStatus, "missing"); assert.equal(missing.payload.deviceStatus, "missing");
+  assert.equal(missing.payload.requesterId, undefined);
+  const deviceId = "a".repeat(64), device = await call({}, { connect: { ...client.connect, device: { id: deviceId } } });
+  assert.equal(device.ok, true); assert.equal(device.payload.deviceId, deviceId);
+  assert.equal(device.payload.deviceRequesterId, deviceRequesterId(deviceId)); assert.equal(device.payload.profileStatus, "missing");
   assert.equal((await call({}, { ...client, connect: { ...client.connect, scopes: [] } })).error.message, "checkpoint_identity_operator_required");
   assert.equal((await call({ profileId: "forged" }, client)).error.code, "INVALID_REQUEST");
+  assert.equal((await call({}, { ...client, connect: { ...client.connect, role: "node" } })).error.message, "checkpoint_identity_operator_required");
+});
+
+const deviceId = "d".repeat(64);
+const deviceEnvelope = () => ({ Provider: "webchat", Surface: "webchat", ChatType: "direct", CommandAuthorized: true,
+  GatewayClientScopes: ["operator.admin"], SessionCreation: { via: "operator" as const }, ApprovalReviewerDeviceId: deviceId });
+const deviceConfig = { webchatOwnerDeviceId: deviceId };
+test("explicit device identity consumes current public Host device facts without aliasing a person or transport", () => {
+  const ctx = deviceEnvelope(), identity = resolveCheckpointRequestIdentity(ctx, {}, deviceConfig);
+  assert.equal(identity.kind, "gateway_device"); assert.equal(identity.senderId, "openclaw-device:" + deviceId);
+  assert.equal(identity.toolSenderId, undefined); assert.equal("SenderId" in ctx, false);
+  assert.throws(() => resolveCheckpointRequestIdentity(ctx, {}, {}), /checkpoint_webchat_profile_required/);
+  assert.throws(() => resolveCheckpointRequestIdentity(ctx, {}, { ...deviceConfig, webchatOwnerProfileId: profileId }), /checkpoint_configuration_invalid/);
+});
+
+test("device owner admission refuses missing, mismatched and non-WebChat or profiled claims", () => {
+  for (const override of [
+    { ApprovalReviewerDeviceId: undefined }, { ApprovalReviewerDeviceId: "claimed-device" }, { ApprovalReviewerDeviceId: "c".repeat(64) },
+    { GatewayClientScopes: [] }, { ChatType: "group" }, { CommandAuthorized: false }, { Surface: "telegram" },
+    { SessionCreation: undefined }, { SessionCreation: { via: "run" } },
+    { SessionCreation: envelope().SessionCreation }, { SessionCreation: { via: "operator", actor: { type: "agent", id: "synthetic" } } },
+    { SenderId: "cli" }, { OriginatingChannel: "telegram" },
+  ]) assert.throws(() => resolveCheckpointRequestIdentity({ ...deviceEnvelope(), ...override } as any, {}, deviceConfig));
+  for (const prefix of ["openclaw-device:", "openclaw-profile:"]) assert.throws(() => resolveCheckpointRequestIdentity({
+    ...deviceEnvelope(), SenderId: prefix + deviceId,
+  }, {}, {}), /private_context_audience_forbidden/);
+  assert.equal(deviceRequesterId("a".repeat(63)), undefined);
 });
 
 test("profile binding is optional, validated and restricted to checkpoint configuration", async () => {
@@ -93,4 +125,15 @@ test("profile binding is optional, validated and restricted to checkpoint config
   const validate = new Ajv({ strict: false }).compile(manifest.configSchema);
   assert.equal(validate(value), true, JSON.stringify(validate.errors));
   assert.equal(validate({ ...value, recoveryAuthority: "legacy_config", recoveryRevision: "a".repeat(40) }), false);
+  const { webchatOwnerProfileId: _profileId, ...base } = value;
+  const device = { ...base, agentMemory: "fresh_tools", webchatOwnerDeviceId: deviceId };
+  assert.equal(parseCheckpointPluginConfig(device).webchatOwnerDeviceId, deviceId);
+  assert.equal(validate(device), true, JSON.stringify(validate.errors));
+  for (const invalid of ["", "a".repeat(63), "A".repeat(64), 7, "a".repeat(64) + "\n"]) {
+    assert.throws(() => parseCheckpointPluginConfig({ ...device, webchatOwnerDeviceId: invalid }), /checkpoint_configuration_invalid/);
+    assert.equal(validate({ ...device, webchatOwnerDeviceId: invalid }), false);
+  }
+  assert.throws(() => parseCheckpointPluginConfig({ ...value, webchatOwnerDeviceId: deviceId }), /checkpoint_configuration_invalid/);
+  assert.equal(validate({ ...value, webchatOwnerDeviceId: deviceId }), false);
+  assert.equal(validate({ ...device, recoveryAuthority: "legacy_config", recoveryRevision: "a".repeat(40) }), false);
 });

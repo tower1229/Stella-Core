@@ -15,6 +15,8 @@ const root = await realpath(process.cwd());
 assert.equal(JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).name, "@tower1229/stella-core");
 const attempt = process.argv[2], compilation = process.argv[3], requestedScenario = process.argv[4] ?? "normal";
 const scenario = requestedScenario === "history" ? "continuous_chat" : requestedScenario;
+const deviceOwner = process.env.STELLA_AGENT_SUPPLY_DEVICE_OWNER === "1";
+if (deviceOwner) assert.equal(scenario, "continuous_chat");
 const budgetMode = process.env.STELLA_MATERIALIZATION_BUDGET ?? "normal";
 assert.ok(["normal", "file", "total"].includes(budgetMode));
 if (budgetMode !== "normal") assert.equal(scenario, "materialization");
@@ -35,7 +37,13 @@ if (packageRoot) assert.ok(["continuous_chat", "materialization"].includes(scena
 await writeFile(ownerPath, JSON.stringify(owner), { flag: "wx" });
 const { createAgentSupplySource, publishAgentSupplySourceRevision, publishAgentSupplyPolicyDenial, SUPPLY_MARKER, BOOTSTRAP_MARKER, SKILL_MARKER } = await import(pathToFileURL(path.join(compiled, "tests/checkpoint-agent-supply-fixture.js")));
 const { GatewayClient, hostRoot, openclawBin, evidence: hostIdentity } = await probeHost(root);
-const source = await createAgentSupplySource({ materialization: materialize }), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
+let ownerDevice;
+if (deviceOwner) {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  ownerDevice = { deviceId: createHash("sha256").update(publicKey.export({ type: "spki", format: "der" }).subarray(-32)).digest("hex"),
+    publicKeyPem: publicKey.export({ type: "spki", format: "pem" }), privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }) };
+}
+const source = await createAgentSupplySource({ materialization: materialize, ...(ownerDevice ? { requesterId: "openclaw-device:" + ownerDevice.deviceId } : {}) }), authority = path.join(out, "authority"), workspace = path.join(out, "workspace"), plugin = path.join(out, "plugin");
 const state = process.env.OPENCLAW_STATE_DIR, configPath = process.env.OPENCLAW_CONFIG_PATH;
 assert.ok(state?.startsWith(art + "/") && configPath?.startsWith(state + "/"));
 const cache = process.env.XDG_CACHE_HOME;
@@ -131,8 +139,19 @@ try {
       result.allHttpRequests.push({ index: result.allHttpRequests.length + 1, method: request.method, path: request.url, atUtc: new Date().toISOString() });
       await save();
       assert.equal(request.method, "POST");
-      assert.match(request.url, /gemini-3\.8-flash:streamGenerateContent/);
+      assert.match(request.url, deviceOwner ? /gemini-3\.8-flash:(streamGenerateContent|generateContent)/ : /gemini-3\.8-flash:streamGenerateContent/);
       let body = ""; for await (const chunk of request) body += chunk;
+      // The stock UI can ask its system Agent for a title. Label and capture it
+      // separately; it is neither a Core tool continuation nor a real model.
+      if (deviceOwner && body.includes("You are labeling the supplied message, not participating in its conversation.")) {
+        result.auxiliaryRequests ??= []; assert.ok(result.auxiliaryRequests.length < 3);
+        result.auxiliaryRequests.push({ path: request.url, bytes: Buffer.byteLength(body) });
+        await writeFile(path.join(out, `auxiliary-${result.auxiliaryRequests.length}.json`), body);
+        const reply = { candidates: [{ content: { role: "model", parts: [{ text: "Synthetic device conversation" }] }, finishReason: "STOP" }] };
+        response.setHeader("content-type", request.url.includes("streamGenerateContent") ? "text/event-stream" : "application/json");
+        response.end(request.url.includes("streamGenerateContent") ? `data: ${JSON.stringify(reply)}\n\n` : JSON.stringify(reply));
+        await save(); return;
+      }
       const input = JSON.parse(body), index = ++count; await refreshFault();
       assert.ok(index <= (scenario === "continuous_chat" ? 9 : scenario === "automatic_archive" ? 6 : scenario === "materialization" ? 8 : scenario === "next_request" ? 9 : scenario === "history" ? 6 : 3), "Stock Host exceeded the exact synthetic model call budget");
       await writeFile(path.join(out, `provider-${index}.json`), body);
@@ -278,6 +297,7 @@ try {
       fileLimit: config.agents.entries.synthetic.bootstrapMaxChars, totalLimit: config.agents.entries.synthetic.bootstrapTotalMaxChars };
   }
   configuredCheckpoint = config.plugins.entries["stella-core"].config;
+  if (ownerDevice) configuredCheckpoint.webchatOwnerDeviceId = ownerDevice.deviceId;
   await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   const env = { ...process.env, OPENCLAW_GATEWAY_PORT: String(gatewayPort), OPENCLAW_GATEWAY_TOKEN: token };
   const launch = await isolatedProbeCommand({ root, out, state, home: process.env.OPENCLAW_HOME, hostRoot,
@@ -293,10 +313,11 @@ try {
     const interval = setInterval(() => { if (output.includes("stella-core failed to load")) { clearTimeout(timer); clearInterval(interval); reject(new Error("isolated_core_plugin_load_failed")); } else if (output.includes("[gateway] ready")) { result.gateway.ready = true; clearTimeout(timer); clearInterval(interval); resolve(); } }, 100);
     child.once("exit", code => { clearTimeout(timer); clearInterval(interval); reject(new Error(`isolated_gateway_exited_${code}`)); });
   }).finally(async () => { await writeFile(path.join(out, `gateway-start-${result.gateway.startIndex}.log`), output); });
+  const ui = deviceOwner ? await fetch(`http://127.0.0.1:${gatewayPort}/control-ui-config.json`, { headers: { authorization: "Bearer " + token } }).then(response => { assert.equal(response.status, 200); return response.json(); }) : undefined;
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("isolated_gateway_connect_timeout")), 15000);
-    let deviceIdentity = null;
-    if (["continuous_chat", "materialization"].includes(scenario)) {
+    let deviceIdentity = ownerDevice ?? null;
+    if (!deviceIdentity && ["continuous_chat", "materialization"].includes(scenario)) {
       // Satisfy the public idempotent-create identity requirement with an isolated
       // in-memory test key. Never load/store a real device identity or auth token.
       const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -305,7 +326,9 @@ try {
       deviceIdentity = { deviceId, publicKeyPem, privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }) };
       result.syntheticClientIdentity = { deviceId, privateKeyStorage: "memory_only", clientDeviceAuthTokenPersistence: false, scopesUnchanged: ["operator.admin"] };
     }
-    client = new GatewayClient({ url: `ws://127.0.0.1:${gatewayPort}`, token, env, clientName: "cli", mode: "cli", role: "operator", scopes: ["operator.admin"], sharedStateMode: "read-only", deviceIdentity,
+    client = new GatewayClient({ url: `ws://127.0.0.1:${gatewayPort}`, token, env,
+      ...(deviceOwner ? { clientName: "openclaw-control-ui", mode: "webchat", origin: `http://127.0.0.1:${gatewayPort}`, clientVersion: ui.serverVersion, clientBuildId: ui.serverBuildId } : { clientName: "cli", mode: "cli" }),
+      role: "operator", scopes: ["operator.admin"], sharedStateMode: "read-only", deviceIdentity,
       hostDeps: ["continuous_chat", "materialization"].includes(scenario) ? { loadDeviceAuthToken: () => null, storeDeviceAuthToken() {}, clearDeviceAuthToken() {} } : undefined,
       onHelloOk() { clearTimeout(timer); resolve(); }, onConnectError(error) { clearTimeout(timer); reject(error); },
       onEvent(event) { result.events.push(event); } }); client.start();
@@ -322,6 +345,14 @@ try {
     assert.equal(child.exitCode, 0); child = undefined; await save();
   };
   await startGateway();
+  if (ownerDevice) {
+    result.deviceDiagnostic = await client.request("stella.identity", {});
+    assert.equal(result.deviceDiagnostic.profileStatus, "missing"); assert.equal(result.deviceDiagnostic.deviceId, ownerDevice.deviceId);
+    assert.equal(result.deviceDiagnostic.deviceRequesterId, "openclaw-device:" + ownerDevice.deviceId);
+    assert.equal(count, 0); assert.equal(result.allHttpRequests.length, 0);
+    result.deviceBoundary = { mode: "explicit_device_owner", currentAuthenticatedConnection: true, identityInjectedIntoHooks: false,
+      syntheticPrivateKeyStorage: "memory_only", personIdentityClaimed: false, sourceGrant: "explicit synthetic requester only", productionBindingChanged: false };
+  }
   result.initialized = await client.request("stella.checkpoint", { action: "initialize", revision: source.revision, operationId: "synthetic-stock-host-init" });
   if (budgetMode !== "normal") {
     let refusal;

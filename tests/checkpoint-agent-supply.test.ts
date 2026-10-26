@@ -15,16 +15,16 @@ import { assertInitialOwnerTranscript, captureCheckpointHostRequest } from "../s
 import { registerCheckpointAgentSupply, CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
 import { createAgentSupplySource, publishAgentSupplySourceRevision, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
 
-async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile = false) {
+async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile: boolean | "device" = false) {
   const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
   t.after(async () => { await rm(source.root, { recursive: true, force: true }); await rm(parent, { recursive: true, force: true }); });
   const authority = path.join(parent, "authority"), state = path.join(parent, "host-state"), storePath = path.join(parent, "sessions.json");
   await mkdir(authority); await mkdir(state);
-  const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(webchatProfile ? { webchatOwnerProfileId: "synthetic-profile" } : {}), ...(automaticArchive ? { requestArchive: "local" } : {}) };
+  const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(webchatProfile === "device" ? { webchatOwnerDeviceId: "d".repeat(64) } : webchatProfile ? { webchatOwnerProfileId: "synthetic-profile" } : {}), ...(automaticArchive ? { requestArchive: "local" } : {}) };
   const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
   const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
   await upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } });
-  if (options.policyContext) live.agents = { entries: { synthetic: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] } } } };
+  if (options.policyContext || options.requesterId) live.agents = { entries: { synthetic: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] } } } };
   const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), factories: Function[] = [], stops: Function[] = [], beforeDeliver: Function[] = [];
   let calls = 0, models = 0, configWrites = 0;
   const observation: { beforeCurrent?: () => void; beforePolicyComplete?: (params: any) => Promise<void> } = {};
@@ -52,7 +52,8 @@ async function fixture(t: TestContext, options: Parameters<typeof createAgentSup
     ctx: { SessionKey: key, Body: "Recall my writing preference", SenderId: "synthetic-owner", From: "synthetic-owner", Provider: "webchat", ChatType: "direct", Timestamp: Date.now(), CommandAuthorized: true } };
   if (webchatProfile) {
     delete event.ctx.SenderId; delete event.ctx.From;
-    Object.assign(event.ctx, { Surface: "webchat", GatewayClientScopes: ["operator.admin"], SessionCreation: { via: "operator", actor: { type: "human", source: "profile", id: "synthetic-profile" } } });
+    Object.assign(event.ctx, { Surface: "webchat", GatewayClientScopes: ["operator.admin"], SessionCreation: webchatProfile === "device" ? { via: "operator" } : { via: "operator", actor: { type: "human", source: "profile", id: "synthetic-profile" } },
+      ...(webchatProfile === "device" ? { ApprovalReviewerDeviceId: "d".repeat(64) } : {}) });
   }
   const context: any = { dispatchKind: "agent", cfg: live, abortSignal: controller.signal,
     dispatcher: { appendBeforeDeliver(fn: Function) { beforeDeliver.push(fn); } }, recordProcessed() {}, markIdle() {} };
@@ -83,6 +84,50 @@ test("stock Host orchestration fixture can call retained data tools and continue
   assert.equal(f.hooks.has("reply_payload_sending"), false);
   assert.equal(f.hooks.has("before_message_write"), false);
   assert.equal((await f.rpc("status")).payload.capabilities.full_memory, false);
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
+
+test("device owner uses the existing run, tool and history fences without granting source access implicitly", async t => {
+  const f = await fixture(t, { requesterId: "openclaw-device:" + "d".repeat(64) }, true, "device");
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const list = await f.execute({ action: "list" }); assert.ok(list.details.items.length);
+  const read = await f.execute({ action: "read", handle: list.details.items[0].handle });
+  assert.ok(read.details.original.text.includes(SUPPLY_MARKER));
+  await assert.rejects(f.execute({ action: "read", handle: "E1", senderId: "synthetic-owner" }), /checkpoint_agent_tool_arguments_invalid/);
+  await assert.rejects(f.execute({ action: "list" }, true, { runId: "another-run" }), /checkpoint_agent_tool_scope_unavailable/);
+  await f.hooks.get("agent_end")!({}, f.agent);
+  await assert.rejects(f.execute({ action: "list" }), /checkpoint_agent_tool_scope_unavailable/);
+  f.event.runId = f.agent.runId = "synthetic-next-device-run";
+  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit([{ role: "assistant", content: "Previous answer" }])).outcome, "pass");
+  assert.ok((await f.execute({ action: "list" })).details.items.length);
+  await f.hooks.get("agent_end")!({}, f.agent);
+  f.event.runId = f.agent.runId = "synthetic-device-changed"; f.event.ctx.ApprovalReviewerDeviceId = "b".repeat(64);
+  assert.equal((await f.ingress()).handled, true); assert.equal((await f.admit()).outcome, "block");
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+});
+
+test("device mode refuses absent and other-principal source grants before any model admission", async t => {
+  for (const automaticArchive of [false, true]) for (const requesterId of [undefined, "synthetic-owner"]) await t.test(`${requesterId ?? "no-grant"}/archive=${automaticArchive}`, async t => {
+    const f = await fixture(t, { requesterId }, automaticArchive, "device"), before = (await f.rpc("status")).payload.authority;
+    assert.equal((await f.ingress()).handled, true);
+    assert.equal((await f.rpc("status")).payload.supply.category, requesterId ? "personal_context_requester_forbidden" : "checkpoint_device_source_grant_required");
+    assert.equal((await f.admit()).outcome, "block");
+    const after = (await f.rpc("status")).payload.authority;
+    // Owner-input retention precedes retrieval authorization. Never describe a
+    // failed source grant as zero writes when local request archiving is enabled.
+    if (automaticArchive) assert.notEqual(after.token, before.token);
+    else assert.deepEqual(after, before);
+    assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+  });
+});
+
+test("device binding does not adopt unknown old transcript or accept changed current identity", async t => {
+  const f = await fixture(t, { requesterId: "openclaw-device:" + "d".repeat(64) }, false, "device");
+  const captured = captureCheckpointHostRequest(f.api, parseCheckpointPluginConfig(f.config), f.event, f.context, new AbortController().signal);
+  f.event.ctx.ApprovalReviewerDeviceId = "c".repeat(64);
+  await assert.rejects(captured.assertCurrent(), /checkpoint_webchat_device_not_bound/);
+  f.event.ctx.ApprovalReviewerDeviceId = "d".repeat(64);
+  await f.ingress(); assert.equal((await f.admit([{ role: "assistant", content: "Unknown previous owner" }])).outcome, "block");
   assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
 });
 
