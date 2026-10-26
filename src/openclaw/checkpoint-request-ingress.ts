@@ -22,6 +22,7 @@ import { parseCangHaiRef } from "../canghai/ref.js";
 import { parseSourcePolicy } from "../canghai/source-policy.js";
 import { parse as parseYaml } from "yaml";
 import type { RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
+import { replyCheckpointFailure } from "./checkpoint-failure-reply.js";
 
 import type { VersionedRef } from "../praxis/episode-v2.js";
 
@@ -96,7 +97,7 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
     if (event.ctx.CommandTurn && event.ctx.CommandTurn.kind !== "normal") return;
     const cancellation = AbortSignal.any([shutdown.signal, ...ctx.abortSignal ? [ctx.abortSignal] : []]);
     const active = () => { cancellation.throwIfAborted(); };
-    let releaseFrame: (() => void) | undefined;
+    let releaseFrame: (() => void) | undefined, failed = false;
     try {
       active();
       check(ctx.dispatchKind === "agent" && event.sendPolicy === "allow" && !event.images?.length && !event.inboundAudio &&
@@ -190,13 +191,15 @@ export function registerCheckpointRequestIngress(api: OpenClawPluginApi, config:
       }
       try { ctx.recordProcessed("skipped", { reason: "stella_owner_ingress_archived_no_agent" }); } catch { /* Diagnostics never release the default model path. */ }
     } catch (error) {
+      failed = true;
       const category = error && typeof error === "object" && "category" in error && typeof error.category === "string" ? error.category :
         cancellation.aborted ? "operation_cancelled" : "checkpoint_ingress_failed";
       last = { state: "blocked", category };
       try { ctx.recordProcessed("error", { reason: category }); } catch { /* Keep the explicit handled result. */ }
+      return await replyCheckpointFailure(event, ctx, cancellation);
     } finally {
       releaseFrame?.();
-      if (!continueAgent) try { ctx.markIdle("Stella archive-only ingress settled"); } catch { /* Hook exceptions must not create fail-open dispatch. */ }
+      if (!continueAgent && !failed) try { ctx.markIdle("Stella archive-only ingress settled"); } catch { /* Hook exceptions must not create fail-open dispatch. */ }
     }
     // The stock hook runner can fail open on a thrown error; return ownership explicitly.
     // The general before_agent_run blocker remains in place for other paths/timeouts.

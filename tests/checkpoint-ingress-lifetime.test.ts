@@ -14,6 +14,8 @@ import { registerCheckpointRequestIngress } from "../src/openclaw/checkpoint-req
 import { CHECKPOINT_MEMORY_TOOL, registerCheckpointAgentSupply } from "../src/openclaw/checkpoint-agent-supply.js";
 import { isRecord } from "../src/shared/type-guards.js";
 import { createAgentSupplySource } from "./checkpoint-agent-supply-fixture.js";
+import { createReplyDispatcher } from "openclaw/plugin-sdk/reply-runtime";
+import { CHECKPOINT_FAILURE_TEXT } from "../src/openclaw/checkpoint-failure-reply.js";
 
 type Runtime = Awaited<ReturnType<typeof createCheckpointPluginRuntime>>;
 type Ingress = ReturnType<typeof registerCheckpointRequestIngress>;
@@ -71,6 +73,19 @@ test("failed ingress preparations release completed frames across 260 distinct r
     assert.equal(ingress.status()?.category, preparationFailure, `Request ${index} must reach its preparation, not an accumulated capacity limit`);
   }
   assert.equal(calls, 260); assert.deepEqual(f.counts(), { modelCalls: 0, configWrites: 0 });
+});
+
+test("standalone ingress failure replies once and closes the Host turn without a model call", async t => {
+  const f = await hostFixture(t), delivered: Array<{ text?: string; isError?: boolean }> = [], outcomes: string[] = []; let idle = 0;
+  const ingress = registerCheckpointRequestIngress(f.api, f.config, async () => { throw new Error("synthetic private source /private/path key=not-a-secret"); });
+  t.after(() => ingress.close());
+  const ctx = { ...f.context, dispatcher: createReplyDispatcher({ async deliver(payload) { delivered.push(payload); } }),
+    recordProcessed(outcome: string) { outcomes.push(outcome); }, markIdle() { idle++; } };
+  const first = f.event(1), result = await ingress.dispatch(first, ctx);
+  assert.ok(result && "handled" in result && result.handled); assert.equal(result.queuedFinal, true);
+  await ingress.dispatch({ ...first }, ctx);
+  assert.deepEqual(delivered, [{ text: CHECKPOINT_FAILURE_TEXT, isError: true }]); assert.equal(idle, 1);
+  assert.ok(outcomes.every(outcome => outcome === "error")); assert.deepEqual(f.counts(), { modelCalls: 0, configWrites: 0 });
 });
 
 test("256 live ingress keys remain bounded, same-key users share preparation, and settled failures free capacity", async t => {

@@ -14,6 +14,8 @@ import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
 import { assertInitialOwnerTranscript, captureCheckpointHostRequest } from "../src/openclaw/checkpoint-host-request.js";
 import { registerCheckpointAgentSupply, CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
 import { createAgentSupplySource, publishAgentSupplySourceRevision, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
+import { createReplyDispatcher } from "openclaw/plugin-sdk/reply-runtime";
+import { CHECKPOINT_FAILURE_TEXT } from "../src/openclaw/checkpoint-failure-reply.js";
 
 async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile: boolean | "device" = false) {
   const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
@@ -367,6 +369,26 @@ test("automatic archive failure never admits Agent execution or advances checkpo
     if (kind === "invalid-time") f.event.ctx.Timestamp = Number.NaN;
     assert.equal((await f.ingress()).handled, true); assert.equal((await f.admit()).outcome, "block");
     assert.deepEqual((await f.rpc("status")).payload.authority, before); assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+  });
+});
+
+test("nested archive and direct preparation failures publish one sanitized failure reply without Agent admission", async t => {
+  for (const mode of ["archive", "preparation"] as const) await t.test(mode, async t => {
+    const f = await fixture(t, { doNotRetain: mode === "archive" }, true);
+    const before = (await f.rpc("status")).payload.authority;
+    const delivered: Array<{ text?: string; isError?: boolean }> = [], outcomes: string[] = []; let idle = 0;
+    f.context.dispatcher = createReplyDispatcher({ async deliver(payload) { delivered.push(payload); } });
+    f.context.recordProcessed = (outcome: string) => outcomes.push(outcome);
+    f.context.markIdle = () => { idle++; };
+    if (mode === "preparation") f.event.ctx.SenderId = f.event.ctx.From = "synthetic-outsider";
+    const result = await f.ingress();
+    assert.equal(result.handled, true); assert.equal(result.queuedFinal, true); assert.equal(result.counts.final, 1);
+    assert.deepEqual(delivered, [{ text: CHECKPOINT_FAILURE_TEXT, isError: true }]);
+    assert.ok(outcomes.length); assert.ok(outcomes.every(outcome => outcome === "error"));
+    assert.equal(idle, 1); assert.equal((await f.admit()).outcome, "block");
+    assert.deepEqual((await f.rpc("status")).payload.authority, before);
+    await f.ingress(); assert.equal(delivered.length, 1, "same failed request cannot send twice"); assert.equal(idle, 1);
+    assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
   });
 });
 

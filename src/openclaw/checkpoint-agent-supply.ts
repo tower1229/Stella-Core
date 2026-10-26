@@ -20,6 +20,7 @@ import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "../praxis/evidence-bundle.js";
 import type { createCheckpointPluginRuntime, CheckpointPluginConfig } from "./checkpoint-plugin-runtime.js";
 import type { RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
+import { replyCheckpointFailure } from "./checkpoint-failure-reply.js";
 
 export const CHECKPOINT_MEMORY_TOOL = "stella_memory_data";
 export const CHECKPOINT_CORRECTION_TOOL = "stella_memory_correct";
@@ -114,14 +115,15 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
       // run remains seen but must not retain a grant or consume a live slot.
       const preparation = new AbortController();
       const requestContext = { ...ctx, abortSignal: AbortSignal.any([preparation.signal, ...ctx.abortSignal ? [ctx.abortSignal] : []]) };
-      let reservedRunId: string | undefined, issued = false;
+      let reservedRunId: string | undefined, issued = false, duplicate = false;
       const assertPreparing = () => check(reservedRunId && preparations.get(reservedRunId) === preparation &&
         !preparation.signal.aborted && !shutdown.signal.aborted, "checkpoint_agent_scope_closed");
       try {
         // Synchronous maintenance gate precedes identity/history binding and any local archive.
         assertPreparationAllowed?.();
         let ingress = captureCheckpointHostRequest(api, config, event, requestContext, shutdown.signal);
-        check(!runs.has(ingress.request.runId) && preparations.size + grants.size < 64, "checkpoint_agent_duplicate_or_capacity");
+        duplicate = runs.has(ingress.request.runId);
+        check(!duplicate && preparations.size + grants.size < 64, "checkpoint_agent_duplicate_or_capacity");
         reservedRunId = ingress.request.runId;
         runs.add(reservedRunId); preparations.set(reservedRunId, preparation);
         await ingress.bindConversation(); assertPreparing();
@@ -169,7 +171,9 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
       } catch (error) {
         scope.last = { state: "blocked", category: category(error) };
         try { ctx.recordProcessed("error", { reason: category(error) }); } catch { /* Keep explicit ownership on refusal. */ }
-        return { handled: true, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } };
+        // The original request retains its dispatcher/lifecycle and failure reply.
+        if (duplicate) return { handled: true, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } };
+        return await replyCheckpointFailure(event, ctx, AbortSignal.any([shutdown.signal, requestContext.abortSignal]));
       } finally {
         // Only this admission may release its reservation. A rejected duplicate
         // must not remove another caller's pending slot.
