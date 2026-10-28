@@ -1,10 +1,10 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { CatalogError, type CatalogReader, validMemoryRef } from "../canghai/catalog-reader.js";
-import { canonicalJson } from "../canghai/content-version.js";
+import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
-import { type EpisodeEvidenceResolver, validateLearningChange } from "../praxis/episode-evidence.js";
-import { sourceSegments } from "../canghai/source-segments.js";
+import { type EpisodeEvidenceResolver, type OriginalEvidence, validateLearningChange } from "../praxis/episode-evidence.js";
+import { assertEvidenceSegment, segmentLocator, sourceSegments, type SegmentLocator } from "../canghai/source-segments.js";
 import { parseSourcePolicy } from "../canghai/source-policy.js";
 import { isRecord } from "../shared/type-guards.js";
 
@@ -13,6 +13,7 @@ export type NativeReadbackOpen = Parameters<NonNullable<Capability["providerRunt
 type Handle = NonNullable<Awaited<ReturnType<NonNullable<Capability["providerRuntime"]>["open"]>>["provider"]>;
 export type NativeReadbackReference = Parameters<Handle["get"]>[0]["reference"];
 type TargetGroup = "works" | "understandings";
+type ReadGroup = TargetGroup | "evidence";
 type Current = () => void | Promise<void>;
 
 /** Core-owned, request-bound source permission. Host ownership and references confer no data permission. */
@@ -33,8 +34,15 @@ function groupOf(reader: CatalogReader, ref: VersionedRef): TargetGroup {
   check(reader.eligible(ref), "evidence_not_currently_eligible");
   return group;
 }
-function referenceFor(providerId: string, group: TargetGroup, ref: VersionedRef): NativeReadbackReference {
+function referenceFor(providerId: string, group: ReadGroup, ref: VersionedRef): NativeReadbackReference {
   return { providerId, id: canonicalJson([group, ref.id]), revision: ref.version };
+}
+
+/** A precise lookup identity, never a permission or latest-version lookup. */
+export function evidenceNativeReference(input: { providerId: string; evidenceRef: VersionedRef }): NativeReadbackReference {
+  check(input.providerId.trim(), "native_readback_provider_required");
+  check(validMemoryRef(input.evidenceRef), "native_readback_reference_invalid");
+  return referenceFor(input.providerId, "evidence", input.evidenceRef);
 }
 
 /** Core-only receipt mapping after publication. These references must still pass source authorization on get. */
@@ -79,6 +87,7 @@ async function provenance(scope: NativeReadbackScope, target: VersionedRef, asse
       reader.entry(ref, "evidence");
       check(validMemoryRef(record.source) && validMemoryRef(record.policyRef) && Array.isArray(record.derivedFrom) && record.derivedFrom.every(validMemoryRef), "invalid_evidence");
       required = [record.source, record.policyRef, ...record.derivedFrom];
+      for (const dependency of record.derivedFrom) reader.entry(dependency, "evidence");
       evidence.set(key(ref), ref); covered.add(key(record.source));
     } else if (["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(record.schemaVersion))) {
       reader.entry(ref, "sources"); check(validMemoryRef(record.policyRef) && validMemoryRef(record.coverageRef), "invalid_source");
@@ -102,18 +111,73 @@ async function provenance(scope: NativeReadbackScope, target: VersionedRef, asse
   await visit(target);
   check(evidence.size > 0, "personal_view_provenance_required");
   check([...sources].every(([id, source]) => !source.segmented || covered.has(id)), "segmented_source_requires_evidence");
-  return { record: records.get(key(target))!, sources: [...sources.values()], evidenceRefs: [...evidence.values()] };
+  return { record: records.get(key(target))!, sources: [...sources.values()], evidenceRefs: [...evidence.values()], records };
+}
+
+/** Structural reachability is not permission to disclose a policy's free text.
+ * Follow applicable dependency edges separately, retaining each source/segment
+ * context so a shared policy cannot borrow another fragment's authorization. */
+async function evidencePolicies(scope: NativeReadbackScope, target: VersionedRef,
+  verified: Awaited<ReturnType<typeof provenance>>, assertRead: Current) {
+  type Context = { sourceRef: VersionedRef; segment?: SegmentLocator };
+  const recordFor = (ref: VersionedRef) => {
+    const record = verified.records.get(key(ref)); check(record, "reference_unavailable"); return record;
+  };
+  const evidenceContext = (record: Record<string, unknown>): Context => {
+    const sourceRef = record.source as VersionedRef, segment = assertEvidenceSegment(sourceSegments(recordFor(sourceRef)), record);
+    return { sourceRef, ...(segment ? { segment: segmentLocator(segment) } : {}) };
+  };
+  const contextKey = (ref: VersionedRef, context: Context) => canonicalJson([key(ref), key(context.sourceRef), context.segment ?? null]);
+  const authorized = new Set<string>(), visited = new Set<string>();
+  const policies = new Map<string, NonNullable<OriginalEvidence["usageConstraints"]>[number]>();
+  // These exact Evidence/source policy contexts already passed readEvidence.
+  for (const ref of verified.evidenceRefs) {
+    const record = recordFor(ref), context = evidenceContext(record);
+    for (const policy of [record.policyRef, recordFor(context.sourceRef).policyRef] as VersionedRef[]) authorized.add(contextKey(policy, context));
+  }
+  const visit = async (ref: VersionedRef, context: Context): Promise<void> => {
+    const record = recordFor(ref), source = ["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(record.schemaVersion));
+    if (record.schemaVersion === "stella.memory-evidence/v1") context = evidenceContext(record);
+    else if (source && key(context.sourceRef) !== key(ref)) context = { sourceRef: ref };
+    const identity = contextKey(ref, context); if (visited.has(identity)) return; visited.add(identity);
+    if (["stella.source-policy/v1", "stella.source-policy/v2", "stella.source-policy/v3"].includes(String(record.schemaVersion))) {
+      if (!authorized.has(identity)) {
+        await assertRead(); await scope.resolver.assertSourceMetadataAccess(context.sourceRef, ref, context.segment); await assertRead();
+        authorized.add(identity);
+      }
+      const policy = parseSourcePolicy(record);
+      if (policy.usageRules?.interpretation.length || policy.restrictions) policies.set(key(ref), { policyRef: { id: ref.id, version: ref.version },
+        rules: policy.usageRules?.interpretation ?? [], ...(policy.restrictions ? { quotePolicy: policy.restrictions.quotePolicy } : {}) });
+    }
+    const entry = scope.reader.entry(ref);
+    // Source declares every segment for structural validation. Only its parent
+    // policy applies here; a selected Evidence reaches its own segment policy
+    // directly. Explicit metadataRef/derivedFrom edges remain applicable even
+    // when the same policy is also listed for a neighboring segment.
+    const segmentPolicies = new Set(source ? sourceSegments(record).map(segment => key(segment.policyRef)) : []);
+    for (const dependency of entry.dependencies) {
+      if (!segmentPolicies.has(key(dependency)) || key(dependency) === key(record.policyRef as VersionedRef)) await visit(dependency, context);
+    }
+    if (entry.metadataRef) await visit(entry.metadataRef, context);
+    const origin = record.schemaVersion === "stella.understanding/v1" ? record.originChangeId :
+      record.schemaVersion === "stella.ongoing-work/v1" ? record.lastAppliedChangeId : null;
+    if (typeof origin === "string") await visit(scope.reader.currentRef(origin, "changes"), context);
+  };
+  await visit(target, evidenceContext(recordFor(target)));
+  return [...policies.values()];
 }
 
 /** Declaration-based admission precheck only; provenance above verifies the object bodies. */
 function sourceDependencies(reader: CatalogReader, target: VersionedRef): VersionedRef[] {
-  const sources = new Set(reader.catalog.sources.map(key)), found = new Map<string, VersionedRef>(), seen = new Set<string>();
+  const sources = new Set(reader.catalog.sources.map(key)), found = new Map<string, VersionedRef>(), seen = new Set<string>(), active = new Set<string>();
   const visit = (ref: VersionedRef) => {
-    const id = key(ref); if (seen.has(id)) return;
+    const id = key(ref); check(!active.has(id), "dependency_cycle"); if (seen.has(id)) return;
     check(seen.size < 512, "native_readback_dependency_budget_exhausted"); seen.add(id);
+    active.add(id);
     const entry = reader.entry(ref);
     if (sources.has(id)) found.set(id, { id: ref.id, version: ref.version });
     for (const dependency of [...entry.dependencies, ...(entry.metadataRef ? [entry.metadataRef] : [])]) visit(dependency);
+    active.delete(id);
   };
   visit(target);
   check(found.size > 0, "native_readback_source_permission_required");
@@ -147,16 +211,18 @@ export function registerCheckpointNativeReadback(api: Pick<OpenClawPluginApi, "i
           "native_readback_request_unsupported");
         let decoded: unknown;
         try { decoded = JSON.parse(reference.id); } catch { throw new CatalogError("native_readback_reference_invalid"); }
-        check(Array.isArray(decoded) && decoded.length === 2 && ["works", "understandings"].includes(decoded[0]) &&
+        check(Array.isArray(decoded) && decoded.length === 2 && ["works", "understandings", "evidence"].includes(decoded[0]) &&
           typeof decoded[1] === "string" && canonicalJson(decoded) === reference.id &&
           validMemoryRef({ id: decoded[1], version: reference.revision }), "native_readback_reference_invalid");
-        const group = decoded[0] as TargetGroup, target = { id: decoded[1] as string, version: reference.revision! };
+        const group = decoded[0] as ReadGroup, target = { id: decoded[1] as string, version: reference.revision! };
         const scope = await openReadScope(params); current();
         check(scope.resolver?.reader === scope.reader, "native_readback_resolver_binding_required");
         const assertScope = async () => { current(); await scope.assertCurrent(); current(); await scope.reader.assertCurrent(); current(); };
         await assertScope();
-        check(groupOf(scope.reader, target) === group, "native_readback_target_unsupported");
+        if (group === "evidence") scope.reader.entry(target, "evidence");
+        else check(groupOf(scope.reader, target) === group, "native_readback_target_unsupported");
         const sourceRefs = sourceDependencies(scope.reader, target);
+        check(scope.reader.eligible(target), "evidence_not_currently_eligible");
         const grants: Array<{ assertCurrent: Current }> = [];
         const authorize = async (refs: VersionedRef[]) => {
           const grant = await scope.authorizeSources({ target: { ...target }, sourceRefs: refs });
@@ -173,10 +239,36 @@ export function registerCheckpointNativeReadback(api: Pick<OpenClawPluginApi, "i
         for (const source of verified.sources) if (!source.segmented) {
           await assertRead(); await scope.resolver.assertSourceAccess(source.ref, source.policyRef); await assertRead();
         }
+        let original: OriginalEvidence | undefined;
         for (const ref of verified.evidenceRefs) {
-          await assertRead(); await scope.resolver.readEvidence(ref); await assertRead();
+          await assertRead(); const read = await scope.resolver.readEvidence(ref); await assertRead();
+          if (key(ref) === key(target)) original = read;
         }
         await assertRead();
+        if (group === "evidence") {
+          check(original && key(original.ref) === key(target), "native_readback_evidence_required");
+          const policies = await evidencePolicies(scope, target, verified, assertRead); await assertRead();
+          // Whitelist the transport document; never return source records, internal
+          // locators, full payloads or other dependencies' text. Only applicable,
+          // authorized policy constraints accompany the derived target.
+          const ref = (value: VersionedRef) => ({ id: value.id, version: value.version });
+          const constraints = (values: NonNullable<OriginalEvidence["usageConstraints"]>) => values.map(value => ({
+            policyRef: ref(value.policyRef), rules: value.rules.map(rule => ({ id: rule.id, requirement: rule.requirement })),
+            ...(value.quotePolicy ? { quotePolicy: value.quotePolicy } : {}),
+          }));
+          return { status: "ok", reference: referenceFor(providerId, group, target), truncated: false, text: canonicalJson({
+            evidence: { ref: ref(original.ref), text: original.text, role: original.role, kind: original.kind,
+              independentOriginId: original.independentOriginId, sourceAdapterId: original.sourceAdapterId,
+              occurredAt: original.occurredAt, authoredAt: original.authoredAt, capturedAt: original.capturedAt,
+              coverageComplete: original.coverageComplete,
+              ...(original.usageConstraints ? { usageConstraints: constraints(original.usageConstraints) } : {}) },
+            sourceRef: ref(verified.record.source as VersionedRef), payloadSha256: verified.record.payloadSha256,
+            selector: { kind: (verified.record.selector as { kind: string }).kind, value: (verified.record.selector as { value: string }).value },
+            speakerId: verified.record.speakerId, derivedFrom: (verified.record.derivedFrom as VersionedRef[]).map(ref),
+            fragmentSha256: bytesVersion(original.text),
+            dependencyUsageConstraints: { appliesTo: ref(target), policies: constraints(policies) },
+          }) };
+        }
         return { status: "ok", reference: referenceFor(providerId, group, target), text: canonicalJson(verified.record), truncated: false };
       },
       async health() { current(); return { status: "degraded", message: "Exact-version readback only; search is unsupported." }; },
