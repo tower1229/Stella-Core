@@ -19,8 +19,15 @@ test("captured command settles normal, failure, timeout, cancellation and log-er
   for (const mode of ["normal", "exit7", "exit13", "timeout", "timeout-exit0", "cancel", "cancel-exit0", "incomplete-stdio", "log-error", "exit7-log-error", "open-error", "maxBuffer", "drain-timeout"]) {
     await t.test(mode, async t => {
       const root = await temporary(t), stdoutPath = path.join(root, mode === "open-error" ? "missing/stdout" : "stdout"), stderrPath = path.join(root, "stderr");
+      // Hold the second stream until the parent acknowledges the first. This
+      // forces both legal stream orders without depending on scheduler delays.
+      const firstStream = mode === "cancel-exit0" ? "stderr" : "stdout", secondStream = firstStream === "stdout" ? "stderr" : "stdout";
+      const markers = { stdout: marker, stderr: stderrMarker };
+      const writes = mode.startsWith("cancel")
+        ? `process.${firstStream}.write(${JSON.stringify(markers[firstStream] + "\n")});process.stdin.once('data',()=>{process.${secondStream}.write(${JSON.stringify(markers[secondStream] + "\n")});process.stdin.pause();});`
+        : `process.stdout.write(${JSON.stringify(marker + "\n")});process.stderr.write(${JSON.stringify(stderrMarker + "\n")});`;
       const worker = `${mode.endsWith("-exit0") ? "process.on('SIGTERM',()=>process.exit(0));" : ""}
-process.stdout.write(${JSON.stringify(marker + "\n")});process.stderr.write(${JSON.stringify(stderrMarker + "\n")});
+${writes}
 ${mode.startsWith("exit7") ? "process.exitCode=7;" : mode === "exit13" ? "process.exitCode=13;" :
 mode.startsWith("timeout") || mode.startsWith("cancel") ? "setInterval(()=>{},1000);" :
 mode === "incomplete-stdio" ? "setTimeout(()=>process.exit(0),50);" :
@@ -35,17 +42,26 @@ final(done){if(mode!=='drain-timeout')setTimeout(()=>done(Object.assign(new Erro
 }):createWriteStream(file);
 const pending=captureCommand(process.execPath,['-e',${JSON.stringify(worker)}],{timeout:mode.startsWith('timeout')?1000:3000,maxBuffer:mode==='maxBuffer'?1024:1048576},
 {stdoutPath:out,stderrPath:err,children,createLog,drainTimeoutMs:mode==='drain-timeout'?30:1000});
-if(mode.startsWith('cancel'))[...children][0].stdout.once('data',()=>[...children][0].kill('SIGTERM'));
+const cancelReadiness={stdout:false,stderr:false,signalsSent:0};
+if(mode.startsWith('cancel')){
+ const child=[...children][0],seen={stdout:'',stderr:''},markers={stdout:${JSON.stringify(marker)},stderr:${JSON.stringify(stderrMarker)}};let released=false;
+ for(const stream of ['stdout','stderr'])child[stream].on('data',chunk=>{
+  seen[stream]+=chunk;cancelReadiness[stream]=seen[stream].includes(markers[stream]);
+  if(!released&&(cancelReadiness.stdout||cancelReadiness.stderr)){released=true;child.stdin.end('release second marker');}
+  if(cancelReadiness.stdout&&cancelReadiness.stderr&&!cancelReadiness.signalsSent){cancelReadiness.signalsSent++;child.kill('SIGTERM');}
+ });
+}
 if(mode==='incomplete-stdio')[...children][0].stdout.once('data',()=>[...children][0].stdout.destroy());
-try{const result=await pending;console.log(JSON.stringify({passed:true,capture:result.capture,children:children.size}));}
+try{const result=await pending;console.log(JSON.stringify({passed:true,capture:result.capture,children:children.size,cancelReadiness}));}
 catch(error){console.log(JSON.stringify({passed:false,code:error.code,signal:error.signal,killed:error.killed,capture:error.capture,
-partialStdoutPreserved:error.stdout?.includes(${JSON.stringify(marker)}),children:children.size}));process.exitCode=1;}`;
+partialStdoutPreserved:error.stdout?.includes(${JSON.stringify(marker)}),children:children.size,cancelReadiness}));process.exitCode=1;}`;
       let output = "", stderr = "", code = 0;
       try { const result = await exec(process.execPath, ["--input-type=module", "-e", script], { timeout: 10_000 }); output = result.stdout; stderr = result.stderr; }
       catch (error: any) { output = error.stdout; stderr = error.stderr; code = error.code; }
       assert.equal(code, mode === "normal" ? 0 : 1, stderr);
       assert.doesNotMatch(stderr, /unsettled top-level await|UNHANDLED_REJECTION|UnhandledPromiseRejection/);
       const result = JSON.parse(output.trim()); assert.equal(result.children, 0); assert.equal(result.passed, mode === "normal");
+      if (mode.startsWith("cancel")) assert.deepEqual(result.cancelReadiness, { stdout: true, stderr: true, signalsSent: 1 });
       if (mode !== "open-error") {
         assert.ok((await readFile(stdoutPath, "utf8")).includes(marker));
         assert.ok((await readFile(stderrPath, "utf8")).includes(stderrMarker));
@@ -106,13 +122,17 @@ return real(command,args,{...options,timeout:mode==='timeout'||mode==='timeout-e
   for (const args of [["init", "--quiet"], ["add", "."], ["-c", "user.name=Synthetic", "-c", "user.email=synthetic@example.invalid", "commit", "--quiet", "-m", "runner fixture"]])
     await exec("git", args, { cwd: root, env });
   const fakeNpm = path.join(parent, "npm.cjs"), calls = path.join(parent, "npm-calls.jsonl");
+  const writes = mode === "cancel-exit0"
+    ? `process.stderr.write(${JSON.stringify(stderrMarker + "\n")},()=>process.stdout.write(${JSON.stringify(marker + "\n")}));`
+    : mode === "cancel" ? `process.stdout.write(${JSON.stringify(marker + "\n")},()=>process.stderr.write(${JSON.stringify(stderrMarker + "\n")}));`
+    : `process.stdout.write(${JSON.stringify(marker + "\n")});process.stderr.write(${JSON.stringify(stderrMarker + "\n")});`;
   await writeFile(fakeNpm, `const args=process.argv.slice(2);require('node:fs').appendFileSync(${JSON.stringify(calls)},JSON.stringify(args)+'\\n');
 if(${JSON.stringify(mode)}==='timeout-exit0'){
 if(args.length!==3||args[0]!=='run'||args[2]!=='--silent'||!['check','check:schemas','test'].includes(args[1]))throw Error('Unexpected command');
 if(args[1]!=='test')process.exit(0);
 }else if(JSON.stringify(args)!==JSON.stringify(['run','check','--silent']))throw Error('Unexpected command');
 ${mode.endsWith("-exit0") ? "process.on('SIGTERM',()=>process.exit(0));" : ""}
-process.stdout.write(${JSON.stringify(marker + "\n")});process.stderr.write(${JSON.stringify(stderrMarker + "\n")});
+${writes}
 ${mode.startsWith("cancel") || mode.startsWith("timeout") ? "setInterval(()=>{},1000);" : mode === "maxBuffer"
     ? "setTimeout(()=>process.stdout.write('x'.repeat(131072)),30);" : mode === "log-error" ? "process.exitCode=0;" : "process.exitCode=13;"}`);
   return { parent, root, calls, env: { ...env, npm_execpath: fakeNpm } };
@@ -127,7 +147,12 @@ test("actual Experimental runner saves failed/cancelled terminal receipts with o
       if (mode.startsWith("cancel")) {
         let ready = false;
         for (let attempt = 0; attempt < 500 && pending.child.exitCode === null; attempt++) {
-          try { const [directory] = await readdir(base); ready = (await readFile(path.join(base, directory!, "check.stdout"), "utf8")).includes(marker); } catch { /* Child has not opened the log yet. */ }
+          try {
+            const [directory] = await readdir(base), [stdout, stderr] = await Promise.all([
+              readFile(path.join(base, directory!, "check.stdout"), "utf8"), readFile(path.join(base, directory!, "check.stderr"), "utf8"),
+            ]);
+            ready = stdout.includes(marker) && stderr.includes(stderrMarker);
+          } catch { /* Child has not opened both logs yet. */ }
           if (ready) break; await new Promise(resolve => setTimeout(resolve, 10));
         }
         assert.equal(ready, true); pending.child.kill("SIGTERM");
