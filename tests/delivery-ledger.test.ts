@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { buildDeliveryLedger, type DeliveryEvidence, type DeliveryVersion } from "../src/acceptance/delivery-ledger.js";
 
@@ -13,6 +14,17 @@ test("delivery report expands every work item and acceptance without claiming mi
   assert.equal(report.complete, false);
   assert.ok(report.works.every(row => row.status === "pending" && row.gaps.includes("evidence_missing")));
   assert.ok(report.acceptances.every(row => row.issues.length && row.cases.length && row.contract.sha256));
+});
+
+test("acceptance locators identify all 49 rows in their pinned contract documents", async () => {
+  const report = await buildDeliveryLedger(input());
+  const documents = new Map<string, string[]>();
+  for (const row of report.acceptances) {
+    if (!documents.has(row.contract.path)) documents.set(row.contract.path, (await readFile(row.contract.path, "utf8")).split("\n"));
+    const line = documents.get(row.contract.path)![row.contract.line - 1];
+    assert.equal(line?.split("|")[1]?.trim().split(/\s/)[0], row.id, `${row.id} contract locator`);
+  }
+  assert.equal(report.complete, false);
 });
 
 test("partial, expired, superseded, dirty and different-version evidence cannot complete delivery", async () => {
@@ -63,6 +75,10 @@ test("contract edits cannot be silently reported as the pinned specification", a
   for (const file of files) {
     await copyFile(file, path.join(root, file));
   }
+  const baseline = await buildDeliveryLedger({ ...input(), contractRoot: root });
+  assert.equal(baseline.works.length, 40);
+  assert.equal(baseline.acceptances.length, 49);
+  assert.equal(baseline.complete, false);
   for (const file of files) {
     await t.test(file, async () => {
       try {
@@ -73,6 +89,7 @@ test("contract edits cannot be silently reported as the pinned specification", a
       }
     });
   }
+  assert.equal((await buildDeliveryLedger({ ...input(), contractRoot: root })).complete, false);
 });
 
 test("only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate", async () => {
