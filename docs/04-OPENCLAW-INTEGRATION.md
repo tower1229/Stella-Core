@@ -1,6 +1,6 @@
 # OpenClaw Integration Contract
 
-目标验证版本：OpenClaw 2026.8.2。2026.8.1 是尚未独立验证的最低兼容声明。能力必须同时绑定 Host 版本、runner／harness、插件权限和实例配置；版本号本身不是完整能力证明。
+2026-10-27 当前有限集成与后续评估目标为 **OpenClaw 2026.10.7**；固定版本、已验证边界与后续计划见 [§9](#9-2026107-分阶段实施与验收计划)及[兼容记录](OPENCLAW-2026.10.7-COMPATIBILITY.md)。§1–8 中的 Host API/guarded/Context Engine/SQLite 配方记录原2026.8.2实现与历史验收，不是10.7的已支持配置或必须照搬的方案；仍必要的产品行为按 D-058、D-061 迁移验证。2026.8.1最低兼容旧声明没有独立验证，不沿用为新版本承诺。能力必须同时绑定 Host、runner／harness、插件权限和实例配置；版本号本身不是完整能力证明。
 
 ## 1. 复用职责
 
@@ -8,7 +8,7 @@ OpenClaw 提供 Agent Loop、模型执行、会话／transcript、搜索索引�
 
 新接口必须先检查 Host 和已有插件；不另建会话数据库、搜索引擎或调度服务。补充 adapter 仅完成来源格式、契约检查和一致性协调。
 
-## 2. 目标版本已核查的能力
+## 2. 原2026.8.2目标版本已核查的能力
 
 以下依据安装包内文档核查于 2026-09-05；实现必须用同一版本的 SDK 与 Exact Host 验证。在线文档只作阅读入口。
 
@@ -599,9 +599,148 @@ Stella 1.0 的方法价值保留在 skills，迁移去向如下。按语义选�
 
 向量索引消费边界：对显式启用向量存储且使用嵌入 provider 的固定版本内置索引，只读回读还必须验证 `memory_index_meta_v1` 的确切 provider／model／providerKey／维度、完整发布标记，以及已选 chunk 的 JSON embedding 与原生 sqlite-vec Float32 行逐字节一致。启用嵌入缓存时，同一 provider／model／providerKey／chunk hash 的缓存项也必须存在并与 chunk embedding 一致；缓存已清理时须在独立获准的准备阶段重建，消费阶段不得自动补齐。缺失、失配、未完成、读取中变化均显式失败；向量与缓存纳入本轮消费摘要，并在任何后续模型调用前复核。
 
+## 9. 2026.10.7 分阶段实施与验收计划
+
+2026-10-27建立计划，2026-10-28按 [D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 收敛：公开 native provider + 薄 Stella 语义层 + 现有单一纠正 writer 为唯一研发主线；[D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement)和[架构 §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线)保留历史对照及等价保证。临时合成 C5/C6 的已验工程范围见[§9.7](#97-c5c6-已验收工程事实2026-10-28)，不再把全部 provider 接线写成未实施；本次文档修改不运行任何实验。生产 slot/config/grant、后台及 full_memory 不变，未执行真实模型或完整迁移，不以计划或局部验收改绿。
+
+### 9.1 版本化公开接口与身份教训
+
+生产 adapter 只依赖固定 release 的公开 SDK exports；编译、导入、注册、真实 caller 载荷和消费者必须一起核验。优先小型 adapter 和明确版本拒绝，不维护私有 dist 文件名兼容表，不模拟 Host capability。固定私有 helper 可以用于精确 Host 的测试 fixture，但不成为生产依赖。10.7 的 `command-auth-native`、`agents.entries` 与 native memory 接缝不能反推8.2可用；main 和网页也不能补齐 release 中缺少的功能。
+
+本次破坏性变化不止 import 重命名：真实 profile capability 可在 `ctx.SenderId` 为空时解析出 sender；撤销后 SDK 仍可能因 admin scope 返回 owner 标志。因此必须验证 **当前 capability、可信 operator/direct stamp、精确配置三者一致**，不能只看 owner/admin、旧 stamp、用户参数或 session ID。profile 正例仍归一化为 `openclaw-profile:<id>`，错误/缺失配置和已撤销 capability 均拒绝；工具 requester 保持真实 Host 取值，不人为制造 transport sender。设备绑定仍只代表配置设备持有人，不升格为自然人 profile。详见[已实现边界](OPENCLAW-2026.10.7-COMPATIBILITY.md#公共接口与身份)。
+
+native memory 的 Host audience 与 Core source/processing grant 分开：owner-private 不自动允许任意私人资料/模型用途；host/status 和 operator scopes 不自动成为私人会话授权。当前主线使用经验证的 native caller/audience 接缝；若将来重开 A 的局部比较，仍须先解决 supplement 缺可信 caller 的问题，不得新增 requesterIds 或放宽处理许可来取得兼容。D-058 的请求边界与 Host capability 生命周期都要保留，不能用一方替代另一方。
+
+### 9.2 依赖顺序与 go/no-go
+
+阶段之间可以准备独立合成 fixture/契约，但不能越过前置门槛切换生产。通过条件按具体路径逐项计，不以C5/C6代表整阶段完成。P4a窄语义实验不依赖完整P3或Chrome；P4b/P5完整使用及交付仍保留适用前置。所有阶段均保留原始失败和未运行项。
+
+| 阶段 / 前置 | 最小工作包与交付物 | Go：继续的证据 | No-go：停止该路径的条件 |
+| --- | --- | --- | --- |
+| P0 固定基线 / 无 | 冻结 Host/npm/SDK、Core diff/产物、producer/consumer源、配置/策略/profile、模型/harness、schema 与备份覆盖；列公开 exports、所有消费者、writer/可变路径和授权表 | 现有13身份/59checkpoint及C5/C6有限范围可定位；公开接口与真实身份对应；每个新实验重新冻结实际加载产物及授权范围 | 来源/产物/实际加载不一致、权限语义不等价、状态不明；不能凭已运行 RPC 进入 full_memory |
+| P1 公共读取与成本 / P0 | 沿选定 native provider 验证注册、来源过滤、descriptor/原件区分、分页/引用/健康/取消及各声明消费者；记录发现与读取成本，不平行建设完整A/B | C5精确get正向、C6真实来源read拒绝仅为已验子集；错误/旧引用、未知caller/跨受众及其他消费者分别补证，候选发现可观测 | 拒绝后转legacy、能力声明大于实现；list原文扫描被误算廉价目录；假空结果/静默降级；新接缝绕过来源策略 |
+| P2 保存与纠正闭环 / 适用P1路径 | 复用现有 correction/事务；provider只读，明确唯一writer、flush/投影责任、receipt/readback、幂等CAS、源修改/删除/下轮撤权和依赖失效；先当前事项纠正再扩展 | C5一个Work提交、receipt精确get及下一请求新绑定已验；语义原意/依赖传播、其他writer、新会话/重启及失败重放仍分别补证 | 只有 `NO_REPLY`/flush success；双写权威；旧理解仍可新供给；依赖重评未完成却报告全局完成；提交成功后回读失败被伪装成未提交或成功 |
+| P3 非空迁移与恢复 / P2 | 与沧海协调原件/附件、Understanding/Work/Change/Bundle/IR/历史/依赖/策略的显式迁移映射；固定一份合成完整副本，删除可重建 Host 缓存后恢复 | 非空和合法空集均正确，缺对象失败；精确活跃 IR/纠正依赖/未决问题可恢复使用；旧读者和单写者契约不受损；源选择不隐式跟 HEAD | 现有 materializer 对非空对象拒绝仍未解决；清空集合求通过、原件只留库外链接、重新编译冒充精确恢复、触碰旧生产指针 |
+| P4a 窄真实语义实验 / 适用P1/P2路径及模型范围/预算授权 | 一个纯合成作者原意场景，先走已证CLI；固定3.8/low，限制主请求及全部辅助调用/预算；检验纠正前后原意、候选/反证/未决和下一请求，不等完整P3/Chrome | 真正模型消费和持久结果可归因；语义失败、调用/token/可得费用逐项记录；自然反馈另记。当前尚未执行 | 无相应授权/预算/数据范围则不执行；协议桩或旧模型不算3.8语义通过；不以词面路由代替语义或预算不足假成功 |
+| P4b 实际入口与迁移后使用 / P3、适用P4a及专项范围 | 验证Chrome/profile等目标真实入口、完整来源及所选消费者，覆盖工具→纠正/保存→下一请求/新会话；不再要求完整A/B对照 | 声明行为/身份/语义与成本在实际入口成立，维护缺口可定位；六类业务与自然反馈另按各自范围验收 | CLI合成链路冒称Chrome或真实主资料通过；迁移/消费者/身份前置未满足；为完成而放宽权限 |
+| P5 冻结交付与受控切换 / 适用P1–P4b及切换授权 | 迁移剩余必要旧测试、全部声明消费者/能力；同版本完整准入、故障/恢复、产物与安装一致，再提出具体切换/退役清单 | #35–39所需证据逐项齐备，影响范围和可执行恢复方案已审查，完整契约才允许 full_memory；有限模式可独立保持其真实状态 | 未解释回归、消费者未覆盖、语义writer/transcript/bootstrap仍缺；无切换许可或恢复覆盖不完整；不得靠删测试、改 optional 或改 profile 名称过门 |
+
+P1/P2可用结构化合成桩验证执行契约，必须标明“未验证语义质量”；需要真实LLM时进入限定的P4a。不要用确定性关键词/正则模拟语义而宣称完整读取通过。正式Host flush、其他真实工具消费者与真正模型保存行为分别出证，不由C5/C6代替。后续顺序是窄作者原意语义实验→所选消费者及非空迁移恢复→实际入口与受控交付，不重开两套完整体系。
+
+每个阶段报告至少包含：版本元组、前置条件、用例/来源范围、预期与实际、失败类别、已完成持久阶段、readback、未覆盖项和下一 gate。公开报告只放合成内容/聚合结果，私人 trace 留在私人位置。现有 `/tmp/stella-arch-core` 是本轮证据存放点，不是未来可重现交付的永久依赖；后续冻结任务需按仓库既有 receipts/测试约定保留脱敏证据，不能把旧临时文件存在当长期验收。
+
+### 9.3 对照用例与成本记录
+
+选定主线的P1–P4使用可对应的来源范围、更新/删除事件、期望证据和响应语义，按阶段覆盖：无关旧资料、关键反证在后页、同名不同人/不同时间、作者原意纠正、候选未采纳、模型推断与原话混合、非空事项恢复、精确IR、来源缺失/权限拒绝、分页中断及写入重试。P4a只承担其声明子集。若D-062条件触发局部方案比较，再固定同一用例比较；不预建完整A/B。合成结构测试、真实模型诊断与主人的自然反馈分别保留，模型总分不能替代产品认可。
+
+| 记录维度 | 必须分项观察 |
+| --- | --- |
+| 读取放大 | descriptor页/条数、实际 original 次数/bytes、最终送模型 bytes；当前 list 必须计入逐项原文读取及其权限判断 |
+| 模型与工具 | 主对话、来源用途判断、检索/选择、derive/learn、embedding和评测调用分别记录；工具名/参数schema/错误类别、重试、超时与截断 |
+| 费用与时间 | 每种调用的模型、token与可得费用、总费用未知部分；TTFT/总耗时、首次/缓存/重启与失败重试；不能只报主对话估价 |
+| 效果与完整性 | 正确证据/反证、引用版本、证据充分/关键未知/冲突、纠正后复发、无关分析、响应类型与持久状态；明确被预算阻断的未完成取证 |
+| 维护面 | 公开接口/私有依赖数量、需要拥有的生命周期/索引/写入代码、升级故障和恢复步骤；按行为等价后的实际成本决策 |
+
+先收集当前真实实现的扫描放大和合成基线，再提出明确数据范围、调用上限/费用预算与停止条件，获批后运行 `google/gemini-3.8-flash`；隔离语义评测用 `low`，不传不支持的采样参数。质量优先不等于无预算；预算耗尽明确返回未完成，不把少读资料或零成本桩当相同质量的胜出路线。既有历史案例费用只作为历史个案，不推定所有 auxiliary 已计费或新路线更省。
+
+### 9.4 37项历史失败的归属
+
+原全套是在最终 profile 修复之前运行：1189项中1152通过、37失败；后续只完成指定重跑，**没有最终全套全绿证据**。如下是处置规划，不是删除/skip许可，也不是当前活跃 checkpoint 已出现37个业务回归。
+
+| 原失败 | 精确分类 | 后续归属与放行条件 |
+| --- | --- | --- |
+| 16：dreaming-public-seams 1、host-compatibility 2、host-context-authority 3、host-context-replay 9、host-silent-draft 1 | 8.2内部文件/codec/旧消费边界契约；10.7 legacy入口已显式拒绝 | 原实现绑定测试为退役候选；仍必要的身份、来源、取消、最终消费/持久化行为迁至 P1/P2/P5 公共接缝；D-058取消的实时撤回语义单独标历史。逐用例说明替代/不再适用原因，不能整组忽略 |
+| 12：native-memory-reader | 旧native索引/provenance读取尚未迁移 | P1/P5 的原生片段/引用/来源/缺失与失效行为迁移任务；当前checkpoint不用此桥接，不是有限启动阻塞，但使用对应完整能力之前是阻塞 |
+| 8：既有未提交 recovery-pointer-barriers | 旧 `io.runtime` 模块不存在，初始化失败，CAS断言未执行 | 将仍必要的并发/恢复屏障案例迁到公开/领域边界后重跑；59项checkpoint覆盖不能被冒称这8例已通过，也不能把模块缺失当已证明CAS错误 |
+| 1：初始化共用测试 helper | 临时目录 ESM 影响 extensionless CommonJS fake-git | 修正测试夹具目录模块类型后单项重跑通过，保留原失败；下一全套重新确认，不用于说明其他36项已解决 |
+
+P0/P5 的维护清单须逐用例记录：旧位置/Host、仍有效的行为、替代测试/证据、退役理由或阻塞阶段。不得通过宽松 shim 让旧私有接口假装新版支持；不得以测试文件已关闭/历史票已完成代替新路径验证。
+
+### 9.5 升级准入、恢复与回滚约束
+
+本次教训是“安装成功、CLI版本正确”不能代表插件可加载或数据库可逆。下一次升级先核验官方固定来源、公开 exports/类型、实际 caller形状、工具schema、所选完整路径及插件依赖；准备受影响配置/源/checkpoint/产物的hash和schema清单，确认备份完整性与恢复覆盖，再进入宿主持久状态升级。尽量用现有安装的正式检查与临时合成夹具，不常设第二套环境。
+
+现有10.7不降级、不恢复旧数据库。已留存的私有旧包/状态/配置备份仍保留，见[兼容记录](OPENCLAW-2026.10.7-COMPATIBILITY.md)；不复制凭据到公开仓库。后续升级计划必须预先区分：只恢复插件/配置是否兼容当前schema，还是必须成套恢复对应Host/数据库；未知数据库降级能力时禁止直接换旧二进制覆盖运行。任何恢复前保留升级后的状态与操作收据，确定可能丢失的新增资料/写入，不自动恢复陈旧grant或checkpoint。
+
+回滚是应有的可审查机制，不是现有执行授权。用户本轮明确保留10.7；未来若确需数据库恢复、权限状态回退或生产切换，必须先给出具体方案、覆盖与数据损失风险并取得相应批准。连接断开或结果不明先检查进程/版本/安装hash/服务和写入阶段，不重复安装、提交或恢复。升级退出条件分别记录 CLI、插件注册、Gateway健康/RPC、权限负例、合成读写/readback、真实模型及 full_memory。
+
+### 9.6 18个 open Issue 的分类映射建议
+
+2026-10-27 使用 `gh issue list` 只读核对18个 open Issue；这是历史快照，不声称2026-10-28在线状态已重查。下表及D-062增量均不修改状态、标签、依赖、正文或关闭票，不把历史已关闭前置任务当新版通过，也不替换父SPEC的完整要求。
+
+| 现有 Issue | 建议阶段/职责 | 保留的缺口与重新定界 |
+| --- | --- | --- |
+| [#6 完整交付 SPEC](https://github.com/tower1229/Stella-Core/issues/6) | P0–P5总索引 | 更新时区分有限10.7、路线选型、完整记忆和产品交付；不由计划自动完成 |
+| [#23 旧记忆不回流](https://github.com/tower1229/Stella-Core/issues/23) | P1/P2消费与依赖、P5全路径 | 保留代际/来源资格；按D-058排除即时追溯撤回，按D-062沿选定公共接缝验证；Dreaming仍停用 |
+| [#24 Ongoing Work](https://github.com/tower1229/Stella-Core/issues/24) | P2后扩展、P3/P4 | 纠正闭环先行；原前提、候选、未决与实际行动分别保留 |
+| [#25 Framework/IR](https://github.com/tower1229/Stella-Core/issues/25) | P2/P3/P4 | 采纳与精确IR恢复，不以重编译或外部观点替代owner框架 |
+| [#26 外部研究](https://github.com/tower1229/Stella-Core/issues/26) | P1接缝、P2归档、P4实测 | 原文留存/引用、外部观点身份和真实适配器仍须验证 |
+| [#27 均匀抽样](https://github.com/tower1229/Stella-Core/issues/27) | P1范围/读取、P4实际入口 | 冻结许可集合、精确数量与失败语义；不将抽样用于语义路由 |
+| [#28 微信读书](https://github.com/tower1229/Stella-Core/issues/28) | 独立接入依赖、P3覆盖、P4授权实测 | 完整分页/原件/笔记及账号依赖，不能因路线变化改optional或增加凭据 |
+| [#29 Public Ask](https://github.com/tower1229/Stella-Core/issues/29) | P2事务接口后、P4专项 | 整批与逐项失败、私人/公开隔离；无实际外发授权不执行 |
+| [#30 调度/投递](https://github.com/tower1229/Stella-Core/issues/30) | P2事项稳定后、P5专项 | 复用Host正式调度；已停cron/频道不恢复，不增主动关系跟进 |
+| [#31 真实prompt](https://github.com/tower1229/Stella-Core/issues/31) | P1装配、P4语义 | 固定10.7角色/顺序/截断及实际skills；磁盘文件不算最终消费 |
+| [#32 初始化冲突](https://github.com/tower1229/Stella-Core/issues/32) | P0版本边界、P2/P5 | 三方冲突、before hash与源CAS，保留用户编辑 |
+| [#33 崩溃恢复](https://github.com/tower1229/Stella-Core/issues/33) | P2/P3、P5全路径 | 文件/配置/视图/任务一致性及非目标agent隔离 |
+| [#34 完整副本恢复](https://github.com/tower1229/Stella-Core/issues/34) | P3 | 非空语义资产迁移当前仍阻塞；无旧会话/库外存储依赖 |
+| [#35 完整profile候选](https://github.com/tower1229/Stella-Core/issues/35) | P5，依赖P1–P4 | 全部声明能力真实消费，非可解析配置/局部59例 |
+| [#36 冻结/完整准入](https://github.com/tower1229/Stella-Core/issues/36) | P5 | 干净源码、同包/同Host/同源/同模型证据，不能拼接当前未提交补丁 |
+| [#37 六类真实main](https://github.com/tower1229/Stella-Core/issues/37) | P4先验路径、P5完整业务验收 | 六类场景与自然反馈分开；先验实验不自动完成全票 |
+| [#38 完整故障](https://github.com/tower1229/Stella-Core/issues/38) | P1–P3局部、P5同版本完整矩阵 | 来源/权限、取消/CAS/持久化/投递保留，按D-058限定撤权时序 |
+| [#39 最终退出](https://github.com/tower1229/Stella-Core/issues/39) | P5最后 | 原需求/能力/验收逐项核对，历史原语义失败、未测及自然反馈不抹平 |
+
+**D-062对应的保留/改写/合并建议（仅本地）：**
+
+| 历史Issue组 | 收敛建议 |
+| --- | --- |
+| #6 | 保留总SPEC；改写路线依赖为单主线，工程子集与完整交付分别计，不因C5/C6关闭 |
+| #23、#24 | 保留不同产品要求；合并重复的纠正→下一请求夹具/证据工作包，仍分别验旧理解失效与事项连续性；C5只提供一个Work正向子集 |
+| #25、#34 | 保留精确IR、非空权威资产/附件与恢复要求，共用迁移清单；不得以重新编译、空集或历史会话代替 |
+| #26–#30 | 保留独立适配器/外部账号/投递授权边界，复用Host通用执行与调度；不因架构收敛自动恢复后台、外发或新增凭据 |
+| #31–#33 | 改写8.2内部实现依赖为选定10.7公共Host接缝、实际消费、现有writer/CAS和恢复断言；合并重复基础设施/证据任务，不合并掉角色、冲突和故障要求 |
+| #35–#39 | 保留完整profile、冻结、六类业务、故障与最终退出门槛。C5/C6仅支撑局部工程事实及#38一个来源read拒绝，不代表全票完成 |
+
+取消的是“必须全面移植旧guarded provider/Context Engine/私有SQLite、另造第二语义writer、并行完整A/B或十二套基建”的默认实施任务，不取消仍有效的产品/权限/恢复行为，也不删除旧生产代码。37个历史失败按§9.4逐例归属。无需另建平行票系；若后续获得tracker修改任务，再把这些建议映射回原票。本次不更新GitHub。真实付费模型/私人资料外发、身份信任或持久权限/凭据改变、生产slot/配置切换、恢复后台/真实投递、数据库恢复及push/发布仍按各自范围和授权执行；本次文档不执行或追加这些权限。
+
 隔离合成验收先通过真实 Host 的公开 manager 完成索引建立和原生向量查询，确认选中原始片段出现在真实候选中；候选只用于准备证据，配置的确切 Evidence 仍经来源语义准入和独立留存原件核对。随后禁用消费期 search／sync，验证成功、来源／处理许可拒绝、正文变化、缺少索引、向量行及嵌入缓存缺失／失配、读取后正文／来源／授权／向量／缓存变化，以及向量与缓存同时一致变更后的摘要失效。准备期使用明确的本机合成嵌入服务；消费阶段嵌入请求必须为零。这没有授予普通业务查询嵌入、隐式索引重建或 fallback 权限，也不表示 QMD、任意插件、真实模型、私人主会话或完整 `full_memory` 已认证；Dreaming 及原有门禁保持不变。
 
 
 2026-10-19 普通查询嵌入处理边界：`stella.personal-context-access/v1` 可显式增加闭合的 `queryEmbedding: {provider: "openai", model, endpoint, dimensions}`。这是本轮原始查询的单独处理许可，沿用既定 owner／requester／主人私聊／用途及当前来源授权，不从 `modelRefs`、视图许可或 operator 认证许可推导。插件普通片段工具和受限认证共用同一实现；受限配置须另显式声明 `queryEmbedding: true`。缺许可、其他 provider、备用路由、输入类型改写、模型／端点／维度／原生 providerKey 不符均失败，禁止发送文档或后台重建。当前仅支持固定 Host 的 OpenAI 文本嵌入接口，不接受任意 embedding 插件自报成功。
 
 实际查询经公开 Host 凭据解析和 SSRF transport 发送一次原始 request，继承 Core 当轮取消信号并拒绝重定向；严格检查单个响应的模型、index、维度、非零有限 Float32 向量及 256000 字节上限。不可伪造的内部收据绑定本轮 ProcessingAuthority、确切请求与原始响应摘要。随后在已有原生 SQLite 索引上执行只读 sqlite-vec KNN；最多 4096 个向量、32 个候选，要求已语义准入片段在当前分数门槛内命中，不做词面选择、fallback scan 或索引写入。未准入候选正文不进入模型。原生候选集合、嵌入收据、原文回读及工具／最终模型消费摘要关联；之后的调用复用该向量并复核许可、来源、配置、索引、缓存与候选集合，失效不能重试另一向量或继续模型调用。受管写入复用既有 `hostContextExecutionHash`：只有 Core 持有并确认的 recovery CAS 推进可保持执行身份，外部指针变更、来源或代际失效仍拒绝。现有精确片段回读路径保持原契约；此扩展不清除完整 `full_memory` 阻塞，不声明 QMD、任意插件、真实模型或私人 main 通过。最终打包和同提交／同包证据完成前不声称正式交付。
+
+### 9.7 C5/C6 已验收工程事实（2026-10-28）
+
+本节将独立复核的可识别版本、范围和计数保存在正式文档，作为D-062的有限依据；原始临时路径只是补充证据位置，不是运行或交付依赖。未将全部临时夹具/收据归档成可重复交付包，P5仍须按既有约定留存脱敏产物及收据。本次只写摘要，没有重跑Host、探测当前服务或调用模型。
+
+**共同版本与边界：** 已安装 `openclaw@2026.10.7`（运行build `157d8c2`），Core HEAD `57c84c976f52c36633ce26793c01a909b5f86c1f` 加各批次冻结的未提交源码。两批 `source-freeze.json` 记录的 `hostPackageHash` 均为 `362f8c0fda7b71a116e0ca2f812e896bfe9cfec41e64b6b66243f95703aaf7b8`；它不代替整个安装目录的完整性证明。均为临时loopback Gateway、原生CLI身份、无remote合成Git及本地固定协议桩，没有真实Google请求或模型推理。临时slot/工具/来源许可只适用于夹具，生产部署配置与 `full_memory:false` 未由此改变。
+
+| 批次 | 独立接受的真实Host路径 | 可核对计数与持久结果 |
+| --- | --- | --- |
+| C5，同实例连续两请求 | 同一Gateway PID `13344`、同一物理会话，唯一一次sessions.create，无reset/reopen；原生v2工具ctx、CLI owner/requester、owner-private audience/current进入公开native SDK。第二请求确有4条历史，归属/已知schema/session/lifecycle检查成立；重新绑定checkpoint/来源许可，没有把历史当当前资格 | 主请求2/2，两次terminal_ok；归档2、纠正1、Git提交3。首次现有writer提交后按receipt精确lease.get；第二请求读到完全相同Work版本、不再纠正。非空confirmed/候选/反证/未决字段保持。固定协议HTTP调用10，真实模型0 |
+| C6，首次来源read拒绝 | 主请求1/1，native open 2、实际get 1；owner/audience在get及来源判定前后有效，来源policy `readPurposes:[]`，derive/delivery保持允许；在实际 `source-access.js:32` 产生 `permission_denied`，不是身份、启动或缺引用失败 | 受保护原文/Work读取入口及对应路径I/O尝试0、canary释放0；归档writer/纠正writer/CAS/initialize请求窗口尝试0，无Git提交或Learning Change。metadata 6、校准1、checkpoint锁15轮/repository fence 16轮另计。固定协议HTTP调用2，真实模型0；terminal_ok仅表示拒绝回复完成 |
+
+C5的唯一纠正 operationId 为 `learn_78a1685f70a96ac9f112db6946b489025a6b38b1100b106f6a9ff3bebaa1cfcf`，provider `stella-core`、对象 `works/synthetic-writing-work`，精确版本 `sha256:2b0e26d0a6a9d721e50ddd581558f394e1e31a6ce9c327cef2e6cd8080e700f5`。纠正提交 `b1b02b1d315441f43a02f8dc964a9485a9b9017e`，第二归档后的最终提交 `f157d35a9d463591daf9fea44541e0527671d998`；第二次回读canonical字节与首次一致，最终clean且无remote。C6的authority数据hash/选定tuple/Git HEAD `bb15453ea231c4d579075164394eb12e75f2d148` 前后不变；只观察当前受保护路径，不能推断任意I/O均已覆盖。
+
+两批关键源文件SHA-256一致，文档后续编辑不属于这些已冻结产物：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `src/openclaw/checkpoint-host-request.ts` | `946fc286d511f2e31c33fc9b93aa469358fb72c9fa313cf6019bdff1e15021a6` |
+| `src/openclaw/checkpoint-correction-readback.ts` | `76699c3b4ff5639070d63a4a0f874f381b4effbae790240212b33ac12091f842` |
+| `src/openclaw/checkpoint-native-readback.ts` | `76e388900b97272c5b34d3ad4d5fa2f0cae50b948956b62b1e3781b228c320d8` |
+
+| 冻结/独立复核证据 | SHA-256及核验范围 |
+| --- | --- |
+| C5 `source-freeze.json` | `825c0ea91f687c446ef03aeaaae8f61f93fe1c3ddcab71ac844bdfbfc61a98ac`；327源文件、317运行文件及1433份历史证据匹配；298份Core编译文件与前批一致 |
+| C5独立 `EVIDENCE.json` | `040885777cecb49d52840f5e117b7a8adfcc9aef7cbf46c35fd926206b6517aa` |
+| C6 `source-freeze.json` | `198c4be4087ab8556579232b71992e4dcfadb615d3ea1c4a6533a89bda67a0c7`；327源文件、331运行文件及首失败810份证据匹配；三处编译插桩仅六行入口计数，不改授权谓词 |
+| C6独立 `VERIFICATION.json` | `899439d6668e90bad4593e6d53986a156454e87e39d49dbdc7048204c453dc27` |
+
+控制器先确认终态，再有限等待精确runId的唯一 `request-retired/remaining=0` 才发下一请求；终态返回前marker已存在也合法。C5独立核验保留了事后时间戳断言修订原版；最终判定没有移除身份/历史/版本/计数或首轮退休先于次轮输入捕获的要求。C6首失败因自加harness禁止整个authority目录写入，误拦checkpoint读取锁，主请求/get均0，仍属未覆盖。重试只缩小该测试写拦截至checkpoint数据文件，允许既有锁操作；来源read拒绝和正文/外网保护不变，没有更改系统权限。前两批C5及C6首失败均保留，不能倒写成通过。
+
+**清理证据而非当前健康声明：** 两批当时记录临时Gateway/协议桩停止、端口释放、凭据目录删除；独立复核确认相关敏感目录缺失。运行前后主公共health记录健康、PID `19252`。复核没有重做实时端口/进程/health或主配置/grant字节审计，不能外推完整operator健康或当前线上状态。
+
+**仍未验收：** 真实Gemini语义与作者原意、Chrome/profile、未知问题的相关记忆发现、其他搜索/分页/自动注入消费者、flush/摘要传播、Host capability撤销、learn/local_write拒绝、任意历史压缩变换、完整迁移/非空恢复、旧操作跨进程自动续完、生产注册和full_memory。C6是首次来源read拒绝，不是运行中即时撤回；后者按D-058不列主线必过门槛。C5/C6也不是最终全套测试或六类业务验收。
+
+原始补充位置：C5执行 `/tmp/stella-arch-core/c5-same-instance-RuCYjZ/`、独立复核 `/tmp/stella-arch-core/c5-same-instance-review/REPORT.md` 与 `EVIDENCE.json`；C6执行 `/tmp/stella-arch-core/c6-retry-rwb8vf/`、独立复核 `/tmp/stella-arch-core/c6-review/REPORT.md` 与 `VERIFICATION.json`。选型整理稿 `/tmp/stella-arch-core/c5-architecture-delta-PgP1Gm/ARCHITECTURE-DELTA.md` 的“下一步C6”已被上述有限负例验收更新；下一最小任务为§9.2的P4a方案及相应语义实验，不是再次总架构设计或生产切换。

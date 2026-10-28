@@ -326,3 +326,88 @@ for better evidence does not authorize proactive relationship follow-up.
 
 These responsibilities extend the full-product design. They are not claims that the current
 candidate selection, Episode learning or recovery tests already satisfy the two complete scenarios.
+
+## 8. 2026-10-27 Host-first memory评估基线
+
+本节保留 [D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement) 的2026-10-27对照及替换条件；2026-10-28由 [D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 收敛为“公开 native provider + 薄 Stella 语义层 + 现有单一纠正 writer”一条研发主线。不是生产切换或 full_memory 通过声明。详细执行依赖、go/no-go、工程证据与历史 Issue 映射只维护在 [Host 集成 §9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划)，数据格式和产品退出条件仍由既有契约维护。
+
+### 8.1 固定版本与证据层
+
+下表及“已验证”段是2026-10-27既有部署快照；后续临时验收不覆盖或改写其配置状态。
+
+| 对象 | 本次固定身份 | 证据范围 |
+| --- | --- | --- |
+| Host | 官方 npm `openclaw@2026.10.7`，运行 build `157d8c2`；[同版本 release](https://github.com/openclaw/openclaw/releases/tag/v2026.10.7) | 已安装、Gateway/RPC 可用；不把 CLI 启动或插件注册当产品验收 |
+| Core | `57c84c976f52c36633ce26793c01a909b5f86c1f` 加未提交的10.7兼容 diff；已集成产物 SHA-256 `4780a19694952245d9531f01cec58e6f0932abf95cb3fd1c2ee5295265914dff` | `sourceClean:false`；后续文档修改不属于该既有产物，不能当最终冻结版本 |
+| 当前显式消费源 | `112be540a3988af53d1076a38f8f1c155da7a745`，独立的 migration-v1 副本 | 保留既有 checkpoint、grant 和消费指针；不跟随生产 `dev` 或开发 HEAD |
+| 沧海迁移开发 | `2ea285d98d21c0882092582141aac92f93fa432a` | 生产者代码核查基线，不等于当前消费源或旧版 Stella 1.0 |
+
+**已验证**：当前 `core_checkpoint + fresh_tools` 的身份13例、checkpoint定向59例、类型检查/9项 schema 与真实 RPC。实际状态仍是 `experimental_owner_chat`、`full_memory:false`；bootstrap、完整语义 writers、完整 transcript 缺口仍在，`ownerCorrectionTool:false` 未改变。59例的模型端口使用合成桩，13例使用安装中真实 Host caller helper 构造合成上下文。完整范围、历史超时及37失败见[兼容记录](OPENCLAW-2026.10.7-COMPATIBILITY.md)。
+
+**当时静态已确认**：10.7 的公开 `providerRuntime`、`providerFlushPlanResolver`、caller authority、audience 和带版本引用存在；读取、flush 和实际消费者各有独立限制。依据固定 tag 的 [memory/context SDK](https://github.com/openclaw/openclaw/blob/v2026.10.7/docs/plugins/sdk-overview/memory-and-context.md)、[注册类型](https://github.com/openclaw/openclaw/blob/v2026.10.7/src/plugins/registry-contribution-types.ts)、[provider 类型](https://github.com/openclaw/openclaw/blob/v2026.10.7/src/plugins/memory-provider-types.ts)。2026-10-27时尚无该轮 native provider 端到端成功证据。
+
+**2026-10-28临时工程验收增量**：C5在同一真实10.7 Gateway/CLI会话中完成两请求，原生 audience、历史归属、新绑定、一次纠正提交和两次相同版本 native 回读成立；C6在有效 owner/audience 下实际进入 native get，并在来源 read 边界拒绝，受保护正文/释放与业务写入/CAS均为零。版本、计数、哈希和失败保留见 [集成 §9.7](04-OPENCLAW-INTEGRATION.md#97-c5c6-已验收工程事实2026-10-28)。均仅临时合成资料与固定本地协议桩，不改变上表部署或 `ownerCorrectionTool:false` / `full_memory:false`。
+
+**待实测**：真实模型作者原意与语义效果；Chrome/profile；搜索/分页/自动注入等其他消费者、flush；Host capability 撤销；完整语义资产迁移、完整恢复及 full_memory。运行中追溯撤回按D-058不列主线门槛。Knowledge 尚未在10.7固定发布包验证，不能用 main 代码补齐这列。
+
+### 8.2 唯一权威与三方职责
+
+| 内容 | 权威与写者 | 其他位置的地位 |
+| --- | --- | --- |
+| 原始资料、附件、作者原文及原始交互证据 | 沧海按既有格式完整留存；明确接入/归档 writer | Host transcript 是执行原事件来源；导出范围与归档 coverage 可核验，不复制一套会话执行数据库 |
+| Current Understanding、Ongoing Work、Learning Change、重要 Historical Trace、已激活精确 Framework IR | 沧海保存可迁移版本；每类资产只有一个声明的领域 writer，由 Stella 语义判断驱动 | Host memory 不独立创造另一份同名真相，助手推断不变成 owner 原话或信念 |
+| 目录、FTS/vector、候选排序、摘要、USER/MEMORY 等 Host Projection | 优先官方基础设施；从有效源及 generation 重建 | 可以缓存、索引或丢弃重建，不是语义权威；投影丢失不能丢失必要学习 |
+| admission、处理许可、来源用途/受众 | Host 可信调用事实与现有 Core 来源规则取交集 | operator/admin、owner-private audience、设备、自然人 profile 和 processing grant 不能互相替代 |
+| 被选择的源 revision/并发提交 | 当前 D-059 小型 checkpoint 与单写者/CAS | 不是全量记忆库、通用事务平台或额外身份账本；未来可替换实现但必须保留等价提交行为 |
+
+同一语义资产不能由官方 Dreaming/file flush 和 Core learning 各写一份权威再互相导入。对每个 writer 先声明资产种类、可变路径、来源/版本、operation ID、commit/readback 和恢复责任。官方文件若仅为 projection，必须可从沧海重建并阻止被重新导入为独立证据；若要升格为权威原件，必须先建立唯一写者和完整迁移方案。既有 Dreaming、频道及 cron 停用状态不因本设计改变。
+
+### 8.3 对照路线及否决条件
+
+以下表格保留2026-10-27选型时的比较，不能继续解释为必须平行完成两套系统。
+
+| 路线 | 可复用部分与 Stella 增量 | 必须先证实的缺口 | 2026-10-27当时决定 |
+| --- | --- | --- | --- |
+| A：官方 memory + 薄 Stella | 官方存储/索引/通用读取；Stella 作有来源的个人理解、语义取证、纠正及领域写入，必要时用 supplement 或正式工具连接沧海 | supplement 只有 query/agent/session/sandbox，缺少 native caller capability；必须有公开且可验证的现有请求授权接缝，否则拒绝该私有读取。内置结果和自动注入也不能绕过来源资格；必须证明 flush/纠正写者不双写 | 优先建立对照基线，但尚未判定可满足完整契约 |
+| B：定制 native provider | 通过10.7 `providerRuntime` 接入沧海记录，复用 Host memory 消费者与生命周期；Stella 保留领域语义和写入工具 | 必须验证公开注册/真实加载、caller/audience、分页与版本引用、每种已声明消费者、工具型 flush 和 readback。中性 read API 没有通用领域 mutation；不能据此宣称学习已经实现 | 与 A 用同一用例和成本口径比较，不预先占用 Stella memory slot |
+| C：官方 Knowledge + Stella 语义层 | 若固定发行版提供完整能力，可评估图谱/知识组织等官方机制 | 10.7包中尚未验证其发布、SDK 与迁移/权限/写入契约；不能混用 main 和 release | 仅候选；进入比较前先固定实际发行版本和可运行证据 |
+
+A 的 supplement 不能从 session-key 模式、全局缓存或任意 ID 推造授权；若公开接口不能保持现有信任，A 此接缝 no-go，改评正式工具或 B，不能放宽 grant。B 中 session 无合法 audience、跨 agent audience、host status 调用都不自动获得私人数据；operator 的状态查询与私人原文读取分开。
+
+只有选中的 memory slot owner 可以提供 tools-arm `providerFlushPlanResolver`。因此 A 下的 Stella supplement 不能假定自己能替官方 slot 定义 flush。A 要分别验证：正常领域纠正工具作为唯一 writer，以及官方 file flush 被关闭或仅写可重建投影的明确方案。后者必须证明不会独立学习或回流为权威。B 可以评估所选 owner 的工具型 flush，但不能凭 SDK 字段存在直接切 slot。
+
+当时选型顺序是：同等身份/权限、原件与引用、纠正/依赖失效、持久化/恢复全部满足，再比较语义效果、调用/字节/成本和维护面；A满足时优先较薄实现。该完整A/B选型前置由D-062收敛：现在沿已验证的公开 native get、薄语义适配和现有 writer 继续有限研发，尚未覆盖的能力仍逐项设门槛。仅因具体SDK新接缝或已测契约/维护/成本瓶颈重开局部比较；不并行建设完整A/B，不宣称A（包括公开无敏感索引加受控私有工具）全面不可行或B整体更优。
+
+### 8.4 读取、纠正与更新闭环
+
+1. 新用户请求从可信 Host 身份确定 caller、受众、处理目的/模型与当前选定来源 revision/generation；来源策略继续生效。工具续轮沿用这一请求边界，下一用户请求重新准入。旧历史可作为过去对话，不是当前事实或许可凭据。
+2. 候选发现优先复用官方检索/索引；Stella 用结构化 LLM 判断相关性、证据角色、更新/反证和继续检索的必要性。确定性代码只做结构、权限、容量和执行校验；不以词面打分代替语义，不用小 top-K 宣称证据充分。
+3. 每次首次供给读取当前合法的精确原件/片段，返回可定位的 Source Version、Evidence、内容 hash/范围和覆盖状态。provider 的 `providerId/id/revision/fragment` 需明确映射到既有引用；缺 revision 时不能自行解释为最新，引用不授予读取权。分页 cursor 绑定集合/版本；过期和部分失败不能当空结果。细粒度策略拒绝的片段不能靠同文件其他许可放行。
+4. 用户纠正先保留 owner 原证据；区分修正事实、作者意图、情境假设、未采纳候选和长期偏好。只修改其适用范围；保留原预测/历史判断以及支持与反证依赖，同一纠正的重复摘要不增加支持。
+5. 用现有单写者事务写入语义新版本、Learning Change、相关依赖失效和必要投影迁移；固定 expected revision/token、operation ID 和变更 bytes，提交后 CAS。同一操作重试只在原 journal/bytes/来源资格仍合法时回读或续完原结果，冲突显式失败，不把 observed HEAD 换成 expected。模型判断成功、Git commit、checkpoint CAS、projection 发布、远端同步分别观察。
+6. 保存结果必须有 operation/revision/object-version 绑定的 mutation receipt，并在重新打开 reader 后 readback。仅 `NO_REPLY`、flush 标记成功或 lookup 成功不算领域持久化；延迟回调不能补造成功。`local_committed` 与 remote_pending/synchronized/RPO 分开。
+7. 当前事项必要纠正已同步、依赖已有效、全部受影响旧理解已禁止新供给后，可以继续当前协作；其他事项分批重评。当前实现仍是整批重评后发布，不能写成已支持 D-056 的中间代。任何依赖 pending 部分的结论显式等待/未完成。
+8. 下一请求、新会话和重启重新读取当前资格及新版本；源编辑/删除、撤权与更新必须使旧索引、摘要、投影和依赖失效，不能从历史自动复活。Host 过去对话仍保留其历史身份，不承诺追溯抹除本轮已合法供给的内容。
+
+保留正常取消和 SDK 生命周期：Host audience 撤销不保证触发 `context.signal`，provider 在自己的 await 之后、每个副作用之前调用 `assertCurrent()`。这是 SDK capability 使用规则；不另建实时内容撤回代理或输出缓冲，也不把普通 source 更新当作取消已合法供给的同轮协作。新增读取/写入仍检查其必要资格，下一请求必须 freshness。
+
+“遗忘/衰减”遵守既有产品边界：不新增自然语言事件遗忘入口；用户物理编辑/删除原件后做索引与依赖同步。可评估暂时假设、检索优先级和待重评状态的变化，不能按年龄自动把事实变假、删除原件/学习、失效稳定偏好或改变授权。是否适用需要语义判断；历史证据、重要修订和未采纳内容保持可区分。
+
+### 8.5 当前实现的保留、替换与删除候选
+
+下表固定必要行为及替换条件，不要求全面移植旧基础设施，也不授权删除旧生产路径。小型 checkpoint/CAS 和单写者保留其保证；能力清单不是十二个自建服务清单。
+
+| 当前模块/保证 | 处理方向 | 替换或删除的必要条件 |
+| --- | --- | --- |
+| guarded 模型包装 | 旧严格最终消费/输出保护的实现候选退役；D-058 已取消实时撤回主线 | admission、首次来源/模型许可、正常取消、来源/推断区分和下一请求 freshness 有新路径证据；不要求复刻已取消的输出缓冲 |
+| 旧 Context Engine | 不为10.7迁移而默认保留 | 使用标准 Host 上下文/公开 memory 接缝验证角色、来源、最终消费及旧历史地位。Context Engine 普通错误可 quarantine/fallback，不能独自承担必须 fail-closed 的权限边界 |
+| native SQLite 桥接 | 优先以公开 provider/search/get 接缝替换 | 原件/片段、provenance、索引就绪/缺失、源修改和精确版本仍可验证；不能以旧私有表 schema 作为新设计前提 |
+| 小型 checkpoint、archive custody、CAS 与单写者 | 暂保留当前有效保证，非永久底座选择 | 只有替代机制证明原 expected tuple、幂等重放、完整 bytes、失败恢复和 portable source 选择等价，才删除原实现 |
+| 现有 LLM 分页全库选择 | 保留语义判断，重做发现/候选成本实验 | 官方搜索候选不丢关键反证/新证据；失败、预算耗尽和证据充分性显式表达，不能改成关键词路由或固定小包 |
+| 原话归档与语义 writers | 复用契约，分别补齐覆盖 | owner-input `local_committed` 不等于完整 user/assistant/tool/media transcript；correction 模块局部可用不等于全部 writers 已迁移 |
+
+如果比较后仍选择自定义 Context Engine，还需独立验证10.7的 admitted-turn fence、atomic-idempotent turn advancement 与 `commitTurn` 契约，不能将旧实现注册成功当作耐久回合支持；依据[固定版本 registry](https://github.com/openclaw/openclaw/blob/v2026.10.7/src/context-engine/registry.ts)。这不是要求为有限 checkpoint 路径新增 Context Engine。
+
+代码依据：`plugin.ts:256–260` checkpoint 提前返回且10.7拒绝 legacy；[host-memory-provider.ts](../src/openclaw/host-memory-provider.ts) 注册的是 **模型 provider** `stella-guarded`，不能由文件名误判为 memory provider；[checkpoint-agent-supply.ts](../src/openclaw/checkpoint-agent-supply.ts) 当前 list 分页后逐项调用 original，再截取 preview，已经发生授权原文读取，**不是廉价 descriptor 枚举**；[semantic-retrieval.ts](../src/canghai/semantic-retrieval.ts) 的多轮分页/容量是实现边界；[correction.ts](../src/learning/correction.ts) 保有证据、范围、依赖闭包、新版本与事务；[recovery-checkpoint-store.ts](../src/canghai/recovery-checkpoint-store.ts)、[checkpoint-archive.ts](../src/canghai/checkpoint-archive.ts) 保有小型 authority/CAS 和精确原件 custody。模块名不是运行路径或完成证据。
+
+迁移开发基线的 `99_System/Scripts/knowledge-migration/materialize.mjs:32` 对非空 `understandings/works/changes/bundles` 返回 `derived_objects_require_explicit_reassessment`；它目前不是完整语义资产迁移器。不得通过清空集合、丢失 Learning Change/依赖、重新编译代替精确 IR、重标助手推断为 owner 事实来取得成功。完整迁移先交接引用映射、历史/当前状态、策略、附件、依赖、精确活跃 IR 和唯一 writer，再验非空恢复；当前源和生产 `dev` 保持不动。

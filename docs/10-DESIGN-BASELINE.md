@@ -1,5 +1,11 @@
 # 现行设计基线与验收口径
 
+2026-10-27 宿主兼容补充：当前有限 `core_checkpoint + fresh_tools` 路径承接 OpenClaw 2026.10.7；身份 capability/stamp/config 绑定、实际验证及未迁移的8.2 legacy路径见 [最小兼容范围](OPENCLAW-2026.10.7-COMPATIBILITY.md)。这不改变下文产品契约、历史验收身份或 full_memory 未通过状态。
+
+2026-10-27 架构方向补充：[D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement) 固定“官方 memory + 薄 Stella”与“定制 native provider”的对照和等价替换门槛；[架构 §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线)维护职责/权威/方案，[Host 集成 §9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划)维护版本、go/no-go、迁移、37失败归属及18个open issue映射。Knowledge仅候选；本次设计不执行实施/权限/模型/部署或Issue变更。
+
+2026-10-28研发主线收敛：[D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 接续D-061，选择公开 native provider、薄 Stella 语义层和现有单一纠正 writer，不再以完成完整A/B为前置。C5同实例两请求正向链路与C6单请求来源read拒绝已作有限工程验收；[版本/计数/哈希摘要](04-OPENCLAW-INTEGRATION.md#97-c5c6-已验收工程事实2026-10-28)不依赖临时路径才能识别范围。真实模型、Chrome/profile、其他消费者、Host撤权、迁移/恢复及 full_memory 仍未验收；既有部署状态和历史失败不改绿。下述D-058边界继续生效。
+
 更新日期：2026-09-05。本文是现行规范入口，不是发布计划或实现完成证明。
 
 ## 2026-10-23 实验性项目范围修订
@@ -19,6 +25,7 @@
 | 现行规范导航、验收分层 | 本文 |
 | 数据格式、生命周期、不变量 | [契约目录](contracts/README.md) |
 | 当轮执行及 Host 要求 | [运行协议](02-PRAXIS-RUNTIME.md)、[Host 集成](04-OPENCLAW-INTEGRATION.md) |
+| 10.7架构对照与分阶段任务 | [架构 §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线)、[Host 集成 §9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划) |
 | 实例初始化、运行文件／skills／调度迁移设计 | [Host 初始化设计](04-OPENCLAW-INTEGRATION.md#8-stella-实例初始化与运行投影详细设计)、[内容职责与五份候选正文](04-OPENCLAW-INTEGRATION.md#812-初始化内容设计修订2026-09-08)、[1.0 功能映射](07-CANGHAI-COLD-START.md#13-stella-10-运行实现调查与功能承接2026-09-07) |
 | Alpha 范围和出口 | [Alpha 验收](05-ALPHA-PLAN.md) |
 | 技术决定及替代关系 | [决策记录](DECISIONS.md) |

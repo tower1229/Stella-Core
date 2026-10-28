@@ -686,3 +686,121 @@ success does not certify full_memory or the legacy production deployment.
 
 See [Core–CangHai coordination](CORE-CANGHAI-COORDINATION.md) for the source-level
 dependencies, read/write boundaries, handoff questions and ordered joint gates.
+
+
+## D-061 — Host-first memory infrastructure, with behavior gates before replacement
+
+**2026-10-28 follow-up:** [D-062](#d-062--one-native-provider-path-and-one-semantic-writer)
+selects one finite development path after C5/C6. It supersedes the open A/B
+selection prerequisite for further finite experiments; the
+2026-10-27 comparison and its original evidence limits below remain historical.
+The responsibility, single-writer and behavior-equivalence requirements remain.
+
+**Decision (2026-10-27, architecture direction and evaluation plan):** OpenClaw
+owns generic execution and memory infrastructure; Stella owns personal semantic
+judgment, evidence, correction, learning and continuity; CangHai holds the portable
+authoritative originals and durable personal assets. Prefer supported Host
+mechanisms when they meet these contracts. Existing Core infrastructure is not
+retained merely because it exists, and is not removed before equivalent behavior
+is demonstrated.
+
+The comparison baseline is official memory plus a thin Stella semantic layer.
+A custom native memory provider remains a competing route, not a predetermined
+slot assignment. Compare the same evidence, authority, correction, persistence,
+recovery and cost cases before selecting either. Knowledge is a later candidate:
+its availability on main or the website is not evidence that it ships in the
+fixed 2026.10.7 release. Never combine APIs from different versions into one
+claimed implementation.
+
+One semantic asset has one authoritative writer and portable representation.
+Host indexes, summaries and injected context are rebuildable projections, not a
+second truth that can learn independently and later overwrite CangHai. A provider
+reference or session ID is not authorization. The official native read interface
+does not itself implement Stella's domain mutations or correction dependencies;
+Host flush success does not establish a domain commit. Require an operation-bound
+mutation receipt and readback, preserving idempotency and the selected CAS tuple.
+
+This revisits D-057's **exclusive Core consolidation implementation choice** for
+future comparison; it does not enable Dreaming or another background writer.
+The provenance, invalidation and learning requirements of that decision remain.
+The 8.2 guarded-provider/context-engine/SQLite implementation described in earlier
+Host documents is historical and is not a required architecture for 10.7. Nor is
+it certified on 10.7: the active checkpoint path bypasses it and legacy registration
+explicitly refuses that Host. D-058 request boundaries, D-059 selected checkpoint
+authority and D-060 production coordination remain in force until an equivalent,
+explicitly approved replacement is selected and activated.
+
+The fixed feasibility baseline is OpenClaw 2026.10.7, Core `57c84c9` plus the
+uncommitted compatibility patch, and the source/producer revisions recorded in
+[architecture §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线).
+13 identity cases, 59 checkpoint cases and live RPC establish the finite scopes
+listed in [the compatibility evidence](OPENCLAW-2026.10.7-COMPATIBILITY.md).
+They do not certify real Chrome/model behavior, native-provider loading/flush,
+complete semantic migration or full_memory. The original 37 failures keep their
+identity and receive explicit migration/retirement/blocker ownership in
+[Host integration §9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划).
+
+This decision authorizes no implementation, deployment, issue mutation, new
+identity trust, grant, credential, paid model call or production cutover. The
+ordered gates in §9 are a plan for separately scoped work, not permission to
+execute it. A future paid semantic evaluation must use `google/gemini-3.8-flash`
+and `low` reasoning for isolated evaluation, without unsupported sampling fields.
+
+## D-062 — One native provider path and one semantic writer
+
+**Decision (2026-10-28, finite development direction):** Continue with the public
+native memory provider, a thin Stella semantic layer and the existing domain
+writer as the single correction commit entry. Do not build two complete A/B
+systems before the next experiment. This is a reversible scope choice supported
+by one verified path, not proof that native memory is superior in every behavior
+or cost, or that official memory plus controlled Stella tools is impossible.
+Reopen a local comparison only for a concrete supported SDK change or an observed
+contract, maintenance or cost problem. Knowledge remains an unverified later
+candidate on the fixed 2026.10.7 release.
+
+OpenClaw owns generic agent/model/tool execution, trusted caller/audience,
+sessions/history/lifecycle and public memory consumption interfaces. Reuse its
+index/search infrastructure when the required contracts are demonstrated; native
+`get` evidence does not establish search, pagination, automatic injection or
+flush. Stella owns structured LLM judgment of relevance, author intent, evidence,
+conflicts and scoped correction, and intersects Host facts with source/processing
+permissions. The provider reads; it does not become another learning writer.
+CangHai holds portable authoritative originals and attachments, Source Versions,
+Evidence, Understanding, Work, Learning Changes, necessary Historical Trace,
+exact active Framework IR, dependencies and policies. Host indexes, summaries
+and injected files are rebuildable projections, not a second semantic authority.
+
+Keep the small checkpoint, archive custody, operation identity, selected CAS
+tuple, commit receipt and exact-version readback needed for these guarantees.
+Freeze their behavior, not their implementation as a permanent transaction
+platform. Do not default-port the 8.2 guarded model provider, Context Engine or
+private SQLite bridge; migrate still-required behavior tests to public seams
+before retiring an implementation. Product capability lists do not require
+twelve new infrastructure services. D-058 request boundaries, D-059 authority
+and D-060 coordination still apply; no old production path is deleted or changed.
+
+The accepted engineering evidence is deliberately narrow: fixed OpenClaw
+2026.10.7, Core `57c84c9` plus hashed uncommitted snapshots, synthetic local Git
+and a fixed local protocol stub. C5 used two requests in one Gateway/session:
+real CLI owner/audience, retained history, fresh per-request bindings, two input
+archives, one correction, three Git commits and identical exact Work readback.
+C6 used one request with valid owner/audience but denied source read: actual
+native `get` reached `permission_denied`, with zero protected body reads/releases
+and zero business writes/CAS. The durable version/count/hash summary and
+independent review references are in [Host integration §9.7](04-OPENCLAW-INTEGRATION.md#97-c5c6-已验收工程事实2026-10-28).
+Earlier failures remain failures; neither batch used a real model.
+
+Next, define one bounded synthetic author-intent semantic experiment on the
+verified CLI path using `google/gemini-3.8-flash`, `low`, and explicit main plus
+auxiliary call/budget limits. Full migration and Chrome are not prerequisites
+for that narrow experiment. Real semantic quality, Chrome/profile, other memory
+consumers/flush, Host capability revocation, complete migration/recovery and full_memory
+remain unaccepted. Runtime withdrawal is outside the mainline gate under D-058,
+not newly certified by C6. Complete product delivery retains its applicable gates.
+
+The [phase and historical issue mapping](04-OPENCLAW-INTEGRATION.md#92-依赖顺序与-gono-go)
+is a local plan, not a tracker mutation or deployment record. This decision does
+not execute model calls, change production slot/config/grants, enable background
+writers or authorize new persistent access. Such work follows its applicable
+scope and authorization; no implementation, push or rollout occurs in this
+documentation change.

@@ -21,7 +21,7 @@ OpenClaw 保留模型执行、会话、搜索、工具、权限和调度。Corte
 
 ## 2. 实现约束
 
-- Exact Alpha Host 为 OpenClaw 2026.8.2；最低兼容声明 2026.8.1 尚需独立验证。
+- 历史 Exact Alpha 候选固定 OpenClaw 2026.8.2，2026.8.1旧最低兼容声明未获独立验证。2026-10-27现有有限入口已承接10.7；下一候选按 [Host集成§9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划)重新固定10.7及全部证据，不把有限兼容视为Alpha或full_memory已通过。
 - 语义路由与选择使用结构化 LLM；无词面 fallback。
 - 每轮最多两个有来源的 Framework operators，使用精确 active IR。
 - read_only 和 local_write 用于隔离验证；Alpha 交付使用 managed_durable_write、明确远端／分支和 RPO。
@@ -63,7 +63,7 @@ OpenClaw 保留模型执行、会话、搜索、工具、权限和调度。Corte
 
 ## 5. 候选证据与完成声明
 
-候选仍要求同一干净 Core SHA、确切 tarball、最终同步的 CangHai SHA、OpenClaw 2026.8.2，以及私有 write-loop、clean recovery、durability 和混合评测证据。公开合成结果不能代替私有 Exact Host 验证。
+候选仍要求同一干净 Core SHA、确切 tarball、最终同步的 CangHai SHA、确切 Host/harness，以及私有 write-loop、clean recovery、durability 和混合评测证据。早期8.2记录保持原身份；下一10.7候选依D-061重新验证受影响路径，不拼接不同Host或模型的通过记录。公开合成结果不能代替私有 Exact Host 验证。
 
 旧 candidate v2 receipt 只证明其记录的旧测试范围；在 A-01–A-14 收敛后，适配器／报告必须明确包含新的完成与空状态断言。不得仅因 receipt 的 candidate=true 宣称新增契约已验收。
 
