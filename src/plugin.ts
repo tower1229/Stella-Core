@@ -257,6 +257,7 @@ export default definePluginEntry({
       registerCheckpointPlugin(api);
       return;
     }
+    if (api.runtime.version !== "2026.8.2") throw new CatalogError("legacy_host_version_unsupported");
     if (isRecord(api.pluginConfig) && api.pluginConfig.recoveryAuthority !== undefined && api.pluginConfig.recoveryAuthority !== "legacy_config") {
       throw new Error("Stella Core config.recoveryAuthority is invalid");
     }
@@ -557,8 +558,7 @@ export default definePluginEntry({
             await processing.assertCurrent();
             if (resolveLiveModelRef() !== modelRef) throw new CatalogError("personal_context_model_changed");
             const cfg = api.runtime.config.current();
-            const models = [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model,
-              cfg.agents?.list?.find(agent => agent.id === config.agentId)?.model];
+            const models = [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model];
             if (models.some(model => model && typeof model !== "string" && model.fallbacks?.length)) {
               throw new CatalogError("personal_view_fallback_route_forbidden");
             }

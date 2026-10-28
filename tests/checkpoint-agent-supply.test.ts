@@ -16,6 +16,7 @@ import { registerCheckpointAgentSupply, CHECKPOINT_MEMORY_TOOL } from "../src/op
 import { createAgentSupplySource, publishAgentSupplySourceRevision, SUPPLY_MARKER } from "./checkpoint-agent-supply-fixture.js";
 import { createReplyDispatcher } from "openclaw/plugin-sdk/reply-runtime";
 import { CHECKPOINT_FAILURE_TEXT } from "../src/openclaw/checkpoint-failure-reply.js";
+import { nativeProfileCaller } from "./openclaw-native-caller-fixture.js";
 
 async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile: boolean | "device" = false) {
   const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
@@ -54,6 +55,9 @@ async function fixture(t: TestContext, options: Parameters<typeof createAgentSup
     ctx: { SessionKey: key, Body: "Recall my writing preference", SenderId: "synthetic-owner", From: "synthetic-owner", Provider: "webchat", ChatType: "direct", Timestamp: Date.now(), CommandAuthorized: true } };
   if (webchatProfile) {
     delete event.ctx.SenderId; delete event.ctx.From;
+    // Keep the pinned Host builder's original context/capability object. A
+    // profile stamp alone no longer represents an authenticated 10.7 caller.
+    if (webchatProfile !== "device") event.ctx = Object.assign(nativeProfileCaller("synthetic-profile").ctx, event.ctx);
     Object.assign(event.ctx, { Surface: "webchat", GatewayClientScopes: ["operator.admin"], SessionCreation: webchatProfile === "device" ? { via: "operator" } : { via: "operator", actor: { type: "human", source: "profile", id: "synthetic-profile" } },
       ...(webchatProfile === "device" ? { ApprovalReviewerDeviceId: "d".repeat(64) } : {}) });
   }
@@ -477,18 +481,39 @@ test("revised source replaces current tool facts while same-owner prior conversa
 });
 
 
-test("initial public session header and current accepted owner input are not mistaken for prior history", async t => {
+test("initial public v3/v4 session headers preserve exact current owner input and reject unknown history", async t => {
   const request = snapshotTurnRequest({ agentId: "synthetic", sessionKey: "agent:synthetic:new", sessionId: "synthetic-created-session", prompt: "Current input", senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, "synthetic-current-run");
-  const header = { type: "session", version: 3, id: request.sessionId }, current = { type: "message", message: { role: "user", content: request.prompt, idempotencyKey: `${request.runId}:user`, __openclaw: { senderIsOwner: true } } };
-  assert.doesNotThrow(() => assertInitialOwnerTranscript([], request)); assert.doesNotThrow(() => assertInitialOwnerTranscript([header, current], request));
-  for (const kind of ["old-run", "old-body", "not-owner", "assistant", "unknown-system", "extra-history"] as const) await t.test(kind, () => {
-    const record = structuredClone(current) as any;
-    if (kind === "old-run") record.message.idempotencyKey = "another-run:user";
-    if (kind === "old-body") record.message.content = "Another input";
-    if (kind === "not-owner") record.message.__openclaw.senderIsOwner = false;
-    if (kind === "assistant") record.message.role = "assistant";
-    if (kind === "unknown-system") record.type = "compaction";
-    assert.throws(() => assertInitialOwnerTranscript(kind === "extra-history" ? [header, current, record] : [header, record], request), /checkpoint_agent_history_owner_unknown/);
+  const current = { type: "message", message: { role: "user", content: request.prompt, idempotencyKey: `${request.runId}:user`, __openclaw: { senderIsOwner: true } } };
+  assert.doesNotThrow(() => assertInitialOwnerTranscript([], request));
+  for (const version of [3, 4]) await t.test(`version ${version}`, async t => {
+    // Both installed Host creation paths use createSessionTranscriptHeader.
+    const header = { type: "session", version, id: request.sessionId, timestamp: "2026-10-27T00:00:00.000Z", cwd: "/tmp/synthetic-workspace" };
+    assert.doesNotThrow(() => assertInitialOwnerTranscript([header], request));
+    assert.doesNotThrow(() => assertInitialOwnerTranscript([header, current], request));
+    assert.doesNotThrow(() => assertInitialOwnerTranscript([{ ...header, parentSession: "/tmp/synthetic-parent" }, current], request));
+    for (const kind of ["old-run", "old-body", "not-owner", "missing-owner", "assistant", "unknown-system", "text-blocks", "extra-history", "duplicate-header", "duplicate-input"] as const) await t.test(kind, () => {
+      const record = structuredClone(current) as any;
+      if (kind === "old-run") record.message.idempotencyKey = "another-run:user";
+      if (kind === "old-body") record.message.content = "Another input";
+      if (kind === "not-owner") record.message.__openclaw.senderIsOwner = false;
+      if (kind === "missing-owner") delete record.message.__openclaw;
+      if (kind === "assistant") record.message.role = "assistant";
+      if (kind === "unknown-system") record.type = "compaction";
+      if (kind === "text-blocks") record.message.content = [{ type: "text", text: request.prompt }];
+      const events = kind === "extra-history" ? [header, current, record] : kind === "duplicate-header" ? [header, header] : kind === "duplicate-input" ? [current, current] : [header, record];
+      assert.throws(() => assertInitialOwnerTranscript(events, request), /checkpoint_agent_history_owner_unknown/);
+    });
+    for (const [name, change] of [
+      ["wrong-session", { id: "another-session" }], ["missing-timestamp", { timestamp: undefined }],
+      ["invalid-timestamp", { timestamp: "not-a-date" }], ["numeric-timestamp", { timestamp: 1 }],
+      ["missing-cwd", { cwd: undefined }], ["invalid-parent", { parentSession: {} }],
+      ["hidden-message", { message: current.message }],
+    ] as const) await t.test(name, () => {
+      assert.throws(() => assertInitialOwnerTranscript([{ ...header, ...change }], request), /checkpoint_agent_history_owner_unknown/);
+    });
+    for (const unknown of [undefined, 1, 2, 5, 4.1, "4"]) await t.test(`unknown-version-${unknown}`, () => {
+      assert.throws(() => assertInitialOwnerTranscript([{ ...header, version: unknown }], request), /checkpoint_agent_history_owner_unknown/);
+    });
   });
 });
 
@@ -587,7 +612,8 @@ test("cancellation after policy approval but before payload access does not star
 
 test("current profile uses one owner binding across archive, normal Agent tools and continuous history", async t => {
   const f = await fixture(t, {}, true, true);
-  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const ingress = await f.ingress();
+  assert.equal(ingress, undefined, JSON.stringify((await f.rpc("status")).payload.supply)); assert.equal((await f.admit()).outcome, "pass");
   const list = await f.execute({ action: "list" }); assert.ok(list.details.items.length >= 1);
   const read = await f.execute({ action: "read", handle: "E1" }); assert.ok(read.details.original.text.includes(SUPPLY_MARKER));
   const entry = getSessionEntry({ agentId: "synthetic", sessionKey: f.agent.sessionKey, storePath: f.storePath, env: { OPENCLAW_STATE_DIR: f.state } });
@@ -601,18 +627,21 @@ test("current profile uses one owner binding across archive, normal Agent tools 
 
 test("profile replacement or forged tool sender cannot borrow a captured run/session permit", async t => {
   const f = await fixture(t, {}, false, true);
-  assert.equal(await f.ingress(), undefined); assert.equal((await f.admit()).outcome, "pass");
+  const ingress = await f.ingress();
+  assert.equal(ingress, undefined, JSON.stringify((await f.rpc("status")).payload.supply)); assert.equal((await f.admit()).outcome, "pass");
   f.toolContext.requesterSenderId = "openclaw-profile:synthetic-profile";
   await assert.rejects(f.execute({ action: "list" }), /checkpoint_agent_tool_scope_unavailable/);
   f.toolContext.requesterSenderId = undefined;
   f.event.ctx.SessionCreation.actor.id = "another-profile";
-  await assert.rejects(f.execute({ action: "list" }), /checkpoint_webchat_profile_not_bound/);
+  await assert.rejects(f.execute({ action: "list" }), /checkpoint_webchat_profile_required/);
   assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
 });
 
 test("an unselected current profile is refused before automatic archive or checkpoint publication", async t => {
   const f = await fixture(t, {}, true, true), before = await f.rpc("status");
-  f.event.ctx.SessionCreation.actor.id = "another-profile";
+  f.event.ctx = Object.assign(nativeProfileCaller("another-profile").ctx, {
+    SessionKey: f.event.ctx.SessionKey, Body: f.event.ctx.Body, Timestamp: f.event.ctx.Timestamp,
+    Provider: "webchat", Surface: "webchat", ChatType: "direct" });
   assert.equal((await f.ingress()).handled, true);
   const after = await f.rpc("status"); assert.equal(after.payload.supply.category, "checkpoint_webchat_profile_not_bound");
   assert.deepEqual(after.payload.authority, before.payload.authority); assert.equal(after.payload.ingress, null);

@@ -1,5 +1,5 @@
 import type { OpenClawConfig, OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
-import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
+import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth-native";
 import { CatalogError } from "../canghai/catalog-reader.js";
 import type { CheckpointPluginConfig } from "./checkpoint-plugin-runtime.js";
 
@@ -23,9 +23,10 @@ export type CheckpointRequestIdentity = Readonly<{ senderId: string; senderIsOwn
 export function resolveCheckpointRequestIdentity(ctx: Inbound, live: OpenClawConfig, config: Pick<CheckpointPluginConfig, "webchatOwnerProfileId" | "webchatOwnerDeviceId">): CheckpointRequestIdentity {
   if (config.webchatOwnerProfileId !== undefined && config.webchatOwnerDeviceId !== undefined) throw new CatalogError("checkpoint_configuration_invalid");
   const sender = resolveCommandAuthorization({ ctx, cfg: live, commandAuthorized: ctx.CommandAuthorized === true });
+  sender.assertOwnerCurrent?.();
   if (!sender.senderIsOwner || ctx.ChatType !== "direct") throw new CatalogError("private_context_audience_forbidden");
   if (config.webchatOwnerDeviceId !== undefined && ctx.Provider === "webchat") {
-    // Stock 2026.8.2 copies the current authenticated connection's device id
+    // The Host copies the current authenticated connection's device id
     // into this public context field. Never accept an id from tool arguments.
     if (ctx.Surface !== "webchat" || sender.senderId || ctx.SessionCreation?.via !== "operator" ||
       ctx.CommandAuthorized !== true || !ctx.GatewayClientScopes?.includes("operator.admin") ||
@@ -36,13 +37,20 @@ export function resolveCheckpointRequestIdentity(ctx: Inbound, live: OpenClawCon
     if (ctx.ApprovalReviewerDeviceId !== config.webchatOwnerDeviceId) throw new CatalogError("checkpoint_webchat_device_not_bound");
     return Object.freeze({ senderIsOwner: true, providerId: sender.providerId, senderId: requesterId, kind: "gateway_device" as const });
   }
-  if (ctx.Provider === "webchat" && ctx.Surface === "webchat" && !sender.senderId) {
+  if (ctx.Provider === "webchat" && ctx.Surface === "webchat" && !ctx.SenderId) {
     const actor = ctx.SessionCreation?.actor;
     const profileId = ctx.SessionCreation?.via === "operator" && actor?.type === "human" && actor.source === "profile" ? actor.id : undefined;
     const requesterId = profileRequesterId(profileId);
-    if (!requesterId || !ctx.GatewayClientScopes?.includes("operator.admin")) throw new CatalogError("checkpoint_webchat_profile_required");
+    // 10.7 resolves a Host-bound profile capability as senderId; native tools
+    // still use ctx.SenderId. Both capability and current provenance must match,
+    // including after revocation. A stamp plus admin scope is not sufficient.
+    if (!requesterId || sender.senderId !== profileId || !ctx.GatewayClientScopes?.includes("operator.admin")) throw new CatalogError("checkpoint_webchat_profile_required");
     if (profileId !== config.webchatOwnerProfileId) throw new CatalogError("checkpoint_webchat_profile_not_bound");
     return Object.freeze({ senderIsOwner: true, providerId: sender.providerId, senderId: requesterId, kind: "gateway_profile" as const, toolSenderId: ctx.SenderId });
+  }
+  if (ctx.Provider === "webchat" && ctx.Surface === "webchat" &&
+      (sender.senderId !== ctx.SenderId || ctx.SessionCreation?.actor?.type === "human" && ctx.SessionCreation.actor.source === "profile")) {
+    throw new CatalogError("private_context_audience_forbidden");
   }
   if (!sender.senderId || [PROFILE_PREFIX, DEVICE_PREFIX].some(prefix => sender.senderId!.startsWith(prefix))) throw new CatalogError("private_context_audience_forbidden");
   return Object.freeze({ senderIsOwner: true, providerId: sender.providerId, senderId: sender.senderId, kind: "transport" as const, toolSenderId: sender.senderId });

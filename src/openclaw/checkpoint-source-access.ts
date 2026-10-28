@@ -23,7 +23,7 @@ export async function createCheckpointProcessingContext(input: Input) {
   if (!input.bindingPath) return undefined;
   const model = () => {
     const cfg = structuredClone(input.api.runtime.config.current()) as OpenClawConfig;
-    const entry = cfg.agents?.entries?.[input.agentId] ?? cfg.agents?.list?.find(agent => agent.id === input.agentId);
+    const entry = cfg.agents?.entries?.[input.agentId];
     for (const value of [cfg.agents?.defaults?.model, entry?.model]) {
       check(typeof value !== "object" || value === null || !value.fallbacks?.length, "checkpoint_source_fallback_forbidden");
     }

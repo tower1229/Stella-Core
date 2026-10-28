@@ -88,8 +88,7 @@ export function createHostMemoryAcceptance(api: OpenClawPluginApi, config: Confi
     const selected = resolveDefaultModelForAgent({ cfg: live, agentId: config.agentId });
     const modelRef = `${selected.provider}/${selected.model}`;
     check(selected.provider === HOST_MEMORY_PROVIDER, "host_memory_guarded_provider_required");
-    const routes = [live.agents?.defaults?.model, live.agents?.entries?.[config.agentId]?.model,
-      live.agents?.list?.find(agent => agent.id === config.agentId)?.model];
+    const routes = [live.agents?.defaults?.model, live.agents?.entries?.[config.agentId]?.model];
     check(!routes.some(route => route && typeof route !== "string" && route.fallbacks?.length), "personal_view_fallback_route_forbidden");
     if (recovery) await assertRecoveryReadBinding(recovery, config);
     return { binding, processing, reader, specification, origin, modelRef, revision: recovery?.expected.revision ?? plugin.config.recoveryRevision,

@@ -10,6 +10,15 @@ import { assertPrivateContextAudience, resolveTurnAudience } from "./turn-audien
 import { snapshotTurnRequest } from "./turn-request.js";
 
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
+/** Host 10.7 creates v4 headers and retains v3 model projections. Both use
+ * createSessionTranscriptHeader's shape; neither version authorizes history.
+ */
+function isSupportedSessionHeader(event: Record<string, unknown>, sessionId: string): boolean {
+  return event.type === "session" && (event.version === 3 || event.version === 4) && event.id === sessionId &&
+    typeof event.timestamp === "string" && Number.isFinite(Date.parse(event.timestamp)) && typeof event.cwd === "string" &&
+    (event.parentSession === undefined || typeof event.parentSession === "string") &&
+    Object.keys(event).every(key => ["type", "version", "id", "timestamp", "cwd", "parentSession"].includes(key));
+}
 /** A newly created public session may already contain its header and the exact
  * current accepted user input. Those are not prior conversation. Every other
  * record remains unknown history; the Host submission identity is mandatory.
@@ -19,7 +28,7 @@ export function assertInitialOwnerTranscript(events: unknown[], request: ReturnT
   let headers = 0, inputs = 0;
   for (const event of events) {
     check(isRecord(event), "checkpoint_agent_history_owner_unknown");
-    if (event.type === "session" && event.version === 3 && event.id === request.sessionId) { headers++; continue; }
+    if (isSupportedSessionHeader(event, request.sessionId)) { headers++; continue; }
     const message = event.message;
     check(event.type === "message" && isRecord(message) && message.role === "user" && message.content === request.prompt &&
       message.idempotencyKey === `${request.runId}:user` && isRecord(message.__openclaw) && message.__openclaw.senderIsOwner === true,

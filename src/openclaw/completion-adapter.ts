@@ -12,7 +12,7 @@ import { publishCompletionDraft } from "./completion-delivery.js";
 import { isRecord } from "../shared/type-guards.js";
 import { captureHostInput, type HostInputSnapshot } from "./host-input.js";
 import { admitCompletionOnce, openCompletionAdmissionJournal } from "./completion-admission.js";
-import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
+import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth-native";
 import { CatalogError } from "../canghai/catalog-reader.js";
 
 // Keep terminal run IDs too: a late callback is not a new request. Do not evict a
@@ -37,9 +37,12 @@ export function completionToolCachePartition(input: {
   return createHash("sha256").update(canonicalJson(snapshot)).digest("hex");
 }
 type CompletionSessionStart = { sessionId: string; lifecycleRevision?: string; startedAt: number };
+// The legacy 8.2 coordinator observed a persisted running status. New Hosts keep
+// running state outside SessionEntry; this adapter is not selected by checkpoint mode.
+type LegacyCompletionSession = Omit<SessionEntry, "status"> & { status?: SessionEntry["status"] | "running" };
 
 /** Public status only; the SDK preserves Host writer/recovery ownership fields. */
-export function completionSessionTerminalPatch(entry: SessionEntry, start: CompletionSessionStart, terminal: {
+export function completionSessionTerminalPatch(entry: LegacyCompletionSession, start: CompletionSessionStart, terminal: {
   status: "done" | "failed" | "killed"; endedAt: number; error?: string;
 }): Partial<SessionEntry> {
   if (entry.sessionId !== start.sessionId || entry.lifecycleRevision !== start.lifecycleRevision ||
@@ -152,7 +155,8 @@ export function registerCompletionAdapter(
       }
       const sessionId = entry?.sessionId ?? randomUUID();
       const model = resolveDefaultModelForAgent({ cfg: ctx.cfg, agentId });
-      const sender = resolveCommandAuthorization({ ctx: event.ctx, cfg: ctx.cfg, commandAuthorized: event.ctx.CommandAuthorized });
+      const sender = resolveCommandAuthorization({ ctx: event.ctx, cfg: ctx.cfg, commandAuthorized: event.ctx.CommandAuthorized === true });
+      sender.assertOwnerCurrent?.();
       const chatType = event.ctx.ChatType;
       if (chatType !== undefined && chatType !== "direct" && chatType !== "group" && chatType !== "channel") {
         throw new CompletionError("unsupported_chat_type", "admission");
@@ -168,6 +172,8 @@ export function registerCompletionAdapter(
         hostMessageTimestamp = message.timestamp;
       }
       const resourceScope = await ports.resourceScope();
+      const internalSource = event.ctx.InternalTurnSource;
+      if (internalSource === "progress-card-refresh") throw new CompletionError("unsupported_trigger", "admission");
       result = await coordinateCompletion({ operationId: runId, runId, resourceScope, timeoutMs: 600_000, abortSignal: ctx.abortSignal,
         request: { agentId, sessionId, sessionKey, prompt, ...(hostMessageTimestamp !== undefined ? { hostMessageTimestamp } : {}), senderId: sender.senderId || undefined,
           senderIsOwner: sender.senderIsOwner, chatType },
@@ -184,7 +190,7 @@ export function registerCompletionAdapter(
             agentId, sessionId, sessionKey, runId,
             senderId: sender.senderId, senderIsOwner: sender.senderIsOwner,
             messageChannel: event.ctx.Provider, messageProvider: event.ctx.Provider, chatType,
-            trigger: event.ctx.InternalTurnSource === "exec" ? "manual" : event.ctx.InternalTurnSource ?? "user",
+            trigger: internalSource === "exec" ? "manual" : internalSource ?? "user",
             workspaceDir: resolveAgentWorkspaceDir(ctx.cfg, agentId), config: ctx.cfg,
             prompt, transcriptPrompt: prompt, ...model, modelFallbacksOverride: [],
             timeoutMs: 540_000, abortSignal,

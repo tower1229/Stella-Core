@@ -44,11 +44,11 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/semver": "7.7.1",
-    "openclaw": "2026.8.2",
+    "openclaw": "2026.10.7",
     "typescript": "^5.9.0"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.8.2"
+    "openclaw": ">=2026.10.7"
   },
   "engines": {
     "node": ">=24.22.0"
@@ -58,12 +58,12 @@
       "./dist/src/plugin.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.8.2",
-      "minGatewayVersion": "2026.8.2"
+      "pluginApi": ">=2026.10.7",
+      "minGatewayVersion": "2026.10.7"
     },
     "build": {
-      "openclawVersion": "2026.8.2",
-      "pluginSdkVersion": "2026.8.2"
+      "openclawVersion": "2026.10.7",
+      "pluginSdkVersion": "2026.10.7"
     }
   }
 }

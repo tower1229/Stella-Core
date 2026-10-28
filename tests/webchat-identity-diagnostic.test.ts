@@ -7,9 +7,10 @@ import { parseCheckpointPluginConfig } from "../src/openclaw/checkpoint-plugin-r
 import { createPersonalContextAccess, loadPersonalContextAccess } from "../src/canghai/personal-context-access.js";
 import { Ajv } from "ajv";
 import { readFile } from "node:fs/promises";
-import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth";
+import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth-native";
 import { assertInitialOwnerTranscript } from "../src/openclaw/checkpoint-host-request.js";
 import { snapshotTurnRequest } from "../src/openclaw/turn-request.js";
+import { nativeProfileCaller } from "./openclaw-native-caller-fixture.js";
 
 // Entirely synthetic. Never reads a real session, source, credential or profile.
 test("public WebChat admin ownership does not manufacture a transport sender", () => {
@@ -22,12 +23,13 @@ test("authorizing a current profile must not adopt unknown prior conversation", 
   const request = snapshotTurnRequest({ agentId: "synthetic", sessionKey: "agent:synthetic:identity", sessionId: "synthetic-session", prompt: "Synthetic current input",
     senderId: "openclaw-profile:synthetic-profile", senderIsOwner: true, chatType: "direct" }, "synthetic-profile-run");
   assert.throws(() => assertInitialOwnerTranscript([{ type: "message", message: { role: "assistant", content: "Synthetic unknown prior content" } }], request), /checkpoint_agent_history_owner_unknown/);
-  assert.doesNotThrow(() => assertInitialOwnerTranscript([{ type: "session", version: 3, id: request.sessionId }], request));
+  for (const version of [3, 4]) assert.doesNotThrow(() => assertInitialOwnerTranscript([
+    { type: "session", version, id: request.sessionId, timestamp: "2026-10-27T00:00:00.000Z", cwd: "/tmp/synthetic-workspace" },
+  ], request));
 });
 
 const profileId = "synthetic-profile", requester = "openclaw-profile:" + profileId;
-const envelope = () => ({ Provider: "webchat", Surface: "webchat", ChatType: "direct", GatewayClientScopes: ["operator.admin"],
-  SessionCreation: { via: "operator", actor: { type: "human", source: "profile", id: profileId } } }) as const;
+const envelope = () => nativeProfileCaller(profileId).ctx;
 const resolve = (ctx: any = envelope(), selected: string | undefined = profileId) => resolveCheckpointRequestIdentity(ctx, {}, { webchatOwnerProfileId: selected });
 
 test("a current trusted profile requires exact owner selection, without manufacturing a Host sender", () => {
@@ -36,6 +38,14 @@ test("a current trusted profile requires exact owner selection, without manufact
   assert.equal(identity.toolSenderId, undefined); assert.equal(ctx.SenderId, undefined);
   assert.throws(() => resolve(ctx, "another-profile"), /checkpoint_webchat_profile_not_bound/);
   assert.throws(() => resolveCheckpointRequestIdentity(ctx, {}, {}), /checkpoint_webchat_profile_not_bound/);
+});
+
+test("a revoked native profile capability cannot reuse a profile stamp or admin scope", () => {
+  const { ctx, revoke } = nativeProfileCaller(profileId);
+  assert.equal(resolve(ctx).senderId, requester);
+  revoke();
+  assert.equal(ctx.SenderId, undefined);
+  assert.throws(() => resolve(ctx), /checkpoint_webchat_profile_required/);
 });
 
 test("missing profile, device names and untrusted claims never fill the profile principal", () => {

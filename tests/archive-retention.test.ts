@@ -39,7 +39,7 @@ test("Host service restart on the same registration resumes continuous archive i
   const stateDir = await mkdtemp(join(tmpdir(), "stella-retention-service-"));
   t.after(() => rm(stateDir, { recursive: true, force: true }));
   type Api = import("openclaw/plugin-sdk/plugin-entry").OpenClawPluginApi;
-  let service: Parameters<Api["registerService"]>[0] | undefined;
+  let service: Extract<Parameters<Api["registerService"]>[0], { apiVersion?: 1 }> | undefined;
   const deferred = () => {
     let resolve!: () => void;
     const promise = new Promise<void>(done => { resolve = done; });
