@@ -220,6 +220,10 @@ return authority.kind==='operator'&&scopes?.has(authority.connId)?scopes.get(aut
       assert.strictEqual(geminiTool.execute, f.coordinator.execute);
       assert.deepEqual(inspectGeminiToolSchemas({ tools: [geminiTool] }), []);
       assert.equal(Object.hasOwn(geminiTool.parameters, "additionalProperties"), false); assert.deepEqual(geminiTool.parameters.properties, {});
+      const [alreadyOmitted] = normalizeGeminiToolSchemas({ tools: [geminiTool] });
+      assert.deepEqual(alreadyOmitted.parameters, geminiTool.parameters, "the official empty schema remains consumable after omission");
+      assert.strictEqual(alreadyOmitted.execute, f.coordinator.execute);
+      assert.deepEqual(inspectGeminiToolSchemas({ tools: [alreadyOmitted] }), []);
       assert.deepEqual(JSON.parse(JSON.stringify(f.coordinator.parameters)), schema, "normalization leaves the bound coordinator schema intact");
       const beforeArguments = structuredClone(f.counters), checkpoint = (await f.runtime.capture()).expected;
       // Fixture archive/init precede this window; malformed tool arguments must

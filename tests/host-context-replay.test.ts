@@ -56,23 +56,17 @@ test("Google codec cannot be selected by observed schema or for another Host/mod
   await assert.rejects(loadHostReplayProjection("2026.8.2", { ...openai, api: "google-generative-ai", modelId: "other" }), /host_context_replay_target_unsupported/);
 });
 
-for (const mutation of ["required", "enum", "extra property", "already omitted", "description"] as const) test(`Google original schema rejects unbound ${mutation}`, async () => {
+// D-062 replacements for "already omitted" and the non-Stella schema assertion:
+// docs/HOST-REPLAY-CODEC-MIGRATION.md. The other seven legacy cases stay active.
+for (const mutation of ["required", "enum", "extra property", "description"] as const) test(`Google original schema rejects unbound ${mutation}`, async () => {
   const original = input(), tool = original.tools[0]!;
   if (mutation === "required") tool.parameters.required = ["action", "handle"];
   if (mutation === "enum") tool.parameters.properties = { action: { type: "string", enum: ["read", "delete"] } };
   if (mutation === "extra property") tool.parameters.properties = { ...(tool.parameters.properties as Record<string, unknown>), path: { type: "string" } };
-  if (mutation === "already omitted") delete tool.parameters.additionalProperties;
   if (mutation === "description") tool.description += " extra";
   const project = await loadHostReplayProjection("2026.8.2", resolveHostReplayTarget(configuration(), modelRef));
   assert.throws(() => project(original), /host_context_google_tool_schema_unbound/);
 });
-
-test("Google compatibility leaves every other tool schema unchanged", async () => {
-  const original = input(); original.tools[0]!.name = "other";
-  const project = await loadHostReplayProjection("2026.8.2", resolveHostReplayTarget(configuration(), modelRef));
-  assert.deepEqual(project(original).tools, original.tools);
-});
-
 
 test("Google projected tool declaration keeps original system lineage and validates archived assistant basis", async () => {
   const original = input();

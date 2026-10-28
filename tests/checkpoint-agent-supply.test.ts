@@ -193,22 +193,43 @@ test("tool body gate survives a missing hook and rejects extra arguments, paths 
 test("official Gemini normalization preserves the registered memory executor and its argument boundary", async t => {
   const f = await fixture(t); await f.ingress(); assert.equal((await f.admit()).outcome, "pass");
   const schema = JSON.parse(JSON.stringify(f.tool.parameters));
+  let ordinaryExecutions = 0;
+  // A non-Stella, public-only control in the same batch. It has no Core ports,
+  // is not registered with the Host, and cannot read memory or adopt authority.
+  const ordinaryTool = { name: "synthetic_public_ping", description: "Return a fixed public ping only.",
+    parameters: { type: "object", properties: { action: { type: "string", enum: ["ping"] } }, required: ["action"], additionalProperties: false },
+    async execute(value: unknown) {
+      if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).join() !== "action" ||
+        (value as Record<string, unknown>).action !== "ping") throw new Error("synthetic_public_tool_arguments_invalid");
+      ordinaryExecutions++; return "synthetic public pong";
+    } };
+  const ordinaryBefore = { ...ordinaryTool, parameters: structuredClone(ordinaryTool.parameters) };
   assert.equal(schema.additionalProperties, false);
   assert.ok(inspectGeminiToolSchemas({ tools: [f.tool] }).some((item: any) => item.violations.some((value: string) => value.endsWith(".additionalProperties"))));
-  const [geminiTool] = normalizeGeminiToolSchemas({ tools: [f.tool] });
+  const [geminiTool, geminiOrdinary] = normalizeGeminiToolSchemas({ tools: [f.tool, ordinaryTool] });
   assert.equal(geminiTool.name, CHECKPOINT_MEMORY_TOOL); assert.strictEqual(geminiTool.execute, f.tool.execute);
-  assert.deepEqual(inspectGeminiToolSchemas({ tools: [geminiTool] }), []);
+  assert.equal(geminiOrdinary.name, ordinaryTool.name); assert.strictEqual(geminiOrdinary.execute, ordinaryTool.execute);
+  assert.deepEqual(inspectGeminiToolSchemas({ tools: [geminiTool, geminiOrdinary] }), []);
+  assert.equal(Object.hasOwn(geminiOrdinary.parameters, "additionalProperties"), false);
+  assert.notDeepEqual(geminiOrdinary.parameters, ordinaryTool.parameters, "official normalization also transforms a non-Stella declaration");
+  assert.deepEqual(geminiOrdinary.parameters.required, ordinaryTool.parameters.required);
+  assert.deepEqual(geminiOrdinary.parameters.properties.action.enum, ordinaryTool.parameters.properties.action.enum);
+  assert.deepEqual(ordinaryTool, ordinaryBefore, "the ordinary tool definition is not mutated");
   assert.equal(Object.hasOwn(geminiTool.parameters, "additionalProperties"), false);
   assert.deepEqual(geminiTool.parameters.required, schema.required);
   assert.deepEqual(geminiTool.parameters.properties.action.enum, schema.properties.action.enum);
   assert.deepEqual(JSON.parse(JSON.stringify(f.tool.parameters)), schema, "normalization must not mutate the registered schema");
+  const [alreadyOmitted] = normalizeGeminiToolSchemas({ tools: [geminiTool] });
+  assert.deepEqual(alreadyOmitted.parameters, geminiTool.parameters, "an officially omitted keyword is accepted on a second normalization");
+  assert.strictEqual(alreadyOmitted.execute, f.tool.execute);
+  assert.deepEqual(inspectGeminiToolSchemas({ tools: [alreadyOmitted] }), []);
   let calls = 0;
   const invoke = async (value: unknown) => {
     const callId = `synthetic-gemini-memory-${++calls}`;
     const gate = await f.hooks.get("before_tool_call")!({ toolName: geminiTool.name, params: value },
       { ...f.agent, toolName: geminiTool.name, toolCallId: callId, abortSignal: f.controller.signal });
     assert.notEqual(gate?.block, true);
-    return geminiTool.execute(callId, value, f.controller.signal);
+    return alreadyOmitted.execute(callId, value, f.controller.signal);
   };
   // Start with an uncached reader. Argument rejection must precede both object
   // bodies and original payloads; setup/identity housekeeping precedes this window.
@@ -222,6 +243,11 @@ test("official Gemini normalization preserves the registered memory executor and
   f.stops.push(() => { CatalogReader.prototype.read = read; CatalogReader.prototype.readPayload = payload; });
   const { treeManifest } = await import(new URL("../../scripts/lib/package-evidence.mjs", import.meta.url).href);
   const beforeTree = await treeManifest(f.root), authority = (await f.rpc("status")).payload.authority;
+  assert.equal(await geminiOrdinary.execute({ action: "ping" }), "synthetic public pong");
+  for (const value of [{ action: "read", handle: "E1" }, { action: "ping", path: "private.md" },
+    { action: "ping", senderId: "owner" }, { action: "ping", authority: { senderIsOwner: true } }])
+    await assert.rejects(geminiOrdinary.execute(value), /synthetic_public_tool_arguments_invalid/);
+  assert.equal(ordinaryExecutions, 1); assert.deepEqual(io, { objectReads: 0, payloadReads: 0 });
   const malformed: Array<[string, unknown]> = [
     ["path", { action: "read", handle: "E1", path: "private.md" }],
     ["senderId", { action: "read", handle: "E1", senderId: "other" }],
@@ -241,6 +267,7 @@ test("official Gemini normalization preserves the registered memory executor and
   assert.ok(original.details.original.text.includes(SUPPLY_MARKER)); assert.ok(io.objectReads > 0); assert.ok(io.payloadReads > 0);
   assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
   assert.deepEqual(JSON.parse(JSON.stringify(f.tool.parameters)), schema);
+  assert.deepEqual(ordinaryTool, ordinaryBefore); assert.equal(ordinaryExecutions, 1);
 });
 
 test("already-authorized originals survive a request-local source change, but cancellation and close still stop supply", async t => {
