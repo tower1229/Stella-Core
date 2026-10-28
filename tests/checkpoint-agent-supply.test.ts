@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test, { type TestContext } from "node:test";
+import test, { after, type TestContext } from "node:test";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -18,71 +18,94 @@ import { createReplyDispatcher } from "openclaw/plugin-sdk/reply-runtime";
 import { CHECKPOINT_FAILURE_TEXT } from "../src/openclaw/checkpoint-failure-reply.js";
 import { nativeProfileCaller } from "./openclaw-native-caller-fixture.js";
 import { assertOwnerPreparation, createAgentSupplyFixtureLifecycle } from "./checkpoint-agent-supply-lifecycle.js";
+import { createCapacityTiming } from "./checkpoint-agent-supply-timing.js";
 
-async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile: boolean | "device" = false) {
-  const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
+const { requireOwnedTestRoot } = await import(new URL("../../scripts/lib/sdk-owner-supervisor.mjs", import.meta.url).href);
+const { createOwnedWorkSummary } = await import(new URL("../../scripts/lib/owned-work-summary.mjs", import.meta.url).href);
+const sdkRoot: string = await requireOwnedTestRoot(import.meta.url), ownedWork = createOwnedWorkSummary();
+after(() => ownedWork.publish());
+
+async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile: boolean | "device" = false, timing?: ReturnType<typeof createCapacityTiming>) {
+  const registration = ownedWork.register(); let initialized = false, initialization: Promise<unknown> = Promise.resolve();
   const lifecycle = createAgentSupplyFixtureLifecycle(t.signal), { controller, stops } = lifecycle;
-  lifecycle.removals.push(() => rm(source.root, { recursive: true, force: true }), () => rm(parent, { recursive: true, force: true }));
-  t.after(() => lifecycle.close());
-  const authority = path.join(parent, "authority"), state = path.join(parent, "host-state"), storePath = path.join(parent, "sessions.json");
-  await mkdir(authority); await mkdir(state);
-  const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(webchatProfile === "device" ? { webchatOwnerDeviceId: "d".repeat(64) } : webchatProfile ? { webchatOwnerProfileId: "synthetic-profile" } : {}), ...(automaticArchive ? { requestArchive: "local" } : {}) };
-  const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
-  const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
-  controller.signal.throwIfAborted();
-  await lifecycle.track(upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } }));
-  controller.signal.throwIfAborted();
-  if (options.policyContext || options.requesterId) live.agents = { entries: { synthetic: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] } } } };
-  const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), factories: Function[] = [], beforeDeliver: Function[] = [];
-  const tracked = (handler: Function) => (...args: any[]) => lifecycle.track(handler(...args));
-  let calls = 0, models = 0, configWrites = 0;
-  const observation: { beforeCurrent?: () => void; beforePolicyComplete?: (params: any) => Promise<void> } = {};
-  const api = { pluginConfig: config, config: live, runtime: { version: "2026.8.2", state: { resolveStateDir: () => state },
-    config: { current: () => { observation.beforeCurrent?.(); return live; }, async mutateConfigFile() { configWrites++; throw new Error("No config writes"); } },
-    llm: { async complete(params: any) {
-      models++; if (!options.policyContext) throw new Error("No policy judgment expected");
-      assert.doesNotMatch(params.messages[0].content, new RegExp(SUPPLY_MARKER));
-      await observation.beforePolicyComplete?.(params);
-      const input = JSON.parse(params.messages[0].content.split("\n").at(-1));
-      return { text: JSON.stringify({ requestHash: input.requestHash, sourceRef: input.sourceRef, policyRef: input.policyRef,
-        applicable: true, scenarios: ["self_reflection"], topicRequested: true, topicExplicitlyNamed: true,
-        ruleChecks: [{ id: "requested_topic", satisfied: options.policyContext === "allow" }] }),
-        provider: "google", model: "gemini-3.8-flash", agentId: "synthetic", usage: {}, execution: { mode: "direct-provider", owner: { kind: "provider", id: "google" } },
-        audit: { caller: { kind: "plugin", id: "stella-core" } } };
-    } } },
-    logger: { info() {}, error() {}, warn() {}, debug() {} }, on(name: string, handler: Function) { hooks.set(name, tracked(handler)); },
-    registerGatewayMethod(name: string, handler: Function) { methods.set(name, tracked(handler)); },
-    registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); }, registerTool(factory: Function) {
-      factories.push((ctx: unknown) => { const tool = factory(ctx); return tool ? { ...tool, execute: tracked(tool.execute.bind(tool)) } : tool; });
-    },
-  } as unknown as OpenClawPluginApi;
-  registerCheckpointPlugin(api);
-  async function rpc(action: string, extra: any = {}) { let result: any; await methods.get("stella.checkpoint")!({ params: { action, ...extra }, respond: (ok: boolean, payload: any, error: any) => { result = { ok, payload, error }; } }); return result; }
-  assert.equal((await rpc("initialize", { revision: source.revision, operationId: "synthetic-initialize" })).ok, true);
-  const event: any = { runId, sessionKey: key, sendPolicy: "allow", inboundAudio: false,
-    ctx: { SessionKey: key, Body: "Recall my writing preference", SenderId: "synthetic-owner", From: "synthetic-owner", Provider: "webchat", ChatType: "direct", Timestamp: Date.now(), CommandAuthorized: true } };
-  if (webchatProfile) {
-    delete event.ctx.SenderId; delete event.ctx.From;
-    // Keep the pinned Host builder's original context/capability object. A
-    // profile stamp alone no longer represents an authenticated 10.7 caller.
-    if (webchatProfile !== "device") event.ctx = Object.assign(nativeProfileCaller("synthetic-profile").ctx, event.ctx);
-    Object.assign(event.ctx, { Surface: "webchat", GatewayClientScopes: ["operator.admin"], SessionCreation: webchatProfile === "device" ? { via: "operator" } : { via: "operator", actor: { type: "human", source: "profile", id: "synthetic-profile" } },
-      ...(webchatProfile === "device" ? { ApprovalReviewerDeviceId: "d".repeat(64) } : {}) });
-  }
-  const context: any = { dispatchKind: "agent", cfg: live, abortSignal: controller.signal,
-    dispatcher: { appendBeforeDeliver(fn: Function) { beforeDeliver.push(fn); } }, recordProcessed() {}, markIdle() {} };
-  const agent = { agentId: "synthetic", sessionKey: key, sessionId, runId, modelProviderId: "google", modelId: "gemini-3.8-flash" };
-  const toolContext = { agentId: "synthetic", sessionKey: key, sessionId, senderIsOwner: true, requesterSenderId: webchatProfile ? undefined : "synthetic-owner" };
-  const tool = factories.map(factory => factory(toolContext)).find(value => value?.name === CHECKPOINT_MEMORY_TOOL);
-  const ingress = () => hooks.get("reply_dispatch")!(event, context);
-  const admit = (messages: unknown[] = []) => hooks.get("before_agent_run")!({ prompt: event.ctx.Body, messages, senderIsOwner: true }, agent);
-  async function execute(value: unknown, hook = true, overrides: any = {}) {
-    const callId = `synthetic-tool-${++calls}`;
-    if (hook) { const gate = await hooks.get("before_tool_call")!({ toolName: CHECKPOINT_MEMORY_TOOL, params: value }, { ...agent, toolName: CHECKPOINT_MEMORY_TOOL, toolCallId: callId, abortSignal: controller.signal, ...overrides });
-      if (gate?.block) throw new Error(gate.blockReason); }
-    return tool.execute(callId, value, controller.signal);
-  }
-  return { ...source, config, live, api, authority, state, storePath, observation, rpc, hooks, factories, tool, toolContext, event, context, agent, controller, beforeDeliver, ingress, admit, execute, stops, counts: () => ({ models, configWrites }) };
+  t.after(async () => {
+    await Promise.allSettled([initialization]);
+    const cleanup = async () => {
+      try { await lifecycle.close(); registration.finish({ pending: initialized ? 0 : 1 }); }
+      catch (error) { registration.finish({ pending: initialized ? 0 : 1, stopFailures: 1 }); throw error; }
+    };
+    try { if (timing) await timing.run(0, "cleanup", cleanup); else await cleanup(); }
+    finally { timing?.finish(); }
+  });
+  const result = lifecycle.track((async () => {
+    const source = await createAgentSupplySource(options);
+    // Core owns source cleanup. SDK state is retained until the supervisor has
+    // observed the entire file process group exit; Core stop is not SDK drain.
+    lifecycle.removals.push(() => rm(source.root, { recursive: true, force: true }));
+    controller.signal.throwIfAborted();
+    const parent = await realpath(await mkdtemp(path.join(sdkRoot, "fixture-")));
+    const authority = path.join(parent, "authority"), state = path.join(parent, "host-state"), storePath = path.join(parent, "sessions.json");
+    await mkdir(authority); await mkdir(state);
+    const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(webchatProfile === "device" ? { webchatOwnerDeviceId: "d".repeat(64) } : webchatProfile ? { webchatOwnerProfileId: "synthetic-profile" } : {}), ...(automaticArchive ? { requestArchive: "local" } : {}) };
+    const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
+    const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
+    controller.signal.throwIfAborted();
+    await lifecycle.track(upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } }));
+    controller.signal.throwIfAborted();
+    if (options.policyContext || options.requesterId) live.agents = { entries: { synthetic: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] } } } };
+    const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), factories: Function[] = [], beforeDeliver: Function[] = [];
+    const tracked = (handler: Function) => (...args: any[]) => lifecycle.track(handler(...args));
+    let calls = 0, models = 0, configWrites = 0;
+    const observation: { beforeCurrent?: () => void; beforePolicyComplete?: (params: any) => Promise<void> } = {};
+    const api = { pluginConfig: config, config: live, runtime: { version: "2026.8.2", state: { resolveStateDir: () => state },
+      config: { current: () => { observation.beforeCurrent?.(); return live; }, async mutateConfigFile() { configWrites++; throw new Error("No config writes"); } },
+      llm: { async complete(params: any) {
+        models++; if (!options.policyContext) throw new Error("No policy judgment expected");
+        assert.doesNotMatch(params.messages[0].content, new RegExp(SUPPLY_MARKER));
+        await observation.beforePolicyComplete?.(params);
+        const input = JSON.parse(params.messages[0].content.split("\n").at(-1));
+        return { text: JSON.stringify({ requestHash: input.requestHash, sourceRef: input.sourceRef, policyRef: input.policyRef,
+          applicable: true, scenarios: ["self_reflection"], topicRequested: true, topicExplicitlyNamed: true,
+          ruleChecks: [{ id: "requested_topic", satisfied: options.policyContext === "allow" }] }),
+          provider: "google", model: "gemini-3.8-flash", agentId: "synthetic", usage: {}, execution: { mode: "direct-provider", owner: { kind: "provider", id: "google" } },
+          audit: { caller: { kind: "plugin", id: "stella-core" } } };
+      } } },
+      logger: { info() {}, error() {}, warn() {}, debug() {} }, on(name: string, handler: Function) { hooks.set(name, tracked(handler)); },
+      registerGatewayMethod(name: string, handler: Function) { methods.set(name, tracked(handler)); },
+      registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); }, registerTool(factory: Function) {
+        factories.push((ctx: unknown) => { const tool = factory(ctx); return tool ? { ...tool, execute: tracked(tool.execute.bind(tool)) } : tool; });
+      },
+    } as unknown as OpenClawPluginApi;
+    registerCheckpointPlugin(api);
+    async function rpc(action: string, extra: any = {}) { let result: any; await methods.get("stella.checkpoint")!({ params: { action, ...extra }, respond: (ok: boolean, payload: any, error: any) => { result = { ok, payload, error }; } }); return result; }
+    assert.equal((await rpc("initialize", { revision: source.revision, operationId: "synthetic-initialize" })).ok, true);
+    const event: any = { runId, sessionKey: key, sendPolicy: "allow", inboundAudio: false,
+      ctx: { SessionKey: key, Body: "Recall my writing preference", SenderId: "synthetic-owner", From: "synthetic-owner", Provider: "webchat", ChatType: "direct", Timestamp: Date.now(), CommandAuthorized: true } };
+    if (webchatProfile) {
+      delete event.ctx.SenderId; delete event.ctx.From;
+      // Keep the pinned Host builder's original context/capability object. A
+      // profile stamp alone no longer represents an authenticated 10.7 caller.
+      if (webchatProfile !== "device") event.ctx = Object.assign(nativeProfileCaller("synthetic-profile").ctx, event.ctx);
+      Object.assign(event.ctx, { Surface: "webchat", GatewayClientScopes: ["operator.admin"], SessionCreation: webchatProfile === "device" ? { via: "operator" } : { via: "operator", actor: { type: "human", source: "profile", id: "synthetic-profile" } },
+        ...(webchatProfile === "device" ? { ApprovalReviewerDeviceId: "d".repeat(64) } : {}) });
+    }
+    const context: any = { dispatchKind: "agent", cfg: live, abortSignal: controller.signal,
+      dispatcher: { appendBeforeDeliver(fn: Function) { beforeDeliver.push(fn); } }, recordProcessed() {}, markIdle() {} };
+    const agent = { agentId: "synthetic", sessionKey: key, sessionId, runId, modelProviderId: "google", modelId: "gemini-3.8-flash" };
+    const toolContext = { agentId: "synthetic", sessionKey: key, sessionId, senderIsOwner: true, requesterSenderId: webchatProfile ? undefined : "synthetic-owner" };
+    const tool = factories.map(factory => factory(toolContext)).find(value => value?.name === CHECKPOINT_MEMORY_TOOL);
+    const ingress = () => hooks.get("reply_dispatch")!(event, context);
+    const admit = (messages: unknown[] = []) => hooks.get("before_agent_run")!({ prompt: event.ctx.Body, messages, senderIsOwner: true }, agent);
+    async function execute(value: unknown, hook = true, overrides: any = {}) {
+      const callId = `synthetic-tool-${++calls}`;
+      if (hook) { const gate = await hooks.get("before_tool_call")!({ toolName: CHECKPOINT_MEMORY_TOOL, params: value }, { ...agent, toolName: CHECKPOINT_MEMORY_TOOL, toolCallId: callId, abortSignal: controller.signal, ...overrides });
+        if (gate?.block) throw new Error(gate.blockReason); }
+      return tool.execute(callId, value, controller.signal);
+    }
+    initialized = true;
+    return { ...source, config, live, api, authority, state, storePath, observation, rpc, hooks, factories, tool, toolContext, event, context, agent, controller, beforeDeliver, ingress, admit, execute, stops, counts: () => ({ models, configWrites }) };
+  })());
+  initialization = result; return result;
 }
 
 test("stock Host orchestration fixture can call retained data tools and continue its model loop", async t => {
@@ -657,20 +680,23 @@ test("an unselected current profile is refused before automatic archive or check
 
 
 test("completed owner requests do not exhaust the concurrent capacity and old runs remain refused", { timeout: 120_000 }, async t => {
-  const f = await fixture(t), originalRun = f.event.runId;
+  const timing = createCapacityTiming(t.signal, value => process.stderr.write(`CAPACITY_TIMING ${JSON.stringify(value)}\n`));
+  const f = await timing.run(0, "init", () => fixture(t, {}, false, false, timing)), originalRun = f.event.runId;
   for (let index = 0; index < 65; index++) {
     f.event.runId = f.agent.runId = `synthetic-sequential-owner-${index}`;
-    const prepared = await f.ingress();
-    await assertOwnerPreparation(prepared, index, async () => (await f.rpc("status")).payload?.supply);
-    assert.equal((await f.admit(index ? [{ role: "assistant", content: "Synthetic prior conversation" }] : [])).outcome, "pass");
-    await f.hooks.get("agent_end")!({}, { ...f.agent });
+    await timing.run(index + 1, "ingress", async () => {
+      const prepared = await f.ingress();
+      await assertOwnerPreparation(prepared, index, async () => (await f.rpc("status")).payload?.supply);
+    });
+    await timing.run(index + 1, "admit", async () => assert.equal((await f.admit(index ? [{ role: "assistant", content: "Synthetic prior conversation" }] : [])).outcome, "pass"));
+    await timing.run(index + 1, "end", () => f.hooks.get("agent_end")!({}, { ...f.agent }));
   }
   f.event.runId = f.agent.runId = "synthetic-sequential-owner-0";
-  assert.equal((await f.ingress()).handled, true);
-  assert.equal((await f.admit()).outcome, "block");
+  await timing.run(66, "ingress", async () => assert.equal((await f.ingress()).handled, true));
+  await timing.run(66, "admit", async () => assert.equal((await f.admit()).outcome, "block"));
   f.event.runId = f.agent.runId = originalRun;
-  assert.equal(await f.ingress(), undefined);
-  await f.hooks.get("agent_end")!({}, { ...f.agent });
+  await timing.run(67, "ingress", async () => assert.equal(await f.ingress(), undefined));
+  await timing.run(67, "end", () => f.hooks.get("agent_end")!({}, { ...f.agent }));
   assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
 });
 

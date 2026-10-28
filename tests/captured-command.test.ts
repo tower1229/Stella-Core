@@ -109,7 +109,7 @@ const mode=${JSON.stringify(mode)},createLog=file=>mode==='log-error'&&file===ca
 write(chunk,encoding,done){appendFileSync(file,chunk);done();},
 final(done){setTimeout(()=>done(Object.assign(new Error('synthetic runner log error'),{code:'ELOGTEST'})),30);}
 }):createWriteStream(file);
-return real(command,args,{...options,timeout:mode==='timeout'||mode==='timeout-exit0'&&args.includes('test')?1000:options.timeout,maxBuffer:mode==='maxBuffer'?1024:options.maxBuffer},{...capture,createLog});}`);
+return real(command,args,{...options,timeout:mode==='timeout'||mode==='timeout-exit0'&&capture.stdoutPath.endsWith('test.stdout')?1000:options.timeout,maxBuffer:mode==='maxBuffer'?1024:options.maxBuffer},{...capture,createLog});}`);
   await writeFile(path.join(root, ".gitignore"), "node_modules/\n.artifacts/\n");
   await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "@tower1229/stella-core", version: "0.1.0-alpha.0",
     devDependencies: { openclaw: "2026.10.8" }, openclaw: { build: { openclawVersion: "2026.10.8", pluginSdkVersion: "2026.10.8" } } }));
@@ -119,8 +119,6 @@ return real(command,args,{...options,timeout:mode==='timeout'||mode==='timeout-e
   await writeFile(path.join(host, "package.json"), JSON.stringify({ name: "openclaw", version: "2026.10.8", exports: { "./plugin-sdk/plugin-entry": "./dist/plugin-sdk/plugin-entry.js" } }));
   await writeFile(path.join(host, "dist/plugin-sdk/plugin-entry.js"), "throw Error('Metadata fixture must not execute SDK');");
   const env = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
-  for (const args of [["init", "--quiet"], ["add", "."], ["-c", "user.name=Synthetic", "-c", "user.email=synthetic@example.invalid", "commit", "--quiet", "-m", "runner fixture"]])
-    await exec("git", args, { cwd: root, env });
   const fakeNpm = path.join(parent, "npm.cjs"), calls = path.join(parent, "npm-calls.jsonl");
   const writes = mode === "cancel-exit0"
     ? `process.stderr.write(${JSON.stringify(stderrMarker + "\n")},()=>process.stdout.write(${JSON.stringify(marker + "\n")}));`
@@ -135,6 +133,12 @@ ${mode.endsWith("-exit0") ? "process.on('SIGTERM',()=>process.exit(0));" : ""}
 ${writes}
 ${mode.startsWith("cancel") || mode.startsWith("timeout") ? "setInterval(()=>{},1000);" : mode === "maxBuffer"
     ? "setTimeout(()=>process.stdout.write('x'.repeat(131072)),30);" : mode === "log-error" ? "process.exitCode=0;" : "process.exitCode=13;"}`);
+  // Exercise the actual runner's direct test step, without compilation or SDK
+  // work in this capture-only fault fixture. Run in the same owned child PID.
+  await writeFile(path.join(root, "scripts/run-workspace-tests.mjs"),
+    `import {createRequire} from 'node:module';const require=createRequire(import.meta.url);process.argv=[process.execPath,process.argv[1],'run','test','--silent'];\n` + await readFile(fakeNpm, "utf8"));
+  for (const args of [["init", "--quiet"], ["add", "."], ["-c", "user.name=Synthetic", "-c", "user.email=synthetic@example.invalid", "commit", "--quiet", "-m", "runner fixture"]])
+    await exec("git", args, { cwd: root, env });
   return { parent, root, calls, env: { ...env, npm_execpath: fakeNpm } };
 }
 

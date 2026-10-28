@@ -68,7 +68,9 @@ try {
   receipt.hostVersion = receipt.versions.workspaceSdkVersion;
   await save();
   for (const script of ["check", "check:schemas", "test"]) {
-    await npm(script.replaceAll(":", "-"), ["run", script, "--silent"]); receipt.checks.push({ script, passed: true });
+    if (script === "test") await run("test", process.execPath, [path.join(root, "scripts/run-workspace-tests.mjs")]);
+    else await npm(script.replaceAll(":", "-"), ["run", script, "--silent"]);
+    receipt.checks.push({ script, passed: true });
   }
   await assertSourceUnchanged(root, source);
   assert.deepEqual(JSON.parse(await readFile(path.join(root, "dist/build-identity.json"), "utf8")), { coreRevision: source.coreRevision, sourceClean: true });

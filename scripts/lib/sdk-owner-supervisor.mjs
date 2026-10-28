@@ -4,6 +4,7 @@ import { constants } from "node:fs";
 import { lstat, mkdtemp, open, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnOwnedNodeTestSuite } from "./owned-node-test-suite.mjs";
 
 const schemaVersion = "stella.test-owned-work/v1";
@@ -11,6 +12,15 @@ const rootKey = "STELLA_TEST_OWNER_ROOT", runKey = "STELLA_TEST_OWNER_RUN";
 const receiptName = "owned-work.json";
 const fileKey = "STELLA_TEST_OWNER_FILE";
 const fail = code => Object.assign(new Error(code), { code });
+
+/** Trusted test protocol, not an authentication credential. No unsafe fallback. */
+export async function requireOwnedTestRoot(fileUrl) {
+  const root = process.env[rootKey], run = process.env[runKey], file = process.env[fileKey];
+  if (!root || !run || !file || !/^[0-9a-f-]{36}$/.test(run)) throw fail("owned_test_root_required");
+  if (await realpath(fileURLToPath(fileUrl)) !== await realpath(file)) throw fail("owned_work_file_mismatch");
+  if (!path.basename(root).startsWith("stella-sdk-owner-")) throw fail("owned_test_root_invalid");
+  await assertRoot(root); return root;
+}
 
 function validateState(value, runId) {
   if (!value || Object.keys(value).sort().join() !== "pending,pendingFailures,runId,schemaVersion,status,stopFailures" ||
@@ -115,8 +125,10 @@ async function supervise(options, suite) {
   const file = validateArgs(options.args), cwd = await realpath(options.cwd ?? process.cwd());
   const fileStat = await lstat(path.resolve(cwd, file));
   if (!fileStat.isFile() || fileStat.isSymbolicLink()) throw fail("owner_test_file_invalid");
-  const timeoutMs = options.timeoutMs ?? 600_000;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 600_000) throw fail("owner_timeout_invalid");
+  // Only the workspace suite can explicitly defer its deadline to its parent.
+  // Standalone probes retain their existing bounded timeout contract.
+  const timeoutMs = suite && options.timeoutMs === null ? null : options.timeoutMs ?? 600_000;
+  if (timeoutMs !== null && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 600_000)) throw fail("owner_timeout_invalid");
   const env = { ...(options.env ?? process.env) };
   if (env.NODE_OPTIONS) throw fail("owner_node_options_unsupported");
   delete env.NODE_OPTIONS; delete env.NODE_PATH; delete env.NODE_TEST_CONTEXT; delete env[fileKey];
@@ -169,7 +181,7 @@ async function supervise(options, suite) {
           }
         }, 1000);
       });
-      timer = setTimeout(() => { timedOut = true; interrupt("timeout"); }, timeoutMs);
+      if (timeoutMs !== null) timer = setTimeout(() => { timedOut = true; interrupt("timeout"); }, timeoutMs);
       const childClosed = new Promise(resolve => child.once("close", (code, endedSignal) => {
         closed = true; closeObserved = true; exitCode = code; signal = endedSignal; resolve();
       }));

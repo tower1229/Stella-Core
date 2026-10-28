@@ -133,7 +133,8 @@ try {
   } else {
     for (const script of ["check", "check:schemas", "test"]) {
       process.stderr.write(`Verify ${script}\n`);
-      await npm(script.replaceAll(":", "-"), ["run", script, "--silent"]);
+      if (script === "test") await capture("test", process.execPath, [path.join(root, "scripts/run-workspace-tests.mjs")]);
+      else await npm(script.replaceAll(":", "-"), ["run", script, "--silent"]);
       receipt.checks.push({ script, passed: true });
       await save();
     }
