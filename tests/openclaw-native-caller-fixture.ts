@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 // the public SDK and actual reply_dispatch context, not private Host imports.
 const sdkEntry = createRequire(import.meta.url).resolve("openclaw/plugin-sdk/plugin-entry");
 const hostPackage = path.resolve(path.dirname(sdkEntry), "../../package.json");
-assert.equal(JSON.parse(await readFile(hostPackage, "utf8")).version, "2026.10.7");
+assert.equal(JSON.parse(await readFile(hostPackage, "utf8")).version, "2026.10.8");
 const dist = path.join(path.dirname(hostPackage), "dist");
 const candidates = (await readdir(dist)).filter(name => /^gateway-client-identity-.*\.mjs$/.test(name));
 assert.equal(candidates.length, 1);
