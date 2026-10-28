@@ -4,10 +4,12 @@ import { constants } from "node:fs";
 import { lstat, mkdtemp, open, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { spawnOwnedNodeTestSuite } from "./owned-node-test-suite.mjs";
 
 const schemaVersion = "stella.test-owned-work/v1";
 const rootKey = "STELLA_TEST_OWNER_ROOT", runKey = "STELLA_TEST_OWNER_RUN";
 const receiptName = "owned-work.json";
+const fileKey = "STELLA_TEST_OWNER_FILE";
 const fail = code => Object.assign(new Error(code), { code });
 
 function validateState(value, runId) {
@@ -24,6 +26,7 @@ function validateState(value, runId) {
 export async function recordOwnedWorkState({ status, pending = 0, stopFailures = 0, pendingFailures = 0 }) {
   const root = process.env[rootKey], runId = process.env[runKey];
   if (!root || !runId) throw fail("owned_work_binding_missing");
+  if (process.env[fileKey] && path.resolve(process.argv[1] ?? "") !== process.env[fileKey]) throw fail("owned_work_file_mismatch");
   const value = validateState({ schemaVersion, runId, status, pending, stopFailures, pendingFailures }, runId);
   const target = path.join(root, receiptName);
   let previous;
@@ -81,6 +84,32 @@ async function readOwnedWork(root, runId) {
  * removal retain the root; after rm starts, report failure and its actual outcome.
  * No inferred descendant termination unlocks removal. */
 export async function superviseOwnerTest(options) {
+  return supervise(options);
+}
+
+/** The native public runner owns result aggregation and file concurrency.
+ * Exactly one listed file may publish this root's owned-work terminal state. */
+export async function superviseOwnerSuite(options) {
+  if (!["darwin", "linux"].includes(process.platform)) throw fail("owner_suite_platform_unsupported");
+  const allowed = ["files", "ownerFile", "cwd", "env", "signal", "timeoutMs", "stdout", "stderr"];
+  if (!options || Object.keys(options).some(key => !allowed.includes(key)) || !Array.isArray(options.files) || !options.files.length)
+    throw fail("owner_suite_options_invalid");
+  const cwd = await realpath(options.cwd ?? process.cwd());
+  const files = options.files.map(file => {
+    validateArgs([file]); return path.resolve(cwd, file);
+  });
+  if (new Set(files).size !== files.length) throw fail("owner_suite_duplicate_file");
+  for (const file of files) {
+    const stat = await lstat(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw fail("owner_test_file_invalid");
+  }
+  const ownerFile = path.resolve(cwd, options.ownerFile ?? "");
+  if (!files.includes(ownerFile)) throw fail("owner_suite_file_missing");
+  const { files: _files, ownerFile: _owner, ...common } = options;
+  return supervise({ ...common, args: [ownerFile] }, { ownerFile, files });
+}
+
+async function supervise(options, suite) {
   const allowed = ["args", "cwd", "env", "signal", "timeoutMs", "stdout", "stderr"];
   if (!options || Object.keys(options).some(key => !allowed.includes(key))) throw fail("owner_options_invalid");
   const file = validateArgs(options.args), cwd = await realpath(options.cwd ?? process.cwd());
@@ -90,14 +119,16 @@ export async function superviseOwnerTest(options) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 600_000) throw fail("owner_timeout_invalid");
   const env = { ...(options.env ?? process.env) };
   if (env.NODE_OPTIONS) throw fail("owner_node_options_unsupported");
-  delete env.NODE_OPTIONS; delete env.NODE_PATH; delete env.NODE_TEST_CONTEXT;
+  delete env.NODE_OPTIONS; delete env.NODE_PATH; delete env.NODE_TEST_CONTEXT; delete env[fileKey];
+  if (suite) env[fileKey] = suite.ownerFile;
   const { root, identity } = await captureRoot(), runId = randomUUID();
   env[rootKey] = root; env[runKey] = runId;
   const logErrors = [], errors = [], writes = new Set();
-  let child, timer, killTimer, stdioTimer, closed = false, interrupted, timedOut = false;
+  let child, group, groupState, timer, killTimer, stdioTimer, closed = false, interrupted, timedOut = false;
   const destinations = [options.stdout ?? process.stdout, options.stderr ?? process.stderr];
   const interrupt = reason => {
     interrupted ??= reason;
+    if (group) { group.interrupt(); return; }
     if (child && !closed) {
       try { child.kill("SIGTERM"); } catch (error) { errors.push(error.code ?? error.message); }
       killTimer ??= setTimeout(() => {
@@ -116,7 +147,8 @@ export async function superviseOwnerTest(options) {
     if (options.signal?.aborted) interrupted = "cancelled";
     else {
       options.signal?.addEventListener("abort", abort, { once: true });
-      child = spawn(process.execPath, options.args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+      if (suite) { group = spawnOwnedNodeTestSuite(suite.files, { cwd, env }); child = group.child; }
+      else child = spawn(process.execPath, options.args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
       for (const [index, source] of [child.stdout, child.stderr].entries()) {
         source.on("error", logFailure);
         source.on("data", bytes => {
@@ -138,9 +170,18 @@ export async function superviseOwnerTest(options) {
         }, 1000);
       });
       timer = setTimeout(() => { timedOut = true; interrupt("timeout"); }, timeoutMs);
-      await new Promise(resolve => child.once("close", (code, endedSignal) => {
+      const childClosed = new Promise(resolve => child.once("close", (code, endedSignal) => {
         closed = true; closeObserved = true; exitCode = code; signal = endedSignal; resolve();
       }));
+      await (group ? Promise.race([childClosed, group.failure]) : childClosed);
+      if (group) {
+        groupState = await group.settle();
+        if (groupState.unexpectedSurvivors) interrupted ??= "owner_group_survived_leader";
+        if (!groupState.confirmedGone) {
+          errors.push(groupState.error ?? "owner_group_exit_unconfirmed");
+          if (!closed) { child.stdout.destroy(); child.stderr.destroy(); child.unref(); }
+        }
+      }
       let drainTimer;
       try {
         await Promise.race([Promise.all([...writes]), new Promise(resolve => {
@@ -158,7 +199,7 @@ export async function superviseOwnerTest(options) {
     try { await assertRoot(root, identity); rootValid = true; ownedWork = await readOwnedWork(root, runId); }
     catch (error) { errors.push(error.code ?? error.message); }
     const mayRemove = () => rootValid && ownedWork?.status === "complete" && closeObserved && !interrupted &&
-      signal === null && stdioComplete && !errors.length && !logErrors.length;
+      signal === null && stdioComplete && !errors.length && !logErrors.length && (!suite || groupState?.confirmedGone);
     if (mayRemove()) try {
       // Revalidate first, then check live failure state. No await separates this
       // last gate from the one rm call. Once submitted, rm cannot be rolled back.
@@ -172,6 +213,7 @@ export async function superviseOwnerTest(options) {
     }
     return { passed: exitCode === 0 && mayRemove() && cleanup === "removed",
       child: { exitCode, signal, killed: child?.killed ?? false, closeObserved },
+      ...(suite ? { group: group?.status() ?? groupState ?? null } : {}),
       interrupted: interrupted ?? null, timedOut, stdioComplete, logErrors, errors,
       ownedWork, cleanup: { root, status: cleanup, started: cleanupStarted } };
   } finally {
