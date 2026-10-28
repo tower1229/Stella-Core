@@ -80,6 +80,7 @@ async function fixture(t: TestContext, openSdk: (binding: Parameters<Input["open
   }
   t.after(() => actual.close());
   const counters = { writerCalls: 0, correctionResponses: 0, nativeGets: 0, nativeCloses: 0, nativeOpens: 0,
+    objectReadAttempts: 0, payloadReadAttempts: 0,
     sourceRequestHashes: [] as string[] }, control = { denyReadback: false };
   const runtime = { ...actual, async correctLocal(input: Parameters<typeof actual.correctLocal>[0]) { counters.writerCalls++; return actual.correctLocal(input); } };
   const api = { source: "synthetic-c3-plugin", runtime: { config: { current: () => ({ agents: { entries: { synthetic: { model: { primary: WORK_MODEL, fallbacks: [] } } } } }) },
@@ -110,6 +111,9 @@ async function fixture(t: TestContext, openSdk: (binding: Parameters<Input["open
         execution: { mode: "direct-provider", owner: { kind: "provider", id: "google" } }, audit: { caller: { kind: "plugin", id: "stella-core" }, purpose: params.purpose } };
     } } } } as unknown as OpenClawPluginApi;
   const recovery = await runtime.capture(), reader = await CatalogReader.load(root, source.catalogPath), controller = new AbortController();
+  const readObject = reader.read.bind(reader), readPayload = reader.readPayload.bind(reader);
+  reader.read = async (...args) => { counters.objectReadAttempts++; return readObject(...args); };
+  reader.readPayload = async (...args) => { counters.payloadReadAttempts++; return readPayload(...args); };
   const coordinator = createCheckpointCorrectionReadback({ providerId, correction: { api, runtime, recovery, request,
     archive: { recovery, evidenceRefs: archive.evidenceRefs, sourceRefs: [archive.sourceRef], capturedAt, requestHash: request.requestHash, runId: request.runId },
     resolver: new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("C3 must use its bound structured response port"); }),
@@ -210,8 +214,21 @@ return authority.kind==='operator'&&scopes?.has(authority.connId)?scopes.get(aut
       const f = await fixture(t, openSdk);
       const schema = JSON.parse(JSON.stringify(f.coordinator.parameters));
       assert.equal(schema.additionalProperties, false); assert.deepEqual(schema.properties, {});
-      await assert.rejects(f.coordinator.execute({ request: "replacement", ownerId: "other", operationId: "other", expected: {} }), /arguments_invalid/);
-      assert.equal(f.counters.writerCalls, 0);
+      const beforeArguments = structuredClone(f.counters), checkpoint = (await f.runtime.capture()).expected;
+      // Fixture archive/init precede this window; malformed tool arguments must
+      // not read an object/payload, infer a correction, open a lease or write.
+      const malformed: Array<[string, unknown]> = [["missing", undefined], ["null", null], ["string", "{}"],
+        ["array", []], ["number", 1], ["boolean", true],
+        ...["request", "ownerId", "path", "audience", "expected", "operationId", "senderIsOwner", "authority", "description", "action"]
+          .map(key => [`injected ${key}`, { [key]: key === "action" ? "delete" : "model-supplied override" }] as [string, unknown]),
+        ["combined overrides", { request: "replacement", ownerId: "other", operationId: "other", expected: {} }]];
+      for (const [name, value] of malformed) await t.test(name, async () => {
+        await assert.rejects(f.coordinator.execute(value), /arguments_invalid/);
+        assert.deepEqual(f.counters, beforeArguments, "invalid arguments must not reach read/write/model ports");
+      });
+      assert.equal(f.counters.objectReadAttempts, 0); assert.equal(f.counters.payloadReadAttempts, 0);
+      assert.deepEqual((await f.runtime.capture()).expected, checkpoint); assert.equal(await f.git("rev-parse", "HEAD"), f.baseline);
+      assert.deepEqual(JSON.parse(JSON.stringify(f.coordinator.parameters)), schema);
       const [a, b] = await Promise.all([f.coordinator.execute({}), f.coordinator.execute({})]); assert.deepEqual(a, b);
       assert.equal(a.status, "readback_verified", JSON.stringify(a.readback)); assert.equal(a.correction.persistenceStatus, "local_committed");
       assert.equal(a.correction.disposition, "update"); assert.equal(f.counters.writerCalls, 1); assert.equal(f.counters.correctionResponses, 1);
@@ -226,6 +243,7 @@ return authority.kind==='operator'&&scopes?.has(authority.connId)?scopes.get(aut
       assert.deepEqual((await f.runtime.capture()).expected, a.correction.authority); assert.equal(await f.git("rev-list", "--count", `${f.baseline}..HEAD`), "1");
       const again = await f.coordinator.execute({}); assert.deepEqual(again, a); assert.equal(f.counters.writerCalls, 1); assert.equal(f.counters.correctionResponses, 1);
       assert.equal(f.counters.nativeOpens, f.counters.nativeCloses); assert.equal(await f.git("status", "--porcelain"), "");
+      assert.deepEqual(JSON.parse(JSON.stringify(f.coordinator.parameters)), schema, "execution does not rewrite the registered parameter contract");
     });
     await t.test("a committed update survives readback denial; retry reads without calling the writer again", async t => {
       const f = await fixture(t, openSdk); f.control.denyReadback = true;
