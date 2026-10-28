@@ -17,18 +17,24 @@ import { createAgentSupplySource, publishAgentSupplySourceRevision, SUPPLY_MARKE
 import { createReplyDispatcher } from "openclaw/plugin-sdk/reply-runtime";
 import { CHECKPOINT_FAILURE_TEXT } from "../src/openclaw/checkpoint-failure-reply.js";
 import { nativeProfileCaller } from "./openclaw-native-caller-fixture.js";
+import { assertOwnerPreparation, createAgentSupplyFixtureLifecycle } from "./checkpoint-agent-supply-lifecycle.js";
 
 async function fixture(t: TestContext, options: Parameters<typeof createAgentSupplySource>[0] = {}, automaticArchive = false, webchatProfile: boolean | "device" = false) {
   const source = await createAgentSupplySource(options), parent = await realpath(await mkdtemp("/tmp/stella-agent-supply-"));
-  t.after(async () => { await rm(source.root, { recursive: true, force: true }); await rm(parent, { recursive: true, force: true }); });
+  const lifecycle = createAgentSupplyFixtureLifecycle(t.signal), { controller, stops } = lifecycle;
+  lifecycle.removals.push(() => rm(source.root, { recursive: true, force: true }), () => rm(parent, { recursive: true, force: true }));
+  t.after(() => lifecycle.close());
   const authority = path.join(parent, "authority"), state = path.join(parent, "host-state"), storePath = path.join(parent, "sessions.json");
   await mkdir(authority); await mkdir(state);
   const config = { recoveryAuthority: "core_checkpoint", checkpointStateDirectory: authority, canghaiRoot: source.root, agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", ...(webchatProfile === "device" ? { webchatOwnerDeviceId: "d".repeat(64) } : webchatProfile ? { webchatOwnerProfileId: "synthetic-profile" } : {}), ...(automaticArchive ? { requestArchive: "local" } : {}) };
   const live: any = { commands: { ownerAllowFrom: ["synthetic-owner"] }, session: { store: storePath }, plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
   const key = "agent:synthetic:fresh", sessionId = "synthetic-physical-session", runId = "synthetic-normal-host-run";
-  await upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } });
+  controller.signal.throwIfAborted();
+  await lifecycle.track(upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } }));
+  controller.signal.throwIfAborted();
   if (options.policyContext || options.requesterId) live.agents = { entries: { synthetic: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] } } } };
-  const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), factories: Function[] = [], stops: Function[] = [], beforeDeliver: Function[] = [];
+  const hooks = new Map<string, Function>(), methods = new Map<string, Function>(), factories: Function[] = [], beforeDeliver: Function[] = [];
+  const tracked = (handler: Function) => (...args: any[]) => lifecycle.track(handler(...args));
   let calls = 0, models = 0, configWrites = 0;
   const observation: { beforeCurrent?: () => void; beforePolicyComplete?: (params: any) => Promise<void> } = {};
   const api = { pluginConfig: config, config: live, runtime: { version: "2026.8.2", state: { resolveStateDir: () => state },
@@ -44,14 +50,16 @@ async function fixture(t: TestContext, options: Parameters<typeof createAgentSup
         provider: "google", model: "gemini-3.8-flash", agentId: "synthetic", usage: {}, execution: { mode: "direct-provider", owner: { kind: "provider", id: "google" } },
         audit: { caller: { kind: "plugin", id: "stella-core" } } };
     } } },
-    logger: { info() {}, error() {}, warn() {}, debug() {} }, on(name: string, handler: Function) { hooks.set(name, handler); },
-    registerGatewayMethod(name: string, handler: Function) { methods.set(name, handler); },
-    registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); }, registerTool(factory: Function) { factories.push(factory); },
+    logger: { info() {}, error() {}, warn() {}, debug() {} }, on(name: string, handler: Function) { hooks.set(name, tracked(handler)); },
+    registerGatewayMethod(name: string, handler: Function) { methods.set(name, tracked(handler)); },
+    registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); }, registerTool(factory: Function) {
+      factories.push((ctx: unknown) => { const tool = factory(ctx); return tool ? { ...tool, execute: tracked(tool.execute.bind(tool)) } : tool; });
+    },
   } as unknown as OpenClawPluginApi;
-  registerCheckpointPlugin(api); t.after(async () => { for (const stop of stops) await stop(); });
+  registerCheckpointPlugin(api);
   async function rpc(action: string, extra: any = {}) { let result: any; await methods.get("stella.checkpoint")!({ params: { action, ...extra }, respond: (ok: boolean, payload: any, error: any) => { result = { ok, payload, error }; } }); return result; }
   assert.equal((await rpc("initialize", { revision: source.revision, operationId: "synthetic-initialize" })).ok, true);
-  const controller = new AbortController(), event: any = { runId, sessionKey: key, sendPolicy: "allow", inboundAudio: false,
+  const event: any = { runId, sessionKey: key, sendPolicy: "allow", inboundAudio: false,
     ctx: { SessionKey: key, Body: "Recall my writing preference", SenderId: "synthetic-owner", From: "synthetic-owner", Provider: "webchat", ChatType: "direct", Timestamp: Date.now(), CommandAuthorized: true } };
   if (webchatProfile) {
     delete event.ctx.SenderId; delete event.ctx.From;
@@ -227,7 +235,7 @@ test("cached A remains request-local while the next user request loads committed
   const f = await fixture(t); await f.ingress(); await f.admit();
   const before = (await f.rpc("status")).payload.authority;
   if (cached) await f.execute({ action: "list" });
-  const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); t.after(() => writer.close());
+  const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); f.stops.push(() => writer.close());
   const request = snapshotTurnRequest({ agentId: "synthetic", sessionId: "synthetic-other-source", sessionKey: "agent:synthetic:another",
     prompt: "Synthetic independently authorized new event", senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, "synthetic-other-writer");
   const archive = prepareHostRequestArchive({ schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: "2020-01-02T00:00:00Z" }, { ...f.binding.archive, ownerId: "owner-fixture" });
@@ -286,7 +294,7 @@ test("separate public plugin registrations share only original exact-scope permi
   const f = await fixture(t), hooks = new Map<string, Function>(), factories: Function[] = [], stops: Function[] = [];
   const api = { ...f.api, on(name: string, fn: Function) { hooks.set(name, fn); }, registerTool(factory: Function) { factories.push(factory); },
     registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); } } as unknown as OpenClawPluginApi;
-  registerCheckpointPlugin(api); t.after(async () => { for (const stop of stops) await stop(); });
+  registerCheckpointPlugin(api); f.stops.push(...stops.map(stop => () => stop()));
   assert.equal(await f.ingress(), undefined);
   assert.equal((await hooks.get("before_agent_run")!({ messages: [], senderIsOwner: true }, f.agent)).outcome, "pass");
   const callId = "synthetic-cross-registration-call", value = { action: "list" };
@@ -398,14 +406,14 @@ test("nested archive and direct preparation failures publish one sanitized failu
 
 
 test("Agent preparation refuses a checkpoint different from the archive return instead of adopting observation", async t => {
-  const f = await fixture(t), writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); t.after(() => writer.close());
+  const f = await fixture(t), writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); f.stops.push(() => writer.close());
   const original = await writer.capture(), request = snapshotTurnRequest({ agentId: "synthetic", sessionId: "synthetic-intervening-session",
     sessionKey: "agent:synthetic:intervening", prompt: "Synthetic intervening publication", senderId: "synthetic-owner", senderIsOwner: true, chatType: "direct" }, "synthetic-intervening-run");
   const archive = prepareHostRequestArchive({ schemaVersion: "stella.host-request-snapshot/v1", request, capturedAt: "2020-01-02T00:00:00Z" }, { ...f.binding.archive, ownerId: "owner-fixture" });
   const accepted = await writer.archiveLocal({ recovery: original, reader: await CatalogReader.load(f.root, f.catalogPath), archive,
     operationId: "synthetic-intervening-publication", purpose: f.binding.purpose });
   const isolatedScope = registerCheckpointAgentSupply(f.api, parseCheckpointPluginConfig(f.config), async () => writer, undefined, async () => ({ recovery: original }));
-  t.after(() => isolatedScope.close());
+  f.stops.push(() => isolatedScope.close());
   assert.equal((await f.ingress()).handled, true); assert.equal(isolatedScope.status()?.category, "checkpoint_agent_archive_changed");
   assert.equal((await f.admit()).outcome, "block"); assert.deepEqual((await f.rpc("status")).payload.authority, accepted.authority);
 });
@@ -468,7 +476,7 @@ test("revised source replaces current tool facts while same-owner prior conversa
   const f = await fixture(t); await f.ingress(); await f.admit();
   const listA = await f.execute({ action: "list" }), originalA = await f.execute({ action: "read", handle: listA.details.items[0].handle });
   await f.hooks.get("agent_end")!({}, f.agent);
-  const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); t.after(() => writer.close());
+  const writer = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2"); f.stops.push(() => writer.close());
   const textB = "SYNTHETIC_REVISED_PREFERENCE_B_5281: Write concrete open questions first.";
   await publishAgentSupplySourceRevision(f, f.authority, await writer.capture(), textB);
   f.event.runId = f.agent.runId = "synthetic-revised-next-request"; f.event.ctx.Body = "Continue our conversation with the current preference";
@@ -570,7 +578,7 @@ test("tool-only cancellation reaches the semantic Host call before any original 
     if (this.root === f.root) reads++;
     return readPayload.apply(this, args);
   };
-  t.after(() => { CatalogReader.prototype.readPayload = readPayload; });
+  f.stops.push(() => { CatalogReader.prototype.readPayload = readPayload; });
   f.observation.beforePolicyComplete = async params => {
     assert.equal(f.controller.signal.aborted, false); toolAbort.abort();
     assert.equal(params.signal.aborted, true); params.signal.throwIfAborted();
@@ -604,7 +612,7 @@ test("cancellation after policy approval but before payload access does not star
     if (this.root === f.root) reads++;
     return payload.apply(this, args);
   };
-  t.after(() => { CatalogReader.prototype.read = read; CatalogReader.prototype.readPayload = payload; });
+  f.stops.push(() => { CatalogReader.prototype.read = read; CatalogReader.prototype.readPayload = payload; });
   await assert.rejects(f.execute({ action: "list" }, true, { abortSignal: toolAbort.signal }));
   assert.equal(f.controller.signal.aborted, false); assert.equal(reads, 0);
 });
@@ -653,7 +661,7 @@ test("completed owner requests do not exhaust the concurrent capacity and old ru
   for (let index = 0; index < 65; index++) {
     f.event.runId = f.agent.runId = `synthetic-sequential-owner-${index}`;
     const prepared = await f.ingress();
-    assert.equal(prepared, undefined, `completed request ${index + 1}: ${JSON.stringify((await f.rpc("status")).payload?.supply)}`);
+    await assertOwnerPreparation(prepared, index, async () => (await f.rpc("status")).payload?.supply);
     assert.equal((await f.admit(index ? [{ role: "assistant", content: "Synthetic prior conversation" }] : [])).outcome, "pass");
     await f.hooks.get("agent_end")!({}, { ...f.agent });
   }
@@ -673,7 +681,7 @@ test("pending preparations count as live capacity and duplicate refusal cannot r
   let preparationsEntered = 0;
   const supply = registerCheckpointAgentSupply(f.api, parseCheckpointPluginConfig(f.config), async () => { throw new Error("No runtime needed for owned refusal"); }, undefined,
     async () => { preparationsEntered++; await barrier; return { handled: true, queuedFinal: false, counts: { tool: 0, block: 0, final: 0 } }; });
-  t.after(() => supply.close());
+  f.stops.push(() => supply.close());
   const dispatch = (runId: string) => f.hooks.get("reply_dispatch")!({ ...f.event, runId }, f.context);
   const pending = Array.from({ length: 64 }, (_, index) => dispatch(`synthetic-pending-owner-${index}`));
   try {
@@ -690,13 +698,13 @@ test("pending preparations count as live capacity and duplicate refusal cannot r
 
 test("ending a pending preparation prevents its late runtime result from restoring a grant", { timeout: 30_000 }, async t => {
   const f = await fixture(t), runtime = await createCheckpointPluginRuntime(parseCheckpointPluginConfig(f.config), "2026.8.2");
-  t.after(() => runtime.close());
+  f.stops.push(() => runtime.close());
   let enter!: () => void, release!: () => void;
   const entered = new Promise<void>(resolve => { enter = resolve; });
   const barrier = new Promise<void>(resolve => { release = resolve; });
   const supply = registerCheckpointAgentSupply(f.api, parseCheckpointPluginConfig(f.config), async () => ({ ...runtime,
     async load() { enter(); await barrier; return runtime.load(); } }));
-  t.after(() => supply.close());
+  f.stops.push(() => supply.close());
   const pending = f.ingress();
   await entered;
   try { await f.hooks.get("agent_end")!({}, { ...f.agent }); } finally { release(); }
