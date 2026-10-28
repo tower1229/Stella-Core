@@ -30,6 +30,34 @@ function timestamp(value: unknown, nullable = false): value is string | null {
 function refs(value: unknown): value is VersionedRef[] { return Array.isArray(value) && value.every(validMemoryRef); }
 function includesRef(values: VersionedRef[], ref: VersionedRef): boolean { return values.some((value) => value.id === ref.id && value.version === ref.version); }
 
+/** Shared by ordinary reads and correction recovery; a non-update cannot publish targets. */
+export function validLearningChangeTargetState(disposition: unknown, targetCount: number, rowCount: number): boolean {
+  return targetCount === rowCount && (disposition === "update" ? targetCount > 0 :
+    (disposition === "no_change" || disposition === "needs_clarification") && targetCount === 0);
+}
+
+/** Shared Learning Change structure and current-use dependencies; before refs describe history. */
+export function validateLearningChange(object: Record<string, unknown>): { dependencies: VersionedRef[]; rowEvidenceRefs: VersionedRef[] } {
+  check(object.schemaVersion === "stella.learning-change/v1" && typeof object.id === "string" && object.id &&
+    refs(object.inputRefs) && refs(object.targetRefs) &&
+    typeof object.operationId === "string" && object.operationId && typeof object.algorithmVersion === "string" && object.algorithmVersion &&
+    typeof object.modelRef === "string" && object.modelRef && typeof object.promptVersion === "string" && object.promptVersion &&
+    Array.isArray(object.changes) && typeof object.rationale === "string" && object.rationale &&
+    ["update", "no_change", "needs_clarification"].includes(String(object.disposition)), "invalid_learning_change");
+  const rowEvidenceRefs: VersionedRef[] = [], targets = object.targetRefs, rows = object.changes;
+  for (const change of rows) {
+    check(isRecord(change) && ["create", "revise", "narrow", "contest", "retire", "link"].includes(String(change.kind)) &&
+      (change.kind === "create" ? change.before === null : validMemoryRef(change.before)) && validMemoryRef(change.after) &&
+      includesRef(targets, change.after) && refs(change.supportRefs) && refs(change.counterRefs), "invalid_learning_change");
+    rowEvidenceRefs.push(...change.supportRefs, ...change.counterRefs);
+  }
+  check(new Set(targets.map(ref => canonicalJson([ref.id, ref.version]))).size === targets.length &&
+    validLearningChangeTargetState(object.disposition, targets.length, rows.length) &&
+    targets.every(target => rows.some(change => isRecord(change) &&
+      validMemoryRef(change.after) && includesRef([target], change.after))), "learning_change_target_mismatch");
+  return { dependencies: [...object.inputRefs, ...targets, ...rowEvidenceRefs], rowEvidenceRefs };
+}
+
 /** Catalog pre-filter and readEvidence share the same known-by / event-window gates. */
 export function evidenceTemporallyEligible(
   evidence: Record<string, unknown>,
@@ -303,20 +331,10 @@ export class EpisodeEvidenceResolver {
     for (const evidence of [...understanding.supportRefs, ...understanding.counterRefs]) await this.readEvidence(evidence);
     const changeRef = this.reader.currentRef(understanding.originChangeId, "changes");
     const object = await this.reader.read(changeRef, "changes");
-    check(object.schemaVersion === "stella.learning-change/v1" && refs(object.inputRefs) && refs(object.targetRefs) &&
-      typeof object.operationId === "string" && object.operationId && typeof object.algorithmVersion === "string" && object.algorithmVersion &&
-      typeof object.modelRef === "string" && object.modelRef && typeof object.promptVersion === "string" && object.promptVersion &&
-      Array.isArray(object.changes) && typeof object.rationale === "string" && object.rationale &&
-      ["update", "no_change", "needs_clarification"].includes(String(object.disposition)), "invalid_learning_change");
-    check(object.disposition === "update" && includesRef(object.targetRefs, ref) && object.changes.some((change) =>
-      isRecord(change) && validMemoryRef(change.after) && includesRef([ref], change.after)), "learning_change_target_mismatch");
-    for (const change of object.changes) {
-      check(isRecord(change) && ["create", "revise", "narrow", "contest", "retire", "link"].includes(String(change.kind)) &&
-        (change.kind === "create" ? change.before === null : validMemoryRef(change.before)) && validMemoryRef(change.after) &&
-        refs(change.supportRefs) && refs(change.counterRefs), "invalid_learning_change");
-      for (const evidence of [...change.supportRefs, ...change.counterRefs]) await this.readEvidence(evidence);
-    }
-    this.#dependencies(changeRef, [...object.inputRefs, ...object.targetRefs]);
+    const validated = validateLearningChange(object);
+    check(object.disposition === "update" && includesRef(object.targetRefs as VersionedRef[], ref), "learning_change_target_mismatch");
+    for (const evidence of validated.rowEvidenceRefs) await this.readEvidence(evidence);
+    this.#dependencies(changeRef, validated.dependencies);
   }
   async isCurrentlyEligible(episode: EpisodeV2): Promise<boolean> {
     await this.reader.assertCurrent();

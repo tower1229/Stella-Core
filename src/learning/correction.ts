@@ -9,7 +9,7 @@ import { afterDurablePersistPublishView } from "../canghai/managed-durable-write
 import type { RecoveryAuthoritySnapshot } from "../canghai/recovery-authority-contract.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
-import { EpisodeEvidenceResolver, type OriginalEvidence, type EvidencePurpose } from "../praxis/episode-evidence.js";
+import { EpisodeEvidenceResolver, validLearningChangeTargetState, type OriginalEvidence, type EvidencePurpose } from "../praxis/episode-evidence.js";
 import { preparePersonalViews, validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -487,9 +487,8 @@ export async function recoverCorrection(input: {
     change.operationId === input.operationId && change.algorithmVersion === algorithmVersion && change.promptVersion === algorithmVersion && change.modelRef === input.modelRef &&
     objectVersion(change) === receipt.changeRef.version && change.version === receipt.changeRef.version &&
     text(change.rationale) && refs(change.inputRefs) && change.inputRefs.length > 0 && refs(change.targetRefs) && Array.isArray(change.changes) &&
-    ["update", "no_change", "needs_clarification"].includes(String(change.disposition)) &&
-    change.targetRefs.length === change.changes.length && change.targetRefs.length === objects.length - 1 &&
-    (change.disposition === "update" ? change.targetRefs.length > 0 : change.targetRefs.length === 0), invalid);
+    validLearningChangeTargetState(change.disposition, change.targetRefs.length, change.changes.length) &&
+    change.targetRefs.length === objects.length - 1, invalid);
   const inputRefs = change.inputRefs;
   check(!consolidation || input.requestBinding, "consolidation_request_binding_required");
   const disposition = change.disposition as "update" | "no_change" | "needs_clarification";
