@@ -1,0 +1,132 @@
+project: Stella Core
+version_target: "3.0 Alpha"
+status: alpha-integration-and-evidence-validation
+updated_at: "2026-10-20"
+
+mission: >-
+  Become the owner's increasingly accurate digital counterpart and
+  high-dimensional self, extending memory, experience, simulation and praxis.
+
+normative_refs:
+  requirements: docs/09-REQUIREMENTS-ALIGNMENT.md
+  current_baseline: docs/10-DESIGN-BASELINE.md
+  glossary: CONTEXT.md
+  contracts: docs/contracts/README.md
+  alpha_acceptance: docs/05-ALPHA-PLAN.md
+  decisions: docs/DECISIONS.md
+
+repositories:
+  core:
+    repo: tower1229/Stella-Core
+    role: public plugin runtime, contracts, schemas and synthetic evaluation
+  personal_data:
+    repo: tower1229/CangHai
+    role: private originals, portable learning and instance configuration
+    legacy_backup_ref: dev
+    verified_legacy_commit: a1c2f4ec444b7d3245a7a0afea74460470a5dfc2
+    core_test_branch: local/stella-alpha
+    runtime_revision: explicitly selected by instance; never inferred from these labels
+
+runtime_strategy:
+  host: OpenClaw
+  development_model: google/gemini-3.8-flash
+  development_model_decided_at: "2026-10-20"
+  development_model_acceptance: requires_new_model_receipts; historical_evidence_keeps_original_model
+  target_host_version: "2026.8.2"
+  minimum_claimed_host_version: "2026.8.1"
+  minimum_version_independently_verified: false
+  integration: single stella-core plugin
+  replace_agent_loop: false
+  completion_strategy: limited reply_dispatch adapter over Host Agent Loop; Exact Host proof required
+  consciousness_manifest: 50_PersonalAgent/stella/manifest.yaml
+  alpha_delivery_mode: managed_durable_write
+
+design_complete:
+  - document authority, response kinds, common gates and distinct Alpha/full-memory acceptance
+  - versioned source identity, evidence provenance, original-data coverage and portable discovery
+  - multi-round retrieval, source rereads, counterevidence, stopping and explicit failures
+  - scoped interaction learning and OngoingWork independent of action outcomes
+  - source-change synchronization, historical pins, current eligibility and failure recovery
+  - Episode v2 state machine and machine schema
+  - restore semantics for legal empty sets and optional unavailable capabilities
+  - current Host seam review and required completion adapter contract
+
+implementation_evidence:
+  reviewed_runtime_commit: a0094b341f07c1fecb154d30b5b48de5c658d8ee
+  existing:
+    - plugin scaffold, manifest and reference loading, Framework IR and Twin validation
+    - managed commits, persistent recovery pointer CAS, push and bounded normal RPO diagnostics
+    - Episode v2 initial advice and evidence-bound outcome transactions with immutable prediction checks
+    - recovery, evaluation, private write-loop, activation and candidate receipt runners
+    - 32 public synthetic relationship/social diagnostic cases
+  new_contract_checks:
+    - Episode v2 JSON Schema compilation and structural contract tests
+  limit: >-
+    Existing code and historical receipts do not certify the revised baseline.
+    Full validators, migrations and exact-Host fault evidence remain necessary.
+  isolated_acceptance:
+    recovery_core_revision: f54f462e1b1bc148027a24b8096758dba5ab6342
+    recovery_host_patch: stella-openclaw-2026.8.2-private-draft-v1
+    recovery_model: google/gemini-3.1-pro-preview
+    clean_recovery: passed_for_selected_staged_source
+    current_convergence_recovery: passed_three_native_turns_and_continuity_judge
+    current_convergence_revision: 43bf05a42a4600e74df0ea9cef3bb2d32f58d228
+    current_convergence_artifact_sha256: eef727064206a8f7ca93cc9b7dbc5aa3fcf4d0736463ceac0a1ad89034e345a1
+    important_state_scope: legal_empty_sets_not_real_learning_proof
+    mixed_evaluation: completed_40_cases_36_passed_4_public_personal_context_failures
+    mixed_evaluation_public: 28_of_32_all_dimensions_passed
+    mixed_evaluation_private: 8_of_8_all_dimensions_passed
+    native_collaboration_answer_binding: verified_on_current_convergence_artifact
+    real_action_learning_acceptance: skipped_by_user_unverified
+    candidate_certified: false
+
+  sequential_convergence_20260907:
+    local_evidence_index: .artifacts/sequential-20260907/summary.json
+    ci_fixture_default_branch: fixed_locally_and_reproduced_with_master_default
+    public_diagnostic_core_revision: a0094b341f07c1fecb154d30b5b48de5c658d8ee
+    public_diagnostic_artifact_sha256: 97f146bfad51620477ce69cb507c643c6ea6a491cbd9baa6ede35650bcfb40a4
+    public_diagnostic: 32_of_32_passed_no_execution_or_semantic_failures
+    public_source_revision: 86bc5d5054fca4f0624456fa14e0f90d3507b59f
+    working_tree_source_clean: false
+    working_tree_tests: 255_passed_0_failed_0_skipped
+    working_tree_artifact_sha256: d5544e169d63f248eeff3a2ee3736176f56c5d92407cdb1b42bb881f01e43ac9
+    working_tree_packed_diagnostics: 8_passed_plus_native_cancellation_on_same_artifact
+    advice_revision: implemented_with_immutable_prediction_version_cas_and_per_advice_source_pins
+    important_nonempty_state: synthetic_revised_advice_and_old_version_restored_from_clean_clone
+    private_runner: v2_chat_send_four_turn_contract_implemented_private_execution_not_run
+    private_inputs: eight_cases_located_original_v1_source_preserved_inactive_v2_copy_prepared
+    private_recovery_and_mixed_evaluation: authorized_pending_clean_snapshots_and_execution
+    candidate_certified: false
+
+implementation_gaps:
+  - initialization Host bootstrap implements reviewed templates, behavior mapping, complete skill trees, setup and identity; full-memory and automation adapters and private main migration remain incomplete; see docs/04-OPENCLAW-INTEGRATION.md section 8.11
+  - final clean candidate must rerun after current working-tree changes are committed
+  - private instance adapter must provide the v2 four-turn harness and authorized evidence inputs
+  - real-action learning and eligible next-turn use remain unverified; candidate strategy creation is insufficient
+  - generation-aware evidence and dependency synchronization across Core and Host views
+  - full archive adapters, coverage, media materialization and retention coordination
+  - OngoingWork and LearningChange persistence, application and idempotency
+  - remaining exact-Host replay, cancellation and fault coverage on one candidate artifact
+  - complete registry/profile validation and required capability acceptance
+
+settled_constraints:
+  - one Cortex with four cooperating cognitive systems
+  - personal data centralized in CangHai; current Git copy contains retained original bytes
+  - reuse Host sessions, search infrastructure, models, tools, permissions and scheduling
+  - structured LLM judgment for variable natural-language meaning
+  - full contract success or explicit diagnosable failure
+  - quality-first recall; material unknowns permit clarification
+  - social judgment only when requested; other accepted autonomy remains
+  - writing collaboration preserves authorial intent and unfinished thinking
+  - prior explicit delegation remains usable within scope
+  - no natural-language forgetting; owner file edits drive synchronization
+  - immutable historical predictions and separately validated current understanding
+  - actual usefulness comes from owner feedback, not a mandatory score
+  - private data never enters public Core assets
+
+scope_of_this_change:
+  private_data_migrated: false
+  private_staging_only: true
+  runtime_activated: false
+  candidate_certified: false
+  publication_performed: false

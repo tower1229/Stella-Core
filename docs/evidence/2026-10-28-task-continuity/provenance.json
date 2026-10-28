@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "stella.task-evidence-provenance/v1",
+  "recordedAt": "2026-10-28T23:14:54.147766+00:00",
+  "sourceBaselineCommit": "deb8dc359a5cb5942c969684a60d0182b816aa5c",
+  "archivePolicy": "minimal curated public metadata; original digests and versions retained; no raw model output, private paths, credentials or full logs",
+  "sources": [
+    {
+      "id": "d063-review-result",
+      "kind": "temporary-original",
+      "originalName": "d063-independent-review-exgb8206/RESULT.json",
+      "originalSha256": "138085d7df5231a29246554685f45d2d1a51454602adc493fd7a39a976fa7c7f",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "d063-review-report",
+      "kind": "temporary-original",
+      "originalName": "d063-independent-review-exgb8206/REPORT.md",
+      "originalSha256": "3ff2f10159cccb3c63d54ab9fd228f8635d90ed686ff3cde5fbf95ba36dc6a64",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "d063-review-tap",
+      "kind": "temporary-original",
+      "originalName": "d063-independent-review-exgb8206/DELIVERY-LEDGER.tap",
+      "originalSha256": "dcb2e64a420cfc39bf2d625b66d775644275c52f91de299bcb90f15ca7444ab0",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "caller-exploration-original",
+      "kind": "temporary-original",
+      "originalName": "native-caller-binding-readonly-JnnFt4/REPORT.md",
+      "originalSha256": "08ce20cc6eed5040bd289217602cf183444582948e4671e672d4034b0a6a4d53",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "d063-author-result",
+      "kind": "temporary-original",
+      "originalName": "d063-doc-convergence-XOyypu/RESULT.json",
+      "originalSha256": "7a45b22b7868d8cee311a6e9dcd9aa3f08114cb0d599a20f40112b15ad25baa2",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "supervisor-wiring-review",
+      "kind": "temporary-original",
+      "originalName": "supervisor-wiring-review-qyyxwj0l/RESULT.json",
+      "originalSha256": "24c36541c6def87dde24689fc967b48ee8f1dc32e25e4a30f26c53e0206fedb2",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "supervisor-wiring-review-report",
+      "kind": "temporary-original",
+      "originalName": "supervisor-wiring-review-qyyxwj0l/REPORT.md",
+      "originalSha256": "ceeee565cc0a66f039db927105b900f6f7bee02e1f7652c84ceb60d3271e9b24",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "supervisor-wiring-supply-tap",
+      "kind": "temporary-original",
+      "originalName": "supervisor-wiring-review-qyyxwj0l/AGENT-SUPPLY.tap",
+      "originalSha256": "fb481daa576d20fbcf7cdcf08dfe401dca3d4e507c9355600cec8fa078864049",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "codec-replacement-review",
+      "kind": "temporary-original",
+      "originalName": "codec-replacement-review-l2vn8dq9/RESULT.json",
+      "originalSha256": "2c6dd1d11302f2fa9686ce7fc3983a6bf8c016305d645958c4743421031ed186",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "codec-replacement-review-report",
+      "kind": "temporary-original",
+      "originalName": "codec-replacement-review-l2vn8dq9/REPORT.md",
+      "originalSha256": "cab1f36531d435c654f4639c76f426a30598038a8b5bb8e9cc777785b77e3808",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "codec-replacement-tap",
+      "kind": "temporary-original",
+      "originalName": "codec-replacement-review-l2vn8dq9/REVIEW.tap",
+      "originalSha256": "22ebe3c2a4590084ee67740c134bb710135d8fe4caec4b0ddef324916b1ac3d1",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    },
+    {
+      "id": "normalizer-executor-review",
+      "kind": "temporary-original",
+      "originalName": "gemini-composition-review-hu6vs5mq/RESULT.json",
+      "originalSha256": "3fcbf8de3e1d19d473dd057606ea891278888b2f0312bc482182baa410c2da7a",
+      "retention": "curated facts below; original local paths and raw logs are not copied"
+    }
+  ],
+  "historicalState": {
+    "path": "historical-project-state-2026-10-20.yaml",
+    "originalCommit": "deb8dc359a5cb5942c969684a60d0182b816aa5c",
+    "originalPath": "PROJECT-STATE.yaml",
+    "originalSha256": "5fde2e14ad8ac16a7be0e24301f46afe32861cee914d3e2584dfd6598afb62ef",
+    "role": "historical snapshot; never current task authority"
+  },
+  "crossProjectSnapshot": {
+    "observedBiliHead": "8ec1a3dad27625be639758809b4faba99d655d4b",
+    "biliBranch": "main",
+    "candidateFreeze": {
+      "path": "contracts/p0/freeze.json",
+      "sha256": "e5c0932c3c1be702e828a0eb628d120065ecabd184ecb595707ac48c5c6eb1fe",
+      "version": "0.1.0-candidate.4",
+      "status": "consumer_frozen_proposal",
+      "productionReady": false,
+      "jointAcknowledgement": false,
+      "sourceReferences": {
+        "openclaw": "dc2523e5a5c7a309517fd7fa834add938231d526",
+        "stellaCore": "f76be17a2ccda7565c6c9be0f9dd8db97eb3cc6b",
+        "selfie": "93d181ef79517d36971b5263e2d0fe2286bd5b4f"
+      },
+      "presentInObservedHead": false
+    },
+    "canghaiProducerHead": "2ea285d98d21c0882092582141aac92f93fa432a",
+    "sourceCheckoutHead": "112be540a3988af53d1076a38f8f1c155da7a745",
+    "authorityWarning": "Observed checkout refs are metadata, not production source pointers or permission grants."
+  },
+  "ciArtifacts": [
+    {
+      "runId": 40754592387,
+      "artifactId": 12844924002,
+      "artifactUrl": "https://github.com/tower1229/Stella-Core/actions/runs/40754592387/artifacts/12844924002",
+      "zipSha256": "1b23f27b900436b72a238ac376ced2df1bbd9e7c319e5f43eb443d72bdd90db5",
+      "originalReceiptSha256": "d7cd9f1e383c698cf61915712db40264053d1dfc5b014183ba51ea042bb0068a",
+      "originalTestOutputSha256": "d0d26c1f2b808434b42144afa623fc41d52cff7ab4a291c1673376742607b0e6",
+      "note": "GitHub artifact retention may expire; necessary counts, versions, flags and failure names persist in verification-summary.json"
+    },
+    {
+      "runId": 40754592376,
+      "artifactId": 12846555158,
+      "artifactUrl": "https://github.com/tower1229/Stella-Core/actions/runs/40754592376/artifacts/12846555158",
+      "zipSha256": "b7de493566134016afeddf5ad7a0c03e622d76e679788063717726cb9990a995",
+      "originalReceiptSha256": "9e825b097157c51434d2fe3d177f0220046f0fa19eecd26c935a36783bb36ff4",
+      "originalTestOutputSha256": "3def47e3c5979a7c3637127ed8d1b897f9b705691be8ae26434cacc62ecd4c07",
+      "note": "GitHub artifact retention may expire; necessary counts, versions, flags and failure names persist in verification-summary.json"
+    }
+  ]
+}

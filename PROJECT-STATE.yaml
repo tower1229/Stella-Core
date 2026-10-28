@@ -1,12 +1,11 @@
+# 唯一当前任务状态索引。需求/决策/授权以normative_refs及明确用户指令为准。
+# 记录基线不是状态更新自身的提交；历史原件在historical_snapshots，不能重标通过。
 project: Stella Core
-version_target: "3.0 Alpha"
-status: alpha-integration-and-evidence-validation
-updated_at: "2026-10-20"
-
-mission: >-
-  Become the owner's increasingly accurate digital counterpart and
-  high-dimensional self, extending memory, experience, simulation and praxis.
-
+version_target: 3.0 Alpha
+status: experimental-integration-incomplete
+updated_at: "2026-10-28"
+mission: Become the owner's increasingly accurate digital counterpart and high-dimensional self, extending
+  memory, experience, simulation and praxis.
 normative_refs:
   requirements: docs/09-REQUIREMENTS-ALIGNMENT.md
   current_baseline: docs/10-DESIGN-BASELINE.md
@@ -14,7 +13,7 @@ normative_refs:
   contracts: docs/contracts/README.md
   alpha_acceptance: docs/05-ALPHA-PLAN.md
   decisions: docs/DECISIONS.md
-
+  coordination: docs/CORE-CANGHAI-COORDINATION.md
 repositories:
   core:
     repo: tower1229/Stella-Core
@@ -26,21 +25,47 @@ repositories:
     verified_legacy_commit: a1c2f4ec444b7d3245a7a0afea74460470a5dfc2
     core_test_branch: local/stella-alpha
     runtime_revision: explicitly selected by instance; never inferred from these labels
-
+    legacy_verification_scope: 旧索引历史记录，非本轮重新核查1.0或生产指针
+    observed_producer_checkout_commit: 2ea285d98d21c0882092582141aac92f93fa432a
+    observed_source_checkout_commit: 112be540a3988af53d1076a38f8f1c155da7a745
+    observation_scope: 仅Git版本元数据；未读资料/主配置/授权，也不替换显式运行revision
+  bili:
+    role: 独立产品；明确版本EvidenceExport可选集成，非生产者已确认接口
+    observed_head: 8ec1a3dad27625be639758809b4faba99d655d4b
+    branch: main
+    candidate_version: 0.1.0-candidate.4
+    freeze_path: contracts/p0/freeze.json
+    freeze_sha256: e5c0932c3c1be702e828a0eb628d120065ecabd184ecb595707ac48c5c6eb1fe
+    freeze_present_in_observed_head: false
+    freeze_scope: 工作区冻结提案，不冒称已提交依赖
+    joint_acknowledgement: false
+    production_ready: false
+    frozen_source_references:
+      openclaw: dc2523e5a5c7a309517fd7fa834add938231d526
+      stellaCore: f76be17a2ccda7565c6c9be0f9dd8db97eb3cc6b
+      selfie: 93d181ef79517d36971b5263e2d0fe2286bd5b4f
+    coordination: 跨项目接入需重新核对完整可变路径、单写者与clean/CAS；不动沧海旧dev路径或生产消费指针
 runtime_strategy:
   host: OpenClaw
   development_model: google/gemini-3.8-flash
   development_model_decided_at: "2026-10-20"
-  development_model_acceptance: requires_new_model_receipts; historical_evidence_keeps_original_model
-  target_host_version: "2026.8.2"
-  minimum_claimed_host_version: "2026.8.1"
+  development_model_acceptance: 当前CI realModelAccepted=false；历史模型标记保留，不作为3.8已验收证据
+  target_host_version: 2026.10.8
+  minimum_claimed_host_version: null
   minimum_version_independently_verified: false
-  integration: single stella-core plugin
+  integration: Host Agent Loop与请求绑定Core工具；native不是当前启用前置
   replace_agent_loop: false
-  completion_strategy: limited reply_dispatch adapter over Host Agent Loop; Exact Host proof required
+  completion_strategy: 可信入场/run/tool permit沿现有路径；C2/C3正式精确读取/纠正回读接线仍缺
   consciousness_manifest: 50_PersonalAgent/stella/manifest.yaml
   alpha_delivery_mode: managed_durable_write
-
+  installed_host_version: 2026.10.8
+  workspace_sdk_version: 2026.10.8
+  core_package_version: 0.1.0-alpha.0
+  core_package_version_scope: workspace/CI元数据，不是当前已部署插件产物身份
+  active_core_artifact: 本轮未核查，不从仓库HEAD推断已部署版本
+  production_slot_changed_by_this_milestone: false
+  running_service_status: 本轮未探测；不得从安装版本或本索引推断线上健康
+  historical_strategy_ref: docs/evidence/2026-10-28-task-continuity/historical-project-state-2026-10-20.yaml
 design_complete:
   - document authority, response kinds, common gates and distinct Alpha/full-memory acceptance
   - versioned source identity, evidence provenance, original-data coverage and portable discovery
@@ -50,65 +75,25 @@ design_complete:
   - Episode v2 state machine and machine schema
   - restore semantics for legal empty sets and optional unavailable capabilities
   - current Host seam review and required completion adapter contract
-
 implementation_evidence:
-  reviewed_runtime_commit: a0094b341f07c1fecb154d30b5b48de5c658d8ee
+  reviewed_runtime_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+  scope: 以下均有固定版本与有限范围；不是全部主入口/consumer/真实模型验收
   existing:
-    - plugin scaffold, manifest and reference loading, Framework IR and Twin validation
-    - managed commits, persistent recovery pointer CAS, push and bounded normal RPO diagnostics
-    - Episode v2 initial advice and evidence-bound outcome transactions with immutable prediction checks
-    - recovery, evaluation, private write-loop, activation and candidate receipt runners
-    - 32 public synthetic relationship/social diagnostic cases
+    - 当前插件保留可信入场、原话归档/checkpoint及受控工具边界。
+    - 最终监督接线及原生TAP/进程组清理：9d420830；只证明进程结束后清理，SDK active-leases警告仍在。
+    - 官方Gemini normalizer与原Core executor组合：761b78f；163/163，非真实Gemini/Host派发。
+    - R6/R8旧契约显式归档替代：54b99a5；其余7codec及其他旧失败保留。
   new_contract_checks:
-    - Episode v2 JSON Schema compilation and structural contract tests
-  limit: >-
-    Existing code and historical receipts do not certify the revised baseline.
-    Full validators, migrations and exact-Host fault evidence remain necessary.
-  isolated_acceptance:
-    recovery_core_revision: f54f462e1b1bc148027a24b8096758dba5ab6342
-    recovery_host_patch: stella-openclaw-2026.8.2-private-draft-v1
-    recovery_model: google/gemini-3.1-pro-preview
-    clean_recovery: passed_for_selected_staged_source
-    current_convergence_recovery: passed_three_native_turns_and_continuity_judge
-    current_convergence_revision: 43bf05a42a4600e74df0ea9cef3bb2d32f58d228
-    current_convergence_artifact_sha256: eef727064206a8f7ca93cc9b7dbc5aa3fcf4d0736463ceac0a1ad89034e345a1
-    important_state_scope: legal_empty_sets_not_real_learning_proof
-    mixed_evaluation: completed_40_cases_36_passed_4_public_personal_context_failures
-    mixed_evaluation_public: 28_of_32_all_dimensions_passed
-    mixed_evaluation_private: 8_of_8_all_dimensions_passed
-    native_collaboration_answer_binding: verified_on_current_convergence_artifact
-    real_action_learning_acceptance: skipped_by_user_unverified
-    candidate_certified: false
-
-  sequential_convergence_20260907:
-    local_evidence_index: .artifacts/sequential-20260907/summary.json
-    ci_fixture_default_branch: fixed_locally_and_reproduced_with_master_default
-    public_diagnostic_core_revision: a0094b341f07c1fecb154d30b5b48de5c658d8ee
-    public_diagnostic_artifact_sha256: 97f146bfad51620477ce69cb507c643c6ea6a491cbd9baa6ede35650bcfb40a4
-    public_diagnostic: 32_of_32_passed_no_execution_or_semantic_failures
-    public_source_revision: 86bc5d5054fca4f0624456fa14e0f90d3507b59f
-    working_tree_source_clean: false
-    working_tree_tests: 255_passed_0_failed_0_skipped
-    working_tree_artifact_sha256: d5544e169d63f248eeff3a2ee3736176f56c5d92407cdb1b42bb881f01e43ac9
-    working_tree_packed_diagnostics: 8_passed_plus_native_cancellation_on_same_artifact
-    advice_revision: implemented_with_immutable_prediction_version_cas_and_per_advice_source_pins
-    important_nonempty_state: synthetic_revised_advice_and_old_version_restored_from_clean_clone
-    private_runner: v2_chat_send_four_turn_contract_implemented_private_execution_not_run
-    private_inputs: eight_cases_located_original_v1_source_preserved_inactive_v2_copy_prepared
-    private_recovery_and_mixed_evaluation: authorized_pending_clean_snapshots_and_execution
-    candidate_certified: false
-
+    - D063文档独审：11/11账本及82本地链接；35hash/10行号仅定位元数据，非产品通过。
+  limit: C2/C3只具模块/固定夹具证据；正式请求绑定入口接线仍缺。历史8.2及旧模型收据见historical_snapshots。
+  evidence_index: docs/evidence/2026-10-28-task-continuity/README.md
+  manifest_sha256: 15db1a16f2e250b7a51055c2b61f89e352efd9af4479c054b85b7af2413bf4cd
 implementation_gaps:
-  - initialization Host bootstrap implements reviewed templates, behavior mapping, complete skill trees, setup and identity; full-memory and automation adapters and private main migration remain incomplete; see docs/04-OPENCLAW-INTEGRATION.md section 8.11
-  - final clean candidate must rerun after current working-tree changes are committed
-  - private instance adapter must provide the v2 four-turn harness and authorized evidence inputs
-  - real-action learning and eligible next-turn use remain unverified; candidate strategy creation is insufficient
-  - generation-aware evidence and dependency synchronization across Core and Host views
-  - full archive adapters, coverage, media materialization and retention coordination
-  - OngoingWork and LearningChange persistence, application and idempotency
-  - remaining exact-Host replay, cancellation and fault coverage on one candidate artifact
-  - complete registry/profile validation and required capability acceptance
-
+  - D063仍待用户审阅；本轮仅状态/证据补强，不能启动其功能实现。
+  - C2/C3精确读取内核和纠正writer→receipt→精确回读尚未全部接到正式请求入口。
+  - native公共caller没有Core run/toolCall关联；消费façade为private-local，authority引用桥不作产品方案。
+  - 当前两CI仍26旧失败；12旧SQL桥与7codec等行为须按范围迁移或明确退役，不能删skip刷绿。
+  - consumer未安装，probes未执行，真实Gemini语义/Chrome/profile/其他消费者与完整迁移恢复/full_memory未验收。
 settled_constraints:
   - one Cortex with four cooperating cognitive systems
   - personal data centralized in CangHai; current Git copy contains retained original bytes
@@ -123,10 +108,150 @@ settled_constraints:
   - immutable historical predictions and separately validated current understanding
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
-
 scope_of_this_change:
-  private_data_migrated: false
-  private_staging_only: true
+  kind: documentation-and-evidence-persistence
+  implementation_changed: false
+  private_data_read_or_migrated: false
+  host_config_or_slot_changed: false
+  grant_or_credentials_created: false
+  host_or_real_model_run: false
+  new_full_suite_run: false
   runtime_activated: false
   candidate_certified: false
-  publication_performed: false
+  publication_performed_at_capture: false
+  commit_performed_at_capture: false
+  git_save_status: 独审完成；本里程碑以包含本文件的Git提交保存，远端发布状态另由Git核实，不自报未来SHA。
+updated_at_utc: "2026-10-28T23:32:12.501Z"
+state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
+non_goals:
+  - 本次只做任务状态与公开证据持久化及普通Git保存，不开发功能、不改生产配置/slot/grant/凭据、不运行Host或模型、不强推/合并/部署。
+  - 不把D063文本审查或本次持久化授权解释成架构实施、付费调用或部署批准。
+  - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
+  - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
+design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
+task_continuity:
+  task_id: core-continuity-2026-10-28
+  scope: 状态索引/证据持久化里程碑；独立审查已完成
+  version_binding:
+    remote_check_scope: observed_remote_commit为本次保存前ls-remote观察；发布后核对实际远端，不把观察值冒充最新。
+    state_commit_lookup: git log -1 --format=%H -- PROJECT-STATE.yaml
+    warning: baseline/observed是保存前观察，不是包含本状态更新的提交；实际版本由本文件Git历史和远端读取，不产生自引用hash。
+    baseline_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+    observed_branch: codex/issue23-integrated-regression
+    observed_remote_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+  decisions:
+    confirmed:
+      - 产品目标及边界依docs/09-REQUIREMENTS-ALIGNMENT.md与设计基线。
+      - D058请求边界、D059显式checkpoint权威、D060沧海协调约束保留。
+      - 本轮获准状态/证据持久化及已审查内容的普通提交推送；不批准D063功能实施、权限扩大或生产变更。
+    pending:
+      - id: D063
+        status: 技术评估待用户审阅，不是用户已批准产品/架构实施
+        text_review: 已完成独立文档/元数据一致性审查并提交deb8dc3
+        ref: docs/DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration
+  implemented:
+    - 已提交D063及两项codec显式替代文档；对应已验证范围见证据索引。
+    - 本轮唯一状态索引与项目内最小证据摘要已落盘并通过独审；保存提交身份由本文件Git历史定位。
+  verified:
+    - 固定安装/workspace SDK为10.8；最新CI摘要已从精确artifact核对zip、receipt和test-output hash。
+    - 两CI各1458项：1432通过、26旧失败、0取消/跳过；失败集合一致。
+    - 8文件冻结版已由Bili线程独立只读审查通过：YAML、33本地链接、5归档/12来源/7SDK hash、历史原样和26旧失败/未验收边界。
+  unverified:
+    - 正式C2/C3接线、真实模型效果、公开native consumer授权交接、full_memory均未验收。
+  unique_next_step: 由父会话确认D063待审范围及下一项有界P1/P2工作包；确认前仅做恢复核对，不自行启动功能、slot切换或模型实验。
+  blockers:
+    - 最新两CI结论failed，26旧失败未消除或整体退役。
+    - D063功能实施与native公共授权接缝未获本轮授权或证据补齐。
+  requires_separate_scope:
+    - 真实模型调用的明确provider/model、数据、次数/费用预算。
+    - Host试验的新批次请求/一次性凭据范围；不复用已销毁token或耗尽的旧预算。
+    - 新增身份/来源授权、主配置或memory slot切换、部署。
+  same_repo_writer: 一个明确指定写入者；其他并行会话只读，不按目录推定隔离
+  local_change_whitelist:
+    - AGENTS.md
+    - PROJECT-STATE.yaml
+    - docs/evidence/2026-10-28-task-continuity/
+  preserved_unrelated_untracked:
+    - docs/suqing-m1-2026-10-22.md
+    - docs/suqing-m1-plugin-boundary-review-2026-10-22.md
+    - docs/suqing-midterm-plan-2026-10-22.md
+    - tests/recovery-pointer-barriers.test.ts
+  independent_review:
+    status: passed
+    confirmed_by: 父会话确认Bili线程独立只读审查结论
+    reviewed_baseline_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+    reviewed_patch_sha256: 0749ff5c1eb4008e5669d744d5a3a74058c56c911ade25c02a3bb8c6bcddabf3
+    scope: 8文件冻结版；其后仅授权的独审完成/保存状态/下一步元数据收尾，差异单独核对
+    counts:
+      local_links: 33
+      archive_hashes: 5
+      original_source_hashes: 12
+      sdk_hashes: 7
+    d063_implementation_approved: false
+current_validation:
+  source_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+  result: failed
+  not_a_fresh_worktree_run: true
+  versions:
+    targetHostVersion: 2026.10.8
+    workspaceSdkVersion: 2026.10.8
+    corePackageVersion: 0.1.0-alpha.0
+    consumer: null
+  totals:
+    tests: 1458
+    pass: 1432
+    fail: 26
+    cancelled: 0
+    skipped: 0
+    todo: 0
+  failure_groups:
+    dreaming-public-seams.test.js: 1
+    host-compatibility.test.js: 2
+    host-context-authority.test.js: 3
+    host-context-replay.test.js: 7
+    host-silent-draft.test.js: 1
+    native-memory-reader.test.js: 12
+  runs:
+    - id: 40754592387
+      workflow: prepare
+      url: https://github.com/tower1229/Stella-Core/actions/runs/40754592387
+      artifact_id: 12844924002
+      artifact_url: https://github.com/tower1229/Stella-Core/actions/runs/40754592387/artifacts/12844924002
+      artifact_zip_sha256: 1b23f27b900436b72a238ac376ced2df1bbd9e7c319e5f43eb443d72bdd90db5
+      receipt_sha256: d7cd9f1e383c698cf61915712db40264053d1dfc5b014183ba51ea042bb0068a
+      duration_ms: 438802.197307
+    - id: 40754592376
+      workflow: experimental
+      url: https://github.com/tower1229/Stella-Core/actions/runs/40754592376
+      artifact_id: 12846555158
+      artifact_url: https://github.com/tower1229/Stella-Core/actions/runs/40754592376/artifacts/12846555158
+      artifact_zip_sha256: b7de493566134016afeddf5ad7a0c03e622d76e679788063717726cb9990a995
+      receipt_sha256: 9e825b097157c51434d2fe3d177f0220046f0fa19eecd26c935a36783bb36ff4
+      duration_ms: 578268.561038
+  consumer: null；未安装/未验收，不能把target/workspace版本当consumer版本
+  probes: prepare.probes=[]；失败于test阶段，未执行后续consumer/probes验收
+  full_memory_accepted: false
+  real_model_accepted: false
+  private_main_accepted: false
+  issue23_complete: false
+  summary_ref: docs/evidence/2026-10-28-task-continuity/verification-summary.json
+recovery_procedure:
+  - 先读本索引与docs/10-DESIGN-BASELINE.md，再读D063/集成§9.8；核对待审与已授权范围。
+  - 运行只读git rev-parse HEAD、git status --short、git branch
+    --show-current及既有远端ls-remote；解释与baseline/observed基线的差异，确认同repo唯一写入者。
+  - 依证据MANIFEST逐文件核对hash，再读精确commit/run/receipt版本与通过/失败/未执行；旧8.2历史不得改成10.8或新模型通过。
+  - 跨项目先核对Bili冻结版本/hash/未提交状态及沧海显式源版本和可变路径；本索引的checkout观察不是生产消费指针。
+  - 只继续unique_next_step；结果不明先读状态，执行器断连或审批拒绝按具体动作报告，不用历史授权填补新范围。
+  - 临时目录可失效；必要事实已在项目证据目录。原始CI artifact可能过期，保留摘要与原hash，不将无法下载解释为通过。
+optional_references:
+  - url: https://chatgpt.com/space/page_bedfb95937408191913b1cc83459f0d8
+    role: 跨项目工作方法复盘；不是本项目状态、架构、验收或授权事实源
+    required_for_recovery: false
+    unavailable_policy: 不阻塞本地恢复，不复制整页内容
+historical_snapshots:
+  project_state_2026_10_20:
+    path: docs/evidence/2026-10-28-task-continuity/historical-project-state-2026-10-20.yaml
+    source_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+    source_path: PROJECT-STATE.yaml
+    sha256: 5fde2e14ad8ac16a7be0e24301f46afe32861cee914d3e2584dfd6598afb62ef
+    classification: historical；原8.2策略、旧模型/验收/实现缺口原样保留，不是当前运行状态

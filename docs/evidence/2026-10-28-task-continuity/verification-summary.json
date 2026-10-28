@@ -1,0 +1,481 @@
+{
+  "schemaVersion": "stella.task-verification-summary/v1",
+  "scope": "bounded historical engineering evidence; not capability certification",
+  "d063Documentation": {
+    "sourceBaseline": "54b99a5bd60b4f634e95a4b50b0b18bcc31d4326",
+    "publishedCommit": "deb8dc359a5cb5942c969684a60d0182b816aa5c",
+    "tests": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 93.659125
+    },
+    "localLinks": {
+      "checked": 82,
+      "broken": [],
+      "remoteFetched": false
+    },
+    "catalogChecks": {
+      "hashFields": 35,
+      "lineFields": 10,
+      "works": 40,
+      "acceptances": 49,
+      "allOtherSourceBytesUnchanged": true,
+      "caseWorkSpecIdentitiesAndRequirementsUnchanged": true,
+      "all49LocatorLineBodiesUnchanged": true
+    },
+    "historicalChecks": {
+      "d062WholeOriginalUnchanged": true,
+      "allOriginalDecisionTextPrefixUnchanged": true,
+      "c5c6OriginalUnchangedExceptAddedHistoricalNotice": true
+    },
+    "source": "d063-review-result",
+    "userApprovedArchitecture": false
+  },
+  "supervisorWiring": {
+    "sourceBaseline": "33e2bec63ae444c3847fb8dfed623ddb14ec7689",
+    "publishedCommit": "9d42083014f7fe5f05f5ff7e30aaefdffa1308c4",
+    "sdk": "2026.10.8",
+    "tests": {
+      "tests": 91,
+      "pass": 91,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 9043.651334
+    },
+    "agentSupplyTests": {
+      "tests": 126,
+      "pass": 126,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 89792.466
+    },
+    "capacitySampleMs": 7375.113875,
+    "capacityContract": "65 completed owner requests; existing refusal boundaries and 120s limit retained",
+    "cleanup": {
+      "groupConfirmedGone": true,
+      "ownedWorkComplete": true,
+      "stdioComplete": true,
+      "rootRemoved": true
+    },
+    "sdkActiveLeasesWarnings": 53,
+    "sdkDrainVerified": false,
+    "intermittentCapacityStabilityVerified": false,
+    "source": "supervisor-wiring-review"
+  },
+  "normalizerExecutorComposition": {
+    "publishedCommit": "761b78f47afdf07049cdc5a14118220d415eeaa3",
+    "tests": {
+      "tests": 163,
+      "pass": 163,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 91249.286042
+    },
+    "scope": "actual public normalizer plus original registered/bound Core executors; synthetic callers/model responses",
+    "source": "normalizer-executor-review"
+  },
+  "codecReplacement": {
+    "sourceBaseline": "761b78f47afdf07049cdc5a14118220d415eeaa3",
+    "publishedCommit": "54b99a5bd60b4f634e95a4b50b0b18bcc31d4326",
+    "tests": {
+      "tests": 172,
+      "pass": 165,
+      "fail": 7,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 87343.285875
+    },
+    "combinationTests": {
+      "tests": 163,
+      "pass": 163,
+      "fail": 0
+    },
+    "remainingLegacyTests": {
+      "tests": 9,
+      "pass": 2,
+      "fail": 7
+    },
+    "retiredContracts": [
+      "R6 already-omitted keyword rejection",
+      "R8 all other tools unchanged"
+    ],
+    "oldFailure": "ERR_MODULE_NOT_FOUND before the target assertions; not relabeled as assertion failure or passed",
+    "exitCode": 1,
+    "sevenRemainingCasesActive": true,
+    "source": "codec-replacement-review"
+  },
+  "latestCi": {
+    "runs": [
+      {
+        "id": "prepare",
+        "runId": 40754592387,
+        "artifactId": 12844924002,
+        "artifactZipSha256": "1b23f27b900436b72a238ac376ced2df1bbd9e7c319e5f43eb443d72bdd90db5",
+        "artifactUrl": "https://github.com/tower1229/Stella-Core/actions/runs/40754592387/artifacts/12844924002",
+        "runUrl": "https://github.com/tower1229/Stella-Core/actions/runs/40754592387",
+        "coreRevision": "deb8dc359a5cb5942c969684a60d0182b816aa5c",
+        "sourceClean": true,
+        "status": "failed",
+        "hostVersion": "2026.10.8",
+        "versions": {
+          "targetHostVersion": "2026.10.8",
+          "workspaceSdkVersion": "2026.10.8",
+          "corePackageVersion": "0.1.0-alpha.0",
+          "consumer": null
+        },
+        "acceptanceFlags": {
+          "fullMemoryAccepted": false,
+          "privateMainAccepted": false,
+          "realModelAccepted": false,
+          "issue23Complete": false,
+          "privateRecoveryAccepted": false,
+          "realLearningAccepted": false,
+          "mixedEvaluationAccepted": false,
+          "dreamingEnabled": false,
+          "dreamingExecuted": false,
+          "installedArtifactTested": false,
+          "freshDependencyInstallTested": false
+        },
+        "totals": {
+          "tests": 1458,
+          "pass": 1432,
+          "fail": 26,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 438802.197307
+        },
+        "failures": [
+          {
+            "name": "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+            "compiledTestLocation": "dreaming-public-seams.test.js:8:1"
+          },
+          {
+            "name": "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+            "compiledTestLocation": "host-compatibility.test.js:10:1"
+          },
+          {
+            "name": "isolated installer supports every acceptance runner but rejects unrelated consumers",
+            "compiledTestLocation": "host-compatibility.test.js:28:1"
+          },
+          {
+            "name": "native memory uses the pinned codec and rejects serialized producer/output credentials",
+            "compiledTestLocation": "host-context-authority.test.js:147:1"
+          },
+          {
+            "name": "native summary must descend from its exact provider output receipt",
+            "compiledTestLocation": "host-context-authority.test.js:165:1"
+          },
+          {
+            "name": "real provider and tool results extend context and inherit source revocation",
+            "compiledTestLocation": "host-context-authority.test.js:1603:1"
+          },
+          {
+            "name": "fixed Google projection changes only the known declaration from original bound input",
+            "compiledTestLocation": "host-context-replay.test.js:32:1"
+          },
+          {
+            "name": "Google codec cannot be selected by observed schema or for another Host/model",
+            "compiledTestLocation": "host-context-replay.test.js:46:1"
+          },
+          {
+            "name": "Google original schema rejects unbound required",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google original schema rejects unbound enum",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google original schema rejects unbound extra property",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google original schema rejects unbound description",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+            "compiledTestLocation": "host-context-replay.test.js:70:1"
+          },
+          {
+            "name": "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+            "compiledTestLocation": "host-silent-draft.test.js:8:1"
+          },
+          {
+            "name": "native index bytes are consumed only after exact authorized hit and range validation",
+            "compiledTestLocation": "native-memory-reader.test.js:107:1"
+          },
+          {
+            "name": "native index authorization preserves indexed provenance and rejects concurrent changes",
+            "compiledTestLocation": "native-memory-reader.test.js:179:1"
+          },
+          {
+            "name": "native index cannot certify an unrelated indexed body for an authorized locator",
+            "compiledTestLocation": "native-memory-reader.test.js:189:1"
+          },
+          {
+            "name": "verified native read digests bind index identity and never observe rejected bytes",
+            "compiledTestLocation": "native-memory-reader.test.js:196:1"
+          },
+          {
+            "name": "native vector-backed reads bind the actual vector and embedding cache without search",
+            "compiledTestLocation": "native-memory-reader.test.js:245:1"
+          },
+          {
+            "name": "a complete vector marker cannot certify missing or changed selected vector bytes",
+            "compiledTestLocation": "native-memory-reader.test.js:256:1"
+          },
+          {
+            "name": "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+            "compiledTestLocation": "native-memory-reader.test.js:265:1"
+          },
+          {
+            "name": "concurrent vector invalidation wins before native file read",
+            "compiledTestLocation": "native-memory-reader.test.js:276:1"
+          },
+          {
+            "name": "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+            "compiledTestLocation": "native-memory-reader.test.js:283:1"
+          },
+          {
+            "name": "native exact reads without query embeddings revalidate the original index generation",
+            "compiledTestLocation": "native-memory-reader.test.js:331:1"
+          },
+          {
+            "name": "native exact reads revalidate source authority before another model call",
+            "compiledTestLocation": "native-memory-reader.test.js:339:1"
+          },
+          {
+            "name": "a second native read cannot replace the first consumed index identity",
+            "compiledTestLocation": "native-memory-reader.test.js:346:1"
+          }
+        ],
+        "receiptOriginalSha256": "d7cd9f1e383c698cf61915712db40264053d1dfc5b014183ba51ea042bb0068a",
+        "testOutputOriginalSha256": "d0d26c1f2b808434b42144afa623fc41d52cff7ab4a291c1673376742607b0e6",
+        "sourceArtifactMemberNames": {
+          "receipt": "receipt.json",
+          "testOutput": "test.stdout"
+        },
+        "executionStages": {
+          "probes": [],
+          "checks": [
+            {
+              "passed": true
+            },
+            {
+              "passed": true
+            }
+          ]
+        },
+        "failureGroups": {
+          "dreaming-public-seams.test.js": 1,
+          "host-compatibility.test.js": 2,
+          "host-context-authority.test.js": 3,
+          "host-context-replay.test.js": 7,
+          "host-silent-draft.test.js": 1,
+          "native-memory-reader.test.js": 12
+        }
+      },
+      {
+        "id": "experimental",
+        "runId": 40754592376,
+        "artifactId": 12846555158,
+        "artifactZipSha256": "b7de493566134016afeddf5ad7a0c03e622d76e679788063717726cb9990a995",
+        "artifactUrl": "https://github.com/tower1229/Stella-Core/actions/runs/40754592376/artifacts/12846555158",
+        "runUrl": "https://github.com/tower1229/Stella-Core/actions/runs/40754592376",
+        "coreRevision": "deb8dc359a5cb5942c969684a60d0182b816aa5c",
+        "sourceClean": true,
+        "status": "failed",
+        "hostVersion": "2026.10.8",
+        "versions": {
+          "targetHostVersion": "2026.10.8",
+          "workspaceSdkVersion": "2026.10.8",
+          "corePackageVersion": "0.1.0-alpha.0",
+          "consumer": null
+        },
+        "acceptanceFlags": {
+          "fullMemoryAccepted": false,
+          "privateMainAccepted": false,
+          "realModelAccepted": false,
+          "issue23Complete": false,
+          "experimentalOwnerChatAccepted": false,
+          "completeCapabilityAssessment": {
+            "workflow": "Full capability assessment",
+            "status": "separate; not implied by this verdict"
+          }
+        },
+        "totals": {
+          "tests": 1458,
+          "pass": 1432,
+          "fail": 26,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 578268.561038
+        },
+        "failures": [
+          {
+            "name": "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+            "compiledTestLocation": "dreaming-public-seams.test.js:8:1"
+          },
+          {
+            "name": "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+            "compiledTestLocation": "host-compatibility.test.js:10:1"
+          },
+          {
+            "name": "isolated installer supports every acceptance runner but rejects unrelated consumers",
+            "compiledTestLocation": "host-compatibility.test.js:28:1"
+          },
+          {
+            "name": "native memory uses the pinned codec and rejects serialized producer/output credentials",
+            "compiledTestLocation": "host-context-authority.test.js:147:1"
+          },
+          {
+            "name": "native summary must descend from its exact provider output receipt",
+            "compiledTestLocation": "host-context-authority.test.js:165:1"
+          },
+          {
+            "name": "real provider and tool results extend context and inherit source revocation",
+            "compiledTestLocation": "host-context-authority.test.js:1603:1"
+          },
+          {
+            "name": "fixed Google projection changes only the known declaration from original bound input",
+            "compiledTestLocation": "host-context-replay.test.js:32:1"
+          },
+          {
+            "name": "Google codec cannot be selected by observed schema or for another Host/model",
+            "compiledTestLocation": "host-context-replay.test.js:46:1"
+          },
+          {
+            "name": "Google original schema rejects unbound required",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google original schema rejects unbound enum",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google original schema rejects unbound extra property",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google original schema rejects unbound description",
+            "compiledTestLocation": "host-context-replay.test.js:57:5"
+          },
+          {
+            "name": "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+            "compiledTestLocation": "host-context-replay.test.js:70:1"
+          },
+          {
+            "name": "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+            "compiledTestLocation": "host-silent-draft.test.js:8:1"
+          },
+          {
+            "name": "native index bytes are consumed only after exact authorized hit and range validation",
+            "compiledTestLocation": "native-memory-reader.test.js:107:1"
+          },
+          {
+            "name": "native index authorization preserves indexed provenance and rejects concurrent changes",
+            "compiledTestLocation": "native-memory-reader.test.js:179:1"
+          },
+          {
+            "name": "native index cannot certify an unrelated indexed body for an authorized locator",
+            "compiledTestLocation": "native-memory-reader.test.js:189:1"
+          },
+          {
+            "name": "verified native read digests bind index identity and never observe rejected bytes",
+            "compiledTestLocation": "native-memory-reader.test.js:196:1"
+          },
+          {
+            "name": "native vector-backed reads bind the actual vector and embedding cache without search",
+            "compiledTestLocation": "native-memory-reader.test.js:245:1"
+          },
+          {
+            "name": "a complete vector marker cannot certify missing or changed selected vector bytes",
+            "compiledTestLocation": "native-memory-reader.test.js:256:1"
+          },
+          {
+            "name": "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+            "compiledTestLocation": "native-memory-reader.test.js:265:1"
+          },
+          {
+            "name": "concurrent vector invalidation wins before native file read",
+            "compiledTestLocation": "native-memory-reader.test.js:276:1"
+          },
+          {
+            "name": "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+            "compiledTestLocation": "native-memory-reader.test.js:283:1"
+          },
+          {
+            "name": "native exact reads without query embeddings revalidate the original index generation",
+            "compiledTestLocation": "native-memory-reader.test.js:331:1"
+          },
+          {
+            "name": "native exact reads revalidate source authority before another model call",
+            "compiledTestLocation": "native-memory-reader.test.js:339:1"
+          },
+          {
+            "name": "a second native read cannot replace the first consumed index identity",
+            "compiledTestLocation": "native-memory-reader.test.js:346:1"
+          }
+        ],
+        "receiptOriginalSha256": "9e825b097157c51434d2fe3d177f0220046f0fa19eecd26c935a36783bb36ff4",
+        "testOutputOriginalSha256": "3def47e3c5979a7c3637127ed8d1b897f9b705691be8ae26434cacc62ecd4c07",
+        "sourceArtifactMemberNames": {
+          "receipt": "1793215725491-2714/receipt.json",
+          "testOutput": "1793215725491-2714/test.stdout"
+        },
+        "executionStages": {
+          "checks": [
+            {
+              "passed": true
+            },
+            {
+              "passed": true
+            }
+          ],
+          "steps": [
+            {
+              "name": "check",
+              "status": "passed"
+            },
+            {
+              "name": "check-schemas",
+              "status": "passed"
+            },
+            {
+              "name": "test",
+              "status": "failed",
+              "exitCode": 1
+            }
+          ]
+        },
+        "failureGroups": {
+          "dreaming-public-seams.test.js": 1,
+          "host-compatibility.test.js": 2,
+          "host-context-authority.test.js": 3,
+          "host-context-replay.test.js": 7,
+          "host-silent-draft.test.js": 1,
+          "native-memory-reader.test.js": 12
+        }
+      }
+    ],
+    "sameFailureNamesAndOrder": true,
+    "newRuns": false
+  },
+  "permanentEarlierHostEvidence": "../../04-OPENCLAW-INTEGRATION.md#97-c5c6-已验收工程事实2026-10-28",
+  "earlierHostEvidenceScope": "fixed 2026.10.7, synthetic Git/protocol stub; not 10.8 public consumer or main-entry acceptance",
+  "noNewTestOrModelExecutionForThisArchive": true
+}

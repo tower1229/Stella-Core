@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "stella.task-evidence-manifest/v1",
+  "sourceBaselineCommit": "deb8dc359a5cb5942c969684a60d0182b816aa5c",
+  "files": {
+    "README.md": "0908fec3e07adf8f5a859f2959f391c16b0ff4ae94c135f167c66af4d1fbe1e7",
+    "historical-project-state-2026-10-20.yaml": "5fde2e14ad8ac16a7be0e24301f46afe32861cee914d3e2584dfd6598afb62ef",
+    "provenance.json": "54acf701e83cd6e2257dfecf24f43835c567003a03e8281117c90ba03a4d6d8e",
+    "technical-assessment.json": "774a01c8eaf856bceaf81235bcc4561798ca5cae20756dacd42acdd95672c76a",
+    "verification-summary.json": "0dcb6c594ba6fb62a6176c886dfcf879c37c8aa9254a7db0de40c8e465dba0d4"
+  }
+}

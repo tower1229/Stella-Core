@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "stella.task-technical-assessment-summary/v1",
+  "classification": "static engineering assessment, not user approval or runtime acceptance",
+  "coreSourceCommit": "deb8dc359a5cb5942c969684a60d0182b816aa5c",
+  "sdkVersion": "2026.10.8",
+  "decision": "docs/DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration",
+  "providerRegistration": {
+    "public": true,
+    "nonMemoryPluginRejected": true,
+    "unselectedProviderRuntimeRemoved": true,
+    "mainCoreKindUnchanged": true,
+    "independentAdapterRegistrationOnlyDoesNotSolveRequestAuthorization": true
+  },
+  "callerBinding": {
+    "publicCallerHasRunOrToolCallId": false,
+    "sessionAudienceIsNotCoreSourceGrant": true,
+    "authorityObjectIdentityPassThrough": "observed shallow-copy implementation only; no public promise",
+    "consideredAuthorityIdentitySideTable": "exploration proposal, not adopted for product",
+    "memoryHostSearchFacade": "private-local for bundled consumers; export existence is not third-party consumer support"
+  },
+  "currentDirection": {
+    "controlledTools": "reuse existing request-bound permits and source/processing permissions",
+    "exactReadAndCorrectionModules": "formal main-entry wiring incomplete",
+    "nativeSlot": "optional, not activated; requires supported caller/request handoff and concrete independent capability gain",
+    "singleSemanticWriter": true
+  },
+  "evidenceSources": [
+    "caller-exploration-original",
+    "d063-review-result",
+    "d063-author-result"
+  ],
+  "fixedInstalledEvidenceSha256": {
+    "node_modules/openclaw/package.json": "9be09f47e73b05da1736aaeab337b4c0cfe35921bcc5b7a185a44b9fe70d2acc",
+    "node_modules/openclaw/docs/plugins/sdk-overview/memory-and-context.md": "ed6ffce1df45f85b5a51eb82545959d323ce7b5177703171b1ae170d658b695d",
+    "node_modules/openclaw/docs/plugins/sdk-subpaths.md": "65e36c4b85b0726e9770df757bf9575f1b972f0d4291552728c4dedcffd51dc4",
+    "node_modules/openclaw/dist/config-contracts-DhkndZxE.d.ts": "d309f45edbd2cafe300951632659b9039ca86ee1b6019d9cfaa1a604a7f7a4eb",
+    "node_modules/openclaw/dist/memory-runtime-CN9wXkoS.mjs": "725f0159bfb2fe4864cb6e61e877110760263e302f3327536d5c06aa00d5cb30",
+    "node_modules/openclaw/dist/registry-vAFp5m5F.mjs": "f4b8ea8a5d50b756b42bc5ba7aadab8e9f3d9755d2c2460d62574201fdedd8aa",
+    "node_modules/openclaw/dist/config-state-B_d1ohuG.mjs": "ed4d58f17802ebf5479d56e4635561fb81a30a63f0c513ade134be05ad5d2ab8"
+  },
+  "notVerified": [
+    "real Gemini semantics",
+    "Chrome/profile",
+    "new independent memory consumers",
+    "full_memory"
+  ],
+  "noNewHostOrModelRun": true
+}
