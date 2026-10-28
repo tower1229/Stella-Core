@@ -30,6 +30,7 @@ type PublicSdk = {
 type LlmParams = Parameters<OpenClawPluginApi["runtime"]["llm"]["complete"]>[0];
 type LlmResult = Awaited<ReturnType<OpenClawPluginApi["runtime"]["llm"]["complete"]>>;
 const execute = promisify(execFile), providerId = "stella-c3-correction-readback";
+const { normalizeGeminiToolSchemas, inspectGeminiToolSchemas } = await import("openclaw/plugin-sdk/provider-tools" as string);
 const fixtureSymbol = Symbol.for("stella.test.correction-native-readback");
 const requestScopeSymbol = Symbol.for("stella.test.correction-request-scopes");
 const globals = globalThis as typeof globalThis & {
@@ -210,10 +211,16 @@ return authority.kind==='operator'&&scopes?.has(authority.connId)?scopes.get(aut
         return result;
       } };
     };
-    await t.test("empty schema rejects all authority overrides, then one bound update commits and reads its Learning Change target", async t => {
+    await t.test("official Gemini normalization preserves empty correction arguments, one commit and exact Learning Change readback", async t => {
       const f = await fixture(t, openSdk);
       const schema = JSON.parse(JSON.stringify(f.coordinator.parameters));
       assert.equal(schema.additionalProperties, false); assert.deepEqual(schema.properties, {});
+      assert.ok(inspectGeminiToolSchemas({ tools: [f.coordinator] }).some((item: any) => item.violations.some((value: string) => value.endsWith(".additionalProperties"))));
+      const [geminiTool] = normalizeGeminiToolSchemas({ tools: [f.coordinator] });
+      assert.strictEqual(geminiTool.execute, f.coordinator.execute);
+      assert.deepEqual(inspectGeminiToolSchemas({ tools: [geminiTool] }), []);
+      assert.equal(Object.hasOwn(geminiTool.parameters, "additionalProperties"), false); assert.deepEqual(geminiTool.parameters.properties, {});
+      assert.deepEqual(JSON.parse(JSON.stringify(f.coordinator.parameters)), schema, "normalization leaves the bound coordinator schema intact");
       const beforeArguments = structuredClone(f.counters), checkpoint = (await f.runtime.capture()).expected;
       // Fixture archive/init precede this window; malformed tool arguments must
       // not read an object/payload, infer a correction, open a lease or write.
@@ -223,13 +230,13 @@ return authority.kind==='operator'&&scopes?.has(authority.connId)?scopes.get(aut
           .map(key => [`injected ${key}`, { [key]: key === "action" ? "delete" : "model-supplied override" }] as [string, unknown]),
         ["combined overrides", { request: "replacement", ownerId: "other", operationId: "other", expected: {} }]];
       for (const [name, value] of malformed) await t.test(name, async () => {
-        await assert.rejects(f.coordinator.execute(value), /arguments_invalid/);
+        await assert.rejects(geminiTool.execute(value), /arguments_invalid/);
         assert.deepEqual(f.counters, beforeArguments, "invalid arguments must not reach read/write/model ports");
       });
       assert.equal(f.counters.objectReadAttempts, 0); assert.equal(f.counters.payloadReadAttempts, 0);
       assert.deepEqual((await f.runtime.capture()).expected, checkpoint); assert.equal(await f.git("rev-parse", "HEAD"), f.baseline);
       assert.deepEqual(JSON.parse(JSON.stringify(f.coordinator.parameters)), schema);
-      const [a, b] = await Promise.all([f.coordinator.execute({}), f.coordinator.execute({})]); assert.deepEqual(a, b);
+      const [a, b] = await Promise.all([geminiTool.execute({}), geminiTool.execute({})]); assert.deepEqual(a, b);
       assert.equal(a.status, "readback_verified", JSON.stringify(a.readback)); assert.equal(a.correction.persistenceStatus, "local_committed");
       assert.equal(a.correction.disposition, "update"); assert.equal(f.counters.writerCalls, 1); assert.equal(f.counters.correctionResponses, 1);
       assert.equal(a.readback.documents.length, 1); const document = a.readback.documents[0]!, record = JSON.parse(document.text);
@@ -241,7 +248,7 @@ return authority.kind==='operator'&&scopes?.has(authority.connId)?scopes.get(aut
       assert.equal(change.operationId, a.correction.operationId);
       assert.ok((change.targetRefs as Array<{ id: string; version: string }>).some(ref => ref.id === record.id && ref.version === document.reference.revision));
       assert.deepEqual((await f.runtime.capture()).expected, a.correction.authority); assert.equal(await f.git("rev-list", "--count", `${f.baseline}..HEAD`), "1");
-      const again = await f.coordinator.execute({}); assert.deepEqual(again, a); assert.equal(f.counters.writerCalls, 1); assert.equal(f.counters.correctionResponses, 1);
+      const again = await geminiTool.execute({}); assert.deepEqual(again, a); assert.equal(f.counters.writerCalls, 1); assert.equal(f.counters.correctionResponses, 1);
       assert.equal(f.counters.nativeOpens, f.counters.nativeCloses); assert.equal(await f.git("status", "--porcelain"), "");
       assert.deepEqual(JSON.parse(JSON.stringify(f.coordinator.parameters)), schema, "execution does not rewrite the registered parameter contract");
     });

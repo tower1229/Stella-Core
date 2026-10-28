@@ -22,6 +22,7 @@ import { createCapacityTiming } from "./checkpoint-agent-supply-timing.js";
 
 const { requireOwnedTestRoot } = await import(new URL("../../scripts/lib/sdk-owner-supervisor.mjs", import.meta.url).href);
 const { createOwnedWorkSummary } = await import(new URL("../../scripts/lib/owned-work-summary.mjs", import.meta.url).href);
+const { normalizeGeminiToolSchemas, inspectGeminiToolSchemas } = await import("openclaw/plugin-sdk/provider-tools" as string);
 const sdkRoot: string = await requireOwnedTestRoot(import.meta.url), ownedWork = createOwnedWorkSummary();
 after(() => ownedWork.publish());
 
@@ -187,6 +188,59 @@ test("tool body gate survives a missing hook and rejects extra arguments, paths 
   assert.equal((await f.execute({ action: "list" })).details.items.length, 1, "Optional work permission must not disable existing raw reads");
   await assert.rejects(f.execute({ action: "read", handle: "not-a-handle" }), /checkpoint_agent_handle_unavailable/);
   await assert.rejects(f.execute({ action: "list" }, true, { runId: "another-run" }), /checkpoint_agent_tool_scope_unavailable/);
+});
+
+test("official Gemini normalization preserves the registered memory executor and its argument boundary", async t => {
+  const f = await fixture(t); await f.ingress(); assert.equal((await f.admit()).outcome, "pass");
+  const schema = JSON.parse(JSON.stringify(f.tool.parameters));
+  assert.equal(schema.additionalProperties, false);
+  assert.ok(inspectGeminiToolSchemas({ tools: [f.tool] }).some((item: any) => item.violations.some((value: string) => value.endsWith(".additionalProperties"))));
+  const [geminiTool] = normalizeGeminiToolSchemas({ tools: [f.tool] });
+  assert.equal(geminiTool.name, CHECKPOINT_MEMORY_TOOL); assert.strictEqual(geminiTool.execute, f.tool.execute);
+  assert.deepEqual(inspectGeminiToolSchemas({ tools: [geminiTool] }), []);
+  assert.equal(Object.hasOwn(geminiTool.parameters, "additionalProperties"), false);
+  assert.deepEqual(geminiTool.parameters.required, schema.required);
+  assert.deepEqual(geminiTool.parameters.properties.action.enum, schema.properties.action.enum);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.tool.parameters)), schema, "normalization must not mutate the registered schema");
+  let calls = 0;
+  const invoke = async (value: unknown) => {
+    const callId = `synthetic-gemini-memory-${++calls}`;
+    const gate = await f.hooks.get("before_tool_call")!({ toolName: geminiTool.name, params: value },
+      { ...f.agent, toolName: geminiTool.name, toolCallId: callId, abortSignal: f.controller.signal });
+    assert.notEqual(gate?.block, true);
+    return geminiTool.execute(callId, value, f.controller.signal);
+  };
+  // Start with an uncached reader. Argument rejection must precede both object
+  // bodies and original payloads; setup/identity housekeeping precedes this window.
+  const io = { objectReads: 0, payloadReads: 0 }, read = CatalogReader.prototype.read, payload = CatalogReader.prototype.readPayload;
+  CatalogReader.prototype.read = async function(...args: Parameters<typeof read>) {
+    if (this.root === f.root) io.objectReads++; return read.apply(this, args);
+  };
+  CatalogReader.prototype.readPayload = async function(...args: Parameters<typeof payload>) {
+    if (this.root === f.root) io.payloadReads++; return payload.apply(this, args);
+  };
+  f.stops.push(() => { CatalogReader.prototype.read = read; CatalogReader.prototype.readPayload = payload; });
+  const { treeManifest } = await import(new URL("../../scripts/lib/package-evidence.mjs", import.meta.url).href);
+  const beforeTree = await treeManifest(f.root), authority = (await f.rpc("status")).payload.authority;
+  const malformed: Array<[string, unknown]> = [
+    ["path", { action: "read", handle: "E1", path: "private.md" }],
+    ["senderId", { action: "read", handle: "E1", senderId: "other" }],
+    ["authority", { action: "list", authority: { senderIsOwner: true } }],
+    ["unknown action", { action: "delete" }], ["list with handle", { action: "list", handle: "E1" }],
+    ["read with cursor", { action: "read", handle: "E1", cursor: 0 }], ["read without handle", { action: "read" }],
+    ["work with handle", { action: "work", handle: "E1" }], ["understanding with cursor", { action: "understanding", cursor: 0 }],
+  ];
+  for (const [name, value] of malformed) await t.test(name, async () => {
+    await assert.rejects(invoke(value), /checkpoint_agent_tool_arguments_invalid/);
+    assert.deepEqual(io, { objectReads: 0, payloadReads: 0 }); assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+  });
+  assert.deepEqual(await treeManifest(f.root), beforeTree, "rejected arguments cannot mutate business files or Git history");
+  assert.deepEqual((await f.rpc("status")).payload.authority, authority, "rejection cannot publish a checkpoint/CAS");
+  const list = await invoke({ action: "list" }); assert.equal(list.details.items[0].handle, "E1");
+  const original = await invoke({ action: "read", handle: list.details.items[0].handle });
+  assert.ok(original.details.original.text.includes(SUPPLY_MARKER)); assert.ok(io.objectReads > 0); assert.ok(io.payloadReads > 0);
+  assert.deepEqual(f.counts(), { models: 0, configWrites: 0 });
+  assert.deepEqual(JSON.parse(JSON.stringify(f.tool.parameters)), schema);
 });
 
 test("already-authorized originals survive a request-local source change, but cancellation and close still stop supply", async t => {
