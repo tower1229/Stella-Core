@@ -15,6 +15,8 @@ import { alignHostMemoryEvidence, assertHostMemoryAcceptanceReport, assertHostMe
 
 import { loadPreparedPackage, writePreparedPackage } from "./lib/prepared-package.mjs";
 import { PACKAGE_PLAN_VERSION, PACKAGE_SHARDS, PACKED_MAIN_FLAGS, PACKAGE_PROBE_NAMES, probeHarness, probeName } from "./lib/package-shards.mjs";
+import { initialAcceptanceVersions, verifyWorkspaceVersions, assertPreparedVersions, verifyConsumerVersions,
+  verifyConsumerCliVersion, assertLegacyProbesMigrated } from "./lib/acceptance-versions.mjs";
 
 // Formal acceptance for the explicitly Dreaming-disabled profile. No Dreaming
 // generator or cron.run is invoked; full_memory remains independently blocked.
@@ -29,7 +31,6 @@ else if (args[0] === "--shard" && args.length === 4 && args[2] === "--prepared")
 assert.ok(process.env.npm_execpath, "run package acceptance through npm");
 const exec = promisify(execFile);
 const root = await realpath(fileURLToPath(new URL("../", import.meta.url)));
-const hostVersion = "2026.8.2";
 const source = await sourceIdentity(root);
 const workspaceHost = path.join(root, "node_modules/openclaw");
 const workspaceHostBefore = await treeManifest(workspaceHost);
@@ -45,7 +46,7 @@ const receipt = {
   planVersion: PACKAGE_PLAN_VERSION, ...(shard ? { shard } : {}),
   schemaVersion: "stella.package-main-smoke/v3", status: "running", evidenceDirectory: temp,
   coreRevision: source.coreRevision, sourceClean: true, sourceManifestSha256: source.digest,
-  hostVersion, profile: "dreaming-disabled", dreamingEnabled: false, dreamingExecuted: false,
+  hostVersion: null, versions: initialAcceptanceVersions(), profile: "dreaming-disabled", dreamingEnabled: false, dreamingExecuted: false,
   installedArtifactTested: false, freshDependencyInstallTested: false,
   transport: "chat.send", fixture: "synthetic", semanticVerdicts: "injected", finalModel: "loopback-synthetic",
   privateRecoveryAccepted: false, realLearningAccepted: false, mixedEvaluationAccepted: false,
@@ -115,10 +116,14 @@ await writeFile(path.join(temp, "workspace-host-before.json"), JSON.stringify(wo
 await save();
 let artifact, fixtures, build, hostRoot, hostBefore, packageRoot, installed, dependencies, lockSha256, failure;
 try {
+  await verifyWorkspaceVersions(root, receipt.versions);
+  receipt.hostVersion = receipt.versions.workspaceSdkVersion;
+  await save();
+  const hostVersion = receipt.versions.targetHostVersion;
   let packed, files, extracted;
   if (mode === "shard") {
     const prepared = await loadPreparedPackage(preparedDirectory, root, source, { restore: true });
-    assert.equal(prepared.hostVersion, hostVersion);
+    assertPreparedVersions(prepared, receipt.versions);
     fixtures = prepared.fixtures; build = prepared.build;
     packed = prepared.packed; files = packed.files.map(entry => entry.path);
     extracted = prepared.extracted; artifact = path.join(preparedDirectory, packed.filename);
@@ -206,9 +211,9 @@ try {
     await npm("install", ["install", "--ignore-scripts", "--no-audit", "--no-fund", artifact, `openclaw@${hostVersion}`], { cwd: consumer });
     packageRoot = await installedPackageRoot(consumer, "@tower1229/stella-core");
     hostRoot = await installedPackageRoot(consumer, "openclaw");
-    assert.equal(JSON.parse(await readFile(path.join(hostRoot, "package.json"), "utf8")).version, hostVersion);
+    const locked = await verifyConsumerVersions({ consumer, packageRoot, hostRoot }, receipt.versions);
+    await save();
     assert.deepEqual(await fileManifest(packageRoot, files), extracted, "Installed package differs from the one tarball");
-    const locked = JSON.parse(await readFile(path.join(consumer, "package-lock.json"), "utf8"));
     assert.equal(locked.packages["node_modules/@tower1229/stella-core"].integrity, packed.integrity);
     assert.equal(locked.packages["node_modules/openclaw"].version, hostVersion);
     receipt.hostPackageIntegrity = locked.packages["node_modules/openclaw"].integrity;
@@ -221,7 +226,7 @@ try {
       cwd: consumer, env: { ...env, OPENCLAW_STATE_DIR: path.join(temp, "installation-state"),
         OPENCLAW_CONFIG_PATH: path.join(temp, "installation-state/openclaw.json") },
     });
-    assert.ok(version.stdout.includes(hostVersion), "Installed Host launcher version mismatch");
+    verifyConsumerCliVersion(receipt.versions, version.stdout);
     const hostReady = await treeManifest(hostRoot);
     assert.deepEqual(hostReady.entries, hostInstalled.entries.filter(file => file.path !== ".openclaw-lifecycle-pending"),
       "Host installation changed files beyond its lifecycle marker");
@@ -251,6 +256,7 @@ try {
     await writeFile(path.join(temp, "host-before.json"), JSON.stringify(hostBefore, null, 2));
     await writeFile(path.join(temp, "dependencies-before.json"), JSON.stringify(dependencies, null, 2));
     await save();
+    assertLegacyProbesMigrated(receipt.versions);
     const probeEnv = { ...env, STELLA_PROBE_PACKAGE_ROOT: packageRoot, STELLA_PROBE_HOST_ROOT: hostRoot,
       STELLA_NATIVE_ACTIVE_EVIDENCE: "", STELLA_NATIVE_DREAMING_EVIDENCE: "",
       STELLA_CONTEXT_FAIL_PERSISTENCE: "0", STELLA_CONTEXT_NATIVE_CONTROL: "0" };

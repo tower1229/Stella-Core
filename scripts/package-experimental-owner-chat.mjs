@@ -8,6 +8,8 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileManifest, sourceIdentity, assertSourceUnchanged, sha256, installedPackageRoot } from "./lib/package-evidence.mjs";
 import { assertExperimentalReports, EXPERIMENTAL_SCOPE, NON_ACCEPTANCE } from "./lib/experimental-owner-chat-evidence.mjs";
+import { initialAcceptanceVersions, verifyWorkspaceVersions, verifyConsumerVersions,
+  verifyConsumerCliVersion, assertLegacyProbesMigrated } from "./lib/acceptance-versions.mjs";
 
 assert.equal(process.argv.length, 2, "Usage: npm run verify:experimental");
 assert.ok(process.env.npm_execpath, "Run through npm");
@@ -18,7 +20,7 @@ assert.equal(await realpath(base), base, "Artifacts must stay in the non-symlink
 const out = path.join(base, `${Date.now()}-${process.pid}`); await mkdir(out, { mode: 0o700 });
 const receipt = { schemaVersion: "stella.experimental-owner-chat-ci/v1", scope: EXPERIMENTAL_SCOPE, status: "running",
   coreRevision: source.coreRevision, sourceManifestSha256: source.digest, sourceClean: true,
-  hostVersion: "2026.8.2", hostFullTreeVerified: false, fixture: "synthetic", finalModel: "loopback-synthetic",
+  hostVersion: null, versions: initialAcceptanceVersions(), hostFullTreeVerified: false, fixture: "synthetic", finalModel: "loopback-synthetic",
   ...NON_ACCEPTANCE, experimentalOwnerChatAccepted: false, checks: [], steps: [], evidenceDirectory: out,
   completeCapabilityAssessment: { workflow: "Full capability assessment", status: "separate; not implied by this verdict" } };
 const save = async () => { await writeFile(path.join(out, "receipt.json.partial"), JSON.stringify(receipt, null, 2)); await rename(path.join(out, "receipt.json.partial"), path.join(out, "receipt.json")); };
@@ -55,6 +57,9 @@ const npm = (name, args, extra) => run(name, process.execPath, [process.env.npm_
 let artifact, packed, installed, installedBefore;
 try {
   await save();
+  await verifyWorkspaceVersions(root, receipt.versions);
+  receipt.hostVersion = receipt.versions.workspaceSdkVersion;
+  await save();
   for (const script of ["check", "check:schemas", "test"]) {
     await npm(script.replaceAll(":", "-"), ["run", script, "--silent"]); receipt.checks.push({ script, passed: true });
   }
@@ -67,10 +72,11 @@ try {
   assert.ok(!files.some(file => /^(tests|\.artifacts|dist\/tests)\//.test(file)));
   const consumer = path.join(out, "consumer"); await mkdir(consumer);
   await writeFile(path.join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
-  await npm("install", ["install", "--ignore-scripts", "--no-audit", "--no-fund", artifact, "openclaw@2026.8.2"], { cwd: consumer });
+  await npm("install", ["install", "--ignore-scripts", "--no-audit", "--no-fund", artifact, `openclaw@${receipt.versions.targetHostVersion}`], { cwd: consumer });
   installed = await installedPackageRoot(consumer, "@tower1229/stella-core");
   const hostRoot = await installedPackageRoot(consumer, "openclaw");
-  const lock = JSON.parse(await readFile(path.join(consumer, "package-lock.json"), "utf8"));
+  const lock = await verifyConsumerVersions({ consumer, packageRoot: installed, hostRoot }, receipt.versions);
+  await save();
   assert.equal(lock.packages["node_modules/@tower1229/stella-core"].integrity, packed.integrity);
   assert.equal(lock.packages["node_modules/openclaw"].version, receipt.hostVersion);
   assert.match(lock.packages["node_modules/openclaw"].integrity, /^sha512-/);
@@ -93,7 +99,9 @@ try {
   };
   // Complete the stock public launcher's deferred installation before probing.
   const version = await run("host-version", process.execPath, [path.join(hostRoot, "openclaw.mjs"), "--version"], { env: await isolatedEnv("version") });
-  assert.ok(version.includes(receipt.hostVersion)); receipt.hostVersionOutput = version.trim();
+  verifyConsumerCliVersion(receipt.versions, version); receipt.hostVersionOutput = version.trim();
+  await save();
+  assertLegacyProbesMigrated(receipt.versions);
   const reports = {};
   for (const [name, script, args, reportPath] of [
     ["continuous", "probe-checkpoint-agent-supply.mjs", ["ci", "a1", "continuous_chat"], "host-probe-ci/result.json"],

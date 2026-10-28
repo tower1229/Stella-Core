@@ -142,8 +142,16 @@ test("SIGTERM preserves an atomic cancelled receipt and already streamed child o
   await cp(new URL("../../scripts/lib/", import.meta.url), path.join(checkout, "scripts/lib"), { recursive: true });
   await writeFile(path.join(checkout, ".gitignore"), "node_modules/\n");
   const host = path.join(checkout, "node_modules/openclaw");
-  await mkdir(host, { recursive: true });
-  await writeFile(path.join(host, "package.json"), JSON.stringify({ version: "2026.8.2" }));
+  await mkdir(path.join(host, "dist/plugin-sdk"), { recursive: true });
+  await writeFile(path.join(host, "package.json"), JSON.stringify({ name: "openclaw", version: "2026.8.2",
+    exports: { "./plugin-sdk/plugin-entry": "./dist/plugin-sdk/plugin-entry.js" } }));
+  await writeFile(path.join(host, "dist/plugin-sdk/plugin-entry.js"), "throw Error('Metadata fixture must not execute SDK code');");
+  await writeFile(path.join(checkout, "package.json"), JSON.stringify({ name: "@tower1229/stella-core", version: "0.1.0-alpha.0",
+    devDependencies: { openclaw: "2026.8.2" }, openclaw: { build: { openclawVersion: "2026.8.2", pluginSdkVersion: "2026.8.2" } } }));
+  await writeFile(path.join(checkout, "package-lock.json"), JSON.stringify({ packages: {
+    "": { name: "@tower1229/stella-core", version: "0.1.0-alpha.0", devDependencies: { openclaw: "2026.8.2" } },
+    "node_modules/openclaw": { version: "2026.8.2" },
+  } }));
   for (const args of [["init", "--quiet"], ["add", "."],
     ["-c", "user.name=Synthetic Test", "-c", "user.email=synthetic@example.invalid", "commit", "--quiet", "-m", "synthetic cancellation fixture"]]) {
     const result = spawnSync("git", args, { cwd: checkout, encoding: "utf8" });
