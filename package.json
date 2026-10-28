@@ -44,7 +44,7 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/semver": "7.7.1",
-    "openclaw": "2026.10.7",
+    "openclaw": "2026.10.8",
     "typescript": "^5.9.0"
   },
   "peerDependencies": {
@@ -62,8 +62,8 @@
       "minGatewayVersion": "2026.10.7"
     },
     "build": {
-      "openclawVersion": "2026.10.7",
-      "pluginSdkVersion": "2026.10.7"
+      "openclawVersion": "2026.10.8",
+      "pluginSdkVersion": "2026.10.8"
     }
   }
 }

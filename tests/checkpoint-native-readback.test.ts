@@ -175,7 +175,7 @@ api.registerMemoryCapability(capability);
     await t.test("public loader registers only the native read capability from the pinned SDK and adapter", async () => {
       const hostPackage = path.resolve(path.dirname(require.resolve("openclaw/plugin-sdk/plugin-entry")), "../../package.json");
       const host = JSON.parse(await readFile(hostPackage, "utf8"));
-      assert.equal(host.version, "2026.10.7");
+      assert.equal(host.version, "2026.10.8");
       assert.deepEqual(globals[fixtureSymbol]!.registration, {
         hostVersion: host.version, pluginId: providerId, contributionKeys: ["providerRuntime"],
       });
