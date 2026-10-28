@@ -1,15 +1,12 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { createWriteStream } from "node:fs";
 import { cp, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
-import { finished } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { promisify } from "node:util";
 import { fileManifest, sourceIdentity, assertSourceUnchanged, sha256, installedPackageRoot } from "./lib/package-evidence.mjs";
 import { assertExperimentalReports, EXPERIMENTAL_SCOPE, NON_ACCEPTANCE } from "./lib/experimental-owner-chat-evidence.mjs";
 import { initialAcceptanceVersions, verifyWorkspaceVersions, verifyConsumerVersions,
   verifyConsumerCliVersion, assertLegacyProbesMigrated } from "./lib/acceptance-versions.mjs";
+import { captureCommand } from "./lib/captured-command.mjs";
 
 assert.equal(process.argv.length, 2, "Usage: npm run verify:experimental");
 assert.ok(process.env.npm_execpath, "Run through npm");
@@ -24,7 +21,7 @@ const receipt = { schemaVersion: "stella.experimental-owner-chat-ci/v1", scope: 
   ...NON_ACCEPTANCE, experimentalOwnerChatAccepted: false, checks: [], steps: [], evidenceDirectory: out,
   completeCapabilityAssessment: { workflow: "Full capability assessment", status: "separate; not implied by this verdict" } };
 const save = async () => { await writeFile(path.join(out, "receipt.json.partial"), JSON.stringify(receipt, null, 2)); await rename(path.join(out, "receipt.json.partial"), path.join(out, "receipt.json")); };
-const exec = promisify(execFile), children = new Set();
+const children = new Set();
 for (const name of ["home", "tmp", "cache"]) await mkdir(path.join(out, name), { mode: 0o700 });
 // Match ordinary OS temp semantics for extensionless CommonJS test executables.
 await writeFile(path.join(out, "tmp/package.json"), JSON.stringify({ type: "commonjs" }));
@@ -46,12 +43,22 @@ async function run(name, command, args, extra = {}) {
   assert.equal(interrupted, undefined, `Interrupted: ${interrupted}`);
   const step = { name, command, args, status: "running", startedAt: new Date().toISOString() };
   receipt.steps.push(step); await save(); process.stderr.write(`${name} started\n`);
-  const logs = [createWriteStream(path.join(out, `${name}.stdout`)), createWriteStream(path.join(out, `${name}.stderr`))];
-  const pending = exec(command, args, { cwd: root, env, timeout: 600_000, maxBuffer: 32 * 1024 * 1024, ...extra });
-  const child = pending.child; children.add(child); child.stdout.pipe(logs[0]); child.stderr.pipe(logs[1]);
-  try { const result = await pending; step.status = "passed"; return result.stdout; }
-  catch (error) { step.status = "failed"; step.exitCode = error.code; throw error; }
-  finally { children.delete(child); await Promise.all(logs.map(log => finished(log))); step.endedAt = new Date().toISOString(); await save(); process.stderr.write(`${name} ${step.status}\n`); }
+  try {
+    const result = await captureCommand(command, args, { cwd: root, env, timeout: 600_000, maxBuffer: 32 * 1024 * 1024, ...extra }, {
+      stdoutPath: path.join(out, `${name}.stdout`), stderrPath: path.join(out, `${name}.stderr`), children,
+    });
+    step.capture = result.capture;
+    assert.equal(interrupted, undefined, `Interrupted: ${interrupted}`);
+    step.status = "passed"; return result.stdout;
+  } catch (error) {
+    step.status = interrupted ? "cancelled" : "failed";
+    step.capture = error.capture ?? step.capture;
+    step.errorCode = error.code ?? null;
+    step.exitCode = step.capture?.childExit.code ?? null;
+    step.signal = step.capture?.childExit.signal ?? error.signal ?? null;
+    step.killed = step.capture?.childExit.killed ?? error.killed ?? null;
+    throw error;
+  } finally { step.endedAt = new Date().toISOString(); await save(); process.stderr.write(`${name} ${step.status}\n`); }
 }
 const npm = (name, args, extra) => run(name, process.execPath, [process.env.npm_execpath, ...args], extra);
 let artifact, packed, installed, installedBefore;
