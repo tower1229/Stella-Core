@@ -329,7 +329,7 @@ candidate selection, Episode learning or recovery tests already satisfy the two 
 
 ## 8. 2026-10-27 Host-first memory评估基线
 
-本节保留 [D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement) 的2026-10-27对照及替换条件；2026-10-28由 [D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 收敛为“公开 native provider + 薄 Stella 语义层 + 现有单一纠正 writer”一条研发主线。不是生产切换或 full_memory 通过声明。详细执行依赖、go/no-go、工程证据与历史 Issue 映射只维护在 [Host 集成 §9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划)，数据格式和产品退出条件仍由既有契约维护。
+本节保留 [D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement) 的2026-10-27对照及 [D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 的早期 native 主线历史。后续 [D-063 技术评估](DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration) 将当前执行主线收敛为 **Host 执行 + 请求绑定的 Core 权限 + 单一 writer + 精确版本 + 下一请求 freshness**；native slot 仅为未来有门槛的可选适配，不实施对象引用 handoff 产品桥。这是待审阅的工程计划修订，不标为用户已批准的新产品决策、生产切换或 full_memory 通过。执行依赖、证据及未验证假设见 [Host 集成 §9.8](04-OPENCLAW-INTEGRATION.md#98-2026108-技术评估与当前接线门槛)，产品契约保持原权威。
 
 ### 8.1 固定版本与证据层
 
@@ -362,6 +362,8 @@ candidate selection, Episode learning or recovery tests already satisfy the two 
 
 同一语义资产不能由官方 Dreaming/file flush 和 Core learning 各写一份权威再互相导入。对每个 writer 先声明资产种类、可变路径、来源/版本、operation ID、commit/readback 和恢复责任。官方文件若仅为 projection，必须可从沧海重建并阻止被重新导入为独立证据；若要升格为权威原件，必须先建立唯一写者和完整迁移方案。既有 Dreaming、频道及 cron 停用状态不因本设计改变。
 
+Bili 可独立提供自己的产品能力，并通过明确版本的 EvidenceExport 可选集成；Core 不接管其采集调度，不默认开放后台私人读取/写入。接入仍需原件/来源/权限与沧海可变路径、单写者、clean/CAS 契约；分目录不能代替 Git/事务隔离。本次不设计通用总线，也不切生产消费指针。
+
 ### 8.3 对照路线及否决条件
 
 以下表格保留2026-10-27选型时的比较，不能继续解释为必须平行完成两套系统。
@@ -376,13 +378,13 @@ A 的 supplement 不能从 session-key 模式、全局缓存或任意 ID 推造�
 
 只有选中的 memory slot owner 可以提供 tools-arm `providerFlushPlanResolver`。因此 A 下的 Stella supplement 不能假定自己能替官方 slot 定义 flush。A 要分别验证：正常领域纠正工具作为唯一 writer，以及官方 file flush 被关闭或仅写可重建投影的明确方案。后者必须证明不会独立学习或回流为权威。B 可以评估所选 owner 的工具型 flush，但不能凭 SDK 字段存在直接切 slot。
 
-当时选型顺序是：同等身份/权限、原件与引用、纠正/依赖失效、持久化/恢复全部满足，再比较语义效果、调用/字节/成本和维护面；A满足时优先较薄实现。该完整A/B选型前置由D-062收敛：现在沿已验证的公开 native get、薄语义适配和现有 writer 继续有限研发，尚未覆盖的能力仍逐项设门槛。仅因具体SDK新接缝或已测契约/维护/成本瓶颈重开局部比较；不并行建设完整A/B，不宣称A（包括公开无敏感索引加受控私有工具）全面不可行或B整体更优。
+当时选型顺序是：同等身份/权限、原件与引用、纠正/依赖失效、持久化/恢复全部满足，再比较语义效果、调用/字节/成本和维护面。完整A/B前置后来由D-062收敛，native 必选主线又由D-063评估修订；现在先接通现有受控 tool 与运输无关的精确读取/单一 writer 内核。只有上游明确的公共 caller/request 授权交接和实际能力增益才重开 native 适配；不以包导出或对象引用细节代替该契约，不并行建设完整A/B，也不宣称A全面不可行或B整体更优。
 
 ### 8.4 读取、纠正与更新闭环
 
 1. 新用户请求从可信 Host 身份确定 caller、受众、处理目的/模型与当前选定来源 revision/generation；来源策略继续生效。工具续轮沿用这一请求边界，下一用户请求重新准入。旧历史可作为过去对话，不是当前事实或许可凭据。
-2. 候选发现优先复用官方检索/索引；Stella 用结构化 LLM 判断相关性、证据角色、更新/反证和继续检索的必要性。确定性代码只做结构、权限、容量和执行校验；不以词面打分代替语义，不用小 top-K 宣称证据充分。
-3. 每次首次供给读取当前合法的精确原件/片段，返回可定位的 Source Version、Evidence、内容 hash/范围和覆盖状态。provider 的 `providerId/id/revision/fragment` 需明确映射到既有引用；缺 revision 时不能自行解释为最新，引用不授予读取权。分页 cursor 绑定集合/版本；过期和部分失败不能当空结果。细粒度策略拒绝的片段不能靠同文件其他许可放行。
+2. 候选发现独立验证；只有公开权限/消费及成本契约成立时才复用官方检索/索引，不以 native slot 为当前接线前置。Stella 用结构化 LLM 判断相关性、证据角色、更新/反证和继续检索的必要性。确定性代码只做结构、权限、容量和执行校验；不以词面打分代替语义，不用小 top-K 宣称证据充分。
+3. 每次首次供给读取当前合法的精确原件/片段，返回可定位的 Source Version、Evidence、内容 hash/范围和覆盖状态。当前受控 tool 可复用精确读取内核；未来若启用 provider，其 `providerId/id/revision/fragment` 仍需映射既有引用。缺版本不能解释为最新，引用不授予读取权。分页 cursor 绑定集合/版本；过期和部分失败不能当空结果。细粒度策略拒绝的片段不能靠同文件其他许可放行。
 4. 用户纠正先保留 owner 原证据；区分修正事实、作者意图、情境假设、未采纳候选和长期偏好。只修改其适用范围；保留原预测/历史判断以及支持与反证依赖，同一纠正的重复摘要不增加支持。
 5. 用现有单写者事务写入语义新版本、Learning Change、相关依赖失效和必要投影迁移；固定 expected revision/token、operation ID 和变更 bytes，提交后 CAS。同一操作重试只在原 journal/bytes/来源资格仍合法时回读或续完原结果，冲突显式失败，不把 observed HEAD 换成 expected。模型判断成功、Git commit、checkpoint CAS、projection 发布、远端同步分别观察。
 6. 保存结果必须有 operation/revision/object-version 绑定的 mutation receipt，并在重新打开 reader 后 readback。仅 `NO_REPLY`、flush 标记成功或 lookup 成功不算领域持久化；延迟回调不能补造成功。`local_committed` 与 remote_pending/synchronized/RPO 分开。
@@ -401,7 +403,7 @@ A 的 supplement 不能从 session-key 模式、全局缓存或任意 ID 推造�
 | --- | --- | --- |
 | guarded 模型包装 | 旧严格最终消费/输出保护的实现候选退役；D-058 已取消实时撤回主线 | admission、首次来源/模型许可、正常取消、来源/推断区分和下一请求 freshness 有新路径证据；不要求复刻已取消的输出缓冲 |
 | 旧 Context Engine | 不为10.7迁移而默认保留 | 使用标准 Host 上下文/公开 memory 接缝验证角色、来源、最终消费及旧历史地位。Context Engine 普通错误可 quarantine/fallback，不能独自承担必须 fail-closed 的权限边界 |
-| native SQLite 桥接 | 优先以公开 provider/search/get 接缝替换 | 原件/片段、provenance、索引就绪/缺失、源修改和精确版本仍可验证；不能以旧私有表 schema 作为新设计前提 |
+| native SQLite 桥接 | 不恢复旧 SQL；当前复用精确读取内核，native provider 仅D-063门槛下可选 | 原件/片段、provenance、源修改和精确版本仍可验证；实际启用索引时另验就绪/缺失，不能以旧私有表 schema 或 private-local façade 作为新产品依赖 |
 | 小型 checkpoint、archive custody、CAS 与单写者 | 暂保留当前有效保证，非永久底座选择 | 只有替代机制证明原 expected tuple、幂等重放、完整 bytes、失败恢复和 portable source 选择等价，才删除原实现 |
 | 现有 LLM 分页全库选择 | 保留语义判断，重做发现/候选成本实验 | 官方搜索候选不丢关键反证/新证据；失败、预算耗尽和证据充分性显式表达，不能改成关键词路由或固定小包 |
 | 原话归档与语义 writers | 复用契约，分别补齐覆盖 | owner-input `local_committed` 不等于完整 user/assistant/tool/media transcript；correction 模块局部可用不等于全部 writers 已迁移 |

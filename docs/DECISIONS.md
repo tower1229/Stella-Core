@@ -804,3 +804,67 @@ not execute model calls, change production slot/config/grants, enable background
 writers or authorize new persistent access. Such work follows its applicable
 scope and authorization; no implementation, push or rollout occurs in this
 documentation change.
+
+## D-063 — Request-bound Core memory with optional native integration
+
+**Status (2026-10-28): agent technical assessment and current work-plan revision,
+for review; not an owner-approved product decision or production activation.**
+This supersedes only D-062's requirement to pursue a native provider as the
+execution mainline. D-062's original text, fixed experiments and single-writer
+guarantees remain historical evidence. No native handoff product bridge is to
+be implemented on the object-reference technique considered during exploration.
+
+The mainline is Host execution plus Core permission and memory-version binding
+for each genuine user request: trusted ingress/history and tool admission,
+source/processing permissions, exact-version reads, one existing semantic writer,
+operation/CAS receipt and exact readback, then fresh permissions/checkpoint on
+the next request. Tool continuations retain D-058's request boundary. The current
+controlled tools can reuse the exact-read kernel independently of its native
+transport wrapper. Do not restore the 8.2 guarded provider, private SQL bridge,
+or a session-to-latest-grant router. Host state is not CangHai's semantic authority.
+
+The fixed technical basis is installed `openclaw@2026.10.8`, inspected against
+Core `54b99a5bd60b4f634e95a4b50b0b18bcc31d4326`. The following release paths
+identify the evidence; hashed installed bundles are audit locations only,
+**never product imports or compatibility guarantees**:
+
+| Fixed 10.8 official reference | Installed evidence and consequence |
+| --- | --- |
+| [Memory/context SDK](https://github.com/openclaw/openclaw/blob/v2026.10.8/docs/plugins/sdk-overview/memory-and-context.md), provider-neutral runtime; [SDK subpaths](https://github.com/openclaw/openclaw/blob/v2026.10.8/docs/plugins/sdk-subpaths.md), Memory subpaths | Installed `node_modules/openclaw/docs/` copies, memory/context lines 162–164 and subpaths line 616, explicitly call `memory-host-search` a **private-local facade for bundled consumers**. Public provider registration types do not make that consumer facade a supported third-party invocation contract. |
+| [Caller types](https://github.com/openclaw/openclaw/blob/v2026.10.8/src/plugins/memory-provider-types.ts) | Installed `dist/config-contracts-DhkndZxE.d.ts:8640–8674`: session/audience and assertCurrent/signal have no runId/toolCallId or equivalent Core-request handoff. Session, owner-private and operator/admin are not source/processing grants. |
+| [Memory runtime](https://github.com/openclaw/openclaw/blob/v2026.10.8/src/plugins/memory-runtime.ts) | Installed `dist/memory-runtime-CN9wXkoS.mjs:366–392` currently shallow-copies context and preserves authority object identity. This is an implementation observation, not a public promise to preserve object identity across instances, workers or releases; do not build a production authorization bridge on it. |
+| [Capability registration](https://github.com/openclaw/openclaw/blob/v2026.10.8/src/plugins/registry-registrars.ts); [slot activation](https://github.com/openclaw/openclaw/blob/v2026.10.8/src/plugins/config-activation-shared.ts) | Installed registry at `dist/registry-vAFp5m5F.mjs:2960–2976` requires memory kind, skips unselected dual-kind registration and strips unselected sidecar providerRuntime. `dist/config-state-B_d1ohuG.mjs:269–294` can disable a single-kind memory plugin for slot exclusion. Giving main Core memory kind risks disabling its other role; an independent default-off adapter isolates registration, but does not solve caller-to-request authorization. |
+
+These references were checked in the installed npm package, not inferred from
+main or a newer web page. A wrapper readable only by the same Core executor,
+using the same permission and exact-read kernel, adds no independent safe memory
+consumer. Its registry, lease and lifecycle costs are not justified by registering
+successfully or making the same local read pass through a different interface.
+
+Native slot integration remains an optional future adapter. Reopen it only when
+upstream supplies a documented third-party consumer/request-authorization handoff
+with verified lifetime, cancellation, reentry/concurrency and next-request
+semantics **and** there is a concrete capability gain, such as a needed independent
+consumer whose source/processing permissions can actually be preserved. Prove
+that path with fixed-version caller negatives, exact versions, one writer and
+freshness before considering any separately authorized slot change. Registration
+alone, a role bit, a current session or another per-call side registry is insufficient.
+
+C5/C6 remain fixed 10.7 Host/CLI, temporary synthetic Git and protocol-stub
+experiments with the counts/hashes in [integration §9.7](04-OPENCLAW-INTEGRATION.md#97-c5c6-已验收工程事实2026-10-28).
+They do not establish a supported public consumer contract or production/main
+entry. C2/C3 exact-read/correction modules and later codec tests are partial
+engineering evidence; their formal request-bound entry wiring is still missing.
+Neither those modules nor C5/C6 certify 10.8 real-model semantics or full_memory.
+
+Bili remains independently usable, with optional versioned EvidenceExport
+integration. Core does not become its collector scheduler or a background private
+reader/writer. Optional ingestion still requires provenance, declared mutable
+paths and the CangHai single-writer/clean/CAS coordination of D-060; no generic
+bus, new grant or production pointer change follows from this assessment.
+
+Remaining hypotheses and enablement gates are maintained in
+[integration §9.8](04-OPENCLAW-INTEGRATION.md#98-2026108-技术评估与当前接线门槛).
+This document change performs no implementation, manifest/config/slot mutation,
+credential/grant creation, model call, deployment or tracker update. Its status
+must not be rewritten as user approval of an unexecuted architecture change.

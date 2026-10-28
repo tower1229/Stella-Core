@@ -601,15 +601,15 @@ Stella 1.0 的方法价值保留在 skills，迁移去向如下。按语义选�
 
 ## 9. 2026.10.7 分阶段实施与验收计划
 
-2026-10-27建立计划，2026-10-28按 [D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 收敛：公开 native provider + 薄 Stella 语义层 + 现有单一纠正 writer 为唯一研发主线；[D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement)和[架构 §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线)保留历史对照及等价保证。临时合成 C5/C6 的已验工程范围见[§9.7](#97-c5c6-已验收工程事实2026-10-28)，不再把全部 provider 接线写成未实施；本次文档修改不运行任何实验。生产 slot/config/grant、后台及 full_memory 不变，未执行真实模型或完整迁移，不以计划或局部验收改绿。
+2026-10-27建立计划，2026-10-28早期按 [D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 收敛 native 方向。后续 [D-063技术评估](DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration) 将当前主线修订为 Host 执行、请求绑定 Core 权限、单一 writer、精确版本及下一请求 freshness；native slot 是未来可选适配，门槛见[§9.8](#98-2026108-技术评估与当前接线门槛)，不实施对象引用 handoff 产品桥。该评估待审阅，不写成用户批准的新产品决策。[D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement)、D-062和[架构 §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线)的历史及等价保证保留。临时合成 C5/C6 事实见[§9.7](#97-c5c6-已验收工程事实2026-10-28)，不升级为正式公共 consumer/主入口验收；C2/C3正式接线仍缺。生产 slot/config/grant、后台及 full_memory 不变，本次只文档、不运行实验。
 
 ### 9.1 版本化公开接口与身份教训
 
-生产 adapter 只依赖固定 release 的公开 SDK exports；编译、导入、注册、真实 caller 载荷和消费者必须一起核验。优先小型 adapter 和明确版本拒绝，不维护私有 dist 文件名兼容表，不模拟 Host capability。固定私有 helper 可以用于精确 Host 的测试 fixture，但不成为生产依赖。10.7 的 `command-auth-native`、`agents.entries` 与 native memory 接缝不能反推8.2可用；main 和网页也不能补齐 release 中缺少的功能。
+生产 adapter 只依赖固定 release 明确支持第三方使用的公开 SDK 契约；导出存在不等于公共承诺，10.8官方已将 `memory-host-search` 标为 private-local façade，见D-063固定包文档证据。编译、导入、注册、真实 caller 和消费者必须一起核验。优先小型 adapter 和明确版本拒绝，不维护私有 dist 文件名兼容表，不模拟 Host capability。固定私有 helper 可以用于精确 Host 的测试 fixture，但不成为生产依赖。10.7 的 `command-auth-native`、`agents.entries` 与 native memory 接缝不能反推8.2可用；main 和网页也不能补齐 release 中缺少的功能。
 
 本次破坏性变化不止 import 重命名：真实 profile capability 可在 `ctx.SenderId` 为空时解析出 sender；撤销后 SDK 仍可能因 admin scope 返回 owner 标志。因此必须验证 **当前 capability、可信 operator/direct stamp、精确配置三者一致**，不能只看 owner/admin、旧 stamp、用户参数或 session ID。profile 正例仍归一化为 `openclaw-profile:<id>`，错误/缺失配置和已撤销 capability 均拒绝；工具 requester 保持真实 Host 取值，不人为制造 transport sender。设备绑定仍只代表配置设备持有人，不升格为自然人 profile。详见[已实现边界](OPENCLAW-2026.10.7-COMPATIBILITY.md#公共接口与身份)。
 
-native memory 的 Host audience 与 Core source/processing grant 分开：owner-private 不自动允许任意私人资料/模型用途；host/status 和 operator scopes 不自动成为私人会话授权。当前主线使用经验证的 native caller/audience 接缝；若将来重开 A 的局部比较，仍须先解决 supplement 缺可信 caller 的问题，不得新增 requesterIds 或放宽处理许可来取得兼容。D-058 的请求边界与 Host capability 生命周期都要保留，不能用一方替代另一方。
+native memory 的 Host audience 与 Core source/processing grant 分开：owner-private 不自动允许任意私人资料/模型用途；host/status 和 operator scopes 不自动成为私人会话授权。当前先使用可信入场/run/tool 绑定的 Core 许可；10.8 native caller 缺 runId/toolCallId，不能从 session 选“最新 grant”，也不使用当前浅拷贝保留 authority 对象引用的细节建立产品授权桥。未来比较 supplement/native 等接缝仍须有明确公开的 caller/request 交接，不得新增 requesterIds 或放宽处理许可来兼容。D-058请求边界与所用 Host capability 生命周期都要保留。
 
 ### 9.2 依赖顺序与 go/no-go
 
@@ -618,14 +618,14 @@ native memory 的 Host audience 与 Core source/processing grant 分开：owner-
 | 阶段 / 前置 | 最小工作包与交付物 | Go：继续的证据 | No-go：停止该路径的条件 |
 | --- | --- | --- | --- |
 | P0 固定基线 / 无 | 冻结 Host/npm/SDK、Core diff/产物、producer/consumer源、配置/策略/profile、模型/harness、schema 与备份覆盖；列公开 exports、所有消费者、writer/可变路径和授权表 | 现有13身份/59checkpoint及C5/C6有限范围可定位；公开接口与真实身份对应；每个新实验重新冻结实际加载产物及授权范围 | 来源/产物/实际加载不一致、权限语义不等价、状态不明；不能凭已运行 RPC 进入 full_memory |
-| P1 公共读取与成本 / P0 | 沿选定 native provider 验证注册、来源过滤、descriptor/原件区分、分页/引用/健康/取消及各声明消费者；记录发现与读取成本，不平行建设完整A/B | C5精确get正向、C6真实来源read拒绝仅为已验子集；错误/旧引用、未知caller/跨受众及其他消费者分别补证，候选发现可观测 | 拒绝后转legacy、能力声明大于实现；list原文扫描被误算廉价目录；假空结果/静默降级；新接缝绕过来源策略 |
-| P2 保存与纠正闭环 / 适用P1路径 | 复用现有 correction/事务；provider只读，明确唯一writer、flush/投影责任、receipt/readback、幂等CAS、源修改/删除/下轮撤权和依赖失效；先当前事项纠正再扩展 | C5一个Work提交、receipt精确get及下一请求新绑定已验；语义原意/依赖传播、其他writer、新会话/重启及失败重放仍分别补证 | 只有 `NO_REPLY`/flush success；双写权威；旧理解仍可新供给；依赖重评未完成却报告全局完成；提交成功后回读失败被伪装成未提交或成功 |
+| P1 请求绑定读取与成本 / P0 | 现有受控 tool 复用精确读取内核：真实入场/本轮许可、来源与 Evidence 闭包、精确引用、正常取消、失败及必要发现成本；native slot 不作前置，不平行建设完整A/B | C2等模块及C5/C6只给其限定子集；正式 tool→读取接线须另验错误/旧引用、缺许可/未知请求、下轮新资格与取消，不能把夹具scope当产品关联 | 依赖private-local消费者façade或对象引用桥；session→最新grant；拒绝后转legacy、假空/静默降级、list扫描冒充廉价目录、绕过来源策略 |
+| P2 保存与纠正闭环 / 适用P1路径 | 复用现有单一 correction writer/事务；绑定owner原文、许可、operation/CAS receipt和精确readback、源修改/删除/下轮撤权及依赖失效；若未来启用provider也只读 | C3模块与C5一个Work固定夹具不代替正式接线；须验真实绑定请求→现有writer→回执→精确版本→下一请求，新会话/重启与失败重放分别补证 | 只有 `NO_REPLY`/flush success；双写权威；旧理解仍可新供给；依赖重评未完成却报告全局完成；提交成功后回读失败被伪装成未提交或成功 |
 | P3 非空迁移与恢复 / P2 | 与沧海协调原件/附件、Understanding/Work/Change/Bundle/IR/历史/依赖/策略的显式迁移映射；固定一份合成完整副本，删除可重建 Host 缓存后恢复 | 非空和合法空集均正确，缺对象失败；精确活跃 IR/纠正依赖/未决问题可恢复使用；旧读者和单写者契约不受损；源选择不隐式跟 HEAD | 现有 materializer 对非空对象拒绝仍未解决；清空集合求通过、原件只留库外链接、重新编译冒充精确恢复、触碰旧生产指针 |
 | P4a 窄真实语义实验 / 适用P1/P2路径及模型范围/预算授权 | 一个纯合成作者原意场景，先走已证CLI；固定3.8/low，限制主请求及全部辅助调用/预算；检验纠正前后原意、候选/反证/未决和下一请求，不等完整P3/Chrome | 真正模型消费和持久结果可归因；语义失败、调用/token/可得费用逐项记录；自然反馈另记。当前尚未执行 | 无相应授权/预算/数据范围则不执行；协议桩或旧模型不算3.8语义通过；不以词面路由代替语义或预算不足假成功 |
 | P4b 实际入口与迁移后使用 / P3、适用P4a及专项范围 | 验证Chrome/profile等目标真实入口、完整来源及所选消费者，覆盖工具→纠正/保存→下一请求/新会话；不再要求完整A/B对照 | 声明行为/身份/语义与成本在实际入口成立，维护缺口可定位；六类业务与自然反馈另按各自范围验收 | CLI合成链路冒称Chrome或真实主资料通过；迁移/消费者/身份前置未满足；为完成而放宽权限 |
 | P5 冻结交付与受控切换 / 适用P1–P4b及切换授权 | 迁移剩余必要旧测试、全部声明消费者/能力；同版本完整准入、故障/恢复、产物与安装一致，再提出具体切换/退役清单 | #35–39所需证据逐项齐备，影响范围和可执行恢复方案已审查，完整契约才允许 full_memory；有限模式可独立保持其真实状态 | 未解释回归、消费者未覆盖、语义writer/transcript/bootstrap仍缺；无切换许可或恢复覆盖不完整；不得靠删测试、改 optional 或改 profile 名称过门 |
 
-P1/P2可用结构化合成桩验证执行契约，必须标明“未验证语义质量”；需要真实LLM时进入限定的P4a。不要用确定性关键词/正则模拟语义而宣称完整读取通过。正式Host flush、其他真实工具消费者与真正模型保存行为分别出证，不由C5/C6代替。后续顺序是窄作者原意语义实验→所选消费者及非空迁移恢复→实际入口与受控交付，不重开两套完整体系。
+P1/P2可用结构化合成桩验证执行契约，必须标明“未验证语义质量”；需要真实LLM时进入限定的P4a。不要用确定性关键词/正则模拟语义而宣称完整读取通过。当前先补受控 tool 的正式精确读取/纠正回读接线，再进入适用P4a；正式Host flush、其他消费者和模型保存行为分别出证，不由C5/C6代替，不重开两套完整体系。native只在§9.8条件满足后作为独立可选适配评估。
 
 每个阶段报告至少包含：版本元组、前置条件、用例/来源范围、预期与实际、失败类别、已完成持久阶段、readback、未覆盖项和下一 gate。公开报告只放合成内容/聚合结果，私人 trace 留在私人位置。现有 `/tmp/stella-arch-core` 是本轮证据存放点，不是未来可重现交付的永久依赖；后续冻结任务需按仓库既有 receipts/测试约定保留脱敏证据，不能把旧临时文件存在当长期验收。
 
@@ -711,6 +711,8 @@ P0/P5 的维护清单须逐用例记录：旧位置/Host、仍有效的行为、
 
 ### 9.7 C5/C6 已验收工程事实（2026-10-28）
 
+本节为固定10.7夹具历史；下文D-062时期的“下一最小任务”安排由§9.8更新，不代表当前跳过C2/C3正式入口接线。协议桩及本机可调用的native façade不升级为第三方公共消费契约，也不证明10.8/主入口或真实模型已验收。以下原版本、计数、哈希和失败保留。
+
 本节将独立复核的可识别版本、范围和计数保存在正式文档，作为D-062的有限依据；原始临时路径只是补充证据位置，不是运行或交付依赖。未将全部临时夹具/收据归档成可重复交付包，P5仍须按既有约定留存脱敏产物及收据。本次只写摘要，没有重跑Host、探测当前服务或调用模型。
 
 **共同版本与边界：** 已安装 `openclaw@2026.10.7`（运行build `157d8c2`），Core HEAD `57c84c976f52c36633ce26793c01a909b5f86c1f` 加各批次冻结的未提交源码。两批 `source-freeze.json` 记录的 `hostPackageHash` 均为 `362f8c0fda7b71a116e0ca2f812e896bfe9cfec41e64b6b66243f95703aaf7b8`；它不代替整个安装目录的完整性证明。均为临时loopback Gateway、原生CLI身份、无remote合成Git及本地固定协议桩，没有真实Google请求或模型推理。临时slot/工具/来源许可只适用于夹具，生产部署配置与 `full_memory:false` 未由此改变。
@@ -744,3 +746,22 @@ C5的唯一纠正 operationId 为 `learn_78a1685f70a96ac9f112db6946b489025a6b38b
 **仍未验收：** 真实Gemini语义与作者原意、Chrome/profile、未知问题的相关记忆发现、其他搜索/分页/自动注入消费者、flush/摘要传播、Host capability撤销、learn/local_write拒绝、任意历史压缩变换、完整迁移/非空恢复、旧操作跨进程自动续完、生产注册和full_memory。C6是首次来源read拒绝，不是运行中即时撤回；后者按D-058不列主线必过门槛。C5/C6也不是最终全套测试或六类业务验收。
 
 原始补充位置：C5执行 `/tmp/stella-arch-core/c5-same-instance-RuCYjZ/`、独立复核 `/tmp/stella-arch-core/c5-same-instance-review/REPORT.md` 与 `EVIDENCE.json`；C6执行 `/tmp/stella-arch-core/c6-retry-rwb8vf/`、独立复核 `/tmp/stella-arch-core/c6-review/REPORT.md` 与 `VERIFICATION.json`。选型整理稿 `/tmp/stella-arch-core/c5-architecture-delta-PgP1Gm/ARCHITECTURE-DELTA.md` 的“下一步C6”已被上述有限负例验收更新；下一最小任务为§9.2的P4a方案及相应语义实验，不是再次总架构设计或生产切换。
+
+### 9.8 2026.10.8 技术评估与当前接线门槛
+
+[D-063](DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration) 是待审阅的工程计划修订，依据已安装 `openclaw@2026.10.8` 与 Core `54b99a5b` 的静态核实，不是新增用户授权。本节不运行Host、模型、安装或slot变更。
+
+**当前接线：** Host 提供可信用户请求、执行/工具生命周期；Core 在实际入场绑定来源/处理许可和选定checkpoint，现有受控 tool 复用精确读取内核；现有领域writer负责唯一纠正提交，receipt绑定对象版本回读，下一请求重取当前资格/版本。C2/C3模块已具有限定工程测试，正式当前入口仍未接全；下一最小工作包应是这个绑定链，不是给相同 executor 再套一层native façade。模块、固定Host夹具、主入口与真实语义须分别出证。
+
+| 待验证假设 / 当前限制 | 启用或继续所需证据 |
+| --- | --- |
+| 精确读取内核能直接服务现有受控 tool，而不依赖native transport | 同一真实绑定请求、首次来源/Evidence闭包、精确版本、取消、拒绝零未授权正文释放、下轮freshness；保留旧/错版本拒绝，不能偷偷读latest |
+| 现有writer能与当前纠正入口的receipt/readback接通 | 原文/owner/operation/expected来自绑定请求，单写者/CAS；提交成功回读失败保持已提交，重试不重复写，下一请求见新版本。C5固定协议桩不代替正式接线或语义判断 |
+| 上游未来提供第三方可支持的native消费与caller/request授权handoff | 官方公开分类与版本化类型/生命周期保证；不能仅因`memory-host-search`可导出、authority浅拷贝或session/audience存在就关联run；未知/错配、重入/并行、旧lease及下一请求均明确拒绝或正确重绑 |
+| native适配有独立能力增益 | 所需独立消费者、发现或成本收益具体可测，且保留Core来源/处理许可、单写权威和精确版本；只有同一executor可读取的包装不足以启用 |
+| 注册隔离可安全启用 | 独立默认关闭memory adapter只解决注册载体；主Core不因memory kind/slot停用，未选slot sidecar不假装有providerRuntime。授权交接未满足时仍no-go，slot/配置/权限变化另按实际范围执行 |
+| Bili可选集成而不绑死产品 | Bili独立可用；明确版本EvidenceExport、来源/附件/策略、单写者与可变路径、clean/CAS；不开放后台private权限、不接管采集调度、不造通用总线，不动沧海旧生产路径或消费指针 |
+
+官方固定版本文档及源路径集中列于D-063：安装包 `docs/plugins/sdk-overview/memory-and-context.md` 与 `docs/plugins/sdk-subpaths.md` 区分公共provider注册和private-local消费façade；caller类型无runId/toolCallId。内部bundle路径仅用于审计，不成为产品依赖。条件未满足时维持受控 tool 路径，不降级OpenClaw、不恢复8.2/旧SQL，不放宽授权来取得接口可用性。
+
+真实模型作者原意、Chrome/profile、其他消费者、完整迁移/恢复、full_memory 及既有未解释失败仍独立保留；本节不修改历史验收、Issue状态或生产能力标志。

@@ -4,7 +4,9 @@
 
 2026-10-27 架构方向补充：[D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement) 固定“官方 memory + 薄 Stella”与“定制 native provider”的对照和等价替换门槛；[架构 §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线)维护职责/权威/方案，[Host 集成 §9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划)维护版本、go/no-go、迁移、37失败归属及18个open issue映射。Knowledge仅候选；本次设计不执行实施/权限/模型/部署或Issue变更。
 
-2026-10-28研发主线收敛：[D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 接续D-061，选择公开 native provider、薄 Stella 语义层和现有单一纠正 writer，不再以完成完整A/B为前置。C5同实例两请求正向链路与C6单请求来源read拒绝已作有限工程验收；[版本/计数/哈希摘要](04-OPENCLAW-INTEGRATION.md#97-c5c6-已验收工程事实2026-10-28)不依赖临时路径才能识别范围。真实模型、Chrome/profile、其他消费者、Host撤权、迁移/恢复及 full_memory 仍未验收；既有部署状态和历史失败不改绿。下述D-058边界继续生效。
+2026-10-28早期方向记录：[D-062](DECISIONS.md#d-062--one-native-provider-path-and-one-semantic-writer) 当时选择 native provider、薄 Stella 与单一纠正 writer，完整保留其历史及 [C5/C6版本/计数/哈希摘要](04-OPENCLAW-INTEGRATION.md#97-c5c6-已验收工程事实2026-10-28)。这些是固定10.7受控夹具工程事实，不是公共 consumer API、主入口或10.8真实模型验收。
+
+2026-10-28后续技术评估：[D-063](DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration)（工程计划修订、待审阅，不标为用户批准）明确当前主线为 Host 执行、请求绑定 Core 权限、单一 writer、精确版本及下一请求 freshness。native slot 变为有上游公共 caller/request 授权交接和能力增益门槛的未来选项，不实施对象引用 handoff 桥。C2/C3模块的正式入口接线仍缺，现有受控 tool 可复用精确读取内核；不恢复8.2/旧SQL，不从session选最新grant。具体固定10.8依据和启用门槛见 [集成 §9.8](04-OPENCLAW-INTEGRATION.md#98-2026108-技术评估与当前接线门槛)。真实模型、Chrome/profile、其他消费者、Host撤权、迁移/恢复及 full_memory 仍未验收；既有部署状态和历史失败不改绿，D-058边界继续生效。
 
 更新日期：2026-09-05。本文是现行规范入口，不是发布计划或实现完成证明。
 
