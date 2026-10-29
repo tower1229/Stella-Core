@@ -94,6 +94,7 @@ implementation_evidence:
   installed_correction_profile_contract: docs/evidence/2026-10-29-installed-correction-profile/verification-summary.json
   core_supply_observation: docs/evidence/2026-10-29-core-supply-observation/verification-summary.json
   reused_consumer_identity: docs/REUSED-CONSUMER-IDENTITY.md
+  correction_capture_contract: docs/CORRECTION-CAPTURE-CONTRACT.md
   candidate_evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
   evidence_index: docs/evidence/2026-10-28-task-continuity/README.md
   manifest_sha256: 15db1a16f2e250b7a51055c2b61f89e352efd9af4479c054b85b7af2413bf4cd
@@ -118,7 +119,7 @@ settled_constraints:
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
 scope_of_this_change:
-  kind: reused-consumer-identity-offline
+  kind: correction-capture-contract-offline
   implementation_changed: false
   verification_scripts_modified: true
   verification_tests_modified: true
@@ -131,26 +132,26 @@ scope_of_this_change:
   candidate_certified: false
   publication_performed_at_capture: false
   commit_performed_at_capture: false
-  git_save_status: 基线及新核远端96cbe4d3；本片作者162与独审162分层通过，额外14检查不累加；五文件保存前状态，按授权普通提交推送后另核精确SHA/CI。
-updated_at_utc: "2026-10-29T11:32:02.241848+00:00"
+  git_save_status: 基线及新核远端4fa4cb0e；C1独审闭合，作者240/独审240及原11探针分层记录，原失败保留；五文件保存前快照，按授权普通提交推送后另核SHA/CI。
+updated_at_utc: "2026-10-29T16:17:51.569098+00:00"
 state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
 non_goals:
-  - 仅复用安装身份的离线绑定模块、测试和说明；源码锁/安装manifest分开，consumerLock=null；不改旧profile/锁验证器/生产实现/8.2/152，不启Host或模型，不装依赖、不改身份/权限/配置，不触碰旧EPERM现场；独审已通过，仅按授权普通保存本离线切片。
+  - 仅来源分开的双请求capture契约及离线关联；引用第一包安装摘要，旧offline v1/正式gate保持关闭；不改生产、旧验证器或版本模型，不启动Host/模型/身份，不装依赖或改主配置/grant，不触碰旧现场；独审闭合后仅普通保存本离线包，不扩大Host或运行范围。
   - 不把此前D063文本审查/持久化授权或本轮有限离线结果解释为整体架构批准、付费调用或部署批准。
   - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
   - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
 design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
 task_continuity:
-  task_id: reused-consumer-identity-2026-10-29
-  scope: 固定干净源码/源码锁、产物/实际consumer树和显式现有10.8 SDK的只读身份观察；只绑定独立预期，不生成安装锁或Host/CLI/profile验收。
+  task_id: correction-capture-contract-c1-2026-10-29
+  scope: 复用第一包身份摘要，分辨Host回调投影/Core行/factory闭包/控制器生命周期与本地文件观察；只检查合成correction→readback→退休→下一请求自洽，不认证Host来源或开gate。
   version_binding:
-    remote_check_scope: 保存前普通shell核对HEAD96cbe4d3和四无关文件，fresh ls-remote仍为同一基线；未重复CI监控。
+    remote_check_scope: 保存前实际shell核对HEAD/工作区和四冻结哈希，fresh ls-remote仍为4fa4cb0e；仅查询本次发布所需远端，未重复旧CI监控。
     state_commit_lookup: git log -1 --format=%H -- PROJECT-STATE.yaml
     warning: baseline/observed是保存前观察，不是包含本状态更新的提交；实际版本由本文件Git历史和远端读取，不产生自引用hash。
-    baseline_commit: 96cbe4d31f0e8868d96ecc4afc91e2f734813a08
+    baseline_commit: 4fa4cb0e00d19fb00376868ec14f68a7347d0396
     observed_branch: codex/issue23-integrated-regression
-    observed_remote_commit: 96cbe4d31f0e8868d96ecc4afc91e2f734813a08
-    observed_remote_source: fresh pre-publication ls-remote; exact development branch remains96cbe4d3
+    observed_remote_commit: 4fa4cb0e00d19fb00376868ec14f68a7347d0396
+    observed_remote_source: fresh pre-publication ls-remote; exact development branch remains4fa4cb0e
   decisions:
     confirmed:
       - 产品目标及边界依docs/09-REQUIREMENTS-ALIGNMENT.md与设计基线。
@@ -162,6 +163,8 @@ task_continuity:
         text_review: 已完成独立文档/元数据一致性审查并提交deb8dc3
         ref: docs/DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration
   implemented:
+    - C1窄修仅一行检查第二请求hook.sequence晚于上一请求Core退休声明，factory允许提前创建；不改其他来源、身份或版本契约。
+    - 本片新增capture JSON契约；安装身份直接引用第一包输出摘要，不复制版本模型；按observer/run/call/factoryLabel及来源白名单关联，控制器先观察Core退休后才能提交第二请求。
     - 本片新增只读复用安装身份模块；固定source/源码lock/tgz/Core树/依赖闭包与显式SDK，consumerLock=null，独立installationManifest摘要；不导入产品/SDK、不执行CLI。
     - 复用公开diagnostic-flags与现有debug日志，只有stella.core.observe启用时输出白名单元数据；不新增RPC、路径写入或授权接口。
     - factory/hook/execute分别记录原位置事实；factoryLabel与run/call标签仅用于审计，业务从不读取。身份标签私有盐，run/call标签可按公开observer nonce与实际Host标识复算。
@@ -174,6 +177,12 @@ task_continuity:
     - 已提交R1统一入场grant约束和合法缓存，独审关闭原P1；本轮不改其生产实现。
     - 历史freshness包已交付focused consumer脚本及2项用例；当前新增固定8aef单个合法分段消费者并校验driver结构结果。
   verified:
+    - C1同一独审240/240（18父组/222叶子）通过，原11探针全部符合预期，不与作者240/历史235累加；提前factory合法，所有Host/profile/gate仍false。
+    - 独审旧13:15只读调用结果保持unknown，不含测试或写入；本轮独审及保存命令各自核终态，不以旧只读未知推断执行成功或未执行。
+    - C1修前新增组5项1pass/4fail（3反例及父组），合法提前factory对照通过；修后5/5和定向240/240，0失败/取消/跳过，typecheck/编译/语法过；红绿TS/编译hash一致。
+    - 原作者235/235与独审235是历史结果；独审额外11中3个异常接受发现C1/P2，不能据此提交。修后一行hook2>retire1检查作者240/240（新78＋原162，含18父组/222叶子），原证据不改绿。
+    - 首轮234/234保留，其后跨请求标签一致性修改及1负例单列；断连时最终测试未创建进程，恢复核对日志不存在后仅运行一次最终测试；原代码未预先hash冻结的限制如实记录。
+    - 覆盖缺字段/歧义/跨observer/run/call、伪造factory.runId、借用身份、取消exit0、agent.wait和清理冒充退休、旧checkpoint/来源判断/重复写入；所有Host/profile/gate标记仍false。
     - 本片作者162与独审162分层通过（同组含12父组/150叶子，新56＋既有106），0失败/取消/跳过；独审额外14检查单列；首轮159保留，typecheck/编译/语法过，不相加。
     - 原锁验证器仍因缺consumer锁拒绝、旧profile仍拒绝host_capture；新输出CLI/Host/profile/完整gate均false，不把源码锁当安装锁。
     - 只读真实SDK元数据与公开入口为现有全局10.8；未运行SDK/CLI或实际consumer，详情及原日志摘要见docs/REUSED-CONSUMER-IDENTITY.md。
@@ -210,13 +219,16 @@ task_continuity:
     - 独审R1：注册工具12＋原独立P1重放1＝13/13，0失败/取消/跳过；旧run扩grant拒绝且保护payload/正文返回/模型端口/业务提交均0，合法缓存及下一请求通过。
     - 普通工具suite终态exit0、group gone、owned work complete/root removed；错误监督入口在测试前拒绝，未计通过。
   unverified:
+    - C1独审已闭合，但当前只证明合成声明序列自洽，不能据一行检查认证真实controller、Core退休原因或Host捕获。
+    - 本片仅验证合成声明的一致性，未认证实际Gateway/回调/agent_end/停服来源；Core退休行无原因字段，必须由后续真实collector补齐可信时序，不得单行冒充正常退休。
+    - 真实tgz/SDK/ESM纯导出来源、最终provider消费、capture/CLI/runner及实际旧permit拒绝仍未验；不由离线JSON或安装摘要认证Host。
     - 本片仅合成文件/Git契约且已独审；未在真实新tgz consumer运行本模块，未自行解包/证明tgz和外部树清单对应，未证明SDK全部传递模块或ESM消费；需要后续独立证据。
     - 本片为离线合成观察验证；未接真实Host capture/runner，未证明实际Host事件消费或consumer锁绑定，不继承前轮离线profile为Host通过。
     - 新profile没有runner/原始artifact捕获/CLI或CI接线；真实安装事实与Host入场/permit/工具消费/退休仍未验，不能由合成一致性升级为通过。
     - R1独审13项完成，未重跑作者253全套；初版115及原P1失败证据按historical保留。真实Host/模型/部署/full_memory仍未验。
     - 同实例同请求重试不等于跨进程恢复旧操作；分段A-only窄修已限定离线独审通过，不扩整源授权，不代表完整打包分段否定矩阵或Host验收；本轮单个合法分段消费者10项已独审通过，不能扩为完整否定矩阵。
     - SDK晚关闭ENOENT/active-leases告警仍存在；未证明SDK drain；完整套件本轮未重跑，26旧CI失败保留原身份。
-  unique_next_step: 普通提交推送已审五文件并核对远端精确SHA/CI；随后由父线程限定来源明确的capture契约小包，不在本包启Host或接runner。
+  unique_next_step: 普通提交推送已审五文件并核对远端精确SHA/CI；后续实际collector/runner由父线程另行限定，不把本合成契约当Host通过。
   blockers:
     - 局部受阻：真实Host捕获/runner未接，旧probeHost/报告验证器仍锁8.2；本片为独立复用安装摘要，旧profile仍拒绝host_capture和缺consumer锁输入；不影响本离线模块验证。
     - 历史A-only回读红例已保留；当前窄修作者141及独审141分开通过，不能冒充打包分段消费者/真实Host/全量consumer通过。
@@ -226,9 +238,9 @@ task_continuity:
     - 可独立继续：本提交只读CI核验和另行限定、不依赖真实Host/模型的离线工作；不以D063整体待审或Bili复验暂停。
     - 受阻动作：native公共授权桥/slot切换及整体D063实施；公共caller交接未证明、D063待审。当前受控tool及离线消费者验证不依赖该桥。
   authorized_next_package_candidate:
-    status: reused_consumer_identity_independently_passed_ready_for_save
-    name: 复用安装身份离线绑定
-    boundary: 临时合成文件与无remote Git、仅元数据/文件摘要/公开解析；不导入产品或SDK，不安装、不部署、不改权限/凭据、不运行Host/模型
+    status: correction_capture_contract_c1_independently_passed_ready_to_save
+    name: capture契约C1跨请求序列窄修
+    boundary: 第一包合成安装输出和Core纯函数/观察器单元夹具；仅普通保存已审代码/证据，无实际安装消费，不改权限/配置/身份，不启Host/模型
     execution_started: true
   requires_separate_scope:
     - 真实模型调用的明确provider/model、数据、次数/费用预算。
@@ -237,34 +249,70 @@ task_continuity:
   same_repo_writer: 一个明确指定写入者；其他并行会话只读，不按目录推定隔离
   local_change_whitelist:
     - PROJECT-STATE.yaml
-    - scripts/lib/reused-consumer-identity.mjs
-    - tests/reused-consumer-identity.test.ts
-    - docs/REUSED-CONSUMER-IDENTITY.md
-    - docs/evidence/2026-10-29-reused-consumer-identity/independent-review.json
+    - scripts/lib/correction-capture-contract.mjs
+    - tests/correction-capture-contract.test.ts
+    - docs/CORRECTION-CAPTURE-CONTRACT.md
+    - docs/evidence/2026-10-29-correction-capture-contract/independent-review.json
   preserved_unrelated_untracked:
     - docs/suqing-m1-2026-10-22.md
     - docs/suqing-m1-plugin-boundary-review-2026-10-22.md
     - docs/suqing-midterm-plan-2026-10-22.md
     - tests/recovery-pointer-barriers.test.ts
   independent_review:
-    status: passed_scoped_offline_identity_contract_ready_to_save
-    scope: 仅复用安装身份绑定及离线拒绝语义；不认证Host、registry来源或tgz解包关系。
-    author_tests: 162
-    author_pass: 162
+    status: passed_scoped_offline_capture_contract_ready_to_save
+    scope: 只检查合成来源投影、第一包安装摘要和双请求关联；不认证实际Host或最终模型消费。
+    author_tests: 240
+    author_pass: 240
     author_fail: 0
-    new_module_tests: 56
-    existing_version_and_profile_tests: 106
-    independent_tests: 162
-    independent_pass: 162
+    new_contract_tests: 78
+    existing_regression_tests: 162
+    parent_groups_included: 18
+    leaf_assertions: 222
+    independent_tests: 240
+    independent_pass: 240
     independent_fail: 0
-    parent_groups_included: 12
-    leaf_assertions: 150
-    extra_probes: 14
-    extra_probes_pass: 14
-    extra_probes_not_additive: true
-    source_summary_sha256: 63d44c0f0ad2747f3ba4cce5482880468e809654a67f0ca6bfaf3cf05e62d481
-    independent_evidence: docs/evidence/2026-10-29-reused-consumer-identity/independent-review.json
-    evidence: docs/REUSED-CONSUMER-IDENTITY.md
+    original_probe_replay: 11
+    original_probe_replay_expected: 11
+    probe_replay_not_additive: true
+    source_summary_sha256: 52bc563f0ca5fe12d80c8af08e7714eddbcbd93f510d0599c6bf7bc64292c6b6
+    independent_evidence: docs/evidence/2026-10-29-correction-capture-contract/independent-review.json
+    closed_findings: [C1]
+    historical_unknown_readonly_outcome: 13:15 pwd/Git/冻结文件只读调用结果不可恢复，保持unknown；无测试或写入，未标为未执行
+    current_review_commands_terminal: true
+    evidence: docs/CORRECTION-CAPTURE-CONTRACT.md
+    initial_capture_review:
+      decision: changes_requested
+      formal_tests: 235
+      formal_pass: 235
+      extra_named_probes: 11
+      expected_probe_outcomes: 8
+      unexpected_validations: 3
+      finding: C1
+      priority: P2
+      source_summary_sha256: 049696a58ff3fdf32da9c6e820ec58d7ecfde8d145ea225c872d9218fdfaf909
+      source_boundary_sha256: f002589351c6fbd0e64b45212c64ad2db9c07e58dcb61d4b920ffa009131319d
+      independently_reverified: true
+      scope: 原11探针/235及红例保留历史；C1复验闭合只证明声明时序，不认证来源
+    previous_reused_identity_review:
+      published_commit: 4fa4cb0e00d19fb00376868ec14f68a7347d0396
+      status: passed_scoped_offline_identity_contract_ready_to_save
+      scope: 仅复用安装身份绑定及离线拒绝语义；不认证Host、registry来源或tgz解包关系。
+      author_tests: 162
+      author_pass: 162
+      author_fail: 0
+      new_module_tests: 56
+      existing_version_and_profile_tests: 106
+      independent_tests: 162
+      independent_pass: 162
+      independent_fail: 0
+      parent_groups_included: 12
+      leaf_assertions: 150
+      extra_probes: 14
+      extra_probes_pass: 14
+      extra_probes_not_additive: true
+      source_summary_sha256: 63d44c0f0ad2747f3ba4cce5482880468e809654a67f0ca6bfaf3cf05e62d481
+      independent_evidence: docs/evidence/2026-10-29-reused-consumer-identity/independent-review.json
+      evidence: docs/REUSED-CONSUMER-IDENTITY.md
     previous_observation_review:
       published_commit: 96cbe4d31f0e8868d96ecc4afc91e2f734813a08
       status: passed_scoped_offline_observation_ready_for_commit
