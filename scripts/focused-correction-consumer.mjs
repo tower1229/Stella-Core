@@ -163,6 +163,8 @@ registerHooks({resolve(specifier,context,next){const r=next(specifier,context);i
   assert.equal(observed.moduleAudit.denied.length, 0); assert.equal(observed.groups.length, 4);
   assert.equal(observed.additionalChecks?.failedReadRetry?.status, 'passed');
   assert.equal(observed.additionalChecks?.symlinkAudit?.status, 'passed');
+  assert.equal(observed.requestFreshness?.status, 'passed');
+  assert.equal(observed.reducedPermissionFreshness?.status, 'passed');
   evidence.status = 'passed_focused_consumer_offline';
 } catch (error) {
   failure = error; evidence.status = 'failed_focused_consumer_offline'; evidence.error = { code: error.code ?? null, message: error.message };

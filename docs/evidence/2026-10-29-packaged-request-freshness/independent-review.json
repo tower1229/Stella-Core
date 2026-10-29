@@ -1,0 +1,202 @@
+{
+  "schemaVersion": "stella.packaged-request-freshness-independent-review-archive/v1",
+  "recordedAt": "2026-10-29T04:26:41.303853+00:00",
+  "classification": "independent read-only review of frozen five-file candidate before publication metadata updates",
+  "decision": "passed_scoped_packaged_request_freshness_ready_for_commit",
+  "findings": [],
+  "sourceCommit": "844b1ea1a7a7f3c228e095c7ffed75dc4910d760",
+  "branch": "codex/issue23-integrated-regression",
+  "sourceEvidenceSha256": {
+    "REVIEW.md": "a10b5dd23e7d0b896edd0a2c356a08d3f5c33de825352f58aa9a6652515160bf",
+    "REVIEW-SUMMARY.json": "f170124b1f9141c3c2a14a686333e08d890dd857f76e2f22a045a831b81ec509"
+  },
+  "reviewedCandidateFiles": {
+    "PROJECT-STATE.yaml": "49267a6a2b9576e4ef553b1e87764779cd934bd68e8bd9405d299385851a3ce3",
+    "scripts/focused-correction-consumer.mjs": "3d8777f059e57f23a2ef358719ac3260b98eb4d38671cf609c5358e8b768c6a6",
+    "scripts/lib/focused-correction-consumer-probe.mjs": "0184d91a3f00da646a915a26c64bd69a52c0ea62fb1caccd304d8607440bc7af",
+    "docs/evidence/2026-10-29-packaged-request-freshness/README.md": "3c5bb1ef28a264ca53b741ec3edefd090f6195b0086686eafe3a79542ca07b4b",
+    "docs/evidence/2026-10-29-packaged-request-freshness/verification-summary.json": "d954a212346720cc4d1cd7e6944f432cf18504b4fac6236f9470847795de13ca"
+  },
+  "reviewedPatchSha256": "b1194e241a2521ea3c5ac138cb5f42e993747db78ec706b5f52bd3f4469efca2",
+  "reviewedTestsDeltaSha256": "006f5efeca2a18ade141d743b11057d97eef393ba532e2bff4cf1a8eab3a0072",
+  "independentFormalScriptRerun": {
+    "topLevelCases": 7,
+    "tests": 9,
+    "pass": 9,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "includesHistoricalSeven": true,
+    "addedCases": 2,
+    "authorAndIndependentRunsNotAdditive": true
+  },
+  "countingRule": "Author9 and independent9 are separate runs of the same nine cases, not eighteen distinct cases; includes retained7 plus added2",
+  "requestFreshness": {
+    "status": "passed",
+    "receiptRevision": "5bdd886b6f8f93f2dec6281ad1249028afba22e6",
+    "correctedRun": "synthetic-correction-supply-run",
+    "requests": [
+      {
+        "sameProcessReregistered": false,
+        "runId": "synthetic-correction-supply-run-next",
+        "userRequest": "synthetic-correction-supply-run-next",
+        "checkpointRevision": "fc80b1f2413393304a2273802516e1d828cfa420",
+        "exactTarget": {
+          "id": "synthetic-writing-work",
+          "version": "sha256:e41a490db68d748c64e40d14384ff7ed3a8bf5ccdae8c4b6a6761a0fd3fcb1c1"
+        },
+        "sourceAccessDecisions": 1,
+        "currentInputHash": "sha256:bff6fe99e6636161fc761c76009dfe61ea87f7e353704a5a44c38bb0812ba09b",
+        "oldPermitRefused": true,
+        "correctionInferenceCalls": 0,
+        "businessCommits": 0
+      },
+      {
+        "sameProcessReregistered": true,
+        "runId": "synthetic-correction-supply-run-next-next",
+        "userRequest": "synthetic-correction-supply-run-next-next",
+        "checkpointRevision": "b6415f71209bf051670967f420c640d355ca4def",
+        "exactTarget": {
+          "id": "synthetic-writing-work",
+          "version": "sha256:e41a490db68d748c64e40d14384ff7ed3a8bf5ccdae8c4b6a6761a0fd3fcb1c1"
+        },
+        "sourceAccessDecisions": 1,
+        "currentInputHash": "sha256:bff6fe99e6636161fc761c76009dfe61ea87f7e353704a5a44c38bb0812ba09b",
+        "oldPermitRefused": true,
+        "correctionInferenceCalls": 0,
+        "businessCommits": 0
+      }
+    ],
+    "archiveCommits": 3,
+    "correctionCommits": 1,
+    "candidateCounterevidenceAndOpenFieldsPreserved": true,
+    "crossProcessRecoveryTested": false
+  },
+  "reducedPermissionFreshness": {
+    "status": "passed",
+    "newRun": "synthetic-correction-supply-run-next",
+    "checkpointRevision": "e5f7177b8a5e40bcba9198c270a02d2bae2b05ad",
+    "errorCategory": "personal_context_descriptor_required",
+    "protectedPayloadReads": 0,
+    "documentsReturned": 0,
+    "ownerInputPayloadReads": 1,
+    "measurementWindow": "after new request admission, through memory call and refused old permit",
+    "oldPermitRefused": true,
+    "archiveCommits": 2,
+    "correctionCommits": 1,
+    "explicitSyntheticPermissionReductionCommits": 1,
+    "retryCommits": 0,
+    "correctionInferenceCallsAfterAdmission": 0,
+    "sameProcessReregistered": true,
+    "crossProcessRecoveryTested": false
+  },
+  "retainedChecks": {
+    "failedReadRetry": {
+      "status": "passed",
+      "failedReadCategory": "source_topic_unresolved",
+      "deniedRetryCategory": "personal_context_access_changed",
+      "deniedRetryPayloadReads": 0,
+      "deniedRetryDocuments": 0,
+      "missingPermitPayloadReads": 0,
+      "totalCommits": 2,
+      "retryCommits": 0,
+      "retryCorrectionInferenceCalls": 0,
+      "exactReceipt": true
+    },
+    "symlinkAudit": {
+      "status": "passed",
+      "esmDeniedBeforeExecution": true,
+      "cjsDeniedBeforeExecution": true
+    }
+  },
+  "artifact": {
+    "sha256": "d0b947fc30c32f21a982906598d06af311bbba9e7ca55a6fdb303d185cd0dd89",
+    "files": 510,
+    "buildIdentity": {
+      "coreRevision": "844b1ea1a7a7f3c228e095c7ffed75dc4910d760",
+      "sourceClean": true
+    },
+    "unpackMethod": "safe local tgz extraction into consumer node_modules; not npm ci or a fresh dependency installation"
+  },
+  "moduleAudit": {
+    "resolvedFiles": 5734,
+    "coreProductionModules": 133,
+    "fullRelativeListSha256": "ce200f0968998f5aabe1dfb94171cda99c623150775ca78092ecbab5efe30f65",
+    "denied": [],
+    "registration": "actual package default.register(fake API); next(true) calls the same package registration in the same process"
+  },
+  "dependencies": {
+    "method": "copied existing runtime dependency closure; explicit existing SDK peer",
+    "selection": [
+      {
+        "name": "yaml",
+        "rejectedWorkspaceVersion": "2.9.0",
+        "requiredVersion": "2.9.1"
+      }
+    ],
+    "yamlCopy": {
+      "donor": "explicit_existing_sdk_dependency",
+      "version": "2.9.1",
+      "files": 233,
+      "manifestSha256": "e5bed832a42182d072da55bbe6bc0f5482ab08650e2e00c117d7ecac5bf92b09",
+      "packageSha256": "1c6441703d8204a23ded0d37ddf57c3b69d821dc392f20852d1f605bb9b8861c"
+    },
+    "freshInstall": false
+  },
+  "cleanup": {
+    "childExitCode": 0,
+    "processGroupConfirmedGone": true,
+    "groupAbsenceIndependentlyChecked": true,
+    "supervisorRootAbsentChecked": true,
+    "ownedWork": {
+      "schemaVersion": "stella.test-owned-work/v1",
+      "runId": "e310c10a-0270-465b-a5fa-161ece73c74c",
+      "status": "complete",
+      "pending": 0,
+      "stopFailures": 0,
+      "pendingFailures": 0
+    },
+    "runtime": "owned runtime removed after child completion",
+    "recentRuntimeTreesRemaining": [],
+    "sdkDrainClaimed": false
+  },
+  "freezeAndWorktree": {
+    "fiveFilesAndAuthorFreezeUnchanged": true,
+    "mainProjectStateUnchanged": true,
+    "historicalSevenEvidenceUnchanged": true,
+    "fourUnrelatedUntrackedUnchanged": true,
+    "emptyIndexUnchanged": true,
+    "oldSevenBodiesPreservedExceptAdditionalNamedImports": true,
+    "productionSourceAndLockUnchanged": true,
+    "gitStatusUnchanged": true,
+    "reversePatchCheck": 0,
+    "diffCheck": 0,
+    "syntaxChecks": 0,
+    "stateYamlValid": true,
+    "readmeLocalLinksChecked": 3
+  },
+  "rawEvidenceSha256": {
+    "RESULT.json": "de410931a9d14fe6214a89966e9bd63a79d079794ad86160608deaf911ee19a2",
+    "consumer-result.json": "453a99e27eead71bdb36e1b90adcf7d48dc1217f36a2ac9209b4b75c2e3d361a",
+    "consumer.stdout": "64f4899d043949bcc6469f771df4951dc6014f75104a8bd45b488b55b6d1e6d8",
+    "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial-snapshot.json": "b1961c75ee8896b9149d49663b1b12617ca8673d153d6fb000038d96cd7438b5",
+    "final-snapshot.json": "b1961c75ee8896b9149d49663b1b12617ca8673d153d6fb000038d96cd7438b5"
+  },
+  "unaccepted": [
+    "cross-process recovery, old correction recovery after Node restart, or real Host restart",
+    "real Host/Gateway/model/account/profile/Chrome or semantics",
+    "formal full consumer/probes, full_memory, resolution of old26 failures, gate changes",
+    "fresh npm install or registry archive authenticity",
+    "SDK drain; active-leases warnings remain"
+  ],
+  "publicationBoundary": "Reviewer did not modify repository or stage/commit/push; writer archives summary and updates documentation/state only, preserving frozen verification scripts",
+  "remoteObservation": {
+    "action": "git ls-remote origin refs/heads/codex/issue23-integrated-regression",
+    "status": "succeeded via approved permission channel before this publication",
+    "observedCommit": "844b1ea1a7a7f3c228e095c7ffed75dc4910d760",
+    "observedAt": "2026-10-29T04:26:41.303853+00:00",
+    "scope": "Git preflight; no Host/service/model acceptance"
+  }
+}

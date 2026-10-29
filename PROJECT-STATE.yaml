@@ -87,6 +87,7 @@ implementation_evidence:
     - D063文档独审：11/11账本及82本地链接；35hash/10行号仅定位元数据，非产品通过。
   limit: 新注册tool接线作者253项与R1独审13项分开记录；真实Host/模型未验，历史8.2及旧模型收据保留原身份。
   focused_consumer_evidence: docs/evidence/2026-10-29-focused-packaged-correction-consumer/verification-summary.json
+  request_freshness_evidence: docs/evidence/2026-10-29-packaged-request-freshness/verification-summary.json
   candidate_evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
   evidence_index: docs/evidence/2026-10-28-task-continuity/README.md
   manifest_sha256: 15db1a16f2e250b7a51055c2b61f89e352efd9af4479c054b85b7af2413bf4cd
@@ -95,7 +96,7 @@ implementation_gaps:
   - C2/C3已接实际注册tool；R1作者253项、独审13项通过，精确版本/权限与P1闭合已有限验证；focused打包消费者正式7项通过（原5项＋失败恢复与symlink审计2项），真实Host和正式全量consumer仍缺。
   - native公共caller没有Core run/toolCall关联；消费façade为private-local，authority引用桥不作产品方案。
   - 当前两CI仍26旧失败；12旧SQL桥与7codec等行为须按范围迁移或明确退役，不能删skip刷绿。
-  - 本轮只有固定5fe9a9f临时包consumer的focused 7项（含原5项）；正式完整consumer/probes、真实Gemini语义/Chrome/profile、迁移恢复/full_memory仍未验。
+  - 固定5fe9a9f历史focused 7项保持身份；本轮固定844b1ea1包新增下一请求/同进程重新注册验证9项（含原7项），未证明跨进程恢复或正式完整consumer/probes、真实Gemini语义/迁移/full_memory。
 settled_constraints:
   - one Cortex with four cooperating cognitive systems
   - personal data centralized in CangHai; current Git copy contains retained original bytes
@@ -111,9 +112,9 @@ settled_constraints:
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
 scope_of_this_change:
-  kind: focused-packaged-correction-consumer-offline
+  kind: packaged-request-freshness-offline
   implementation_changed: false
-  verification_scripts_added: true
+  verification_scripts_modified: true
   private_data_read_or_migrated: false
   host_config_or_slot_changed: false
   grant_or_credentials_created: false
@@ -123,26 +124,26 @@ scope_of_this_change:
   candidate_certified: false
   publication_performed_at_capture: false
   commit_performed_at_capture: false
-  git_save_status: R1已提交5fe9a9f；focused consumer作者7项与独审7项分别通过，P2关闭；本快照在普通提交/推送前捕获，实际发布结果以Git为准。
-updated_at_utc: "2026-10-29T03:49:03.543066+00:00"
+  git_save_status: 上轮focused consumer已普通推送844b1ea1；本轮freshness作者9/9和独审9/9分别通过，本快照在普通提交/推送前捕获，实际发布由Git核对。
+updated_at_utc: "2026-10-29T04:26:41.303853+00:00"
 state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
 non_goals:
-  - 本次仅focused打包消费者7项离线验证；不改产品源码/生产配置/slot/真实grant/凭据、不运行真实Host/模型；独审通过的验证脚本与证据仅普通提交/推送既有开发分支，不部署。
+  - 本次仅固定844b1ea1打包消费者新增2项freshness离线验证（共9项）；不改生产源码/主配置/真实grant/凭据，不运行Host/模型；仅临时合成descriptor经既有事务/CAS收窄，独审通过后仅普通提交/推送既有开发分支，不部署。
   - 不把此前D063文本审查/持久化授权或本轮有限离线结果解释为整体架构批准、付费调用或部署批准。
   - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
   - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
 design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
 task_continuity:
-  task_id: focused-packaged-correction-consumer-2026-10-29
-  scope: 从固定5fe9a9f构建pack到临时consumer，仅真实包入口＋fake Host纠正/回读/拒绝；无生产变更和真实模型
+  task_id: packaged-request-freshness-2026-10-29
+  scope: 固定844b1ea1真实tgz入口＋fake Host，新请求与同进程停止/重新注册freshness、合成descriptor收窄拒绝；不验证跨进程恢复
   version_binding:
-    remote_check_scope: 本轮经授权通道git ls-remote核对远端5fe9a9f与本地HEAD一致；这是提交前基线观察，不是包含本状态更新的提交。
+    remote_check_scope: 本轮提交前经授权通道fresh ls-remote确认远端844b1ea1与本地HEAD一致；该基线不是将包含本状态的提交。
     state_commit_lookup: git log -1 --format=%H -- PROJECT-STATE.yaml
     warning: baseline/observed是保存前观察，不是包含本状态更新的提交；实际版本由本文件Git历史和远端读取，不产生自引用hash。
-    baseline_commit: 5fe9a9f5420264cd05e3f70f9f9a671d018040f5
+    baseline_commit: 844b1ea1a7a7f3c228e095c7ffed75dc4910d760
     observed_branch: codex/issue23-integrated-regression
-    observed_remote_commit: 5fe9a9f5420264cd05e3f70f9f9a671d018040f5
-    observed_remote_source: fresh git ls-remote via approved permission channel before publication; same as local baseline
+    observed_remote_commit: 844b1ea1a7a7f3c228e095c7ffed75dc4910d760
+    observed_remote_source: fresh git ls-remote via approved permission channel before current publication
   decisions:
     confirmed:
       - 产品目标及边界依docs/09-REQUIREMENTS-ALIGNMENT.md与设计基线。
@@ -158,15 +159,18 @@ task_continuity:
     - writer返回receipt后只按该revision重新打开reader，保留LearningChange精确目标与Source/Evidence闭包授权。
     - 同请求提交后读失败保留local_committed回执；新permit重试只读，不重新纠正/提交；入场来源grant文件不自动替换。
     - 已提交R1统一入场grant约束和合法缓存，独审关闭原P1；本轮不改其生产实现。
-    - 新增独立focused consumer构建/解包验证脚本，从固定5fe9a9f运行实际包main，不导入工作树/测试编译生产模块。
+    - 前轮已交付focused consumer脚本；本轮仅补2项正式用例和runner终态要求，从固定844b1ea1包main执行，不改生产模块。
   verified:
-    - 本轮固定提交标准build/sourceClean=true、offline pack 510文件；空consumer真实tgz五个顶层用例/7项全过（包含原5项），无失败/取消/跳过。
+    - 本轮固定844b1ea1标准build/sourceClean=true、offline pack 510文件；实际包入口共9/9（保留原7＋新增2），0失败/取消/跳过；作者9项与独审9项分别通过，不相加。
     - 8个既有运行依赖复制文件摘要一致且版本匹配固定锁，明确SDK peer为现有官方10.8；不是fresh npm安装。
     - main及新读取内核解析在包产物；133个Core生产模块来自解包安装目录，主进程解析审计拒绝工作树/构建目录回退。
     - 一次归档/一次纠正、receipt目标精确回读、只读重试；缺许可及改变入场grant零保护正文/业务提交；进程组gone且临时树清理完成。
     - 正式新增提交后readback_failed保留local_committed；缺permit/变grant重试零payload/正文/重复提交，恢复原grant仅回读同receipt；ESM/CJS越界symlink在执行前拒绝。
-    - focused consumer作者7/7与独审正式脚本7/7分别通过（均含原5项，不相加）；独审P2关闭，510包文件/133生产模块来源与symlink拒绝复验通过。
-    - typecheck、测试编译、build、9个schema及diff检查退出0。
+    - 历史focused consumer作者7/7与独审7/7分开通过，P2关闭；原证据逐字/hash不变，不重标为本轮9项独审。
+    - 本轮新请求run/userRequest及输入权限判断重新绑定，checkpoint对齐当前authority而非旧receipt；同session和同进程重新注册均读B同版本，旧permit拒绝，只有新请求归档推进。
+    - 本轮独审正式driver9/9独立通过，生产tgz/133模块来源、两个freshness用例及计数/旧permit/精确版本/清理均复验通过；当前仅证据状态增量。
+    - 合成descriptor经既有事务/CAS收窄后重新注册，新请求memory调用拒绝personal_context_descriptor_required：保护payload/正文0，独立获准owner-input payload1；无新增纠正或调用窗口写入。
+    - 历史R1的typecheck/测试编译/build/9 schema检查保留；本轮脚本语法、typecheck、固定包build/pack与diff检查退出0，不冒充新全量验证。
     - 作者R1：注册12＋native/Evidence/C2/C3回归105＋普通工具136＝253通过，0失败/取消/跳过；不标为独审253。
     - 三组均通过：单次纠正与receipt精确回读；提交后读失败只读重试及缺permit拒绝；下一请求/磁盘重开fresh绑定和撤权拒绝。
     - 撤权计数窗口为fresh入场后的memory tool调用：未获准来源payload I/O为0、正文返回0，另有独立获准owner输入依赖I/O为1。
@@ -177,15 +181,15 @@ task_continuity:
     - R1独审13项完成，未重跑作者253全套；初版115及原P1失败证据按historical保留。真实Host/模型/部署/full_memory仍未验。
     - 同实例同请求重试不等于跨进程恢复旧操作；Source分段只有窄许可时当前正式预检仍fail closed，不扩全源授权。
     - SDK晚关闭ENOENT/active-leases告警仍存在；未证明SDK drain；完整套件本轮未重跑，26旧CI失败保留原身份。
-  unique_next_step: 普通发布本阶段已独审验证与证据后，按精确SHA观察CI；下一最小开发候选为固定包消费者的下一请求/磁盘重开freshness离线验证，需先核定独立任务范围。
+  unique_next_step: 普通发布本轮已独审六文件后按精确SHA观察CI；独立可继续限定的离线开发/验收小包，不扩真实Host、模型或跨进程恢复。
   blockers:
-    - 受阻动作：宣称全量CI或full_memory通过；5fe9a9f两CI由父任务报告仍26旧失败，focused包consumer不替代正式consumer/probes。
+    - 局部受阻：正式全量consumer/probes及full_memory；844b1ea1双CI仍26旧失败、152 probes未运行，离线9项不改变gate。
     - 受阻动作：宣称工作区依赖安装与锁完全一致；现有workspace yaml2.9.0而固定锁2.9.1，本轮从既有SDK显式选锁定版本，不做安装修复。
-    - 可独立继续：当前提交的只读CI核验；可拆下一小包为固定包消费者下一请求/磁盘重开freshness合成验证，不依赖D063整体或Host/真实模型；本轮不实施该包。
+    - 可独立继续：本提交只读CI核验和另行限定、不依赖真实Host/模型的离线工作；不以D063整体待审或Bili复验暂停。
     - 受阻动作：native公共授权桥/slot切换及整体D063实施；公共caller交接未证明、D063待审。当前受控tool及离线消费者验证不依赖该桥。
   authorized_next_package_candidate:
-    status: passed_focused_offline_independent_review_complete
-    name: 离线打包消费者验证现有注册纠正路径
+    status: passed_scoped_independent_review_complete
+    name: 固定包消费者下一请求及同进程重新注册freshness
     boundary: 现有安装/SDK、合成离线、临时打包消费者；不部署、不切slot、不新增grant或凭据、不真实Host/模型
     execution_started: true
   requires_separate_scope:
@@ -197,19 +201,27 @@ task_continuity:
     - PROJECT-STATE.yaml
     - scripts/focused-correction-consumer.mjs
     - scripts/lib/focused-correction-consumer-probe.mjs
-    - docs/evidence/2026-10-29-focused-packaged-correction-consumer/
+    - docs/evidence/2026-10-29-packaged-request-freshness/
   preserved_unrelated_untracked:
     - docs/suqing-m1-2026-10-22.md
     - docs/suqing-m1-plugin-boundary-review-2026-10-22.md
     - docs/suqing-midterm-plan-2026-10-22.md
     - tests/recovery-pointer-barriers.test.ts
   independent_review:
-    status: passed_scoped_focused_offline_ready_for_commit
-    scope: 正式打包消费者作者7项、独审7项分开通过；相同7个用例不相加，P2关闭；不是R1运行时13项独审或正式全量consumer验收
-    focused_consumer_evidence: docs/evidence/2026-10-29-focused-packaged-correction-consumer/independent-review.json
-    author_tests: 7
-    independent_tests: 7
-    p2_closed: true
+    status: passed_scoped_packaged_request_freshness_ready_for_commit
+    scope: 本轮作者9项与独审9项分开通过（均含原7＋新增2）；不是18个独立用例，不等于真实Host或跨进程恢复
+    author_tests: 9
+    independent_tests: 9
+    independent_evidence: docs/evidence/2026-10-29-packaged-request-freshness/independent-review.json
+    evidence: docs/evidence/2026-10-29-packaged-request-freshness/verification-summary.json
+    previous_focused_consumer_review:
+      status: passed_scoped_focused_offline_ready_for_commit
+      production_source: 5fe9a9f5420264cd05e3f70f9f9a671d018040f5
+      published_commit: 844b1ea1a7a7f3c228e095c7ffed75dc4910d760
+      author_tests: 7
+      independent_tests: 7
+      p2_closed: true
+      evidence: docs/evidence/2026-10-29-focused-packaged-correction-consumer/independent-review.json
     previous_runtime_review:
       status: passed_scoped_r1
       commit: 5fe9a9f5420264cd05e3f70f9f9a671d018040f5
@@ -218,9 +230,10 @@ task_continuity:
       evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
     d063_overall_implementation_approved: false
 current_validation:
-  scope: historical remote CI before the current uncommitted capability package; current local results are in task_continuity
-  source_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+  scope: 已提交844b1ea1双CI终态由父线程独立核实；本轮未重跑/重新取artifact，当前未提交离线9项另列task_continuity
+  source_commit: 844b1ea1a7a7f3c228e095c7ffed75dc4910d760
   result: failed
+  evidence_source: parent independently verified terminal runs; not a fresh local full-suite run
   not_a_fresh_worktree_run: true
   versions:
     targetHostVersion: 2026.10.8
@@ -228,43 +241,30 @@ current_validation:
     corePackageVersion: 0.1.0-alpha.0
     consumer: null
   totals:
-    tests: 1458
-    pass: 1432
+    tests: 1465
+    pass: 1439
     fail: 26
     cancelled: 0
     skipped: 0
     todo: 0
-  failure_groups:
-    dreaming-public-seams.test.js: 1
-    host-compatibility.test.js: 2
-    host-context-authority.test.js: 3
-    host-context-replay.test.js: 7
-    host-silent-draft.test.js: 1
-    native-memory-reader.test.js: 12
+  failure_signature: 与5fe9a9f旧26一致；本轮不修改或跳过
   runs:
-    - id: 40754592387
+    - id: 40814488375
       workflow: prepare
-      url: https://github.com/tower1229/Stella-Core/actions/runs/40754592387
-      artifact_id: 12844924002
-      artifact_url: https://github.com/tower1229/Stella-Core/actions/runs/40754592387/artifacts/12844924002
-      artifact_zip_sha256: 1b23f27b900436b72a238ac376ced2df1bbd9e7c319e5f43eb443d72bdd90db5
-      receipt_sha256: d7cd9f1e383c698cf61915712db40264053d1dfc5b014183ba51ea042bb0068a
-      duration_ms: 438802.197307
-    - id: 40754592376
+      url: https://github.com/tower1229/Stella-Core/actions/runs/40814488375
+    - id: 40814488428
       workflow: experimental
-      url: https://github.com/tower1229/Stella-Core/actions/runs/40754592376
-      artifact_id: 12846555158
-      artifact_url: https://github.com/tower1229/Stella-Core/actions/runs/40754592376/artifacts/12846555158
-      artifact_zip_sha256: b7de493566134016afeddf5ad7a0c03e622d76e679788063717726cb9990a995
-      receipt_sha256: 9e825b097157c51434d2fe3d177f0220046f0fa19eecd26c935a36783bb36ff4
-      duration_ms: 578268.561038
-  consumer: null；未安装/未验收，不能把target/workspace版本当consumer版本
-  probes: prepare.probes=[]；失败于test阶段，未执行后续consumer/probes验收
+      url: https://github.com/tower1229/Stella-Core/actions/runs/40814488428
+  consumer: 正式全量consumer未安装/未验收；离线聚焦包产物不冒充正式gate
+  probes: 152 probes未运行
+  focused_consumer_cases_invoked_by_ci: false
+  formal_gate: false
   full_memory_accepted: false
   real_model_accepted: false
   private_main_accepted: false
   issue23_complete: false
-  summary_ref: docs/evidence/2026-10-28-task-continuity/verification-summary.json
+  summary_ref: docs/evidence/2026-10-29-packaged-request-freshness/verification-summary.json
+  historical_prior_ci_evidence: docs/evidence/2026-10-28-task-continuity/verification-summary.json
 recovery_procedure:
   - 先读本索引与docs/10-DESIGN-BASELINE.md，再读D063/集成§9.8；核对待审与已授权范围。
   - 运行只读git rev-parse HEAD、git status --short、git branch

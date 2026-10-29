@@ -9,7 +9,7 @@ import { recordOwnedWorkState } from './sdk-owner-supervisor.mjs';
 const root = await realpath(process.cwd());
 const artifactRoot = path.join(root, 'node_modules/@tower1229/stella-core');
 const results = { scope: 'focused_consumer_offline', groups: [], actualHostAccepted: false, realModelAccepted: false, fullMemoryAccepted: false };
-let fixture, CatalogReader, objectVersion, canonicalJson, WORK_GOAL_B, CORRECT, MEMORY;
+let fixture, CatalogReader, validMemoryRef, objectVersion, canonicalJson, bytesVersion, WORK_GOAL_B, CORRECT, MEMORY;
 const expected = JSON.parse(await readFile('expected.json', 'utf8'));
 const digest = b => createHash('sha256').update(b).digest('hex');
 after(async () => {
@@ -31,8 +31,8 @@ test('package artifact, actual entry and explicit public SDK peer resolve inside
     assert.equal(digest(await readFile(path.join(artifactRoot, file))), hash, file);
   const entry = await import('@tower1229/stella-core');
   assert.equal(entry.default.id, 'stella-core'); assert.equal(typeof entry.default.register, 'function');
-  ({ CatalogReader } = await import('@tower1229/stella-core/dist/src/canghai/catalog-reader.js'));
-  ({ canonicalJson, objectVersion } = await import('@tower1229/stella-core/dist/src/canghai/content-version.js'));
+  ({ CatalogReader, validMemoryRef } = await import('@tower1229/stella-core/dist/src/canghai/catalog-reader.js'));
+  ({ canonicalJson, objectVersion, bytesVersion } = await import('@tower1229/stella-core/dist/src/canghai/content-version.js'));
   ({ CHECKPOINT_CORRECTION_TOOL: CORRECT, CHECKPOINT_MEMORY_TOOL: MEMORY } = await import('@tower1229/stella-core/dist/src/openclaw/checkpoint-agent-supply.js'));
   ({ fixture } = await import('./registered-fixture.mjs'));
   ({ WORK_GOAL_B } = await import('./checkpoint-work-fixture.mjs'));
@@ -162,4 +162,113 @@ test('module audit rejects ESM and CJS symlinks escaping the consumer', async ()
   }
   results.additionalChecks ??= {};
   results.additionalChecks.symlinkAudit = { status: 'passed', esmDeniedBeforeExecution: true, cjsDeniedBeforeExecution: true };
+});
+
+test('packaged next requests and same-process re-registration bind fresh runs to the corrected version', { timeout: 120_000 }, async t => {
+  const f = await fixture(t); await f.begin();
+  const originalInputHash = bytesVersion(f.event.ctx.Body), session = { key: f.agent.sessionKey, id: f.agent.sessionId };
+  const corrected = (await f.call(CORRECT, {})).details;
+  assert.equal(corrected.status, 'readback_verified');
+  assert.equal(corrected.correction.persistenceStatus, 'local_committed');
+  const target = corrected.readback.documents[0].target.ref;
+  assert.notEqual(f.source.workRecord.goal, WORK_GOAL_B);
+  assert.equal(objectVersion(JSON.parse(corrected.readback.documents[0].text)), target.version);
+  const oldTool = f.tool(MEMORY), oldPermit = await f.permit(MEMORY, { action: 'work' });
+  const inference = f.llmCalls.filter(call => call.purpose === 'stella-correction').length;
+  const requests = [];
+  for (const reopen of [false, true]) {
+    const previousRun = f.event.runId, before = (await f.rpc('status')).payload.authority, calls = f.llmCalls.length;
+    await f.next(reopen);
+    assert.notEqual(f.event.runId, previousRun);
+    assert.notEqual(f.event.runId, corrected.currentMemory.userRequest);
+    assert.equal(f.agent.sessionKey, session.key); assert.equal(f.agent.sessionId, session.id);
+    const head = await f.git('rev-parse', 'HEAD');
+    const current = (await f.call(MEMORY, { action: 'work' })).details;
+    assert.equal(current.currentMemory.userRequest, f.event.runId);
+    assert.equal(current.works.length, 1); assert.deepEqual(current.works[0].ref, target);
+    assert.equal(current.works[0].record.goal, WORK_GOAL_B);
+    assert.equal(objectVersion(current.works[0].record), target.version);
+    for (const field of ['confirmedPremises', 'candidateIdeas', 'rejectedInterpretations', 'openQuestions', 'nextStep']) {
+      assert.deepEqual(current.works[0].record[field], f.source.workRecord[field]);
+      if (Array.isArray(f.source.workRecord[field])) assert.ok(f.source.workRecord[field].length > 0, field);
+    }
+    const checkpoint = (await f.rpc('status')).payload.authority;
+    assert.equal(current.currentMemory.checkpointRevision, checkpoint.revision); assert.equal(checkpoint.revision, head);
+    assert.notEqual(checkpoint.token, before.token);
+    const sourceCalls = f.llmCalls.slice(calls).filter(call => call.purpose === 'stella-source-access');
+    assert.ok(sourceCalls.length > 0);
+    for (const call of sourceCalls) {
+      const data = JSON.parse(String(call.messages[0].content).split('\n').at(-1));
+      assert.equal(data.requestHash, bytesVersion(f.event.ctx.Body)); assert.notEqual(data.requestHash, originalInputHash);
+    }
+    await assert.rejects(oldTool.execute(oldPermit, { action: 'work' }, f.controller.signal), /scope_unavailable/);
+    assert.equal(f.llmCalls.filter(call => call.purpose === 'stella-correction').length, inference);
+    assert.equal(await f.git('rev-parse', 'HEAD'), head, 'new request reads and refused old permits do not write');
+    requests.push({ sameProcessReregistered: reopen, runId: f.event.runId, userRequest: current.currentMemory.userRequest,
+      checkpointRevision: checkpoint.revision, exactTarget: current.works[0].ref, sourceAccessDecisions: sourceCalls.length,
+      currentInputHash: bytesVersion(f.event.ctx.Body), oldPermitRefused: true, correctionInferenceCalls: 0, businessCommits: 0 });
+  }
+  assert.equal(await f.git('rev-list', '--count', f.revision + '..HEAD'), '4', 'three ingress archives and one correction');
+  assert.equal(await f.git('status', '--porcelain'), ''); assert.equal(f.counts().configWrites, 0);
+  results.requestFreshness = { status: 'passed', receiptRevision: corrected.currentMemory.checkpointRevision,
+    correctedRun: corrected.currentMemory.userRequest, requests, archiveCommits: 3, correctionCommits: 1,
+    candidateCounterevidenceAndOpenFieldsPreserved: true, crossProcessRecoveryTested: false };
+});
+
+test('packaged re-registration reloads reduced synthetic descriptors before protected reads', { timeout: 120_000 }, async t => {
+  const { applyMemoryTransaction } = await import('@tower1229/stella-core/dist/src/canghai/memory-transaction.js');
+  const { openLocalCheckpointRecovery } = await import('@tower1229/stella-core/dist/src/canghai/local-checkpoint-recovery.js');
+  const f = await fixture(t); await f.begin();
+  const corrected = (await f.call(CORRECT, {})).details; assert.equal(corrected.status, 'readback_verified');
+  const oldTool = f.tool(MEMORY), oldPermit = await f.permit(MEMORY, { action: 'work' });
+  await f.hooks.get('agent_end')({}, f.agent);
+  const before = (await f.rpc('status')).payload.authority;
+  const grantPath = f.source.grantPath, grantBytes = await readFile(path.join(f.root, grantPath), 'utf8');
+  const reduced = JSON.parse(grantBytes); assert.ok(reduced.descriptors.length > 0); reduced.descriptors = [];
+  const authority = await openLocalCheckpointRecovery({ stateDirectory: f.config.checkpointStateDirectory, binding: before.binding });
+  await applyMemoryTransaction(f.root, { operationId: 'synthetic-packaged-reduce-descriptors',
+    journalPath: '30_PersonalData/memory/operations/synthetic-packaged-reduce-descriptors.json',
+    recoveryCheckpoint: { binding: before.binding, expected: { revision: before.revision, token: before.token } },
+    files: [{ path: grantPath, before: grantBytes, after: canonicalJson(reduced) }] }, {
+    recovery: { authority, expected: before, assertPublication: accepted => authority.assertCurrent(accepted) },
+    validate: () => authority.assertCurrent(before),
+    async persist(paths) { await f.git('add', '--', ...paths); await f.git('-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', '[synthetic] reduce packaged descriptors', '--', ...paths); },
+    async confirmPreviouslyCommitted() { throw new Error('Exact synthetic checkpoint publication required'); },
+  });
+  const inference = f.llmCalls.filter(call => call.purpose === 'stella-correction').length;
+  const oldRun = f.event.runId; await f.next(true); assert.notEqual(f.event.runId, oldRun);
+  const admitted = (await f.rpc('status')).payload.authority, head = await f.git('rev-parse', 'HEAD');
+  assert.equal(admitted.revision, head); assert.notEqual(admitted.token, before.token);
+  const reader = await CatalogReader.load(f.root, f.source.catalogPath);
+  const change = await reader.read(corrected.correction.changeRef, 'changes'), ownerInputs = new Set();
+  for (const ref of change.inputRefs) {
+    const evidence = await reader.read(ref, 'evidence'); assert.ok(validMemoryRef(evidence.source));
+    const source = await reader.read(evidence.source, 'sources'); assert.ok(validMemoryRef(source.policyRef));
+    const policy = await reader.read(source.policyRef, 'policies');
+    assert.equal(policy.schemaVersion, 'stella.source-policy/v1'); assert.equal(policy.retention, 'retain');
+    assert.ok(policy.readPurposes.includes(f.source.binding.purpose.readPurpose)); ownerInputs.add(canonicalJson(evidence.source));
+  }
+  const protectedSources = new Set(JSON.parse(grantBytes).descriptors.map(entry => canonicalJson(entry.sourceRef)));
+  let protectedPayloadReads = 0, ownerInputPayloadReads = 0, documentsReturned = 0;
+  const payload = CatalogReader.prototype.readPayload;
+  t.mock.method(CatalogReader.prototype, 'readPayload', async function(...args) {
+    const key = canonicalJson(args[0]);
+    if (protectedSources.has(key)) protectedPayloadReads++;
+    else { assert.ok(ownerInputs.has(key), 'other payload must be an independently permitted owner-input dependency'); ownerInputPayloadReads++; }
+    return payload.apply(this, args);
+  });
+  await assert.rejects((async () => { const value = await f.call(MEMORY, { action: 'work' }); documentsReturned++; return value; })(),
+    { category: 'personal_context_descriptor_required' });
+  await assert.rejects(oldTool.execute(oldPermit, { action: 'work' }, f.controller.signal), /scope_unavailable/);
+  assert.equal(protectedPayloadReads, 0); assert.equal(documentsReturned, 0); assert.equal(ownerInputPayloadReads, 1);
+  assert.equal(f.event.ctx.SenderId, 'cli'); assert.equal(f.tool(MEMORY).name, MEMORY);
+  assert.equal(f.llmCalls.filter(call => call.purpose === 'stella-correction').length, inference);
+  assert.equal(await f.git('rev-parse', 'HEAD'), head); assert.equal(await f.git('status', '--porcelain'), '');
+  assert.equal(await f.git('rev-list', '--count', f.revision + '..HEAD'), '4', 'two archives, one correction and explicit permission reduction');
+  assert.equal(f.counts().configWrites, 0);
+  results.reducedPermissionFreshness = { status: 'passed', newRun: f.event.runId, checkpointRevision: admitted.revision,
+    errorCategory: 'personal_context_descriptor_required', protectedPayloadReads, documentsReturned, ownerInputPayloadReads,
+    measurementWindow: 'after new request admission, through memory call and refused old permit', oldPermitRefused: true,
+    archiveCommits: 2, correctionCommits: 1, explicitSyntheticPermissionReductionCommits: 1, retryCommits: 0,
+    correctionInferenceCallsAfterAdmission: 0, sameProcessReregistered: true, crossProcessRecoveryTested: false };
 });
