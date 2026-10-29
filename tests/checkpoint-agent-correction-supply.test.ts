@@ -16,6 +16,7 @@ import { openLocalCheckpointRecovery } from "../src/canghai/local-checkpoint-rec
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
 import { createCheckpointWorkSource, WORK_CORRECTION, WORK_GOAL_A, WORK_GOAL_B, WORK_MODEL, type CheckpointWorkSegmentCase } from "./checkpoint-work-fixture.js";
+import { createCheckpointObservation, checkpointHostObservationTag, CHECKPOINT_OBSERVATION_FLAG, CHECKPOINT_OBSERVATION_PREFIX } from "../src/openclaw/checkpoint-observation.js";
 
 type LlmParams = Parameters<OpenClawPluginApi["runtime"]["llm"]["complete"]>[0];
 type LlmResult = Awaited<ReturnType<OpenClawPluginApi["runtime"]["llm"]["complete"]>>;
@@ -29,7 +30,7 @@ const editable = ["kind", "status", "goal", "sourceRefs", "confirmedPremises", "
 /** Synthetic public hooks and Host LLM API, actual local archive/Git/checkpoint writers.
  * No stock Host process, network, production state or real semantic inference is used.
  */
-async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?: boolean; emptyDescriptors?: boolean; segmented?: boolean; segmentCase?: CheckpointWorkSegmentCase; disposition?: "update" | "no_change" | "needs_clarification" } = {}) {
+async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?: boolean; emptyDescriptors?: boolean; segmented?: boolean; segmentCase?: CheckpointWorkSegmentCase; disposition?: "update" | "no_change" | "needs_clarification"; observations?: boolean; observationSink?: (line: string) => unknown } = {}) {
   const source = await createCheckpointWorkSource({ segmented: options.segmented, segmentCase: options.segmentCase }), root = source.root;
   const parent = await realpath(await mkdtemp(path.join(tmpdir(), "stella-correction-supply-")));
   t.after(async () => { await rm(root, { recursive: true, force: true }); await rm(parent, { recursive: true, force: true }); });
@@ -60,12 +61,13 @@ async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?:
     agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", requestArchive: "local",
     ...(options.enabled === false ? {} : { agentCorrection: "tool" }) });
   const live = { commands: { ownerAllowFrom: ["cli"] }, session: { store: storePath },
+    ...(options.observations ? { diagnostics: { flags: [CHECKPOINT_OBSERVATION_FLAG] } } : {}),
     agents: { entries: { synthetic: { model: { primary: WORK_MODEL, fallbacks: [] as string[] } } } },
     plugins: { entries: { "stella-core": { enabled: true, hooks: { allowConversationAccess: true }, config } } } };
   const key = "agent:synthetic:correction-supply", sessionId = "synthetic-correction-supply-session", runId = "synthetic-correction-supply-run";
   await upsertSessionEntry({ agentId: "synthetic", sessionKey: key, storePath, env: { OPENCLAW_STATE_DIR: state }, entry: { sessionId, updatedAt: 1 } });
   const hooks = new Map<string, Hook>(), methods = new Map<string, Hook>(), factories: Array<(context: ToolContext) => Tool | null> = [], stops: Array<() => Promise<void>> = [];
-  const llmCalls: LlmParams[] = []; let configWrites = 0, toolCalls = 0;
+  const llmCalls: LlmParams[] = [], observationLogs: string[] = []; let configWrites = 0, toolCalls = 0;
   const control = { denyReadback: false, archivedRevision: "", question: WORK_CORRECTION };
   const api = { pluginConfig: config, config: live, source: "synthetic-full-checkpoint-registration", runtime: {
     version: "2026.10.8", state: { resolveStateDir: () => state }, config: { current: () => live,
@@ -101,7 +103,7 @@ async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?:
       return { text: JSON.stringify(value), provider: "google", model: "gemini-3.8-flash", agentId: "synthetic", usage: {},
         execution: { mode: "direct-provider", owner: { kind: "provider", id: "google" } },
         audit: { caller: { kind: "plugin", id: "stella-core" }, purpose: params.purpose } };
-    } } }, logger: { info() {}, error() {}, warn() {}, debug() {} },
+    } } }, logger: { info() {}, error() {}, warn() {}, debug(line: string) { observationLogs.push(line); return options.observationSink?.(line); } },
     on(name: string, handler: Hook) { hooks.set(name, handler); },
     registerGatewayMethod(name: string, handler: Hook) { methods.set(name, handler); },
     registerService(service: { stop(): Promise<void> }) { stops.push(() => service.stop()); },
@@ -149,8 +151,143 @@ async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?:
     await begin();
   };
   return { originalGrantBytes, source, root, revision, config, live, git, rpc, hooks, factories, llmCalls, controller, event, context, agent, tool, permit, call, ingress, admit, begin,
-    control, next, counts: () => ({ modelCalls: llmCalls.length, configWrites }) };
+    control, next, observationLogs, counts: () => ({ modelCalls: llmCalls.length, configWrites }) };
 }
+
+function observationEnvironment(t: TestContext) {
+  const previous = process.env.OPENCLAW_DIAGNOSTICS; delete process.env.OPENCLAW_DIAGNOSTICS;
+  t.after(() => { if (previous === undefined) delete process.env.OPENCLAW_DIAGNOSTICS; else process.env.OPENCLAW_DIAGNOSTICS = previous; });
+}
+const observationRows = (lines: string[]) => lines.filter(line => line.startsWith(CHECKPOINT_OBSERVATION_PREFIX))
+  .map(line => JSON.parse(line.slice(CHECKPOINT_OBSERVATION_PREFIX.length)));
+
+test("Core observations require an explicit diagnostics flag and never change default correction output", async t => {
+  observationEnvironment(t); const f = await fixture(t); await f.begin();
+  const result = await f.call(CHECKPOINT_CORRECTION_TOOL, {}); assert.equal(result.details.status, "readback_verified");
+  await f.hooks.get("agent_end")!({}, f.agent);
+  assert.deepEqual(observationRows(f.observationLogs), []); assert.equal(f.counts().configWrites, 0);
+});
+
+test("observation sources whitelist their own fields without inventing factory runId or serializing unknown values", t => {
+  observationEnvironment(t); const lines: string[] = [];
+  const observer = createCheckpointObservation({ config: { diagnostics: { flags: [CHECKPOINT_OBSERVATION_FLAG] } },
+    logger: { info() {}, warn() {}, error() {}, debug(line) { lines.push(line); } } });
+  const raw = { agentId: "private-agent", sessionId: "private-session", sessionKey: "private-session-key", requesterSenderId: "private-requester", senderIsOwner: true };
+  const factory = { ...raw, runId: "must-not-be-a-factory-run", body: "private-body", token: "private-token" };
+  const factoryLabel = observer.factory(CHECKPOINT_CORRECTION_TOOL, factory);
+  const signal = new AbortController().signal;
+  const hook = { agentId: raw.agentId, sessionId: raw.sessionId, sessionKey: raw.sessionKey, runId: "private-run", toolCallId: "private-call",
+    requester: { senderId: raw.requesterSenderId, senderIsOwner: true }, abortSignal: signal };
+  Object.defineProperty(hook, "privateBody", { enumerable: true, get() { throw new Error("Unknown fields must never be read"); } });
+  observer.hook(CHECKPOINT_CORRECTION_TOOL, hook); observer.execute(CHECKPOINT_CORRECTION_TOOL, factoryLabel, "private-call", signal);
+  const [created, admitted, entered] = observationRows(lines); assert.equal(created.source, "factory"); assert.equal(admitted.source, "before_tool_call"); assert.equal(entered.source, "execute");
+  assert.equal(created.runTag, undefined); assert.equal(created.callTag, undefined); assert.equal(created.abortSignalPresent, undefined);
+  assert.equal(entered.runTag, undefined); assert.equal(entered.requesterTag, undefined); assert.equal(entered.factoryLabel, created.factoryLabel);
+  assert.equal(created.requesterTag, admitted.requesterTag); assert.equal(created.sessionTag, admitted.sessionTag);
+  assert.equal(entered.callTag, admitted.callTag); assert.equal(admitted.abortSignalPresent, true); assert.equal(entered.aborted, false);
+  assert.equal(checkpointHostObservationTag(admitted.observerId, "run", hook.runId), admitted.runTag);
+  assert.equal(checkpointHostObservationTag(admitted.observerId, "call", hook.toolCallId), entered.callTag);
+  assert.notEqual(checkpointHostObservationTag(admitted.observerId, "run", "another-run"), admitted.runTag);
+  assert.notEqual(checkpointHostObservationTag("another-observer", "run", hook.runId), admitted.runTag);
+  assert.notEqual(checkpointHostObservationTag(admitted.observerId, "call", hook.runId), admitted.runTag);
+  assert.equal(checkpointHostObservationTag(admitted.observerId, "run", undefined), null);
+  assert.deepEqual(observationRows(lines).map(row => row.sequence), [1, 2, 3]);
+  for (const value of [...Object.values(raw), "must-not-be-a-factory-run", "private-run", "private-call", "private-body", "private-token"])
+    if (typeof value === "string") assert.ok(!lines.join().includes(value));
+  const other: string[] = [], second = createCheckpointObservation({ config: { diagnostics: { flags: [CHECKPOINT_OBSERVATION_FLAG] } }, logger: { info() {}, warn() {}, error() {}, debug(line) { other.push(line); } } });
+  second.factory(CHECKPOINT_CORRECTION_TOOL, raw); assert.notEqual(observationRows(other)[0].requesterTag, created.requesterTag);
+});
+
+test("missing observation fields stay missing and the public diagnostics disable override wins", t => {
+  observationEnvironment(t); const lines: string[] = [], api = { config: { diagnostics: { flags: [CHECKPOINT_OBSERVATION_FLAG] } }, logger: { info() {}, warn() {}, error() {}, debug(line: string) { lines.push(line); } } };
+  const observer = createCheckpointObservation(api); observer.factory(CHECKPOINT_MEMORY_TOOL, {}); observer.hook(CHECKPOINT_MEMORY_TOOL, {}); observer.execute(CHECKPOINT_MEMORY_TOOL, undefined, undefined);
+  const [factory, hook, execute] = observationRows(lines);
+  assert.equal(factory.requesterTag, null); assert.equal(factory.senderIsOwner, null); assert.equal(hook.runTag, null); assert.equal(hook.callTag, null);
+  assert.equal(hook.senderIsOwner, null); assert.equal(hook.abortSignalPresent, false); assert.equal(execute.aborted, null);
+  process.env.OPENCLAW_DIAGNOSTICS = "0"; const disabled = createCheckpointObservation(api); disabled.factory(CHECKPOINT_MEMORY_TOOL, {});
+  assert.equal(lines.length, 3);
+});
+
+test("signal aborted metadata reads once and accepts only boolean values", async t => {
+  observationEnvironment(t);
+  for (const source of ["hook", "execute"] as const) for (const kind of ["string", "object", "false", "true"] as const) {
+    await t.test(`${source}: ${kind}`, () => {
+      const lines: string[] = []; let reads = 0, serialized = 0;
+      const privateBody = "SYNTHETIC_SIGNAL_PRIVATE_BODY", credential = "SYNTHETIC_SIGNAL_CREDENTIAL";
+      const value = kind === "string" ? privateBody : kind === "object"
+        ? { toJSON() { serialized++; return { privateBody, credential }; } } : kind === "true";
+      const signal = { get aborted() { reads++; return value; } } as unknown as AbortSignal;
+      const observer = createCheckpointObservation({ config: { diagnostics: { flags: [CHECKPOINT_OBSERVATION_FLAG] } },
+        logger: { info() {}, warn() {}, error() {}, debug(line) { lines.push(line); } } });
+      if (source === "hook") observer.hook(CHECKPOINT_MEMORY_TOOL, { abortSignal: signal });
+      else observer.execute(CHECKPOINT_MEMORY_TOOL, undefined, "synthetic-call", signal);
+      const rows = observationRows(lines); assert.equal(rows.length, 1); assert.equal(rows[0].abortSignalPresent, true);
+      assert.equal(rows[0].aborted, kind === "false" ? false : kind === "true" ? true : null);
+      assert.equal(reads, 1); assert.equal(serialized, 0);
+      assert.ok(!lines.join().includes(privateBody)); assert.ok(!lines.join().includes(credential));
+    });
+  }
+});
+
+test("actual registered tools expose separate observations and retired grants remove their actual permits", async t => {
+  observationEnvironment(t); const f = await fixture(t, { observations: true }); await f.begin();
+  const before = await f.git("rev-parse", "HEAD"), modelCalls = f.llmCalls.length;
+  const injectedBody = "SYNTHETIC_PRIVATE_TOOL_ARGUMENT_NEVER_LOG";
+  await assert.rejects(f.call(CHECKPOINT_CORRECTION_TOOL, { body: injectedBody, authority: "SYNTHETIC_OPAQUE_NOT_AUTHORITY" }), /checkpoint_agent_tool_arguments_invalid/);
+  assert.equal(await f.git("rev-parse", "HEAD"), before); assert.equal(f.llmCalls.length, modelCalls);
+  assert.ok(!f.observationLogs.join().includes(injectedBody)); assert.ok(!f.observationLogs.join().includes("SYNTHETIC_OPAQUE_NOT_AUTHORITY"));
+  const result = await f.call(CHECKPOINT_CORRECTION_TOOL, {}); assert.equal(result.details.status, "readback_verified");
+  const rows = observationRows(f.observationLogs), entered = rows.filter(row => row.source === "execute").at(-1); assert.ok(entered);
+  const factory = rows.find(row => row.source === "factory" && row.factoryLabel === entered.factoryLabel); assert.equal(factory.tool, CHECKPOINT_CORRECTION_TOOL);
+  const hook = rows.find(row => row.source === "before_tool_call" && row.callTag === entered.callTag); assert.ok(hook.runTag);
+  // This existing synthetic hook fixture has no requester; no factory fallback.
+  assert.equal(hook.requesterTag, null); assert.equal(factory.senderIsOwner, true); assert.ok(factory.requesterTag);
+  await assert.rejects(f.tool(CHECKPOINT_CORRECTION_TOOL).execute(entered.callTag, {}), /checkpoint_agent_tool_scope_unavailable/);
+  const permit = await f.permit(CHECKPOINT_MEMORY_TOOL, { action: "list" });
+  await f.hooks.get("agent_end")!({}, f.agent);
+  const retired = observationRows(f.observationLogs).filter(row => row.source === "retirement"); assert.equal(retired.length, 1);
+  assert.equal(retired[0].runTag, hook.runTag); assert.equal(retired[0].countScope, "config-and-host-state-supply-scope");
+  assert.equal(retired[0].runTag, checkpointHostObservationTag(retired[0].observerId, "run", f.agent.runId));
+  assert.deepEqual(retired[0].before, { grants: 1, toolPermits: 1, wasActive: true, grantRemoved: true });
+  assert.deepEqual(retired[0].after, { grants: 0, activeGrants: 0, preparations: 0, toolPermits: 0 });
+  await assert.rejects(f.tool(CHECKPOINT_MEMORY_TOOL).execute(permit, { action: "list" }), /checkpoint_agent_tool_scope_unavailable/);
+  await f.hooks.get("agent_end")!({}, f.agent); await f.hooks.get("agent_end")!({}, { ...f.agent, runId: "unknown" });
+  assert.equal(observationRows(f.observationLogs).filter(row => row.source === "retirement").length, 1);
+  const logged = f.observationLogs.join(); assert.ok(!logged.includes(WORK_CORRECTION)); assert.ok(!logged.includes(WORK_GOAL_B)); assert.ok(!logged.includes(f.root));
+});
+
+test("retirement counts cover the real shared supply scope rather than a constant zero", async t => {
+  observationEnvironment(t); const f = await fixture(t, { observations: true }); await f.begin(); const first = { ...f.agent };
+  await f.permit(CHECKPOINT_MEMORY_TOOL, { action: "list" });
+  f.agent.runId = f.event.runId = first.runId + "-parallel"; f.event.ctx.Timestamp = Date.now();
+  f.control.question = f.event.ctx.Body = "SYNTHETIC independent second request"; await f.begin();
+  await f.permit(CHECKPOINT_MEMORY_TOOL, { action: "list" });
+  await f.hooks.get("agent_end")!({}, first);
+  const one = observationRows(f.observationLogs).filter(row => row.source === "retirement"); assert.equal(one.length, 1);
+  assert.equal(one[0].before.grants, 2); assert.equal(one[0].after.grants, 1); assert.equal(one[0].after.activeGrants, 1); assert.equal(one[0].after.toolPermits, 1);
+  await f.hooks.get("agent_end")!({}, f.agent); const two = observationRows(f.observationLogs).filter(row => row.source === "retirement");
+  assert.equal(two[1].after.grants, 0); assert.equal(two[1].after.toolPermits, 0); assert.notEqual(two[0].runTag, two[1].runTag);
+});
+
+test("observation sink failures cannot change correction commits, return values or retirement", async t => {
+  observationEnvironment(t);
+  for (const kind of ["throw", "reject"] as const) await t.test(kind, async t => {
+    const f = await fixture(t, { observations: true, observationSink() { if (kind === "throw") throw new Error("synthetic sink failed"); return Promise.reject(new Error("synthetic sink rejected")); } });
+    await f.begin(); const result = (await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details;
+    assert.equal(result.status, "readback_verified"); assert.equal(result.correction.persistenceStatus, "local_committed");
+    const revision = await f.git("rev-parse", "HEAD"); const calls = f.llmCalls.length;
+    const correctionCalls = f.llmCalls.filter(call => call.purpose === "stella-correction").length;
+    assert.deepEqual((await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details, result);
+    assert.equal(await f.git("rev-parse", "HEAD"), revision);
+    assert.equal(f.llmCalls.filter(call => call.purpose === "stella-correction").length, correctionCalls);
+    assert.deepEqual(f.llmCalls.slice(calls).map(call => call.purpose), ["stella-source-access"]);
+    await f.hooks.get("agent_end")!({}, f.agent);
+    await assert.rejects(f.call(CHECKPOINT_MEMORY_TOOL, { action: "list" }), /checkpoint_agent_tool_scope_unavailable/);
+    await new Promise(resolve => setImmediate(resolve)); assert.equal(f.counts().configWrites, 0);
+    assert.deepEqual(observationRows(f.observationLogs).filter(row => row.source === "retirement").at(-1).after,
+      { grants: 0, activeGrants: 0, preparations: 0, toolPermits: 0 });
+  });
+});
 
 test("correction is opt-in and missing view permission does not disable existing data reads", async t => {
   const f = await fixture(t, { enabled: false, viewGrant: false }); await f.begin();

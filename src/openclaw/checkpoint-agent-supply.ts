@@ -22,6 +22,7 @@ import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from 
 import type { createCheckpointPluginRuntime, CheckpointPluginConfig } from "./checkpoint-plugin-runtime.js";
 import { freezeRecoveryReadBinding, type RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
 import { replyCheckpointFailure } from "./checkpoint-failure-reply.js";
+import { createCheckpointObservation } from "./checkpoint-observation.js";
 
 export const CHECKPOINT_MEMORY_TOOL = "stella_memory_data";
 export const CHECKPOINT_CORRECTION_TOOL = "stella_memory_correct";
@@ -59,15 +60,21 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
   const scope = enabled ? scopes.get(scopeKey) ?? newScope() : newScope();
   if (enabled) scopes.set(scopeKey, scope);
   const { shutdown, grants, runs, preparations, calls } = scope;
+  const observation = createCheckpointObservation(api);
   const assertAlive = (grant: Grant, signal?: AbortSignal, toolActive = false) => {
     check(!toolActive || grant.active && grant.admitted, "checkpoint_agent_scope_closed");
     check(!shutdown.signal.aborted && !signal?.aborted && !grant.ingress.signal.aborted, "checkpoint_agent_cancelled");
   };
   const retire = (grant: Grant) => {
+    const before = { grants: grants.size, toolPermits: calls.size, wasActive: grant.active,
+      grantRemoved: grants.get(grant.ingress.request.runId) === grant };
     grant.active = false; grant.work = undefined; grant.understanding = undefined; grant.correction = undefined; grant.originals.clear(); grant.skills.clear(); grant.handles.clear();
     for (const [id, call] of calls) if (call.grant === grant) calls.delete(id);
     const runId = grant.ingress.request.runId;
     if (grants.get(runId) === grant) grants.delete(runId);
+    if (before.wasActive || before.grantRemoved || calls.size !== before.toolPermits) observation.retired(runId, before,
+      () => ({ grants: grants.size, activeGrants: [...grants.values()].filter(value => value.active).length,
+        preparations: preparations.size, toolPermits: calls.size }));
   };
   const retireRun = (runId?: string) => {
     if (!runId) return;
@@ -196,6 +203,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
     }, { priority: 10_000 });
     api.on("before_tool_call", async (event, ctx) => {
       if (ctx.agentId !== config.agentId) return;
+      if (event.toolName === CHECKPOINT_MEMORY_TOOL || event.toolName === CHECKPOINT_CORRECTION_TOOL) observation.hook(event.toolName, ctx);
       try {
         const grant = ctx.runId ? grants.get(ctx.runId) : undefined;
         check(grant?.active && grant.admitted && (event.toolName === CHECKPOINT_MEMORY_TOOL || config.agentCorrection === "tool" && event.toolName === CHECKPOINT_CORRECTION_TOOL) && ctx.toolName === event.toolName &&
@@ -207,10 +215,14 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         calls.set(ctx.toolCallId, { grant, signal: ctx.abortSignal, toolName: event.toolName, recovery: grant.recovery });
       } catch (error) { scope.last = { state: "blocked", category: category(error) }; return { block: true, blockReason: category(error) }; }
     }, { priority: 10_000 });
-    if (config.agentCorrection === "tool") api.registerTool(ctx => ctx.agentId !== config.agentId ? null : {
+    if (config.agentCorrection === "tool") api.registerTool(ctx => {
+      if (ctx.agentId !== config.agentId) return null;
+      const factoryLabel = observation.factory(CHECKPOINT_CORRECTION_TOOL, ctx);
+      return {
       name: CHECKPOINT_CORRECTION_TOOL, label: "Apply owner correction", parameters: correctionParameters,
       description: "Apply the current authenticated owner input as a correction to retained understanding. Uses existing source learning permissions. Empty arguments only; no caller-supplied text, evidence, paths or authority.",
       async execute(callId, value, signal) {
+        observation.execute(CHECKPOINT_CORRECTION_TOOL, factoryLabel, callId, signal);
         const call = calls.get(callId); calls.delete(callId);
         check(call?.toolName === CHECKPOINT_CORRECTION_TOOL && call.grant.active && call.grant.admitted &&
           ctx.sessionId === call.grant.ingress.request.sessionId && ctx.sessionKey === call.grant.ingress.request.sessionKey &&
@@ -278,10 +290,14 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         scope.last = outcome.status === "readback_failed" ? { state: "blocked", category: outcome.readback.category } : { state: "corrected" };
         return { content: [{ type: "text", text: canonicalJson(supplied) }], details: supplied };
       },
-    }, { names: [CHECKPOINT_CORRECTION_TOOL], optional: true });
-    api.registerTool(ctx => ctx.agentId !== config.agentId ? null : {
+    }; }, { names: [CHECKPOINT_CORRECTION_TOOL], optional: true });
+    api.registerTool(ctx => {
+      if (ctx.agentId !== config.agentId) return null;
+      const factoryLabel = observation.factory(CHECKPOINT_MEMORY_TOOL, ctx);
+      return {
       name: CHECKPOINT_MEMORY_TOOL, label: "Stella retained memory", description: "List a page of authorized evidence (continue with returned nextCursor), then read its exact handle; action skill reads a declared managed skill by name, action work resumes relevant authorized ongoing work, and action understanding returns scoped USER/MEMORY interpretations for this user request. No paths or caller-supplied authority are accepted.", parameters,
       async execute(callId, value, signal) {
+        observation.execute(CHECKPOINT_MEMORY_TOOL, factoryLabel, callId, signal);
         const call = calls.get(callId); calls.delete(callId);
         check(call?.toolName === CHECKPOINT_MEMORY_TOOL && call.grant.active && call.grant.admitted && ctx.sessionId === call.grant.ingress.request.sessionId &&
           ctx.sessionKey === call.grant.ingress.request.sessionKey && ctx.senderIsOwner === true && ctx.requesterSenderId === call.grant.ingress.identity.toolSenderId,
@@ -367,7 +383,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         const supplied = { ...output, currentMemory: { userRequest: grant.ingress.request.runId, checkpointRevision: grant.recovery.expected.revision, checkpointToken: grant.recovery.expected.token } };
         return { content: [{ type: "text", text: canonicalJson(supplied) }], details: supplied };
       },
-    }, { names: [CHECKPOINT_MEMORY_TOOL], optional: true });
+    }; }, { names: [CHECKPOINT_MEMORY_TOOL], optional: true });
     api.on("agent_end", (_event, ctx) => { if (ctx.agentId === config.agentId) retireRun(ctx.runId); });
   }
   return { status: () => scope.last,

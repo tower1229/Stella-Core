@@ -92,6 +92,7 @@ implementation_evidence:
   segmented_readback_fix: docs/evidence/2026-10-29-segmented-correction-readback-fix/verification-summary.json
   packaged_segmented_consumer: docs/evidence/2026-10-29-packaged-segmented-correction-consumer/verification-summary.json
   installed_correction_profile_contract: docs/evidence/2026-10-29-installed-correction-profile/verification-summary.json
+  core_supply_observation: docs/evidence/2026-10-29-core-supply-observation/verification-summary.json
   candidate_evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
   evidence_index: docs/evidence/2026-10-28-task-continuity/README.md
   manifest_sha256: 15db1a16f2e250b7a51055c2b61f89e352efd9af4479c054b85b7af2413bf4cd
@@ -116,9 +117,10 @@ settled_constraints:
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
 scope_of_this_change:
-  kind: installed-correction-profile-offline-contract
-  implementation_changed: false
-  verification_scripts_modified: true
+  kind: core-supply-observation-diagnostics
+  implementation_changed: true
+  verification_scripts_modified: false
+  verification_tests_modified: true
   private_data_read_or_migrated: false
   host_config_or_slot_changed: false
   grant_or_credentials_created: false
@@ -128,37 +130,40 @@ scope_of_this_change:
   candidate_certified: false
   publication_performed_at_capture: false
   commit_performed_at_capture: false
-  git_save_status: 保存前快照：本地/远端3b17fea1；两处类型缺陷独审关闭，作者106与独审106分层通过，六文件待单独提交并普通推送；实际发布SHA以Git及远端核实为准。
-updated_at_utc: "2026-10-29T07:49:19.286602+00:00"
+  git_save_status: 基线及新核远端b759d825；作者178与独审178分层通过、O1闭合；七文件保存前快照，按授权普通提交推送后另核精确SHA/CI，不自引用未来提交。
+updated_at_utc: "2026-10-29T10:47:41.360983+00:00"
 state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
 non_goals:
-  - 当前仅新增独立10.8注册纠正profile身份、纯离线报告检查器及合成测试/一份说明；不改生产/旧探针/旧8.2门槛/152/26旧失败，不安装/启动Host/调用模型或改权限；验证未用网络，不碰旧EPERM现场；本次仅保存并普通推送已审六文件。
+  - 仅默认关闭的Core供给观察接口；不改身份/授权/writer/CAS/返回、旧profile/8.2/152，不写Host runner或consumer锁绑定，不启动Gateway/模型/token/配对，不改主配置/权限，不碰旧EPERM现场；O1独审闭合后仅按授权普通保存本包。
   - 不把此前D063文本审查/持久化授权或本轮有限离线结果解释为整体架构批准、付费调用或部署批准。
   - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
   - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
 design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
 task_continuity:
-  task_id: installed-correction-profile-offline-contract-2026-10-29
-  scope: 独立10.8安装包注册纠正profile的离线报告契约；合成receipt只验证一致性，profileAccepted/hostExecutionAccepted及所有原gate均保持false，无Host捕获或runner接线。
+  task_id: core-supply-observation-2026-10-29
+  scope: 实际factory/hook/execute/退休出口的默认关闭诊断元数据；来源分开、真实scope计数、Host run/call可复算标签；仅观察，不产生权限或Host验收。
   version_binding:
-    remote_check_scope: 本次发布前实际ls-remote核实远端3b17fea1与本地HEAD一致；此为保存前观察，不是包含状态更新自身的SHA。
+    remote_check_scope: 恢复只读核实本地HEAD b759d825；远端身份来自前轮成功push后ls-remote，本片保存前新核ls-remote仍为b759d825，无并发远端变更。
     state_commit_lookup: git log -1 --format=%H -- PROJECT-STATE.yaml
     warning: baseline/observed是保存前观察，不是包含本状态更新的提交；实际版本由本文件Git历史和远端读取，不产生自引用hash。
-    baseline_commit: 3b17fea1943485a1a7303bb6b6e8083c89953a8f
+    baseline_commit: b759d82504ac59d095d9bb6393ce11e9556c12ac
     observed_branch: codex/issue23-integrated-regression
-    observed_remote_commit: 3b17fea1943485a1a7303bb6b6e8083c89953a8f
-    observed_remote_source: fresh publication preflight ls-remote confirmed3b17fea1; offline validation itself used no network
+    observed_remote_commit: b759d82504ac59d095d9bb6393ce11e9556c12ac
+    observed_remote_source: fresh pre-publication ls-remote; exact branch still b759d825
   decisions:
     confirmed:
       - 产品目标及边界依docs/09-REQUIREMENTS-ALIGNMENT.md与设计基线。
       - D058请求边界、D059显式checkpoint权威、D060沧海协调约束保留。
-      - 三生产文件窄修8aef和分段包验证3b17已保存；当前只新增离线验收契约，不放开旧版本门槛或降低原验收目标。
+      - 三生产文件窄修8aef、分段包验证3b17及离线profile b759已保存；当前仅默认关闭观察接口，不放开旧门槛或降低验收目标。
     pending:
       - id: D063
         status: 技术评估待用户审阅，不是用户已批准产品/架构实施
         text_review: 已完成独立文档/元数据一致性审查并提交deb8dc3
         ref: docs/DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration
   implemented:
+    - 复用公开diagnostic-flags与现有debug日志，只有stella.core.observe启用时输出白名单元数据；不新增RPC、路径写入或授权接口。
+    - factory/hook/execute分别记录原位置事实；factoryLabel与run/call标签仅用于审计，业务从不读取。身份标签私有盐，run/call标签可按公开observer nonce与实际Host标识复算。
+    - 退休观察来自真实grant/permit清除后的供给scope计数，允许2→1→0；重复/未知run不填造零事件；诊断异常不改变原业务。
     - 独立profile只接受显式offline_contract_fixture，检查当前status/readback、提交回执及可选只读重试；没有Host接受或旧gate通过出口。
     - 历史8aef窄修从普通视图提取共用Source元数据准入，通过请求绑定processing context用于v2回读；v1和精确Evidence正文授权保持原路径。
     - 运输无关精确读取内核已从native包装提取，原包装复用；注册纠正tool直接绑定既有Core请求scope与C3协调器。
@@ -167,6 +172,10 @@ task_continuity:
     - 已提交R1统一入场grant约束和合法缓存，独审关闭原P1；本轮不改其生产实现。
     - 历史freshness包已交付focused consumer脚本及2项用例；当前新增固定8aef单个合法分段消费者并校验driver结构结果。
   verified:
+    - 独审原169通过，但额外7个观察探针5通过/2失败，发现O1 aborted非布尔值会序列化；原独审与原169证据保持历史。
+    - 已保存新信号红例9项4pass/5fail（4畸形值子例+父组），修复仅单次getter读取及boolean/null投影；新8子例及父组包含于最终178/178，0失败/取消/跳过；typecheck/编译过、监督exit0/group gone/root removed；同一独审178/178和原7探针全过，O1闭合；作者/独审/探针不累加。
+    - 原在途suite已确认终态169/166pass/3fail，两个新日志故障测试误将全部辅助调用数视为只读重试不变，父组连带失败；监督exit1/group gone/owned complete/root removed，历史保留不计通过。
+    - 外部关联缺口已改为公开nonce的run/call复算标签；最终候选typecheck与测试编译通过，最终两个相关供给文件169/169通过，0失败/取消/跳过；监督exit0/group gone/owned complete/root removed；SDK晚关闭告警仍保留，不宣称drain。
     - 本片独审106/106及原29JSON反例全拒绝；两处类型缺陷关闭，计数不与作者/重放累加；仅离线报告契约可保存，真实Host与profile执行未接受。
     - 初版作者103与独审103分别通过，但独审额外29 JSON反例有3异常接收；原结果/失败保留，不据此提交。
     - 两处类型窄修后新profile80＋原版本真实性26共106/106，0失败/取消/跳过；修前80/76pass/4fail含3反例及父组，红绿测试源码hash一致；typecheck/测试编译/语法通过，实际Host未运行。
@@ -196,11 +205,12 @@ task_continuity:
     - 独审R1：注册工具12＋原独立P1重放1＝13/13，0失败/取消/跳过；旧run扩grant拒绝且保护payload/正文返回/模型端口/业务提交均0，合法缓存及下一请求通过。
     - 普通工具suite终态exit0、group gone、owned work complete/root removed；错误监督入口在测试前拒绝，未计通过。
   unverified:
+    - 本片为离线合成观察验证；未接真实Host capture/runner，未证明实际Host事件消费或consumer锁绑定，不继承前轮离线profile为Host通过。
     - 新profile没有runner/原始artifact捕获/CLI或CI接线；真实安装事实与Host入场/permit/工具消费/退休仍未验，不能由合成一致性升级为通过。
     - R1独审13项完成，未重跑作者253全套；初版115及原P1失败证据按historical保留。真实Host/模型/部署/full_memory仍未验。
     - 同实例同请求重试不等于跨进程恢复旧操作；分段A-only窄修已限定离线独审通过，不扩整源授权，不代表完整打包分段否定矩阵或Host验收；本轮单个合法分段消费者10项已独审通过，不能扩为完整否定矩阵。
     - SDK晚关闭ENOENT/active-leases告警仍存在；未证明SDK drain；完整套件本轮未重跑，26旧CI失败保留原身份。
-  unique_next_step: 仅保存独审通过的六文件并普通推送现有开发分支，核对精确远端SHA及CI；Host捕获/runner接线另行限定，不改原gate。
+  unique_next_step: 普通提交推送已审七文件并核对远端完整SHA/CI；后续由父线程限定consumer锁与复用安装绑定切片，不在本包接Host/runner。
   blockers:
     - 本片执行阻塞：真实Host捕获/runner未接，旧probeHost/报告验证器仍锁8.2；当前输出只能是离线证据一致性，不得标为profile执行通过。
     - 历史A-only回读红例已保留；当前窄修作者141及独审141分开通过，不能冒充打包分段消费者/真实Host/全量consumer通过。
@@ -210,8 +220,8 @@ task_continuity:
     - 可独立继续：本提交只读CI核验和另行限定、不依赖真实Host/模型的离线工作；不以D063整体待审或Bili复验暂停。
     - 受阻动作：native公共授权桥/slot切换及整体D063实施；公共caller交接未证明、D063待审。当前受控tool及离线消费者验证不依赖该桥。
   authorized_next_package_candidate:
-    status: offline_profile_contract_independently_passed_ready_for_save
-    name: 独立10.8安装包注册纠正profile离线报告契约
+    status: observation_signal_projection_fix_independently_passed_ready_for_save
+    name: 默认关闭Core供给观察接口
     boundary: 既有源码注册tool、无remote合成Git和固定结构响应；不部署、不切slot、不改真实grant/凭据、不运行Host/模型
     execution_started: true
   requires_separate_scope:
@@ -221,40 +231,69 @@ task_continuity:
   same_repo_writer: 一个明确指定写入者；其他并行会话只读，不按目录推定隔离
   local_change_whitelist:
     - PROJECT-STATE.yaml
-    - scripts/lib/installed-correction-profile.mjs
-    - tests/installed-correction-profile.test.ts
-    - docs/evidence/2026-10-29-installed-correction-profile/README.md
-    - docs/evidence/2026-10-29-installed-correction-profile/verification-summary.json
-    - docs/evidence/2026-10-29-installed-correction-profile/independent-review.json
+    - src/openclaw/checkpoint-observation.ts
+    - src/openclaw/checkpoint-agent-supply.ts
+    - tests/checkpoint-agent-correction-supply.test.ts
+    - docs/evidence/2026-10-29-core-supply-observation/README.md
+    - docs/evidence/2026-10-29-core-supply-observation/verification-summary.json
+    - docs/evidence/2026-10-29-core-supply-observation/independent-review.json
   preserved_unrelated_untracked:
     - docs/suqing-m1-2026-10-22.md
     - docs/suqing-m1-plugin-boundary-review-2026-10-22.md
     - docs/suqing-midterm-plan-2026-10-22.md
     - tests/recovery-pointer-barriers.test.ts
   independent_review:
-    status: passed_scoped_offline_contract_ready_for_commit
-    scope: 作者106与独审106分层通过（同组含6父组/100叶子）；29JSON重放全拒绝，不累加；仅离线契约，Host/profile和原gate仍false。
-    author_tests: 106
-    author_pass: 106
+    status: passed_scoped_offline_observation_ready_for_commit
+    scope: O1单次读取及boolean/null投影；作者178与独审178分层通过（同组16父组/162叶子），原7探针重放通过不累加；历史失败保留，不是Host/profile验收。
+    author_tests: 178
+    author_pass: 178
     author_fail: 0
-    independent_tests: 106
-    independent_pass: 106
+    parent_groups_included: 16
+    leaf_assertions: 162
+    independent_tests: 178
+    independent_pass: 178
     independent_fail: 0
-    parent_groups_included: 6
-    leaf_assertions: 100
+    original_probe_replay_pass: 7
     probe_replay_not_additive: true
-    source_summary_sha256: 3d2f43b002359a3fe69de9efd3efb7cdfd97669b83bcbc35b06d1544023f4e39
-    independent_evidence: docs/evidence/2026-10-29-installed-correction-profile/independent-review.json
-    initial_review:
+    source_summary_sha256: bb60b7e3411c237e04e5ddf15f107ab2602506c526946c74a9ffef59440c2ca6
+    independent_evidence: docs/evidence/2026-10-29-core-supply-observation/independent-review.json
+    closed_findings: [O1]
+    initial_observation_review:
       decision: changes_requested
-      tests: 103
-      extra_json_probes: 29
-      unexpected_validations: 3
-      source_summary_sha256: 642ac574d174d000b19d2d6d1ef182d252d35c1e1b814b560cbb3e0fcac823b0
-      two_type_guards_repaired: true
+      formal_tests: 169
+      formal_pass: 169
+      additional_probes: 7
+      additional_fail: 2
+      finding: O1
+      source_summary_sha256: bb41ed0a608b954d6bf7df68efa242db0eadaf82d1cec7778b82465d7fd173c4
       independently_reverified: true
-      closure_scope: 两处类型缺陷；初审changes_requested与红例历史保留，不重标通过
-    evidence: docs/evidence/2026-10-29-installed-correction-profile/verification-summary.json
+      closure_scope: O1已复验；原changes_requested、169与额外7中2失败及作者红例保留历史
+    evidence: docs/evidence/2026-10-29-core-supply-observation/verification-summary.json
+    previous_offline_profile_review:
+      published_commit: b759d82504ac59d095d9bb6393ce11e9556c12ac
+      status: passed_scoped_offline_contract_ready_for_commit
+      scope: 作者106与独审106分层通过（同组含6父组/100叶子）；29JSON重放全拒绝，不累加；仅离线契约，Host/profile和原gate仍false。
+      author_tests: 106
+      author_pass: 106
+      author_fail: 0
+      independent_tests: 106
+      independent_pass: 106
+      independent_fail: 0
+      parent_groups_included: 6
+      leaf_assertions: 100
+      probe_replay_not_additive: true
+      source_summary_sha256: 3d2f43b002359a3fe69de9efd3efb7cdfd97669b83bcbc35b06d1544023f4e39
+      independent_evidence: docs/evidence/2026-10-29-installed-correction-profile/independent-review.json
+      initial_review:
+        decision: changes_requested
+        tests: 103
+        extra_json_probes: 29
+        unexpected_validations: 3
+        source_summary_sha256: 642ac574d174d000b19d2d6d1ef182d252d35c1e1b814b560cbb3e0fcac823b0
+        two_type_guards_repaired: true
+        independently_reverified: true
+        closure_scope: 两处类型缺陷；初审changes_requested与红例历史保留，不重标通过
+      evidence: docs/evidence/2026-10-29-installed-correction-profile/verification-summary.json
     previous_packaged_segmented_review:
       status: passed_scoped_packaged_segmented_consumer_ready_for_commit
       published_commit: 3b17fea1943485a1a7303bb6b6e8083c89953a8f

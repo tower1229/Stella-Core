@@ -1,0 +1,413 @@
+{
+  "schemaVersion": "stella.core-supply-observation-verification/v1",
+  "status": "passed_scoped_offline_observation_independently_reverified_ready_for_save",
+  "baselineCommit": "b759d82504ac59d095d9bb6393ce11e9556c12ac",
+  "branch": "codex/issue23-integrated-regression",
+  "scope": "default-off observational metadata only; actual Core registration exercised by synthetic callback fixture; no Host runner or model execution",
+  "tests": {
+    "tests": 178,
+    "pass": 178,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 178247.707167,
+    "files": [
+      "checkpoint-agent-supply.test.js",
+      "checkpoint-agent-correction-supply.test.js"
+    ],
+    "newNodeTests": 17,
+    "retainedNodeTests": 161,
+    "signalProjectionNodeTests": 9,
+    "signalProjectionLeafCases": 8,
+    "parentGroupsIncluded": 16,
+    "leafAssertions": 162,
+    "countingConvention": "Node178 includes16 parent groups and162 leaf assertions; original169 plus8 signal cases+parent; counts not added to author/independent/historical probes"
+  },
+  "checks": {
+    "typecheckExit": 0,
+    "testCompilationExit": 0,
+    "targetedExit": 0,
+    "finalSourcesNotChangedAfterCompilation": true,
+    "oldProfileGatesUnchanged": true,
+    "stateYamlValid": true,
+    "readmeLocalLinks": 3,
+    "diffAndWhitespaceClean": true,
+    "sensitivePatternAndPersonalPathScan": "no matches; synthetic fixtures and whitelisted metadata only",
+    "allPriorTrackedExceptWhitelistUnchanged": true,
+    "fourUnrelatedFilesUnchanged": true,
+    "indexEmpty": true,
+    "signalHelperDeltaOnlyBooleanProjection": true
+  },
+  "observations": {
+    "flag": "stella.core.observe",
+    "sink": "existing api.logger.debug only",
+    "defaultEnabled": false,
+    "sources": [
+      "factory",
+      "before_tool_call",
+      "execute",
+      "retirement"
+    ],
+    "hostCorrelation": "SHA256 UTF8 JSON [stella.host-observation/v1, public observerId, run|call, actual Host identifier]; correlation only, not authority",
+    "identityCorrelation": "per-observer private-salted HMAC; no raw requester/session/agent or opaque audience emitted",
+    "factoryRunIdInvented": false,
+    "toolArgumentsOrBodyLogged": false,
+    "retirementCountScope": "actual config+host-state Core supply scope; grants/active flags/preparations/permits; not Gateway or SDK drain",
+    "realCountSequenceVerified": [
+      2,
+      1,
+      0
+    ],
+    "unknownOrDuplicateRetirementCreatesZeroMarker": false,
+    "logThrowOrRejectChangesBusiness": false
+  },
+  "history": {
+    "initialRun": {
+      "phase": "original private-salt candidate",
+      "tests": {
+        "tests": 169,
+        "pass": 166,
+        "fail": 3,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 1,
+      "logSha256": "db2cfad2dd8ca6a21b8dedabaeebc0eb8f7311501f2b711ac18d40a8b6165b2d",
+      "typecheckExit": 0,
+      "compilationExit": 0,
+      "sessionRecovery": "tool handle11260 expired; terminal SDK_OWNER_RESULT in original log establishes completion",
+      "failure": "two observation-sink tests assert total LLM count5 but observe6; parent group fails; raw evidence retained",
+      "acceptance": "not passed; no Host/model execution",
+      "supervisor": {
+        "passed": false,
+        "child": {
+          "exitCode": 1,
+          "signal": null,
+          "killed": false,
+          "closeObserved": true
+        },
+        "interrupted": null,
+        "timedOut": false,
+        "stdioComplete": true,
+        "logErrors": [],
+        "errors": [],
+        "ownedWork": {
+          "schemaVersion": "stella.test-owned-work/v1",
+          "runId": "1f70aa6a-0c44-4ace-8398-74e23cf7e680",
+          "status": "complete",
+          "pending": 0,
+          "stopFailures": 0,
+          "pendingFailures": 0
+        },
+        "groupConfirmedGone": true,
+        "cleanupStatus": "removed"
+      }
+    },
+    "initialCodeSha256": {
+      "src/openclaw/checkpoint-observation.ts": "062d37985ee99b4e174317d9bfa4bf92629acb244c2a3679b1db48f08829e773",
+      "src/openclaw/checkpoint-agent-supply.ts": "77369faa726adafd6c1a404081708fadc755f7bc60cdc1727d3dc9f70b13739f",
+      "tests/checkpoint-agent-correction-supply.test.ts": "2e281ca7c8c59aa75d0629fe6481359492bb2468bdbf8d41221828b8360ab9c7"
+    },
+    "refinement": "original terminal recovered before revalidation; non-sensitive run/call correlation made externally reproducible; sink retry assertion now distinguishes correction inference from permitted source policy recheck; original failure evidence retained",
+    "prior169Candidate": {
+      "patchSha256": "855be33eefeb466eb43beed451c231d66beb60eff205514bd57c526269e3df84",
+      "frozenFiles": {
+        "PROJECT-STATE.yaml": "d1bb12ac9c36b9ae76a54384fa271bc9cd350c5476ab6f7bc7b18f8d3cfe2b2d",
+        "src/openclaw/checkpoint-observation.ts": "429bb94dedf404170a83d8e399c003e9eadbc56c40e2c72f7c327fc25b077fb4",
+        "src/openclaw/checkpoint-agent-supply.ts": "77369faa726adafd6c1a404081708fadc755f7bc60cdc1727d3dc9f70b13739f",
+        "tests/checkpoint-agent-correction-supply.test.ts": "f05f3388b76a0106af7f9a0e5d68e001a2f877025e4fda04fc0b2c6fd0d487fd",
+        "docs/evidence/2026-10-29-core-supply-observation/README.md": "098b070620598124dd13661ec1e5e6edb20751f5560c270ffcd8147aa2a2272f",
+        "docs/evidence/2026-10-29-core-supply-observation/verification-summary.json": "34bc5b74cd90d25be569d4e179ecd60a2ada83f4f1abbaa6767b33f6d3b367f6"
+      },
+      "authorTests": {
+        "tests": 169,
+        "pass": 169,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "durationMs": 201445.491042,
+        "files": [
+          "checkpoint-agent-supply.test.js",
+          "checkpoint-agent-correction-supply.test.js"
+        ],
+        "newNodeTests": 8,
+        "retainedNodeTests": 161,
+        "countingConvention": "Node169 includes nested group counts; new6 top-level plus2 sink subtests=8; no addition to historical full CI or prior profile cases"
+      },
+      "rawEvidenceSha256": {
+        "final-targeted.tap": "93e793e8330afe564cbfead5910f0a7f6e1f3e68fb214f6860db47873aaa620c",
+        "final-typecheck.log": "5a0f30737df5c28db3dfe081e018b9423b78e57ee7ce83ce8daec2adf865e9d6",
+        "final-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "targeted.tap": "db2cfad2dd8ca6a21b8dedabaeebc0eb8f7311501f2b711ac18d40a8b6165b2d",
+        "typecheck.log": "5a0f30737df5c28db3dfe081e018b9423b78e57ee7ce83ce8daec2adf865e9d6",
+        "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "INITIAL-RESULT.json": "99a70bd691c508f9a6b78c608f15b843c6daf8309aee42ace413a2f5c9a8c43e",
+        "BEFORE.json": "9602bb69856f0efe5f5609d083841033f15ad13eeb9d31a84e0f7a75826c2d29"
+      }
+    },
+    "initialIndependentReview": {
+      "decision": "changes_requested",
+      "sourceSummarySha256": "bb41ed0a608b954d6bf7df68efa242db0eadaf82d1cec7778b82465d7fd173c4",
+      "sourceReportSha256": "9bdabceaa38e7324a3ade63f103fa1f585b34ec96cbe0678fd7187d0eb0040e6",
+      "formalTests": {
+        "tests": 169,
+        "pass": 169,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "files": [
+          "checkpoint-agent-supply.test.js",
+          "checkpoint-agent-correction-supply.test.js"
+        ],
+        "topLevelResults": 67,
+        "nestedResults": 102,
+        "parentGroupsIncluded": 15,
+        "leafAssertions": 154,
+        "newNodeTestsIncluded": 8,
+        "retainedNodeTestsIncluded": 161,
+        "countingConvention": "169 Node results includes15 parent groups and154 leaf assertions. New6 top-level+2 sink children are included; author/independent/extra probes are not added together.",
+        "durationMs": 200610.287167,
+        "typecheckExit": 0,
+        "testCompilationExit": 0,
+        "targetedExit": 0,
+        "diffCheckExit": 0
+      },
+      "additionalNegativeProbes": {
+        "namedChecks": 7,
+        "pass": 5,
+        "fail": 2,
+        "failuresShareOneRootCause": true,
+        "hostExecutionClaimed": false,
+        "repeatedMinimalReplayConfirmsLeak": true,
+        "notAddedTo169": true,
+        "scope": "pure observer interface-level negatives in frozen compiled module; synthetic payloads only"
+      },
+      "findings": [
+        {
+          "id": "O1",
+          "priority": "P2",
+          "file": "src/openclaw/checkpoint-observation.ts",
+          "line": 34,
+          "problem": "signal() copies value.aborted without a boolean type guard. Malformed hook/execute signal values can serialize arbitrary strings/objects, including invoking attacker-provided toJSON, into the metadata debug log.",
+          "scope": "Runtime shape/privacy boundary. Real AbortSignal boolean values work; no actual Host capture or real sensitive data involved in this reproduction.",
+          "reproductions": [
+            "hook abortSignal.aborted synthetic secret string is logged verbatim",
+            "execute abortSignal.aborted opaque object has toJSON invoked and its synthetic payload logged",
+            "both hook and execute log an object containing synthetic privateBody/credential through aborted"
+          ],
+          "minimalFix": "Read aborted once inside the existing guarded projection. Emit only boolean or null (or drop malformed row); never coerce or JSON serialize a nonboolean aborted value. Preserve missing vs false.",
+          "minimumRegressionTests": [
+            "hook malformed aborted string/object produces no raw body or toJSON side effect",
+            "execute malformed aborted string/object produces no raw body or toJSON side effect",
+            "valid false/true and absent signals preserve values; diagnostics disabled avoids projection"
+          ],
+          "noAuthorizationBypassClaimed": true
+        }
+      ],
+      "rawEvidenceSha256": {
+        "targeted.tap": "0a2905ba19de844ee21148a7e929997e5adeb8bed969c29723cdacc9ef2f0c5f",
+        "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "COUNT-BREAKDOWN.json": "15c5ef40e3e5265fe94bad95ba7c509db353bcb378332db759811925fac32ae5",
+        "SUPERVISOR.json": "1cc114bb97f9ee0f85e2b1500abc15fada439aa25a45842e0a5c4af96db28176",
+        "SDK-WARNINGS.json": "e89309c988596c656cd188fc364fa26d675ef65b7ad26c8ac3ff4217b2c8cd43",
+        "STATIC-CHECKS.json": "160a7256149030154362bf428c8927ae9ab0ebd270612b52fa4510dc8ad97078",
+        "independent-probes.json": "b25017ab50981df82bb197f623de079e57b62a19d8158807d979aa47ec7eb3ca",
+        "preserved-repro.json": "c261eac3cb64d6183024c4ad817de00d9efa52b60d8a94c25945986a95f03471",
+        "REPRO-MANIFEST.json": "ea3993bd04d983b6276686ebcc604ff5afa6e4b613f7c549925288f239f1c725",
+        "BEFORE.json": "df416e900e6ba9347730cd10793c538b8f2a8f92c806773cf4f91020b91aa37b",
+        "AFTER.json": "df416e900e6ba9347730cd10793c538b8f2a8f92c806773cf4f91020b91aa37b"
+      }
+    }
+  },
+  "newRunCleanup": {
+    "child": {
+      "exitCode": 0,
+      "signal": null,
+      "killed": false,
+      "closeObserved": true
+    },
+    "groupConfirmedGone": true,
+    "interrupted": null,
+    "timedOut": false,
+    "stdioComplete": true,
+    "logErrors": [],
+    "errors": [],
+    "ownedWork": {
+      "schemaVersion": "stella.test-owned-work/v1",
+      "runId": "8c7ef15f-4ed3-4692-96f2-140b28e80180",
+      "status": "complete",
+      "pending": 0,
+      "stopFailures": 0,
+      "pendingFailures": 0
+    },
+    "rootStatus": "removed",
+    "olderEpermSceneTouched": false,
+    "sdkDrainClaimed": false
+  },
+  "sdkWarnings": {
+    "activeLeaseMessages": 81,
+    "lateIdleCleanupWarnings": 51,
+    "scope": "retained SDK lifetime warning debt; not fixed or accepted as drain"
+  },
+  "moduleSha256": {
+    "src/openclaw/checkpoint-observation.ts": "a2f299b49e51a6e7be3ca2cca8d8f4912fac0fbeea5a93743f26238fb44d8bca",
+    "src/openclaw/checkpoint-agent-supply.ts": "77369faa726adafd6c1a404081708fadc755f7bc60cdc1727d3dc9f70b13739f",
+    "tests/checkpoint-agent-correction-supply.test.ts": "8836d0802d7d6e8a14fa87d161022ddc7adb3b74d7e19886c3624fc0ff3fc4e4"
+  },
+  "rawEvidenceSha256": {
+    "targeted.tap": "794ef630c1a2cc7d55eadedfdfd4d5d728d862c9bb09fdfdf86f3ffe424567e0",
+    "typecheck.log": "5a0f30737df5c28db3dfe081e018b9423b78e57ee7ce83ce8daec2adf865e9d6",
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red.tap": "31fbe5c003a17abaf5d61b013164b5b56a84ea2d9bb771e4b3a3017c82ca4dda",
+    "RED.json": "90f243d03ab4e458412ead385186cabab869ccd2aacb5989fb99a12cdc8c7272",
+    "red-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "BEFORE.json": "983ca9f00b150ec749e9d5ee6254f716da51afa2f71516ea634c5474bb5901b1"
+  },
+  "notAccepted": [
+    "actual Host event consumption and raw capture provenance",
+    "packaged consumer observation behavior or reused-install/consumer lock binding",
+    "Host runner/CLI/CI wiring",
+    "real models, Chrome/profile, full consumer/152probes/full_memory",
+    "SDK database drain or cleanup of historical EPERM scene"
+  ],
+  "sideEffects": {
+    "hostStarted": false,
+    "realModelsCalled": false,
+    "tokensPairedOrCreated": false,
+    "dependenciesInstalled": false,
+    "networkOperations": false,
+    "mainConfigGrantOrCredentialsChanged": false,
+    "committed": false,
+    "pushed": false
+  },
+  "independentReview": {
+    "decision": "passed_scoped_offline_observation_ready_for_commit",
+    "evidence": "independent-review.json",
+    "sourceSummarySha256": "bb60b7e3411c237e04e5ddf15f107ab2602506c526946c74a9ffef59440c2ca6",
+    "independentTests": {
+      "tests": 178,
+      "pass": 178,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "topLevelResults": 68,
+      "nestedResults": 110,
+      "parentGroupsIncluded": 16,
+      "leafAssertions": 162,
+      "newSignalProjectionNodeCount": 9,
+      "newSignalProjectionLeafCases": 8,
+      "prior169Preserved": true,
+      "retainedBaselineNodeCount": 161,
+      "originalObservationNodeCount": 8,
+      "countingConvention": "178 Node results includes16 parent groups and162 leaf assertions. Prior169 is a subset; new8 signal cases+parent are included. Author/independent/prior/replayed probes are not added together.",
+      "durationMs": 184781.635292,
+      "typecheckExit": 0,
+      "testCompilationExit": 0,
+      "targetedExit": 0,
+      "diffCheckExit": 0
+    },
+    "sameOriginalProbeReplay": {
+      "namedChecks": 7,
+      "pass": 7,
+      "fail": 0,
+      "formerlyFailingChecksNowPass": 2,
+      "other5StillPass": true,
+      "sameScriptSha256": "250ba67d4b9572782e7b2abc0dbc9ea4dbc2d855bd17a34c91c2e6fad1ca8da6",
+      "byteIdenticalToPreviousReview": true,
+      "toJsonCallsBothSources": [
+        0,
+        0
+      ],
+      "formerLeakRowsAborted": [
+        null,
+        null
+      ],
+      "minimalPreservedReplayMatches": true,
+      "notAddedTo178": true,
+      "scope": "pure observer interface probes using frozen compiled module and existing SDK; synthetic inputs only"
+    },
+    "countingConvention": "author178 and independent178 are separate runs of the same suite;7 replayed probes are not added; prior169/red failures retain historical identities",
+    "closedFindings": [
+      "O1"
+    ],
+    "openFindings": []
+  },
+  "nextStep": "save reviewed seven-file package with ordinary development-branch commit/push and verify exact remote SHA/CI; consumer-lock binding and Host capture/runner remain separate unimplemented work",
+  "signalProjectionFix": {
+    "finding": "O1",
+    "scope": "read aborted getter once and emit only boolean or null; no coercion/serialization of nonboolean",
+    "red": {
+      "phase": "before_boolean_projection",
+      "exitCode": 1,
+      "counts": {
+        "tests": 9,
+        "pass": 4,
+        "fail": 5,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "malformedLeafFailures": [
+        "hook: string",
+        "hook: object",
+        "execute: string",
+        "execute: object"
+      ],
+      "parentGroupAlsoFailed": true,
+      "helperSha256": "429bb94dedf404170a83d8e399c003e9eadbc56c40e2c72f7c327fc25b077fb4",
+      "testSha256": "8836d0802d7d6e8a14fa87d161022ddc7adb3b74d7e19886c3624fc0ff3fc4e4",
+      "logSha256": "31fbe5c003a17abaf5d61b013164b5b56a84ea2d9bb771e4b3a3017c82ca4dda",
+      "compileExit": 0,
+      "scope": "pure observer interface; no actual Host or model"
+    },
+    "newCases": {
+      "parentGroups": 1,
+      "leafCases": 8,
+      "sources": [
+        "hook",
+        "execute"
+      ],
+      "values": [
+        "string",
+        "object with toJSON",
+        "false",
+        "true"
+      ]
+    },
+    "registeredSupplySourceUnchanged": true,
+    "green": {
+      "exitCode": 0,
+      "tests": {
+        "tests": 178,
+        "pass": 178,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "getterReadOnceAndToJsonNeverCalled": true,
+      "helperSha256": "a2f299b49e51a6e7be3ca2cca8d8f4912fac0fbeea5a93743f26238fb44d8bca",
+      "testSha256": "8836d0802d7d6e8a14fa87d161022ddc7adb3b74d7e19886c3624fc0ff3fc4e4"
+    },
+    "independentRereview": {
+      "status": "passed_O1_closed",
+      "evidence": "independent-review.json",
+      "sourceSummarySha256": "bb60b7e3411c237e04e5ddf15f107ab2602506c526946c74a9ffef59440c2ca6",
+      "tests": 178,
+      "pass": 178,
+      "fail": 0,
+      "parentGroupsIncluded": 16,
+      "leafAssertions": 162,
+      "originalProbeReplayPass": 7,
+      "originalProbeReplayNotAdditive": true
+    }
+  },
+  "sideEffectsScope": "author validation run only, before this separately authorized Git publication; false network/commit/push values are historical validation facts"
+}

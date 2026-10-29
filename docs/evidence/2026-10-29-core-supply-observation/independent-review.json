@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "stella.core-supply-observation-independent-review/v1",
+  "decision": "passed_scoped_offline_observation_ready_for_commit",
+  "scope": "Only the six frozen default-off observation candidate files, with O1 boolean/null projection repair; no Host/capture/consumer or original complete gate acceptance.",
+  "baselineCommit": "b759d82504ac59d095d9bb6393ce11e9556c12ac",
+  "branch": "codex/issue23-integrated-regression",
+  "sourceSummarySha256": "bb60b7e3411c237e04e5ddf15f107ab2602506c526946c74a9ffef59440c2ca6",
+  "sourceReportSha256": "c9c943b861fb4a19d37181be37ed48add1df5e0083ce677890389aff01bd2689",
+  "archiveForm": "derived minimum non-sensitive summary; archive bytes have their own hash, not the source summary hash",
+  "reviewedPatchSha256": "a8e8542f3cd4b003d848f9fa1a2117a1fdd8903aff942e01106dfcb1043d4838",
+  "reviewedFrozenFiles": {
+    "PROJECT-STATE.yaml": "b311cd7ed9a5d7d90ebdd1dad461a3da0045cf212865ef126e611cc486a1eefb",
+    "src/openclaw/checkpoint-observation.ts": "a2f299b49e51a6e7be3ca2cca8d8f4912fac0fbeea5a93743f26238fb44d8bca",
+    "src/openclaw/checkpoint-agent-supply.ts": "77369faa726adafd6c1a404081708fadc755f7bc60cdc1727d3dc9f70b13739f",
+    "tests/checkpoint-agent-correction-supply.test.ts": "8836d0802d7d6e8a14fa87d161022ddc7adb3b74d7e19886c3624fc0ff3fc4e4",
+    "docs/evidence/2026-10-29-core-supply-observation/README.md": "7442a23f071a0d8f3dab7880202a4d684e8176af12d2d295ea3471628e090f78",
+    "docs/evidence/2026-10-29-core-supply-observation/verification-summary.json": "c5d00078ae5bbe6ac787a259ea0eb732224fb4811dffc1ac43205c58105f0114"
+  },
+  "readyToCommitScopedCandidate": true,
+  "openFindings": [],
+  "closedFindings": [
+    {
+      "id": "O1",
+      "priority": "P2",
+      "file": "src/openclaw/checkpoint-observation.ts",
+      "line": 34,
+      "fix": "aborted getter read once to unknown; only boolean or null emitted inside guarded projection",
+      "getterReadOnceAssertedPerSourceAndValue": true,
+      "nonBooleanToJsonCalls": 0,
+      "formerStringAndOpaqueObjectLeaksPrevented": true,
+      "noCoercionOrAuthorizationChange": true
+    }
+  ],
+  "independentFormalTests": {
+    "tests": 178,
+    "pass": 178,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "topLevelResults": 68,
+    "nestedResults": 110,
+    "parentGroupsIncluded": 16,
+    "leafAssertions": 162,
+    "newSignalProjectionNodeCount": 9,
+    "newSignalProjectionLeafCases": 8,
+    "prior169Preserved": true,
+    "retainedBaselineNodeCount": 161,
+    "originalObservationNodeCount": 8,
+    "countingConvention": "178 Node results includes16 parent groups and162 leaf assertions. Prior169 is a subset; new8 signal cases+parent are included. Author/independent/prior/replayed probes are not added together.",
+    "durationMs": 184781.635292,
+    "typecheckExit": 0,
+    "testCompilationExit": 0,
+    "targetedExit": 0,
+    "diffCheckExit": 0
+  },
+  "sameOriginalProbeReplay": {
+    "namedChecks": 7,
+    "pass": 7,
+    "fail": 0,
+    "formerlyFailingChecksNowPass": 2,
+    "other5StillPass": true,
+    "sameScriptSha256": "250ba67d4b9572782e7b2abc0dbc9ea4dbc2d855bd17a34c91c2e6fad1ca8da6",
+    "byteIdenticalToPreviousReview": true,
+    "toJsonCallsBothSources": [
+      0,
+      0
+    ],
+    "formerLeakRowsAborted": [
+      null,
+      null
+    ],
+    "minimalPreservedReplayMatches": true,
+    "notAddedTo178": true,
+    "scope": "pure observer interface probes using frozen compiled module and existing SDK; synthetic inputs only"
+  },
+  "staticChecks": {
+    "reverseO1DeltaRestoresEveryPriorFrozenHash": true,
+    "observationHelperOnlyBooleanProjectionChanged": true,
+    "registeredSupplySourceUnchanged": true,
+    "testOnlyAddedLines": 21,
+    "noPriorTestAssertionsRemovedOrChanged": true,
+    "frozenPatchAndDeltaHashesMatch": true,
+    "prior169FrozenAndPatchHistoryPreserved": true,
+    "allOtherTrackedDiffExceptWhitelistUnchanged": true
+  },
+  "historyChecks": {
+    "originalAuthor169RawEvidenceUnchanged": true,
+    "originalIndependentSummarySha256": "bb41ed0a608b954d6bf7df68efa242db0eadaf82d1cec7778b82465d7fd173c4",
+    "originalIndependentHistoryMatches": true,
+    "authorSignalRed": {
+      "nodeTests": 9,
+      "pass": 4,
+      "fail": 5,
+      "failedLeafCases": 4,
+      "failedParentGroups": 1,
+      "oldHelperSha256": "429bb94dedf404170a83d8e399c003e9eadbc56c40e2c72f7c327fc25b077fb4",
+      "sameNewTestHashInRedAndGreen": true,
+      "rawLogHashMatches": true
+    }
+  },
+  "boundariesReverified": {
+    "defaultOffAvoidsLogAndContextProjection": true,
+    "publicDisableOverride": true,
+    "factoryHookExecuteSourcesSeparated": true,
+    "factoryRunIdNotInvented": true,
+    "missingFieldsNotBorrowedFromOtherSources": true,
+    "identityUnknownObjectsNotSerialized": true,
+    "publicNonceTagsRecomputableNotIdentityOrAuthorityOrAnonymousClaim": true,
+    "tagCannotServeAsPermit": true,
+    "actualCoreSharedScopeRetirement2To1To0": true,
+    "unknownDuplicateRetirementNoForgedZeroMarker": true,
+    "loggerThrowRejectCannotChangeTestedBusinessReturnsWriterAndRetirement": true,
+    "sourceGrantCASCorrectionReceiptAndReadOnlyRetryRegressionPreserved": true
+  },
+  "cleanup": {
+    "child": {
+      "exitCode": 0,
+      "signal": null,
+      "killed": false,
+      "closeObserved": true
+    },
+    "groupConfirmedGone": true,
+    "interrupted": null,
+    "timedOut": false,
+    "stdioComplete": true,
+    "ownedWorkStatus": "complete",
+    "pending": 0,
+    "stopFailures": 0,
+    "pendingFailures": 0,
+    "rootStatus": "removed",
+    "sdkDrainClaimed": false,
+    "oldEpermSceneTouched": false
+  },
+  "sdkWarnings": {
+    "activeLeaseMessages": 81,
+    "lateIdleCleanupWarnings": 51,
+    "drainProved": false
+  },
+  "remainingUnverified": [
+    "actual Host event/capture provenance and consumption",
+    "packaged consumer observation and install/consumer-lock binding",
+    "Host runner/CLI/CI integration",
+    "real models,Chrome/profile,full consumer/152probes/full_memory and unchanged historical CI26 failures",
+    "SDK drain and historical EPERM resource attribution/cleanup"
+  ],
+  "reviewOperations": {
+    "repositoryWritten": false,
+    "committed": false,
+    "pushed": false,
+    "hostOrGatewayStarted": false,
+    "realModelCalled": false,
+    "newDependenciesInstalled": false,
+    "networkUsed": false,
+    "identityMainConfigRealGrantOrCredentialsChanged": false,
+    "systemProcessEnumeration": false,
+    "oldEpermSceneTouched": false,
+    "ownCommandsCompleted": true
+  },
+  "blockedReviewOperations": [],
+  "unknownOutcomes": [],
+  "sourceRawEvidenceSha256": {
+    "BEFORE.json": "0468f0d68697d834ec8ebf5952e702aefa001be76eea418994128dbf967e6e05",
+    "AFTER.json": "0468f0d68697d834ec8ebf5952e702aefa001be76eea418994128dbf967e6e05",
+    "STATIC-CHECKS.json": "30cdfdf05eab39333840fb54d69a9c7644ada3647cb031ffafae8f74fb255082",
+    "HISTORY-CHECKS.json": "3fc0b0ff56ad8d1561aa8fa20d775c5ff5d7025fa0eac9eb7fb0ed46d440c400",
+    "RUN-STATUS.json": "d7fed39eaca84c8ded54a90bb7e0f2cab0a77b32bf2d20320ddcd57fc903d4f4",
+    "COUNT-BREAKDOWN.json": "34cc03c55f9f2995984d18befb99d6bd10a601edc6ecb03016ffbb8d34d12c51",
+    "SUPERVISOR.json": "f7506da8735b7268615064da6fc3d862b3214b1150e6b06c4615b1b851fbf727",
+    "SDK-WARNINGS.json": "19419b3683162a6c0b58b85fa533565fe4c0ac262b972b28f37747d269f8cc02",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "targeted.tap": "211c66ffc3fa1c300b399cfc27177d6f51b0e90f1acd6ab674cfa6111de632bb",
+    "diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "independent-probes.json": "384df8ce8e11c614952d95cfbabc209a8bc2279339e9a5da774b7191bb405626",
+    "preserved-repro.json": "3229b7a915412e5e9ff8b38308e0d8bfc3deb47153b22f86d60fd8866f4d5e76",
+    "REPRO-MANIFEST.json": "88c9792e19cbcdcd2ccfc1029027c35f689b8208ca774bdb408e952854a8b7b9",
+    "delta-reverse.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
