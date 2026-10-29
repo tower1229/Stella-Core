@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "stella.focused-consumer-independent-review-archive/v1",
+  "recordedAt": "2026-10-29T03:49:03.543066+00:00",
+  "classification": "independent read-only review of the six-file frozen candidate, before publication metadata delta",
+  "decision": "passed_scoped_focused_offline_ready_for_commit",
+  "p2Closed": true,
+  "findings": [],
+  "sourceCommit": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+  "branch": "codex/issue23-integrated-regression",
+  "sourceEvidenceSha256": {
+    "REVIEW.md": "05ad573594a209ba7008fb5d987047853280f06a823aa6a93b1e1041beec61e0",
+    "REVIEW-SUMMARY.json": "b5175484af8b0e93d7e6cf981cca04be7ffb331a0dbb2f3f5a36bfa765e0e66f"
+  },
+  "reviewedCandidateFiles": {
+    "PROJECT-STATE.yaml": "c2efaadbcb7a3474cd84952d7bda3684db669f116cec6c4a66dcafde211c892f",
+    "scripts/focused-correction-consumer.mjs": "c72e291aafbd520e1626d4faeb9bfc55f75ae70851a75e3611adf052fb1a1ea9",
+    "scripts/lib/focused-correction-consumer-probe.mjs": "815a7950fe1e575b8dc5c7f39228dec60362c5a603993835670574de1dd33fcb",
+    "docs/evidence/2026-10-29-focused-packaged-correction-consumer/README.md": "e435b7f9e4008efa7a7fd8c02fe1361108103d0042560d3347a1c6be27fe91ab",
+    "docs/evidence/2026-10-29-focused-packaged-correction-consumer/verification-summary.json": "2542bd41d882bd9a50612d310c7629b0c05549efc62e1d7890345de19e0df5c0",
+    "docs/evidence/2026-10-29-focused-packaged-correction-consumer/verification-initial-5.json": "d3e7181b901b68d9c1db3f5c9f49ac0ac4b44c47a411d754fb3d4265e6a44f9d"
+  },
+  "reviewedPatchSha256": "d6f2c71e2d911229ad32bdbf57d85737527476f065864314623316d2a0a9d199",
+  "reviewedP2DeltaSha256": "0cc091261e8a7d17cf6d7dd766cd53c53f53f6c8cdfb641b7c73d36b31e9ad89",
+  "independentFormalScriptRerun": {
+    "topLevelGroups": 5,
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "includesOriginalFive": true,
+    "notAdditiveWithHistoricalRuns": true
+  },
+  "countingRule": "author seven and independent seven are separate runs of the same seven cases, not fourteen distinct cases",
+  "additionalChecks": {
+    "failedReadRetry": {
+      "status": "passed",
+      "failedReadCategory": "source_topic_unresolved",
+      "deniedRetryCategory": "personal_context_access_changed",
+      "deniedRetryPayloadReads": 0,
+      "deniedRetryDocuments": 0,
+      "missingPermitPayloadReads": 0,
+      "totalCommits": 2,
+      "retryCommits": 0,
+      "retryCorrectionInferenceCalls": 0,
+      "exactReceipt": true
+    },
+    "symlinkAudit": {
+      "status": "passed",
+      "esmDeniedBeforeExecution": true,
+      "cjsDeniedBeforeExecution": true
+    }
+  },
+  "artifact": {
+    "sha256": "345c5ae5539a6d147d4605b673bb8371ee2ccc84abb36ebaf742661ede40dbb1",
+    "files": 510,
+    "buildIdentity": {
+      "coreRevision": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+      "sourceClean": true
+    },
+    "unpackMethod": "safe local tgz extraction into consumer node_modules; not npm ci or a fresh dependency installation"
+  },
+  "moduleAudit": {
+    "resolvedFiles": 5734,
+    "coreProductionModules": 133,
+    "denied": [],
+    "fullRelativeListSha256": "ce200f0968998f5aabe1dfb94171cda99c623150775ca78092ecbab5efe30f65",
+    "entry": "node_modules/@tower1229/stella-core/dist/src/plugin.js",
+    "registration": "actual package default.register(fake api)"
+  },
+  "dependencies": {
+    "selection": [
+      {
+        "name": "yaml",
+        "rejectedWorkspaceVersion": "2.9.0",
+        "requiredVersion": "2.9.1"
+      }
+    ],
+    "yamlCopy": {
+      "donor": "explicit_existing_sdk_dependency",
+      "version": "2.9.1",
+      "files": 233,
+      "manifestSha256": "e5bed832a42182d072da55bbe6bc0f5482ab08650e2e00c117d7ecac5bf92b09",
+      "packageSha256": "1c6441703d8204a23ded0d37ddf57c3b69d821dc392f20852d1f605bb9b8861c"
+    },
+    "fixedLockSha256": "ea0f176ae49d58925336d1bcd831d5ba41b1148d3b8610399e1bc4662c227cc3",
+    "freshInstall": false,
+    "registryTarballAuthenticityVerified": false
+  },
+  "cleanup": {
+    "childExitCode": 0,
+    "processGroupConfirmedGone": true,
+    "processGroupAbsenceIndependentlyChecked": true,
+    "supervisorRootAbsent": true,
+    "ownedWork": {
+      "schemaVersion": "stella.test-owned-work/v1",
+      "runId": "e3cc17b0-6c06-4b75-aba1-c59de334ae51",
+      "status": "complete",
+      "pending": 0,
+      "stopFailures": 0,
+      "pendingFailures": 0
+    },
+    "runtime": "owned runtime removed after child completion",
+    "recentRuntimeTreesRemaining": [],
+    "sdkDrainClaimed": false
+  },
+  "freezeAndWorktree": {
+    "allSixFrozenFilesUnchanged": true,
+    "authorFrozenReportAndPatchesUnchanged": true,
+    "projectStateUnchanged": true,
+    "fourUnrelatedUntrackedUnchanged": true,
+    "emptyIndexUnchanged": true,
+    "productionSourceAndLockChanged": false,
+    "gitStatusUnchanged": true,
+    "oldFivePrefixAndHistoricalSummaryPreserved": true,
+    "reversePatchCheck": 0,
+    "diffCheck": 0,
+    "syntaxChecks": 0,
+    "stateYamlValid": true,
+    "readmeLocalLinksChecked": 4
+  },
+  "rawEvidenceSha256": {
+    "RESULT.json": "31f1785e426d55fe53ddbe8c364594b60ff7f74f6e9370b06fa6b8e1725a1fc7",
+    "consumer-result.json": "302aa336568d1004651d38ab41462525079a70045568028da3f3470d5f6e9b32",
+    "consumer.stdout": "7c8d554ee7d0c720a8fd6b8f20d6e79f0de413f38079f1953e071aaa1b6dd947",
+    "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial-snapshot.json": "9072f76912d848c59706bf24838b17fff48008d78f34482636958875f5c28c1a",
+    "final-snapshot.json": "9072f76912d848c59706bf24838b17fff48008d78f34482636958875f5c28c1a"
+  },
+  "limits": [
+    "Only fixed-production-tgz, synthetic Git, fake Host and fixed local structured responses",
+    "No real Host/Gateway/model/account; no config/slot/real-grant or credential changes",
+    "Existing 26 failures, formal full consumer/probes and full_memory acceptance unchanged",
+    "No new full suite run; no fresh npm installation; active-leases warning retained"
+  ],
+  "publicationBoundary": "reviewer did not stage/commit/push; writer subsequently updates evidence and PROJECT-STATE only, with both verification scripts frozen unchanged",
+  "currentRemoteObservation": {
+    "action": "git ls-remote origin refs/heads/codex/issue23-integrated-regression",
+    "status": "succeeded via approved permission channel before publication",
+    "observedCommit": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+    "observedAt": "2026-10-29T03:49:03.543066+00:00",
+    "scope": "publication preflight only; not a Host/service test"
+  }
+}

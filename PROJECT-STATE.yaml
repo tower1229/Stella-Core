@@ -86,15 +86,16 @@ implementation_evidence:
   new_contract_checks:
     - D063文档独审：11/11账本及82本地链接；35hash/10行号仅定位元数据，非产品通过。
   limit: 新注册tool接线作者253项与R1独审13项分开记录；真实Host/模型未验，历史8.2及旧模型收据保留原身份。
+  focused_consumer_evidence: docs/evidence/2026-10-29-focused-packaged-correction-consumer/verification-summary.json
   candidate_evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
   evidence_index: docs/evidence/2026-10-28-task-continuity/README.md
   manifest_sha256: 15db1a16f2e250b7a51055c2b61f89e352efd9af4479c054b85b7af2413bf4cd
 implementation_gaps:
   - D063整体仍待审；本轮仅获授权的受控纠正tool精确回读切片，不授权native桥/部署/权限扩大。
-  - C2/C3已接实际注册tool；R1作者253项、独审13项通过，精确版本/权限与P1闭合已有限验证；真实Host派发及打包消费者仍缺。
+  - C2/C3已接实际注册tool；R1作者253项、独审13项通过，精确版本/权限与P1闭合已有限验证；focused打包消费者正式7项通过（原5项＋失败恢复与symlink审计2项），真实Host和正式全量consumer仍缺。
   - native公共caller没有Core run/toolCall关联；消费façade为private-local，authority引用桥不作产品方案。
   - 当前两CI仍26旧失败；12旧SQL桥与7codec等行为须按范围迁移或明确退役，不能删skip刷绿。
-  - consumer未安装，probes未执行，真实Gemini语义/Chrome/profile/其他消费者与完整迁移恢复/full_memory未验收。
+  - 本轮只有固定5fe9a9f临时包consumer的focused 7项（含原5项）；正式完整consumer/probes、真实Gemini语义/Chrome/profile、迁移恢复/full_memory仍未验。
 settled_constraints:
   - one Cortex with four cooperating cognitive systems
   - personal data centralized in CangHai; current Git copy contains retained original bytes
@@ -110,8 +111,9 @@ settled_constraints:
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
 scope_of_this_change:
-  kind: registered-correction-tool-exact-readback-offline
-  implementation_changed: true
+  kind: focused-packaged-correction-consumer-offline
+  implementation_changed: false
+  verification_scripts_added: true
   private_data_read_or_migrated: false
   host_config_or_slot_changed: false
   grant_or_credentials_created: false
@@ -121,26 +123,26 @@ scope_of_this_change:
   candidate_certified: false
   publication_performed_at_capture: false
   commit_performed_at_capture: false
-  git_save_status: R1独审完成，按九文件边界保存到既有开发分支；本索引记录保存前基线，实际提交/推送由Git历史及远端核对确认。
-updated_at_utc: "2026-10-29T02:20:29.420848+00:00"
+  git_save_status: R1已提交5fe9a9f；focused consumer作者7项与独审7项分别通过，P2关闭；本快照在普通提交/推送前捕获，实际发布结果以Git为准。
+updated_at_utc: "2026-10-29T03:49:03.543066+00:00"
 state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
 non_goals:
-  - 本次仅注册纠正tool精确回读能力包；不改生产配置/slot/grant/凭据、不运行Host/真实模型、不强推/合并/部署；独审前不提交。
+  - 本次仅focused打包消费者7项离线验证；不改产品源码/生产配置/slot/真实grant/凭据、不运行真实Host/模型；独审通过的验证脚本与证据仅普通提交/推送既有开发分支，不部署。
   - 不把此前D063文本审查/持久化授权或本轮有限离线结果解释为整体架构批准、付费调用或部署批准。
   - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
   - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
 design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
 task_continuity:
-  task_id: registered-correction-readback-2026-10-29
-  scope: 唯一writer保存已独审的注册纠正tool→现有writer→receipt精确回读切片；仅合成离线，不部署或扩大权限
+  task_id: focused-packaged-correction-consumer-2026-10-29
+  scope: 从固定5fe9a9f构建pack到临时consumer，仅真实包入口＋fake Host纠正/回读/拒绝；无生产变更和真实模型
   version_binding:
-    remote_check_scope: 本次保存前普通ls-remote已确认远端与baseline一致；记录是保存前观察，保存后由Git核实实际提交，不自引用未来SHA。
+    remote_check_scope: 本轮经授权通道git ls-remote核对远端5fe9a9f与本地HEAD一致；这是提交前基线观察，不是包含本状态更新的提交。
     state_commit_lookup: git log -1 --format=%H -- PROJECT-STATE.yaml
     warning: baseline/observed是保存前观察，不是包含本状态更新的提交；实际版本由本文件Git历史和远端读取，不产生自引用hash。
-    baseline_commit: ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52
+    baseline_commit: 5fe9a9f5420264cd05e3f70f9f9a671d018040f5
     observed_branch: codex/issue23-integrated-regression
-    observed_remote_commit: ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52
-    observed_remote_checked_at: "2026-10-29T02:20:29.420848+00:00"
+    observed_remote_commit: 5fe9a9f5420264cd05e3f70f9f9a671d018040f5
+    observed_remote_source: fresh git ls-remote via approved permission channel before publication; same as local baseline
   decisions:
     confirmed:
       - 产品目标及边界依docs/09-REQUIREMENTS-ALIGNMENT.md与设计基线。
@@ -155,8 +157,15 @@ task_continuity:
     - 运输无关精确读取内核已从native包装提取，原包装复用；注册纠正tool直接绑定既有Core请求scope与C3协调器。
     - writer返回receipt后只按该revision重新打开reader，保留LearningChange精确目标与Source/Evidence闭包授权。
     - 同请求提交后读失败保留local_committed回执；新permit重试只读，不重新纠正/提交；入场来源grant文件不自动替换。
-    - R1统一约束后续首次来源/视图的入场grant；懒建resolver保留合法缓存；独审已关闭原P1，保存范围不含生产激活。
+    - 已提交R1统一入场grant约束和合法缓存，独审关闭原P1；本轮不改其生产实现。
+    - 新增独立focused consumer构建/解包验证脚本，从固定5fe9a9f运行实际包main，不导入工作树/测试编译生产模块。
   verified:
+    - 本轮固定提交标准build/sourceClean=true、offline pack 510文件；空consumer真实tgz五个顶层用例/7项全过（包含原5项），无失败/取消/跳过。
+    - 8个既有运行依赖复制文件摘要一致且版本匹配固定锁，明确SDK peer为现有官方10.8；不是fresh npm安装。
+    - main及新读取内核解析在包产物；133个Core生产模块来自解包安装目录，主进程解析审计拒绝工作树/构建目录回退。
+    - 一次归档/一次纠正、receipt目标精确回读、只读重试；缺许可及改变入场grant零保护正文/业务提交；进程组gone且临时树清理完成。
+    - 正式新增提交后readback_failed保留local_committed；缺permit/变grant重试零payload/正文/重复提交，恢复原grant仅回读同receipt；ESM/CJS越界symlink在执行前拒绝。
+    - focused consumer作者7/7与独审正式脚本7/7分别通过（均含原5项，不相加）；独审P2关闭，510包文件/133生产模块来源与symlink拒绝复验通过。
     - typecheck、测试编译、build、9个schema及diff检查退出0。
     - 作者R1：注册12＋native/Evidence/C2/C3回归105＋普通工具136＝253通过，0失败/取消/跳过；不标为独审253。
     - 三组均通过：单次纠正与receipt精确回读；提交后读失败只读重试及缺permit拒绝；下一请求/磁盘重开fresh绑定和撤权拒绝。
@@ -168,15 +177,17 @@ task_continuity:
     - R1独审13项完成，未重跑作者253全套；初版115及原P1失败证据按historical保留。真实Host/模型/部署/full_memory仍未验。
     - 同实例同请求重试不等于跨进程恢复旧操作；Source分段只有窄许可时当前正式预检仍fail closed，不扩全源授权。
     - SDK晚关闭ENOENT/active-leases告警仍存在；未证明SDK drain；完整套件本轮未重跑，26旧CI失败保留原身份。
-  unique_next_step: 本轮保存核实后，由父线程分派候选下一包：离线打包消费者验证现有注册纠正路径；不因D063待审或真实Host/模型未验暂停不依赖它们的已授权工作。
+  unique_next_step: 普通发布本阶段已独审验证与证据后，按精确SHA观察CI；下一最小开发候选为固定包消费者的下一请求/磁盘重开freshness离线验证，需先核定独立任务范围。
   blockers:
-    - 受阻动作：宣称全量CI或full_memory通过；既有两CI仍26旧失败，且consumer/probes与完整能力未验。
+    - 受阻动作：宣称全量CI或full_memory通过；5fe9a9f两CI由父任务报告仍26旧失败，focused包consumer不替代正式consumer/probes。
+    - 受阻动作：宣称工作区依赖安装与锁完全一致；现有workspace yaml2.9.0而固定锁2.9.1，本轮从既有SDK显式选锁定版本，不做安装修复。
+    - 可独立继续：当前提交的只读CI核验；可拆下一小包为固定包消费者下一请求/磁盘重开freshness合成验证，不依赖D063整体或Host/真实模型；本轮不实施该包。
     - 受阻动作：native公共授权桥/slot切换及整体D063实施；公共caller交接未证明、D063待审。当前受控tool及离线消费者验证不依赖该桥。
   authorized_next_package_candidate:
-    status: awaiting_parent_assignment
+    status: passed_focused_offline_independent_review_complete
     name: 离线打包消费者验证现有注册纠正路径
     boundary: 现有安装/SDK、合成离线、临时打包消费者；不部署、不切slot、不新增grant或凭据、不真实Host/模型
-    execution_started: false
+    execution_started: true
   requires_separate_scope:
     - 真实模型调用的明确provider/model、数据、次数/费用预算。
     - Host试验的新批次请求/一次性凭据范围；不复用已销毁token或耗尽的旧预算。
@@ -184,26 +195,27 @@ task_continuity:
   same_repo_writer: 一个明确指定写入者；其他并行会话只读，不按目录推定隔离
   local_change_whitelist:
     - PROJECT-STATE.yaml
-    - src/canghai/authorized-exact-readback.ts
-    - src/openclaw/checkpoint-native-readback.ts
-    - src/openclaw/checkpoint-correction-readback.ts
-    - src/openclaw/checkpoint-agent-supply.ts
-    - tests/checkpoint-agent-correction-supply.test.ts
-    - docs/evidence/2026-10-29-registered-correction-readback/
+    - scripts/focused-correction-consumer.mjs
+    - scripts/lib/focused-correction-consumer-probe.mjs
+    - docs/evidence/2026-10-29-focused-packaged-correction-consumer/
   preserved_unrelated_untracked:
     - docs/suqing-m1-2026-10-22.md
     - docs/suqing-m1-plugin-boundary-review-2026-10-22.md
     - docs/suqing-midterm-plan-2026-10-22.md
     - tests/recovery-pointer-barriers.test.ts
   independent_review:
-    status: passed_scoped_r1
-    previous_status: changes_requested
-    finding: 原P1已关闭；同run新permit不能采用较宽grant，合法缓存保留，下一请求独立授权
-    scope: 本轮受控tool精确回读能力包；旧ce2343c1持久化独审不适用于此patch
-    tests: 13
-    p1_closed: true
-    evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
-    previous_milestone: ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52
+    status: passed_scoped_focused_offline_ready_for_commit
+    scope: 正式打包消费者作者7项、独审7项分开通过；相同7个用例不相加，P2关闭；不是R1运行时13项独审或正式全量consumer验收
+    focused_consumer_evidence: docs/evidence/2026-10-29-focused-packaged-correction-consumer/independent-review.json
+    author_tests: 7
+    independent_tests: 7
+    p2_closed: true
+    previous_runtime_review:
+      status: passed_scoped_r1
+      commit: 5fe9a9f5420264cd05e3f70f9f9a671d018040f5
+      tests: 13
+      p1_closed: true
+      evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
     d063_overall_implementation_approved: false
 current_validation:
   scope: historical remote CI before the current uncommitted capability package; current local results are in task_continuity

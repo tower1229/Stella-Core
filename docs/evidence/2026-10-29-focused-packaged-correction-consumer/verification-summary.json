@@ -1,0 +1,475 @@
+{
+  "schemaVersion": "stella.focused-packaged-correction-consumer-summary/v1",
+  "recordedAt": "2026-10-29T03:49:03.543066+00:00",
+  "status": "passed_scoped_focused_offline_independent_review_complete",
+  "baselineCommit": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+  "scope": "fixed-commit production tgz, fake Host registration, synthetic Git and structured local responses",
+  "artifact": {
+    "sha256": "345c5ae5539a6d147d4605b673bb8371ee2ccc84abb36ebaf742661ede40dbb1",
+    "files": 510,
+    "buildIdentity": {
+      "coreRevision": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+      "sourceClean": true
+    },
+    "unpackMethod": "safe local tgz extraction into consumer node_modules; not npm ci or a fresh dependency installation"
+  },
+  "provisioning": {
+    "emptyConsumerDirectory": true,
+    "productionInstall": "safe tgz extraction under node_modules/@tower1229/stella-core",
+    "packageManagerInstallTested": false,
+    "freshDependencyInstallTested": false,
+    "dependencies": {
+      "method": "copied existing runtime dependency closure; explicit existing SDK peer",
+      "versions": {
+        "ajv": "8.20.0",
+        "fast-deep-equal": "3.1.3",
+        "fast-uri": "3.1.6",
+        "json-schema-traverse": "1.0.0",
+        "require-from-string": "2.0.2",
+        "semver": "7.8.5",
+        "typebox": "1.3.16",
+        "yaml": "2.9.1"
+      },
+      "copies": {
+        "ajv": {
+          "donor": "existing_workspace_dependency",
+          "version": "8.20.0",
+          "files": 466,
+          "manifestSha256": "186fc434ba065979525579e8ae0a142214098ccb3fe9f8b7ed48cde6cc77dd9d",
+          "packageSha256": "1f9033ee5a6515e7d76938b7072941862d1ed228a6879cc7fe10cdeb75107989"
+        },
+        "fast-deep-equal": {
+          "donor": "existing_workspace_dependency",
+          "version": "3.1.3",
+          "files": 11,
+          "manifestSha256": "804f051af7f34c816da0657047c2c0e1ea055db4d56c8082e157e87ae6dbcb5c",
+          "packageSha256": "a5c63940db0260739be9e2ac67f3aac268df4db5770420ee4e34e493152f97d2"
+        },
+        "fast-uri": {
+          "donor": "existing_workspace_dependency",
+          "version": "3.1.6",
+          "files": 44,
+          "manifestSha256": "3c7e2fdb94c301a52dcdc3f1f955e137c16d6fc40acac9e21ed2dd6fc1aa7626",
+          "packageSha256": "d62cb9be0a111b42131b264efe1fee4638a5f643ff25fe0bc3627675a9b92a8b"
+        },
+        "json-schema-traverse": {
+          "donor": "existing_workspace_dependency",
+          "version": "1.0.0",
+          "files": 12,
+          "manifestSha256": "a5044c188ded1fecdd563e3752d344612b5bf326f8ef440a2249c30bea9b5330",
+          "packageSha256": "156fb24af02845c190701360d06dfda35ef04282e34a734289ea9535ad9819ae"
+        },
+        "require-from-string": {
+          "donor": "existing_workspace_dependency",
+          "version": "2.0.2",
+          "files": 4,
+          "manifestSha256": "897c63b7b1fe45c9b00b6b97b22dbf4156f3bed758a13e7820e752f52e0acd2f",
+          "packageSha256": "c0002f7d4c7d7e2a885cf0f97226344902417c3a0980f2beca41962d2bc1f6d8"
+        },
+        "semver": {
+          "donor": "existing_workspace_dependency",
+          "version": "7.8.5",
+          "files": 53,
+          "manifestSha256": "f7cc457c70101356003f96641535276766d497c3a47bff4921184d03954cc198",
+          "packageSha256": "7c94cb7f2a53c27b20d76386ec144c062894dbcc909cfabd0f728c37874b1776"
+        },
+        "typebox": {
+          "donor": "existing_workspace_dependency",
+          "version": "1.3.16",
+          "files": 1379,
+          "manifestSha256": "d278c4172805556e89c103dc2e702eeb69e524eb1ad5e19d8b012f4e70779c3a",
+          "packageSha256": "88cc8c19f9c8a6c49d45e420a502fb58b54a29e64491f76b9a39c0dce3b82646"
+        },
+        "yaml": {
+          "donor": "explicit_existing_sdk_dependency",
+          "version": "2.9.1",
+          "files": 233,
+          "manifestSha256": "e5bed832a42182d072da55bbe6bc0f5482ab08650e2e00c117d7ecac5bf92b09",
+          "packageSha256": "1c6441703d8204a23ded0d37ddf57c3b69d821dc392f20852d1f605bb9b8861c"
+        }
+      },
+      "sdkVersion": "2026.10.8",
+      "sdkPackageSha256": "9be09f47e73b05da1736aaeab337b4c0cfe35921bcc5b7a185a44b9fe70d2acc"
+    },
+    "explicitSelection": [
+      {
+        "name": "yaml",
+        "rejectedWorkspaceVersion": "2.9.0",
+        "requiredVersion": "2.9.1"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "group": "artifact",
+      "passed": true,
+      "entry": "node_modules/@tower1229/stella-core/dist/src/plugin.js",
+      "artifactFiles": 510,
+      "sdkVersion": "2026.10.8",
+      "workspaceModuleFallbacks": 0
+    },
+    {
+      "group": "registered_correction",
+      "passed": true,
+      "archiveCommits": 1,
+      "correctionCommits": 1,
+      "operationId": "learn_e3048ccb6d5599331de4472b63ab40a82ed62499b6fe2cfdd3acf9006567ffa2",
+      "receiptRevision": "a48614ed0dbceb13aa5077d7ac24d72fa9267a5c",
+      "exactTarget": {
+        "group": "works",
+        "ref": {
+          "id": "synthetic-writing-work",
+          "version": "sha256:25afec490d06d50c0962c7207afe487ad5e07f0455fdd7cd7a55283fcbf47ef7"
+        }
+      },
+      "retryCorrectionInferenceCalls": 0,
+      "retryCommits": 0,
+      "configWrites": 0
+    },
+    {
+      "group": "permission",
+      "case": "missing",
+      "passed": true,
+      "protectedPayloadReads": 0,
+      "documentsReturned": 0,
+      "businessCommits": 0
+    },
+    {
+      "group": "permission",
+      "case": "changed",
+      "passed": true,
+      "protectedPayloadReads": 0,
+      "documentsReturned": 0,
+      "businessCommits": 0
+    }
+  ],
+  "totals": {
+    "topLevelGroups": 5,
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "includesOriginalFive": true,
+    "countsAreNotAdditiveWithHistoricalRuns": true
+  },
+  "moduleResolutionAudit": {
+    "resolvedFiles": 5734,
+    "coreProductionModules": 133,
+    "workspaceOrBuildModuleFallbacks": 0,
+    "denied": [],
+    "fullRelativeModuleListSha256": "ce200f0968998f5aabe1dfb94171cda99c623150775ca78092ecbab5efe30f65",
+    "requiredPaths": [
+      "node_modules/@tower1229/stella-core/dist/src/plugin.js",
+      "node_modules/@tower1229/stella-core/dist/src/openclaw/checkpoint-correction-readback.js",
+      "node_modules/@tower1229/stella-core/dist/src/canghai/authorized-exact-readback.js"
+    ],
+    "scope": "consumer main-process resolver after audit registration; SDK peer is an explicit external installed public dependency",
+    "moduleListHashSerialization": "UTF-8 compact JSON array, in observed resolution order",
+    "isolatedSymlinkGuard": {
+      "status": "passed",
+      "esmDeniedBeforeExecution": true,
+      "cjsDeniedBeforeExecution": true
+    }
+  },
+  "fixtureAdapters": {
+    "consciousness-fixture": {
+      "originalSha256": "631eb16aac1fa406ff4d6bc253d96f4dbdf8210f8c765aad25e820bd886fb00a",
+      "adaptedHarnessSha256": "9d57884d2c8a908008699523fc326139a85098509901d60e15a84dc6a03e6a03",
+      "productionImports": "installed package only"
+    },
+    "checkpoint-agent-supply-fixture": {
+      "originalSha256": "dde3597fd37ad8b60b639ecb1f1d217809108b0a9d705920b5986f6255d2983e",
+      "adaptedHarnessSha256": "15364388bb6c73d50dc6c780d5b7ea299292abd74a4a9c04e05276fe0ba0eb04",
+      "productionImports": "installed package only"
+    },
+    "checkpoint-work-fixture": {
+      "originalSha256": "001a1b7400d29f04defb5415ecf9a37cc41a88182e2fba4e280ba89733f012e3",
+      "adaptedHarnessSha256": "fa88eab85a461b155c6583e1bbce95781b78490e2093de2a4f29f22f380860d4",
+      "productionImports": "installed package only"
+    },
+    "checkpoint-agent-correction-supply.test": {
+      "originalSha256": "d80cdb379b407315be1ea77954b53b3f2463e7064f430e07c26aa03bd723ed50",
+      "adaptedHarnessSha256": "71f10c27fb21e92efd458139cad77346d052debe09d2463f06f588bf8ed25f70",
+      "productionImports": "installed package only"
+    }
+  },
+  "fixtureBoundary": "only synthetic test helpers transpiled from fixed commit and rewritten to import installed production package; no .test-dist or working-tree production modules; primary registration calls installed package default.register",
+  "checks": {
+    "buildExit": 0,
+    "packExit": 0,
+    "consumerExit": 0,
+    "scriptSyntaxChecks": 0,
+    "diffCheck": 0,
+    "sourceTypecheckExit": 0,
+    "stateYamlAndScriptHashCheck": "passed",
+    "sourceTypecheckHistoricalExit": 0,
+    "sourceTypecheckRun": {
+      "command": "node node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "cleanup": {
+    "childExitCode": 0,
+    "groupConfirmedGone": true,
+    "groupGoneIndependentlyChecked": true,
+    "ownedWorkStatus": "complete",
+    "ownedWorkPending": 0,
+    "supervisorRoot": "removed",
+    "supervisorRootAbsentChecked": true,
+    "runtime": "owned runtime removed after child completion",
+    "ownedRuntimePrefixRemaining": 0
+  },
+  "rawEvidenceSha256": {
+    "RESULT.json": "710279fbaf26c576ac45a512ce805ff78f18401ffc904756c26d9661af3bdeed",
+    "consumer-result.json": "b8196d5d25a1365262769db1c553e0510a7d91feb739ae694b9b86271c79f5d0",
+    "consumer.stdout": "466ab130d2acda7e4d8d7e7f5289c21b66af70547511911ea7052ee391c9719a",
+    "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build.log": "247717a28272f910a74b0f1f7cc1bfb6495da4ff7f14dece8f45b12eb79cdce6",
+    "pack.log": "7ea0025730855664b75e8709a29ccd953203095079ed1f0dab83bbb1a56ae72d",
+    "safe-unpack.log": "2a13af67601624cb4924e88c89583b6d14c362a01c585716097d241c0a47bd61",
+    "typecheck.json": "f1e5ae7efadd42e2e61b9d4b464e3d731073e13a6c497dd4f02d3eee276562aa",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "harnessHistory": [
+    {
+      "attempt": 1,
+      "resultSha256": "713b72ab565acca24d5b30a04b2f2462d427bc364901a7f1bf850115fc67021a",
+      "status": "failed_focused_consumer_offline",
+      "reason": "top-level build-only node_modules symlink was not ignored by Git; clean build check refused",
+      "consumerGroupsRun": false,
+      "cleanup": "owned runtime removed after child completion"
+    },
+    {
+      "attempt": 2,
+      "resultSha256": "ac113a67e833e1f1830890f0989ead14dc3d1583cb7ab66c45090a5e9181c04b",
+      "status": "failed_focused_consumer_offline",
+      "reason": "npm refused double-loading /dev/null as user and global config; distinct empty configs now used",
+      "consumerGroupsRun": false,
+      "cleanup": "retained: process group stop not confirmed",
+      "cleanupFollowup": {
+        "sha256": "4459c0ce5e34a41a92cf88f65755993f6f938159c5acf8b2a0f1a4bcc793f8e0",
+        "ownedRuntimeRemoved": true
+      }
+    },
+    {
+      "attempt": 3,
+      "resultSha256": "11ae3c1c552d881bc1716d2c97f5334a826eefba7da4fd2c50a6c2c5afdc88e4",
+      "status": "failed_focused_consumer_offline",
+      "reason": "system Python tar extraction API lacked filter argument; validated regular-file extraction now used",
+      "consumerGroupsRun": false,
+      "cleanup": "owned runtime removed after child completion"
+    },
+    {
+      "attempt": 4,
+      "resultSha256": "82d4995e79b2b655ac45e2dd27c80db1d0458d99178a7e6cc6b47ea4dbc89d06",
+      "status": "failed_focused_consumer_offline",
+      "reason": "existing workspace yaml 2.9.0 differed from fixed lock 2.9.1; selected exact existing SDK dependency 2.9.1 without changing lock or downloading",
+      "consumerGroupsRun": false,
+      "cleanup": "owned runtime removed after child completion"
+    }
+  ],
+  "notAccepted": [
+    "full formal package acceptance, existing 26 CI failures remain separate",
+    "real Host dispatch/identity or discovery, Google/Gemini semantics, profile/Chrome or full_memory",
+    "fresh npm/runtime/SDK installation",
+    "SDK drain; active-leases warnings remain despite process-end cleanup",
+    "source environment consistency: workspace yaml 2.9.0 is not fixed lock 2.9.1; no dependency installation performed"
+  ],
+  "sideEffects": {
+    "productionCodeChanged": false,
+    "hostConfigSlotOrRealGrantChanged": false,
+    "credentialsCreated": false,
+    "realModelOrAccountCalls": 0,
+    "pushed": false
+  },
+  "verificationScriptSha256": {
+    "scripts/focused-correction-consumer.mjs": "c72e291aafbd520e1626d4faeb9bfc55f75ae70851a75e3611adf052fb1a1ea9",
+    "scripts/lib/focused-correction-consumer-probe.mjs": "815a7950fe1e575b8dc5c7f39228dec60362c5a603993835670574de1dd33fcb"
+  },
+  "runtimeTools": {
+    "node": "24.22.1",
+    "typescript": "5.9.3"
+  },
+  "additionalChecks": {
+    "failedReadRetry": {
+      "status": "passed",
+      "failedReadCategory": "source_topic_unresolved",
+      "deniedRetryCategory": "personal_context_access_changed",
+      "deniedRetryPayloadReads": 0,
+      "deniedRetryDocuments": 0,
+      "missingPermitPayloadReads": 0,
+      "totalCommits": 2,
+      "retryCommits": 0,
+      "retryCorrectionInferenceCalls": 0,
+      "exactReceipt": true
+    },
+    "symlinkAudit": {
+      "status": "passed",
+      "esmDeniedBeforeExecution": true,
+      "cjsDeniedBeforeExecution": true
+    }
+  },
+  "historicalInitialFive": {
+    "classification": "historical initial frozen candidate; P2 failed-read coverage absent, five actual tests passed",
+    "file": "verification-initial-5.json",
+    "sha256": "d3e7181b901b68d9c1db3f5c9f49ac0ac4b44c47a411d754fb3d4265e6a44f9d",
+    "tests": 5,
+    "rawEvidenceSha256": {
+      "RESULT.json": "143eba39d11734c4e1101995e4c994a8942661eac10a2ad90ebc025f22031a50",
+      "consumer-result.json": "4680b9fffd89f337162d5cdf9e77dc9e483c4155e884fa07f2d98230763e615e",
+      "consumer.stdout": "93d7b0bfa1f0843f9393b8bb289da0a4cee5bb97bd5f72981b528b920879caae",
+      "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "build.log": "247717a28272f910a74b0f1f7cc1bfb6495da4ff7f14dece8f45b12eb79cdce6",
+      "pack.log": "7ea0025730855664b75e8709a29ccd953203095079ed1f0dab83bbb1a56ae72d",
+      "safe-unpack.log": "2a13af67601624cb4924e88c89583b6d14c362a01c585716097d241c0a47bd61",
+      "source-typecheck-final.json": "b3423d214d977aa387fe2fd9968432040832fd3715464a4a96d802668547aba2"
+    },
+    "originalVerificationScriptSha256": {
+      "scripts/focused-correction-consumer.mjs": "9ae0be03041a78c6793a856b2784f15211c93d8bac294c169b11588acf9f4ce4",
+      "scripts/lib/focused-correction-consumer-probe.mjs": "697a2b2b69e72064b083504b77091cc474bafca6d2263b6a0480dadc0a43a658"
+    }
+  },
+  "independentReviewBeforeThisRevision": {
+    "decision": "changes_requested_verification_coverage_only",
+    "productionDefectsFound": 0,
+    "finding": {
+      "priority": "P2",
+      "file": "scripts/lib/focused-correction-consumer-probe.mjs",
+      "line": 44,
+      "reason": "Frozen probe only retries successful readback. It never sets control.denyReadback or observes readback_failed, so packaged committed-read-failure retry is not reproducible from these checked-in candidate scripts. Reviewer supplemental probe confirms behavior but is not part of the frozen candidate.",
+      "requestedChange": "Add failed-read retry case to repository probe and refresh evidence/state; keep prior R1 historical evidence separately labelled."
+    },
+    "reportSha256": "88d5362aad2422d9c6ff2b648dfa210554b9f41728eead7ebc9e800453c15b5c",
+    "summarySha256": "9b18c95d95168abfdc3ff838b20956a1099bb409b0f69a1bec62446f3080b1e5",
+    "supplementalProbeSha256": "90a3db85531478a17db9a23eb298b308a82397521eb373996efc9f72ba7e04f8",
+    "runs": {
+      "original-rerun": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "exitCode": 0,
+        "sourceClean": true,
+        "tgzSha256": "345c5ae5539a6d147d4605b673bb8371ee2ccc84abb36ebaf742661ede40dbb1",
+        "tgzMatchesAuthor": true,
+        "moduleFiles": 5734,
+        "coreProductionModules": 133,
+        "moduleAuditDenials": [],
+        "processGroupGoneChecked": true,
+        "supervisorRootAbsent": true,
+        "runtimeCleanup": "owned runtime removed after child completion",
+        "dependencySelection": [
+          {
+            "name": "yaml",
+            "rejectedWorkspaceVersion": "2.9.0",
+            "requiredVersion": "2.9.1"
+          }
+        ],
+        "independentReview": null,
+        "hashes": {
+          "RESULT.json": "5f3dbd54fd5aa3e8f4552f07042e56cae9992f0ebd7d66df65f460b779e4aa9b",
+          "consumer-result.json": "624937e042d7585eb97e5f14a20ccb4c8e5002857cb2fdbb50da7761902cdb56",
+          "consumer.stdout": "bf40e1639f83cd8b429c11511fbe3b3bc47c6c9887aade41caff8a27fe992880",
+          "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "supplemental-rerun": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "exitCode": 0,
+        "sourceClean": true,
+        "tgzSha256": "345c5ae5539a6d147d4605b673bb8371ee2ccc84abb36ebaf742661ede40dbb1",
+        "tgzMatchesAuthor": true,
+        "moduleFiles": 5734,
+        "coreProductionModules": 133,
+        "moduleAuditDenials": [],
+        "processGroupGoneChecked": true,
+        "supervisorRootAbsent": true,
+        "runtimeCleanup": "owned runtime removed after child completion",
+        "dependencySelection": [
+          {
+            "name": "yaml",
+            "rejectedWorkspaceVersion": "2.9.0",
+            "requiredVersion": "2.9.1"
+          }
+        ],
+        "independentReview": {
+          "failedReadRetry": {
+            "status": "passed",
+            "failedReadCategory": "source_topic_unresolved",
+            "deniedRetryCategory": "personal_context_access_changed",
+            "deniedRetryPayloadReads": 0,
+            "deniedRetryDocuments": 0,
+            "missingPermitPayloadReads": 0,
+            "totalCommits": 2,
+            "retryCommits": 0,
+            "retryCorrectionInferenceCalls": 0,
+            "exactReceipt": true
+          },
+          "symlinkAudit": {
+            "status": "passed",
+            "esmDeniedBeforeExecution": true,
+            "cjsDeniedBeforeExecution": true
+          }
+        },
+        "hashes": {
+          "RESULT.json": "0ffe90ca21e999cfd233a7725e58bf63cb39667622d56625554eae047a5149bd",
+          "consumer-result.json": "f1a568e02864199ed17c0d1c47a18e70fed742df93b0cd960d1d8fc31bc04a85",
+          "consumer.stdout": "31bf1f12a4ffa50ff2d30c2c790f34cf382871256cb8e43716934415b9004841",
+          "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    "candidateP2Fix": "Two supplemental probes incorporated into formal repository probe; fresh seven-test author run recorded above; independent recheck pending"
+  },
+  "yamlProvenance": {
+    "fixedLock": "2.9.1",
+    "workspaceRejected": "2.9.0",
+    "selected": "existing explicit OpenClaw SDK node_modules/yaml 2.9.1",
+    "donorTreeManifestSha256": "e5bed832a42182d072da55bbe6bc0f5482ab08650e2e00c117d7ecac5bf92b09",
+    "integrityScope": "existing donor tree equals copied tree; metadata version equals fixed lock; no registry tarball integrity/fresh installation claimed",
+    "fixedSourceCommit": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+    "fixedLockSha256": "ea0f176ae49d58925336d1bcd831d5ba41b1148d3b8610399e1bc4662c227cc3",
+    "actualConsumerCorePackageJsonSha256": "61c0e6b93e184fa7ce97d0e17fedef7f0e6a13de2d8a3033e7fc0cb6d652c04f",
+    "workspaceYamlPackageJsonSha256": "20b8b197cbd10dad245d45e463dfe58e4c8c25a47e24bc4256ad9ab58bf35683",
+    "selectedYamlPackageJsonSha256": "1c6441703d8204a23ded0d37ddf57c3b69d821dc392f20852d1f605bb9b8861c",
+    "narrativeCorrection": "Early informal version-direction descriptions were reversed. Fixed lock is 2.9.1; existing workspace is 2.9.0 and was refused; existing explicit SDK supplies 2.9.1. Original failed evidence is unchanged."
+  },
+  "remoteObservation": {
+    "localHead": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+    "freshRemoteRead": true,
+    "remoteCommit": "5fe9a9f5420264cd05e3f70f9f9a671d018040f5",
+    "observedAt": "2026-10-29T03:49:03.543066+00:00",
+    "method": "git ls-remote via approved permission channel; prior denied read retained in historical independent review",
+    "scope": "publication preflight; does not imply push or service verification"
+  },
+  "independentReview": {
+    "decision": "passed_scoped_focused_offline_ready_for_commit",
+    "p2Closed": true,
+    "tests": {
+      "topLevelGroups": 5,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "includesOriginalFive": true,
+      "notAdditiveWithHistoricalRuns": true
+    },
+    "authorRunCount": 7,
+    "independentRunCount": 7,
+    "notFourteenDistinctTests": true,
+    "archive": "independent-review.json",
+    "archiveSha256": "f4f4c66b7603ae10b2d8d11f7b6aa9b301c1098d30ccde95fdc9158160545060",
+    "sourceReportSha256": "05ad573594a209ba7008fb5d987047853280f06a823aa6a93b1e1041beec61e0",
+    "sourceSummarySha256": "b5175484af8b0e93d7e6cf981cca04be7ffb331a0dbb2f3f5a36bfa765e0e66f"
+  }
+}
