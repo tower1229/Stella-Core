@@ -1,0 +1,422 @@
+{
+  "schemaVersion": "stella.packaged-segmented-correction-consumer/v1",
+  "recordedAt": "2026-10-29T05:57:35.374921+00:00",
+  "status": "focused_offline_passed_independently_reviewed",
+  "sourceCommit": "8aef5f96563f917a616b4c046746b91f81318647",
+  "sourceCheckout": {
+    "revision": "8aef5f96563f917a616b4c046746b91f81318647",
+    "detached": true
+  },
+  "artifact": {
+    "sha256": "aa7f7b4b4fa4a2743fb8604471b0fa804aa0df1624a2d5802b0fb2c69b18435a",
+    "files": 510,
+    "buildIdentity": {
+      "coreRevision": "8aef5f96563f917a616b4c046746b91f81318647",
+      "sourceClean": true
+    },
+    "unpackMethod": "safe local tgz extraction into consumer node_modules; not npm ci or a fresh dependency installation"
+  },
+  "scope": "actual fixed production tgz default.register(fake API), separate allowed parent/fragment A and denied B, synthetic Git/fixed local structured responses",
+  "totals": {
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "topLevelCases": 8,
+    "retainedCases": 9,
+    "addedCases": 1,
+    "authorRunOnly": true,
+    "notAddedToHistoricalCounts": true
+  },
+  "segmentedCorrection": {
+    "status": "passed",
+    "operationId": "learn_e3048ccb6d5599331de4472b63ab40a82ed62499b6fe2cfdd3acf9006567ffa2",
+    "receiptRevision": "61ae42e3e2ca6a97f926cc03842eef76a4db83bd",
+    "exactTarget": {
+      "group": "works",
+      "ref": {
+        "id": "synthetic-writing-work",
+        "version": "sha256:842e461871081f11bee866ec0d61a4f56a49dcf2f7da0a5d63b6160fc7d74999"
+      }
+    },
+    "documents": 1,
+    "separateParentAndFragmentPolicies": true,
+    "workEvidenceOnlyA": true,
+    "measurementWindow": "after fixture construction, before begin, through admitted archive, correction, readback and new-permit retry",
+    "deniedBPayloadReads": 0,
+    "allowedAPayloadReads": 36,
+    "ownerInputPayloadReads": 28,
+    "ownerInputSourceCount": 1,
+    "archiveCommits": 1,
+    "correctionCommits": 1,
+    "retryCommits": 0,
+    "retryCorrectionInferenceCalls": 0,
+    "patchedModules": [
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/praxis/personal-views.js",
+        "sha256": "6c708545bab0fefe3617c1573e5b07145bc0cc663da5c0f262070d348171793b"
+      },
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/openclaw/checkpoint-source-access.js",
+        "sha256": "43995f60f7497f6c69e842853ad202ce9c3379bef355dfa1867ce72f00c457ca"
+      },
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/openclaw/checkpoint-agent-supply.js",
+        "sha256": "b58c9ea328026d8729b20c9a6864f3cc80d5012f55ccf404a005da052a2eccbc"
+      }
+    ],
+    "configWrites": 0,
+    "realModelCalls": 0
+  },
+  "retainedChecks": {
+    "groups": [
+      {
+        "group": "artifact",
+        "passed": true,
+        "entry": "node_modules/@tower1229/stella-core/dist/src/plugin.js",
+        "artifactFiles": 510,
+        "sdkVersion": "2026.10.8",
+        "workspaceModuleFallbacks": 0
+      },
+      {
+        "group": "registered_correction",
+        "passed": true,
+        "archiveCommits": 1,
+        "correctionCommits": 1,
+        "operationId": "learn_e3048ccb6d5599331de4472b63ab40a82ed62499b6fe2cfdd3acf9006567ffa2",
+        "receiptRevision": "961d2bbb0b0648b48c07c861889488caf2541034",
+        "exactTarget": {
+          "group": "works",
+          "ref": {
+            "id": "synthetic-writing-work",
+            "version": "sha256:a17f2e209fb1e95dca4f0b0080b6ace910a1c7cff8e1d8147052f65ee9324fb7"
+          }
+        },
+        "retryCorrectionInferenceCalls": 0,
+        "retryCommits": 0,
+        "configWrites": 0
+      },
+      {
+        "group": "permission",
+        "case": "missing",
+        "passed": true,
+        "protectedPayloadReads": 0,
+        "documentsReturned": 0,
+        "businessCommits": 0
+      },
+      {
+        "group": "permission",
+        "case": "changed",
+        "passed": true,
+        "protectedPayloadReads": 0,
+        "documentsReturned": 0,
+        "businessCommits": 0
+      }
+    ],
+    "additionalChecks": {
+      "failedReadRetry": {
+        "status": "passed",
+        "failedReadCategory": "source_topic_unresolved",
+        "deniedRetryCategory": "personal_context_access_changed",
+        "deniedRetryPayloadReads": 0,
+        "deniedRetryDocuments": 0,
+        "missingPermitPayloadReads": 0,
+        "totalCommits": 2,
+        "retryCommits": 0,
+        "retryCorrectionInferenceCalls": 0,
+        "exactReceipt": true
+      },
+      "symlinkAudit": {
+        "status": "passed",
+        "esmDeniedBeforeExecution": true,
+        "cjsDeniedBeforeExecution": true
+      }
+    },
+    "requestFreshness": {
+      "status": "passed",
+      "receiptRevision": "46829541bb40eed7d8120572f487a30ab19021ce",
+      "correctedRun": "synthetic-correction-supply-run",
+      "requests": [
+        {
+          "sameProcessReregistered": false,
+          "runId": "synthetic-correction-supply-run-next",
+          "userRequest": "synthetic-correction-supply-run-next",
+          "checkpointRevision": "cb87ad6e039febbac5cbfb36748f54261182d617",
+          "exactTarget": {
+            "id": "synthetic-writing-work",
+            "version": "sha256:1d35a38788200914757eb5e56b2184275bcee37bda149281951c6ee3b0b1faab"
+          },
+          "sourceAccessDecisions": 1,
+          "currentInputHash": "sha256:bff6fe99e6636161fc761c76009dfe61ea87f7e353704a5a44c38bb0812ba09b",
+          "oldPermitRefused": true,
+          "correctionInferenceCalls": 0,
+          "businessCommits": 0
+        },
+        {
+          "sameProcessReregistered": true,
+          "runId": "synthetic-correction-supply-run-next-next",
+          "userRequest": "synthetic-correction-supply-run-next-next",
+          "checkpointRevision": "d70df3d7a4c19aea5e1006d979e5bff506f9f9f2",
+          "exactTarget": {
+            "id": "synthetic-writing-work",
+            "version": "sha256:1d35a38788200914757eb5e56b2184275bcee37bda149281951c6ee3b0b1faab"
+          },
+          "sourceAccessDecisions": 1,
+          "currentInputHash": "sha256:bff6fe99e6636161fc761c76009dfe61ea87f7e353704a5a44c38bb0812ba09b",
+          "oldPermitRefused": true,
+          "correctionInferenceCalls": 0,
+          "businessCommits": 0
+        }
+      ],
+      "archiveCommits": 3,
+      "correctionCommits": 1,
+      "candidateCounterevidenceAndOpenFieldsPreserved": true,
+      "crossProcessRecoveryTested": false
+    },
+    "reducedPermissionFreshness": {
+      "status": "passed",
+      "newRun": "synthetic-correction-supply-run-next",
+      "checkpointRevision": "0dfed995fccab10e3f0065cadfa4363be1e3e254",
+      "errorCategory": "personal_context_descriptor_required",
+      "protectedPayloadReads": 0,
+      "documentsReturned": 0,
+      "ownerInputPayloadReads": 1,
+      "measurementWindow": "after new request admission, through memory call and refused old permit",
+      "oldPermitRefused": true,
+      "archiveCommits": 2,
+      "correctionCommits": 1,
+      "explicitSyntheticPermissionReductionCommits": 1,
+      "retryCommits": 0,
+      "correctionInferenceCallsAfterAdmission": 0,
+      "sameProcessReregistered": true,
+      "crossProcessRecoveryTested": false
+    }
+  },
+  "moduleAudit": {
+    "resolvedFiles": 5734,
+    "coreProductionModules": 133,
+    "denied": [],
+    "relativeModuleListSha256": "ce200f0968998f5aabe1dfb94171cda99c623150775ca78092ecbab5efe30f65",
+    "patchedModules": [
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/praxis/personal-views.js",
+        "sha256": "6c708545bab0fefe3617c1573e5b07145bc0cc663da5c0f262070d348171793b"
+      },
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/openclaw/checkpoint-source-access.js",
+        "sha256": "43995f60f7497f6c69e842853ad202ce9c3379bef355dfa1867ce72f00c457ca"
+      },
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/openclaw/checkpoint-agent-supply.js",
+        "sha256": "b58c9ea328026d8729b20c9a6864f3cc80d5012f55ccf404a005da052a2eccbc"
+      }
+    ],
+    "workspaceOrTestDistProductionFallbacks": 0
+  },
+  "fixtureAdapters": {
+    "consciousness-fixture": {
+      "originalSha256": "631eb16aac1fa406ff4d6bc253d96f4dbdf8210f8c765aad25e820bd886fb00a",
+      "adaptedHarnessSha256": "9d57884d2c8a908008699523fc326139a85098509901d60e15a84dc6a03e6a03",
+      "productionImports": "installed package only"
+    },
+    "checkpoint-agent-supply-fixture": {
+      "originalSha256": "dde3597fd37ad8b60b639ecb1f1d217809108b0a9d705920b5986f6255d2983e",
+      "adaptedHarnessSha256": "15364388bb6c73d50dc6c780d5b7ea299292abd74a4a9c04e05276fe0ba0eb04",
+      "productionImports": "installed package only"
+    },
+    "checkpoint-work-fixture": {
+      "originalSha256": "e43978d5229132174a651d805baf85450497d94616562c4a457d2eb62036d77b",
+      "adaptedHarnessSha256": "d0973a3fa0b67d268155e64800d8ed752aced2b11fa6ec134bca9659e3510a27",
+      "productionImports": "installed package only"
+    },
+    "checkpoint-agent-correction-supply.test": {
+      "originalSha256": "8cc41c1f007a215f00bc361628db3b9f4d4fc956beabd59acd2c2d24a0ffd3d1",
+      "adaptedHarnessSha256": "619eb668c1712463bb418c6601094f2731e0ecf1194b4fbdff95f4903351df91",
+      "productionImports": "installed package only"
+    }
+  },
+  "provisioning": {
+    "freshInstall": false,
+    "dependencies": {
+      "method": "copied existing runtime dependency closure; explicit existing SDK peer",
+      "versions": {
+        "ajv": "8.20.0",
+        "fast-deep-equal": "3.1.3",
+        "fast-uri": "3.1.6",
+        "json-schema-traverse": "1.0.0",
+        "require-from-string": "2.0.2",
+        "semver": "7.8.5",
+        "typebox": "1.3.16",
+        "yaml": "2.9.1"
+      },
+      "copies": {
+        "ajv": {
+          "donor": "existing_workspace_dependency",
+          "version": "8.20.0",
+          "files": 466,
+          "manifestSha256": "186fc434ba065979525579e8ae0a142214098ccb3fe9f8b7ed48cde6cc77dd9d",
+          "packageSha256": "1f9033ee5a6515e7d76938b7072941862d1ed228a6879cc7fe10cdeb75107989"
+        },
+        "fast-deep-equal": {
+          "donor": "existing_workspace_dependency",
+          "version": "3.1.3",
+          "files": 11,
+          "manifestSha256": "804f051af7f34c816da0657047c2c0e1ea055db4d56c8082e157e87ae6dbcb5c",
+          "packageSha256": "a5c63940db0260739be9e2ac67f3aac268df4db5770420ee4e34e493152f97d2"
+        },
+        "fast-uri": {
+          "donor": "existing_workspace_dependency",
+          "version": "3.1.6",
+          "files": 44,
+          "manifestSha256": "3c7e2fdb94c301a52dcdc3f1f955e137c16d6fc40acac9e21ed2dd6fc1aa7626",
+          "packageSha256": "d62cb9be0a111b42131b264efe1fee4638a5f643ff25fe0bc3627675a9b92a8b"
+        },
+        "json-schema-traverse": {
+          "donor": "existing_workspace_dependency",
+          "version": "1.0.0",
+          "files": 12,
+          "manifestSha256": "a5044c188ded1fecdd563e3752d344612b5bf326f8ef440a2249c30bea9b5330",
+          "packageSha256": "156fb24af02845c190701360d06dfda35ef04282e34a734289ea9535ad9819ae"
+        },
+        "require-from-string": {
+          "donor": "existing_workspace_dependency",
+          "version": "2.0.2",
+          "files": 4,
+          "manifestSha256": "897c63b7b1fe45c9b00b6b97b22dbf4156f3bed758a13e7820e752f52e0acd2f",
+          "packageSha256": "c0002f7d4c7d7e2a885cf0f97226344902417c3a0980f2beca41962d2bc1f6d8"
+        },
+        "semver": {
+          "donor": "existing_workspace_dependency",
+          "version": "7.8.5",
+          "files": 53,
+          "manifestSha256": "f7cc457c70101356003f96641535276766d497c3a47bff4921184d03954cc198",
+          "packageSha256": "7c94cb7f2a53c27b20d76386ec144c062894dbcc909cfabd0f728c37874b1776"
+        },
+        "typebox": {
+          "donor": "existing_workspace_dependency",
+          "version": "1.3.16",
+          "files": 1379,
+          "manifestSha256": "d278c4172805556e89c103dc2e702eeb69e524eb1ad5e19d8b012f4e70779c3a",
+          "packageSha256": "88cc8c19f9c8a6c49d45e420a502fb58b54a29e64491f76b9a39c0dce3b82646"
+        },
+        "yaml": {
+          "donor": "explicit_existing_sdk_dependency",
+          "version": "2.9.1",
+          "files": 233,
+          "manifestSha256": "e5bed832a42182d072da55bbe6bc0f5482ab08650e2e00c117d7ecac5bf92b09",
+          "packageSha256": "1c6441703d8204a23ded0d37ddf57c3b69d821dc392f20852d1f605bb9b8861c"
+        }
+      },
+      "sdkVersion": "2026.10.8",
+      "sdkPackageSha256": "9be09f47e73b05da1736aaeab337b4c0cfe35921bcc5b7a185a44b9fe70d2acc"
+    },
+    "explicitSelection": [
+      {
+        "name": "yaml",
+        "rejectedWorkspaceVersion": "2.9.0",
+        "requiredVersion": "2.9.1"
+      }
+    ],
+    "fixedLockSha256": "ea0f176ae49d58925336d1bcd831d5ba41b1148d3b8610399e1bc4662c227cc3",
+    "scope": "empty consumer + safe tgz extraction + exact-lock copies of existing dependencies and explicit existing official SDK peer; no downloads or installation"
+  },
+  "checks": {
+    "buildExit": 0,
+    "packExit": 0,
+    "safeUnpackExit": 0,
+    "consumerExit": 0,
+    "scriptSyntaxExit": 0,
+    "typecheck": {
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diffCheck": 0,
+    "stateAndLinks": {
+      "status": "passed",
+      "readmeLocalLinks": 3,
+      "originalNineBodiesUnchanged": true,
+      "productionFixtureAndOldEvidenceUnchanged": true,
+      "fourUnrelatedUntrackedUnchanged": true,
+      "indexEmpty": true
+    }
+  },
+  "cleanup": {
+    "child": {
+      "exitCode": 0,
+      "signal": null,
+      "killed": false,
+      "closeObserved": true
+    },
+    "groupConfirmedGone": true,
+    "supervisorRootStatus": "removed",
+    "supervisorRootAbsentChecked": true,
+    "ownedWorkStatus": "complete",
+    "ownedWorkPending": 0,
+    "runtime": "owned runtime removed after child completion",
+    "sdkDrainClaimed": false,
+    "olderEpermSceneTouched": false,
+    "olderUnverifiedRuntime": "retained by prior scoped decision; no probe/kill/deletion this package"
+  },
+  "rawEvidenceSha256": {
+    "RESULT.json": "a404c58b92b2d4ce39fd5ce3ca8327198eda3b298ca7cc599f8bd751e1c7f0d4",
+    "consumer-result.json": "0fbe5457f7a7b1bca45af42bd7aa2f3f4ab4b59a7d8ce6e23b2e42e81da1947c",
+    "consumer.stdout": "4430fa780931bf067566b97b7629218dde9548c56891b304aad7d1ecd53864eb",
+    "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build.log": "247717a28272f910a74b0f1f7cc1bfb6495da4ff7f14dece8f45b12eb79cdce6",
+    "pack.log": "c24a7e9d44ccabac4ada4d1af4a7c8ffbd5201d7b9ec4e498997c05db48ebc01",
+    "safe-unpack.log": "2a13af67601624cb4924e88c89583b6d14c362a01c585716097d241c0a47bd61"
+  },
+  "typecheckEvidenceSha256": {
+    "typecheck.json": "4300f4d40c7b7584814679933d810d15adf7e83c3a9ab881f273776725a2fe84",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "verificationScriptSha256": {
+    "scripts/focused-correction-consumer.mjs": "75f8e6998c8593407a2ab912e1d5ba98ae6c0f7489fe513936def1619a453672",
+    "scripts/lib/focused-correction-consumer-probe.mjs": "7b127739c574af2a9fe015844cae5e8f58612272031dda29c69adb6d0a204438"
+  },
+  "history": {
+    "prior844NineCaseEvidence": "../2026-10-29-packaged-request-freshness/verification-summary.json",
+    "priorSourceFix141Evidence": "../2026-10-29-segmented-correction-readback-fix/verification-summary.json",
+    "priorEvidenceBytesUnchanged": true,
+    "prior844ArtifactDoesNotCoverThis8aefFix": true
+  },
+  "ioScope": "new case after fixture construction before begin through new-permit retry; application CatalogReader.readPayload attempts only, B0/A36/owner-input28 separately classified using actual LearningChange input Evidence owner policies; no all-I/O-zero/shared-file-byte-isolation claim",
+  "notAccepted": [
+    "real Host/Gateway/model or semantic acceptance",
+    "formal full consumer/probes/gate or full_memory",
+    "packaged segmented denial matrix or cross-process recovery",
+    "fresh npm installation or registry original tarball authenticity",
+    "SDK drain or cleanup of older EPERM runtime"
+  ],
+  "sideEffects": {
+    "productionOrFixtureChanged": false,
+    "mainConfigSlotRealGrantCredentialsChanged": false,
+    "realModelCalls": 0,
+    "oldEpermSceneTouched": false,
+    "committed": false,
+    "pushed": false
+  },
+  "independentReview": {
+    "status": "passed_scoped_packaged_segmented_consumer_ready_for_commit",
+    "evidence": "independent-review.json",
+    "sourceSummarySha256": "901661daa3e30bdebf9ffcebb8a98c9c15e2cfa6c0d6f9c4af1ad8e06c18f83c",
+    "sourceReportSha256": "c73967b1dceaf9ce6cd1771c358805a41b931d79015fc1c214ef5777b6ed35c9",
+    "tests": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "topLevelCases": 8,
+      "retainedCases": 9,
+      "addedCases": 1,
+      "authorAndIndependentNotAdditive": true
+    },
+    "authorAndIndependentAreSeparateRunsOfSameCases": true,
+    "notAdditiveWithHistoricalCounts": true,
+    "publicationMetadataUpdatedAt": "2026-10-29T06:21:38.585379+00:00"
+  }
+}

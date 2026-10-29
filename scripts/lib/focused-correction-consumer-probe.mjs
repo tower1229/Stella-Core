@@ -272,3 +272,68 @@ test('packaged re-registration reloads reduced synthetic descriptors before prot
     archiveCommits: 2, correctionCommits: 1, explicitSyntheticPermissionReductionCommits: 1, retryCommits: 0,
     correctionInferenceCallsAfterAdmission: 0, sameProcessReregistered: true, crossProcessRecoveryTested: false };
 });
+
+test('packaged segmented A-only correction reads its exact receipt without consuming denied B', { timeout: 120_000 }, async t => {
+  const f = await fixture(t, { segmented: true, segmentCase: 'separate-allowed' });
+  const segmented = f.source.segmented; assert.ok(segmented);
+  let allowedAPayloadReads = 0, deniedBPayloadReads = 0;
+  const otherReads = new Map(), payload = CatalogReader.prototype.readPayload;
+  // Start after fixture construction, before admission/archive, through retry.
+  t.mock.method(CatalogReader.prototype, 'readPayload', async function(...args) {
+    if (args[1] === segmented.deniedPayloadSha256) deniedBPayloadReads++;
+    else if (args[1] === segmented.allowedPayloadSha256) allowedAPayloadReads++;
+    else {
+      const key = canonicalJson(args[0]), previous = otherReads.get(key);
+      otherReads.set(key, { sourceRef: args[0], calls: (previous?.calls ?? 0) + 1 });
+    }
+    return payload.apply(this, args);
+  });
+  const fixtureReader = await CatalogReader.load(f.root, f.source.catalogPath);
+  const sourceRecord = await fixtureReader.read(segmented.sourceRef, 'sources');
+  const evidenceRecord = await fixtureReader.read(segmented.allowedEvidenceRef, 'evidence');
+  assert.equal(sourceRecord.schemaVersion, 'stella.memory-source/v2');
+  assert.notDeepEqual(sourceRecord.policyRef, evidenceRecord.policyRef);
+  await f.begin(); assert.equal(await f.git('rev-list', '--count', f.revision + '..HEAD'), '1');
+  const result = (await f.call(CORRECT, {})).details;
+  assert.equal(result.status, 'readback_verified'); assert.equal(result.correction.persistenceStatus, 'local_committed');
+  assert.equal(result.readback.documents.length, 1);
+  const doc = result.readback.documents[0], record = JSON.parse(doc.text);
+  assert.equal(doc.target.group, 'works'); assert.equal(record.goal, WORK_GOAL_B);
+  assert.equal(objectVersion(record), doc.target.ref.version); assert.deepEqual(record.sourceRefs, [segmented.sourceRef]);
+  for (const field of ['confirmedPremises', 'candidateIdeas', 'rejectedInterpretations', 'openQuestions']) {
+    assert.ok(record[field].length > 0);
+    for (const row of record[field]) assert.deepEqual(row.evidenceRefs, [segmented.allowedEvidenceRef]);
+  }
+  assert.doesNotMatch(doc.text, new RegExp(segmented.deniedMarker));
+  const reader = await CatalogReader.load(f.root, f.source.catalogPath), change = await reader.read(result.correction.changeRef, 'changes');
+  assert.equal(change.operationId, result.correction.operationId); assert.equal(change.disposition, 'update');
+  assert.deepEqual(change.targetRefs, [doc.target.ref]);
+  assert.equal(canonicalJson(await reader.read(doc.target.ref, 'works')), doc.text);
+  const ownerSources = new Set();
+  for (const ref of change.inputRefs) {
+    const evidence = await reader.read(ref, 'evidence'); assert.equal(evidence.role, 'owner'); assert.ok(validMemoryRef(evidence.source));
+    const source = await reader.read(evidence.source, 'sources'), policy = await reader.read(source.policyRef, 'policies');
+    assert.equal(policy.ownerId, 'owner-fixture'); assert.equal(policy.retention, 'retain');
+    assert.ok(policy.readPurposes.includes(f.source.binding.purpose.readPurpose)); ownerSources.add(canonicalJson(evidence.source));
+  }
+  const head = await f.git('rev-parse', 'HEAD'); assert.equal(head, result.currentMemory.checkpointRevision);
+  const inference = f.llmCalls.filter(call => call.purpose === 'stella-correction').length; assert.ok(inference > 0);
+  assert.deepEqual((await f.call(CORRECT, {})).details, result); // f.call obtains a new permit.
+  assert.equal(f.llmCalls.filter(call => call.purpose === 'stella-correction').length, inference);
+  assert.equal(await f.git('rev-parse', 'HEAD'), head); assert.equal(await f.git('rev-list', '--count', f.revision + '..HEAD'), '2');
+  assert.equal(await f.git('status', '--porcelain'), ''); assert.equal(f.counts().configWrites, 0);
+  for (const [key] of otherReads) assert.ok(ownerSources.has(key), 'other payload I/O must be an independently authorized owner input');
+  const ownerInputPayloadReads = [...otherReads.values()].reduce((sum, row) => sum + row.calls, 0);
+  assert.ok(ownerInputPayloadReads > 0); assert.ok(allowedAPayloadReads > 0); assert.equal(deniedBPayloadReads, 0);
+  const audit = globalThis[Symbol.for('stella.focused.consumer.audit')];
+  const patchedModules = ['dist/src/praxis/personal-views.js', 'dist/src/openclaw/checkpoint-source-access.js', 'dist/src/openclaw/checkpoint-agent-supply.js'].map(file => {
+    assert.ok(audit.files.includes(path.join(artifactRoot, file))); assert.ok(expected.artifactFiles[file]);
+    return { path: 'node_modules/@tower1229/stella-core/' + file, sha256: expected.artifactFiles[file] };
+  });
+  results.segmentedCorrection = { status: 'passed', operationId: result.correction.operationId, receiptRevision: head,
+    exactTarget: doc.target, documents: 1, separateParentAndFragmentPolicies: true, workEvidenceOnlyA: true,
+    measurementWindow: 'after fixture construction, before begin, through admitted archive, correction, readback and new-permit retry',
+    deniedBPayloadReads, allowedAPayloadReads, ownerInputPayloadReads, ownerInputSourceCount: ownerSources.size,
+    archiveCommits: 1, correctionCommits: 1, retryCommits: 0, retryCorrectionInferenceCalls: 0,
+    patchedModules, configWrites: f.counts().configWrites, realModelCalls: 0 };
+});

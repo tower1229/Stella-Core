@@ -82,6 +82,8 @@ try {
   await command('clone-fixed-source', 'git', ['clone', '--quiet', '--local', '--no-hardlinks', '--no-checkout', repo, source], run);
   await command('checkout-fixed-source', 'git', ['checkout', '--quiet', '--detach', revision], source);
   assert.equal((await exec('git', ['rev-parse', 'HEAD'], { cwd: source, env })).stdout.trim(), revision);
+  assert.equal((await exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: source, env })).stdout.trim(), 'HEAD');
+  evidence.sourceCheckout = { revision, detached: true };
   // A real ignored node_modules directory, with build-only bindings. A symlink
   // at the directory itself is not ignored by Git's node_modules/ rule.
   await mkdir(path.join(source, 'node_modules'));
@@ -165,6 +167,7 @@ registerHooks({resolve(specifier,context,next){const r=next(specifier,context);i
   assert.equal(observed.additionalChecks?.symlinkAudit?.status, 'passed');
   assert.equal(observed.requestFreshness?.status, 'passed');
   assert.equal(observed.reducedPermissionFreshness?.status, 'passed');
+  assert.equal(observed.segmentedCorrection?.status, 'passed');
   evidence.status = 'passed_focused_consumer_offline';
 } catch (error) {
   failure = error; evidence.status = 'failed_focused_consumer_offline'; evidence.error = { code: error.code ?? null, message: error.message };

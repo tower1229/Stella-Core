@@ -90,6 +90,7 @@ implementation_evidence:
   request_freshness_evidence: docs/evidence/2026-10-29-packaged-request-freshness/verification-summary.json
   segmented_readback_repro: docs/evidence/2026-10-29-segmented-correction-readback-repro/verification-summary.json
   segmented_readback_fix: docs/evidence/2026-10-29-segmented-correction-readback-fix/verification-summary.json
+  packaged_segmented_consumer: docs/evidence/2026-10-29-packaged-segmented-correction-consumer/verification-summary.json
   candidate_evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
   evidence_index: docs/evidence/2026-10-28-task-continuity/README.md
   manifest_sha256: 15db1a16f2e250b7a51055c2b61f89e352efd9af4479c054b85b7af2413bf4cd
@@ -114,9 +115,9 @@ settled_constraints:
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
 scope_of_this_change:
-  kind: segmented-correction-readback-bounded-fix
-  implementation_changed: true
-  verification_tests_modified: true
+  kind: packaged-segmented-correction-consumer-offline
+  implementation_changed: false
+  verification_scripts_modified: true
   private_data_read_or_migrated: false
   host_config_or_slot_changed: false
   grant_or_credentials_created: false
@@ -126,47 +127,50 @@ scope_of_this_change:
   candidate_certified: false
   publication_performed_at_capture: false
   commit_performed_at_capture: false
-  git_save_status: 基线ebf2d35c；作者141及独审141分开通过，已审实现未改；本快照在普通提交/推送前捕获，实际发布由Git核对。
-updated_at_utc: "2026-10-29T05:40:35.846281+00:00"
+  git_save_status: 保存前快照：本地/远端8aef5f96；本包作者10与独审10分层通过，六文件白名单待单独提交并普通推送；实际发布SHA以Git及远端读取为准。
+updated_at_utc: "2026-10-29T06:21:38.585379+00:00"
 state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
 non_goals:
-  - 本次仅复用Source元数据准入修复v2合法A-only回读；不改writer/receipt/CAS/resolver/精确内核，不改真实grant/身份/配置/SDK，不运行Host模型；独审通过后仅普通提交/推送现有开发分支，不部署。
+  - 本次仅固定8aef5f96发布物分段消费者1项；只改两脚本/状态/新证据，不改生产/fixture/主配置/真实grant或身份，不新装、不运行Host模型，不碰旧EPERM现场；本包独审已过，仅保存已审六文件。
   - 不把此前D063文本审查/持久化授权或本轮有限离线结果解释为整体架构批准、付费调用或部署批准。
   - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
   - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
 design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
 task_continuity:
-  task_id: segmented-correction-readback-bounded-fix-2026-10-29
-  scope: 基线ebf2d35c；共用普通视图元数据准入，经请求绑定context用于v2回读；v1整源检查和精确Evidence父/片段策略不变。
+  task_id: packaged-segmented-correction-consumer-2026-10-29
+  scope: 必填完整8aef5f96提交、detached/sourceClean标准构建的真实tgz；不同父/片段策略A-only纠正精确回读，同请求新permit只读重试。
   version_binding:
-    remote_check_scope: 本轮提交前经授权通道fresh ls-remote确认远端ebf2d35c与本地HEAD一致；不是包含本状态更新的提交。
+    remote_check_scope: 本次保存前实际ls-remote核实远端8aef5f96与本地HEAD一致；这是提交前观察，不冒称包含状态更新自身的SHA。
     state_commit_lookup: git log -1 --format=%H -- PROJECT-STATE.yaml
     warning: baseline/observed是保存前观察，不是包含本状态更新的提交；实际版本由本文件Git历史和远端读取，不产生自引用hash。
-    baseline_commit: ebf2d35c58091f4915c32752a4480caeafbd139b
+    baseline_commit: 8aef5f96563f917a616b4c046746b91f81318647
     observed_branch: codex/issue23-integrated-regression
-    observed_remote_commit: ebf2d35c58091f4915c32752a4480caeafbd139b
-    observed_remote_source: fresh git ls-remote via approved permission channel before current publication
+    observed_remote_commit: 8aef5f96563f917a616b4c046746b91f81318647
+    observed_remote_source: publication preflight ls-remote confirmed8aef5f96; scoped consumer run remains offline
   decisions:
     confirmed:
       - 产品目标及边界依docs/09-REQUIREMENTS-ALIGNMENT.md与设计基线。
       - D058请求边界、D059显式checkpoint权威、D060沧海协调约束保留。
-      - 当前获准三个既有生产文件的元数据准入窄修及限定合成回归；复用既有语义，不改writer/receipt/CAS/resolver，不批准native桥/真实权限或模型变化。
+      - 三生产文件窄修已推送8aef；当前只获准发布物分段消费者1项及两脚本/证据，不扩大生产实现、权限或模型范围。
     pending:
       - id: D063
         status: 技术评估待用户审阅，不是用户已批准产品/架构实施
         text_review: 已完成独立文档/元数据一致性审查并提交deb8dc3
         ref: docs/DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration
   implemented:
-    - 当前窄修从普通视图提取共用Source元数据准入，通过请求绑定processing context用于v2回读；v1和精确Evidence正文授权保持原路径。
+    - 历史8aef窄修从普通视图提取共用Source元数据准入，通过请求绑定processing context用于v2回读；v1和精确Evidence正文授权保持原路径。
     - 运输无关精确读取内核已从native包装提取，原包装复用；注册纠正tool直接绑定既有Core请求scope与C3协调器。
     - writer返回receipt后只按该revision重新打开reader，保留LearningChange精确目标与Source/Evidence闭包授权。
     - 同请求提交后读失败保留local_committed回执；新permit重试只读，不重新纠正/提交；入场来源grant文件不自动替换。
     - 已提交R1统一入场grant约束和合法缓存，独审关闭原P1；本轮不改其生产实现。
-    - 历史freshness包已交付focused consumer脚本及2项用例；当前分段窄修未重跑打包消费者。
+    - 历史freshness包已交付focused consumer脚本及2项用例；当前新增固定8aef单个合法分段消费者并校验driver结构结果。
   verified:
-    - 当前窄修分段13＋原v1/permit12＋普通视图/精确回读相关116，共141通过；同文件两组按不重叠正向名称筛选，早期中断不计入。
+    - 当前发布物固定8aef5f96 detached/sourceClean构建，真实tgz510文件，作者10/10与独审10/10分别通过（同组原9＋分段1，不相加），不是旧844包证据。
+    - 新用例从begin前计数：B payload0，A36，owner-input28；一归档一纠正、receipt目标版本/磁盘精确一致，新permit重试零推断/重复提交。
+    - 三个修补模块均由实际tgz加载并逐文件hash验证；133 Core模块无工作树/test-dist回退；主审计零越界、原symlink拒绝仍过。
+    - 历史源码窄修分段13＋原v1/permit12＋普通视图/精确回读相关116，共141通过；同文件两组按不重叠正向名称筛选，早期中断不计入。
     - v2只放行既有Source元数据处理资格；readEvidence仍检查父/片段policy和精确descriptor/locator，直接及derived-B拒绝，无越权正文释放。
-    - 当前test编译/typecheck/9 schema/diff检查通过；原红例证据逐字保留并归档红测试补丁；独审独立副本重编译后25＋116共141通过，与作者141分层记录，不相加。
+    - 历史源码窄修test编译/typecheck/9 schema/diff检查通过；原红例证据逐字保留并归档红测试补丁；独审独立副本重编译后25＋116共141通过，与作者141分层记录，不相加。
     - 历史红例单文件13项：原12通过，新增1在readback_verified预期处失败；实际local_committed/readback_failed、B payload0、只读重试无重复提交，普通Work仍能读已保存B版本。
     - 历史红例不改写为通过；当前相同合法A-only契约测试在窄修后通过，另有原始失败hash。
     - 历史freshness固定844b1ea1标准build/sourceClean=true、offline pack 510文件；实际包入口共9/9（保留原7＋新增2），0失败/取消/跳过；作者9项与独审9项分别通过，不相加。
@@ -178,7 +182,7 @@ task_continuity:
     - 历史freshness新请求run/userRequest及输入权限判断重新绑定，checkpoint对齐当前authority而非旧receipt；同session和同进程重新注册均读B同版本，旧permit拒绝，只有新请求归档推进。
     - 历史freshness独审正式driver9/9独立通过，生产tgz/133模块来源、两个freshness用例及计数/旧permit/精确版本/清理均复验通过；当前仅证据状态增量。
     - 合成descriptor经既有事务/CAS收窄后重新注册，新请求memory调用拒绝personal_context_descriptor_required：保护payload/正文0，独立获准owner-input payload1；无新增纠正或调用窗口写入。
-    - 历史R1/打包freshness各自检查保留；本轮窄修检查为test编译/typecheck/9 schema/diff，不冒充本轮build/pack或全量验证。
+    - 历史R1/源码窄修各自检查保留；当前单独固定8aef打包构建与消费者10项另列，不冒充全量验证。
     - 作者R1：注册12＋native/Evidence/C2/C3回归105＋普通工具136＝253通过，0失败/取消/跳过；不标为独审253。
     - 三组均通过：单次纠正与receipt精确回读；提交后读失败只读重试及缺permit拒绝；下一请求/磁盘重开fresh绑定和撤权拒绝。
     - 撤权计数窗口为fresh入场后的memory tool调用：未获准来源payload I/O为0、正文返回0，另有独立获准owner输入依赖I/O为1。
@@ -187,19 +191,19 @@ task_continuity:
     - 普通工具suite终态exit0、group gone、owned work complete/root removed；错误监督入口在测试前拒绝，未计通过。
   unverified:
     - R1独审13项完成，未重跑作者253全套；初版115及原P1失败证据按historical保留。真实Host/模型/部署/full_memory仍未验。
-    - 同实例同请求重试不等于跨进程恢复旧操作；分段A-only窄修已限定离线独审通过，不扩整源授权，不代表打包分段消费者或Host验收。
+    - 同实例同请求重试不等于跨进程恢复旧操作；分段A-only窄修已限定离线独审通过，不扩整源授权，不代表完整打包分段否定矩阵或Host验收；本轮单个合法分段消费者10项已独审通过，不能扩为完整否定矩阵。
     - SDK晚关闭ENOENT/active-leases告警仍存在；未证明SDK drain；完整套件本轮未重跑，26旧CI失败保留原身份。
-  unique_next_step: 普通发布已审12文件后按精确SHA只读核验CI；后继独立小包可评估固定产物分段消费者验证，需另行限定，不扩大Host/模型或猜测清理旧group。
+  unique_next_step: 仅保存已审六文件并普通推送现有开发分支，核实精确远端SHA及CI；不扩分段打包否定矩阵/真实Host或旧现场清理。
   blockers:
     - 历史A-only回读红例已保留；当前窄修作者141及独审141分开通过，不能冒充打包分段消费者/真实Host/全量consumer通过。
     - 验证清理限制：早期筛选错误的中断运行未计通过；其group探测EPERM、原PID未记录，临时树保留；最终三组计入结果均结束并清理，不宣称SDK drain。
-    - 局部受阻：正式全量consumer/probes及full_memory；844b1ea1双CI仍26旧失败、152 probes未运行，离线9项不改变gate。
+    - 局部受阻：正式全量consumer/probes及full_memory、打包分段否定矩阵；本轮只有单个合法A-only分段用例，离线10项不改变正式gate。
     - 受阻动作：宣称工作区依赖安装与锁完全一致；现有workspace yaml2.9.0而固定锁2.9.1，本轮从既有SDK显式选锁定版本，不做安装修复。
     - 可独立继续：本提交只读CI核验和另行限定、不依赖真实Host/模型的离线工作；不以D063整体待审或Bili复验暂停。
     - 受阻动作：native公共授权桥/slot切换及整体D063实施；公共caller交接未证明、D063待审。当前受控tool及离线消费者验证不依赖该桥。
   authorized_next_package_candidate:
-    status: scoped_independent_review_complete_with_retained_cleanup_uncertainty
-    name: 分段Source合法A-only纠正精确回读窄修
+    status: scoped_packaged_case_independently_passed_ready_for_save
+    name: 固定8aef发布物分段A-only消费者1项
     boundary: 既有源码注册tool、无remote合成Git和固定结构响应；不部署、不切slot、不改真实grant/凭据、不运行Host/模型
     execution_started: true
   requires_separate_scope:
@@ -209,27 +213,33 @@ task_continuity:
   same_repo_writer: 一个明确指定写入者；其他并行会话只读，不按目录推定隔离
   local_change_whitelist:
     - PROJECT-STATE.yaml
-    - src/praxis/personal-views.ts
-    - src/openclaw/checkpoint-source-access.ts
-    - src/openclaw/checkpoint-agent-supply.ts
-    - tests/checkpoint-agent-correction-supply.test.ts
-    - tests/checkpoint-work-fixture.ts
-    - docs/evidence/2026-10-29-segmented-correction-readback-repro/
-    - docs/evidence/2026-10-29-segmented-correction-readback-fix/
+    - scripts/focused-correction-consumer.mjs
+    - scripts/lib/focused-correction-consumer-probe.mjs
+    - docs/evidence/2026-10-29-packaged-segmented-correction-consumer/README.md
+    - docs/evidence/2026-10-29-packaged-segmented-correction-consumer/verification-summary.json
+    - docs/evidence/2026-10-29-packaged-segmented-correction-consumer/independent-review.json
   preserved_unrelated_untracked:
     - docs/suqing-m1-2026-10-22.md
     - docs/suqing-m1-plugin-boundary-review-2026-10-22.md
     - docs/suqing-midterm-plan-2026-10-22.md
     - tests/recovery-pointer-barriers.test.ts
   independent_review:
-    status: passed_scoped_bounded_fix_ready_for_commit_with_retained_cleanup_uncertainty
-    scope: 作者141与独审141分层，不相加；红例13/12pass/1fail保持历史，当前窄修不等于打包分段消费者/真实Host/模型/正式gate
-    author_tests: 141
-    author_pass: 141
+    status: passed_scoped_packaged_segmented_consumer_ready_for_commit
+    scope: 作者10与独审10分别通过（同组原9＋分段1，不相加）；不等于分段包全部否定矩阵/真实Host/模型/正式gate
+    author_tests: 10
+    author_pass: 10
     author_fail: 0
-    independent_tests: 141
-    independent_evidence: docs/evidence/2026-10-29-segmented-correction-readback-fix/independent-review.json
-    evidence: docs/evidence/2026-10-29-segmented-correction-readback-fix/verification-summary.json
+    independent_tests: 10
+    independent_pass: 10
+    independent_fail: 0
+    source_summary_sha256: 901661daa3e30bdebf9ffcebb8a98c9c15e2cfa6c0d6f9c4af1ad8e06c18f83c
+    evidence: docs/evidence/2026-10-29-packaged-segmented-correction-consumer/independent-review.json
+    previous_source_fix_review:
+      status: passed_scoped_bounded_fix_ready_for_commit_with_retained_cleanup_uncertainty
+      published_commit: 8aef5f96563f917a616b4c046746b91f81318647
+      author_tests: 141
+      independent_tests: 141
+      evidence: docs/evidence/2026-10-29-segmented-correction-readback-fix/independent-review.json
     previous_freshness_review:
       status: passed_scoped_packaged_request_freshness_ready_for_commit
       production_source: 844b1ea1a7a7f3c228e095c7ffed75dc4910d760
@@ -253,7 +263,7 @@ task_continuity:
       evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
     d063_overall_implementation_approved: false
 current_validation:
-  scope: 已提交ebf2d35c双CI由父线程最新独立核实仍原26失败；当前未提交窄修141项另列task_continuity，未轮询/重跑旧CI
+  scope: 已归档ebf2d35c双CI由父线程核实仍原26失败；当前固定8aef包消费者10项另列，未轮询/重跑CI，不推断8aef新CI结论
   source_commit: ebf2d35c58091f4915c32752a4480caeafbd139b
   result: failed
   evidence_source: parent independently verified terminal runs; not a fresh local full-suite run

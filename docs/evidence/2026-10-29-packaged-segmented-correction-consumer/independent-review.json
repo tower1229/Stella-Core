@@ -1,0 +1,185 @@
+{
+  "schemaVersion": "stella.packaged-segmented-correction-consumer-independent-review/v1",
+  "decision": "passed_scoped_packaged_segmented_consumer_ready_for_commit",
+  "findings": [],
+  "sourceSummarySha256": "901661daa3e30bdebf9ffcebb8a98c9c15e2cfa6c0d6f9c4af1ad8e06c18f83c",
+  "sourceReportSha256": "c73967b1dceaf9ce6cd1771c358805a41b931d79015fc1c214ef5777b6ed35c9",
+  "archivalScope": "selected non-sensitive review summary; source hashes identify originals, not this derived archive",
+  "sourceCommit": "8aef5f96563f917a616b4c046746b91f81318647",
+  "branch": "codex/issue23-integrated-regression",
+  "reviewedCandidateFiles": {
+    "scripts/focused-correction-consumer.mjs": "75f8e6998c8593407a2ab912e1d5ba98ae6c0f7489fe513936def1619a453672",
+    "scripts/lib/focused-correction-consumer-probe.mjs": "7b127739c574af2a9fe015844cae5e8f58612272031dda29c69adb6d0a204438",
+    "PROJECT-STATE.yaml": "116c423633e484a31b84ce0892502bfd1251910fb7e83397b20ca6d1b86bc072",
+    "docs/evidence/2026-10-29-packaged-segmented-correction-consumer/README.md": "462b961af3e9d707ba3e827f487c36907673d5722b2c10335ce6fcc6be41c2b5",
+    "docs/evidence/2026-10-29-packaged-segmented-correction-consumer/verification-summary.json": "af4c82cc5edc0457e23287c7063baeabc7ef52569165ecec9ecb99e4b19e2109"
+  },
+  "reviewedPatchSha256": "8200819ed13cabc2891df9152ed300d5a62e8824cc03c55d3a60729f26feb415",
+  "scriptsDeltaSha256": "2d92a398125a8e0c0ae75ac71e722aa6f9850026a7afc059afe61d2b1d61f6fd",
+  "tests": {
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "topLevelCases": 8,
+    "retainedCases": 9,
+    "addedCases": 1,
+    "authorAndIndependentNotAdditive": true
+  },
+  "sourceCheckout": {
+    "revision": "8aef5f96563f917a616b4c046746b91f81318647",
+    "detached": true
+  },
+  "artifact": {
+    "sha256": "aa7f7b4b4fa4a2743fb8604471b0fa804aa0df1624a2d5802b0fb2c69b18435a",
+    "files": 510,
+    "buildIdentity": {
+      "coreRevision": "8aef5f96563f917a616b4c046746b91f81318647",
+      "sourceClean": true
+    },
+    "unpackMethod": "safe local tgz extraction into consumer node_modules; not npm ci or a fresh dependency installation"
+  },
+  "segmentedCorrection": {
+    "status": "passed",
+    "operationId": "learn_e3048ccb6d5599331de4472b63ab40a82ed62499b6fe2cfdd3acf9006567ffa2",
+    "receiptRevision": "841d094f74040eff977eb880ad6cba0dc9a9b669",
+    "exactTarget": {
+      "group": "works",
+      "ref": {
+        "id": "synthetic-writing-work",
+        "version": "sha256:5952a5c41bc935f179868738f9bb70dd57a52568d3b22e58fa56e477b3b05784"
+      }
+    },
+    "documents": 1,
+    "separateParentAndFragmentPolicies": true,
+    "workEvidenceOnlyA": true,
+    "measurementWindow": "after fixture construction, before begin, through admitted archive, correction, readback and new-permit retry",
+    "deniedBPayloadReads": 0,
+    "allowedAPayloadReads": 36,
+    "ownerInputPayloadReads": 28,
+    "ownerInputSourceCount": 1,
+    "archiveCommits": 1,
+    "correctionCommits": 1,
+    "retryCommits": 0,
+    "retryCorrectionInferenceCalls": 0,
+    "patchedModules": [
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/praxis/personal-views.js",
+        "sha256": "6c708545bab0fefe3617c1573e5b07145bc0cc663da5c0f262070d348171793b"
+      },
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/openclaw/checkpoint-source-access.js",
+        "sha256": "43995f60f7497f6c69e842853ad202ce9c3379bef355dfa1867ce72f00c457ca"
+      },
+      {
+        "path": "node_modules/@tower1229/stella-core/dist/src/openclaw/checkpoint-agent-supply.js",
+        "sha256": "b58c9ea328026d8729b20c9a6864f3cc80d5012f55ccf404a005da052a2eccbc"
+      }
+    ],
+    "configWrites": 0,
+    "realModelCalls": 0
+  },
+  "moduleAudit": {
+    "resolvedFiles": 5734,
+    "coreProductionModules": 133,
+    "fullRelativeListSha256": "ce200f0968998f5aabe1dfb94171cda99c623150775ca78092ecbab5efe30f65",
+    "denied": [],
+    "patchedModuleBytesIndependentlyCheckedInTgz": true,
+    "registration": "actual package main.default.register(fake API)"
+  },
+  "retainedChecks": {
+    "commitThenReadFailureAndDeniedRetry": {
+      "status": "passed",
+      "failedReadCategory": "source_topic_unresolved",
+      "deniedRetryCategory": "personal_context_access_changed",
+      "deniedRetryPayloadReads": 0,
+      "deniedRetryDocuments": 0,
+      "missingPermitPayloadReads": 0,
+      "totalCommits": 2,
+      "retryCommits": 0,
+      "retryCorrectionInferenceCalls": 0,
+      "exactReceipt": true
+    },
+    "symlinkAudit": {
+      "status": "passed",
+      "esmDeniedBeforeExecution": true,
+      "cjsDeniedBeforeExecution": true
+    },
+    "requestFreshnessPassed": true,
+    "reducedPermissionFreshnessPassed": true
+  },
+  "ioScope": "readPayload call attempts only; allowed A and owner input are nonzero and separately reported; not all Git/filesystem I/O or shared-file byte isolation",
+  "dependencies": {
+    "method": "copied existing runtime dependency closure; explicit existing SDK peer",
+    "selection": [
+      {
+        "name": "yaml",
+        "rejectedWorkspaceVersion": "2.9.0",
+        "requiredVersion": "2.9.1"
+      }
+    ],
+    "yamlCopy": {
+      "donor": "explicit_existing_sdk_dependency",
+      "version": "2.9.1",
+      "files": 233,
+      "manifestSha256": "e5bed832a42182d072da55bbe6bc0f5482ab08650e2e00c117d7ecac5bf92b09",
+      "packageSha256": "1c6441703d8204a23ded0d37ddf57c3b69d821dc392f20852d1f605bb9b8861c"
+    },
+    "freshInstall": false,
+    "registryArchiveAuthenticityClaimed": false
+  },
+  "cleanup": {
+    "childExitCode": 0,
+    "processGroupConfirmedGone": true,
+    "groupAbsenceIndependentlyChecked": true,
+    "supervisorRootAbsentChecked": true,
+    "ownedWork": {
+      "schemaVersion": "stella.test-owned-work/v1",
+      "runId": "a32252fa-8ec6-458c-9ca6-9c1b892fbf9c",
+      "status": "complete",
+      "pending": 0,
+      "stopFailures": 0,
+      "pendingFailures": 0
+    },
+    "runtime": "owned runtime removed after child completion",
+    "reviewRuntimePrefixesRemaining": [],
+    "oldEpermSceneActions": "none; prior retained ownership/cleanup uncertainty not re-probed or deleted",
+    "sdkDrainClaimed": false
+  },
+  "freeze": {
+    "fiveFilesUnchanged": true,
+    "authorFrozenArtifactsUnchanged": true,
+    "mainProjectStateUnchanged": true,
+    "originalNineBodiesUnchanged": true,
+    "productionAndFixtureAndLockUnchanged": true,
+    "historicalEvidenceUnchanged": true,
+    "fourUnrelatedUntrackedUnchanged": true,
+    "emptyIndexUnchanged": true,
+    "gitStatusUnchanged": true,
+    "reversePatchCheck": 0,
+    "diffCheck": 0,
+    "syntaxChecks": 0,
+    "stateYamlValid": true,
+    "readmeLocalLinks": 3,
+    "snapshotSha256": "c9c50c9c4eb17f2c3dccac388686eaae345f446bcebae557bafc366a5dc82b0a"
+  },
+  "rawEvidenceSha256": {
+    "RESULT.json": "0c7ddec57b672fb7a60c57af03bfecb2ff6171b9a674fac5cacafc2e3054986c",
+    "consumer-result.json": "1f3d92a2e79a67e05e0938b931b725cb02568da47d79cb78fc64fa8c9d1ff191",
+    "consumer.stdout": "d78e55c4b3f316bb70955ad3878f1662af68736c4e62a757d885286fdcd6aec7",
+    "consumer.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial-snapshot.json": "c9c50c9c4eb17f2c3dccac388686eaae345f446bcebae557bafc366a5dc82b0a",
+    "final-snapshot.json": "c9c50c9c4eb17f2c3dccac388686eaae345f446bcebae557bafc366a5dc82b0a"
+  },
+  "notAccepted": [
+    "only one legal segmented packaged scenario; no full packaged segmented denial matrix",
+    "cross-process recovery, real Host/model/private data/permissions or deployment",
+    "formal full consumer/probes or full_memory; old26 failures and gate remain",
+    "fresh npm install or SDK drain; existing/increased SDK warning debt not resolved by this pass",
+    "all historical resource cleanup; early EPERM scene remains untouched"
+  ],
+  "blockersForScopedCommit": [],
+  "publicationScope": "metadata archive only after independent pass; reviewed verification scripts unchanged; no Host or model run by publication step"
+}
