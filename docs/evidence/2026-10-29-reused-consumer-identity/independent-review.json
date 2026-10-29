@@ -1,0 +1,192 @@
+{
+  "schemaVersion": "stella.reused-consumer-independent-review/v1",
+  "decision": "passed_scoped_offline_identity_contract_ready_to_save",
+  "scope": "Four frozen files only: lockless reused-installation identity reader, synthetic offline tests, explanation and sole project state. Not actual tgz extraction, live consumer invocation or Host/profile acceptance.",
+  "baselineCommit": "96cbe4d31f0e8868d96ecc4afc91e2f734813a08",
+  "branch": "codex/issue23-integrated-regression",
+  "reviewedPatchSha256": "1fdf09905117bed61d8a4cb5a4444dcadc2021c787ab4ed8d8e47488f7af47c3",
+  "reviewedFrozenFiles": {
+    "PROJECT-STATE.yaml": "1267ada9bec550db1ada517cd3d3a0bf54d5b4f1973ab8ad3c601d2adecef3a2",
+    "scripts/lib/reused-consumer-identity.mjs": "7e2b3afa9bb031394cba8965c8a85750e42d651b3ae4d1648319902b2fcc9ad6",
+    "tests/reused-consumer-identity.test.ts": "17052a27042f6cf97610baaa72fa6310d1c6df6738c67eb157ea70b78ea11efc",
+    "docs/REUSED-CONSUMER-IDENTITY.md": "dd635b1a392c702dccd745e704afd00f36282273b353a3620a8897275d857538"
+  },
+  "sourceSummarySha256": "63d44c0f0ad2747f3ba4cce5482880468e809654a67f0ca6bfaf3cf05e62d481",
+  "sourceReportSha256": "42de058ecda5d4e6fa8e3f13f5bd2c0ca32bb3043373af4deec34439b01f0190",
+  "archiveForm": "minimum non-sensitive derived summary; source original hash and archive byte hash are distinct",
+  "readyToCommitScopedCandidate": true,
+  "findings": [],
+  "independentFormalTests": {
+    "tests": 162,
+    "pass": 162,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "newModuleNodeResults": 56,
+    "existingVersionProfileNodeResults": 106,
+    "topLevelResults": 21,
+    "nestedResults": 141,
+    "parentGroupsIncluded": 12,
+    "leafAssertions": 150,
+    "newModuleParentGroups": 6,
+    "newModuleLeafAssertions": 50,
+    "existingParentGroups": 6,
+    "existingLeafAssertions": 100,
+    "countingConvention": "162 Node results includes12 parent groups and150 leaf assertions. New56+existing106 are included; author/historical/replay counts are never added.",
+    "durationMs": 4846.71575,
+    "typecheckExit": 0,
+    "testCompilationExit": 0,
+    "targetedExit": 0,
+    "syntaxExit": 0,
+    "diffCheckExit": 0
+  },
+  "extraProbes": {
+    "total": 14,
+    "pass": 14,
+    "fail": 0,
+    "rejectedNegatives": 13,
+    "selfClaimPositiveRemainsUnaccepted": 1,
+    "preservedReplayIdentical": true,
+    "notAddedTo162": true
+  },
+  "verifiedContract": {
+    "requiredDigestsAndRevisionStrictStrings": true,
+    "actualCoreAndDependencyFileHashesAndSymlinkRejection": true,
+    "sourceRevisionManifestAndSourceLockBoundSeparately": true,
+    "artifactBytesFingerprintBoundToExpected": true,
+    "installedEntryAndSdkResolutionBound": true,
+    "explicitSdkMetadataAndEntryHashBound": true,
+    "eachOrdinaryDeclaredDependencyEdgeCheckedBeforeCycleDedup": true,
+    "exactLockVersionsAndDependencyManifestsBound": true,
+    "consumerRootLockPresentCopiedEmptyDanglingAliasDirectoryRejected": true,
+    "consumerLockNullNotSourceLock": true,
+    "distinctInstallationManifestDigest": true,
+    "selfReportedAcceptanceCannotRaiseSixFixedFlags": true,
+    "oldConsumerLockValidatorAndOfflineProfileRemainClosed": true,
+    "sourceRecheckedAfterFilesystemRead": true
+  },
+  "staticChecks": {
+    "onlyPriorTrackedStateModified": true,
+    "productionOldProfileAcceptanceVersionHelpersAndLocksUnchanged": true,
+    "actualSdkMetadataAndPublicEntryHashVerifiedReadOnly": true,
+    "currentOrdinaryRuntimeLockGraph": [
+      {
+        "name": "ajv",
+        "version": "8.20.0",
+        "dependencies": {
+          "fast-deep-equal": "^3.1.3",
+          "fast-uri": "^3.0.1",
+          "json-schema-traverse": "^1.0.0",
+          "require-from-string": "^2.0.2"
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      },
+      {
+        "name": "fast-deep-equal",
+        "version": "3.1.3",
+        "dependencies": {},
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      },
+      {
+        "name": "fast-uri",
+        "version": "3.1.6",
+        "dependencies": {},
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      },
+      {
+        "name": "json-schema-traverse",
+        "version": "1.0.0",
+        "dependencies": {},
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      },
+      {
+        "name": "require-from-string",
+        "version": "2.0.2",
+        "dependencies": {},
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      },
+      {
+        "name": "semver",
+        "version": "7.8.5",
+        "dependencies": {},
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      },
+      {
+        "name": "typebox",
+        "version": "1.3.16",
+        "dependencies": {},
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      },
+      {
+        "name": "yaml",
+        "version": "2.9.1",
+        "dependencies": {},
+        "optionalDependencies": {},
+        "peerDependencies": {}
+      }
+    ],
+    "ordinaryGraphOptionalOrPeerEdges": false,
+    "sdkPeerHandledSeparately": {
+      "openclaw": ">=2026.10.7"
+    },
+    "notUniversalOptionalPeerClosureOrFullEsmConsumptionClaim": true,
+    "frozenFilesAndPatchUnchanged": true
+  },
+  "remainingLimitations": [
+    "expected facts must come from independent pack/source/dependency-copy evidence, not from a candidate report",
+    "opaque synthetic artifact is not a real tgz; tgz bytes-to-extracted-tree provenance is supplied later, not established here",
+    "no current real tgz/consumer invocation or product/dependency/SDK import or CLI execution in this package",
+    "SDK metadata+public entry is not full SDK transitive closure, registry authenticity or ESM consumption",
+    "only ordinary dependencies edges are traversed; current fixed lock graph has8 packages and no optional/peer edges, with OpenClaw peer explicitly separate; no universal optional/peer closure claim",
+    "read-only observations are not an atomic live-install snapshot",
+    "Host/capture runner wiring and original formal consumer/152/full_memory/real-model/Chrome gates remain unverified; old CI failures unchanged",
+    "SDK drain and old EPERM scene remain unverified/untouched"
+  ],
+  "cleanup": {
+    "allIndependentCommandsReturned": true,
+    "plainNodeFileTestsAndGitOperationsSettled": true,
+    "testOwnedSyntheticRootsRemovedByAwaitedCleanup": true,
+    "ownTemporarySourceRemoved": true,
+    "reproductionAndEvidenceOnlyRetained": true,
+    "systemProcessEnumeration": false,
+    "oldEpermSceneTouched": false
+  },
+  "reviewOperations": {
+    "repositoryWritten": false,
+    "committed": false,
+    "pushed": false,
+    "newInstall": false,
+    "hostGatewayOrModelsStarted": false,
+    "cliVersionExecuted": false,
+    "networkUsed": false,
+    "mainIdentityConfigPermissionsGrantsCredentialsChanged": false,
+    "readerImportedInstalledProductSdkOrFixtureDependencyCode": false,
+    "retainedProfileTestsUseBaselineCoreIdentityHelpers": true
+  },
+  "blockedReviewActions": [],
+  "unknownOutcomes": [],
+  "sourceRawEvidenceSha256": {
+    "BEFORE.json": "9fd395eadd26ff2c068ea63c14a63b6a8a580e13f2724589c310e59206852455",
+    "AFTER.json": "9fd395eadd26ff2c068ea63c14a63b6a8a580e13f2724589c310e59206852455",
+    "STATIC-CHECKS.json": "f0d4ad3a6d8eab56fa4ee7591eec037b1fa01de18dd5aa97f53c055d8f02351d",
+    "COUNT-BREAKDOWN.json": "8feed34b998769b3e6f6a25fb8e16ee246f2ec3f4d7120a5512e44ed9e9a75c3",
+    "SDK-STATIC-CHECK.json": "0f68305a137c254ef5dad8a54e9417351eb2e10a4e8fd6d832bf4d2ad389bd81",
+    "AUTHOR-EVIDENCE-CHECK.json": "3538a8ee2a697dd4e62db17ff9aa2ee371962fe4eefbef1169092ec4f7fc55ee",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "targeted.tap": "9b46c8d535bc93783a4300a2888132b44286cece09cc1b693c274abcc07226b2",
+    "syntax.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "independent-probes.json": "98296c82d2392ada54a06b0427b2393c3f109218b15b7c5435972373edb7a926",
+    "preserved-repro.json": "98296c82d2392ada54a06b0427b2393c3f109218b15b7c5435972373edb7a926",
+    "REPRO-MANIFEST.json": "881503a8231233e7437803c68ca13bc00b4ea680e00f84edbeee1dc631399826"
+  }
+}
