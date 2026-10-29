@@ -1,0 +1,283 @@
+{
+  "schemaVersion": "stella.installed-correction-profile-contract-verification/v1",
+  "status": "offline_contract_passed_independently_reviewed",
+  "sourceCommit": "3b17fea1943485a1a7303bb6b6e8083c89953a8f",
+  "profileId": "stella.installed-checkpoint-correction/openclaw-2026.10.8/v1",
+  "phase": "offline normalized report contract only; executionConnected=false",
+  "tests": {
+    "tests": 106,
+    "pass": 106,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "newProfileCases": 80,
+    "retainedVersionTruthCases": 26,
+    "newProfileTopLevelTests": 6,
+    "durationMs": 1758.914917,
+    "format": "Node default spec reporter",
+    "parentGroupsIncluded": 6,
+    "leafAssertions": 100,
+    "topLevelResults": 13,
+    "countingConvention": "Node106 includes6 parent groups and100 leaf assertions;3 added cases included; no author/independent/probe addition"
+  },
+  "checks": {
+    "typecheckExit": 0,
+    "testCompilationExit": 0,
+    "targetedExit": 0,
+    "oldTrackedFilesExceptStateUnchanged": true,
+    "fourUnrelatedFilesUnchanged": true,
+    "old26FailuresOr152GateChanged": false,
+    "mjsSyntaxExit": 0,
+    "stateYamlValid": true,
+    "readmeLocalLinks": 3,
+    "diffAndWhitespaceClean": true,
+    "sensitivePatternAndPersonalPathScan": "no matches; synthetic content only",
+    "indexEmpty": true,
+    "allPriorTrackedExceptStateUnchanged": true,
+    "compilationBinding": "three added JSON regressions compiled before red run; unchanged test hash in green run; helper dynamically imported from current scripts"
+  },
+  "newContract": {
+    "observedSuccess": "local_committed/readback_verified; exact Work ref, installed identity functions and committed revision disk readback",
+    "observedFailure": "local_committed/readback_failed; category and empty documents retained; never treated as execution success",
+    "retry": "new call id, unchanged committed receipt, one archive/one correction, no reinference",
+    "rejections": [
+      "consumer null or absent",
+      "inconsistent target/workspace SDK/consumer lock/manifest/CLI/Core/build/source/artifact identity",
+      "cancelled or signalled exit0",
+      "missing run/session/requester/call-id/abort/grant context",
+      "replay and nonempty arguments",
+      "payload/ref/disk revision mismatch",
+      "read failure payload or metadata release",
+      "repeat writer or inference",
+      "self-claimed Host/full acceptance"
+    ],
+    "currentOutput": "new offline-validation schema with evidenceConsistency=validated; no status=passed and every acceptance boolean false"
+  },
+  "publicSdkStaticEvidence": {
+    "version": "2026.10.8",
+    "packageJsonSha256": "9be09f47e73b05da1736aaeab337b4c0cfe35921bcc5b7a185a44b9fe70d2acc",
+    "publicSubpaths": [
+      "plugin-entry",
+      "gateway-runtime",
+      "command-auth-native",
+      "session-store-runtime",
+      "session-transcript-runtime",
+      "provider-tools"
+    ],
+    "typeAuditOnly": {
+      "path": "dist/config-contracts-DhkndZxE.d.ts",
+      "sha256": "d309f45edbd2cafe300951632659b9039ca86ee1b6019d9cfaa1a604a7f7a4eb",
+      "lines": {
+        "replyDispatchEvent": 9364,
+        "toolRequester": 9824,
+        "toolHookContext": 9836,
+        "toolFactoryContextBase": 40608
+      }
+    },
+    "scope": "exports and optional public fields inspected; no import/capture/Host issuance or runtime behavior claimed"
+  },
+  "moduleSha256": {
+    "scripts/lib/installed-correction-profile.mjs": "0ad5ad15a47f1298f0add1cc71f0f9b8bf9d7f7f90613465080f545afedb1013",
+    "tests/installed-correction-profile.test.ts": "c17cbefbd321b0535f50e6012a7a16e65d5d64352f703b54b2f872d97bc17912"
+  },
+  "rawEvidenceSha256": {
+    "targeted.tap": "705fa88965c5d1f98f426c6f36123034d198bbf22aec80336a0db99047f92f3f",
+    "typecheck.log": "5a0f30737df5c28db3dfe081e018b9423b78e57ee7ce83ce8daec2adf865e9d6",
+    "red-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red.tap": "da2b72dda6e14eabd82fa7f6a65d87eec31670b063e28271eb4075b7599e9827",
+    "RED.json": "0c95b69f6ef0d41fc5975b45c5a5a07d2413af5a88385a63ba5c8ad4b9fb0afb",
+    "BEFORE.json": "f1a2bddac8a46eb30d07f2d370ac2ee1990487e4cb817e11ff9208a8ad32c983"
+  },
+  "unverified": [
+    "actual installed consumer and real artifact identity binding for this profile",
+    "Host raw capture provenance/owner and original archive/run/tool permit/actual consumer",
+    "runner CLI and CI integration",
+    "request retirement and next-request freshness on actual10.8 Host",
+    "full Experimental profile or formal consumer/152probes/full_memory",
+    "real model semantics, Chrome/profile, SDK drain and old EPERM cleanup"
+  ],
+  "sideEffects": {
+    "productionOrOldHelpersChanged": false,
+    "hostStarted": false,
+    "modelsCalled": false,
+    "dependenciesInstalled": false,
+    "networkOperations": false,
+    "configGrantCredentialsChanged": false,
+    "oldEpermSceneTouched": false,
+    "committed": false,
+    "pushed": false
+  },
+  "independentReview": {
+    "status": "passed_scoped_offline_contract_ready_for_commit",
+    "evidence": "independent-review.json",
+    "sourceSummarySha256": "3d2f43b002359a3fe69de9efd3efb7cdfd97669b83bcbc35b06d1544023f4e39",
+    "sourceReportSha256": "1a0306cbe1bdbc78c50bb0d285a37679f9d372567ca5b01c669cc9e9a3f5411a",
+    "tests": {
+      "tests": 106,
+      "pass": 106,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "newProfileNodeCount": 80,
+      "retainedVersionTruthNodeCount": 26,
+      "topLevelResults": 13,
+      "parentGroupsIncluded": 6,
+      "nestedResults": 93,
+      "leafAssertions": 100,
+      "countingConvention": "Node reports106 including6 parent groups;100 leaf assertions. Added3 are already included. No author/independent/probe counts are added together.",
+      "retained26AreHistoricalCiFailures": false,
+      "durationMs": 1616.863792,
+      "typecheckExit": 0,
+      "testCompilationExit": 0,
+      "targetedExit": 0,
+      "mjsSyntaxExit": 0,
+      "diffCheckExit": 0
+    },
+    "authorAndIndependentAreSeparateRunsOfSameCases": true,
+    "probeReplayNotAdditive": true,
+    "publicationMetadataUpdatedAt": "2026-10-29T07:49:19.286602+00:00"
+  },
+  "nextStep": "save only reviewed six files and verify ordinary push SHA/CI; Host capture and runner remain unconnected",
+  "history": {
+    "initialCandidate": {
+      "patchSha256": "4f10dc2daeef2e89c2df94f1fb076d503bd48f9df94e4df174405f6dfdac785c",
+      "files": {
+        "PROJECT-STATE.yaml": "bde3f799bc2a6171e1714c03fa3fb216be93267f7ca95d774b2428d04c8a26cb",
+        "scripts/lib/installed-correction-profile.mjs": "f0022c7ab5c5d24fb32512f3bc53ed10e21963be7daac9395d4d6f6666605fdc",
+        "tests/installed-correction-profile.test.ts": "7990d66abea9b82fdd6dcff6d2e3b040d47dec7fa405f3c432bfee880bd2d269",
+        "docs/evidence/2026-10-29-installed-correction-profile/README.md": "7f4507f76684588f85fff720ded1fdc8e8c977a226a1f0eeccc6ad02752e47f9",
+        "docs/evidence/2026-10-29-installed-correction-profile/verification-summary.json": "fb64e7b576796d77ae69a186aa8e01bcf47e66992b97776e39457b0162abd534"
+      },
+      "authorTests": {
+        "tests": 103,
+        "pass": 103,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "newProfileCases": 77,
+        "retainedVersionTruthCases": 26,
+        "newProfileTopLevelTests": 6,
+        "durationMs": 1208.751583,
+        "format": "Node default spec reporter"
+      },
+      "rawEvidenceSha256": {
+        "targeted.tap": "47969159b53a356d1eb44ab06c46ed1b67541c4f2c97a0850dc203e80c5dc64e",
+        "typecheck.log": "5a0f30737df5c28db3dfe081e018b9423b78e57ee7ce83ce8daec2adf865e9d6",
+        "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "BEFORE.json": "ad2e22d7e3836b020857e2b363812e6e1a7fb7361e3fca6d69eb729359b2e3ee"
+      }
+    },
+    "initialIndependentReview": {
+      "decision": "changes_requested",
+      "sourceSummarySha256": "642ac574d174d000b19d2d6d1ef182d252d35c1e1b814b560cbb3e0fcac823b0",
+      "sourceReportSha256": "a6ff40fd8f2492749f17d1dec7b2415b46c12efe91b8f7f013d203c17b8da6ce",
+      "tests": {
+        "tests": 103,
+        "pass": 103,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "newProfileCases": 77,
+        "retainedVersionTruthCases": 26,
+        "retained26AreOldCiFailures": false,
+        "typecheckExit": 0,
+        "testCompilationExit": 0,
+        "targetedExit": 0,
+        "durationMs": 1297.618416
+      },
+      "additionalProbes": {
+        "total": 29,
+        "correctlyRejected": 26,
+        "unexpectedValidated": 3,
+        "jsonRoundTripped": true,
+        "notCountedAsPassedTests": true
+      },
+      "findings": [
+        {
+          "id": "R1",
+          "priority": "P2",
+          "file": "scripts/lib/installed-correction-profile.mjs",
+          "line": 106,
+          "problem": "Success documents only checks length and index0. A JSON object with length=1, index0=valid document and additional unverifiedDocument body is validated.",
+          "minimalFix": "Require Array.isArray(documents) and exactly one element before inspecting it; add non-array and extra-body regression."
+        },
+        {
+          "id": "R2",
+          "priority": "P2",
+          "file": "scripts/lib/installed-correction-profile.mjs",
+          "line": 20,
+          "problem": "RegExp.test coerces version arrays into strings. ownerEvidenceRef.version and receipt/changeRef.version accept [sha256:...] after JSON roundtrip.",
+          "minimalFix": "Require typeof value.version === string before the digest regex; add both archive and receipt/change binding regressions."
+        }
+      ],
+      "rawEvidenceSha256": {
+        "targeted.tap": "5eb54c563023ce8db68ebcc5fd8b7c30b476176ad0adefdda9d77b95faac5168",
+        "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "independent-probes.json": "5199eb96c69d086e3063670bb35745a653605b0d460a2f435041d279fd71f7ff",
+        "preserved-repro.json": "5199eb96c69d086e3063670bb35745a653605b0d460a2f435041d279fd71f7ff",
+        "BEFORE.json": "d7e8b8473e64117b55a0ef761e657b17fb9b1a9fc6796ad578a3fc7fc371605d",
+        "AFTER.json": "d7e8b8473e64117b55a0ef761e657b17fb9b1a9fc6796ad578a3fc7fc371605d",
+        "REPRO-MANIFEST.json": "2d50b3f9fbe3d7d05709755e91c8b3345967b0a920b6f07374008125af8f6dcb"
+      }
+    }
+  },
+  "typeFix": {
+    "scope": "only Array.isArray on successful documents and typeof string before ref version regexp; no coercion or sanitization",
+    "red": {
+      "schemaVersion": "stella.installed-correction-type-repro/v1",
+      "phase": "before_two_type_guards",
+      "helperSha256": "f0022c7ab5c5d24fb32512f3bc53ed10e21963be7daac9395d4d6f6666605fdc",
+      "testSha256": "c17cbefbd321b0535f50e6012a7a16e65d5d64352f703b54b2f872d97bc17912",
+      "exitCode": 1,
+      "tests": {
+        "tests": 80,
+        "pass": 76,
+        "fail": 4,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "invalidJsonReportsUnexpectedlyValidated": 3,
+      "regressions": [
+        "JSON non-array documents with ignored extra body",
+        "JSON archive Evidence version array",
+        "JSON committed receipt and changeRef version array"
+      ],
+      "parentGroupAlsoFailed": true,
+      "logSha256": "da2b72dda6e14eabd82fa7f6a65d87eec31670b063e28271eb4075b7599e9827",
+      "compilationExit": 0,
+      "note": "original checks retained; these three assert.throws cases fail because invalid reports are accepted; not passing acceptance evidence"
+    },
+    "green": {
+      "exitCode": 0,
+      "tests": {
+        "tests": 106,
+        "pass": 106,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "threeAddedJsonRefusalsPassed": true,
+      "sameTestSha256": "c17cbefbd321b0535f50e6012a7a16e65d5d64352f703b54b2f872d97bc17912",
+      "helperSha256": "0ad5ad15a47f1298f0add1cc71f0f9b8bf9d7f7f90613465080f545afedb1013"
+    },
+    "independentRereview": {
+      "status": "passed_scoped_offline_contract_ready_for_commit",
+      "evidence": "independent-review.json",
+      "closedFindings": [
+        "R1",
+        "R2"
+      ],
+      "original29JsonProbesCorrectlyRejected": 29,
+      "unexpectedValidated": 0,
+      "notAdditionalUniqueTestCount": true
+    }
+  },
+  "sideEffectsScope": "offline validation/review runs; separately authorized archive/ordinary publication is outside these run side-effect observations"
+}

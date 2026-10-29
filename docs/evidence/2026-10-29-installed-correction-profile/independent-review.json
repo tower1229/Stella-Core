@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "stella.installed-correction-independent-typefix-review/v1",
+  "decision": "passed_scoped_offline_contract_ready_for_commit",
+  "openFindings": [],
+  "sourceSummarySha256": "3d2f43b002359a3fe69de9efd3efb7cdfd97669b83bcbc35b06d1544023f4e39",
+  "sourceReportSha256": "1a0306cbe1bdbc78c50bb0d285a37679f9d372567ca5b01c669cc9e9a3f5411a",
+  "archivalScope": "selected non-sensitive review summary; source hashes identify originals rather than this derived archive",
+  "scope": "Only the five frozen offline profile contract files. Not Host/profile execution or original complete gate acceptance.",
+  "baselineCommit": "3b17fea1943485a1a7303bb6b6e8083c89953a8f",
+  "branch": "codex/issue23-integrated-regression",
+  "reviewedCandidateFiles": {
+    "PROJECT-STATE.yaml": "71064ea62a823e808d1ce70aca4f1e360860e627f7fc8cf28953cd5fa282f7fe",
+    "scripts/lib/installed-correction-profile.mjs": "0ad5ad15a47f1298f0add1cc71f0f9b8bf9d7f7f90613465080f545afedb1013",
+    "tests/installed-correction-profile.test.ts": "c17cbefbd321b0535f50e6012a7a16e65d5d64352f703b54b2f872d97bc17912",
+    "docs/evidence/2026-10-29-installed-correction-profile/README.md": "9ab9c72f6e84309815c8a849dc5a3a84ef6c7c87df06eae4bc377c8938474282",
+    "docs/evidence/2026-10-29-installed-correction-profile/verification-summary.json": "e39aca4db7c1c60f291c210d833ec4f247bd4e00e878130b648f77adaf4616ff"
+  },
+  "reviewedPatchSha256": "84769e971cc6dcbc9d2fd1e58ab22ec3328ab5a7f5d801124543ace59a7543b1",
+  "previousReviewSummarySha256": "642ac574d174d000b19d2d6d1ef182d252d35c1e1b814b560cbb3e0fcac823b0",
+  "closedFindings": [
+    {
+      "id": "R1",
+      "file": "scripts/lib/installed-correction-profile.mjs",
+      "line": 106,
+      "fix": "explicit Array.isArray before successful documents length/index checks",
+      "originalJsonRepro": "rejected",
+      "category": "installed_correction_profile:verified_document_required"
+    },
+    {
+      "id": "R2",
+      "file": "scripts/lib/installed-correction-profile.mjs",
+      "line": 20,
+      "fix": "typeof ref.version === string before digest regex",
+      "originalJsonRepros": {
+        "archiveEvidenceVersionArray": "installed_correction_profile:archive_binding_mismatch",
+        "receiptAndChangeVersionArray": "installed_correction_profile:receipt_not_committed_update"
+      }
+    }
+  ],
+  "independentFormalTests": {
+    "tests": 106,
+    "pass": 106,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "newProfileNodeCount": 80,
+    "retainedVersionTruthNodeCount": 26,
+    "topLevelResults": 13,
+    "parentGroupsIncluded": 6,
+    "nestedResults": 93,
+    "leafAssertions": 100,
+    "countingConvention": "Node reports106 including6 parent groups;100 leaf assertions. Added3 are already included. No author/independent/probe counts are added together.",
+    "retained26AreHistoricalCiFailures": false,
+    "durationMs": 1616.863792,
+    "typecheckExit": 0,
+    "testCompilationExit": 0,
+    "targetedExit": 0,
+    "mjsSyntaxExit": 0,
+    "diffCheckExit": 0
+  },
+  "sameIndependentProbeReplay": {
+    "total": 29,
+    "correctlyRejected": 29,
+    "unexpectedValidated": 0,
+    "originalThreeNowRejected": true,
+    "other26StillRejected": true,
+    "scriptByteIdenticalToPreviousReview": true,
+    "probeScriptSha256": "12bd842d125b2ef4f5cbed8a8085eaa4f415551ec7e71b66a50f469ac506da5c",
+    "allJsonRoundTripped": true,
+    "notAdditionalUniqueTestCount": true,
+    "minimalPreservedReplayMatches": true
+  },
+  "authorRedEvidenceInspected": {
+    "source": "RED.json and red.tap in frozen typefix directory",
+    "hashesMatch": true,
+    "nodeReportedTests": 80,
+    "pass": 76,
+    "fail": 4,
+    "actualRegressionFailures": 3,
+    "failedParentGroups": 1,
+    "oldHelperSha256": "f0022c7ab5c5d24fb32512f3bc53ed10e21963be7daac9395d4d6f6666605fdc",
+    "newTestSha256": "c17cbefbd321b0535f50e6012a7a16e65d5d64352f703b54b2f872d97bc17912",
+    "rerunByReviewerThisTurn": false,
+    "note": "Original failed evidence retained; independent previous review already reproduced all3 malformed inputs."
+  },
+  "staticChecks": {
+    "frozenPatchHashesMatch": true,
+    "fiveFileDeltaReverseRestoresAllOriginalFrozenHashes": true,
+    "helperChangedLines": {
+      "removed": 2,
+      "added": 2
+    },
+    "testsOnlyAdditions": true,
+    "testAddedLines": 15,
+    "fullCandidateFileCount": 5,
+    "oldTrackedDiffExceptState": "",
+    "indexEmpty": true
+  },
+  "preservedBoundaries": {
+    "allEightAcceptanceFlagsFalse": true,
+    "executionConnected": false,
+    "hostCaptureReportsRejected": true,
+    "consumerNullBadVersionsSourceLockSdkRejected": true,
+    "cancelledAndMissingTrustedOwnerRunToolRejected": true,
+    "committedReadSuccessAndFailureDistinct": true,
+    "sameReceiptReadOnlyRetryPreserved": true,
+    "oldGateSchemaAnd8_2BarrierPreserved": true,
+    "productionOldValidatorsLockSdk152UnchangedByCandidate": true
+  },
+  "workspaceFinal": {
+    "headUnchanged": true,
+    "statusAndIndexUnchanged": true,
+    "freezeUnchanged": true,
+    "fourUnrelatedFilesUnchanged": true,
+    "ownTemporarySourceRemoved": true
+  },
+  "remainingBlockers": [
+    "actual installed consumer/artifact binding and authenticated raw Host capture",
+    "runner CLI/CI integration and actual Host owner/run/tool issuance, cancellation/retirement and next-request freshness",
+    "formal consumer/probes/152/full_memory and real-model semantics remain unverified; old CI26 failures unchanged",
+    "historical EPERM resource attribution/cleanup remains unverified and was not touched"
+  ],
+  "rawEvidenceSha256": {
+    "BEFORE.json": "d3f7c858a2c6fab78af563349c0e0fdb9557f4d466a4f88405d8e8e4310a843d",
+    "AFTER.json": "d3f7c858a2c6fab78af563349c0e0fdb9557f4d466a4f88405d8e8e4310a843d",
+    "STATIC-CHECKS.json": "1a90bdb7a927e0a4e23fa996925edfd9a07d64ce545ed85259384fdd4410677f",
+    "COUNT-BREAKDOWN.json": "d400b6248b55e5b6d3cd721c56db6e90140a16c9981c44efa7ca9384d2425cba",
+    "targeted.tap": "fdda580c6183fa51864482001491278eb3911de0e03e21dac1aff0ddc6fd21ce",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "independent-probes.json": "2ab771534f51e957cf185085cf08e7919fe49337f8f58bb0894ce704b280d5c4",
+    "preserved-repro.json": "2ab771534f51e957cf185085cf08e7919fe49337f8f58bb0894ce704b280d5c4",
+    "REPRO-MANIFEST.json": "b9a78046d82204976d8acdb205353a00ad1d86e3c8bf5098494289d632c4bbeb",
+    "mjs-syntax.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "delta-reverse.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "blockedReviewOperations": [],
+  "counts": "author106 and independent106 are separate runs of the same cases;29 replay probes overlap and are not added",
+  "publicationScope": "only offline contract code/tests and non-sensitive metadata; no Host/profile execution acceptance or original gate change"
+}
