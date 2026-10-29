@@ -3,7 +3,7 @@
 project: Stella Core
 version_target: 3.0 Alpha
 status: experimental-integration-incomplete
-updated_at: "2026-10-28"
+updated_at: "2026-10-29"
 mission: Become the owner's increasingly accurate digital counterpart and high-dimensional self, extending
   memory, experience, simulation and praxis.
 normative_refs:
@@ -55,7 +55,7 @@ runtime_strategy:
   minimum_version_independently_verified: false
   integration: Host Agent Loop与请求绑定Core工具；native不是当前启用前置
   replace_agent_loop: false
-  completion_strategy: 可信入场/run/tool permit沿现有路径；C2/C3正式精确读取/纠正回读接线仍缺
+  completion_strategy: 注册纠正tool已接C3及运输无关精确读取内核并通过合成离线验证；真实Host消费仍待验收
   consciousness_manifest: 50_PersonalAgent/stella/manifest.yaml
   alpha_delivery_mode: managed_durable_write
   installed_host_version: 2026.10.8
@@ -85,12 +85,13 @@ implementation_evidence:
     - R6/R8旧契约显式归档替代：54b99a5；其余7codec及其他旧失败保留。
   new_contract_checks:
     - D063文档独审：11/11账本及82本地链接；35hash/10行号仅定位元数据，非产品通过。
-  limit: C2/C3只具模块/固定夹具证据；正式请求绑定入口接线仍缺。历史8.2及旧模型收据见historical_snapshots。
+  limit: 新注册tool接线作者253项与R1独审13项分开记录；真实Host/模型未验，历史8.2及旧模型收据保留原身份。
+  candidate_evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
   evidence_index: docs/evidence/2026-10-28-task-continuity/README.md
   manifest_sha256: 15db1a16f2e250b7a51055c2b61f89e352efd9af4479c054b85b7af2413bf4cd
 implementation_gaps:
-  - D063仍待用户审阅；本轮仅状态/证据补强，不能启动其功能实现。
-  - C2/C3精确读取内核和纠正writer→receipt→精确回读尚未全部接到正式请求入口。
+  - D063整体仍待审；本轮仅获授权的受控纠正tool精确回读切片，不授权native桥/部署/权限扩大。
+  - C2/C3已接实际注册tool；R1作者253项、独审13项通过，精确版本/权限与P1闭合已有限验证；真实Host派发及打包消费者仍缺。
   - native公共caller没有Core run/toolCall关联；消费façade为private-local，authority引用桥不作产品方案。
   - 当前两CI仍26旧失败；12旧SQL桥与7codec等行为须按范围迁移或明确退役，不能删skip刷绿。
   - consumer未安装，probes未执行，真实Gemini语义/Chrome/profile/其他消费者与完整迁移恢复/full_memory未验收。
@@ -109,8 +110,8 @@ settled_constraints:
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
 scope_of_this_change:
-  kind: documentation-and-evidence-persistence
-  implementation_changed: false
+  kind: registered-correction-tool-exact-readback-offline
+  implementation_changed: true
   private_data_read_or_migrated: false
   host_config_or_slot_changed: false
   grant_or_credentials_created: false
@@ -120,75 +121,92 @@ scope_of_this_change:
   candidate_certified: false
   publication_performed_at_capture: false
   commit_performed_at_capture: false
-  git_save_status: 独审完成；本里程碑以包含本文件的Git提交保存，远端发布状态另由Git核实，不自报未来SHA。
-updated_at_utc: "2026-10-28T23:32:12.501Z"
+  git_save_status: R1独审完成，按九文件边界保存到既有开发分支；本索引记录保存前基线，实际提交/推送由Git历史及远端核对确认。
+updated_at_utc: "2026-10-29T02:20:29.420848+00:00"
 state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
 non_goals:
-  - 本次只做任务状态与公开证据持久化及普通Git保存，不开发功能、不改生产配置/slot/grant/凭据、不运行Host或模型、不强推/合并/部署。
-  - 不把D063文本审查或本次持久化授权解释成架构实施、付费调用或部署批准。
+  - 本次仅注册纠正tool精确回读能力包；不改生产配置/slot/grant/凭据、不运行Host/真实模型、不强推/合并/部署；独审前不提交。
+  - 不把此前D063文本审查/持久化授权或本轮有限离线结果解释为整体架构批准、付费调用或部署批准。
   - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
   - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
 design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
 task_continuity:
-  task_id: core-continuity-2026-10-28
-  scope: 状态索引/证据持久化里程碑；独立审查已完成
+  task_id: registered-correction-readback-2026-10-29
+  scope: 唯一writer保存已独审的注册纠正tool→现有writer→receipt精确回读切片；仅合成离线，不部署或扩大权限
   version_binding:
-    remote_check_scope: observed_remote_commit为本次保存前ls-remote观察；发布后核对实际远端，不把观察值冒充最新。
+    remote_check_scope: 本次保存前普通ls-remote已确认远端与baseline一致；记录是保存前观察，保存后由Git核实实际提交，不自引用未来SHA。
     state_commit_lookup: git log -1 --format=%H -- PROJECT-STATE.yaml
     warning: baseline/observed是保存前观察，不是包含本状态更新的提交；实际版本由本文件Git历史和远端读取，不产生自引用hash。
-    baseline_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+    baseline_commit: ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52
     observed_branch: codex/issue23-integrated-regression
-    observed_remote_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
+    observed_remote_commit: ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52
+    observed_remote_checked_at: "2026-10-29T02:20:29.420848+00:00"
   decisions:
     confirmed:
       - 产品目标及边界依docs/09-REQUIREMENTS-ALIGNMENT.md与设计基线。
       - D058请求边界、D059显式checkpoint权威、D060沧海协调约束保留。
-      - 本轮获准状态/证据持久化及已审查内容的普通提交推送；不批准D063功能实施、权限扩大或生产变更。
+      - 本轮获准唯一writer实施注册纠正tool的精确回读、失败重试及下一请求离线合成验证；不批准native桥、生产/权限变化或真实模型。
     pending:
       - id: D063
         status: 技术评估待用户审阅，不是用户已批准产品/架构实施
         text_review: 已完成独立文档/元数据一致性审查并提交deb8dc3
         ref: docs/DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration
   implemented:
-    - 已提交D063及两项codec显式替代文档；对应已验证范围见证据索引。
-    - 本轮唯一状态索引与项目内最小证据摘要已落盘并通过独审；保存提交身份由本文件Git历史定位。
+    - 运输无关精确读取内核已从native包装提取，原包装复用；注册纠正tool直接绑定既有Core请求scope与C3协调器。
+    - writer返回receipt后只按该revision重新打开reader，保留LearningChange精确目标与Source/Evidence闭包授权。
+    - 同请求提交后读失败保留local_committed回执；新permit重试只读，不重新纠正/提交；入场来源grant文件不自动替换。
+    - R1统一约束后续首次来源/视图的入场grant；懒建resolver保留合法缓存；独审已关闭原P1，保存范围不含生产激活。
   verified:
-    - 固定安装/workspace SDK为10.8；最新CI摘要已从精确artifact核对zip、receipt和test-output hash。
-    - 两CI各1458项：1432通过、26旧失败、0取消/跳过；失败集合一致。
-    - 8文件冻结版已由Bili线程独立只读审查通过：YAML、33本地链接、5归档/12来源/7SDK hash、历史原样和26旧失败/未验收边界。
+    - typecheck、测试编译、build、9个schema及diff检查退出0。
+    - 作者R1：注册12＋native/Evidence/C2/C3回归105＋普通工具136＝253通过，0失败/取消/跳过；不标为独审253。
+    - 三组均通过：单次纠正与receipt精确回读；提交后读失败只读重试及缺permit拒绝；下一请求/磁盘重开fresh绑定和撤权拒绝。
+    - 撤权计数窗口为fresh入场后的memory tool调用：未获准来源payload I/O为0、正文返回0，另有独立获准owner输入依赖I/O为1。
+    - no_change/needs_clarification保持空目标/变更行及可用重绑请求；候选、反证与未决字段保留。
+    - 独审R1：注册工具12＋原独立P1重放1＝13/13，0失败/取消/跳过；旧run扩grant拒绝且保护payload/正文返回/模型端口/业务提交均0，合法缓存及下一请求通过。
+    - 普通工具suite终态exit0、group gone、owned work complete/root removed；错误监督入口在测试前拒绝，未计通过。
   unverified:
-    - 正式C2/C3接线、真实模型效果、公开native consumer授权交接、full_memory均未验收。
-  unique_next_step: 由父会话确认D063待审范围及下一项有界P1/P2工作包；确认前仅做恢复核对，不自行启动功能、slot切换或模型实验。
+    - R1独审13项完成，未重跑作者253全套；初版115及原P1失败证据按historical保留。真实Host/模型/部署/full_memory仍未验。
+    - 同实例同请求重试不等于跨进程恢复旧操作；Source分段只有窄许可时当前正式预检仍fail closed，不扩全源授权。
+    - SDK晚关闭ENOENT/active-leases告警仍存在；未证明SDK drain；完整套件本轮未重跑，26旧CI失败保留原身份。
+  unique_next_step: 本轮保存核实后，由父线程分派候选下一包：离线打包消费者验证现有注册纠正路径；不因D063待审或真实Host/模型未验暂停不依赖它们的已授权工作。
   blockers:
-    - 最新两CI结论failed，26旧失败未消除或整体退役。
-    - D063功能实施与native公共授权接缝未获本轮授权或证据补齐。
+    - 受阻动作：宣称全量CI或full_memory通过；既有两CI仍26旧失败，且consumer/probes与完整能力未验。
+    - 受阻动作：native公共授权桥/slot切换及整体D063实施；公共caller交接未证明、D063待审。当前受控tool及离线消费者验证不依赖该桥。
+  authorized_next_package_candidate:
+    status: awaiting_parent_assignment
+    name: 离线打包消费者验证现有注册纠正路径
+    boundary: 现有安装/SDK、合成离线、临时打包消费者；不部署、不切slot、不新增grant或凭据、不真实Host/模型
+    execution_started: false
   requires_separate_scope:
     - 真实模型调用的明确provider/model、数据、次数/费用预算。
     - Host试验的新批次请求/一次性凭据范围；不复用已销毁token或耗尽的旧预算。
     - 新增身份/来源授权、主配置或memory slot切换、部署。
   same_repo_writer: 一个明确指定写入者；其他并行会话只读，不按目录推定隔离
   local_change_whitelist:
-    - AGENTS.md
     - PROJECT-STATE.yaml
-    - docs/evidence/2026-10-28-task-continuity/
+    - src/canghai/authorized-exact-readback.ts
+    - src/openclaw/checkpoint-native-readback.ts
+    - src/openclaw/checkpoint-correction-readback.ts
+    - src/openclaw/checkpoint-agent-supply.ts
+    - tests/checkpoint-agent-correction-supply.test.ts
+    - docs/evidence/2026-10-29-registered-correction-readback/
   preserved_unrelated_untracked:
     - docs/suqing-m1-2026-10-22.md
     - docs/suqing-m1-plugin-boundary-review-2026-10-22.md
     - docs/suqing-midterm-plan-2026-10-22.md
     - tests/recovery-pointer-barriers.test.ts
   independent_review:
-    status: passed
-    confirmed_by: 父会话确认Bili线程独立只读审查结论
-    reviewed_baseline_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
-    reviewed_patch_sha256: 0749ff5c1eb4008e5669d744d5a3a74058c56c911ade25c02a3bb8c6bcddabf3
-    scope: 8文件冻结版；其后仅授权的独审完成/保存状态/下一步元数据收尾，差异单独核对
-    counts:
-      local_links: 33
-      archive_hashes: 5
-      original_source_hashes: 12
-      sdk_hashes: 7
-    d063_implementation_approved: false
+    status: passed_scoped_r1
+    previous_status: changes_requested
+    finding: 原P1已关闭；同run新permit不能采用较宽grant，合法缓存保留，下一请求独立授权
+    scope: 本轮受控tool精确回读能力包；旧ce2343c1持久化独审不适用于此patch
+    tests: 13
+    p1_closed: true
+    evidence: docs/evidence/2026-10-29-registered-correction-readback/verification-summary.json
+    previous_milestone: ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52
+    d063_overall_implementation_approved: false
 current_validation:
+  scope: historical remote CI before the current uncommitted capability package; current local results are in task_continuity
   source_commit: deb8dc359a5cb5942c969684a60d0182b816aa5c
   result: failed
   not_a_fresh_worktree_run: true

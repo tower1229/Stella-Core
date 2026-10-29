@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "stella.registered-correction-readback-evidence/v1",
+  "recordedAt": "2026-10-29T01:27:39.344374+00:00",
+  "baselineCommit": "ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52",
+  "observedRemoteCommit": "ce2343c17c7dba5c1d60fa2b1daf87a288bdcd52",
+  "branch": "codex/issue23-integrated-regression",
+  "workingTreeCandidate": true,
+  "independentReview": "pending",
+  "sourceSha256": {
+    "src/canghai/authorized-exact-readback.ts": "213dc0e3bdc89f3586178787dae9984ad00de146aa4a12dc9a75f366ec9114b7",
+    "src/openclaw/checkpoint-native-readback.ts": "f050594590a4e12b1cc897326f2343686fd88fc1f7aa5d7b1e43180e4f886219",
+    "src/openclaw/checkpoint-correction-readback.ts": "e195e501d0b3239663740325793c00e50a451cd39f8b8c1b2d335b6a503dfa38",
+    "src/openclaw/checkpoint-agent-supply.ts": "03fb7ab2143ef7bbfb540b3b19911d24a676396ab75071ddf4e177fc2b0dc835",
+    "tests/checkpoint-agent-correction-supply.test.ts": "d64d2a4db257b304ced39cfd5241b30f937a616a703657a3657a0815bfed3c35"
+  },
+  "versions": {
+    "workspaceSdk": "2026.10.8",
+    "node": "v24.22.1",
+    "stubModelLabel": "google/gemini-3.8-flash",
+    "reasoning": "low",
+    "actualModelConsumer": null
+  },
+  "checks": {
+    "typecheckExit": 0,
+    "testCompileExit": 0,
+    "buildExit": 0,
+    "schemaExit": 0,
+    "schemas": 9,
+    "diffCheckExit": 0
+  },
+  "testRuns": [
+    {
+      "name": "registered",
+      "totals": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 0,
+      "rawLogSha256": "e97ca48d3f3d4e1a5a1ee0f062b5a57701b089ff22585f6ade77c348378b048b",
+      "durationMs": 73927.514166
+    },
+    {
+      "name": "shared_readback",
+      "totals": {
+        "tests": 105,
+        "pass": 105,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 0,
+      "rawLogSha256": "9b1cfa45a401b17477278f3c30bfe383a77d9bdff7b043bfca1d0ec7a9690910",
+      "durationMs": 50288.196583
+    }
+  ],
+  "total": {
+    "tests": 115,
+    "pass": 115,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "assertedGroups": [
+    {
+      "name": "actual registration + existing single writer + exact receipt readback",
+      "archiveCommits": 1,
+      "correctionCommits": 1,
+      "concurrentCallsShareSameOperation": true,
+      "catalogReopenedAndMatchedToReceiptRevision": true,
+      "targetVersionEqualsReturnedObjectVersion": true,
+      "noNativeTransportReferenceInToolResult": true,
+      "argumentsRemainEmptyObject": true,
+      "candidateCounterevidenceOpenFieldsPreserved": true
+    },
+    {
+      "name": "post-commit read failure + same-request retry",
+      "committedStatusRetained": "local_committed",
+      "readFailureStatus": "readback_failed",
+      "missingToolPermitRefused": true,
+      "readDenialCategory": "source_topic_unresolved",
+      "changedAdmittedGrantCategory": "personal_context_access_changed",
+      "retriesDoNotReinferCorrectionOrCommit": true,
+      "sourceSemanticChecksMayRepeat": true,
+      "recoveredReadUsesOriginalOperationAndVersion": true
+    },
+    {
+      "name": "new user request + disk reopen + independent source permission",
+      "newCheckpointAndPermissionLoaded": true,
+      "oldToolPermitAndReaderRefused": true,
+      "correctedObjectVersionUnchanged": true,
+      "revokedPermissionCategory": "personal_context_descriptor_required",
+      "protectedSourcePayloadReadAttempts": 0,
+      "independentlyPermittedOwnerInputPayloadReadsBeforeLateDenial": 1,
+      "returnedDocumentsAfterDenial": 0,
+      "newRequestsDoNotCorrectAgain": true,
+      "measurementWindow": "registered memory tool invocation after fresh admission; excludes fixture setup and ingress"
+    },
+    {
+      "name": "no_change and needs_clarification",
+      "emptyTargetsAndChangeRows": true,
+      "readbackNotRequired": true,
+      "reboundRequestCanStillReadAuthorizedOriginalWork": true
+    }
+  ],
+  "history": [
+    {
+      "phase": "initial registered run",
+      "result": "interrupted; six passed cases, no terminal totals; not counted as completed suite",
+      "rawLogSha256": "493820d010b4e61c3b1aecf9fff5e483b0898597bb31a36258737fad0430f67a"
+    },
+    {
+      "phase": "first recovered remainder",
+      "result": "3 pass / 1 test expectation failure: explicit descriptor denial was thrown rather than returned as empty list",
+      "rawLogSha256": "ad899eeb1a9e6eb2b15ee948aa20aaeab1f9fa029e6204406d3d0f09ca3d2ecc"
+    },
+    {
+      "phase": "first complete registered run",
+      "result": "9 pass / 1 instrumentation expectation failure: allowed owner-input I/O was incorrectly counted as protected-source I/O",
+      "rawLogSha256": "cf2de97309c0e410c2d867359ef77438d60dffcf5a0a9df3c4fea420b3d0dc91"
+    }
+  ],
+  "knownLimits": [
+    "synthetic public hooks/tool contexts and fixed local structured responses; no actual Host dispatch or semantic model acceptance",
+    "same-instance same-admitted-request retry only; no cross-process retry of an old correction operation",
+    "formal source admission currently requires whole-source permission; segmented_source_requires_evidence remains a fail-closed limit rather than widening a grant",
+    "SDK agent database late-close/ENOENT/active-leases warnings remain observed; not a drain or resource-lifecycle acceptance",
+    "full suite not rerun; historical 26 CI failures remain unchanged/unresolved by this evidence"
+  ],
+  "notPerformed": {
+    "realModelOrPaidCalls": true,
+    "mainHostConfigSlotOrGrantChange": true,
+    "newIdentityOrCredential": true,
+    "privateDataOrRemoteFixture": true,
+    "commitPushDeploy": true
+  }
+}

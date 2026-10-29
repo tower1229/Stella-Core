@@ -5,6 +5,7 @@ import { Type } from "typebox";
 import { createPluginRuntimeStore } from "openclaw/plugin-sdk/runtime-store";
 import { parseAgentSessionKey } from "openclaw/plugin-sdk/routing";
 import { CatalogError, CatalogReader, validMemoryRef } from "../canghai/catalog-reader.js";
+import { loadPersonalContextAccess } from "../canghai/personal-context-access.js";
 import { canonicalJson } from "../canghai/content-version.js";
 import { parseSourcePolicy } from "../canghai/source-policy.js";
 import { EpisodeEvidenceResolver, type OriginalEvidence } from "../praxis/episode-evidence.js";
@@ -13,13 +14,13 @@ import { HOST_REQUEST_ARCHIVE_ADAPTER } from "../canghai/host-request-archive.js
 import { HOST_INPUT_ARCHIVE_ADAPTER } from "../canghai/host-input-archive.js";
 import { isRecord } from "../shared/type-guards.js";
 import { captureCheckpointHostRequest } from "./checkpoint-host-request.js";
-import { correctCheckpointRequest } from "./checkpoint-agent-correction.js";
+import { createCheckpointCorrectionReadback, type CheckpointToolCorrectionReadback } from "./checkpoint-correction-readback.js";
 import type { CheckpointRequestArchiveReceipt } from "./checkpoint-request-ingress.js";
 import { createCheckpointSourceAccess, prepareCheckpointUnderstanding, prepareCheckpointWork } from "./checkpoint-source-access.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "../praxis/evidence-bundle.js";
 import type { createCheckpointPluginRuntime, CheckpointPluginConfig } from "./checkpoint-plugin-runtime.js";
-import type { RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
+import { freezeRecoveryReadBinding, type RecoveryReadBinding } from "../canghai/recovery-read-binding.js";
 import { replyCheckpointFailure } from "./checkpoint-failure-reply.js";
 
 export const CHECKPOINT_MEMORY_TOOL = "stella_memory_data";
@@ -33,8 +34,8 @@ type Ingress = ReturnType<typeof captureCheckpointHostRequest>;
 type Grant = { ingress: Ingress; runtime: Runtime; recovery: RecoveryReadBinding; resolver: EpisodeEvidenceResolver;
   sourceAccessFor: (signal: AbortSignal, recovery?: RecoveryReadBinding) => Promise<SourceAccessProvider | undefined>;
   archivedRequest?: CheckpointRequestArchiveReceipt; correctionObjectRoot: string;
-  correction?: Promise<Awaited<ReturnType<typeof correctCheckpointRequest>>>;
-  processingBindingPath?: string; work?: Awaited<ReturnType<typeof prepareCheckpointWork>>;
+  correction?: CheckpointToolCorrectionReadback;
+  processingBindingPath?: string; assertSourceGrant: () => Promise<void>; work?: Awaited<ReturnType<typeof prepareCheckpointWork>>;
   understanding?: Awaited<ReturnType<typeof prepareCheckpointUnderstanding>>;
   active: boolean; admitted: boolean; handles: Map<string, OriginalEvidence["ref"]>; originals: Map<string, OriginalEvidence>; skills: Map<string, ManagedCheckpointSkill> };
 type SupplyScope = { shutdown: AbortController; grants: Map<string, Grant>; runs: Set<string>; preparations: Map<string, AbortController>;
@@ -84,7 +85,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
     await grant.runtime.assert(grant.recovery); await grant.resolver.reader.assertCurrent();
     assertAlive(grant, signal, toolActive);
   };
-  const original = async (grant: Grant, ref: OriginalEvidence["ref"], signal: AbortSignal, resolver: EpisodeEvidenceResolver, recovery: RecoveryReadBinding) => {
+  const original = async (grant: Grant, ref: OriginalEvidence["ref"], signal: AbortSignal, resolve: () => Promise<EpisodeEvidenceResolver>, recovery: RecoveryReadBinding) => {
     const toolActive = true;
     await assertRequest(grant, signal, toolActive);
     check(grant.recovery === recovery, "checkpoint_agent_memory_changed");
@@ -93,6 +94,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
     // Check a previously unseen source against this request's frozen authority.
     // A later publication cannot silently become this request's expected version.
     try {
+      const resolver = await resolve();
       await assertGrant(grant, signal, toolActive);
       const evidence = await grant.resolver.reader.read(ref, "evidence");
       check(validMemoryRef(evidence.policyRef) && validMemoryRef(evidence.source), "invalid_evidence");
@@ -146,20 +148,25 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         const binding = await loadPraxisRuntimeBinding(loaded.loaded, { sourceSupplyOnly: true });
         check(ingress.identity.kind !== "gateway_device" || binding.personalContextAccessPath, "checkpoint_device_source_grant_required");
         const reader = await CatalogReader.load(config.canghaiRoot, binding.catalogPath);
+        const admittedSourceGrant = binding.personalContextAccessPath ? await loadPersonalContextAccess(config.canghaiRoot, binding.personalContextAccessPath) : undefined;
         const grant: Grant = { ingress, runtime, recovery: archivedRecovery ?? loaded.recovery,
           resolver: new EpisodeEvidenceResolver(reader, { ...binding.purpose, evidenceCutoff: ingress.capturedAt,
             trustedAdapters: { user_report: [HOST_REQUEST_ARCHIVE_ADAPTER, HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } },
             async () => { throw new CatalogError("checkpoint_agent_semantic_dispatch_forbidden"); }),
-          sourceAccessFor(signal, recovery = grant.recovery) {
+          async sourceAccessFor(signal, recovery = grant.recovery) {
+            await grant.assertSourceGrant();
             const reader = grant.resolver.reader;
-            return createCheckpointSourceAccess({ api, agentId: config.agentId, root: config.canghaiRoot,
+            const sourceAccess = await createCheckpointSourceAccess({ api, agentId: config.agentId, root: config.canghaiRoot,
               bindingPath: binding.personalContextAccessPath, request: ingress.request, purpose: binding.purpose, signal,
               async assertCurrent() {
                 check(grant.recovery === recovery, "checkpoint_agent_memory_changed");
                 await ingress.assertCurrent(); await runtime.assert(recovery); await reader.assertCurrent();
+                await grant.assertSourceGrant();
                 check(grant.recovery === recovery, "checkpoint_agent_memory_changed");
               } });
+            await grant.assertSourceGrant(); return sourceAccess;
           },
+          async assertSourceGrant() { await admittedSourceGrant?.assertCurrent(); },
           archivedRequest, correctionObjectRoot: binding.archive.objectRoot, processingBindingPath: binding.personalContextAccessPath,
           active: true, admitted: false, handles: new Map(), originals: new Map(), skills: new Map() };
         const sourceAccess = await grant.sourceAccessFor(ingress.signal);
@@ -212,33 +219,55 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         await assertRequest(grant, cancellation, true);
         check(isRecord(value) && Object.keys(value).length === 0, "checkpoint_agent_tool_arguments_invalid");
         check(grant.archivedRequest, "checkpoint_correction_archive_required");
-        // This one captured request owns one semantic preparation/transaction.
-        grant.correction ??= (async () => {
-          const result = await correctCheckpointRequest({ api, runtime: grant.runtime, recovery: grant.recovery, resolver: grant.resolver,
-            bindingPath: grant.processingBindingPath, objectRoot: grant.correctionObjectRoot,
-            request: grant.ingress.request, archive: grant.archivedRequest!, signal: cancellation,
-            assertCurrent: () => assertRequest(grant, cancellation, true) });
-          await assertRequest(grant, cancellation, true);
-          const accepted = Object.freeze({ resolver: grant.recovery.resolver, expected: result.authority });
-          await grant.runtime.assert(accepted);
-          if (canonicalJson(grant.recovery.expected) !== canonicalJson(result.authority)) {
-            // Rebind once, only to this writer's returned CAS, never observed HEAD.
+        // A receipt advances the memory CAS, never the admitted permission file.
+        // Keep committed-read retries available so a changed grant is reported
+        // as readback_failed rather than losing the local_committed receipt.
+        if (!grant.correction) await grant.assertSourceGrant();
+        // Only this writer receipt may advance the same request's checkpoint.
+        // If reopening fails, clear old caches and keep the committed receipt for
+        // a read-only retry; no latest-grant route and no hidden second writer.
+        const accept = (recovery: RecoveryReadBinding) => {
+          if (canonicalJson(grant.recovery.expected) !== canonicalJson(recovery.expected)) {
             grant.work = undefined; grant.understanding = undefined; grant.originals.clear(); grant.handles.clear(); grant.skills.clear();
-            const reader = await CatalogReader.load(config.canghaiRoot, grant.resolver.reader.catalogPath);
+            grant.recovery = recovery;
+          }
+        };
+        grant.correction ??= createCheckpointCorrectionReadback({ correction: { api, runtime: grant.runtime, recovery: grant.recovery, resolver: grant.resolver,
+          bindingPath: grant.processingBindingPath, objectRoot: grant.correctionObjectRoot,
+          request: grant.ingress.request, archive: grant.archivedRequest, signal: cancellation,
+          assertCurrent: () => assertRequest(grant, undefined, true) },
+          async openReadScope(binding) {
+            await assertRequest(grant, binding.signal, true); await grant.runtime.assert(binding.recovery);
+            await grant.assertSourceGrant();
+            accept(binding.recovery);
+            const recovery = grant.recovery;
             const { sourceAccess: _oldAccess, ...purpose } = grant.resolver.purpose;
             const complete = grant.resolver.complete;
-            grant.recovery = accepted;
-            grant.resolver = new EpisodeEvidenceResolver(reader, purpose, complete);
-            const sourceAccess = await grant.sourceAccessFor(cancellation);
-            grant.resolver = new EpisodeEvidenceResolver(reader, { ...purpose, ...(sourceAccess ? { sourceAccess } : {}) }, complete);
-          }
-          await assertGrant(grant, cancellation, true); return result;
-        })().catch(error => { retire(grant); scope.last = { state: "blocked", category: category(error) }; throw error; });
-        const result = await grant.correction; await assertRequest(grant, cancellation, true);
+            grant.resolver = new EpisodeEvidenceResolver(binding.reader, purpose, complete);
+            const sourceAccess = await grant.sourceAccessFor(binding.signal, recovery);
+            const resolver = new EpisodeEvidenceResolver(binding.reader, { ...purpose, signal: binding.signal, ...(sourceAccess ? { sourceAccess } : {}) }, complete);
+            grant.resolver = resolver;
+            const current = async () => { await assertGrant(grant, binding.signal, true); await grant.assertSourceGrant(); };
+            await current();
+            return { reader: binding.reader, resolver, assertCurrent: current,
+              async authorizeSources({ sourceRefs }) {
+                await current();
+                for (const ref of sourceRefs) {
+                  const source = await binding.reader.read(ref, "sources");
+                  check(validMemoryRef(source.policyRef), "invalid_source");
+                  await resolver.assertSourceAccess(ref, source.policyRef); await current();
+                }
+                return { assertCurrent: current };
+              } };
+          } });
+        const outcome = await grant.correction.execute(value, cancellation), result = outcome.correction;
+        await assertRequest(grant, cancellation, true);
+        accept(freezeRecoveryReadBinding({ resolver: grant.recovery.resolver, expected: result.authority }, grant.runtime.config));
         const supplied = { correction: { operationId: result.operationId, disposition: result.disposition,
           clarification: result.clarification, changeRef: result.changeRef, persistenceStatus: result.persistenceStatus },
-          currentMemory: { userRequest: grant.ingress.request.runId, checkpointRevision: grant.recovery.expected.revision, checkpointToken: grant.recovery.expected.token } };
-        scope.last = { state: "corrected" };
+          status: outcome.status, readback: outcome.readback,
+          currentMemory: { userRequest: grant.ingress.request.runId, checkpointRevision: result.authority.revision, checkpointToken: result.authority.token } };
+        scope.last = outcome.status === "readback_failed" ? { state: "blocked", category: outcome.readback.category } : { state: "corrected" };
         return { content: [{ type: "text", text: canonicalJson(supplied) }], details: supplied };
       },
     }, { names: [CHECKPOINT_CORRECTION_TOOL], optional: true });
@@ -255,11 +284,15 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
         check(isRecord(value) && ((value.action === "work" || value.action === "understanding") && Object.keys(value).length === 1 || value.action === "list" && Object.keys(value).every(key => ["action", "cursor"].includes(key)) &&
           (value.cursor === undefined || Number.isSafeInteger(value.cursor) && Number(value.cursor) >= 0) || (value.action === "read" || value.action === "skill") &&
           typeof value.handle === "string" && Object.keys(value).sort().join() === "action,handle"), "checkpoint_agent_tool_arguments_invalid");
-        // Each tool owns its cancellation; policy judgment must stop before an
-        // original read even when the outer owner request is still running.
-        const sourceAccess = await grant.sourceAccessFor(cancellation, call.recovery);
-        const resolver = new EpisodeEvidenceResolver(grant.resolver.reader,
-          { ...grant.resolver.purpose, signal: cancellation, ...(sourceAccess ? { sourceAccess } : {}) }, grant.resolver.complete);
+        // Already supplied originals/views remain request-local under D-058.
+        // Only an uncached supply opens a policy context, and it must still use
+        // the permission file captured at admission, never a later wider grant.
+        let resolving: Promise<EpisodeEvidenceResolver> | undefined;
+        const resolve = () => resolving ??= (async () => {
+          const sourceAccess = await grant.sourceAccessFor(cancellation, call.recovery);
+          return new EpisodeEvidenceResolver(grant.resolver.reader,
+            { ...grant.resolver.purpose, signal: cancellation, ...(sourceAccess ? { sourceAccess } : {}) }, grant.resolver.complete);
+        })();
         let output: Record<string, unknown>;
         if (value.action === "list") {
           const entries = grant.resolver.reader.catalog.evidence.filter(entry => entry.status === "current" && grant.resolver.reader.eligible(entry));
@@ -270,7 +303,7 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
             usageConstraints?: OriginalEvidence["usageConstraints"] }> = [];
           for (const [offset, entry] of page.entries()) {
             try {
-              const evidence = await original(grant, entry, cancellation, resolver, call.recovery);
+              const evidence = await original(grant, entry, cancellation, resolve, call.recovery);
               check(grant.recovery === call.recovery, "checkpoint_agent_memory_changed");
               const suffix = grant.archivedRequest && grant.recovery.expected.token !== grant.archivedRequest.recovery.expected.token ? `_${grant.recovery.expected.token}` : "";
               const handle = `E${cursor + offset + 1}${suffix}`;
@@ -289,20 +322,21 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
             nextCursor: cursor + page.length < entries.length ? cursor + page.length : null };
         } else if (value.action === "read") {
           const ref = grant.handles.get(String(value.handle)); check(ref, "checkpoint_agent_handle_unavailable");
-          const evidence = await original(grant, ref, cancellation, resolver, call.recovery);
+          const evidence = await original(grant, ref, cancellation, resolve, call.recovery);
           output = { original: evidence };
         } else if (value.action === "work" || value.action === "understanding") {
           const action = value.action, cached = grant[action];
           if (cached) output = structuredClone(cached);
           else {
             await assertGrant(grant, cancellation, true);
-            const purpose = grant.resolver.purpose;
+            const resolver = await resolve(), purpose = grant.resolver.purpose;
             const prepare = action === "work" ? prepareCheckpointWork : prepareCheckpointUnderstanding;
             const view = await prepare({ api, agentId: config.agentId, root: config.canghaiRoot,
               bindingPath: grant.processingBindingPath, request: grant.ingress.request,
               purpose: { readPurpose: purpose.readPurpose, derivePurpose: purpose.derivePurpose, deliveryScope: purpose.deliveryScope },
               signal: cancellation, resolver, recoveryRevision: grant.recovery.expected.revision,
-              assertCurrent: async () => { check(grant.recovery === call.recovery, "checkpoint_agent_memory_changed"); await assertGrant(grant, cancellation, true); } });
+              assertCurrent: async () => { check(grant.recovery === call.recovery, "checkpoint_agent_memory_changed"); await assertGrant(grant, cancellation, true); await grant.assertSourceGrant(); } });
+            await grant.assertSourceGrant();
             check(grant.recovery === call.recovery, "checkpoint_agent_memory_changed");
             if ("works" in view) grant.work = structuredClone(view);
             else grant.understanding = structuredClone(view);
