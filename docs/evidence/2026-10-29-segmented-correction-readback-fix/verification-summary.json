@@ -1,0 +1,344 @@
+{
+  "schemaVersion": "stella.segmented-correction-readback-fix/v1",
+  "recordedAt": "2026-10-29T05:40:35.846281+00:00",
+  "status": "scoped_offline_passed_independent_review_complete_with_retained_cleanup_uncertainty",
+  "sourceBaseline": "ebf2d35c58091f4915c32752a4480caeafbd139b",
+  "productionChanges": [
+    "src/praxis/personal-views.ts",
+    "src/openclaw/checkpoint-source-access.ts",
+    "src/openclaw/checkpoint-agent-supply.ts"
+  ],
+  "newProductionModule": false,
+  "behavior": "reuse view Source metadata admission through request-bound processing context for v2; preserve v1 whole-source and exact Evidence authorization",
+  "redEvidence": {
+    "summary": "../2026-10-29-segmented-correction-readback-repro/verification-summary.json",
+    "summarySha256": "e0834859e2fa608275c0eab09e154ff3d00be3f5ddccfb1cd34f820b844937e1",
+    "testsPatch": "red-tests-patch.json",
+    "testsPatchSha256": "978cd075ee1074ecb73fbcc66e0cf559353b76ee464125dc6c9b1f472c91d86c",
+    "baseline": "ebf2d35c58091f4915c32752a4480caeafbd139b",
+    "originalFileTotals": {
+      "tests": 13,
+      "pass": 12,
+      "fail": 1
+    },
+    "originalRawResultSha256": "2bfc10dcc02afd06df5d0a223202da3ef4e764bbd5e239f0b27782da7cfdcbb3",
+    "originalRawStdoutSha256": "5bd3d08764b98546001477e0c174773084ecc5bfba252ae626800f477170fb79",
+    "testsPatchArchiveSha256": "461ed2de989eeb39fd4a978e1b1597c0dd4532b011ce9bb41e8fff67b5f31b89"
+  },
+  "greenAOnly": {
+    "archiveCommits": 1,
+    "category": null,
+    "configWrites": 0,
+    "correctionCommits": 1,
+    "documents": 1,
+    "operationId": "learn_e3048ccb6d5599331de4472b63ab40a82ed62499b6fe2cfdd3acf9006567ffa2",
+    "payloads": {
+      "correction": {
+        "allowedA": 35,
+        "deniedB": 0,
+        "other": 26
+      },
+      "ordinary": {
+        "allowedA": 6,
+        "deniedB": 0,
+        "other": 2
+      },
+      "ordinary-after-commit": {
+        "allowedA": 5,
+        "deniedB": 0,
+        "other": 5
+      },
+      "retry": {
+        "allowedA": 1,
+        "deniedB": 0,
+        "other": 1
+      }
+    },
+    "persistenceStatus": "local_committed",
+    "receiptRevision": "ec3f9ed08b97935ec46a85c5cba32a3e09794e7a",
+    "retryCommits": 0,
+    "retryCorrectionInferenceCalls": 0,
+    "status": "readback_verified",
+    "target": {
+      "id": "synthetic-writing-work",
+      "version": "sha256:6ed370ab142478c0386d70a67703762d039de6acf591c908a6531684db78caf0"
+    },
+    "wholeSourceChecks": [],
+    "fragmentAuthorizationSummary": {
+      "ordinary:allowed": 2,
+      "ordinary:permission_denied": 1,
+      "correction:allowed": 6,
+      "retry:allowed": 1,
+      "ordinary-after-commit:allowed": 1
+    }
+  },
+  "boundaryMatrix": [
+    {
+      "aPayloadReads": 40,
+      "correctionCategory": null,
+      "correctionCommitted": true,
+      "mode": "separate-allowed",
+      "ordinaryCategory": null,
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": null
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "correction_authorized_scope_incomplete",
+      "correctionCommitted": false,
+      "mode": "parent-denied",
+      "ordinaryCategory": "permission_denied",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "correction_authorized_scope_incomplete",
+      "correctionCommitted": false,
+      "mode": "direct-B",
+      "ordinaryCategory": "permission_denied",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 11,
+      "correctionCategory": "correction_authorized_scope_incomplete",
+      "correctionCommitted": false,
+      "mode": "derived-B",
+      "ordinaryCategory": "permission_denied",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "personal_context_descriptor_required",
+      "correctionCommitted": false,
+      "mode": "missing-parent-descriptor",
+      "ordinaryCategory": "personal_context_descriptor_required",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "personal_context_descriptor_required",
+      "correctionCommitted": false,
+      "mode": "missing-fragment-descriptor",
+      "ordinaryCategory": "personal_context_descriptor_required",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "personal_context_descriptor_required",
+      "correctionCommitted": false,
+      "mode": "wrong-descriptor",
+      "ordinaryCategory": "personal_context_descriptor_required",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "segmented_source_requires_evidence",
+      "correctionCommitted": false,
+      "mode": "uncovered",
+      "ordinaryCategory": "segmented_source_requires_evidence",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "evidence_segment_policy_mismatch",
+      "correctionCommitted": false,
+      "mode": "cross-segment",
+      "ordinaryCategory": "evidence_segment_policy_mismatch",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    },
+    {
+      "aPayloadReads": 0,
+      "correctionCategory": "evidence_segment_policy_mismatch",
+      "correctionCommitted": false,
+      "mode": "wrong-policy",
+      "ordinaryCategory": "evidence_segment_policy_mismatch",
+      "protectedBPayloadReads": 0,
+      "protectedWorkRecordsReturned": 0
+    }
+  ],
+  "committedReadFailureRetry": {
+    "deniedRetryDocuments": 0,
+    "firstStatus": "readback_failed",
+    "persistenceStatus": "local_committed",
+    "protectedBPayloadReads": 0,
+    "recoveredStatus": "readback_verified",
+    "retryCommits": 0,
+    "retryCorrectionInferenceCalls": 0,
+    "sameReceipt": true
+  },
+  "runs": {
+    "segmented": {
+      "totals": {
+        "tests": 13,
+        "pass": 13,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "process": {
+        "exitCode": 0,
+        "timedOut": false,
+        "pid": 31701,
+        "groupGone": true,
+        "cleanup": "owned isolated runtime removed after group gone"
+      },
+      "rawSha256": {
+        "RESULT.json": "70fb05a67cef9d80f411cd0c316a6527d359810289f43f08c11f25da14c00549",
+        "stdout.tap": "cbf5b5000818906f54b6fe8fabd638cd93e1b293693948b05a36e4adbd34fea8",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "v1-selected": {
+      "totals": {
+        "tests": 12,
+        "pass": 12,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "process": {
+        "exitCode": 0,
+        "timedOut": false,
+        "pid": 80403,
+        "groupGone": true,
+        "cleanup": "owned isolated runtime removed after group gone"
+      },
+      "rawSha256": {
+        "RESULT.json": "37b65bede06b13b5961ba832c1c19860156d1ad10da3d26ac75a54cc06a02509",
+        "stdout.tap": "9e19bd1131784086d62fee4a124b1f37316d92ac7e7570dcbc83990be9c87e3f",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "related": {
+      "totals": {
+        "tests": 116,
+        "pass": 116,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "process": {
+        "exitCode": 0,
+        "timedOut": false,
+        "pid": 37413,
+        "groupGone": true,
+        "cleanup": "owned isolated runtime removed after group gone"
+      },
+      "rawSha256": {
+        "RESULT.json": "a6f80a0b97bb48784e3bfae1a98d8b2e705fbf28b451a053874df865fd27c689",
+        "stdout.tap": "4f429238cbf88ccbcfafe3b98b7f7e7a34313754a7ad968d7142d410b9d63b48",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  "totals": {
+    "tests": 141,
+    "pass": 141,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "scope": "disjoint segmented13 + originalv1/permit12 from same file, plus related4 files116; not full suite",
+    "previewOneCaseNotAdded": true
+  },
+  "coverageStage": "nine invalid fixture variants are denied before correction commit; v2 post-commit source-context denial separately retains local_committed/empty documents and retries same receipt",
+  "termDisambiguation": "WORK_GOAL_B is the corrected goal text; synthetic-work-fragment-B is separately denied Evidence. A-only goal correction does not depend on denied B payload.",
+  "ioScope": "CatalogReader.readPayload attempts; unauthorized B0/denied target release0; derived-B may read authorized A first. Separate payloads do not prove shared-file byte isolation.",
+  "checks": {
+    "testCompileExit": 0,
+    "typecheck": {
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "schemasValidated": 9,
+    "diffCheck": 0,
+    "metadataLinks": {
+      "status": "passed",
+      "readmeLocalLinks": 4,
+      "original12StatementBodiesUnchanged": true,
+      "redProjectEvidenceUnchanged": true,
+      "fourUnrelatedUntrackedUnchanged": true,
+      "indexEmpty": true
+    }
+  },
+  "preservedProductionFiles": {
+    "src/praxis/episode-evidence.ts": "f4d9770d59992136efd81a30956c2c890e5e2a15576c72e23a1b140ed593d0cd",
+    "src/canghai/authorized-exact-readback.ts": "213dc0e3bdc89f3586178787dae9984ad00de146aa4a12dc9a75f366ec9114b7",
+    "src/learning/correction.ts": "e071a30ea397cd41d74de4379fbd63e6c2834d5c84b88e803b4e0033e6f74eba",
+    "src/openclaw/checkpoint-correction-readback.ts": "e195e501d0b3239663740325793c00e50a451cd39f8b8c1b2d335b6a503dfa38"
+  },
+  "implementationFileSha256": {
+    "src/praxis/personal-views.ts": "4610b542fa4e723deb9b9119222238ec674f9a719046e01990af11b10ee223b8",
+    "src/openclaw/checkpoint-source-access.ts": "481eefdc3052c814e325142d2a39bb346a74d70fc8a7d7523e1f9851eb6f85c6",
+    "src/openclaw/checkpoint-agent-supply.ts": "36587b82cc8c1c1e2a69fbf9b3b06369f6fed5d1a36858def3d7c1613fe8a809",
+    "tests/checkpoint-work-fixture.ts": "e43978d5229132174a651d805baf85450497d94616562c4a457d2eb62036d77b",
+    "tests/checkpoint-agent-correction-supply.test.ts": "8cc41c1f007a215f00bc361628db3b9f4d4fc956beabd59acd2c2d24a0ffd3d1"
+  },
+  "verificationHistory": {
+    "positiveFirstPreview": {
+      "resultSha256": "dedf6e12f1c4a099549b6b30771e82d3812ff8f300c20360cc67d5ceadfbe757",
+      "notAddedTo141": true
+    },
+    "incompleteV1Selection": {
+      "status": "interrupted, not counted",
+      "metadataSha256": "61d3204be971bf4549dbb6d26c2326006e063634d20c18cc1a74a9d787af250f",
+      "stdoutSha256": "63ae016f7f8dddc7ac467fa2fdbbace0d24072b579d7d817a8f7959143980ffe",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cause": "negative-lookahead unexpectedly included new segmented cases; outer150s interrupted before totals",
+      "groupProbe": "EPERM after leader completed; original PID not recorded by first helper",
+      "runtimeRetained": true,
+      "followup": "approved targeted pgrep found no matching Node CLI/file process before corrected positive-prefix run; no blind retry of uncertain operation"
+    }
+  },
+  "cleanup": "three final counted groups confirmed gone and their runtime roots removed; one earlier interrupted harness root retained due unverifiable group probe; no SDK drain claim",
+  "notAccepted": [
+    "real Host/model or packaged-consumer acceptance",
+    "full suite/old26/formal gate/full_memory",
+    "shared-file byte isolation or instantaneous revocation platform",
+    "SDK drain; active-leases/close-unconfirmed/ENOENT warnings remain"
+  ],
+  "sideEffects": {
+    "realGrantConfigSlotCredentialsChanged": false,
+    "realModelCalls": 0,
+    "committed": false,
+    "pushed": false
+  },
+  "independentReview": {
+    "decision": "passed_scoped_bounded_fix_ready_for_commit_with_retained_cleanup_uncertainty",
+    "authorTests": 141,
+    "independentTests": 141,
+    "not282DistinctCases": true,
+    "archive": "independent-review.json",
+    "archiveSha256": "e84913cc6300f8b37f09dad4f8c82e6f503b8fcbae84c148bb99d6a7b79d1163",
+    "sourceReportSha256": "2dfffbe129a3f5d07951a7694296569f2abdf7f53f21d58721499f9a4d90d100",
+    "sourceSummarySha256": "097b91da6d1d281b7ff73580fb56df1db40d87482d0f51e4f38cd7d07cae9681",
+    "retainedCleanupUncertainty": true
+  },
+  "priorCiObservation": {
+    "source": "parent latest independent verification; no new child CI query",
+    "headSha": "ebf2d35c58091f4915c32752a4480caeafbd139b",
+    "oldFailureCount": 26,
+    "newRegressions": 0,
+    "probes152Executed": false,
+    "formalGate": false,
+    "countsOfThisLocalFixNotInRemoteCI": true
+  },
+  "publicationPreflight": {
+    "action": "git ls-remote origin refs/heads/codex/issue23-integrated-regression",
+    "status": "succeeded via approved permission channel",
+    "observedCommit": "ebf2d35c58091f4915c32752a4480caeafbd139b",
+    "observedAt": "2026-10-29T05:40:35.846281+00:00",
+    "scope": "before commit/push, not runtime activation or future commit identity"
+  }
+}

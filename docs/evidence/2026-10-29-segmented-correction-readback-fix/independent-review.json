@@ -1,0 +1,303 @@
+{
+  "schemaVersion": "stella.segmented-readback-independent-review-archive/v1",
+  "recordedAt": "2026-10-29T05:40:35.846281+00:00",
+  "classification": "independent review of frozen eleven-file candidate before publication metadata delta",
+  "decision": "passed_scoped_bounded_fix_ready_for_commit_with_retained_cleanup_uncertainty",
+  "findings": [],
+  "sourceBaseline": "ebf2d35c58091f4915c32752a4480caeafbd139b",
+  "branch": "codex/issue23-integrated-regression",
+  "sourceEvidenceSha256": {
+    "REVIEW.md": "2dfffbe129a3f5d07951a7694296569f2abdf7f53f21d58721499f9a4d90d100",
+    "REVIEW-SUMMARY.json": "097b91da6d1d281b7ff73580fb56df1db40d87482d0f51e4f38cd7d07cae9681"
+  },
+  "reviewedFrozenFiles": {
+    "src/praxis/personal-views.ts": "4610b542fa4e723deb9b9119222238ec674f9a719046e01990af11b10ee223b8",
+    "src/openclaw/checkpoint-source-access.ts": "481eefdc3052c814e325142d2a39bb346a74d70fc8a7d7523e1f9851eb6f85c6",
+    "src/openclaw/checkpoint-agent-supply.ts": "36587b82cc8c1c1e2a69fbf9b3b06369f6fed5d1a36858def3d7c1613fe8a809",
+    "tests/checkpoint-work-fixture.ts": "e43978d5229132174a651d805baf85450497d94616562c4a457d2eb62036d77b",
+    "tests/checkpoint-agent-correction-supply.test.ts": "8cc41c1f007a215f00bc361628db3b9f4d4fc956beabd59acd2c2d24a0ffd3d1",
+    "PROJECT-STATE.yaml": "55fb2f4c62065b0b01a8ef804867ee1682be5e73e55a82166cea6bd1a173b274",
+    "docs/evidence/2026-10-29-segmented-correction-readback-repro/verification-summary.json": "e0834859e2fa608275c0eab09e154ff3d00be3f5ddccfb1cd34f820b844937e1",
+    "docs/evidence/2026-10-29-segmented-correction-readback-repro/README.md": "29be4fde1c3224c95858ed16f8ad8caceb111f013abbcceaa3c2a11e3a7235e6",
+    "docs/evidence/2026-10-29-segmented-correction-readback-fix/README.md": "44cf4fcec340cdfd373322c20bed7730c38953fdb0a00033967343e03675ad1a",
+    "docs/evidence/2026-10-29-segmented-correction-readback-fix/verification-summary.json": "8a3d8c74eca8e4cc2c32316687f89194ed10b9051c7efbb678456b00136aca5d",
+    "docs/evidence/2026-10-29-segmented-correction-readback-fix/red-tests-patch.json": "461ed2de989eeb39fd4a978e1b1597c0dd4532b011ce9bb41e8fff67b5f31b89"
+  },
+  "reviewedPatchSha256": "ae2fc65f8ea807c72c66b955421e327d64f8eca427f0fcce2ad10b981e2dba0d",
+  "reviewedImplementationDeltaSha256": "e1f57cea4e01f23ad1024f9e2001ab0bdcd406418605042e53f3511c979e62c8",
+  "compile": {
+    "exitCode": 0,
+    "durationSeconds": 6.19444712495897,
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "scope": "fresh compile in temporary fixed-baseline clone with frozen patch; existing dependency symlink only; no installation"
+  },
+  "independentRuns": {
+    "registered-25": {
+      "totals": {
+        "tests": 25,
+        "pass": 25,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "process": {
+        "exitCode": 0,
+        "timedOut": false,
+        "pid": 16933,
+        "groupGone": true,
+        "groupProbeError": null,
+        "signals": [],
+        "errors": [],
+        "cleanup": "owned isolated runtime removed after group gone",
+        "durationSeconds": 146.78212645894382
+      },
+      "groupAbsenceIndependentlyChecked": true,
+      "rawSha256": {
+        "START.json": "9208ac0395177991d30012eacf3e5cb5535f0c2085ec3d5efde7cc8698df8718",
+        "RESULT.json": "36984d97a1363805701bbd071a2efdebe940676c96b73adfebab7b59d122739c",
+        "stdout.tap": "d5e2249b66463d69363cccffc0cb7b4f2faa7ff971c6a956ef8476637372e811",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "related-116": {
+      "totals": {
+        "tests": 116,
+        "pass": 116,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "process": {
+        "exitCode": 0,
+        "timedOut": false,
+        "pid": 16932,
+        "groupGone": true,
+        "groupProbeError": null,
+        "signals": [],
+        "errors": [],
+        "cleanup": "owned isolated runtime removed after group gone",
+        "durationSeconds": 40.34623162494972
+      },
+      "groupAbsenceIndependentlyChecked": true,
+      "rawSha256": {
+        "START.json": "cb78fffcbf2711ac7b47554f24ffeea941f80b1ab7585d733e31a99fcf2d8815",
+        "RESULT.json": "13f4519417f3910c3445f958906a021b9db350ce5985b3dcdbb035c33dcd4ae5",
+        "stdout.tap": "1c4dc970528ae09ae7410696685b70b392540bd235db3f6a29b11128b8e7bdc6",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  "independentTotals": {
+    "tests": 141,
+    "pass": 141,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "scope": "entire registered file25 including segmented13 and original12; related four files116; no selection filter or preview double counting; not full suite"
+  },
+  "countingRule": "Author141 and independent141 are separate executions of the same scoped cases, not282 independent cases",
+  "diagnostics": {
+    "SEGMENTED_CORRECTION_REPRO": [
+      {
+        "archiveCommits": 1,
+        "category": null,
+        "configWrites": 0,
+        "correctionCommits": 1,
+        "documents": 1,
+        "operationId": "learn_e3048ccb6d5599331de4472b63ab40a82ed62499b6fe2cfdd3acf9006567ffa2",
+        "payloads": {
+          "correction": {
+            "allowedA": 35,
+            "deniedB": 0,
+            "other": 26
+          },
+          "ordinary": {
+            "allowedA": 6,
+            "deniedB": 0,
+            "other": 2
+          },
+          "ordinary-after-commit": {
+            "allowedA": 5,
+            "deniedB": 0,
+            "other": 5
+          },
+          "retry": {
+            "allowedA": 1,
+            "deniedB": 0,
+            "other": 1
+          }
+        },
+        "persistenceStatus": "local_committed",
+        "receiptRevision": "5a002b1803139db25a71ea1baec94d4410b4c842",
+        "retryCommits": 0,
+        "retryCorrectionInferenceCalls": 0,
+        "status": "readback_verified",
+        "target": {
+          "id": "synthetic-writing-work",
+          "version": "sha256:9fb6a4a9715d87d135c08dbf9f4fa20f7f5a6a7bcc1e279fbd1134b7b99f4361"
+        },
+        "wholeSourceChecks": [],
+        "fragmentAuthorizationSummary": {
+          "ordinary:allowed": 2,
+          "ordinary:permission_denied": 1,
+          "correction:allowed": 6,
+          "retry:allowed": 1,
+          "ordinary-after-commit:allowed": 1
+        }
+      }
+    ],
+    "SEGMENTED_BOUNDARY": [
+      {
+        "aPayloadReads": 40,
+        "correctionCategory": null,
+        "correctionCommitted": true,
+        "mode": "separate-allowed",
+        "ordinaryCategory": null,
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": null
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "correction_authorized_scope_incomplete",
+        "correctionCommitted": false,
+        "mode": "parent-denied",
+        "ordinaryCategory": "permission_denied",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "correction_authorized_scope_incomplete",
+        "correctionCommitted": false,
+        "mode": "direct-B",
+        "ordinaryCategory": "permission_denied",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 11,
+        "correctionCategory": "correction_authorized_scope_incomplete",
+        "correctionCommitted": false,
+        "mode": "derived-B",
+        "ordinaryCategory": "permission_denied",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "personal_context_descriptor_required",
+        "correctionCommitted": false,
+        "mode": "missing-parent-descriptor",
+        "ordinaryCategory": "personal_context_descriptor_required",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "personal_context_descriptor_required",
+        "correctionCommitted": false,
+        "mode": "missing-fragment-descriptor",
+        "ordinaryCategory": "personal_context_descriptor_required",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "personal_context_descriptor_required",
+        "correctionCommitted": false,
+        "mode": "wrong-descriptor",
+        "ordinaryCategory": "personal_context_descriptor_required",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "segmented_source_requires_evidence",
+        "correctionCommitted": false,
+        "mode": "uncovered",
+        "ordinaryCategory": "segmented_source_requires_evidence",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "evidence_segment_policy_mismatch",
+        "correctionCommitted": false,
+        "mode": "cross-segment",
+        "ordinaryCategory": "evidence_segment_policy_mismatch",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      },
+      {
+        "aPayloadReads": 0,
+        "correctionCategory": "evidence_segment_policy_mismatch",
+        "correctionCommitted": false,
+        "mode": "wrong-policy",
+        "ordinaryCategory": "evidence_segment_policy_mismatch",
+        "protectedBPayloadReads": 0,
+        "protectedWorkRecordsReturned": 0
+      }
+    ],
+    "SEGMENTED_COMMITTED_RETRY": [
+      {
+        "deniedRetryDocuments": 0,
+        "firstStatus": "readback_failed",
+        "persistenceStatus": "local_committed",
+        "protectedBPayloadReads": 0,
+        "recoveredStatus": "readback_verified",
+        "retryCommits": 0,
+        "retryCorrectionInferenceCalls": 0,
+        "sameReceipt": true
+      }
+    ]
+  },
+  "freeze": {
+    "all11FrozenFilesUnchanged": true,
+    "authorFreezeAndPatchFilesUnchanged": true,
+    "projectStateUnchanged": true,
+    "original12TestCallAstTextUnchanged": true,
+    "redEvidenceAndRedPatchHashPreserved": true,
+    "fourUnrelatedUntrackedUnchanged": true,
+    "emptyIndexUnchanged": true,
+    "gitStatusUnchanged": true,
+    "reversePatchCheck": 0,
+    "diffCheck": 0,
+    "initialAndFinalSnapshotSha256": "7a45777d4061f9c511c33a87db52b1fe73a0da4120b64359452eb3d7dcddf524"
+  },
+  "cleanup": {
+    "independentCountedRuns": "both own newly recorded process groups confirmed gone; runtime roots removed",
+    "temporarySourceCopy": "removed after own counted groups ended and snapshot hash checks",
+    "sdkDrainClaimed": false,
+    "authorEarlyInterruptedRun": {
+      "status": "ownership_and_group_cleanup_unverified_retained_not_counted",
+      "directory": "author external fix evidence / v1-regressions/runtime (retained)",
+      "evidence": "INCOMPLETE.json hash 61d3204be971bf4549dbb6d26c2326006e063634d20c18cc1a74a9d787af250f",
+      "reason": "reported group probe EPERM; original PID not recorded; later targeted pgrep is not proof of original group identity",
+      "actionsByReviewer": "read archived metadata/log hashes only; no repeated group probe, PID guessing, process kill, or deletion of that runtime",
+      "countedAsPassed": false
+    }
+  },
+  "rawEvidenceSha256": {
+    "initial-snapshot.json": "7a45777d4061f9c511c33a87db52b1fe73a0da4120b64359452eb3d7dcddf524",
+    "final-snapshot.json": "7a45777d4061f9c511c33a87db52b1fe73a0da4120b64359452eb3d7dcddf524",
+    "original-test-ast-check.json": "a32edc64b8dbc59aa6859caabc95bffaf4d136b8944d418fe9201aa6613d26d1"
+  },
+  "limitations": [
+    "real Host/model/private-data/real-grant or deployment not exercised",
+    "packaged-consumer acceptance not rerun for this production fix",
+    "formal full suite, old26 failures, formal gate and full_memory unchanged",
+    "SDK active-leases/close-unconfirmed/late ENOENT warnings remain",
+    "early author interrupted run resources remain unverified; not all historical resources claimed clean"
+  ],
+  "publicationBoundary": "writer changes only non-sensitive evidence and state after review; all three production/two test files remain frozen unchanged",
+  "publicationPreflight": {
+    "action": "git ls-remote origin refs/heads/codex/issue23-integrated-regression",
+    "status": "succeeded via approved permission channel",
+    "observedCommit": "ebf2d35c58091f4915c32752a4480caeafbd139b",
+    "observedAt": "2026-10-29T05:40:35.846281+00:00",
+    "scope": "before commit/push, not runtime activation or future commit identity"
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "stella.segmented-correction-readback-repro/v1",
+  "recordedAt": "2026-10-29T04:56:12.250655+00:00",
+  "status": "defect_reproduced_contract_test_fails",
+  "sourceCommit": "ebf2d35c58091f4915c32752a4480caeafbd139b",
+  "scope": "registered Core tool, synthetic Source v2 with two independent payloads A allowed/B denied, Work depends only on A; fixed local structured responses",
+  "tests": {
+    "tests": 13,
+    "pass": 12,
+    "fail": 1,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "existingCasesPass": 12,
+    "newContractCaseFails": 1,
+    "expectedStatus": "readback_verified",
+    "observedStatus": "readback_failed",
+    "notCapabilityAcceptance": true
+  },
+  "observed": {
+    "archiveCommits": 1,
+    "category": "segmented_source_requires_evidence",
+    "configWrites": 0,
+    "correctionCommits": 1,
+    "documents": 0,
+    "operationId": "learn_e3048ccb6d5599331de4472b63ab40a82ed62499b6fe2cfdd3acf9006567ffa2",
+    "payloads": {
+      "correction": {
+        "allowedA": 34,
+        "deniedB": 0,
+        "other": 25
+      },
+      "ordinary": {
+        "allowedA": 6,
+        "deniedB": 0,
+        "other": 2
+      },
+      "ordinary-after-commit": {
+        "allowedA": 5,
+        "deniedB": 0,
+        "other": 5
+      }
+    },
+    "persistenceStatus": "local_committed",
+    "receiptRevision": "2d3e996f1e5f74b89aa9841497ed384856af6ff1",
+    "retryCommits": 0,
+    "retryCorrectionInferenceCalls": 0,
+    "status": "readback_failed",
+    "target": {
+      "id": "synthetic-writing-work",
+      "version": "sha256:1cc5a8f32304ea306b980fd313b9cc2b57e37f9a8de1162f166de0a3cb542b53"
+    },
+    "wholeSourceChecks": [
+      {
+        "category": "segmented_source_requires_evidence",
+        "phase": "readback",
+        "revision": "2d3e996f1e5f74b89aa9841497ed384856af6ff1"
+      },
+      {
+        "category": "segmented_source_requires_evidence",
+        "phase": "retry",
+        "revision": "2d3e996f1e5f74b89aa9841497ed384856af6ff1"
+      }
+    ],
+    "fragmentAuthorizationChecks": {
+      "ordinary:allowed:segment": 2,
+      "ordinary:permission_denied:segment": 1,
+      "correction:allowed:segment": 5,
+      "ordinary-after-commit:allowed:segment": 1
+    }
+  },
+  "ioScope": "CatalogReader.readPayload call attempts classified by exact A/B payload SHA; ordinary/correction/readback/retry windows are separate; not a claim that all Git/filesystem I/O is zero",
+  "originalBodyIoAtReadback": {
+    "allowedA": 0,
+    "deniedB": 0,
+    "stage": "whole Source preflight rejects before any readPayload invocation in this window"
+  },
+  "deniedBRelease": {
+    "ordinaryListExcludedBy": "permission_denied",
+    "listed": false,
+    "ordinaryWorkContainsDeniedMarker": false,
+    "payloadReadAttemptsAllWindows": 0
+  },
+  "fixtureSemantics": {
+    "sourceSchema": "stella.memory-source/v2",
+    "payloadCount": 2,
+    "parentAndAPolicy": "existing approved parent Source Policy",
+    "bPolicy": "copy existing policy with explicit empty readPurposes and derivePurposes",
+    "descriptors": "exact segment locators; B descriptor supplies context but its policy still denies read/derive; no whole-source descriptor fabricated",
+    "workEvidence": "only A in confirmed/candidate/rejected/open rows, sourceRefs is the same v2 Source",
+    "fixedStub": "echo exact segment for existing official verdict contract; no semantic classifier or new permission rule"
+  },
+  "reproTest": "tests/checkpoint-agent-correction-supply.test.ts:segmented A-only registered correction must read back its committed Work without reading denied B",
+  "checks": {
+    "testCompileExit": 0,
+    "typecheck": {
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diffCheck": 0,
+    "productionFilesChanged": false,
+    "existingCasesPreserved": true,
+    "stateAndLocalLinks": {
+      "status": "passed",
+      "readmeLocalLinks": 2,
+      "fourUnrelatedUntrackedUnchanged": true,
+      "indexEmpty": true
+    }
+  },
+  "cleanup": {
+    "exitCode": 1,
+    "timedOut": false,
+    "pid": 74303,
+    "groupGone": true,
+    "cleanup": "owned isolated runtime removed after group gone"
+  },
+  "sdkLifecycleWarnings": "active-leases/close-unconfirmed and ENOENT remain; no SDK drain claim; no cleanup assertion failed",
+  "rawEvidenceSha256": {
+    "RESULT.json": "2bfc10dcc02afd06df5d0a223202da3ef4e764bbd5e239f0b27782da7cfdcbb3",
+    "stdout.tap": "5bd3d08764b98546001477e0c174773084ecc5bfba252ae626800f477170fb79",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "REPRO.json": "b0d62104f26a6d8a167d46c4f115c08e950b17a0214b77d2eda3a2e992878d10"
+  },
+  "typecheckEvidenceSha256": {
+    "typecheck.json": "4300f4d40c7b7584814679933d810d15adf7e83c3a9ab881f273776725a2fe84",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "preparationHistory": [
+    {
+      "attempt": 1,
+      "resultSha256": "a6ff6116f1ec464f0a3fb31ceea7361722f9d789792a92e00717ca094b6d61ea",
+      "stdoutSha256": "79e1ba06f5db3abae222656b7d2701250eececf96c93857344c079b057221564",
+      "reason": "fixed response stub lacked required exact segment echo; invalid_source_access_verdict before intended repro",
+      "productReproClaimed": false
+    },
+    {
+      "attempt": 2,
+      "resultSha256": "8400db9f41b5a52056e8cb869ad4ff42a34523919a83dc89b03b2a3c8cec2f07",
+      "stdoutSha256": "4ee8ab965db108c15c7b353ff83c330117c73228de0a1a04dca491617f039b1f",
+      "reason": "observer stored CatalogError.message instead of category; instrumentation assertion before final expected contract assertion",
+      "productReproClaimed": false
+    }
+  ],
+  "notAccepted": [
+    "this failing test is not a completed capability or CI gate pass",
+    "real Host/model or packaged consumer acceptance",
+    "whole Source payload access or expanded grants",
+    "cross-process recovery, SDK drain or full_memory"
+  ],
+  "sideEffects": {
+    "productionCodeOrPolicyChanged": false,
+    "mainGrantConfigCredentialsChanged": false,
+    "realModelOrHostRun": false,
+    "committed": false,
+    "pushed": false
+  },
+  "independentReview": "not performed; parent to decide next bounded repair scope",
+  "testFileSha256": {
+    "tests/checkpoint-work-fixture.ts": "4cddf1919cfa8a548deac6d0313866fffba0f4480b1f98fa6914e37ab103cbca",
+    "tests/checkpoint-agent-correction-supply.test.ts": "427921ec7659ed02b9355f58b3210ec417a0b87d8ad6ca1706a353e1f923311e"
+  }
+}

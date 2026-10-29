@@ -10,11 +10,12 @@ import { upsertSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
 import { registerCheckpointPlugin } from "../src/openclaw/checkpoint-plugin-registration.js";
 import { parseCheckpointPluginConfig } from "../src/openclaw/checkpoint-plugin-runtime.js";
 import { CHECKPOINT_CORRECTION_TOOL, CHECKPOINT_MEMORY_TOOL } from "../src/openclaw/checkpoint-agent-supply.js";
-import { CatalogReader, validMemoryRef } from "../src/canghai/catalog-reader.js";
+import { CatalogError, CatalogReader, validMemoryRef } from "../src/canghai/catalog-reader.js";
 import { applyMemoryTransaction } from "../src/canghai/memory-transaction.js";
 import { openLocalCheckpointRecovery } from "../src/canghai/local-checkpoint-recovery.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
-import { createCheckpointWorkSource, WORK_CORRECTION, WORK_GOAL_A, WORK_GOAL_B, WORK_MODEL } from "./checkpoint-work-fixture.js";
+import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { createCheckpointWorkSource, WORK_CORRECTION, WORK_GOAL_A, WORK_GOAL_B, WORK_MODEL, type CheckpointWorkSegmentCase } from "./checkpoint-work-fixture.js";
 
 type LlmParams = Parameters<OpenClawPluginApi["runtime"]["llm"]["complete"]>[0];
 type LlmResult = Awaited<ReturnType<OpenClawPluginApi["runtime"]["llm"]["complete"]>>;
@@ -28,8 +29,8 @@ const editable = ["kind", "status", "goal", "sourceRefs", "confirmedPremises", "
 /** Synthetic public hooks and Host LLM API, actual local archive/Git/checkpoint writers.
  * No stock Host process, network, production state or real semantic inference is used.
  */
-async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?: boolean; emptyDescriptors?: boolean; disposition?: "update" | "no_change" | "needs_clarification" } = {}) {
-  const source = await createCheckpointWorkSource(), root = source.root;
+async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?: boolean; emptyDescriptors?: boolean; segmented?: boolean; segmentCase?: CheckpointWorkSegmentCase; disposition?: "update" | "no_change" | "needs_clarification" } = {}) {
+  const source = await createCheckpointWorkSource({ segmented: options.segmented, segmentCase: options.segmentCase }), root = source.root;
   const parent = await realpath(await mkdtemp(path.join(tmpdir(), "stella-correction-supply-")));
   t.after(async () => { await rm(root, { recursive: true, force: true }); await rm(parent, { recursive: true, force: true }); });
   const state = path.join(parent, "host-state"), authority = path.join(parent, "authority"), storePath = path.join(parent, "sessions.json");
@@ -76,6 +77,7 @@ async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?:
       if (params.purpose === "stella-source-access") {
         assert.equal(data.request, control.question);
         value = { requestHash: data.requestHash, sourceRef: data.sourceRef, policyRef: data.policyRef,
+          ...(data.segment === undefined ? {} : { segment: data.segment }),
           applicable: !(control.denyReadback && await git("rev-parse", "HEAD") !== control.archivedRevision), scenarios: ["self_reflection"], topicRequested: true, topicExplicitlyNamed: true,
           ruleChecks: data.accessRules.map((rule: { id: string }) => ({ id: rule.id, satisfied: true })) };
       } else if (params.purpose === "stella-personal-views") {
@@ -86,7 +88,10 @@ async function fixture(t: TestContext, options: { enabled?: boolean; viewGrant?:
         if (data.bindingHash) value = { bindingHash: data.bindingHash, checks: data.data.requirements.map((rule: { handle: string }) => ({ handle: rule.handle, satisfied: true })) };
         else if (data.proposalHash) value = { requestHash: data.requestHash, proposalHash: data.proposalHash, valid: true };
         else {
-          assert.equal(data.request, control.question); const work = data.candidates.find((candidate: { group: string }) => candidate.group === "works"); assert.ok(work);
+          assert.equal(data.request, control.question);
+          const work = data.candidates.find((candidate: { group: string }) => candidate.group === "works") ??
+            (options.segmentCase ? { handle: "SYNTHETIC_UNAVAILABLE_WORK", record: source.workRecord } : undefined);
+          assert.ok(work);
           const disposition = options.disposition ?? "update";
           value = { requestHash: data.requestHash, disposition, clarification: disposition === "needs_clarification" ? "Which synthetic premise remains open?" : null, rationale: "Synthetic explicit owner correction preserves authorial distinctions.",
             reviewedHandles: data.candidates.map((candidate: { handle: string }) => candidate.handle),
@@ -157,6 +162,81 @@ test("correction is opt-in and missing view permission does not disable existing
   assert.equal(await f.git("rev-list", "--count", `${f.revision}..HEAD`), "1"); assert.equal(f.counts().configWrites, 0);
 });
 
+test("segmented A-only registered correction must read back its committed Work without reading denied B", { timeout: 120_000 }, async t => {
+  const f = await fixture(t, { segmented: true }); await f.begin();
+  const segments = f.source.segmented!; assert.ok(segments);
+  let phase = "ordinary";
+  const payloads: Record<string, { allowedA: number; deniedB: number; other: number }> = {};
+  const wholeSourceChecks: Array<{ phase: string; revision: string; category: string }> = [];
+  const fragmentChecks: Array<{ phase: string; policyRef: unknown; segment: unknown; category: string }> = [];
+  const payload = CatalogReader.prototype.readPayload, whole = EpisodeEvidenceResolver.prototype.assertSourceAccess;
+  const fragment = EpisodeEvidenceResolver.prototype.assertSourceMetadataAccess;
+  t.mock.method(CatalogReader.prototype, "readPayload", async function(this: CatalogReader, ...args: Parameters<typeof payload>) {
+    const counts = payloads[phase] ??= { allowedA: 0, deniedB: 0, other: 0 };
+    if (args[1] === segments.allowedPayloadSha256) counts.allowedA++;
+    else if (args[1] === segments.deniedPayloadSha256) counts.deniedB++;
+    else counts.other++;
+    return payload.apply(this, args);
+  });
+  t.mock.method(EpisodeEvidenceResolver.prototype, "assertSourceAccess", async function(this: EpisodeEvidenceResolver, ...args: Parameters<typeof whole>) {
+    if (canonicalJson(args[0]) !== canonicalJson(segments.sourceRef)) return whole.apply(this, args);
+    if (phase === "correction") phase = "readback";
+    const observed = { phase, revision: await f.git("rev-parse", "HEAD"), category: "allowed" };
+    wholeSourceChecks.push(observed);
+    try { return await whole.apply(this, args); }
+    catch (error) { observed.category = error instanceof CatalogError ? error.category : error instanceof Error ? error.message : String(error); throw error; }
+  });
+  t.mock.method(EpisodeEvidenceResolver.prototype, "assertSourceMetadataAccess", async function(this: EpisodeEvidenceResolver, ...args: Parameters<typeof fragment>) {
+    if (canonicalJson(args[0]) !== canonicalJson(segments.sourceRef)) return fragment.apply(this, args);
+    const observed = { phase, policyRef: args[1], segment: args[2] ?? null, category: "allowed" }; fragmentChecks.push(observed);
+    try { return await fragment.apply(this, args); }
+    catch (error) { observed.category = error instanceof CatalogError ? error.category : error instanceof Error ? error.message : String(error); throw error; }
+  });
+  const listed = (await f.call(CHECKPOINT_MEMORY_TOOL, { action: "list" })).details;
+  assert.ok(listed.items.some((item: { evidence: unknown }) => canonicalJson(item.evidence) === canonicalJson(segments.allowedEvidenceRef)));
+  assert.ok(!listed.items.some((item: { evidence: unknown }) => canonicalJson(item.evidence) === canonicalJson(segments.deniedEvidenceRef)));
+  assert.ok(listed.exclusions.permission_denied > 0); assert.doesNotMatch(canonicalJson(listed), new RegExp(segments.deniedMarker));
+  const original = (await f.call(CHECKPOINT_MEMORY_TOOL, { action: "work" })).details;
+  assert.equal(original.works.length, 1); assert.equal(original.works[0].record.goal, WORK_GOAL_A);
+  assert.ok(payloads.ordinary!.allowedA > 0); assert.equal(payloads.ordinary!.deniedB, 0);
+  const admitted = await f.git("rev-parse", "HEAD"); phase = "correction";
+  const outcome = (await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details;
+  assert.equal(outcome.correction.persistenceStatus, "local_committed");
+  const committed = await f.git("rev-parse", "HEAD"); assert.notEqual(committed, admitted);
+  assert.equal(committed, outcome.currentMemory.checkpointRevision);
+  const reader = await CatalogReader.load(f.root, f.source.catalogPath), change = await reader.read(outcome.correction.changeRef, "changes");
+  const targets = change.targetRefs as Array<{ id: string; version: string }>; assert.equal(targets.length, 1);
+  const corrected = await reader.read(targets[0]!, "works"); assert.equal(corrected.goal, WORK_GOAL_B);
+  assert.equal(objectVersion(corrected), targets[0]!.version);
+  assert.deepEqual(corrected.sourceRefs, [segments.sourceRef]);
+  for (const field of ["confirmedPremises", "candidateIdeas", "rejectedInterpretations", "openQuestions"])
+    for (const row of corrected[field] as Array<{ evidenceRefs: unknown }>) assert.deepEqual(row.evidenceRefs, [segments.allowedEvidenceRef]);
+  const inference = f.llmCalls.filter(call => call.purpose === "stella-correction").length;
+  phase = "retry"; const retried = (await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details;
+  assert.deepEqual(retried.correction, outcome.correction); assert.equal(retried.status, outcome.status);
+  assert.equal(await f.git("rev-parse", "HEAD"), committed);
+  assert.equal(f.llmCalls.filter(call => call.purpose === "stella-correction").length, inference);
+  phase = "ordinary-after-commit";
+  const normal = (await f.call(CHECKPOINT_MEMORY_TOOL, { action: "work" })).details;
+  assert.deepEqual(normal.works[0].ref, targets[0]); assert.equal(normal.works[0].record.goal, WORK_GOAL_B);
+  assert.doesNotMatch(canonicalJson(normal), new RegExp(segments.deniedMarker));
+  assert.ok(fragmentChecks.some(check => check.category === "allowed" && check.segment !== null));
+  assert.ok(fragmentChecks.some(check => check.category === "permission_denied" && check.segment !== null));
+  assert.ok(Object.values(payloads).every(counts => counts.deniedB === 0));
+  assert.equal(await f.git("rev-list", "--count", `${f.revision}..HEAD`), "2", "one archive and one correction, including read-only retry");
+  assert.equal(f.counts().configWrites, 0);
+  if (outcome.status === "readback_failed") {
+    assert.equal(outcome.readback.category, "segmented_source_requires_evidence"); assert.deepEqual(outcome.readback.documents, []);
+    assert.ok(wholeSourceChecks.some(check => check.phase === "readback" && check.revision === committed && check.category === "segmented_source_requires_evidence"));
+    assert.equal(payloads.readback?.allowedA ?? 0, 0); assert.equal(payloads.readback?.deniedB ?? 0, 0);
+  }
+  t.diagnostic("SEGMENTED_CORRECTION_REPRO " + canonicalJson({ status: outcome.status, persistenceStatus: outcome.correction.persistenceStatus,
+    category: outcome.readback.category ?? null, documents: outcome.readback.documents.length, operationId: outcome.correction.operationId,
+    receiptRevision: committed, target: targets[0], payloads, wholeSourceChecks, fragmentChecks,
+    archiveCommits: 1, correctionCommits: 1, retryCommits: 0, retryCorrectionInferenceCalls: 0, configWrites: f.counts().configWrites }));
+  assert.equal(outcome.status, "readback_verified", "A-only Work has valid fragment access, so its committed receipt must read back exactly");
+});
+
 test("correction opt-in requires local writes, local archive and fresh-tools together", () => {
   const base = { recoveryAuthority: "core_checkpoint", canghaiRoot: "/synthetic/source", checkpointStateDirectory: "/synthetic/authority",
     agentId: "synthetic", dataMode: "local_write", agentMemory: "fresh_tools", requestArchive: "local", agentCorrection: "tool" };
@@ -164,6 +244,75 @@ test("correction opt-in requires local writes, local archive and fresh-tools tog
   for (const delta of [{ dataMode: "read_only" }, { requestArchive: undefined }, { agentMemory: undefined }, { agentCorrection: "automatic" }]) {
     assert.throws(() => parseCheckpointPluginConfig({ ...base, ...delta }), /checkpoint_configuration_invalid/);
   }
+});
+
+test("segmented correction keeps parent, fragment, provenance and exact descriptor denials", { timeout: 120_000 }, async t => {
+  const modes: CheckpointWorkSegmentCase[] = ["separate-allowed", "parent-denied", "direct-B", "derived-B", "missing-parent-descriptor",
+    "missing-fragment-descriptor", "wrong-descriptor", "uncovered", "cross-segment", "wrong-policy"];
+  for (const mode of modes) await t.test(mode, async t => {
+    const f = await fixture(t, { segmented: true, segmentCase: mode }); await f.begin();
+    const segment = f.source.segmented!, head = await f.git("rev-parse", "HEAD");
+    let a = 0, b = 0, workRecords = 0, ordinaryCategory: string | null = null, correctionCategory: string | null = null;
+    const payload = CatalogReader.prototype.readPayload;
+    t.mock.method(CatalogReader.prototype, "readPayload", async function(this: CatalogReader, ...args: Parameters<typeof payload>) {
+      if (args[1] === segment.allowedPayloadSha256) a++; if (args[1] === segment.deniedPayloadSha256) b++;
+      return payload.apply(this, args);
+    });
+    try {
+      const view = (await f.call(CHECKPOINT_MEMORY_TOOL, { action: "work" })).details;
+      workRecords += view.works.length;
+      ordinaryCategory = Object.keys(view.exclusions)[0] ?? null;
+    } catch (error) { assert.ok(error instanceof CatalogError); ordinaryCategory = error.category; }
+    if (mode === "separate-allowed") {
+      assert.equal(workRecords, 1); const outcome = (await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details;
+      assert.equal(outcome.status, "readback_verified"); assert.equal(outcome.correction.persistenceStatus, "local_committed");
+      assert.equal(outcome.readback.documents.length, 1); assert.equal(JSON.parse(outcome.readback.documents[0].text).goal, WORK_GOAL_B);
+      const decisions = f.llmCalls.filter(call => call.purpose === "stella-source-access")
+        .map(call => JSON.parse(String(call.messages[0]!.content).split("\n").at(-1)!))
+        .filter(data => canonicalJson(data.sourceRef) === canonicalJson(segment.sourceRef));
+      assert.ok(new Set(decisions.map(data => canonicalJson(data.policyRef))).size >= 2, "different parent and fragment policies are both judged");
+      assert.ok(a > 0); assert.equal(b, 0);
+    } else {
+      assert.equal(workRecords, 0); assert.ok(ordinaryCategory);
+      await assert.rejects(f.call(CHECKPOINT_CORRECTION_TOOL, {}), error => {
+        assert.ok(error instanceof CatalogError); correctionCategory = error.category;
+        return ["correction_authorized_scope_incomplete", "personal_context_descriptor_required", "segmented_source_requires_evidence", "evidence_segment_policy_mismatch"].includes(error.category);
+      });
+      assert.equal(await f.git("rev-parse", "HEAD"), head, "denied correction does not write");
+      assert.equal(b, 0); // Authorized A may precede a later derived-B denial.
+      if (mode !== "derived-B") assert.equal(a, 0, "denied A/locator must stop before its payload");
+      assert.equal(await f.git("rev-list", "--count", `${f.revision}..HEAD`), "1", "only the admitted input archive exists");
+    }
+    assert.equal(f.counts().configWrites, 0);
+    t.diagnostic("SEGMENTED_BOUNDARY " + canonicalJson({ mode, ordinaryCategory, correctionCategory, protectedBPayloadReads: b,
+      aPayloadReads: a, protectedWorkRecordsReturned: mode === "separate-allowed" ? null : workRecords, correctionCommitted: mode === "separate-allowed" }));
+  });
+});
+
+test("segmented committed read denial keeps its receipt and retries without another correction", { timeout: 120_000 }, async t => {
+  const f = await fixture(t, { segmented: true }); await f.begin(); f.control.denyReadback = true;
+  const segment = f.source.segmented!; let b = 0;
+  const payload = CatalogReader.prototype.readPayload;
+  t.mock.method(CatalogReader.prototype, "readPayload", async function(this: CatalogReader, ...args: Parameters<typeof payload>) {
+    if (args[1] === segment.deniedPayloadSha256) b++; return payload.apply(this, args);
+  });
+  const failed = (await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details;
+  assert.equal(failed.status, "readback_failed"); assert.equal(failed.correction.persistenceStatus, "local_committed");
+  assert.equal(failed.readback.category, "source_topic_unresolved"); assert.deepEqual(failed.readback.documents, []);
+  const head = await f.git("rev-parse", "HEAD"), inference = f.llmCalls.filter(call => call.purpose === "stella-correction").length;
+  await assert.rejects(f.call(CHECKPOINT_CORRECTION_TOOL, {}, { hook: false }), /scope_unavailable/);
+  const denied = (await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details;
+  assert.equal(denied.status, "readback_failed"); assert.deepEqual(denied.correction, failed.correction); assert.deepEqual(denied.readback.documents, []);
+  f.control.denyReadback = false;
+  const recovered = (await f.call(CHECKPOINT_CORRECTION_TOOL, {})).details;
+  assert.equal(recovered.status, "readback_verified"); assert.deepEqual(recovered.correction, failed.correction);
+  assert.equal(objectVersion(JSON.parse(recovered.readback.documents[0].text)), recovered.readback.documents[0].target.ref.version);
+  assert.equal(await f.git("rev-parse", "HEAD"), head);
+  assert.equal(f.llmCalls.filter(call => call.purpose === "stella-correction").length, inference); assert.equal(b, 0);
+  assert.equal(await f.git("rev-list", "--count", `${f.revision}..HEAD`), "2");
+  t.diagnostic("SEGMENTED_COMMITTED_RETRY " + canonicalJson({ firstStatus: failed.status, persistenceStatus: failed.correction.persistenceStatus,
+    deniedRetryDocuments: denied.readback.documents.length, recoveredStatus: recovered.status, sameReceipt: true,
+    protectedBPayloadReads: b, retryCorrectionInferenceCalls: 0, retryCommits: 0 }));
 });
 
 test("registered correction uses archived current owner input once and rebinds subsequent work to C", async t => {

@@ -7,7 +7,8 @@ import { readCheckpointCommittedDocument } from "../canghai/checkpoint-committed
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import type { PolicyPurpose } from "../canghai/source-policy.js";
 import type { EpisodeEvidenceResolver } from "../praxis/episode-evidence.js";
-import { preparePersonalViews } from "../praxis/personal-views.js";
+import { assertPersonalSourceMetadata, preparePersonalViews } from "../praxis/personal-views.js";
+import type { VersionedRef } from "../praxis/episode-v2.js";
 import { bindProcessingAuthority, resolveDeploymentDigest } from "./processing-authority.js";
 import type { BoundTurnRequest } from "./turn-request.js";
 
@@ -67,7 +68,7 @@ export async function createCheckpointSourceAccess(input: Input): Promise<Source
 type ViewInput = Input & { resolver: EpisodeEvidenceResolver; recoveryRevision: string };
 
 /** Bind both narrow view projections to the same genuine request and source rules. */
-async function prepareCheckpointViews(input: ViewInput, catalogMismatch: string) {
+async function checkpointViewContext(input: ViewInput, catalogMismatch: string) {
   const context = await createCheckpointProcessingContext(input);
   check(context, "personal_view_processing_grant_required");
   check(context.processing.config.viewProcessingModelRefs?.includes(context.modelRef), "personal_view_processing_grant_mismatch");
@@ -82,6 +83,23 @@ async function prepareCheckpointViews(input: ViewInput, catalogMismatch: string)
     // This digest names the logical deployment scope, not authenticated code.
     deployment: resolveDeploymentDigest({ agentId: input.agentId, recoveryRevision: input.recoveryRevision, pluginSource: input.api.source }) });
   check(authority.privateContextAllowed && authority.audience === "owner_direct", "private_context_audience_forbidden");
+  return { reader, context, authority };
+}
+
+/** Request-bound metadata processing only; exact Evidence owns payload access. */
+export async function prepareCheckpointSourceMetadata(input: ViewInput) {
+  const { reader, context, authority } = await checkpointViewContext(input, "correction_readback_catalog_mismatch");
+  const current = async () => { await context.current(); await context.processing.assertCurrent(); await reader.assertCurrent(); await context.current(); };
+  return { async assertSource(sourceRef: VersionedRef) {
+    await current();
+    await assertPersonalSourceMetadata({ reader, sourceRef, ownerId: context.processing.config.ownerId, processingAuthority: authority,
+      read: async ref => { await current(); const value = await reader.read(ref); await current(); return value; } });
+    await current();
+  } };
+}
+
+async function prepareCheckpointViews(input: ViewInput, catalogMismatch: string) {
+  const { reader, context, authority } = await checkpointViewContext(input, catalogMismatch);
   const prepared = await preparePersonalViews({ resolver: input.resolver, requestId: input.request.runId,
     question: input.request.prompt, ownerId: context.processing.config.ownerId, modelRef: context.modelRef,
     audience: "owner_direct", processingAuthority: authority, processingGrant: context.processing,

@@ -16,6 +16,25 @@ const refs = (value: unknown): value is VersionedRef[] => Array.isArray(value) &
 const exact = (value: Record<string, unknown>, fields: string[]) =>
   Object.keys(value).length === fields.length && fields.every(field => Object.hasOwn(value, field));
 
+/** Source metadata admission shared by views and exact correction reads.
+ * This is not a grant to read payloads: Evidence still selects and authorizes
+ * its exact parent/fragment policy intersection through readEvidence. */
+export async function assertPersonalSourceMetadata(input: {
+  reader: CatalogReader; sourceRef: VersionedRef; ownerId: string; processingAuthority: ProcessingAuthority;
+  read?: (ref: VersionedRef) => Promise<Record<string, unknown>>;
+}) {
+  const read = input.read ?? (ref => input.reader.read(ref));
+  const source = await read(input.sourceRef);
+  check(["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(source.schemaVersion)) &&
+    validMemoryRef(source.policyRef) && validMemoryRef(source.coverageRef), "invalid_source");
+  const available = new Set(input.reader.entry(input.sourceRef, "sources").dependencies.map(key));
+  check([source.policyRef, source.coverageRef].every(ref => available.has(key(ref))), "undeclared_object_dependency");
+  const policy = await read(source.policyRef);
+  check(policy.ownerId === input.ownerId, "personal_context_owner_mismatch");
+  assertProcessingStage(input.processingAuthority, policy, "derive");
+  return { policyRef: source.policyRef };
+}
+
 /** Validate stored work without inventing completion, agreement, or a next action. */
 export function validateOngoingWork(value: Record<string, unknown>): VersionedRef[] {
   check(exact(value, ["schemaVersion", "id", ...(Object.hasOwn(value, "version") ? ["version"] : []),
@@ -151,16 +170,13 @@ export async function preparePersonalViews(input: {
     visited.add(key(ref));
     const object = await read(ref);
     if (["stella.memory-source/v1", "stella.memory-source/v2"].includes(String(object.schemaVersion))) {
-      check(validMemoryRef(object.policyRef) && validMemoryRef(object.coverageRef), "invalid_source");
-      declared(ref, [object.policyRef, object.coverageRef]);
-      const policy = await read(object.policyRef);
-      check(policy.ownerId === input.ownerId, "personal_context_owner_mismatch");
-      assertProcessingStage(input.processingAuthority, policy, "derive");
+      const metadata = await assertPersonalSourceMetadata({ reader, sourceRef: ref, ownerId: input.ownerId,
+        processingAuthority: input.processingAuthority, read });
       if (object.schemaVersion === "stella.memory-source/v2") segmentedSources.add(key(ref));
       // A segmented Source is metadata, not an authorization target. Its
       // applicable parent and fragment policies are checked together below by
       // readEvidence, with the exact fragment description and locator.
-      if (object.schemaVersion === "stella.memory-source/v1") await input.resolver.assertSourceAccess(ref, object.policyRef);
+      if (object.schemaVersion === "stella.memory-source/v1") await input.resolver.assertSourceAccess(ref, metadata.policyRef);
     } else if (object.schemaVersion === "stella.memory-evidence/v1") {
       check(validMemoryRef(object.source) && typeof object.payloadSha256 === "string", "invalid_evidence");
       await authorize(object.source, visited, originals);

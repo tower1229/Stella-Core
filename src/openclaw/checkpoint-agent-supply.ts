@@ -16,7 +16,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { captureCheckpointHostRequest } from "./checkpoint-host-request.js";
 import { createCheckpointCorrectionReadback, type CheckpointToolCorrectionReadback } from "./checkpoint-correction-readback.js";
 import type { CheckpointRequestArchiveReceipt } from "./checkpoint-request-ingress.js";
-import { createCheckpointSourceAccess, prepareCheckpointUnderstanding, prepareCheckpointWork } from "./checkpoint-source-access.js";
+import { createCheckpointSourceAccess, prepareCheckpointSourceMetadata, prepareCheckpointUnderstanding, prepareCheckpointWork } from "./checkpoint-source-access.js";
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "../praxis/evidence-bundle.js";
 import type { createCheckpointPluginRuntime, CheckpointPluginConfig } from "./checkpoint-plugin-runtime.js";
@@ -249,13 +249,21 @@ export function registerCheckpointAgentSupply(api: OpenClawPluginApi, config: Ch
             grant.resolver = resolver;
             const current = async () => { await assertGrant(grant, binding.signal, true); await grant.assertSourceGrant(); };
             await current();
+            let metadata: ReturnType<typeof prepareCheckpointSourceMetadata> | undefined;
             return { reader: binding.reader, resolver, assertCurrent: current,
               async authorizeSources({ sourceRefs }) {
                 await current();
                 for (const ref of sourceRefs) {
                   const source = await binding.reader.read(ref, "sources");
                   check(validMemoryRef(source.policyRef), "invalid_source");
-                  await resolver.assertSourceAccess(ref, source.policyRef); await current();
+                  if (source.schemaVersion === "stella.memory-source/v2") {
+                    metadata ??= prepareCheckpointSourceMetadata({ api, agentId: config.agentId, root: config.canghaiRoot,
+                      bindingPath: grant.processingBindingPath, request: grant.ingress.request,
+                      purpose: { readPurpose: purpose.readPurpose, derivePurpose: purpose.derivePurpose, deliveryScope: purpose.deliveryScope },
+                      resolver, recoveryRevision: recovery.expected.revision, signal: binding.signal, assertCurrent: current });
+                    await (await metadata).assertSource(ref);
+                  } else await resolver.assertSourceAccess(ref, source.policyRef);
+                  await current();
                 }
                 return { assertCurrent: current };
               } };
