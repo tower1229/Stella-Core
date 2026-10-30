@@ -1,5 +1,7 @@
 # OpenClaw Integration Contract
 
+2026-10-30 经理研究取舍交接：[本期Core架构与工作包](design/2026-10-30-core-realignment/README.md)保留官方memory-core、原生context/Agent Loop，以普通插件补来源及单资产语义发布；ARCH-02/03/04仅有限研究已交付，运行门槛仍待证。此为文档候选，不是用户整体批准或已实现；任务状态以[唯一台账](../.task-control/state.json)为准。下文旧分层/旧工具先行排程及D063保留原时间身份，不作为本期先修旧runner的前置。
+
 2026-10-27 当前有限集成与后续评估目标为 **OpenClaw 2026.10.7**；固定版本、已验证边界与后续计划见 [§9](#9-2026107-分阶段实施与验收计划)及[兼容记录](OPENCLAW-2026.10.7-COMPATIBILITY.md)。§1–8 中的 Host API/guarded/Context Engine/SQLite 配方记录原2026.8.2实现与历史验收，不是10.7的已支持配置或必须照搬的方案；仍必要的产品行为按 D-058、D-061 迁移验证。2026.8.1最低兼容旧声明没有独立验证，不沿用为新版本承诺。能力必须同时绑定 Host、runner／harness、插件权限和实例配置；版本号本身不是完整能力证明。
 
 ## 1. 复用职责

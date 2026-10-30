@@ -1,5 +1,7 @@
 # 现行设计基线与验收口径
 
+2026-10-30 经理研究取舍交接：[本期Core架构与工作包](design/2026-10-30-core-realignment/README.md)保留官方memory-core、原生context/Agent Loop，以普通插件补来源及单资产语义发布；ARCH-02/03/04仅有限研究已交付，运行门槛仍待证。此为文档候选，不是用户整体批准或已实现；任务状态以[唯一台账](../.task-control/state.json)为准。下文旧分层/旧工具先行排程及D063保留原时间身份，不作为本期先修旧runner的前置。
+
 2026-10-27 宿主兼容补充：当前有限 `core_checkpoint + fresh_tools` 路径承接 OpenClaw 2026.10.7；身份 capability/stamp/config 绑定、实际验证及未迁移的8.2 legacy路径见 [最小兼容范围](OPENCLAW-2026.10.7-COMPATIBILITY.md)。这不改变下文产品契约、历史验收身份或 full_memory 未通过状态。
 
 2026-10-27 架构方向补充：[D-061](DECISIONS.md#d-061--host-first-memory-infrastructure-with-behavior-gates-before-replacement) 固定“官方 memory + 薄 Stella”与“定制 native provider”的对照和等价替换门槛；[架构 §8](01-ARCHITECTURE.md#8-2026-10-27-host-first-memory评估基线)维护职责/权威/方案，[Host 集成 §9](04-OPENCLAW-INTEGRATION.md#9-2026107-分阶段实施与验收计划)维护版本、go/no-go、迁移、37失败归属及18个open issue映射。Knowledge仅候选；本次设计不执行实施/权限/模型/部署或Issue变更。

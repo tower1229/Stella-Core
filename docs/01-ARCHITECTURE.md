@@ -1,5 +1,7 @@
 # Stella 3.0 Architecture
 
+2026-10-30 经理研究取舍交接：[本期Core架构与工作包](design/2026-10-30-core-realignment/README.md)保留官方memory-core、原生context/Agent Loop，以普通插件补来源及单资产语义发布；ARCH-02/03/04仅有限研究已交付，运行门槛仍待证。此为文档候选，不是用户整体批准或已实现；任务状态以[唯一台账](../.task-control/state.json)为准。下文旧分层/旧工具先行排程及D063保留原时间身份，不作为本期先修旧runner的前置。
+
 Current authority and acceptance: [design baseline](10-DESIGN-BASELINE.md). Data formats and the complete memory flow are defined by [Memory Lifecycle](contracts/MEMORY-LIFECYCLE.md) and [Portable Registries](contracts/PORTABLE-REGISTRIES.md).
 
 ## 1. System view

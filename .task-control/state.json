@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 2,
-  "updatedAt": "2026-10-30T04:22:57Z",
+  "revision": 3,
+  "updatedAt": "2026-10-30T04:54:36Z",
   "writer": {
     "agent": "Core task-control migration coordinator",
     "session": "codex-thread:01a17b41-4b02-7641-974c-25e69fe0603e"
@@ -12,24 +12,33 @@
       "id": "CORE",
       "goal": "利用新版OpenClaw官方能力实现私人Agent的长期理解、可信纠正与跨会话接续；研究与架构设计同步互证。",
       "nonGoals": [
-        "不以打磨旧纠正链、通用runner或26旧失败为新版架构研究前置。",
-        "不创建非必要环境、数据库、服务、events日志或任务平台。",
-        "本包只迁移管理状态，不恢复业务实现、测试、Host或旧runner。",
-        "研究/台账迁移/会话恢复不产生架构采纳、生产切换或新资料权限。"
+        "不以旧纠正链、通用runner、26旧失败或152探针为本期核心流程前置。",
+        "不替换全部memory/context slot、不复制第二份同题画像/事实权威。",
+        "不把本期单资产薄片扩大为全库迁移、通用总线、后台学习平台或另一套会话系统。",
+        "未证明隔离和可信作者来源时，不开放对应真实资料/确认型发布；不把候选或安装字段当运行通过。"
       ],
       "milestones": [
         {
           "id": "CORE-M1",
-          "title": "职责/写者/受保护路径及核心验证定义",
+          "title": "研究取舍和有限接缝/流向/资产契约交接",
           "taskIds": [
             "CORE-RES-001",
             "CORE-DEC-001",
-            "CORE-VAL-001"
+            "CORE-ARCH02-RESEARCH",
+            "CORE-ARCH03-RESEARCH",
+            "CORE-ARCH04-RESEARCH"
           ]
         },
         {
           "id": "CORE-M2",
-          "title": "旧候选暂停与新架构关联处置",
+          "title": "一个新普通插件合成薄片及运行证据",
+          "taskIds": [
+            "CORE-VAL-001"
+          ]
+        },
+        {
+          "id": "CORE-M3",
+          "title": "旧候选保持暂停，等待关联处置",
           "taskIds": [
             "CORE-LEGACY-001"
           ]
@@ -38,18 +47,19 @@
       "criticalPath": [
         "CORE-RES-001",
         "CORE-DEC-001",
+        "CORE-ARCH02-RESEARCH",
         "CORE-VAL-001"
       ],
       "active": [
-        "CORE-DEC-001",
+        "CORE-VAL-001",
         "CORE-LEGACY-001"
       ],
       "decisions": [
         {
           "id": "CORE-D1",
-          "status": "proposed",
-          "statement": "memory-core加薄Core非排他扩展仍为候选；supplement不能直接供给动态受保护沧海资料，canonical writer与受保护路径待经理取舍。",
-          "source": "CORE-DEC-001:C-DEC-INPUT"
+          "status": "accepted",
+          "statement": "经理工程研究取舍：保留memory-core/原生context与Agent Loop，以普通插件补来源和单资产语义发布，按USER/MEMORY/Core工作说明分权；不是用户整体批准、运行通过或生产启用。",
+          "source": "CORE-DEC-001:C-DEC-DESIGN"
         }
       ]
     }
@@ -119,31 +129,41 @@
     {
       "id": "CORE-DEC-001",
       "workstream": "CORE",
-      "title": "决定新版宿主与Core核心边界",
-      "scope": "A是非排他候选，需明确canonical writer和权限接缝。",
+      "title": "经理收敛原生增量接入与语义权威",
+      "scope": "经理工程研究取舍及核心工作包定义，未实施或批准用户整体规范。",
       "inputs": [
         "CORE-RES-001",
-        ".task-control/reports/CORE-RES-001/handoff-20261030.md",
-        "docs/DECISIONS.md#d-063--request-bound-core-memory-with-optional-native-integration（待审）"
+        "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
+        "docs/design/2026-10-30-core-realignment/review.md"
       ],
       "deliverables": [
-        "planned: .task-control/reports/CORE-DEC-001/architecture-decision.md"
+        "docs/design/2026-10-30-core-realignment/README.md",
+        ".task-control/reports/CORE-DEC-001/design-handoff-20261030.md"
       ],
       "acceptance": [
         {
           "id": "CORE-DEC-001-A1",
           "criterion": "明确宿主/Core唯一职责与canonical writer",
-          "evidence": []
+          "evidence": [
+            "C-DEC-DESIGN",
+            "C-DEC-PROPOSAL"
+          ]
         },
         {
           "id": "CORE-DEC-001-A2",
           "criterion": "supplement缺authority及provider无write的限制得到可验证方案",
-          "evidence": []
+          "evidence": [
+            "C-DEC-DESIGN",
+            "C-DEC-PROPOSAL"
+          ]
         },
         {
           "id": "CORE-DEC-001-A3",
           "criterion": "最小验证范围、成功失败标准和恢复门槛明确",
-          "evidence": []
+          "evidence": [
+            "C-DEC-DESIGN",
+            "C-DEC-PROPOSAL"
+          ]
         }
       ],
       "dependsOn": [
@@ -152,51 +172,82 @@
           "taskId": "CORE-RES-001"
         }
       ],
-      "status": "ready",
+      "status": "completed",
       "owner": {
         "agent": "Core coordinator",
         "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
       },
       "evidence": [
         {
-          "id": "C-DEC-INPUT",
-          "kind": "artifact",
-          "ref": ".task-control/reports/CORE-RES-001/handoff-20261030.md",
-          "claim": "候选及限制已交付，最终职责/writer/受保护路径尚未决定。",
-          "observedAt": "2026-10-30T02:36:34Z",
+          "id": "C-DEC-DESIGN",
+          "kind": "decision",
+          "ref": ".task-control/reports/CORE-DEC-001/design-handoff-20261030.md",
+          "claim": "经理工程取舍与有限研究交接，未认证Host或产品效果。",
+          "observedAt": "2026-10-30T04:49:38Z",
           "subject": {
-            "sha256": "32f89d8ddfe379d6ec59c767c7282eff04872004e6e677d0e664cd04c62319cf",
-            "baseCommit": "1c0411a6d883d3cbb2e33dc7dd64a3a5574f0252"
+            "sha256": "5e7140e6213ad72a3e9fbf796d87a196582e7afbf5f441cf01b1cab9fae2a716",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        },
+        {
+          "id": "C-DEC-PROPOSAL",
+          "kind": "artifact",
+          "ref": "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
+          "claim": "适配后的评审架构草案，非实现。",
+          "observedAt": "2026-10-30T04:49:38Z",
+          "subject": {
+            "sha256": "38282fb0985caff7dc650a0a155e9518806d273eed4d268d8f3d937995231d5c",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        },
+        {
+          "id": "C-DEC-BASELINE-CI",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-DEC-001/design-handoff-20261030.md",
+          "claim": "协调者已核c86109b两CI均1709/1683pass/26旧fail/0取消跳过，与1c失败块相同；不是本包新测试或正式验收。",
+          "observedAt": "2026-10-30T04:54:36Z",
+          "subject": {
+            "sha256": "5e7140e6213ad72a3e9fbf796d87a196582e7afbf5f441cf01b1cab9fae2a716",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b"
           }
         }
       ],
       "resume": {
-        "checkpoint": "静态研究已交接，经理架构取舍未形成。",
-        "nextAction": "经理收敛官方能力+薄Core职责、唯一认知writer与受保护路径，再界定CORE-VAL-001；本包不执行。"
+        "checkpoint": "经理工程研究取舍明确，ARCH-02/03/04有限成果可汇合；实际运行未证明。",
+        "nextAction": "按CORE-VAL-001准备新普通插件纯合成薄片，不恢复旧runner。"
       },
-      "updatedAt": "2026-10-30T02:36:34Z"
+      "updatedAt": "2026-10-30T04:54:36Z",
+      "acceptanceReview": {
+        "by": "Core coordinator design handoff; recorded by codex-thread:01a17b41-4b02-7641-974c-25e69fe0603e",
+        "at": "2026-10-30T04:49:38Z",
+        "evidence": [
+          "C-DEC-DESIGN",
+          "C-DEC-PROPOSAL"
+        ]
+      }
     },
     {
-      "id": "CORE-VAL-001",
+      "id": "CORE-ARCH02-RESEARCH",
       "workstream": "CORE",
-      "title": "新版核心最小验证",
-      "scope": "架构决定后另行界定一个核心竖向验证；保留长期理解/纠正/恢复目标，不默认复用旧runner。",
+      "title": "公开接缝有限研究与已有安装观察",
+      "scope": "公开字段/producer差异、安装观察与harness未知分层清楚；无真实回调，不启用确认型学习。",
       "inputs": [
-        "CORE-DEC-001"
+        "CORE-DEC-001",
+        "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md"
       ],
       "deliverables": [
-        "planned: .task-control/reports/CORE-VAL-001/minimal-contract-evidence.md"
+        "docs/design/2026-10-30-core-realignment/installed-interface-evidence.md"
       ],
       "acceptance": [
         {
-          "id": "CORE-VAL-001-A1",
-          "criterion": "长期理解、明确纠正、幂等与跨会话恢复有边界验证",
-          "evidence": []
-        },
-        {
-          "id": "CORE-VAL-001-A2",
-          "criterion": "来源用途隔离与降级行为不越权",
-          "evidence": []
+          "id": "CORE-ARCH02-RESEARCH-A1",
+          "criterion": "公开字段/producer差异、安装观察与harness未知分层清楚；无真实回调，不启用确认型学习。",
+          "evidence": [
+            "CORE-ARCH02-RESEARCH-E1",
+            "CORE-ARCH02-RESEARCH-ACCEPT"
+          ]
         }
       ],
       "dependsOn": [
@@ -205,17 +256,254 @@
           "taskId": "CORE-DEC-001"
         }
       ],
-      "status": "planned",
+      "status": "completed",
+      "owner": {
+        "agent": "Core coordinator",
+        "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
+      },
+      "evidence": [
+        {
+          "id": "CORE-ARCH02-RESEARCH-E1",
+          "kind": "artifact",
+          "ref": "docs/design/2026-10-30-core-realignment/installed-interface-evidence.md",
+          "claim": "公开字段/producer差异、安装观察与harness未知分层清楚；无真实回调，不启用确认型学习。",
+          "observedAt": "2026-10-30T04:49:38Z",
+          "subject": {
+            "sha256": "0af6d5acbff113a0bfae54cc8f26aeb4368fee1437e868278ce602bfc3f052d3",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        },
+        {
+          "id": "CORE-ARCH02-RESEARCH-ACCEPT",
+          "kind": "acceptance",
+          "ref": ".task-control/reports/CORE-DEC-001/design-handoff-20261030.md",
+          "claim": "有限研究交接范围接受；完整ARCH运行门槛未通过。",
+          "observedAt": "2026-10-30T04:49:38Z",
+          "subject": {
+            "sha256": "5e7140e6213ad72a3e9fbf796d87a196582e7afbf5f441cf01b1cab9fae2a716",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        }
+      ],
+      "resume": {
+        "checkpoint": "有限研究/设计交接完成，运行门槛保留未知。",
+        "nextAction": "只供CORE-VAL-001定义合成验收；不自行执行Host/模型/配置。"
+      },
+      "updatedAt": "2026-10-30T04:54:36Z",
+      "acceptanceReview": {
+        "by": "Core coordinator scoped research handoff; recorded by codex-thread:01a17b41-4b02-7641-974c-25e69fe0603e",
+        "at": "2026-10-30T04:49:38Z",
+        "evidence": [
+          "CORE-ARCH02-RESEARCH-ACCEPT",
+          "CORE-ARCH02-RESEARCH-E1"
+        ]
+      }
+    },
+    {
+      "id": "CORE-ARCH03-RESEARCH",
+      "workstream": "CORE",
+      "title": "工具结果之后流向的有限静态研究",
+      "scope": "直接session投影只采user/assistant，间接转述/flush等流向与控制粒度、两个负例已交付；端到端逐结果禁学未证。",
+      "inputs": [
+        "CORE-DEC-001",
+        "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md"
+      ],
+      "deliverables": [
+        "docs/design/2026-10-30-core-realignment/tool-result-flow-evidence.md"
+      ],
+      "acceptance": [
+        {
+          "id": "CORE-ARCH03-RESEARCH-A1",
+          "criterion": "直接session投影只采user/assistant，间接转述/flush等流向与控制粒度、两个负例已交付；端到端逐结果禁学未证。",
+          "evidence": [
+            "CORE-ARCH03-RESEARCH-E1",
+            "CORE-ARCH03-RESEARCH-ACCEPT"
+          ]
+        }
+      ],
+      "dependsOn": [
+        {
+          "repo": "tower1229/Stella-Core",
+          "taskId": "CORE-DEC-001"
+        }
+      ],
+      "status": "completed",
+      "owner": {
+        "agent": "Core coordinator",
+        "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
+      },
+      "evidence": [
+        {
+          "id": "CORE-ARCH03-RESEARCH-E1",
+          "kind": "artifact",
+          "ref": "docs/design/2026-10-30-core-realignment/tool-result-flow-evidence.md",
+          "claim": "直接session投影只采user/assistant，间接转述/flush等流向与控制粒度、两个负例已交付；端到端逐结果禁学未证。",
+          "observedAt": "2026-10-30T04:49:38Z",
+          "subject": {
+            "sha256": "9b36a7c681f7379358d9e1e47edde7ddbc9c4e094006e8ae13ef7ae264a41320",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        },
+        {
+          "id": "CORE-ARCH03-RESEARCH-ACCEPT",
+          "kind": "acceptance",
+          "ref": ".task-control/reports/CORE-DEC-001/design-handoff-20261030.md",
+          "claim": "有限研究交接范围接受；完整ARCH运行门槛未通过。",
+          "observedAt": "2026-10-30T04:49:38Z",
+          "subject": {
+            "sha256": "5e7140e6213ad72a3e9fbf796d87a196582e7afbf5f441cf01b1cab9fae2a716",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        }
+      ],
+      "resume": {
+        "checkpoint": "有限研究/设计交接完成，运行门槛保留未知。",
+        "nextAction": "只供CORE-VAL-001定义合成验收；不自行执行Host/模型/配置。"
+      },
+      "updatedAt": "2026-10-30T04:54:36Z",
+      "acceptanceReview": {
+        "by": "Core coordinator scoped research handoff; recorded by codex-thread:01a17b41-4b02-7641-974c-25e69fe0603e",
+        "at": "2026-10-30T04:49:38Z",
+        "evidence": [
+          "CORE-ARCH03-RESEARCH-ACCEPT",
+          "CORE-ARCH03-RESEARCH-E1"
+        ]
+      }
+    },
+    {
+      "id": "CORE-ARCH04-RESEARCH",
+      "workstream": "CORE",
+      "title": "作者意图单资产契约设计交接",
+      "scope": "逻辑信息、两类交界、原子发布/幂等/旧候选/恢复预期已交付；不是已实现schema或运行验收。",
+      "inputs": [
+        "CORE-DEC-001",
+        "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md"
+      ],
+      "deliverables": [
+        "docs/design/2026-10-30-core-realignment/author-intent-contract-draft.md"
+      ],
+      "acceptance": [
+        {
+          "id": "CORE-ARCH04-RESEARCH-A1",
+          "criterion": "逻辑信息、两类交界、原子发布/幂等/旧候选/恢复预期已交付；不是已实现schema或运行验收。",
+          "evidence": [
+            "CORE-ARCH04-RESEARCH-E1",
+            "CORE-ARCH04-RESEARCH-ACCEPT"
+          ]
+        }
+      ],
+      "dependsOn": [
+        {
+          "repo": "tower1229/Stella-Core",
+          "taskId": "CORE-DEC-001"
+        }
+      ],
+      "status": "completed",
+      "owner": {
+        "agent": "Core coordinator",
+        "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
+      },
+      "evidence": [
+        {
+          "id": "CORE-ARCH04-RESEARCH-E1",
+          "kind": "artifact",
+          "ref": "docs/design/2026-10-30-core-realignment/author-intent-contract-draft.md",
+          "claim": "逻辑信息、两类交界、原子发布/幂等/旧候选/恢复预期已交付；不是已实现schema或运行验收。",
+          "observedAt": "2026-10-30T04:49:38Z",
+          "subject": {
+            "sha256": "bff662327d5a070888dcab965c385327a9a5f0e08916f6d5e67c841179fcf4a7",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        },
+        {
+          "id": "CORE-ARCH04-RESEARCH-ACCEPT",
+          "kind": "acceptance",
+          "ref": ".task-control/reports/CORE-DEC-001/design-handoff-20261030.md",
+          "claim": "有限研究交接范围接受；完整ARCH运行门槛未通过。",
+          "observedAt": "2026-10-30T04:49:38Z",
+          "subject": {
+            "sha256": "5e7140e6213ad72a3e9fbf796d87a196582e7afbf5f441cf01b1cab9fae2a716",
+            "baseCommit": "c86109b42d0407cd2f27f1bc7dbf22cdac555a0b",
+            "sourceBundleSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b"
+          }
+        }
+      ],
+      "resume": {
+        "checkpoint": "有限研究/设计交接完成，运行门槛保留未知。",
+        "nextAction": "只供CORE-VAL-001定义合成验收；不自行执行Host/模型/配置。"
+      },
+      "updatedAt": "2026-10-30T04:54:36Z",
+      "acceptanceReview": {
+        "by": "Core coordinator scoped research handoff; recorded by codex-thread:01a17b41-4b02-7641-974c-25e69fe0603e",
+        "at": "2026-10-30T04:49:38Z",
+        "evidence": [
+          "CORE-ARCH04-RESEARCH-ACCEPT",
+          "CORE-ARCH04-RESEARCH-E1"
+        ]
+      }
+    },
+    {
+      "id": "CORE-VAL-001",
+      "workstream": "CORE",
+      "title": "新普通插件作者意图合成薄片",
+      "scope": "保留memory-core/native context/Agent Loop；只一份纯合成工作说明及固定结构响应，真实harness/作者来源/资格、发布与流向逐项验证；不是旧runner重放或语义效果验收。",
+      "inputs": [
+        "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
+        "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md",
+        "docs/design/2026-10-30-core-realignment/author-intent-contract-draft.md",
+        "docs/design/2026-10-30-core-realignment/installed-interface-evidence.md",
+        "docs/design/2026-10-30-core-realignment/tool-result-flow-evidence.md"
+      ],
+      "deliverables": [
+        "planned: .task-control/reports/CORE-VAL-001/minimal-contract-evidence.md"
+      ],
+      "acceptance": [
+        {
+          "id": "CORE-VAL-001-A1",
+          "criterion": "实际公开普通插件接缝的requester/audience/guard和可信作者来源分开出证；缺作者来源只形成候选，不把参数当确认。",
+          "evidence": []
+        },
+        {
+          "id": "CORE-VAL-001-A2",
+          "criterion": "一个单资产完整发布/预期版本冲突/同操作重试/旧候选/新请求读当前及自含恢复有真实技术证据；不联动USER/MEMORY。",
+          "evidence": []
+        },
+        {
+          "id": "CORE-VAL-001-A3",
+          "criterion": "仅合成且允许相应处理的域；工具原文与assistant衍生流向、当前/历史以及未证隔离分别记录，不宣称全历史清洗或真实语义通过。",
+          "evidence": []
+        }
+      ],
+      "dependsOn": [
+        {
+          "repo": "tower1229/Stella-Core",
+          "taskId": "CORE-ARCH02-RESEARCH"
+        },
+        {
+          "repo": "tower1229/Stella-Core",
+          "taskId": "CORE-ARCH03-RESEARCH"
+        },
+        {
+          "repo": "tower1229/Stella-Core",
+          "taskId": "CORE-ARCH04-RESEARCH"
+        }
+      ],
+      "status": "ready",
       "owner": {
         "agent": "unassigned",
         "session": null
       },
       "evidence": [],
       "resume": {
-        "checkpoint": "CORE-DEC-001尚未完成，未开始验证。",
-        "nextAction": "等待架构决定和明确输入/验收范围，不自动启动Host、模型或旧测试。"
+        "checkpoint": "三份有限研究已交接；实际harness、可信作者输入、流向和发布实现仍未运行验证。ready只表示可供协调者分派合成工作包。",
+        "nextAction": "协调者另行限定唯一写者及合成薄片范围；先核实际harness/公开字段，缺源保持候选；本次文档包不执行。"
       },
-      "updatedAt": "2026-10-30T02:36:34Z"
+      "updatedAt": "2026-10-30T04:54:36Z"
     },
     {
       "id": "CORE-LEGACY-001",

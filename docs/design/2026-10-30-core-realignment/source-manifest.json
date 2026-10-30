@@ -1,0 +1,63 @@
+{
+  "source": "Library libfile_7f44ae04a1748191b56ffc4842de41c2",
+  "version": 1,
+  "archiveBytes": 75592,
+  "archiveSha256": "8697c9e05581602c48740358460e177023b0f1d9ba5e79992415d2eef15b8d1b",
+  "checksumMembersVerified": 13,
+  "importedCoreMembers": {
+    "proposal-reviewed-draft.md": {
+      "path": "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
+      "sourceSha256": "7d7e91cf7111b5b827677494fdb0643631e76787050d1537b1dc0436937b5ec5",
+      "repositorySha256": "38282fb0985caff7dc650a0a155e9518806d273eed4d268d8f3d937995231d5c",
+      "evidenceLayer": "static_design_or_review",
+      "runtimeVerified": false
+    },
+    "work-packages-reviewed-draft.md": {
+      "path": "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md",
+      "sourceSha256": "baaf5a3f47204b5c489657ad5111d0df8b9eb1bf88e5879de3db7be74e32c2b3",
+      "repositorySha256": "ab4fd2d4239a5df27de1336b3fc460fb2c139ade156c6cd1d41401895253f051",
+      "evidenceLayer": "static_design_or_review",
+      "runtimeVerified": false
+    },
+    "author-intent-contract-draft.md": {
+      "path": "docs/design/2026-10-30-core-realignment/author-intent-contract-draft.md",
+      "sourceSha256": "eeafab22c408778d9cd790ee65f85268093e45c7c2cd879b7b30784473735b5c",
+      "repositorySha256": "bff662327d5a070888dcab965c385327a9a5f0e08916f6d5e67c841179fcf4a7",
+      "evidenceLayer": "static_design_or_review",
+      "runtimeVerified": false
+    },
+    "review.md": {
+      "path": "docs/design/2026-10-30-core-realignment/review.md",
+      "sourceSha256": "ecc4030b0dc903f8589221714f8eaa88f223140ace433e6ddeb4cbf8a431ed60",
+      "repositorySha256": "55ff5e0b08aa66c1324f5be940d15dd016cd62efc826b2a85f626cc2622de8fb",
+      "evidenceLayer": "static_design_or_review",
+      "runtimeVerified": false
+    },
+    "installed-interface-evidence.md": {
+      "path": "docs/design/2026-10-30-core-realignment/installed-interface-evidence.md",
+      "sourceSha256": "a4df328a734ec9a5743b058433b0f0e3a47cdffdec9f26ac37bda0c18bbdebdf",
+      "repositorySha256": "0af6d5acbff113a0bfae54cc8f26aeb4368fee1437e868278ce602bfc3f052d3",
+      "evidenceLayer": "installed_observation_and_static",
+      "runtimeVerified": false
+    },
+    "tool-result-flow-evidence.md": {
+      "path": "docs/design/2026-10-30-core-realignment/tool-result-flow-evidence.md",
+      "sourceSha256": "8faedd997a1e1de45f012aacc1df9b99c7ab9ef54219745f067e00ce344da25e",
+      "repositorySha256": "9b36a7c681f7379358d9e1e47edde7ddbc9c4e094006e8ae13ef7ae264a41320",
+      "evidenceLayer": "static_design_or_review",
+      "runtimeVerified": false
+    }
+  },
+  "transformations": [
+    "Added repository provenance/status wrapper.",
+    "Normalized temporary-directory wording.",
+    "Marked unbundled/private historical source references; no raw private links imported."
+  ],
+  "notCopied": [
+    "Bili documents",
+    "private conversations",
+    "machine absolute paths",
+    "old business YAML"
+  ],
+  "runtimeExecutedByThisImport": false
+}
