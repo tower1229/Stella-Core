@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 3,
-  "updatedAt": "2026-10-30T04:54:36Z",
+  "revision": 7,
+  "updatedAt": "2026-10-30T06:21:37Z",
   "writer": {
-    "agent": "Core task-control migration coordinator",
-    "session": "codex-thread:01a17b41-4b02-7641-974c-25e69fe0603e"
+    "agent": "Core coordinator (R1 candidate writer window returned)",
+    "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
   },
   "workstreams": [
     {
@@ -460,7 +460,9 @@
         "docs/design/2026-10-30-core-realignment/tool-result-flow-evidence.md"
       ],
       "deliverables": [
-        "planned: .task-control/reports/CORE-VAL-001/minimal-contract-evidence.md"
+        "planned: .task-control/reports/CORE-VAL-001/minimal-contract-evidence.md",
+        "docs/evidence/2026-10-30-author-intent-publication/verification-summary.json",
+        "docs/evidence/2026-10-30-author-intent-publication/r1-verification-summary.json"
       ],
       "acceptance": [
         {
@@ -471,7 +473,10 @@
         {
           "id": "CORE-VAL-001-A2",
           "criterion": "一个单资产完整发布/预期版本冲突/同操作重试/旧候选/新请求读当前及自含恢复有真实技术证据；不联动USER/MEMORY。",
-          "evidence": []
+          "evidence": [
+            "C-VAL-SINGLE-ASSET-CANDIDATE",
+            "C-VAL-SINGLE-ASSET-SOURCE-REFRESH-R1"
+          ]
         },
         {
           "id": "CORE-VAL-001-A3",
@@ -493,17 +498,45 @@
           "taskId": "CORE-ARCH04-RESEARCH"
         }
       ],
-      "status": "ready",
+      "status": "blocked",
       "owner": {
-        "agent": "unassigned",
-        "session": null
+        "agent": "Core coordinator; independent source-refresh R1 review pending",
+        "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "id": "C-VAL-SINGLE-ASSET-CANDIDATE",
+          "kind": "verification",
+          "ref": "docs/evidence/2026-10-30-author-intent-publication/verification-summary.json",
+          "claim": "Offline single-asset candidate: 20 new + 18 primitive cases pass; typecheck/test compile/build exit0. Synthetic ports only; no real Host/author/semantic acceptance. One existing primitive case synced only to its own temporary local bare repository, disclosed as a no-push scope deviation.",
+          "observedAt": "2026-10-30T05:47:34Z",
+          "subject": {
+            "sha256": "9cbf827753c281319bde1b9e610b404913f9ab3fdc1e3ae31a5ecfd77efbee66",
+            "baseCommit": "3ee2e70df8ca3e045f891a12c1c7ee53c7700d0a"
+          }
+        },
+        {
+          "id": "C-VAL-SINGLE-ASSET-SOURCE-REFRESH-R1",
+          "kind": "verification",
+          "ref": "docs/evidence/2026-10-30-author-intent-publication/r1-verification-summary.json",
+          "claim": "Author R1 candidate: 29 asset cases (original20+9) and10 journal cases pass; original source-refresh assertions green3/3, not added to formal39. Historical base permissions/integrity and new source/current/CAS gates retained. No Host/model/remote sync; independent R1 review pending.",
+          "observedAt": "2026-10-30T06:21:37Z",
+          "subject": {
+            "sha256": "e32422fade93f27618d2bf029d6f4c32a80d26134f26e8768347e6ea24f52167",
+            "baseCommit": "51e71d6d5472be811506501a7e438027d78085e9"
+          }
+        }
+      ],
       "resume": {
-        "checkpoint": "三份有限研究已交接；实际harness、可信作者输入、流向和发布实现仍未运行验证。ready只表示可供协调者分派合成工作包。",
-        "nextAction": "协调者另行限定唯一写者及合成薄片范围；先核实际harness/公开字段，缺源保持候选；本次文档包不执行。"
+        "checkpoint": "P1-SOURCE-REFRESH reproduced red2/1; narrow R1 candidate author-green. Formal39 pass, original overlapping assertions3 pass separately. Original38/history preserved, catalog and32 protected baseline dirty files unchanged. Writer window returned; not full thin-slice completion.",
+        "nextAction": "Coordinator obtain independent R1 review of frozen source-refresh delta before commit/push or further implementation. Do not resume old15/runner or infer Host/semantic/formal gate acceptance.",
+        "blocker": {
+          "reason": "Independent R1 review outstanding; actual Host author/harness/tool-flow evidence still absent.",
+          "neededAction": "Review bounded source-refresh fix and explicitly assign subsequent scope.",
+          "source": "C-VAL-SINGLE-ASSET-SOURCE-REFRESH-R1"
+        }
       },
-      "updatedAt": "2026-10-30T04:54:36Z"
+      "updatedAt": "2026-10-30T06:21:37Z"
     },
     {
       "id": "CORE-LEGACY-001",

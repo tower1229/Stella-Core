@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "finding": "P1-SOURCE-REFRESH",
+  "status": "author-fixed candidate; independent R1 review pending",
+  "baseCommit": "51e71d6d5472be811506501a7e438027d78085e9",
+  "priorCandidate": {
+    "baseCommit": "3ee2e70df8ca3e045f891a12c1c7ee53c7700d0a",
+    "summarySha256": "9cbf827753c281319bde1b9e610b404913f9ab3fdc1e3ae31a5ecfd77efbee66",
+    "originalUniqueTests": 38,
+    "historicalEvidenceUnchanged": true
+  },
+  "independentInput": {
+    "reportSha256": "6f667c671eb01c7f5a7cdeee12ed45009db491572b67e04890bb0c095d5ba2c6",
+    "resultSha256": "bfa1a4ea655cbdd7807d57a427f49eb4cdee67c9ca2fd207905a14d54cdf2a83",
+    "originalProbeSha256": "39602e3572efc2a372b0c6f9d9695736bd2aa502025913431d2318f57fe7eb76",
+    "adaptedProbeSha256": "4efab95d68b70596d4327f82c1340dca530b4c898b8f474bccb92d67290ece95",
+    "adaptation": "Import locations target existing workspace test build; relative fixture/observation outputs relocate with copied probe to this owned temporary directory. Probe assertions unchanged."
+  },
+  "fix": "Publication inspects the exact prior asset through the existing qualified historical read, separately confirms its version remains current and committed, then uses the unchanged file CAS/transaction. Consumer readCurrent freshness and new proposal source/author checks are unchanged. No generic skip flag.",
+  "files": {
+    "src/canghai/author-intent-asset.ts": "15acc47b55a373be56b000efa1ab6a4fc67612f7fa89c2c43ef27aa5cd4b4bb5",
+    "src/canghai/author-intent-repository.ts": "a0133a913a0e860095336d5abc12eb7c10c0d3330a0ac323e69e408acdb19d5e",
+    "tests/author-intent-repository.test.ts": "07bd032e8238a0f8e6a8c71c1b5c4ac6c7baf83045c76620f40c326658469fbb"
+  },
+  "validation": {
+    "formalAssetTests": {
+      "originalRetained": 20,
+      "added": 9,
+      "tests": 29,
+      "pass": 29,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "journalTests": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "totalUniqueFormal": 39,
+    "originalIndependentAssertionsReplayedByAuthor": {
+      "red": {
+        "pass": 2,
+        "fail": 1
+      },
+      "green": {
+        "pass": 3,
+        "fail": 0
+      },
+      "addedToFormalTotal": false,
+      "independentR1Review": false
+    },
+    "formalRed": {
+      "tests": 29,
+      "pass": 24,
+      "fail": 5,
+      "cause": "P1 blocks the refresh/old-base/concurrency/recovery paths"
+    },
+    "testCompilationExit": 0,
+    "typecheckExit": 0,
+    "buildExit": 0,
+    "buildProductionBytesUnchangedAfterFinalTestOnlyTightening": true
+  },
+  "regressionBoundaries": [
+    "valid A to B refresh",
+    "stale A proposal refusal",
+    "new B source permission refusal",
+    "new B author proof refusal",
+    "old-base source permission refusal",
+    "missing exact history refusal",
+    "real retained A in working tree cannot impersonate HEAD B",
+    "concurrent completed publication wins without overwrite",
+    "separate process resumes B commit with no duplicate"
+  ],
+  "rawEvidence": {
+    "independentAssertionsRed": {
+      "label": "source-refresh-red.tap",
+      "sha256": "4d6bc269c594cd2855164f4a9e1324e99d92ea5cc50b7ff5fb86c6aa3b9f1d11",
+      "rawLogCopiedToRepository": false
+    },
+    "formalRed": {
+      "label": "formal-red.tap",
+      "sha256": "100ccee3910443634cba5f79617e22d1c281ef38ffa31bb8661780dc1f0278a6",
+      "rawLogCopiedToRepository": false
+    },
+    "independentAssertionsGreen": {
+      "label": "source-refresh-green.tap",
+      "sha256": "ea17f5e54b2041d8844def8197b9a76435f6d910bf69fc1706d28b959b9d4ce2",
+      "rawLogCopiedToRepository": false
+    },
+    "finalAssetTests": {
+      "label": "final-assets-2.tap",
+      "sha256": "332a4e5ef97eddbbc646b55eea18ffbd0737326446e0c003813b7a0756a69f9d",
+      "rawLogCopiedToRepository": false
+    },
+    "finalJournalTests": {
+      "label": "final-journal.tap",
+      "sha256": "ebef62dffd6cdaa6437dd48e6201cac4f9e28ff9f1c79a87fa089d26247d2cb3",
+      "rawLogCopiedToRepository": false
+    },
+    "testCompilation": {
+      "label": "final-test-compile-2.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawLogCopiedToRepository": false
+    },
+    "typecheck": {
+      "label": "typecheck-2.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawLogCopiedToRepository": false
+    },
+    "build": {
+      "label": "build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawLogCopiedToRepository": false
+    },
+    "originalRedObservation": {
+      "label": "SOURCE-REFRESH-OBSERVATION.json",
+      "sha256": "cf5d65bc16750ed370077c52c9626a0e023e9ebaeb4393db37e6269a055a16fc",
+      "rawLogCopiedToRepository": false
+    }
+  },
+  "preservation": {
+    "baselineDirtyFiles": 35,
+    "modifiedExistingWhitelist": [
+      ".task-control/state.json",
+      "src/canghai/author-intent-repository.ts",
+      "tests/author-intent-repository.test.ts"
+    ],
+    "other32ByteIdentical": true,
+    "catalogSha256": "53c74f3c5b6ed5df229e66e1705a1630fd8f848259949367e1a00860669b660c",
+    "catalogUnchanged": true,
+    "legacyNotResumed": true
+  },
+  "scope": {
+    "host": false,
+    "model": false,
+    "realData": false,
+    "permissionsOrProductionConfigChanged": false,
+    "externalRemoteOrSync": false,
+    "newFixtureGitRemotes": false,
+    "oldLocalBarePushRegressionRerun": false,
+    "developmentBranchCommittedOrPushed": false
+  },
+  "cleanup": "All invoked commands returned terminal results; probe-owned fixture directory is empty and formal fixture cleanup hooks completed. Historical unknown scenes were untouched.",
+  "notProved": [
+    "real Host/harness/author binding",
+    "semantic interpretation",
+    "formal original gates/152probes/full_memory",
+    "complete migration or remote/latest-backup guarantees",
+    "baseline CI outcome"
+  ]
+}

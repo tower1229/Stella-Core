@@ -1,0 +1,17 @@
+{
+  "baseRevision": 4,
+  "baseStateSha256": "effe4e3b91d85db6e45b4c69e642f96acd0847472783cd7a632ef982f7a0feeb",
+  "newRevision": 5,
+  "newStateSha256": "d68d7388e3a8f1b2192849eb1052b0ceece92202c193f3041d65f0ac697cca6f",
+  "baseCommit": "3ee2e70df8ca3e045f891a12c1c7ee53c7700d0a",
+  "observedAt": "2026-10-30T05:47:34Z",
+  "evidenceSha256": "9cbf827753c281319bde1b9e610b404913f9ab3fdc1e3ae31a5ecfd77efbee66",
+  "writerWindowReturnedTo": {
+    "agent": "Core coordinator (writer window returned after single-asset candidate freeze)",
+    "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
+  },
+  "originalDirtyFilesByteIdentical": 27,
+  "legacyTaskUnchanged": true,
+  "taskNotCompleted": true,
+  "commitOrPush": false
+}

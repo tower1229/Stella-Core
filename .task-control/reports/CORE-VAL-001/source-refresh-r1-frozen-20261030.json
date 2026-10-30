@@ -1,0 +1,18 @@
+{
+  "baseRevision": 6,
+  "baseStateSha256": "48640b3b749ad639f867ad3f45df6aa81bb7e5d51e2177544a0a5ec97eec7ffc",
+  "newRevision": 7,
+  "newStateSha256": "9ef45022249a4e47cbc64dc541fcba951624292208ce573b1e3a76c73e835ec3",
+  "baseCommit": "51e71d6d5472be811506501a7e438027d78085e9",
+  "evidenceSha256": "e32422fade93f27618d2bf029d6f4c32a80d26134f26e8768347e6ea24f52167",
+  "writerWindowReturnedTo": {
+    "agent": "Core coordinator (R1 candidate writer window returned)",
+    "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
+  },
+  "preservedBaselineDirtyFiles": 32,
+  "catalogUnchanged": true,
+  "legacyTaskUnchanged": true,
+  "independentR1ReviewPending": true,
+  "branchCommitOrPush": false,
+  "allInvokedExecutionsTerminal": true
+}

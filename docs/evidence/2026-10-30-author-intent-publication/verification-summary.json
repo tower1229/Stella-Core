@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "scope": "offline single author-intent asset publication and controlled reads; candidate pending independent review",
+  "baseCommit": "3ee2e70df8ca3e045f891a12c1c7ee53c7700d0a",
+  "files": {
+    "src/canghai/author-intent-asset.ts": "15acc47b55a373be56b000efa1ab6a4fc67612f7fa89c2c43ef27aa5cd4b4bb5",
+    "src/canghai/author-intent-repository.ts": "823cd8099b6e44ab7b7b95d8b9374a16254ab80b7bad2ada71d2d299fcf89ae6",
+    "tests/author-intent-repository.test.ts": "af34e982aea94e147cce5d93fd4e5304b70eb490e399941a360dea7a3677c0d1"
+  },
+  "results": {
+    "newAssetTests": 20,
+    "primitiveRegressionTests": 18,
+    "total": 38,
+    "pass": 38,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "typecheckExit": 0,
+    "testCompilationExit": 0,
+    "buildExit": 0
+  },
+  "redEvidence": {
+    "initial": {
+      "pass": 0,
+      "fail": 1,
+      "cause": "unimplemented publication seam"
+    },
+    "sourceAndExcerpt": {
+      "pass": 13,
+      "fail": 2,
+      "causes": [
+        "author proof did not bind excerpt digest",
+        "source version was not rechecked before commit"
+      ]
+    },
+    "revisionRelation": {
+      "pass": 19,
+      "fail": 1,
+      "cause": "changed existing statements were not required in revision relation"
+    }
+  },
+  "rawEvidence": {
+    "initialRed": {
+      "label": "core-author-intent-red.tap",
+      "sha256": "53d7f780fbf9d535df39ba2d4a7fa3db426a45b2237c0766db9d67508b4a1c8e",
+      "rawLogCopiedToRepository": false
+    },
+    "sourceAndExcerptRed": {
+      "label": "core-author-intent-cycle3-red.tap",
+      "sha256": "40d45a44484d8655b1bd8e42f901f790d560306f04fd9b390b7aab92f8344097",
+      "rawLogCopiedToRepository": false
+    },
+    "revisionRelationRed": {
+      "label": "core-author-intent-cycle4-red.tap",
+      "sha256": "f6986bd5f5612b78b4d8ce7f3929804034dcaf165fd81158f6388caafb7fd3fd",
+      "rawLogCopiedToRepository": false
+    },
+    "finalTests": {
+      "label": "core-author-intent-final-tests.tap",
+      "sha256": "5a94e1fcf0795f1033937f944290669522724bd1c5d83fb57f983db538a227ea",
+      "rawLogCopiedToRepository": false
+    },
+    "testCompilation": {
+      "label": "core-author-intent-final-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawLogCopiedToRepository": false
+    },
+    "typecheck": {
+      "label": "core-author-intent-final-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawLogCopiedToRepository": false
+    },
+    "build": {
+      "label": "core-author-intent-final-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawLogCopiedToRepository": false
+    }
+  },
+  "processRecovery": "A separate Node process resumed an already committed unacknowledged synthetic operation, returned the same commit/version, and left the total at baseline plus one publication commit.",
+  "transaction": "Current document, exact history copy, operation result and canonical journal share one verified local commit. A persistent transaction fence prevents controlled supply while replacement/commit is incomplete. Per-file rename is not simultaneous multi-file atomicity.",
+  "qualification": "Caller-owned explicit request/source/version/author-proof ports, no default authorization. Author proof binds source/version/author/locator/excerpt digest; this package uses synthetic adapters only. Candidate mode has no confirmed intent/established statements/current interpretation.",
+  "baselineCi": {
+    "source": "coordinator report; not queried or rerun in this package",
+    "commit": "3ee2e70df8ca3e045f891a12c1c7ee53c7700d0a",
+    "tests": 1706,
+    "pass": 1672,
+    "fail": 34,
+    "unchangedByThisPackage": true
+  },
+  "preservation": {
+    "originalDirtyFiles": 27,
+    "byteIdenticalAtFreeze": true,
+    "legacyPaused": true,
+    "note": "Two new unregistered production modules only; existing implementation files unchanged.",
+    "existingImplementationFilesModified": false,
+    "newUnregisteredModules": 2
+  },
+  "notAccepted": [
+    "real Host request/author source binding",
+    "ordinary plugin registration/capture",
+    "semantic correctness or synonymous old-interpretation detection",
+    "USER/MEMORY synchronization",
+    "remote synchronization or latest-backup guarantee",
+    "152 probes/formal consumer/full_memory/old gates",
+    "repair of existing CI or legacy runner"
+  ],
+  "syntheticProcesses": "All invoked validation commands and the separate recovery child returned terminal results; fixture-owned temporary Git directories were cleaned. Historical unknown scenes were not inspected or cleaned.",
+  "scopeDeviation": {
+    "action": "One pre-existing primitive regression exercised Git push to its own temporary local bare repository.",
+    "externalNetworkOrRemote": false,
+    "newAuthorIntentRepositoriesHaveRemote": false,
+    "newAuthorIntentAssetsPushed": false,
+    "cleanup": "The existing fixture cleanup completed; no further execution of that synchronization case in this package.",
+    "restriction": "The requested no-push boundary was narrower; this is disclosed rather than presented as a no-push run."
+  }
+}
