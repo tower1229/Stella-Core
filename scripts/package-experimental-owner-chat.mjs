@@ -68,7 +68,9 @@ try {
   receipt.hostVersion = receipt.versions.workspaceSdkVersion;
   await save();
   for (const script of ["check", "check:schemas", "test"]) {
-    if (script === "test") await run("test", process.execPath, [path.join(root, "scripts/run-workspace-tests.mjs")]);
+    // Include compilation, the suite's 600s per-case allowance and cleanup.
+    // Other commands retain run()'s separate 600s default.
+    if (script === "test") await run("test", process.execPath, [path.join(root, "scripts/run-workspace-tests.mjs")], { timeout: 900_000 });
     else await npm(script.replaceAll(":", "-"), ["run", script, "--silent"]);
     receipt.checks.push({ script, passed: true });
   }

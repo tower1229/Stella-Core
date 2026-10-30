@@ -11,7 +11,7 @@ try {
   for (const mode of ["build", "test"]) await compile(mode, { signal: cancellation.signal });
   cancellation.signal.throwIfAborted();
   const suite = await compiledOwnerSuite(root);
-  // The acceptance parent owns its existing deadline (Experimental: 600s;
+  // The acceptance parent owns its existing deadline (Experimental test: 900s;
   // prepare: job deadline). Do not add a new 600s limit to npm test/prepare.
   const result = await superviseOwnerSuite({ ...suite, cwd: root, signal: cancellation.signal, timeoutMs: null });
   process.stderr.write(`WORKSPACE_TEST_RESULT ${JSON.stringify(result)}\n`);

@@ -104,7 +104,7 @@ async function runnerFixture(t: TestContext, mode: string) {
 import {Writable} from 'node:stream';import {appendFileSync,createWriteStream} from 'node:fs';
 import {captureCommand as real} from ${JSON.stringify(helper)};
 export function captureCommand(command,args,options,capture){
-assert.equal(options.timeout,600000);assert.equal(options.maxBuffer,32*1024*1024);
+assert.equal(options.timeout,capture.stdoutPath.endsWith('test.stdout')?900000:600000);assert.equal(options.maxBuffer,32*1024*1024);
 const mode=${JSON.stringify(mode)},createLog=file=>mode==='log-error'&&file===capture.stdoutPath?new Writable({
 write(chunk,encoding,done){appendFileSync(file,chunk);done();},
 final(done){setTimeout(()=>done(Object.assign(new Error('synthetic runner log error'),{code:'ELOGTEST'})),30);}
