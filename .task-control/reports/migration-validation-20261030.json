@@ -1,0 +1,123 @@
+{
+  "kind": "task-data-validation-not-business-tests",
+  "checkedAt": "2026-10-30T02:36:34Z",
+  "repoBaseCommit": "1c0411a6d883d3cbb2e33dc7dd64a3a5574f0252",
+  "authorityRevision": 1,
+  "authoritySha256": "e0c43c295b87a6b97623f5eca08f6ebe1f4c4d7cfdbc027a135386d0c6db1661",
+  "positiveValid": true,
+  "negativeAndRecoveryChecks": [
+    {
+      "case": "missing_dependency",
+      "rejected": true
+    },
+    {
+      "case": "cycle",
+      "rejected": true
+    },
+    {
+      "case": "critical_path_reverse",
+      "rejected": true
+    },
+    {
+      "case": "ready_with_unaccepted_dependency",
+      "rejected": true
+    },
+    {
+      "case": "completed_without_acceptance_review",
+      "rejected": true
+    },
+    {
+      "case": "completed_empty_evidence",
+      "rejected": true
+    },
+    {
+      "case": "wrong_evidence_hash",
+      "rejected": true
+    },
+    {
+      "case": "unknown_status",
+      "rejected": true
+    },
+    {
+      "case": "unknown_field",
+      "rejected": true
+    },
+    {
+      "case": "false_architecture_acceptance",
+      "rejected": true
+    },
+    {
+      "case": "paused_to_ready",
+      "rejected": true
+    },
+    {
+      "case": "paused_to_ready_even_without_blocker",
+      "rejected": true
+    },
+    {
+      "case": "running_without_session",
+      "rejected": true
+    },
+    {
+      "case": "invalid_utc",
+      "rejected": true
+    },
+    {
+      "case": "duplicate_key",
+      "rejected": true
+    },
+    {
+      "case": "nan",
+      "rejected": true
+    },
+    {
+      "case": "infinity",
+      "rejected": true
+    },
+    {
+      "case": "paused_nextAction_cannot_schedule",
+      "passed": true
+    },
+    {
+      "case": "stale_revision",
+      "rejected": true
+    },
+    {
+      "case": "stale_hash",
+      "rejected": true
+    },
+    {
+      "case": "same_json_different_raw_bytes",
+      "rejected": true
+    }
+  ],
+  "businessTestsRun": false,
+  "HostOrModelRun": false,
+  "freshSessionRecovery": {
+    "goal": "利用新版OpenClaw官方能力实现私人Agent的长期理解、可信纠正与跨会话接续；研究与架构设计同步互证。",
+    "criticalPath": [
+      "CORE-RES-001",
+      "CORE-DEC-001",
+      "CORE-VAL-001"
+    ],
+    "runnable": [
+      "CORE-DEC-001"
+    ],
+    "paused": [
+      "CORE-LEGACY-001"
+    ],
+    "nextAction": "经理收敛官方能力+薄Core职责、唯一认知writer与受保护路径，再界定CORE-VAL-001；本包不执行。",
+    "legacyAutomaticallyResumed": false
+  },
+  "delivery": {
+    "local": "candidate",
+    "commit": "not_recorded",
+    "push": "not_pushed",
+    "ci": "not_run"
+  },
+  "limitations": [
+    "Static task-data and recovery checks only; not a real new Agent session.",
+    "Pause invariant checked for this migration; no background scheduler exists.",
+    "Same-directory rename is not multiwriter CAS."
+  ]
+}

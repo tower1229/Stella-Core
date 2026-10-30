@@ -1,4 +1,4 @@
-# 唯一当前任务状态索引。需求/决策/授权以normative_refs及明确用户指令为准。
+# 技术事实/证据索引与兼容入口。任务规划/执行状态唯一权威为.task-control/state.json；本文件旧任务快照不调度。
 # 记录基线不是状态更新自身的提交；历史原件在historical_snapshots，不能重标通过。
 project: Stella Core
 version_target: 3.0 Alpha
@@ -118,7 +118,7 @@ settled_constraints:
   - immutable historical predictions and separately validated current understanding
   - actual usefulness comes from owner feedback, not a mandatory score
   - private data never enters public Core assets
-scope_of_this_change:
+historical_business_candidate_scope:
   kind: correction-capture-contract-offline
   implementation_changed: false
   verification_scripts_modified: true
@@ -134,14 +134,15 @@ scope_of_this_change:
   commit_performed_at_capture: false
   git_save_status: 基线及新核远端4fa4cb0e；C1独审闭合，作者240/独审240及原11探针分层记录，原失败保留；五文件保存前快照，按授权普通提交推送后另核SHA/CI。
 updated_at_utc: "2026-10-29T16:17:51.569098+00:00"
-state_authority: 唯一当前任务状态索引；需求/架构/授权仍依设计基线与DECISIONS；旧handoff仅作历史
-non_goals:
+state_authority: 技术事实与证据索引；任务状态见.task-control/state.json；需求/架构/授权仍依设计基线与DECISIONS
+historical_business_candidate_non_goals:
   - 仅来源分开的双请求capture契约及离线关联；引用第一包安装摘要，旧offline v1/正式gate保持关闭；不改生产、旧验证器或版本模型，不启动Host/模型/身份，不装依赖或改主配置/grant，不触碰旧现场；独审闭合后仅普通保存本离线包，不扩大Host或运行范围。
   - 不把此前D063文本审查/持久化授权或本轮有限离线结果解释为整体架构批准、付费调用或部署批准。
   - 不恢复8.2 guarded provider/旧SQL，不为native接入构造session→最新grant或authority对象引用路由。
   - 不另建平行根任务状态文件；不复制私人资料、秘密、整包日志或跨项目方法页内容。
 design_complete_scope: 既有契约设计清单，不是产品或D063实施完成；以normative_refs为权威
-task_continuity:
+# 迁移前快照，保留业务增量及失败身份；以下任务状态/下一步均不可执行。
+historical_task_continuity_snapshot:
   task_id: correction-capture-contract-c1-2026-10-29
   scope: 复用第一包身份摘要，分辨Host回调投影/Core行/factory闭包/控制器生命周期与本地文件观察；只检查合成correction→readback→退休→下一请求自洽，不认证Host来源或开gate。
   version_binding:
@@ -228,7 +229,7 @@ task_continuity:
     - R1独审13项完成，未重跑作者253全套；初版115及原P1失败证据按historical保留。真实Host/模型/部署/full_memory仍未验。
     - 同实例同请求重试不等于跨进程恢复旧操作；分段A-only窄修已限定离线独审通过，不扩整源授权，不代表完整打包分段否定矩阵或Host验收；本轮单个合法分段消费者10项已独审通过，不能扩为完整否定矩阵。
     - SDK晚关闭ENOENT/active-leases告警仍存在；未证明SDK drain；完整套件本轮未重跑，26旧CI失败保留原身份。
-  unique_next_step: 普通提交推送已审五文件并核对远端精确SHA/CI；后续实际collector/runner由父线程另行限定，不把本合成契约当Host通过。
+  historical_next_step_not_executable: 普通提交推送已审五文件并核对远端精确SHA/CI；后续实际collector/runner由父线程另行限定，不把本合成契约当Host通过。
   blockers:
     - 局部受阻：真实Host捕获/runner未接，旧probeHost/报告验证器仍锁8.2；本片为独立复用安装摘要，旧profile仍拒绝host_capture和缺consumer锁输入；不影响本离线模块验证。
     - 历史A-only回读红例已保留；当前窄修作者141及独审141分开通过，不能冒充打包分段消费者/真实Host/全量consumer通过。
@@ -237,7 +238,7 @@ task_continuity:
     - 受阻动作：宣称工作区依赖安装与锁完全一致；现有workspace yaml2.9.0而固定锁2.9.1，本轮从既有SDK显式选锁定版本，不做安装修复。
     - 可独立继续：本提交只读CI核验和另行限定、不依赖真实Host/模型的离线工作；不以D063整体待审或Bili复验暂停。
     - 受阻动作：native公共授权桥/slot切换及整体D063实施；公共caller交接未证明、D063待审。当前受控tool及离线消费者验证不依赖该桥。
-  authorized_next_package_candidate:
+  historical_next_package_candidate_not_executable:
     status: correction_capture_contract_c1_independently_passed_ready_to_save
     name: capture契约C1跨请求序列窄修
     boundary: 第一包合成安装输出和Core纯函数/观察器单元夹具；仅普通保存已审代码/证据，无实际安装消费，不改权限/配置/身份，不启Host/模型
@@ -438,14 +439,18 @@ current_validation:
   issue23_complete: false
   summary_ref: docs/evidence/2026-10-29-packaged-request-freshness/verification-summary.json
   historical_prior_ci_evidence: docs/evidence/2026-10-28-task-continuity/verification-summary.json
+task_planning_authority:
+  path: .task-control/state.json
+  maintenance: .task-control/README.md
+  relation: 本文件仅保留技术事实/历史证据，不镜像任务状态/owner/nextAction。
 recovery_procedure:
-  - 先读本索引与docs/10-DESIGN-BASELINE.md，再读D063/集成§9.8；核对待审与已授权范围。
-  - 运行只读git rev-parse HEAD、git status --short、git branch
-    --show-current及既有远端ls-remote；解释与baseline/observed基线的差异，确认同repo唯一写入者。
-  - 依证据MANIFEST逐文件核对hash，再读精确commit/run/receipt版本与通过/失败/未执行；旧8.2历史不得改成10.8或新模型通过。
-  - 跨项目先核对Bili冻结版本/hash/未提交状态及沧海显式源版本和可变路径；本索引的checkout观察不是生产消费指针。
-  - 只继续unique_next_step；结果不明先读状态，执行器断连或审批拒绝按具体动作报告，不用历史授权填补新范围。
-  - 临时目录可失效；必要事实已在项目证据目录。原始CI artifact可能过期，保留摘要与原hash，不将无法下载解释为通过。
+  - 先读.task-control/state.json与README，核writer/revision、目标、active和依赖；paused/blocked/canceled不能由nextAction自动恢复。
+  - 再读本技术索引、docs/10-DESIGN-BASELINE.md及相关ADR；待审不是已采纳，历史快照不产生动作。
+  - 只读核实际HEAD/分支/dirty及适用远端观察；保留未提交文件，基线/hash/写者不符时停止写入并交协调者合并。
+  - 逐任务读取必要证据，区分候选/决定/事实、本地/提交/推送/CI、历史Host与模型；不靠旧报告补授权。
+  - 仅协调者分派依赖已满足的任务；迁移不解旧runner暂停，不重发cell21/26或处理EPERM未知现场。
+  - 更新先核原revision和字节hash，严格校验后同目录原子替换；单写者约定不等于多写者CAS。
+  - 跨项目核版本/可变路径/单写者，外仓候选不作已通过依赖，临时报告不作唯一证据。
 optional_references:
   - url: https://chatgpt.com/space/page_bedfb95937408191913b1cc83459f0d8
     role: 跨项目工作方法复盘；不是本项目状态、架构、验收或授权事实源

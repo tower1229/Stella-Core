@@ -6,8 +6,8 @@
 
 ## Task continuity and recovery
 
-- 恢复或接手任务时，先读根 `PROJECT-STATE.yaml` 与 `docs/10-DESIGN-BASELINE.md`，再按索引核对决策、证据和跨项目约定。`PROJECT-STATE.yaml` 是唯一当前任务状态入口，不新增平行的根任务状态文件；历史 handoff 和临时报告不能覆盖现行规范或补充授权。
-- 每个里程碑及交接前更新该索引的基线 HEAD/远端核对、已实现/已验证/未验证、唯一下一步、阻塞和待批准事项。记录时基线不等于包含状态更新自身的提交；恢复时用 Git 核实实际 HEAD、工作区、远端和证据绑定版本，差异未解释前不继续依赖步骤。
+- 恢复或接手任务时，先读 .task-control/state.json 与 .task-control/README.md，再读 PROJECT-STATE.yaml、docs/10-DESIGN-BASELINE.md 和相关决策/证据。JSON是任务规划与执行状态唯一权威；PROJECT-STATE保留技术事实/历史证据兼容入口，不双写任务状态。paused/blocked/canceled或依赖未满足不得因旧nextAction、会话恢复或历史报告自动续做。
+- 每个里程碑及交接前，由唯一协调写者更新台账目标/关键路径/子任务、owner/session、状态/阻塞/恢复点与证据；仅技术事实变化时更新PROJECT-STATE。更新先记录baseRevision/原字节hash，核未变后同目录原子替换、revision恰增1；这不是多写者CAS。基线不是状态自身提交，实际HEAD/工作区/远端及证据差异未解释前不继续依赖步骤。
 - 同一仓库同时只有一个明确指定的写入者负责工作树、暂存与提交；并行会话可只读调查。接手先核对写入归属，不覆盖他人未提交改动，不因不同目录或分支名称推定隔离。
 - 重要临时结论按最小必要原则归档到项目证据目录，保留来源版本、原始 hash、实际结果及未覆盖范围；不得仅以临时路径作为证据入口，不复制秘密、个人资料、凭据或整包原始日志。
 - 旧 Host/模型/失败证据保留原身份并标为 historical；文档审查、公共接口可导入、合成探针或账本通过，不等于真实消费者/模型/full_memory 验收，更不产生部署、权限或付费调用授权。
