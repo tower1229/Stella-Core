@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "phase": "main12_loaded_command_excluded_by_existing_agent_filter",
+  "observedAt": "2026-10-31T12:11:28.279847+00:00",
+  "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+  "review": {
+    "ref": ".task-control/reports/CORE-VAL-001/brief-continuation-review-20261031.json",
+    "sha256": "3dfab3d5ac626f5f48fd131842e1ad6bb9c4d42f5a7e21a86b081a07a73d4374"
+  },
+  "main": {
+    "generation": 12,
+    "operationId": "9742a011-3c21-43eb-8db1-5a6808465675",
+    "sourceDigest": "7ebd411ae2351162ac908dc864c114332fdc007b7582ef7ad6d61fe69930e16c",
+    "restartRequired": false,
+    "selectedEntry": ".artifacts/tool-request-binding-20261031/package/dist/src/ordinary-plugin.js",
+    "filesMatched": 2742,
+    "candidateManifestSha256": "7f993553f8ebb828d72c40d603c0254ac65134060f9e95ef6f6c116656a06e9d",
+    "runtimeCodeAndDependenciesUnchanged": true
+  },
+  "declaredSurface": {
+    "delta": {
+      "skills": {
+        "before": [],
+        "after": [
+          "./skills"
+        ]
+      }
+    },
+    "priorHash": "f57b121351a720f239f5eb64489bd9802dd7acc085cf13022c4b0665abbd1f3c",
+    "acceptedHash": "4e8bdd8e2f714f558e6bae21ecef521d581dd385811efcab39fa3b4fe6e965c3",
+    "persistentUntilRevoked": true,
+    "newSourceIdentityToolOSPermission": false
+  },
+  "configuration": {
+    "changed": false,
+    "sha256": "85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4",
+    "publisher": false,
+    "store": ".artifacts/candidate-work-brief-data-20261031",
+    "agentId": "main"
+  },
+  "actualMainSkill": {
+    "name": "stella-continue",
+    "eligible": true,
+    "disabled": false,
+    "blockedByAllowlist": false,
+    "blockedByAgentFilter": true,
+    "modelVisible": false,
+    "userInvocable": true,
+    "commandVisible": false
+  },
+  "materializedSkillMatchesReviewedSha256": "64d074492d5aae702cdb6f23f370ac2f650cae80d6c0ce7649a2b21eacde0d5b",
+  "entry": {
+    "slash": "/stella_continue <briefId> <request>",
+    "dollar": "$stella-continue briefId=<briefId> ...",
+    "usableOnMainNow": false,
+    "invokingWouldRunNormalModelAgent": true
+  },
+  "visibilityBlocker": {
+    "action": "Expose the loaded explicit command to main",
+    "target": "agents.entries.main.skills",
+    "reason": "Existing110-entry explicit skill filter excludes stella-continue",
+    "status": "not_changed; no invocation attempted; not an execution-approval rejection",
+    "minimumNextDecision": "Whether to append exactly stella-continue to this existing main filter through the normal config mechanism; no wildcard, other skills, data or identity grant",
+    "noBypass": true
+  },
+  "rollback": {
+    "package": ".artifacts/brief-continuation-main11-rollback-20261031/package",
+    "filesVerified": 2741,
+    "opaqueConfigBackupMode": "0600 in private diagnostics",
+    "executed": false
+  },
+  "limits": [
+    "No Agent or paid model request; model semantics and automatic fresh-read adherence remain unverified",
+    "No real sources or author confirmation; candidate/publisher off",
+    "Main12 package activation succeeded but commandVisible false is not user-visible entry acceptance",
+    "No old Host batches, ps/signal/port or private system-log actions"
+  ],
+  "receipts": {
+    "PREPARED.json": "273b91b2f1c90b8a65e1edff5a887cdaf93c8baa51a183e0b331bda487d1f613",
+    "reload.claim.json": "cfabb5e2f19feabb910ea4e7ce8d181455ff89cd3e8f5bdf632bce5483aecbf8",
+    "reload.stdout": "14d9aea5ce38830041e0b77b7999a2f0a52a00836140ffc9101eff3c21feef73",
+    "reload.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reload.result.json": "ba1daa928aac6b625ad4e4e87de7e89bfd70771987d9b3e799a00fb4cd87f18c",
+    "runtime-inspect.stdout": "c0b09036e341eaa91e5f5a0ece1ad754cb7c8752a86b9b3d0cf6174af52460c0",
+    "runtime-inspect.result.json": "b00a65e3921d79b9f71ab3725e22d3d6c8c8c426a56235fe8f10c8bad5e681ea",
+    "skill-info.stdout": "3a607dcc5bd8ecce656dce8dc8cf734d9dde968d458225400ac7d7e41c50c2b7",
+    "skill-info.result.json": "563e4e03c5b316c0723d0076e507331589bf9cc6d43426ce5a44553f8820d2c1",
+    "MAIN-VERIFIED.json": "d9900a5910377f124a9a2193bf92e3cffa89fc6903eabd8ff420a93dadaa14bd"
+  },
+  "retainedTransport": "First writer process failed before creation; readonly recovery confirmed state70 and no activation trace; help-only session transport failed. Subsequent writer and single reload completed. No duplicate reload."
+}

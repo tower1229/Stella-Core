@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "verdict": "accepted_loadable_candidate_no_code_blocker",
+  "observedAt": "2026-10-31T12:01:31.908Z",
+  "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+  "sourceSummarySha256": "27a83d6cc0e9b389147ef99860c44b3d94c6855fcaf790025c84881cb2082f06",
+  "independentFocused": {
+    "tests": 16,
+    "pass": 16,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "new": 2,
+    "retained": 14,
+    "notAdditiveWithAuthorRun": true
+  },
+  "candidateFilesMatched": 2742,
+  "unchangedVersusMain11Files": 2737,
+  "sourceHashes": {
+    "skills/stella-continue/SKILL.md": "64d074492d5aae702cdb6f23f370ac2f650cae80d6c0ce7649a2b21eacde0d5b",
+    "openclaw.plugin.json": "6fde6e0ac31fd932c87ab3b18ffb1f16bf3d55d23a939a6267e5f3aaa76ab2a8",
+    "package.json": "fc867384f95d182adac0febb8ad93da30941034c3800aa9b86e442a6d7b6b217",
+    "tests/candidate-work-brief.test.ts": "d24eca04757147e2a75a0c7cbf1811dcfeafd59e185f5ac929ad1778dfcf5b8d",
+    "README.md": "2bd69317e39a68c38ad46f4b81fc4b2984e9e44f992aff862a294b4af195234a",
+    "docs/CANDIDATE-WORK-BRIEF.md": "0a89a5d4c060987f4008c9d5d4ac7667201cf44c618b577c824e61298b57ee40"
+  },
+  "reportSha256": "fcb3537ea9bf100bd59c1aaba932c8c75514f61ffc118f626ee9bf4c1713b2fa",
+  "patchSha256": "384c206649fad7e49592ce23ab7e28edce3bd0def66c192f5c32d43b98d0c0c4",
+  "consent": {
+    "delta": {
+      "skills": [
+        "./skills"
+      ]
+    },
+    "priorHash": "f57b121351a720f239f5eb64489bd9802dd7acc085cf13022c4b0665abbd1f3c",
+    "nextHash": "4e8bdd8e2f714f558e6bae21ecef521d581dd385811efcab39fa3b4fe6e965c3",
+    "note": "New skill directory widens managed declared surface despite unchanged tools; official reload may require exact skill-surface consent. It grants no source, identity, OS, model or tool permission. Do not bypass the managed record.",
+    "acceptedByReviewer": false
+  },
+  "limits": [
+    "No main runtime activation or actual main skill catalog observation",
+    "Scripted data/CAS test is not model instruction-following, semantic understanding or automatic fresh-read enforcement",
+    "Invoking skill is a normal model-driven request; prior paid quota not renewed",
+    "Candidate source/admission/confirmed publication remain off"
+  ],
+  "scope": "independent code/package acceptance; no model understanding or main consumer claim"
+}

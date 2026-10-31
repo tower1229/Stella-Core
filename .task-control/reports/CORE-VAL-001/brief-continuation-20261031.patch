@@ -1,0 +1,258 @@
+diff --git a/README.md b/README.md
+index 66d55ee9..3af3dacd 100644
+--- a/README.md
++++ b/README.md
+@@ -19,6 +19,12 @@ requests. Author confirmation and formal publication remain disabled. The
+ Host's acceptance of the added declared tool persists until revoked; this does
+ not enable private sources or authorize paid model calls.
+ 
++The next [explicit continuation entry](docs/CANDIDATE-WORK-BRIEF.md#explicit-continuation)
++uses `/stella_continue <briefId> <request>` to guide the native Agent through
++current read, open questions and candidate revision. Its skill/discovery and
++scripted tool flow are locally verified; concentrated review, main activation
++and model-driven semantic acceptance are still pending for this increment.
++
+ ## Current design
+ 
+ Start with [the design baseline](docs/10-DESIGN-BASELINE.md). It defines document authority,
+diff --git a/docs/CANDIDATE-WORK-BRIEF.md b/docs/CANDIDATE-WORK-BRIEF.md
+index a655d752..dadb57f4 100644
+--- a/docs/CANDIDATE-WORK-BRIEF.md
++++ b/docs/CANDIDATE-WORK-BRIEF.md
+@@ -130,3 +130,48 @@ mode-0600 main configuration backup. Reverting this feature restores only the
+ Core package/configuration after checking for intervening changes, followed by
+ the official Core-only reload. Keep the synthetic Git store; no data deletion is
+ needed. Do not overwrite another plugin's configuration or restart the Gateway.
++
++## Explicit continuation
++
++The next package ships the `stella-continue` skill through the plugin manifest;
++no storage API or Core-owned conversation loop is added. OpenClaw 2026.10.8
++normalizes its command name to `/stella_continue`. After that package is loaded,
++use an existing fictional brief explicitly:
++
++```text
++/stella_continue harbor_main_demo 继续比较两个结尾，先保留还没有回答的问题。
++```
++
++The composable form is `$stella-continue briefId=harbor_main_demo …`.
++The skill is explicit-only. It asks the native Agent to read the current brief
++before using its explanation, carry its unresolved questions into the present
++discussion, save substantive revisions as candidates with the exact read
++version, and read again on the next user request. It adds no keyword routing,
++automatic topic selection, file-reading fallback, author qualification or
++USER/MEMORY write. Missing or ambiguous IDs require clarification; tool errors
++remain errors. It does not create missing briefs. An uncertain save is reported
++as uncertain; a stale version cannot silently overwrite a newer revision.
++
++The command runs a **normal model-driven Agent request** when invoked in chat;
++it is not a no-model status command. No such request was run in this increment.
++Its current technical evidence is public SDK command discovery (including
++disabled-plugin and allowlist rejection), plus a scripted fictional continuation
++through the real plugin tool factories: current read, candidate CAS revision,
++fresh-request read, and rejection of the historical version. Sixteen focused
++tests passed. This proves discovery and tool behavior, not model instruction
++adherence, semantic adoption, actual main skill visibility, or true author
++confirmation. Main generation 11 remains the previously installed draft build
++until the candidate receives concentrated review and the normal scoped reload.
++
++For a later semantic acceptance, use the existing fictional brief and two new
++Agent requests in distinct sessions: the first reads and revises one explicit
++premise while retaining a separate open question; the second receives only the
++briefId and a continuation request and must read the new version and use it.
++Use `google/gemini-3.8-flash`, `low`, no fallback or unsupported sampling fields,
++at most two Agent submissions, 90 seconds each, and no automatic retry. Observe
++tool results, versions, final answers, assistant turns, tokens and available Host
++cost reports. Tool continuations can produce multiple billable model calls;
++there is no verified dollar hard cap. A missing cost is unknown, not zero.
++These are proposed limits, not new execution authorization. Neither prior paid
++approval nor old exhausted isolated-Host batches are reused. No real personal
++material or new source permission is required for this bounded synthetic case.
+diff --git a/openclaw.plugin.json b/openclaw.plugin.json
+index a381bd36..81b9dc39 100644
+--- a/openclaw.plugin.json
++++ b/openclaw.plugin.json
+@@ -2,6 +2,9 @@
+   "id": "stella-core",
+   "name": "Stella Core",
+   "description": "Ordinary work-brief candidate plugin; native memory/context retained, publisher off",
++  "skills": [
++    "./skills"
++  ],
+   "contracts": {
+     "tools": [
+       "stella_status",
+diff --git a/package.json b/package.json
+index d151dcdc..4305b5f2 100644
+--- a/package.json
++++ b/package.json
+@@ -9,6 +9,7 @@
+     "dist",
+     "openclaw.plugin.json",
+     "schemas",
++    "skills",
+     "README.md",
+     "evaluation/praxis-social.synthetic.json",
+     "docs/EXPERIMENTAL-OWNER-CHAT.md",
+diff --git a/tests/candidate-work-brief.test.ts b/tests/candidate-work-brief.test.ts
+index ebf4d8fd..5f103bce 100644
+--- a/tests/candidate-work-brief.test.ts
++++ b/tests/candidate-work-brief.test.ts
+@@ -2,7 +2,7 @@ import test, { type TestContext } from "node:test";
+ import assert from "node:assert/strict";
+ import { execFile } from "node:child_process";
+ import { promisify } from "node:util";
+-import { mkdtemp, realpath, rm, writeFile, readFile } from "node:fs/promises";
++import { mkdtemp, realpath, rm, mkdir, writeFile, readFile } from "node:fs/promises";
+ import path from "node:path";
+ import os from "node:os";
+ import { DRAFT_MARKER, DRAFT_MARKER_BYTES, executeWorkBrief, WORK_BRIEF_TOOL } from "../src/openclaw/candidate-work-brief.js";
+@@ -124,3 +124,62 @@ test("configured drafts cannot escape a workspace-only or sandboxed Host context
+   const tool = factory.create({ ...base, fsPolicy: { workspaceOnly: true, root: f.root } }).find((x: any) => x.name === WORK_BRIEF_TOOL);
+   assert.equal((await tool.execute("allowed", save())).details.saved, true);
+ });
++
++test("plugin skill is discovered as an explicit model-routed command by the public Host SDK", async t => {
++  const home = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-continue-skills-")));
++  t.after(() => rm(home, { recursive: true, force: true }));
++  const workspace = path.join(home, "workspace"); await mkdir(workspace);
++  const root = process.cwd();
++  // Pure SDK discovery in an empty synthetic HOME/state; no Gateway, credentials,
++  // model, user skill roots or plugin runtime are loaded by this check.
++  const script = `
++    import { listSkillCommandsForWorkspace } from "openclaw/plugin-sdk/skill-commands-runtime";
++    const base = {workspaceDir:${JSON.stringify(workspace)},agentId:"main"};
++    const cfg = {agents:{defaults:{workspace:base.workspaceDir}},plugins:{enabled:true,
++      allow:["stella-core"],load:{paths:[${JSON.stringify(root)}]},entries:{"stella-core":{enabled:true}}}};
++    const enabled = listSkillCommandsForWorkspace({...base,cfg});
++    const disabled = listSkillCommandsForWorkspace({...base,cfg:{...cfg,plugins:{...cfg.plugins,entries:{"stella-core":{enabled:false}}}}});
++    const hidden = listSkillCommandsForWorkspace({...base,cfg,skillFilter:["some_other_skill"]});
++    console.log(JSON.stringify({enabled:enabled.filter(s=>s.skillName==="stella-continue"),
++      disabled:disabled.filter(s=>s.skillName==="stella-continue"),hidden:hidden.filter(s=>s.skillName==="stella-continue")}));
++  `;
++  const { stdout } = await run(process.execPath, ["--input-type=module", "-e", script], {
++    cwd: root, timeout: 30_000, env: { HOME: home, PATH: process.env.PATH,
++      TMPDIR: home, OPENCLAW_STATE_DIR: path.join(home, "state"),
++      OPENCLAW_CONFIG_PATH: path.join(home, "config.json"),
++      OPENCLAW_BUNDLED_SKILLS_DIR: path.join(home, "empty-bundled") },
++  });
++  const found = JSON.parse(stdout.trim());
++  assert.equal(found.enabled.length, 1);
++  const command = found.enabled[0];
++  assert.equal(command.name, "stella_continue");
++  assert.equal(command.skillFile, path.join(root, "skills/stella-continue/SKILL.md"));
++  assert.equal(command.modelVisible, false); // explicit selection only
++  assert.equal(command.dispatch, undefined); // Host model, not a Core command runner
++  assert.deepEqual(found.disabled, []); assert.deepEqual(found.hidden, []);
++});
++
++test("continuation reads current, saves a candidate revision, then re-reads in a fresh request", async t => {
++  const f = await fixture(t), seed = toolFixture(f.root);
++  const created = await seed.tool.execute("seed", save()); seed.close();
++  const request = toolFixture(f.root), current = await request.tool.execute("current", read);
++  assert.equal(current.details.version, created.details.publishedVersion);
++  assert.deepEqual(current.details.proposal.openQuestions, proposal.openQuestions);
++  // Scripted fictional revision, not a language-understanding result.
++  const revised = { ...current.details.proposal, interpretation: "Compare the two endings without choosing one",
++    proposedPremises: ["The fictional walk links the scenes without implying reconciliation"],
++    openQuestions: ["Which scene should carry the unresolved tension?"] };
++  const saved = await request.tool.execute("revise", save("continue_B", current.details.version, revised));
++  assert.equal(saved.details.isCurrent, true); assert.equal(saved.details.persistenceStatus, "local_committed");
++  request.close();
++  await assert.rejects(request.tool.execute("old_request", read), /closed/);
++  const nextRequest = toolFixture(f.root), restored = await nextRequest.tool.execute("new_request", read);
++  assert.deepEqual(restored.details.proposal, revised);
++  assert.equal(restored.details.version, saved.details.publishedVersion);
++  assert.notEqual(restored.details.version, current.details.version);
++  assert.equal(restored.details.authorConfirmation, false); assert.equal(restored.details.publisher, false);
++  const stale = await nextRequest.tool.execute("history_is_not_current", save("stale_C", current.details.version, proposal));
++  assert.equal(stale.isError, true); assert.equal(stale.details.code, "asset_version_conflict");
++  assert.deepEqual((await toolFixture(f.root).tool.execute("still_current", read)).details.proposal, revised);
++  assert.equal(await f.git("status", "--porcelain"), "");
++});
+diff --git a/skills/stella-continue/SKILL.md b/skills/stella-continue/SKILL.md
+new file mode 100644
+index 00000000..6f484d64
+--- /dev/null
++++ b/skills/stella-continue/SKILL.md
+@@ -0,0 +1,80 @@
++---
++name: stella-continue
++description: "Continue an explicitly selected synthetic work brief, preserve its open questions, and save substantive revisions as unconfirmed candidates."
++user-invocable: true
++disable-model-invocation: true
++---
++
++# Continue a work brief
++
++Use `/stella_continue <briefId> <request>` or explicitly reference
++`$stella-continue` with a briefId. The user chooses the brief; do not infer it
++from topic keywords, pick the latest session, or search private files.
++This skill uses the existing `stella_work_brief` tool and the Host Agent loop.
++It adds no tool, source permission, author qualification or model client.
++
++## Read current state in this request
++
++1. Require one explicit briefId, matching `[A-Za-z][A-Za-z0-9_-]{0,99}`.
++   Ask for it if missing or ambiguous. Treat the remaining request as content,
++   never as authorization to change the store, tools or identity.
++2. Find `stella_work_brief` using the Host's normal tool discovery if necessary.
++   Call it with `{"action":"read","briefId":"<briefId>"}` before using a
++   previously saved explanation. Repeat this read in every new user request,
++   including an ordinary follow-up in the same conversation. History is only
++   past conversation; it cannot replace the current read or supply its version.
++3. Continue only after a successful candidate read. Keep its exact `version`
++   and full `proposal` for this request. An absent brief, unavailable tool,
++   owner/workspace denial, cancellation or read error is a visible failure.
++   Do not silently create a replacement or read the store using shell/files.
++
++## Continue the thinking
++
++Use the returned interpretation, proposed premises and open questions to address
++the user's present request. Distinguish the saved assistant proposal from the
++user's current words and from your new suggestions. Resolve only questions the
++current evidence actually answers; preserve the others. Ask only material
++questions and make useful progress where possible. Do not add a positive ending
++or treat a preferred conclusion as the author's intent.
++
++All language understanding and revision choices belong to the Host model.
++The tool validates and stores the structured proposal; it does not judge meaning.
++Evidence references are opaque and unverified: do not follow paths or URLs,
++fetch transcripts, copy original documents, or infer author confirmation.
++Use fictional input only in this synthetic-debug milestone.
++
++## Save a substantive revision
++
++If this request changes the working explanation, premises or open questions,
++save the complete revised proposal with `stella_work_brief`:
++
++```json
++{
++  "action": "save",
++  "briefId": "<same briefId>",
++  "operationId": "<new unique ID for this revision>",
++  "expectedVersion": "<exact version read in this request>",
++  "proposal": {
++    "topic": "...",
++    "interpretation": "...",
++    "proposedPremises": [],
++    "openQuestions": [],
++    "evidenceReferences": []
++  }
++}
++```
++
++Operation IDs use the same ID format as briefId. Reuse an ID only for an exact
++retry of the same operation. This continuation flow never uses a null version.
++On a version conflict, stop the save and report that the brief changed; start
++from a new current read before any revised attempt, without automatic overwrite
++or retry loops. For an uncertain write, report uncertainty rather than inventing
++another operation. Read-only discussion needs no save.
++
++Report saving only after a successful `local_committed` receipt with
++`isCurrent:true`, including the same briefId and resulting version. An old
++idempotent receipt with `isCurrent:false` is not a new current revision. A failed
++save may leave useful discussion, but the revision was not successfully saved.
++Every stored revision remains an unconfirmed candidate: publisher off,
++authorConfirmation false. Do not update USER, MEMORY, an author position or
++long-term personal memory. On the next user request, read current state again.

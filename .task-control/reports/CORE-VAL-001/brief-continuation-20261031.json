@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "phase": "implementation_and_no_model_checks_complete_pending_concentrated_review",
+  "observedAt": "2026-10-31T11:56:49.198425+00:00",
+  "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+  "implementation": {
+    "minimalGap": "explicit skill guidance; read/save/CAS contracts already present",
+    "entry": "/stella_continue <briefId> <request>",
+    "composableEntry": "$stella-continue briefId=<briefId> ...",
+    "skill": "skills/stella-continue/SKILL.md",
+    "distribution": "plugin manifest skills directory and package files",
+    "explicitOnly": true,
+    "modelRouted": true,
+    "newTools": 0,
+    "newProductionTypeScript": 0,
+    "newStore": false,
+    "coreOwnedAgentLoop": false,
+    "keywordRouting": false,
+    "publisher": false,
+    "dataDomain": "existing synthetic debug store only"
+  },
+  "sourceFiles": {
+    "skills/stella-continue/SKILL.md": "64d074492d5aae702cdb6f23f370ac2f650cae80d6c0ce7649a2b21eacde0d5b",
+    "openclaw.plugin.json": "6fde6e0ac31fd932c87ab3b18ffb1f16bf3d55d23a939a6267e5f3aaa76ab2a8",
+    "package.json": "fc867384f95d182adac0febb8ad93da30941034c3800aa9b86e442a6d7b6b217",
+    "tests/candidate-work-brief.test.ts": "d24eca04757147e2a75a0c7cbf1811dcfeafd59e185f5ac929ad1778dfcf5b8d",
+    "README.md": "2bd69317e39a68c38ad46f4b81fc4b2984e9e44f992aff862a294b4af195234a",
+    "docs/CANDIDATE-WORK-BRIEF.md": "0a89a5d4c060987f4008c9d5d4ac7667201cf44c618b577c824e61298b57ee40"
+  },
+  "patch": {
+    "ref": ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.patch",
+    "sha256": "384c206649fad7e49592ce23ab7e28edce3bd0def66c192f5c32d43b98d0c0c4"
+  },
+  "validation": {
+    "compileTest": {
+      "argv": [
+        "node",
+        "scripts/compile.mjs",
+        "test"
+      ],
+      "exitCode": 0
+    },
+    "focusedTests": {
+      "argv": [
+        "node",
+        "--test",
+        ".test-dist/tests/candidate-work-brief.test.js",
+        ".test-dist/tests/ordinary-plugin.test.js"
+      ],
+      "exitCode": 0,
+      "total": 16,
+      "pass": 16,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "newCases": 2,
+      "retainedCases": 14,
+      "stdoutSha256": "585ab2462d9ac1f9861dd1a7d64e579379487a13007b33e30af7cd301c8d7364"
+    },
+    "newCoverage": [
+      "public SDK manifest skill discovery: enabled, disabled-plugin, allowlist-hidden; canonical name stella_continue; modelVisible false; no direct tool dispatcher",
+      "actual plugin factories with fixed synthetic proposals: seed, current read, CAS candidate revision, closed prior factory rejected, fresh factory read current, stale historical version rejected; clean synthetic repository"
+    ],
+    "semantics": "revision is fixed fictional fixture input; no model understanding or instruction-following acceptance",
+    "diffCheck": "passed for six scoped files; new skill contains no trailing whitespace",
+    "boundedSecretScan": "six candidate files, common private-key/provider-token patterns absent; manual content review found fictional examples only"
+  },
+  "candidateArtifact": {
+    "ref": ".artifacts/brief-continuation-20261031/package",
+    "files": 2742,
+    "baseMainFilesMatched": 2741,
+    "baseManifestSha256": "1629d9edb86e2a502da28b165ffee0cfd90e3482fc6c4897d565136f647a5730",
+    "manifestSha256": "7f993553f8ebb828d72c40d603c0254ac65134060f9e95ef6f6c116656a06e9d",
+    "changedPaths": [
+      "package.json",
+      "openclaw.plugin.json",
+      "README.md",
+      "docs/CANDIDATE-WORK-BRIEF.md",
+      "skills/stella-continue/SKILL.md"
+    ],
+    "runtimeCodeUnchanged": true,
+    "runtimeDependencies": "retained complete reviewed main11 closure; no downloads",
+    "buildIdentity": "retains old reviewed artifact identity, not a freshly compiled package claim"
+  },
+  "packDryRun": {
+    "exitCode": 0,
+    "ignoreScripts": true,
+    "skillIncluded": true,
+    "files": 540,
+    "noArchiveOrPublish": true,
+    "stdoutSha256": "761e2f8f9d0a530b24c5b1ed112b4a0df047efef2def43aea02d02ea56499592"
+  },
+  "candidateDiscovery": {
+    "exitCode": 0,
+    "sdk": "openclaw/plugin-sdk/skill-commands-runtime",
+    "command": "stella_continue",
+    "skillFile": ".artifacts/brief-continuation-20261031/package/skills/stella-continue/SKILL.md",
+    "modelVisible": false,
+    "directDispatch": false,
+    "syntheticHomeStateWorkspace": true,
+    "gatewayInvoked": false,
+    "modelInvoked": false,
+    "stdoutSha256": "09fb791244f341d4feb465abf7257d4cccbaf45e4b3e4e0d06b41c599d666f27"
+  },
+  "fixedHostSource": {
+    "version": "2026.10.8",
+    "sha256": {
+      "package.json": "9be09f47e73b05da1736aaeab337b4c0cfe35921bcc5b7a185a44b9fe70d2acc",
+      "docs/tools/skills.md": "2ec6dbe7ca39d393138aa4de63581b8e813fd972e03cd2a96e2082652bce8675",
+      "docs/plugins/manifest.md": "b1c03127c5e695c98f41ee5a8b1ea9f8bbd4fb7c92d5d6efe7accf6295182dc6",
+      "dist/plugin-sdk/skill-commands-runtime.js": "86f5290d44843e15d7d79c3f03a34aead56c9232815f2cdf4fa3caa4e9204077",
+      "dist/chat-commands-CdqOPrvQ.mjs": "154fdf6fde5f09c000d71396d5301caaaa65b66aabc10ca20d98fdd3c9c391a8",
+      "dist/chat-command-invocation-CgvDOOkT.mjs": "d9a15045896afed10887404a30ea30e61fd6dcb73252a4b4d0d4e50fec56adec",
+      "dist/workspace-skill-loader-B00KNO0v.mjs": "3913ba676f139cbfb5916d2668902998c4b70236d4a56622ce568ca2ac34eefe",
+      "dist/store-C4nfDJT1.mjs": "48eda5b11256d24a16a8fc017237f3bbcb0c4513adc985a63d6ca4201adbb473"
+    },
+    "facts": [
+      "manifest skills paths are relative to plugin root",
+      "skill slash command name hyphen normalizes to underscore",
+      "disable-model-invocation hides autonomous selection; authorized explicit selection remains model-routed",
+      "skill eligibility does not grant tool permission; actual tool retains guard/owner/workspace checks"
+    ]
+  },
+  "mainRuntime": {
+    "priorGeneration": 11,
+    "activationInThisStage": false,
+    "configurationModified": false,
+    "gatewayCalls": 0,
+    "paidAgentRequests": 0,
+    "rollback": "current main11 artifact/config retained; candidate copy prepared separately"
+  },
+  "review": {
+    "authorInspection": "six-file scope reviewed for exact minimal delta and synthetic boundaries",
+    "independentConcentratedReview": "pending coordinator",
+    "notSubmitted": true,
+    "notPushed": true
+  },
+  "remaining": {
+    "technicalActivation": "after concentrated review, promote only these package assets through existing official Core reload and verify authoritative no-model skill catalog; do not alter tools/identity/config grants",
+    "semanticAcceptance": "unrun; instruction adherence/current-version use and faithful revision require new approved model requests",
+    "realSource": "not connected; owner access is not author proof; candidate only; no new real-data permission",
+    "automaticFollowupFreshness": "skill instructs fresh reads; this stage does not prove model follows instructions or enforce interception of all ordinary replies"
+  },
+  "proposedSemanticCase": {
+    "assigned": false,
+    "model": "google/gemini-3.8-flash",
+    "thinking": "low",
+    "agentRequests": 2,
+    "sessions": "distinct synthetic sessions",
+    "timeoutSecondsEach": 90,
+    "automaticRetries": false,
+    "fallback": false,
+    "samplingOverrides": false,
+    "inputs": "fictional existing brief only; first request revises one premise while preserving one material unknown; second supplies only same briefId and continuation request",
+    "observe": [
+      "current-read and save versions",
+      "tool results",
+      "final responses",
+      "assistant turns",
+      "tokens",
+      "available Host costUsd"
+    ],
+    "verifiedDollarHardCap": false,
+    "unknownCostIsZero": false,
+    "physicalModelCallCountMayExceedAgentRequests": true,
+    "permission": "not executed or authorized by this proposed plan; previous one-call approval remains exhausted"
+  },
+  "history": "all prior claims, old fourth group unknown, batch3/3 exhausted, existing CI26 failures and earlier model evidence retain original identities; no old processes/ports/logs queried",
+  "handoff": "single combined code/skill/package/docs candidate for concentrated review; source/API semantics unchanged; no extra test framework or install gate introduced"
+}

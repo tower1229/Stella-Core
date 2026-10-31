@@ -2,6 +2,9 @@
   "id": "stella-core",
   "name": "Stella Core",
   "description": "Ordinary work-brief candidate plugin; native memory/context retained, publisher off",
+  "skills": [
+    "./skills"
+  ],
   "contracts": {
     "tools": [
       "stella_status",

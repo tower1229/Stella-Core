@@ -2,7 +2,7 @@ import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, realpath, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm, mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { DRAFT_MARKER, DRAFT_MARKER_BYTES, executeWorkBrief, WORK_BRIEF_TOOL } from "../src/openclaw/candidate-work-brief.js";
@@ -123,4 +123,63 @@ test("configured drafts cannot escape a workspace-only or sandboxed Host context
   }
   const tool = factory.create({ ...base, fsPolicy: { workspaceOnly: true, root: f.root } }).find((x: any) => x.name === WORK_BRIEF_TOOL);
   assert.equal((await tool.execute("allowed", save())).details.saved, true);
+});
+
+test("plugin skill is discovered as an explicit model-routed command by the public Host SDK", async t => {
+  const home = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-continue-skills-")));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const workspace = path.join(home, "workspace"); await mkdir(workspace);
+  const root = process.cwd();
+  // Pure SDK discovery in an empty synthetic HOME/state; no Gateway, credentials,
+  // model, user skill roots or plugin runtime are loaded by this check.
+  const script = `
+    import { listSkillCommandsForWorkspace } from "openclaw/plugin-sdk/skill-commands-runtime";
+    const base = {workspaceDir:${JSON.stringify(workspace)},agentId:"main"};
+    const cfg = {agents:{defaults:{workspace:base.workspaceDir}},plugins:{enabled:true,
+      allow:["stella-core"],load:{paths:[${JSON.stringify(root)}]},entries:{"stella-core":{enabled:true}}}};
+    const enabled = listSkillCommandsForWorkspace({...base,cfg});
+    const disabled = listSkillCommandsForWorkspace({...base,cfg:{...cfg,plugins:{...cfg.plugins,entries:{"stella-core":{enabled:false}}}}});
+    const hidden = listSkillCommandsForWorkspace({...base,cfg,skillFilter:["some_other_skill"]});
+    console.log(JSON.stringify({enabled:enabled.filter(s=>s.skillName==="stella-continue"),
+      disabled:disabled.filter(s=>s.skillName==="stella-continue"),hidden:hidden.filter(s=>s.skillName==="stella-continue")}));
+  `;
+  const { stdout } = await run(process.execPath, ["--input-type=module", "-e", script], {
+    cwd: root, timeout: 30_000, env: { HOME: home, PATH: process.env.PATH,
+      TMPDIR: home, OPENCLAW_STATE_DIR: path.join(home, "state"),
+      OPENCLAW_CONFIG_PATH: path.join(home, "config.json"),
+      OPENCLAW_BUNDLED_SKILLS_DIR: path.join(home, "empty-bundled") },
+  });
+  const found = JSON.parse(stdout.trim());
+  assert.equal(found.enabled.length, 1);
+  const command = found.enabled[0];
+  assert.equal(command.name, "stella_continue");
+  assert.equal(command.skillFile, path.join(root, "skills/stella-continue/SKILL.md"));
+  assert.equal(command.modelVisible, false); // explicit selection only
+  assert.equal(command.dispatch, undefined); // Host model, not a Core command runner
+  assert.deepEqual(found.disabled, []); assert.deepEqual(found.hidden, []);
+});
+
+test("continuation reads current, saves a candidate revision, then re-reads in a fresh request", async t => {
+  const f = await fixture(t), seed = toolFixture(f.root);
+  const created = await seed.tool.execute("seed", save()); seed.close();
+  const request = toolFixture(f.root), current = await request.tool.execute("current", read);
+  assert.equal(current.details.version, created.details.publishedVersion);
+  assert.deepEqual(current.details.proposal.openQuestions, proposal.openQuestions);
+  // Scripted fictional revision, not a language-understanding result.
+  const revised = { ...current.details.proposal, interpretation: "Compare the two endings without choosing one",
+    proposedPremises: ["The fictional walk links the scenes without implying reconciliation"],
+    openQuestions: ["Which scene should carry the unresolved tension?"] };
+  const saved = await request.tool.execute("revise", save("continue_B", current.details.version, revised));
+  assert.equal(saved.details.isCurrent, true); assert.equal(saved.details.persistenceStatus, "local_committed");
+  request.close();
+  await assert.rejects(request.tool.execute("old_request", read), /closed/);
+  const nextRequest = toolFixture(f.root), restored = await nextRequest.tool.execute("new_request", read);
+  assert.deepEqual(restored.details.proposal, revised);
+  assert.equal(restored.details.version, saved.details.publishedVersion);
+  assert.notEqual(restored.details.version, current.details.version);
+  assert.equal(restored.details.authorConfirmation, false); assert.equal(restored.details.publisher, false);
+  const stale = await nextRequest.tool.execute("history_is_not_current", save("stale_C", current.details.version, proposal));
+  assert.equal(stale.isError, true); assert.equal(stale.details.code, "asset_version_conflict");
+  assert.deepEqual((await toolFixture(f.root).tool.execute("still_current", read)).details.proposal, revised);
+  assert.equal(await f.git("status", "--porcelain"), "");
 });

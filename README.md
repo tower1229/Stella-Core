@@ -19,6 +19,14 @@ requests. Author confirmation and formal publication remain disabled. The
 Host's acceptance of the added declared tool persists until revoked; this does
 not enable private sources or authorize paid model calls.
 
+The [explicit continuation entry](docs/CANDIDATE-WORK-BRIEF.md#explicit-continuation)
+uses `/stella_continue <briefId> <request>` to guide the native Agent through
+current read, open questions and candidate revision. The reviewed skill package
+is loaded at main generation 12. Authoritative inventory finds it eligible, but
+main's existing agent skill filter currently excludes its command. That filter
+has not been widened. Scripted tool behavior is verified; actual model-driven
+use and semantic acceptance remain untested.
+
 ## Current design
 
 Start with [the design baseline](docs/10-DESIGN-BASELINE.md). It defines document authority,

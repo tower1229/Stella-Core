@@ -9,6 +9,7 @@
     "dist",
     "openclaw.plugin.json",
     "schemas",
+    "skills",
     "README.md",
     "evaluation/praxis-social.synthetic.json",
     "docs/EXPERIMENTAL-OWNER-CHAT.md",

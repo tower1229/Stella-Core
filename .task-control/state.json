@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 64,
-  "updatedAt": "2026-10-31T11:21:07.431271+00:00",
+  "revision": 72,
+  "updatedAt": "2026-10-31T12:12:10.541945+00:00",
   "writer": {
-    "agent": "Core reviewed draft activation/save sole writer",
-    "session": "delegated-core-work-brief-20261031"
+    "agent": "Core continuation activation/save/CI single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:brief-continuation-activation-20261031"
   },
   "workstreams": [
     {
@@ -483,7 +483,10 @@
         ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.patch",
         ".task-control/reports/CORE-VAL-001/offline-source-adapter-save-review-20261031.json",
         ".task-control/reports/CORE-VAL-001/offline-source-push-20261031.json",
-        ".task-control/reports/CORE-VAL-001/offline-source-ci-37669033-20261031.json"
+        ".task-control/reports/CORE-VAL-001/offline-source-ci-37669033-20261031.json",
+        ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.json",
+        ".task-control/reports/CORE-VAL-001/brief-continuation-review-20261031.json",
+        ".task-control/reports/CORE-VAL-001/brief-continuation-main-20261031.json"
       ],
       "acceptance": [
         {
@@ -521,8 +524,8 @@
       ],
       "status": "running",
       "owner": {
-        "agent": "Core reviewed draft activation/save sole writer",
-        "session": "delegated-core-work-brief-20261031"
+        "agent": "Core continuation activation/save/CI single writer",
+        "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:brief-continuation-activation-20261031"
       },
       "evidence": [
         {
@@ -1177,11 +1180,57 @@
             "sha256": "743e3afaba9b7a284bb3c43c29ef1ea960aa1c0b227cdaf953592c08a335b971",
             "baseCommit": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539"
           }
+        },
+        {
+          "id": "C-VAL-CANDIDATE-WORK-BRIEF-LOCAL-SAVE-PUSH-DENIED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-save-20261031.json",
+          "claim": "Exact16files committed0980775 and byte-verified, olddirty/PROJECTprefix preserved. Main11 actual4draftconsumer calls already passed. Ordinarypush denied by automaticapproval before process creation for lack of current explicit remote-sharing authorization; no retry/alternate. Read-only remote remains6b3d07b4. NewSHA CI not triggered; cannot claim CIregression result.",
+          "observedAt": "2026-10-31T11:25:03.684522+00:00",
+          "subject": {
+            "sha256": "f9f347dc807f0018e59e0f48aadb121ec5c9237dee0fcf9c991b30bf4f72b00b",
+            "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7"
+          }
+        },
+        {
+          "id": "C-VAL-CANDIDATE-WORK-BRIEF-PUSH-SUCCESS",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-push-ci-20261031.json",
+          "claim": "Initial denied push preserved; supplemental explicit user remote-authorization original supplied, one same normalapproval retry succeeded. Exact16reviewed nonsensitivefiles normalcommit/push0980775, remoteSHA independentlyverified. CI41196921738/41196921775 inprogress. Main11 actual4draftconsumer/no-model/sourcepublisheroff unchanged; no Host/modelrepeat.",
+          "observedAt": "2026-10-31T11:28:45.701475+00:00",
+          "subject": {
+            "sha256": "028585b70fc7d61bb5550794745dd4f6c55ac7c6eda746445dc3a34f01ae9f28",
+            "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7"
+          }
+        },
+        {
+          "id": "C-VAL-CANDIDATE-WORK-BRIEF-CI-OLD-FAILURES",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-ci-0980775f-20261031.json",
+          "claim": "Reviewed16file0980775 normalpush/remote verified after one authorized same-approval retry; prior denial retained. Both exactSHA CIs terminal failure1784/1758pass/26oldfail/0cancelledskipTODO. Newdraft9 plus binding10/ordinary5/offline22 pass each. All26 normalized failure blocks identical to6b3baseline in both; no new observed unit regression. Fullprepare failed ->probes skipped/verify missingprepared; actualCIchild exit1/groupGone/stdio/ownedWork complete/cleanupremoved. Main11 actual4draftconsumer calls retained; no furthermodel/runtime operations or status-only push.",
+          "observedAt": "2026-10-31T11:42:08.712788+00:00",
+          "subject": {
+            "sha256": "d7ae1e0aefaa315d331752a44ad75aa059131e9ce1b32970d84cb73a686e5b85",
+            "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7"
+          }
+        },
+        {
+          "id": "C-VAL-BRIEF-CONTINUATION-CANDIDATE",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.json",
+          "claim": "Minimal explicit skill guidance wired through manifest/package; no runtime API changes. Official compile and16/16 focused tests pass (2new/14retained); public SDK discovers packaged explicit model-routed skill. Scripted fictional currentread/CASupdate/freshread/stale rejection pass. Pending concentrated review/main activation; no new model/real-source/semantic proof.",
+          "observedAt": "2026-10-31T11:57:29.858451+00:00",
+          "subject": {
+            "sha256": "fcb3537ea9bf100bd59c1aaba932c8c75514f61ffc118f626ee9bf4c1713b2fa",
+            "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+            "patchSha256": "384c206649fad7e49592ce23ab7e28edce3bd0def66c192f5c32d43b98d0c0c4",
+            "candidateManifestSha256": "7f993553f8ebb828d72c40d603c0254ac65134060f9e95ef6f6c116656a06e9d"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Generation11 actual candidate draft consumer passed4owner-context publicSDK calls save/read/CASupdate/read; two commits and exact proposals/versions verified. Initial ordinaryCLI failure1 retained; defaultwrite vs requiredexistingadmin request corrected through publicSDK without newgrant. Consent durable exacttoolonly; fixed syntheticstore clean/no remotes; publisher/sourceoff and model0. Native report archived.",
-        "nextAction": "Commit/push exact reviewed10source/test/manifest/docs plus bounded initial/native/review reports and minimal state/PROJECT appendices; exclude artifacts/config/logs/data/oldpausedrunnerdiffs. Follow exactSHA dualCI vs1775/1749/26baseline, expected+9draftgroups. No new model/Host design or replay.",
+        "checkpoint": "Reviewed continuation package loaded main12 via official Core reload; exact ./skills consent accepted, code/dependencies/config unchanged. Authoritative skill eligible/userInvocable but commandVisible false due main110-entry filter excluding stella-continue. No filter bypass, invocation or paid request. Code/docs/evidence whitelist save/push/CI can proceed independently; rollback retained.",
+        "nextAction": "Whitelist save/normalpush and exactSHA CI; coordinator decide minimal explicit main skill-filter inclusion for actual visibility. No Agent/model request assigned; semantic/freshness unverified; preserve old failure and quota identities.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -1299,10 +1348,76 @@
           "initialFailedOrdinaryCli": 1,
           "nativeReport": ".task-control/reports/CORE-VAL-001/candidate-work-brief-main-20261031.json",
           "nativeReportSha256": "743e3afaba9b7a284bb3c43c29ef1ea960aa1c0b227cdaf953592c08a335b971",
-          "demoCompleted": true
+          "demoCompleted": true,
+          "commit": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+          "committedFiles": 16,
+          "push": "succeeded_same_normal_approval_retry_after_new_user_evidence",
+          "remoteSha": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+          "ci": "completed_failure_26_unchanged_old_each",
+          "saveReport": ".task-control/reports/CORE-VAL-001/candidate-work-brief-save-20261031.json",
+          "saveReportSha256": "f9f347dc807f0018e59e0f48aadb121ec5c9237dee0fcf9c991b30bf4f72b00b",
+          "ciRuns": [
+            41196921738,
+            41196921775
+          ],
+          "pushReport": ".task-control/reports/CORE-VAL-001/candidate-work-brief-push-ci-20261031.json",
+          "pushReportSha256": "028585b70fc7d61bb5550794745dd4f6c55ac7c6eda746445dc3a34f01ae9f28",
+          "delivery": "reviewed_code_native_consumer_saved_pushed_ci_terminal",
+          "ciCountsEach": {
+            "tests": 1784,
+            "pass": 1758,
+            "oldFail": 26,
+            "newDraftPass": 9
+          },
+          "newObservedUnitRegression": false,
+          "ciReport": ".task-control/reports/CORE-VAL-001/candidate-work-brief-ci-0980775f-20261031.json",
+          "ciReportSha256": "d7ae1e0aefaa315d331752a44ad75aa059131e9ce1b32970d84cb73a686e5b85"
+        },
+        "briefContinuation": {
+          "phase": "loaded_command_filtered_save_pending",
+          "report": ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.json",
+          "reportSha256": "fcb3537ea9bf100bd59c1aaba932c8c75514f61ffc118f626ee9bf4c1713b2fa",
+          "patch": ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.patch",
+          "patchSha256": "384c206649fad7e49592ce23ab7e28edce3bd0def66c192f5c32d43b98d0c0c4",
+          "baseCommit": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+          "sixFiles": [
+            "skills/stella-continue/SKILL.md",
+            "openclaw.plugin.json",
+            "package.json",
+            "tests/candidate-work-brief.test.ts",
+            "README.md",
+            "docs/CANDIDATE-WORK-BRIEF.md"
+          ],
+          "focusedTests": {
+            "total": 16,
+            "pass": 16,
+            "new": 2,
+            "retained": 14
+          },
+          "candidateArtifact": ".artifacts/brief-continuation-20261031/package",
+          "candidateManifestSha256": "7f993553f8ebb828d72c40d603c0254ac65134060f9e95ef6f6c116656a06e9d",
+          "candidateFileCount": 2742,
+          "mainGeneration": 12,
+          "mainChanged": true,
+          "paidRequests": 0,
+          "publisher": false,
+          "independentReview": "accepted16of16_and2742files",
+          "nextNativeExecutionAssigned": false,
+          "mainConfigChanged": false,
+          "mainReport": ".task-control/reports/CORE-VAL-001/brief-continuation-main-20261031.json",
+          "mainReportSha256": "82f86b80a3a7878be9cf80d283bff6f71ee17c8518b947ce33b35ce0c370b000",
+          "mainCommandVisible": false,
+          "agentFilterBlocker": {
+            "target": "agents.entries.main.skills",
+            "count": 110,
+            "missing": "stella-continue",
+            "status": "not_changed_no_invocation_attempted"
+          },
+          "acceptedSurfaceHash": "4e8bdd8e2f714f558e6bae21ecef521d581dd385811efcab39fa3b4fe6e965c3",
+          "save": "pending exact whitelist"
         }
       },
-      "updatedAt": "2026-10-31T11:21:07.431271+00:00",
+      "updatedAt": "2026-10-31T12:12:10.541945+00:00",
       "delivery": {
         "local": {
           "status": "committed",

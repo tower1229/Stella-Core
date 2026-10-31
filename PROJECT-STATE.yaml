@@ -579,3 +579,31 @@ candidate_work_brief_actual_main_20261031:
   main_configuration: only Core candidateDraftsRoot added; opaque hash 85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4
   model_requests: 0
   limits: model discovery/semantic adoption/real author or source/full_memory not accepted
+
+
+explicit_brief_continuation_20261031:
+  evidence: .task-control/reports/CORE-VAL-001/brief-continuation-20261031.json
+  implementation: explicit plugin skill stella-continue; Host slash command stella_continue; existing stella_work_brief API and native Agent loop
+  runtime_code: unchanged; no new production TypeScript, tool, store, source reader or model client
+  technical_checks: compile test exit0; focused16/16 including2 new cases and14 retained; no model calls
+  discovery: actual public SDK in synthetic HOME/state/workspace; enabled plugin discovers explicit-only model-routed skill; disabled plugin and hidden allowlist exclude it
+  continuation: scripted fictional current read, exact CAS candidate revision, fresh factory reads new version; closed old invocation and stale historical version rejected
+  package: candidate2742files; all2741 old main files matched before copy; four package/doc paths changed plus one skill; old runtime and dependencies retained
+  distribution: npm pack dry-run includes skill; same public SDK discovers command from prepared artifact; no live Gateway or model invocation
+  main: existing generation11 untouched; no config, consent or identity changes; pending reviewed activation
+  authority: synthetic candidate only; publisher false; no real author/source or confirmed long-term memory
+  limits: no actual skill use in main, model instruction adherence, semantic adoption or full_memory claim; two new synthetic model requests proposed but not assigned/executed
+
+
+explicit_brief_continuation_main_20261031:
+  evidence: .task-control/reports/CORE-VAL-001/brief-continuation-main-20261031.json
+  independent_review: accepted16/16 and2742 exact package files; no runtime/dependency changes
+  loaded_generation: 12; official Core-only reload exit0/restartRequired false
+  consent: exact skills directory ./skills added; acceptedSurfaceHash 4e8bdd8e2f714f558e6bae21ecef521d581dd385811efcab39fa3b4fe6e965c3; persists until revoked
+  configuration: unchanged85e01af; fixed synthetic store, publisher false, existing owner/tool/fs checks
+  actual_main_skill: eligible true, userInvocable true, modelVisible false, blockedByAgentFilter true, commandVisible false
+  materialization: exact reviewed skill bytes, sha25664d074492d5aae702cdb6f23f370ac2f650cae80d6c0ce7649a2b21eacde0d5b
+  remaining_visibility_gap: agents.entries.main.skills has110 entries and excludes stella-continue; not widened or bypassed
+  rollback: complete main11 artifact2741files retained; opaque config backup0600; no restoration needed
+  paid_model_requests: 0
+  limits: loaded package is not visible entry acceptance, faithful model consumption or automatic fresh-read enforcement

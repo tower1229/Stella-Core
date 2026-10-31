@@ -130,3 +130,66 @@ mode-0600 main configuration backup. Reverting this feature restores only the
 Core package/configuration after checking for intervening changes, followed by
 the official Core-only reload. Keep the synthetic Git store; no data deletion is
 needed. Do not overwrite another plugin's configuration or restart the Gateway.
+
+## Explicit continuation
+
+The package ships the `stella-continue` skill through the plugin manifest;
+no storage API or Core-owned conversation loop is added. OpenClaw 2026.10.8
+normalizes its command name to `/stella_continue`. When the selected agent's
+skill filter includes it, use an existing fictional brief explicitly:
+
+```text
+/stella_continue harbor_main_demo 继续比较两个结尾，先保留还没有回答的问题。
+```
+
+The composable form is `$stella-continue briefId=harbor_main_demo …`.
+The skill is explicit-only. It asks the native Agent to read the current brief
+before using its explanation, carry its unresolved questions into the present
+discussion, save substantive revisions as candidates with the exact read
+version, and read again on the next user request. It adds no keyword routing,
+automatic topic selection, file-reading fallback, author qualification or
+USER/MEMORY write. Missing or ambiguous IDs require clarification; tool errors
+remain errors. It does not create missing briefs. An uncertain save is reported
+as uncertain; a stale version cannot silently overwrite a newer revision.
+
+The command runs a **normal model-driven Agent request** when invoked in chat;
+it is not a no-model status command. No such request was run in this increment.
+Its current technical evidence is public SDK command discovery (including
+disabled-plugin and allowlist rejection), plus a scripted fictional continuation
+through the real plugin tool factories: current read, candidate CAS revision,
+fresh-request read, and rejection of the historical version. Sixteen focused
+tests passed. This proves discovery and tool behavior, not model instruction
+adherence, semantic adoption, actual main skill visibility, or true author
+confirmation.
+
+Concentrated independent review accepted the same 16 tests and all 2,742 package
+files. The official Core-only reload then loaded generation 12 without a Gateway
+restart. The accepted declared-surface delta is exactly `skills:["./skills"]`;
+that acknowledgement persists until revoked and does not grant source, tool,
+identity or OS permissions. Runtime code, dependencies, the main configuration
+and fixed synthetic store remain unchanged. The complete main11 artifact is
+retained for rollback.
+
+The authoritative `skills info stella-continue --agent main --json` result is
+`eligible:true`, `userInvocable:true`, `modelVisible:false`, but also
+`blockedByAgentFilter:true`, `commandVisible:false`. Main's existing
+`agents.entries.main.skills` array has 110 entries and excludes this new skill.
+The loaded package and its materialized skill bytes match the reviewed candidate;
+the command is **not yet available on main**. This activation did not change
+that filter or route around it. Making the explicit entry visible requires the
+normal agent skill selection to include this one reviewed skill. No model
+request or command invocation was made. This concrete configuration gap is
+separate from the still-unverified model instruction adherence and semantics.
+
+For a later semantic acceptance, use the existing fictional brief and two new
+Agent requests in distinct sessions: the first reads and revises one explicit
+premise while retaining a separate open question; the second receives only the
+briefId and a continuation request and must read the new version and use it.
+Use `google/gemini-3.8-flash`, `low`, no fallback or unsupported sampling fields,
+at most two Agent submissions, 90 seconds each, and no automatic retry. Observe
+tool results, versions, final answers, assistant turns, tokens and available Host
+cost reports. Tool continuations can produce multiple billable model calls;
+there is no verified dollar hard cap. A missing cost is unknown, not zero.
+These are proposed limits, not new execution authorization. Neither prior paid
+approval nor old exhausted isolated-Host batches are reused. No real personal
+material or new source permission is required for this bounded synthetic case.
