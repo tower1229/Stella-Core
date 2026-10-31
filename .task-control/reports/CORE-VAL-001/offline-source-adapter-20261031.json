@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "completedAt": "2026-10-31T06:56:21.080758+00:00",
+  "reviewStatus": "author candidate; independent implementation review pending",
+  "scope": "synthetic offline single-request source contract, no production ingress/source activation",
+  "deliverables": [
+    {
+      "ref": "src/openclaw/offline-author-source-request.ts",
+      "sha256": "652a3752b3361f7e11eabe680e4426574bce31a7eebd225c7150c83db304276d",
+      "lines": 147
+    },
+    {
+      "ref": "tests/offline-author-source-request.test.ts",
+      "sha256": "3a6ef435d9145a70abfc9e6869c755c6750fa8597c34363a97f7008fd835a7e1",
+      "lines": 205
+    },
+    {
+      "ref": "docs/design/2026-10-31-offline-author-source-request.md",
+      "sha256": "720a8fe3561db89fc27daa59bd34dab7dae127e2a8e23eb254d0c7206f6dc8d7",
+      "lines": 40
+    }
+  ],
+  "patch": {
+    "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.patch",
+    "sha256": "9ffc61578eb7539eff050f51d480c67f2ed0f663a6eacaf53ff01e648e6230f5",
+    "scope": "three new code/test/contract files plus this package append-only technical-index delta; state transition separately bound below"
+  },
+  "base": {
+    "head": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+    "indexSha256": "ff296b057065b0973ccb6515c2aa02b916e3445612681b9fcea0be6235b55fd3",
+    "baseRevision": 36,
+    "stateSha256": "bf6a84b135aa159bc1f21c605b41a54396964431a2484f7b250043ab1be012a8",
+    "investigationRevision": 37,
+    "investigationSha256": "c5a1dbb5ea298d1f1e3c6117289e45d1a7b8284d2e5c74e253fff3857de67d0f",
+    "closeoutRevisionPlanned": 38
+  },
+  "reviewConditionsApplied": [
+    "passive observe never reads/waits/commits recorder; first-call synchronous committed snapshot",
+    "uncommitted dispatch then committed-before-first-call accepted by synthetic contract; still-uncommitted/blocked refused",
+    "explicit request/native admission/client idempotency/run/source version kept distinct; no session-latest or permission recovery",
+    "transport only runId/admissionHash; no authority restoration",
+    "first supply/new user request source checks; no same-request immediate-revocation system",
+    "candidate-only; semantic adoption unavailable; publisher absent; no writer/CAS claim"
+  ],
+  "qualificationPorts": {
+    "reused": [
+      "AuthorIntentPorts.assertRequest",
+      "AuthorIntentPorts.assertSources",
+      "AuthorIntentPorts.currentSourceVersion",
+      "AuthorIntentPorts.verifyAuthor"
+    ],
+    "actionUsed": "read_current only",
+    "missingProductionSeam": "resolveSource(CommittedSourceInput) exists solely as caller-supplied synthetic fixture here; no real producer, author mapping or original representation attested",
+    "runtimeImports": [
+      "existing pure author-intent-asset/content-version modules"
+    ],
+    "repositoryPortImport": "type-only erased; does not execute repository writer or Git"
+  },
+  "validation": {
+    "directTypeScriptCompile": {
+      "exitCode": 0,
+      "argv": [
+        "./node_modules/.bin/tsc",
+        "-p",
+        "tsconfig.test.json",
+        "--outDir",
+        "/tmp/core-offline-source-adapter-20261031-h1riuk1v/compiled"
+      ],
+      "officialBuildIdentityWrapperRun": false
+    },
+    "finalFocusedRun": {
+      "exitCode": 0,
+      "argv": [
+        "/Users/zangtao/.nvm/versions/node/v24.22.1/bin/node",
+        "--test",
+        "--test-reporter=tap",
+        "/tmp/core-offline-source-adapter-20261031-h1riuk1v/compiled/tests/offline-author-source-request.test.js",
+        "/tmp/core-offline-source-adapter-20261031-h1riuk1v/compiled/tests/author-intent-tool.test.js"
+      ],
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "newGroups": 12,
+      "unchangedCandidateTests": 5
+    },
+    "newGroups": [
+      {
+        "id": "T1",
+        "name": "T1 exact synthetic request/admission/source/call qualifies only a candidate"
+      },
+      {
+        "id": "T2",
+        "name": "T2 actual missing-source shape never qualifies via prompt, history or source-shaped params"
+      },
+      {
+        "id": "T3",
+        "name": "T3 dispatch can precede commit; only first-call current committed state matters"
+      },
+      {
+        "id": "T4",
+        "name": "T4 owner/external_user/current-input strings cannot replace a trusted producer proof"
+      },
+      {
+        "id": "T5",
+        "name": "T5 exact event/context/factory identities and unique calls, never session latest"
+      },
+      {
+        "id": "T6",
+        "name": "T6 duplicate observation is idempotent; changed request/admission or new request cannot reuse proof"
+      },
+      {
+        "id": "T7",
+        "name": "T7 model parameter authority and third-party/internal/inter-session sources are rejected"
+      },
+      {
+        "id": "T8",
+        "name": "T8 no normalization or attachment projection is silently declared exact author original"
+      },
+      {
+        "id": "T9",
+        "name": "T9 first supply/new request recheck sources; admitted continuations do not implement live revocation"
+      },
+      {
+        "id": "T10",
+        "name": "T10 cancellation, missing transport acceptance and closed/recreated instances fail closed"
+      },
+      {
+        "id": "T11",
+        "name": "T11 ambiguous new input/concurrent first qualification rejected, same-request tool continuation allowed"
+      },
+      {
+        "id": "T12",
+        "name": "T12 source qualification never manufactures semantic adoption, even for confirmation-shaped text"
+      }
+    ],
+    "historicalInitialRun": {
+      "tests": 12,
+      "pass": 10,
+      "fail": 2,
+      "cause": "test helper synchronous bindCall throws passed to async assert.rejects; fixed helper; not a proved product security red case",
+      "r0SourceHashes": {
+        "src/openclaw/offline-author-source-request.ts": "40fd0ab5bde884c5d2cfb3d762c981dc85c3746d819851fc3551392e8f5690cd",
+        "tests/offline-author-source-request.test.ts": "90955f71b9cb19ff9090898ecaaa7b679418e75fc528978f708f5a2b4714740b"
+      },
+      "r0ReceiptSha256": "68a673f47ec2fbdefa1d2d19500760284fac0a1c0f39daa840dd9b8a94402c7d"
+    },
+    "intermediateRun": {
+      "newGroups": 12,
+      "pass": 12,
+      "exitCode": 0,
+      "receiptSha256": "d03d4407869f893150d3dc65f49537d1ecae6117506d2e930a34094dea8ef99e",
+      "notAddedToFinalCount": true
+    },
+    "receiptSha256": "b8c2f6402c7187ffe7c3ee546fa3f24a80a5e034cdf93da8cad74e613dd68814",
+    "compileStderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "testStderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawReceiptsDirectory": "/tmp/core-offline-source-adapter-20261031-h1riuk1v",
+    "localDependencies": "existing repository node_modules symlink in temporary compile output; no install"
+  },
+  "scopeLimits": {
+    "hostInvocations": 0,
+    "modelCalls": 0,
+    "httpOrListeners": 0,
+    "psOrSignals": 0,
+    "realSourcesOrCredentialsRead": false,
+    "hostCodeModified": false,
+    "formalPluginWiringModified": false,
+    "toolPermissionsModified": false,
+    "realWriterModifiedOrCalled": false,
+    "profileChanged": false,
+    "publisherBound": false,
+    "semanticAdoptionAccepted": false,
+    "publicationCasExecuted": false,
+    "newDependencyInstall": false,
+    "commitOrPush": false,
+    "batchConsumed": 3,
+    "batchLimit": 3,
+    "batchRemaining": 0,
+    "attempt4OriginalUnknownPreserved": true
+  },
+  "preservation": {
+    "priorDesignAndReportUnchanged": true,
+    "allBaselineFilesOtherThanAssignedStateAndTechnicalIndexUnchanged": true,
+    "HEADUnchanged": true,
+    "indexUnchanged": true
+  },
+  "remainingBlocker": {
+    "action": "production source wiring",
+    "status": "not_run; pending concrete public ingress/lifetime/source evidence, not an execution denial",
+    "reason": "real original/NFC/trim/attachments, authenticated authorId/sender mapping, selected ingress recorder lifetime/commit timing and actual call-to-admission association remain unverified",
+    "nextAction": "Independent review of exact two-file implementation and offline contract; separately assign concrete existing private-ingress evidence plan, publisher off; no Host6 from exhausted batch"
+  }
+}

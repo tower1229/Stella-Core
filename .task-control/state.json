@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 7,
-  "updatedAt": "2026-10-30T06:21:37Z",
+  "revision": 41,
+  "updatedAt": "2026-10-31T07:19:29.686789+00:00",
   "writer": {
-    "agent": "Core coordinator (R1 candidate writer window returned)",
-    "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
+    "agent": "Core delegated accepted offline-source package save writer (exclusive whitelist stage/commit/push)",
+    "session": "parent-delegation:01a18d89-0f02-7627-af05-10b2d9b00017/offline-source-save-20261031"
   },
   "workstreams": [
     {
@@ -462,7 +462,27 @@
       "deliverables": [
         "planned: .task-control/reports/CORE-VAL-001/minimal-contract-evidence.md",
         "docs/evidence/2026-10-30-author-intent-publication/verification-summary.json",
-        "docs/evidence/2026-10-30-author-intent-publication/r1-verification-summary.json"
+        "docs/evidence/2026-10-30-author-intent-publication/r1-verification-summary.json",
+        "docs/evidence/2026-10-30-ordinary-v2-intent-tool/README.md",
+        "docs/evidence/2026-10-30-ordinary-v2-intent-tool/verification-summary.json",
+        ".task-control/reports/CORE-VAL-001/offline-independent-handoff-20261030.json",
+        "docs/design/2026-10-30-author-source-admission-verdict.md",
+        ".task-control/reports/CORE-VAL-001/author-source-admission-closeout-20261030.json",
+        ".task-control/reports/CORE-VAL-001/host-once-20261031.json",
+        ".task-control/reports/CORE-VAL-001/host-attempt2-20261031.json",
+        ".task-control/reports/CORE-VAL-001/host-attempt3-20261031.json",
+        ".task-control/reports/CORE-VAL-001/host-attempt4-20261031.json",
+        ".task-control/reports/CORE-VAL-001/host-attempt5-20261031.json",
+        "docs/design/2026-10-31-current-author-source-adapter.md",
+        ".task-control/reports/CORE-VAL-001/current-author-source-design-20261031.json",
+        "src/openclaw/offline-author-source-request.ts",
+        "tests/offline-author-source-request.test.ts",
+        "docs/design/2026-10-31-offline-author-source-request.md",
+        ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.json",
+        ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.patch",
+        ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json",
+        ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.patch",
+        ".task-control/reports/CORE-VAL-001/offline-source-adapter-save-review-20261031.json"
       ],
       "acceptance": [
         {
@@ -498,10 +518,10 @@
           "taskId": "CORE-ARCH04-RESEARCH"
         }
       ],
-      "status": "blocked",
+      "status": "running",
       "owner": {
-        "agent": "Core coordinator; independent source-refresh R1 review pending",
-        "session": "codex-thread:01a1727f-7b6a-7632-b6f0-cc130ff7d006"
+        "agent": "Core delegated accepted offline-source package save writer (exclusive whitelist stage/commit/push)",
+        "session": "parent-delegation:01a18d89-0f02-7627-af05-10b2d9b00017/offline-source-save-20261031"
       },
       "evidence": [
         {
@@ -525,18 +545,500 @@
             "sha256": "e32422fade93f27618d2bf029d6f4c32a80d26134f26e8768347e6ea24f52167",
             "baseCommit": "51e71d6d5472be811506501a7e438027d78085e9"
           }
+        },
+        {
+          "id": "C-VAL-ORDINARY-V2-INACTIVE-CANDIDATE",
+          "kind": "verification",
+          "ref": "docs/evidence/2026-10-30-ordinary-v2-intent-tool/verification-summary.json",
+          "claim": "Inactive ordinary-v2 fake API tests5/5; direct tsc test/build exit0. Native isolation preflight SIGABRT before output; controlled group gone/stub closed/port released. Host0/1 HTTP0/4, actual callbacks/harness/confirmation unverified. Original27 preserved.",
+          "observedAt": "2026-10-30T07:35:17Z",
+          "subject": {
+            "sha256": "fd771e976c8cf6be0f2e5dff84352f8b8d3a29ccf8192240b1d239112ba1df61",
+            "baseCommit": "2aa8f051dd06113f2b79a36dd360a68b866236aa"
+          }
+        },
+        {
+          "id": "C-VAL-CI-BUDGET-NODE-INDEPENDENT",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-independent-handoff-20261030.json",
+          "claim": "Separate CI support slice: independent Node syntax/direct TS checks passed; helper14/14 and supervisor/suite46/46. Real runner parent+7, official wrapper and actual Git identity remain unexecuted; no22/22 or CI efficacy claim.",
+          "observedAt": "2026-10-30T08:41:56.336Z",
+          "subject": {
+            "sha256": "d6ae1bf77b4fd4dece3a9e79f48e7dc807135536afdaaa1da2301f0c81cdf031",
+            "baseCommit": "2aa8f051dd06113f2b79a36dd360a68b866236aa"
+          }
+        },
+        {
+          "id": "C-VAL-ORDINARY-V2-OFFLINE-INDEPENDENT",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-independent-handoff-20261030.json",
+          "claim": "Installed10.8 public v2 types are non-any with required guard; original fake API5/5 and independent3/3 recorded separately. Inactive candidate, no publisher/main entry/confirmed author source. Host0/1 HTTP0/4; prior isolation SIGABRT and real origins unproved.",
+          "observedAt": "2026-10-30T08:41:56.336Z",
+          "subject": {
+            "sha256": "d6ae1bf77b4fd4dece3a9e79f48e7dc807135536afdaaa1da2301f0c81cdf031",
+            "baseCommit": "2aa8f051dd06113f2b79a36dd360a68b866236aa"
+          }
+        },
+        {
+          "id": "C-VAL-AUTHOR-SOURCE-VERDICT-INDEPENDENT",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/author-source-admission-closeout-20261030.json",
+          "claim": "Static verdict independently accepted only as conditionally feasible, candidate/no publisher. recorder.message may precede persistence/replacement; non-empty is not native admission. Same-execution source binding, purpose and semantic adoption still require independent evidence. Git-budget and Host-isolation recovery triggers remain separate.",
+          "observedAt": "2026-10-30T12:39:36.687Z",
+          "subject": {
+            "sha256": "aed3be4f568ea8f24bbc8955760dcec84173360953367dd053bc16e3d5592f20"
+          }
+        },
+        {
+          "id": "C-CI-BUDGET-RECOVERY-PUBLISHED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-CI-BUDGET-001/recovery-validation-20261030.json",
+          "claim": "Unchanged reviewed3: check and official build/test wrappers exit0, actual runner parent+7 pass8/8; only3 committed/pushed68f0b4ea and exact remote verified. Prior14/46 separate; two same-SHA CI runs in_progress, no efficacy/full-suite/Host claim.",
+          "observedAt": "2026-10-30T23:40:09.855Z",
+          "subject": {
+            "sha256": "dca28d2faab1ea29bb93b88abcac31291d98b0548f8723a421107d98b64529dc",
+            "baseCommit": "2aa8f051dd06113f2b79a36dd360a68b866236aa",
+            "publishedCommit": "68f0b4eabcce2a388a39c0db4483aaf9c3de969b"
+          }
+        },
+        {
+          "id": "C-CI-BUDGET-FIX-TERMINAL-7A9A3B42",
+          "kind": "verification",
+          "ref": "https://github.com/tower1229/Stella-Core/actions/runs/41148704093",
+          "claim": "Independent monitor of exact7a9a3b42: both CI completed failure with1738 tests/1712pass/26 unchanged normalized old failures/0cancel/skip/todo. Dependent timeout child and parent recovered; regression closed, not all-green. Supervisors finished without timeout/kill, groups gone, owned work complete0pending and roots removed. Workflow probes skipped and consumer null; SDK warnings unresolved. Experimental576.667s does not establish900s necessity.",
+          "observedAt": "2026-10-31T00:25:50.833Z",
+          "subject": {
+            "commit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "source": "parent independent monitor terminal report; no rerun by this ledger update",
+            "secondaryRun": "https://github.com/tower1229/Stella-Core/actions/runs/41148704117",
+            "failureSetComparison": "all26 normalized failure blocks unchanged; no digest supplied, none invented"
+          }
+        },
+        {
+          "id": "C-VAL-ROOT-LITERAL-TRUE-ONCE",
+          "kind": "verification",
+          "ref": "/tmp/core-root-allow-once-20261031-73zt0z7u/RESULT.json",
+          "claim": "Independent Astro dyld root-directory-open candidate; the single approved experiment used a separate profile differing only by allow file-read-data literal root. One actual true exited0 in9ms, owned group gone. Original profile unchanged. This establishes neither Node startup nor file/network/auth isolation or Host; the one-shot true approval does not authorize further probes. External result referenced only, not copied.",
+          "observedAt": "2026-10-31T00:25:50.833Z",
+          "subject": {
+            "sha256": "2b1aa22fd2690fb07ed7a988e450c21fc975109430fa4ba1f16dcd513e1280c9",
+            "executedAt": "2026-10-30T23:57:32.861608+00:00",
+            "originalProfileSha256": "31c8b0629b8be44b7514624753674df3e1e53a8912e921c8cdff1004a7ec2d55",
+            "candidateProfileSha256": "d1f3f769bf9a5a66aef35ef369b8d38043ea5525d7d0a256dfa52a92569ba7a3",
+            "profileDelta": "(allow file-read-data (literal \"/\")) only, independent reported comparison",
+            "probeCount": 1,
+            "exitCode": 0,
+            "elapsedMs": 9,
+            "nodeStarted": false,
+            "hostStarted": false,
+            "modelCalls": 0,
+            "ownedGroupGone": true,
+            "externalReferenceReason": "manager explicitly requested referencing the existing result without copying; not a durable in-repo evidence artifact"
+          }
+        },
+        {
+          "id": "C-VAL-ISOLATION-R1-INDEPENDENT",
+          "kind": "verification",
+          "ref": "/tmp/core-node-isolation-20261031-y52o1496/R1-ygvfa34p/RESULT.json",
+          "claim": "Bounded independent review accepted Node/file/two live IPv4 loopback destinations/synthetic environment and selected-unselected synthetic auth checks: four actual processes passed and the strict42-case contract passed, recorded separately. Exact seven-key launch input and strict optional system-derived CF output retained. No actual Host credential discovery, real credentials, external traffic or Host acceptance.",
+          "observedAt": "2026-10-31T03:01:24.920Z",
+          "subject": {
+            "sha256": "46cef7f1b02243f5b7648b6923f60befd39d5f55592a9ab90c07789f230fc8a4",
+            "executedAt": "2026-10-31T01:23:38.675078+00:00",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "originalProfileSha256": "31c8b0629b8be44b7514624753674df3e1e53a8912e921c8cdff1004a7ec2d55",
+            "candidateProfileSha256": "d1f3f769bf9a5a66aef35ef369b8d38043ea5525d7d0a256dfa52a92569ba7a3",
+            "profileDelta": "allow file-read-data literal root only; original profile and original auth failure preserved",
+            "reviewScope": "Independent bounded design/receipt review already completed; this ledger update runs no probes.",
+            "externalReferenceReason": "Manager requested minimal evidence references only; no logs or artifacts copied to any archive destination. These external references are not durable in-repo evidence artifacts."
+          }
+        },
+        {
+          "id": "C-VAL-R3-NATIVE-ENTRY-EPERM",
+          "kind": "verification",
+          "ref": "/tmp/core-node-isolation-20261031-y52o1496/sandbox-controller-r3-iffoegob/SYNTHETIC-RESULT.json",
+          "claim": "Historical sole R3 native attempt failed before controller entry: Node realpath lstat /private returned EPERM, exit1 in39.995167ms; owned group confirmed gone without termination signals and runtime retained. Controller, hung-persist lifecycle, TERM/KILL, listener and Host were not exercised. Failure is preserved and is not native lifecycle success.",
+          "observedAt": "2026-10-31T03:01:24.920Z",
+          "subject": {
+            "sha256": "20b458c581292eaa5e09ccb821671f06aa852eb6e59fa6126ddaff432c49a382",
+            "profileSha256": "d1f3f769bf9a5a66aef35ef369b8d38043ea5525d7d0a256dfa52a92569ba7a3",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "externalReferenceReason": "Manager requested minimal evidence references only; no logs or artifacts copied to any archive destination. These external references are not durable in-repo evidence artifacts."
+          }
+        },
+        {
+          "id": "C-VAL-R31-LOGIC-INDEPENDENT",
+          "kind": "verification",
+          "ref": "/tmp/core-node-isolation-20261031-y52o1496/r3-1-deadline-inspection-wqxw4ehd/RESULT.json",
+          "claim": "Two-file R3.1 logic candidate independently accepted after read-only pure VM replay: same24 cases reproduce old7pass/17fail and new24pass/0fail, with recorded results matching exactly. This is the same case set as author24, not additional native tests. Every signal syscall has a synchronous absolute deadline gate; inspection requires outer/group/actual exit/hash evidence. New9 and original R3 35 manifest members matched; profile unchanged. Controller/stub remain inside the same profile and non-detached Host shares its owned group; higher-capability R2 outside-controller placement is not selected. No runtime overlay, native signal/listener/Host, publisher or full gate was enabled.",
+          "observedAt": "2026-10-31T03:01:24.920Z",
+          "subject": {
+            "sha256": "b7504595bf08f092d5b12353e2a48b5df69e456259c97f6e2f7024a764d7edbe",
+            "patchSha256": "26de5dc6d59ffa911680cb0ac6a9a21572fb73f2a9d9fe6626a13986915a107b",
+            "manifestSha256": "7cb6f4eb66beadf735929ec7d860a1830385803bb7db373e54c7196652ce8384",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "source": "Parent closeout instruction and completed independent read-only review; referenced author RESULT retains its original pending-review identity.",
+            "externalReferenceReason": "Manager requested minimal evidence references only; no logs or artifacts copied to any archive destination. These external references are not durable in-repo evidence artifacts."
+          }
+        },
+        {
+          "id": "C-VAL-FINAL-ONCE-BUNDLE-ACCEPTED",
+          "kind": "verification",
+          "ref": "/private/tmp/core-node-isolation-20261031-y52o1496/final-host-wiring-7base9tw/MANIFEST.json",
+          "claim": "Parent independent review accepted exact R3.1/R3.2/R3.3 native supervision gates and final two-entry static package. Verified1449 full-manifest and1435 frozen inputs, all one-shot claims/results absent. This releases only the previously user-authorized one synthetic Host execution with90s/max4loopbackHTTP, no real model/credentials/main-service change, publisher off; no Host success is inferred.",
+          "observedAt": "2026-10-31T03:59:22.028040+00:00",
+          "subject": {
+            "sha256": "622c9def2520343647ebeffa1e07b3c20049de41497f2daf490d02bc2cfd7807",
+            "frozenInputsSha256": "759f991765d3eb60fcbe15c005ef825ed3219eef8e18e6965266a82b111776bd",
+            "planSha256": "d426f81cb6d13fc288932f70e7d261ee76d3ee2c5bebe18f7e3d5dd24e44cef5",
+            "profileSha256": "a0f72c0b41775512d0d4cf98630b0492eac29baadfd22c95873bab1e4a2fccc4",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "reviewSource": "parent exact-combination independent acceptance and current explicit one-shot dispatch"
+          }
+        },
+        {
+          "id": "C-VAL-HOST-ONCE-CONFIG-SCHEMA-FAIL-20261031",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/host-once-20261031.json",
+          "claim": "Exactly one authorized real installed OpenClaw agent-exec CLI invocation ended in1.427s with wrapper/controller/Host exit1: agents.defaults.memorySearch unrecognized by actual config schema. HTTP0, callback events0, actual harness/tool/source fields not observed; no field-absence or author-authority inference. Real listener closed socket0/handler0, stdio complete, owned group66504 confirmed gone; no timeout/KILL, failure TERM only. Claims/runtime retained and no second exec. Independent final bind-only port probe was denied EPERM in default executor, not retried; global free-port status not independently established. All1435 frozen input bytes/HEAD/index/PROJECT-STATE unchanged. This failure is not Host/tool/semantic acceptance.",
+          "observedAt": "2026-10-31T04:03:03.361109+00:00",
+          "subject": {
+            "sha256": "6a4e9f724e8c06aa4aacfac25f7acdbef80038bc5ac7daaa2877638d6beb7bbb",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "executionId": "5a593f1f-5657-4381-a56d-b18c7385adee",
+            "manifestSha256": "622c9def2520343647ebeffa1e07b3c20049de41497f2daf490d02bc2cfd7807",
+            "profileSha256": "a0f72c0b41775512d0d4cf98630b0492eac29baadfd22c95873bab1e4a2fccc4",
+            "actualWrapperExitCode": 1,
+            "actualHostCliExitCode": 1,
+            "hostCliInvocations": 1,
+            "httpRequests": 0
+          }
+        },
+        {
+          "id": "C-VAL-ATTEMPT2-SCHEMA-FIX-RELEASED",
+          "kind": "verification",
+          "ref": "/private/tmp/core-node-isolation-20261031-y52o1496/config-schema-fix-zggdo44s/MANIFEST.json",
+          "claim": "Parent independent review accepted the fixed actual-schema candidate. The previous attempted dispatch was approval-rejected and not executed; user newly approved exactly one second same-scope run at2026-10-31T04:22UTC. Current full1538/frozen1523 hashes match and new claims/results are absent. Fixed official schema old-red/new-green and root memory.search.enabled=false preserve disabled capability. This release permits only one attempt2 command, no automatic third execution, no new permissions or true provider/credentials/main-service changes.",
+          "observedAt": "2026-10-31T04:24:02.181245+00:00",
+          "subject": {
+            "sha256": "855383dd12967af9060178b172dc10636076803482268f306ac04e6a25481362",
+            "frozenInputsSha256": "6eaa71c05a1f7c5ca860712a87d9015b95f8e107d69c54e53bd14418a146c1b1",
+            "planSha256": "4249bf874ea79966949722ba7a201054dded28b09a086c74aba119cd80e9b832",
+            "outerEntrySha256": "5ddf0a4eaec84392d83e14f32334a285ef1a0eee10842145c3e6e6a69a4d0939",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "approvalSource": "parent latest dispatch carrying exact new user approval; no private transcript copied"
+          }
+        },
+        {
+          "id": "C-VAL-HOST-ATTEMPT2-AUTH-MIGRATION-FAIL",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/host-attempt2-20261031.json",
+          "claim": "Newly approved second exact Host CLI invocation executed once. Corrected actual schema/memory-off preflight passed; CLI reached synthetic auth-store initialization and returned AUTH_PROFILE_MIGRATION_REQUIRED (provider scope unavailable), wrapper/controller/Host exit1 in4.128s, HTTP0/callback0, no actual harness/tool/source fields observed. Reported synthetic sqlite path absent at read-only postcheck; no DB query/doctor/migration. Real listener closed socket0/handler0, stdio complete, group82657 confirmed gone, no escalation. Both attempts claims/results retained, no third exec or denied portbind/ps/group retry. All1523 frozen inputs and first-attempt hashes/HEAD/index/PROJECT-STATE unchanged. Not Host/tool/author/semantic acceptance.",
+          "observedAt": "2026-10-31T04:26:36.128098+00:00",
+          "subject": {
+            "sha256": "15dcddace232976dcaa6b2754a084efe0e928a799c25e21f0245597ff3c58a80",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "executionId": "a6e1c10f-f014-4369-bba5-9a42ea486124",
+            "manifestSha256": "855383dd12967af9060178b172dc10636076803482268f306ac04e6a25481362",
+            "profileSha256": "a0f72c0b41775512d0d4cf98630b0492eac29baadfd22c95873bab1e4a2fccc4",
+            "actualWrapperExitCode": 1,
+            "actualHostCliExitCode": 1,
+            "httpRequests": 0,
+            "schemaGatePassed": true
+          }
+        },
+        {
+          "id": "C-VAL-AUTH-FIXTURE-INDEPENDENT-ACCEPTED",
+          "kind": "verification",
+          "ref": "/private/tmp/core-node-isolation-20261031-y52o1496/auth-fixture-fix-znpo56is/MANIFEST.json",
+          "claim": "Independent read-only review accepted the synthetic auth fixture candidate:1451 manifest/1574 frozen inputs and15 official auth source hashes match; four recorded auth-only processes exited0 with complete stdio/groups gone, not independently rerun. Official AuthStorage.forAgent().set() wrote only an invalid synthetic google API key into the new canonical store; same installed model-auth scope resolved profile:google:default. Seven independent frozen-proof checks passed. Config changed only by owned path rebinding; original profile, loopback, seven-key env,90s/4HTTP, candidate-only and publisher-off remain. Both prior Host failures/claims/state retained. Technical readiness only; third or later Host execution is not granted by this review.",
+          "observedAt": "2026-10-31T05:00:21.553Z",
+          "subject": {
+            "sha256": "73e5196fcb5ed89d7a488b72226b4139a0226008c7d69f8cb9c2c0345a0fe3cd",
+            "frozenInputsSha256": "2b5d350e52ee147561b54ea164caee27b3cff889369046242b6f38c6b7534e54",
+            "planSha256": "bb81711b9ca0b95edc83af8f35a7539cf8c87a7910b9dcbb88a5e2f8fc9aa184",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "candidateAttemptId": "dad28be8-2465-4d2d-bc3c-a9945e358281",
+            "reviewScope": "read-only source/receipt/hash review plus pure logic; no agentexec/listener/doctor/real credential or port probe",
+            "externalReferenceReason": "Existing task-owned evidence referenced only; no archive/raw-log/database copy or retry of denied archive destination."
+          }
+        },
+        {
+          "id": "C-VAL-HOST-ATTEMPT3-TOOL-ALLOWLIST-FAIL",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/host-attempt3-20261031.json",
+          "claim": "User-approved batch1/3 (third total attempt) invoked exactly1 Host. Schema/auth gates passed; real factory/contextv2/guard-present,prompt and llm_output harnessId=openclaw observed, but no callable tools matched explicit allowlist. Wrapper/controller/Host exit1 in14.169s, HTTP0, executions/guardCalls/candidateReturns0. Source text/id/provenance absent; callback is not model-consumption or trusted-author evidence. Actual full group gone, listener closed/socket0/handler0 and stdio complete. All prior claims/results and HEAD/index/PROJECT-STATE unchanged;1568 frozen inputs unchanged,6 changes confined to configured own log and synthetic mutable SQLite state. Remaining2 conditional attempts unassigned.",
+          "observedAt": "2026-10-31T05:15:07.042116+00:00",
+          "subject": {
+            "sha256": "5d91d5004eb0043efef53946916fa03e8e99d86ae4ac7a5ab3795fe14f00870d",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "executionId": "576b53c0-1e9d-4b99-9bfd-8d2320ec4c6d",
+            "manifestSha256": "73e5196fcb5ed89d7a488b72226b4139a0226008c7d69f8cb9c2c0345a0fe3cd",
+            "profileSha256": "a0f72c0b41775512d0d4cf98630b0492eac29baadfd22c95873bab1e4a2fccc4",
+            "actualWrapperExitCode": 1,
+            "actualHostCliExitCode": 1,
+            "httpRequests": 0,
+            "batchAuthorized": 3,
+            "batchConsumed": 1,
+            "batchRemaining": 2
+          }
+        },
+        {
+          "id": "C-VAL-TOOL-PROFILE-INDEPENDENT-ACCEPTED",
+          "kind": "verification",
+          "ref": "/private/tmp/core-node-isolation-20261031-y52o1496/tool-profile-fix-tb54_mls/MANIFEST.json",
+          "claim": "Parent independent review accepted the single manifest toolMetadata coding-profile correction with unchanged exact global allowlist/guard/sourcecandidate/publisheroff/profile. Existing bounded SDK registration/projection receipts and4 negative policy cases accepted, not rerun as Host. Fresh synthetic auth readiness retained; actual fourth Host was not run by this acceptance. Parent explicitly assigns batch2/3 under existing user grant.",
+          "observedAt": "2026-10-31T05:34:07.382799+00:00",
+          "subject": {
+            "sha256": "74543cc2d9183ec9b113e624ee3addb70d50015cbf4007283b987f0e8aface71",
+            "frozenInputsSha256": "dba51b39141d8c63f44a6482bd8936e2f4de18f33649bfb81e7a93e89cbb47d8",
+            "planSha256": "813f72661b7cc47c7c671f17032b5dbc88a7ca4d924c2bfdf05f263cc5f506f4",
+            "pluginManifestSha256": "de5f1598398529cdcbdfe21ea3cbd38d9c821b74c23e9c2a602c77c790eaa633",
+            "policyCheckSha256": "2b4e4a06e098d94c8295828463c2041e3c8fbb3822c2b37b53c6a69a92e52e17",
+            "candidateAttemptId": "66e9c0bc-e220-4693-ac0a-85fbd2bbfcac",
+            "reviewScope": "parent acceptance plus this delegate read-only exact hash verification; no fresh Host proof"
+          }
+        },
+        {
+          "id": "C-VAL-HOST-ATTEMPT4-PROTOCOL-FAIL-GROUP-UNKNOWN",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/host-attempt4-20261031.json",
+          "claim": "Assigned batch2/3, fourth total attempt invoked exactly1 Host. Schema/auth/hash gates passed; catalog1 and realHTTP1 observed. Fixture failed protocol_tool_missing (handled0/responses0); no actual tool consumption or final counters established. Wrapper1 after13.633s, controller SIGKILL, Host exit/stdio unknown. Listener closed/socket0/handler0, outer closed/stdio complete, but ownedgroup63217 signal0EPERM afterTERM/KILL prevents groupGone proof; retained unknown, no retry/query/cleanup/next Host. Real source text/id/provenance absent; publisheroff. Original3 claims/results and HEAD/index/PROJECT-STATE unchanged at read-only snapshot.1587 nonmutable frozen inputs matched; mutable state/log not read after groupunknown. Batch2 consumed, remaining1 unassigned; serial window not released.",
+          "observedAt": "2026-10-31T05:37:23.138863+00:00",
+          "subject": {
+            "sha256": "f5174024ca8634372840eaa6930c281803ee65d26d46090109ee7882a8e51d71",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "executionId": "73d9a055-3e1f-4336-9119-98e0c4aa5471",
+            "manifestSha256": "74543cc2d9183ec9b113e624ee3addb70d50015cbf4007283b987f0e8aface71",
+            "profileSha256": "a0f72c0b41775512d0d4cf98630b0492eac29baadfd22c95873bab1e4a2fccc4",
+            "actualWrapperExitCode": 1,
+            "actualControllerSignal": "SIGKILL",
+            "actualHostCliExitCode": null,
+            "httpRequests": 1,
+            "groupId": 63217,
+            "groupGone": false,
+            "groupOutcome": "unknown",
+            "failedOperation": "killpg(signal=0)",
+            "nativeError": "EPERM",
+            "batchConsumed": 2,
+            "batchRemaining": 1
+          }
+        },
+        {
+          "id": "C-VAL-DIRECT-FINAL-COMBINATION-INDEPENDENT-ACCEPTED",
+          "kind": "verification",
+          "ref": "/private/tmp/core-node-isolation-20261031-y52o1496/direct-schema-final-avasg8wx/MANIFEST.json",
+          "claim": "Parent independent review accepted full direct-schema combination1452/1452manifest,1601/1601frozen,40/40official source hashes and exact argv/env record. Existing official synthetic canonical-auth3/3/readiness and accepted SDK projection reused, not relabeled as Host. This delegate exact7env/cwd dry-check exited0; new execution traces absent. Parent explicitly assigns final batch3/3 under existing user3-additional grant and confirms serial release. Original4 unknown retained; no historical query or new source/model/tool-consumer proof by review.",
+          "observedAt": "2026-10-31T06:17:49.340540+00:00",
+          "subject": {
+            "sha256": "b854aaddd360761a0532bb448b3892d635e4765aa6e562755362964094bcfdb5",
+            "frozenInputsSha256": "ebaefcf33e38f2c207ec0a03d7ff11a184daff340c5a529eef44e9c0e5d2872b",
+            "planSha256": "1d8869720d49f0dd2f81f22fe30ec915381b40c3a20011787fd530aee69adc9a",
+            "exactExecutionSha256": "6a9d81c0ff586febbf1f0b791ce874feff5f5fb694ae7518987fa264d0b58915",
+            "candidateAttemptId": "17a2547d-bf2d-4c1e-96ce-98a38ada0d3c",
+            "batchAuthorized": 3,
+            "batchConsumedBeforeLaunch": 2,
+            "batchReserved": 1
+          }
+        },
+        {
+          "id": "C-VAL-HOST-ATTEMPT5-DIRECT-PASS-SOURCE-GAP",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/host-attempt5-20261031.json",
+          "claim": "Actual final assigned batch3/3,total5: exact cwd/7env and unchanged frozen combination invoked1 real OpenClawHost using only synthetic loopback provider. Wrapper/controller/Host exit0, FINAL/receipt hashes and joint inspection accepted,14.501s. HTTP3/3responses/3handled with candidate and argument-rejection consumption; actual factory1/execute2/guard3/candidate1/argumentsRejected1 bound by same run/tool IDs and harnessIdopenclaw. Own new group5344 confirmedgone/no signals/error, listenerclosed/socket0/handler0 and full stdio. Real source text/id/provenance absent; publisheroff, no defaultToolSearch/real-model semantic/fullCore acceptance. SDK active-leases thenwritten logged, not generally resolved. Original4failures/claims and original4unknown retained, HEAD/index/PROJECTSTATE unchanged;1594 frozen inputs unchanged and7 changes only own syntheticstate/log. Quota3used0left; independent actual-run acceptance still parent-owned.",
+          "observedAt": "2026-10-31T06:23:40.405322+00:00",
+          "subject": {
+            "sha256": "f45a128f5b75ac75d54171ad3c9390a0c96d15943ed84c99ff8b9121d54d418b",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "executionId": "9e202463-713f-4ea9-95cc-78e05dfa5b69",
+            "manifestSha256": "b854aaddd360761a0532bb448b3892d635e4765aa6e562755362964094bcfdb5",
+            "profileSha256": "a0f72c0b41775512d0d4cf98630b0492eac29baadfd22c95873bab1e4a2fccc4",
+            "actualWrapperExitCode": 0,
+            "actualControllerExitCode": 0,
+            "actualHostCliExitCode": 0,
+            "httpRequests": 3,
+            "httpResponses": 3,
+            "groupGone": true,
+            "callbackChain": "pass",
+            "protocolConsumption": "pass",
+            "admittedSource": "unavailable",
+            "authorAuthorityAccepted": false,
+            "publisherBound": false,
+            "batchConsumed": 3,
+            "batchRemaining": 0
+          }
+        },
+        {
+          "id": "C-VAL-HOST-ATTEMPT5-INDEPENDENT-ACCEPT",
+          "kind": "acceptance",
+          "ref": ".task-control/reports/CORE-VAL-001/current-author-source-design-20261031.json",
+          "claim": "Parent explicitly relayed independent acceptance of bounded direct-schema real Host/tool/loopback consumption and own cleanup:1594 immutable inputs match,7 expected synthetic changes. No trusted author source, requester completeness, audience, actual model/defaultToolSearch/fullCore acceptance. No sixth run.",
+          "observedAt": "2026-10-31T06:41:46.437225+00:00",
+          "subject": {
+            "sha256": "755e568c123ce260ebf97097091fe00d778e25c7ee4d15362250116d651c9b6a",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "source": "parent delegation; independent review file hash not provided, not invented"
+          }
+        },
+        {
+          "id": "C-VAL-CURRENT-SOURCE-STATIC-DESIGN",
+          "kind": "artifact",
+          "ref": ".task-control/reports/CORE-VAL-001/current-author-source-design-20261031.json",
+          "claim": "Static10.8 producer trace: agent exec omits input provenance; builtin prompt hook omits current input fields. Conditional passive reply_dispatch recorder/run→tool-call seam and toolBindings restrictions documented; one request-scoped adapter/12 offline cases designed,0executed. Not implemented, no source permissions or publisher activation.",
+          "observedAt": "2026-10-31T06:41:46.437225+00:00",
+          "subject": {
+            "sha256": "755e568c123ce260ebf97097091fe00d778e25c7ee4d15362250116d651c9b6a",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "documentSha256": "fe38b1e4a75df61f8864f5871a6d863581e103e48ed8a00df796fcc4c702ef00",
+            "officialSourceHashes": 26,
+            "matchedPriorAttempt5FrozenSources": 14,
+            "newStaticSourceSnapshots": 12
+          }
+        },
+        {
+          "id": "C-VAL-CURRENT-SOURCE-DESIGN-CONDITIONAL-REVIEW",
+          "kind": "acceptance",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.json",
+          "claim": "Parent relayed conditional independent design acceptance with explicit constraints: passive capture vs first-call synchronous committed qualification; exact request/admission/call; T9 first supply/new request/CAS boundaries without runtime revocation; T3 late commit contrast; T12 no semantic-adoption claim. No production wiring authority.",
+          "observedAt": "2026-10-31T06:57:06.784255+00:00",
+          "subject": {
+            "sha256": "557bca79089a81e2ff84f92c83a57fa9bc2fd5c56515cdcbbce1d43703bcdddb",
+            "source": "parent explicit delegation; independent review file hash not supplied, not invented"
+          }
+        },
+        {
+          "id": "C-VAL-OFFLINE-SOURCE-ADAPTER-CANDIDATE",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.json",
+          "claim": "Inactive synthetic-only one-request source adapter reuses four AuthorIntentPorts, captures recorder without reads and checks committed snapshot at first call. Direct TypeScript compile exit0; focused17/17pass=12newgroups+5unchanged candidate-tool cases,0cancel/skip. Only candidate/no publisher; fixture implements missing resolveSource seam. No actual ingress/author/original/lifetime/semantics/Host6/CAS or production permission acceptance. Initial10/12 helper failures retained; independent implementation review pending.",
+          "observedAt": "2026-10-31T06:57:06.784255+00:00",
+          "subject": {
+            "sha256": "557bca79089a81e2ff84f92c83a57fa9bc2fd5c56515cdcbbce1d43703bcdddb",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "sourceSha256": "652a3752b3361f7e11eabe680e4426574bce31a7eebd225c7150c83db304276d",
+            "testSha256": "3a6ef435d9145a70abfc9e6869c755c6750fa8597c34363a97f7008fd835a7e1",
+            "patchSha256": "9ffc61578eb7539eff050f51d480c67f2ed0f663a6eacaf53ff01e648e6230f5",
+            "actualFocusedTests": 17,
+            "pass": 17,
+            "fail": 0,
+            "batchConsumed": 3,
+            "batchRemaining": 0
+          }
+        },
+        {
+          "id": "C-VAL-OFFLINE-SOURCE-INDEPENDENT-CHANGES-REQUESTED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json",
+          "claim": "Independent initial review compiled and passed original17/17 but five extra synthetic checks found4unexpected accepts (mutable requester/session/guard and restored conflicting admission) plus1normal output-copy isolation control. Candidate not approved for commit; counts separate, original failure evidence retained.",
+          "observedAt": "2026-10-31T07:10:51.258312+00:00",
+          "subject": {
+            "sha256": "a370084583da1928bfa5651af8d641723894c86522dad4f6c09eb4f326f6692d",
+            "independentSummarySha256": "1a868d32ed816e961c8642077a617a958ccca1316d09de4be4f01817bd5f8588",
+            "initialCandidateSourceSha256": "652a3752b3361f7e11eabe680e4426574bce31a7eebd225c7150c83db304276d"
+          }
+        },
+        {
+          "id": "C-VAL-OFFLINE-SOURCE-R1-REPAIR-CANDIDATE",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json",
+          "claim": "Only factory invocation identity/original guard snapshot+final check and terminal admitted-native-input conflict fixes. Added deterministic barriers reproduce4failures before repair (source17:13pass4fail, copy controlpasses); repaired focused22/22(source17groups+5candidate tests), directTypeScriptcompile0,0cancel/skip. T3 pending-first vscommitted, ordinary invalid arguments, T9 valid admitted continuation/no immediate revocation, T12 candidate-only retained. No production/Host6/publisher/CAS/permission activation or commit. Independent revision review pending.",
+          "observedAt": "2026-10-31T07:10:51.258312+00:00",
+          "subject": {
+            "sha256": "a370084583da1928bfa5651af8d641723894c86522dad4f6c09eb4f326f6692d",
+            "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "sourceSha256": "d4c08d48b64ae4827ddb3151a3a7d212d079f8019941a96c1e7b8e9b97bfc8f1",
+            "testSha256": "d0607eea41d6848c96276520022784556026e6f89ad50ea135f847b170c5c0fd",
+            "patchSha256": "b8ae4e1fd9d062ada597c90122216852a22e0c33863ec6cf76b3b191b3249aa9",
+            "redTests": 17,
+            "redPass": 13,
+            "redFail": 4,
+            "greenTests": 22,
+            "greenPass": 22,
+            "greenFail": 0,
+            "batchConsumed": 3,
+            "batchRemaining": 0
+          }
+        },
+        {
+          "id": "C-VAL-OFFLINE-SOURCE-R1-INDEPENDENT-ACCEPTED",
+          "kind": "acceptance",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-save-review-20261031.json",
+          "claim": "Independent accepted bounded offline revision:compile0/focused22/22; original saved replay all expected and4additional lifecycle controls separately passed, not added to22. R1/R2 defects closed. Parent authorizes only reviewed non-sensitive archive commit+ordinary branchpush with necessary reviewed reproduction dependencies; no real ingress/author/semantics/publisher/Host6.",
+          "observedAt": "2026-10-31T07:19:29.686789+00:00",
+          "subject": {
+            "sha256": "8651172bc724373cb4b416429056fd131b7883851eea628d88613345ee3e3266",
+            "independentSummarySha256": "4d57b4d11802796e2dcefe42b322334e00fee3e31227229567d2a5d592b10620",
+            "sourceSha256": "d4c08d48b64ae4827ddb3151a3a7d212d079f8019941a96c1e7b8e9b97bfc8f1",
+            "r1PatchSha256": "b8ae4e1fd9d062ada597c90122216852a22e0c33863ec6cf76b3b191b3249aa9"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "P1-SOURCE-REFRESH reproduced red2/1; narrow R1 candidate author-green. Formal39 pass, original overlapping assertions3 pass separately. Original38/history preserved, catalog and32 protected baseline dirty files unchanged. Writer window returned; not full thin-slice completion.",
-        "nextAction": "Coordinator obtain independent R1 review of frozen source-refresh delta before commit/push or further implementation. Do not resume old15/runner or infer Host/semantic/formal gate acceptance.",
+        "checkpoint": "Initial offline17/17 remains historical; independent extra5found4unexpected accepts plus1copy-controlpass, changes requested. R1 now captures each invocation factory identity/original guard and rechecks final identity; observed already-admitted native-input mismatch closes request, restoration cannot revive. Deterministic added regressions red source17=13pass4fail; repaired focused22/22=17sourcegroups+5candidate tests, TypeScriptcompile0. T3 initial pending/ordinary args recover, T9 legitimate admitted source reuse/no immediate revocation, T12 candidate-only remain. Reconciled initial transport disconnect before execution via unchanged state38/pointerabsent; no unresolved execution uncertainty. No Host6/real source/permissions/publisher/CAS; all histories and3/3quota preserved.",
+        "nextAction": "Save only reviewed offline whitelist, exact partial PROJECT appendices, necessary current ledger/minimal review summary plus2previously reviewed unchanged candidate-tool reproduction dependencies; normal commit/push existing codex/issue23-integrated-regression and verify remote/CI IDs. No larger local tests, real ingress/wiring/Host6/publisher.",
         "blocker": {
-          "reason": "Independent R1 review outstanding; actual Host author/harness/tool-flow evidence still absent.",
-          "neededAction": "Review bounded source-refresh fix and explicitly assign subsequent scope.",
-          "source": "C-VAL-SINGLE-ASSET-SOURCE-REFRESH-R1"
+          "reason": "Offline R1 independent review accepted; production original/authenticated author mapping/public recorder lifetime/actual ingress-call binding remain unverified. Current assigned work is bounded archival commit/push only.",
+          "neededAction": "Save accepted synthetic package and report exact remote/CI identities; then hand off concrete private-ingress evidence checklist, no activation or further Host budget.",
+          "source": "C-VAL-OFFLINE-SOURCE-R1-INDEPENDENT-ACCEPTED"
+        },
+        "executionBatch": {
+          "id": "core-host-additional-20261031-0510",
+          "authorizedAdditionalAttempts": 3,
+          "consumed": 3,
+          "reserved": 0,
+          "remainingUnreserved": 0,
+          "currentTotalAttempt": 5,
+          "currentBatchAttempt": 3,
+          "currentOutcome": "bounded_direct_schema_pass_with_source_gap_independently_accepted",
+          "grantObservedAt": "2026-10-31T05:10:31Z",
+          "scope": "each90s total/max4loopbackHTTP; unchanged approved profile, synthetic env/auth/store/testkey; no real provider/model/credential/service change; publisher off; unknown stops; only reviewed deterministic fixes permit next assigned attempt",
+          "nextAttemptAssigned": false,
+          "completedAttempts": [
+            {
+              "batchAttempt": 1,
+              "totalAttempt": 3,
+              "executionId": "576b53c0-1e9d-4b99-9bfd-8d2320ec4c6d",
+              "outcome": "known_host_failure_retained",
+              "actualWrapperExitCode": 1
+            },
+            {
+              "batchAttempt": 3,
+              "totalAttempt": 5,
+              "executionId": "9e202463-713f-4ea9-95cc-78e05dfa5b69",
+              "outcome": "bounded_direct_schema_pass_with_source_gap",
+              "actualWrapperExitCode": 0,
+              "ownedGroupId": 5344,
+              "ownedGroupGone": true
+            }
+          ],
+          "candidateAttemptId": "17a2547d-bf2d-4c1e-96ce-98a38ada0d3c",
+          "serialWindowReleased": true,
+          "priorUnknownAttempt": {
+            "batchAttempt": 2,
+            "totalAttempt": 4,
+            "executionId": "73d9a055-3e1f-4336-9119-98e0c4aa5471",
+            "outcome": "wrapper_finished_protocol_failure_owned_group_unknown",
+            "groupId": 63217,
+            "groupOutcome": "original unknown retained",
+            "controllerSignal": "SIGKILL",
+            "actualHostCliExitCode": null,
+            "evidence": "C-VAL-HOST-ATTEMPT4-PROTOCOL-FAIL-GROUP-UNKNOWN",
+            "currentParentObservation": "no members observed per separately authorized parent evidence; not a retrospective groupGone claim"
+          },
+          "serialReleaseSource": "parent assignment after independent Bili bound receipt/exit/stdio/groupGone acceptance and current Core4 member/listener evidence; no worker query",
+          "grantMessage": "Sentinel_5528efbd45dc8191b1fc6accb7644d6f",
+          "executionId": "9e202463-713f-4ea9-95cc-78e05dfa5b69",
+          "actualWrapperExitCode": 0,
+          "actualHostInvocations": 1,
+          "actualHostCliExitCode": 0,
+          "ownedGroupId": 5344,
+          "ownedGroupGone": true,
+          "ownedGroupOutcome": "confirmed_gone",
+          "quotaExhausted": true,
+          "ownRunTerminalComplete": true
         }
       },
-      "updatedAt": "2026-10-30T06:21:37Z"
+      "updatedAt": "2026-10-31T07:19:29.686789+00:00"
     },
     {
       "id": "CORE-LEGACY-001",
@@ -629,6 +1131,210 @@
             "C-LOCAL"
           ],
           "note": "仅指未提交候选；历史26fail未通过、152未运行，不作为架构研究前置。"
+        }
+      }
+    },
+    {
+      "id": "CORE-CI-BUDGET-001",
+      "workstream": "CORE",
+      "title": "独立CI预算候选Git恢复后补验证与限定发布",
+      "scope": "CI support slice only: reviewed budget3 published68f0b4ea plus independently accepted one-line dependent timeout fixture published7a9a3b42; no Host/model/old15/v2/source changes",
+      "inputs": [
+        ".task-control/reports/CORE-VAL-001/offline-independent-handoff-20261030.json",
+        "normal Git/Xcode restoration actually observed; no implication for native isolation"
+      ],
+      "deliverables": [
+        ".task-control/reports/CORE-CI-BUDGET-001/recovery-validation-20261030.json"
+      ],
+      "acceptance": [
+        {
+          "id": "CORE-CI-BUDGET-001-A1",
+          "criterion": "正式build/test编译包装器真实成功，保留当前dirty身份，不冒称clean。",
+          "evidence": [
+            "C-CI-BUDGET-RECOVERY-PUBLISHED"
+          ]
+        },
+        {
+          "id": "CORE-CI-BUDGET-001-A2",
+          "criterion": "实际Experimental runner父组及7子例通过，超时/取消/日志故障仍终态失败，限制不放宽。",
+          "evidence": [
+            "C-CI-BUDGET-RECOVERY-PUBLISHED"
+          ]
+        },
+        {
+          "id": "CORE-CI-BUDGET-001-A3",
+          "criterion": "仅原审3文件提交/普通推送及精确远端SHA和CI状态核验；其他dirty原字节保留。",
+          "evidence": [
+            "C-CI-BUDGET-RECOVERY-PUBLISHED"
+          ]
+        }
+      ],
+      "dependsOn": [],
+      "status": "completed",
+      "owner": {
+        "agent": "Core CI budget validation/publish writer",
+        "session": "codex-thread:01a17be4-c5cd-7471-9ed2-886d1d08001f"
+      },
+      "evidence": [
+        {
+          "id": "C-CI-BUDGET-RECOVERY-PUBLISHED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-CI-BUDGET-001/recovery-validation-20261030.json",
+          "claim": "Unchanged reviewed3: check and official build/test wrappers exit0, actual runner parent+7 pass8/8; only3 committed/pushed68f0b4ea and exact remote verified. Prior14/46 separate; two same-SHA CI runs in_progress, no efficacy/full-suite/Host claim.",
+          "observedAt": "2026-10-30T23:40:09.855Z",
+          "subject": {
+            "sha256": "dca28d2faab1ea29bb93b88abcac31291d98b0548f8723a421107d98b64529dc",
+            "baseCommit": "2aa8f051dd06113f2b79a36dd360a68b866236aa",
+            "publishedCommit": "68f0b4eabcce2a388a39c0db4483aaf9c3de969b"
+          }
+        },
+        {
+          "id": "C-CI-BUDGET-FIX-TERMINAL-7A9A3B42",
+          "kind": "verification",
+          "ref": "https://github.com/tower1229/Stella-Core/actions/runs/41148704093",
+          "claim": "Independent monitor of exact7a9a3b42: both CI completed failure with1738 tests/1712pass/26 unchanged normalized old failures/0cancel/skip/todo. Dependent timeout child and parent recovered; regression closed, not all-green. Supervisors finished without timeout/kill, groups gone, owned work complete0pending and roots removed. Workflow probes skipped and consumer null; SDK warnings unresolved. Experimental576.667s does not establish900s necessity.",
+          "observedAt": "2026-10-31T00:25:50.833Z",
+          "subject": {
+            "commit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "source": "parent independent monitor terminal report; no rerun by this ledger update",
+            "secondaryRun": "https://github.com/tower1229/Stella-Core/actions/runs/41148704117",
+            "failureSetComparison": "all26 normalized failure blocks unchanged; no digest supplied, none invented"
+          }
+        }
+      ],
+      "resume": {
+        "checkpoint": "Three-file budget68f0b4ea and one-line fixture7a9a3b42 published. Author tests4/4+22/22 and static byte/logic independent review remain separately attributed. Exact7a9a3b42 dual CI both terminal:1738/1712pass/26oldfail/0cancel/skip/todo; timeout regression closed, normalized26 unchanged. SDK warnings remain.",
+        "nextAction": "No further CI-budget fix is scheduled by this package. Preserve the26 historical failures and skipped downstream probes; no claim of full green, formal consumer acceptance, SDK drain or900s necessity. Further isolation/Host work waits for the separate new-approval boundary in CORE-VAL-001."
+      },
+      "updatedAt": "2026-10-31T00:25:50.833Z",
+      "acceptanceReview": {
+        "by": "Manager conditional authorization for unchanged reviewed3; author supplied missing Git-backed checks (not a new independent rerun)",
+        "at": "2026-10-30T23:40:09.855Z",
+        "evidence": [
+          "C-CI-BUDGET-RECOVERY-PUBLISHED",
+          "C-CI-BUDGET-FIX-TERMINAL-7A9A3B42"
+        ]
+      },
+      "delivery": {
+        "local": {
+          "status": "verified",
+          "observedAt": "2026-10-30T23:40:09.855Z",
+          "evidence": [
+            "C-CI-BUDGET-RECOVERY-PUBLISHED"
+          ],
+          "branch": "codex/issue23-integrated-regression",
+          "baseCommit": "2aa8f051dd06113f2b79a36dd360a68b866236aa"
+        },
+        "commit": {
+          "status": "committed",
+          "sha": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+          "observedAt": "2026-10-31T00:25:50.833Z",
+          "evidence": [
+            "C-CI-BUDGET-RECOVERY-PUBLISHED",
+            "C-CI-BUDGET-FIX-TERMINAL-7A9A3B42"
+          ],
+          "commits": [
+            {
+              "sha": "68f0b4eabcce2a388a39c0db4483aaf9c3de969b",
+              "files": [
+                "scripts/package-experimental-owner-chat.mjs",
+                "scripts/run-workspace-tests.mjs",
+                "tests/captured-command.test.ts"
+              ]
+            },
+            {
+              "sha": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+              "files": [
+                "tests/acceptance-npm-cancel.test.ts"
+              ],
+              "change": "one line only; test.stdout900000, other600000;1500/5000/32MiB unchanged"
+            }
+          ]
+        },
+        "push": {
+          "status": "pushed",
+          "remoteSha": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+          "observedAt": "2026-10-31T00:25:50.833Z",
+          "evidence": [
+            "C-CI-BUDGET-RECOVERY-PUBLISHED",
+            "C-CI-BUDGET-FIX-TERMINAL-7A9A3B42"
+          ],
+          "verification": "prior writer actual ls-remote matched this full SHA; no network action in this ledger-only update"
+        },
+        "ci": {
+          "status": "failed",
+          "conclusion": "failure",
+          "headSha": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+          "observedAt": "2026-10-31T00:25:50.833Z",
+          "evidence": [
+            "C-CI-BUDGET-FIX-TERMINAL-7A9A3B42"
+          ],
+          "regressionClosed": true,
+          "normalizedOld26Unchanged": true,
+          "allGreen": false,
+          "workflowProbes": "skipped",
+          "consumer": null,
+          "formalGate": false,
+          "sdkWarningsResolved": false,
+          "experimentalBudgetNecessityProved": false,
+          "runs": [
+            {
+              "id": 41148704093,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41148704093",
+              "status": "completed",
+              "conclusion": "failure",
+              "completedAt": "2026-10-31T00:21:36Z",
+              "counts": {
+                "tests": 1738,
+                "pass": 1712,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "prepare": "failed on unchanged26",
+              "supervisor": {
+                "timedOut": false,
+                "killed": false,
+                "groupGone": true,
+                "ownedWorkStatus": "complete",
+                "pending": 0,
+                "cleanup": "removed"
+              },
+              "archive260": {
+                "passed": true,
+                "durationSeconds": 513.8
+              }
+            },
+            {
+              "id": 41148704117,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41148704117",
+              "status": "completed",
+              "conclusion": "failure",
+              "completedAt": "2026-10-31T00:20:43Z",
+              "counts": {
+                "tests": 1738,
+                "pass": 1712,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "supervisor": {
+                "timedOut": false,
+                "killed": false,
+                "groupGone": true,
+                "ownedWorkStatus": "complete",
+                "pending": 0,
+                "cleanup": "removed"
+              },
+              "archive260": {
+                "passed": true,
+                "durationSeconds": 493.712
+              },
+              "totalSeconds": 576.667
+            }
+          ]
         }
       }
     }

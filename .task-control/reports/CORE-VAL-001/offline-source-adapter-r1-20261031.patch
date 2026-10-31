@@ -1,0 +1,149 @@
+diff --git a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-offline-author-source-request.ts b/src/openclaw/offline-author-source-request.ts
+index a1cc0fff..4a60a739 100644
+--- a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-offline-author-source-request.ts
++++ b/src/openclaw/offline-author-source-request.ts
+@@ -38,6 +38,10 @@ function check(ok: unknown, category: string): asserts ok { if (!ok) throw new S
+ function record(x: unknown): x is Record<string, unknown> { return x !== null && typeof x === "object" && !Array.isArray(x); }
+ function text(x: unknown): x is string { return typeof x === "string" && x.length > 0 && x.length <= 16_384; }
+ function equal(a: unknown, b: unknown) { return canonicalJson(a) === canonicalJson(b); }
++function factoryIdentity(factory: Factory) {
++  return { agentId: factory.agentId, sessionId: factory.sessionId, sessionKey: factory.sessionKey,
++    requesterSenderId: factory.requesterSenderId };
++}
+ function requestValid(x: SourceRequest) { return record(x) && Object.keys(x).sort().join() ===
+   "accountId,agentId,channel,clientIdempotencyKey,runId,senderId,sessionId,sessionKey" && Object.values(x).every(text); }
+ function admissionValid(x: unknown): x is SourceAdmission {
+@@ -129,16 +133,31 @@ export function createOfflineAuthorSourceRequest(options: {
+       calls.set(event.toolCallId, structuredClone(event));
+     },
+     async candidate(callId: string, factory: Factory, parameters: unknown) {
+-      const c = active(); factory.assertInvocationCurrent(); active();
++      const c = active(), identity = Object.freeze(factoryIdentity(factory));
++      const originalGuard = factory.assertInvocationCurrent;
++      check(typeof originalGuard === "function", "request_binding_mismatch");
++      // Preserve the method receiver, but never reacquire authority from its mutable property.
++      const guard = originalGuard.bind(factory);
++      guard(); active();
++      check(equal(factoryIdentity(factory), identity), "request_binding_mismatch");
+       const call = calls.get(callId); calls.delete(callId);
+-      check(call && factory.agentId === c.request.agentId && factory.sessionId === c.request.sessionId && factory.sessionKey === c.request.sessionKey &&
+-        factory.requesterSenderId === c.request.senderId, "request_binding_mismatch");
++      check(call && identity.agentId === c.request.agentId && identity.sessionId === c.request.sessionId && identity.sessionKey === c.request.sessionKey &&
++        identity.requesterSenderId === c.request.senderId, "request_binding_mismatch");
+       check(record(parameters) && Object.getPrototypeOf(parameters) === Object.prototype && Object.keys(parameters).length === 0,
+         "tool_arguments_invalid");
+-      const current = snapshot(); // Synchronous first-use observation, before qualification awaits.
+-      if (admitted) check(equal(current, admitted), "admission_replay_conflict");
+-      else await qualify(current);
+-      active(); factory.assertInvocationCurrent(); active();
++      let current: CommittedSourceInput;
++      try {
++        current = snapshot(); // Synchronous first-use observation, before qualification awaits.
++        if (admitted) check(equal(current, admitted), "admission_replay_conflict");
++      } catch (error) {
++        // An observed conflict/loss of already-admitted native input is terminal.
++        // Pending first admission and ordinary argument errors do not poison a request.
++        if (admitted) close();
++        throw error;
++      }
++      if (!admitted) await qualify(current);
++      active(); guard(); active();
++      check(equal(factoryIdentity(factory), identity), "request_binding_mismatch");
+       return { status: "candidate" as const, confirmation: "candidate" as const, code: "semantic_adoption_unavailable" as const,
+         source: structuredClone(source!), publisherBound: false as const };
+     },
+diff --git a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-offline-author-source-request.test.ts b/tests/offline-author-source-request.test.ts
+index 15a58a6a..0ccb7908 100644
+--- a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-offline-author-source-request.test.ts
++++ b/tests/offline-author-source-request.test.ts
+@@ -203,3 +203,49 @@ test("T12 source qualification never manufactures semantic adoption, even for co
+     assert.equal(f.accesses.forbidden, 0);
+   }
+ });
++
++function barrier() {
++  let release!: () => void;
++  const entered = new Promise<void>(resolve => { release = resolve; });
++  return { entered, release };
++}
++for (const field of ["requesterSenderId", "sessionId"] as const) {
++  test(`R1 changed factory ${field} during qualification cannot supply source`, async () => {
++    const f = fixture(); f.observe(); const entered = barrier(), resume = barrier();
++    f.pause(() => { entered.release(); return resume.entered; });
++    const pending = f.execute(); await entered.entered;
++    f.factory[field] = "different_identity_after_first_check"; resume.release();
++    await assert.rejects(pending, category("request_binding_mismatch"));
++  });
++}
++test("R1 original guard survives replacement; a stale original guard rejects final supply", async () => {
++  for (const becomeStale of [true, false]) {
++    const f = fixture(); f.observe(); let stale = false, originalCalls = 0, replacementCalls = 0;
++    f.factory.assertInvocationCurrent = () => { originalCalls++; if (stale) throw new Error("original_capability_stale"); };
++    const entered = barrier(), resume = barrier(); f.pause(() => { entered.release(); return resume.entered; });
++    const pending = f.execute(); await entered.entered;
++    stale = becomeStale; f.factory.assertInvocationCurrent = () => { replacementCalls++; }; resume.release();
++    if (becomeStale) await assert.rejects(pending, /original_capability_stale/);
++    else assert.equal((await pending).status, "candidate");
++    assert.equal(originalCalls, 2); assert.equal(replacementCalls, 0);
++  }
++});
++test("R2 observed admitted identity conflict cannot revive after recorder restoration", async () => {
++  for (const field of ["entryId", "sessionId", "logicalTurnId", "idempotencyKey"] as const) {
++    const f = fixture(); f.observe(); await f.execute("first");
++    const old = structuredClone(f.state.admission); f.state.admission = { ...f.admission, [field]: "different_native_identity" };
++    await assert.rejects(f.execute("conflict"), category(field === "sessionId" || field === "idempotencyKey" ? "request_binding_mismatch" : "admission_replay_conflict"));
++    f.state.admission = old;
++    await assert.rejects(f.execute("restored"), category("request_inactive")); assert.equal(f.accesses.resolve, 1);
++  }
++  // Ordinary argument errors and merely pending first admission do not poison a request.
++  const pending = fixture(); pending.observe(); pending.state.persisted = false;
++  await assert.rejects(pending.execute("early"), category("admission_uncommitted")); pending.state.persisted = true;
++  await assert.rejects(pending.execute("bad_args", { owner: true }), category("tool_arguments_invalid"));
++  assert.equal((await pending.execute("now_committed")).status, "candidate"); assert.equal(pending.accesses.resolve, 1);
++});
++test("R1/R2 returned-source copy isolation control remains independent of qualification", async () => {
++  const f = fixture(); f.observe(); const original = structuredClone(f.binding.source), first = await f.execute("first");
++  first.source.authorId = "mutated_return"; first.source.excerpt = "mutated text"; first.source.version = bytesVersion("mutated");
++  const next = await f.execute("next"); assert.deepEqual(next.source, original); assert.equal(f.accesses.resolve, 1);
++});
+diff --git a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-2026-10-31-offline-author-source-request.md b/docs/design/2026-10-31-offline-author-source-request.md
+index f8a64075..219d59e7 100644
+--- a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-2026-10-31-offline-author-source-request.md
++++ b/docs/design/2026-10-31-offline-author-source-request.md
+@@ -38,3 +38,16 @@
+ 本轮没有提供真实 authorId/sender 映射，没有证明真实入口/recorder 生命周期、原文与 NFC/trim/附件投影的关系或真实 call→admission 关联。代码没有 import OpenClaw runtime、注册 hook、改正式工具/权限、调用真实 writer；运行时代码仅依赖现有纯结构/摘要模块，类型端口导入被编译擦除。真实接线继续阻塞，不能因为离线合成端口通过而开启 publisher。
+ 
+ 下一步先独审这两份代码及限定合同。接着才选择一个已有私人入站入口，证明来源生产和只读 recorder 生命周期；如无公开保证，报告缺失能力并保持候选。真实输入、任何额外 Host 次数或模型调用需各自已有授权，当前追加 Host 批次仍 3/3 耗尽。第四次历史 unknown 和所有五次旧 claim/result 保留。没有提交、推送或依赖安装。
++
++## R1：独审反例修订，待复审
++
++前述原 17/17 保留为作者初版测试记录。随后独审仍要求修改：原 17/17 复验通过，但另 5 个纯合成检查中有 **4 个异常接受、1 个副本隔离对照正常**；不能据初版 17/17 声称该候选通过独审。独审原始摘要 SHA-256 为 `1a868d32ed816e961c8642077a617a958ccca1316d09de4be4f01817bd5f8588`。版本/红绿与精确修订 diff 见 [R1 证据](../../.task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json)。
++
++本轮只修两处：
++
++1. 每次 `candidate` 调用在等待前固定 factory 的四项身份快照及原 `assertInvocationCurrent` 函数。调用原函数时保留方法 receiver，返回前再次调用同一个函数，并比对当前身份与快照；不从可能被替换的 guard 属性重新获取授权。等待期间改变 requester/session 导致本次供给拒绝；原 guard 已失效时，替换为空函数不能绕过它。
++2. 已观察到准入后的 native input 冲突或失去可验证状态时，关闭整个单请求绑定并清除缓存，恢复旧 recorder 也不能复活。普通参数错误、首次尚未提交不会因而毒化请求；合法同请求工具续轮继续使用已合法入场的来源快照。这是 admission 身份边界，不增加来源/政策的即时撤回。
++
++确定性屏障回归先在未修代码上复现：来源模块共 17 组中 13 pass/4 fail（原 12 组＋5 个新检查）；4 个失败分别是 requester 变更、session 变更、替换失效 guard、冲突后恢复旧 admission，副本隔离对照通过。修后定向组合 **22/22 pass（来源 17 组＋原候选工具 5 项），0 fail/cancel/skip/todo**，直接 TypeScript 编译 exit 0。新回归还检查原 guard 未失效但被替换时，调用原函数两次、替代函数零次，以及普通参数/首次未提交可恢复。修前失败、独审失败与修后通过分别记录，不累加成新验收。
++
++T3 提交时序、T9 首次/新请求而非即时撤回、T12 缺语义证据仍候选的边界保持。真实入口、原文转换、作者映射与 recorder 生命周期仍未验；publisher off，无 Host/模型/网络/监听器/发布 CAS。此修订尚待独审，未提交推送。
+diff --git a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-PROJECT-STATE.yaml b/PROJECT-STATE.yaml
+index 51600a2d..046e0f86 100644
+--- a/tmp/core-offline-source-r1-20261031-wcftv5tf/before-PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -539,3 +539,15 @@ offline_author_source_contract_20261031:
+   semantic_adoption_accepted: false
+   publisher_bound: false
+   publication_cas_executed_by_this_package: false
++
++# R1 repair candidate after independent offline-source review; original17/17 is historical.
++offline_author_source_r1_20261031:
++  evidence: .task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json
++  original_review: changes requested;4unexpected accepts and1copy-isolation control separate from original17/17
++  fixes: capture invocation factory identity and original guard; close binding on observed admitted input conflict
++  red: source17groups13pass4fail before repair
++  green: focused22/22pass (source17groups and5existing candidate-tool cases); direct TypeScript compile exit0
++  scope: synthetic offline contract only; independent revision review pending
++  production_wiring: false
++  publisher_bound: false
++  real_author_source_verified: false

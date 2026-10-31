@@ -463,3 +463,29 @@ historical_snapshots:
     source_path: PROJECT-STATE.yaml
     sha256: 5fde2e14ad8ac16a7be0e24301f46afe32861cee914d3e2584dfd6598afb62ef
     classification: historical；原8.2策略、旧模型/验收/实现缺口原样保留，不是当前运行状态
+
+# Synthetic-only implementation supplement; no production source-adapter activation.
+offline_author_source_contract_20261031:
+  module: src/openclaw/offline-author-source-request.ts
+  evidence: .task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.json
+  contract: docs/design/2026-10-31-offline-author-source-request.md
+  result: direct TypeScript compilation and17focused cases pass (12newgroups plus5existing candidate-tool cases)
+  passive_capture: recorder reference only; synchronous committed snapshot at first protected call
+  source_checks: first supply and new request; admitted continuations retain source snapshot under D058
+  production_wiring: false
+  real_source_and_author_mapping_verified: false
+  semantic_adoption_accepted: false
+  publisher_bound: false
+  publication_cas_executed_by_this_package: false
+
+# R1 repair candidate after independent offline-source review; original17/17 is historical.
+offline_author_source_r1_20261031:
+  evidence: .task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json
+  original_review: changes requested;4unexpected accepts and1copy-isolation control separate from original17/17
+  fixes: capture invocation factory identity and original guard; close binding on observed admitted input conflict
+  red: source17groups13pass4fail before repair
+  green: focused22/22pass (source17groups and5existing candidate-tool cases); direct TypeScript compile exit0
+  scope: synthetic offline contract only; independent revision review pending
+  production_wiring: false
+  publisher_bound: false
+  real_author_source_verified: false

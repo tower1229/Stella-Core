@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-31T07:19:29.686006+00:00",
+  "decision": "accepted bounded synthetic offline R1 only; parent authorized narrow commit and ordinary branch push",
+  "independentReview": {
+    "summarySha256": "4d57b4d11802796e2dcefe42b322334e00fee3e31227229567d2a5d592b10620",
+    "reviewSha256": "a2e04972ea41f2734afd788704f3f4a23bd36e7143d036d267a1719c89dc944f",
+    "focusedTests": {
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "receiptSha256": "a5630ae0e2a649dc2b576eb6c902132f9966dc57c214b09855cb76ae0fc1c120"
+    },
+    "originalReplay": {
+      "allExpected": true,
+      "scriptByteIdentical": true,
+      "scriptSha256": "d4f93db14d8ac721b52006d6cd7941abbdf56b92e035ba5e6c0d9865e4386ddf",
+      "resultSha256": "df3a090d89f29c8758da3aedd35d717a2272a275e22f6dc13d73283708e7ea60",
+      "notAddedTo22": true
+    },
+    "additionalLifecycleControls": {
+      "pass": 4,
+      "fail": 0,
+      "resultSha256": "547678a2d0647b36924d5b5f659414cf1a5404a925fb0c9c6ad527dda79c78ed",
+      "notAddedTo22": true
+    },
+    "closedFindings": [
+      "R1 mutable factory identity/original guard within invocation",
+      "R2 restoring recorder after admitted native identity conflict"
+    ],
+    "extraChecksNotAddedTo22": true
+  },
+  "includedFiles": [
+    {
+      "ref": "src/openclaw/offline-author-source-request.ts",
+      "sha256": "d4c08d48b64ae4827ddb3151a3a7d212d079f8019941a96c1e7b8e9b97bfc8f1"
+    },
+    {
+      "ref": "tests/offline-author-source-request.test.ts",
+      "sha256": "d0607eea41d6848c96276520022784556026e6f89ad50ea135f847b170c5c0fd"
+    },
+    {
+      "ref": "docs/design/2026-10-31-offline-author-source-request.md",
+      "sha256": "918460195653658d83e0f0604952f059c7699de6ea93ace062e72bb7a770efef"
+    },
+    {
+      "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.json",
+      "sha256": "557bca79089a81e2ff84f92c83a57fa9bc2fd5c56515cdcbbce1d43703bcdddb"
+    },
+    {
+      "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.patch",
+      "sha256": "9ffc61578eb7539eff050f51d480c67f2ed0f663a6eacaf53ff01e648e6230f5"
+    },
+    {
+      "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json",
+      "sha256": "a370084583da1928bfa5651af8d641723894c86522dad4f6c09eb4f326f6692d"
+    },
+    {
+      "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.patch",
+      "sha256": "b8ae4e1fd9d062ada597c90122216852a22e0c33863ec6cf76b3b191b3249aa9"
+    },
+    {
+      "ref": "src/openclaw/author-intent-tool.ts",
+      "sha256": "53c6467001d7de79d78070e66986578e81a974f1fbfa015c254e4eb2f5636c85"
+    },
+    {
+      "ref": "tests/author-intent-tool.test.ts",
+      "sha256": "1c57626440d3565113ecb07beae0b7254e709e663ea8584f985a10f3d555b3c5"
+    }
+  ],
+  "additionalReviewedReproductionDependencies": [
+    {
+      "ref": "src/openclaw/author-intent-tool.ts",
+      "sha256": "53c6467001d7de79d78070e66986578e81a974f1fbfa015c254e4eb2f5636c85",
+      "basis": "unchanged ordinaryV2 independent review recorded in earlier handoff; current R1 independent focused22 includes these unchanged5; only these2 files needed, no SSE fixture/historical runner",
+      "earlierReviewReportSha256": "99dd36b260d6e0be6decb2a45a923819781767d952fff8a6a079db09c7fa2d15"
+    },
+    {
+      "ref": "tests/author-intent-tool.test.ts",
+      "sha256": "1c57626440d3565113ecb07beae0b7254e709e663ea8584f985a10f3d555b3c5",
+      "basis": "unchanged ordinaryV2 independent review recorded in earlier handoff; current R1 independent focused22 includes these unchanged5; only these2 files needed, no SSE fixture/historical runner",
+      "earlierReviewReportSha256": "99dd36b260d6e0be6decb2a45a923819781767d952fff8a6a079db09c7fa2d15"
+    }
+  ],
+  "committedDependencies": {
+    "statement": "author-intent-asset/content-version/author-intent-repository/shared type guards/package manifest and lock all byte-identical to current HEAD",
+    "baseCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5"
+  },
+  "partialTechnicalIndex": {
+    "ref": "PROJECT-STATE.yaml",
+    "stagedSha256": "d5685b95c4494ec0009e77cd7cc14ca55f42f8af8057561cdde05eea2c19efca",
+    "scope": "HEAD bytes plus only offline_author_source_contract_20261031 and offline_author_source_r1_20261031 appendices; earlier unrelated dirty technical facts remain unstaged",
+    "worktreeUnchanged": true
+  },
+  "necessaryLedger": {
+    "ref": ".task-control/state.json",
+    "scope": "current sole authoritative state, preserving accepted prior task records/history; do not fabricate an older state projection",
+    "currentReviewAcceptedScope": "offline implementation only; actual ingress remains blocked"
+  },
+  "historicalReferencesNotBundled": {
+    "statement": "prior design/source-trace/Host reports and temporary receipts are audit references, not compile or test input; no historical research package imported to close documentary links",
+    "contractBackgroundRef": "docs/design/2026-10-31-current-author-source-adapter.md",
+    "contractBackgroundIsNotRuntimeDependency": true,
+    "originalReportsAndPatchesRemainHistorical": true
+  },
+  "reproduce": {
+    "commands": [
+      "npm ci",
+      "npm run check",
+      "node_modules/.bin/tsc -p tsconfig.test.json",
+      "node --test --test-reporter=tap .test-dist/tests/offline-author-source-request.test.js .test-dist/tests/author-intent-tool.test.js"
+    ],
+    "note": "instructions only; no install or large local rerun by this save; use declared supported Node/locked deps"
+  },
+  "boundaries": {
+    "productionWiring": false,
+    "realAuthorSourceVerified": false,
+    "publisherBound": false,
+    "HostRuns": 0,
+    "modelRuns": 0,
+    "networkOrListenerValidation": 0,
+    "HostBatchConsumed": 3,
+    "HostBatchRemaining": 0,
+    "attempt4HistoricalUnknownPreserved": true
+  },
+  "nextPrivateIngressEvidence": {
+    "mustKnow": [
+      "one existing intended private ingress and actual10.8 artifact/harness",
+      "authenticated channel/account/sender→existing authorId mapping and its version",
+      "native admitted receipt/current message, client key and run identity kept separate",
+      "exact original representation and any NFC/trim/workContext/attachment transforms",
+      "documented public recorder lifetime and first-call committed timing without triggering persistence",
+      "actual same-request call→admission binding, including supported queue/steering limits",
+      "existing source purpose/permissions and selected content version; publisher remains off"
+    ],
+    "readOnlyNow": [
+      "fixed installed public types/producers and declared export identity",
+      "repo request/source ports and immutable artifact hashes",
+      "synthetic trace shape already captured; no private transcript or config assumption"
+    ],
+    "notYetReadOrAuthorized": [
+      "actual private messages or credentials",
+      "new account/permissions, production wiring, further Host/model execution"
+    ]
+  }
+}

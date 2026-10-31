@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "completedAt": "2026-10-31T07:10:09.074748+00:00",
+  "reviewStatus": "R1 author repair candidate; independent revision review pending; no commit",
+  "scope": "only mutable-factory/original-guard capture and admitted-native-input conflict invalidation; synthetic offline",
+  "deliverables": [
+    {
+      "ref": "src/openclaw/offline-author-source-request.ts",
+      "beforeSha256": "652a3752b3361f7e11eabe680e4426574bce31a7eebd225c7150c83db304276d",
+      "sha256": "d4c08d48b64ae4827ddb3151a3a7d212d079f8019941a96c1e7b8e9b97bfc8f1"
+    },
+    {
+      "ref": "tests/offline-author-source-request.test.ts",
+      "beforeSha256": "3a6ef435d9145a70abfc9e6869c755c6750fa8597c34363a97f7008fd835a7e1",
+      "sha256": "d0607eea41d6848c96276520022784556026e6f89ad50ea135f847b170c5c0fd"
+    },
+    {
+      "ref": "docs/design/2026-10-31-offline-author-source-request.md",
+      "beforeSha256": "720a8fe3561db89fc27daa59bd34dab7dae127e2a8e23eb254d0c7206f6dc8d7",
+      "sha256": "918460195653658d83e0f0604952f059c7699de6ea93ace062e72bb7a770efef"
+    },
+    {
+      "ref": "PROJECT-STATE.yaml",
+      "beforeSha256": "efe617fa8d06b6c4cb877fe69b9dfee109039be8d6236e2e22aec1611084a5a9",
+      "sha256": "cfc024d2657da71d7f8e842cec3042a27c3753ae625fed2672f55dab144e5147"
+    }
+  ],
+  "patch": {
+    "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.patch",
+    "sha256": "b8ae4e1fd9d062ada597c90122216852a22e0c33863ec6cf76b3b191b3249aa9",
+    "kind": "exact delta from pre-R1 bytes, not a replacement for original candidate patch"
+  },
+  "base": {
+    "head": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+    "indexSha256": "ff296b057065b0973ccb6515c2aa02b916e3445612681b9fcea0be6235b55fd3",
+    "stateRevision": 38,
+    "stateSha256": "60cfbbbe1a80f1b384cf5f06892c0e0c7a3a9d279f14c921df17a1e752352423",
+    "repairRevision": 39,
+    "repairStateSha256": "e25c8c683fb4ceaa93e34b2f8bf30737d3656c79da34abfd28c67e4000fd16b2",
+    "closeoutRevisionPlanned": 40
+  },
+  "independentInitialReview": {
+    "decision": "changes_requested",
+    "summarySha256": "1a868d32ed816e961c8642077a617a958ccca1316d09de4be4f01817bd5f8588",
+    "reviewSha256": "6dc20f482169ba16b3865b092ec8fd51abef70e860e5035828e2d6c90aa7827f",
+    "probeSha256": "d55da09043e45375cd4511ab3282c9647427bf2fe859805e5e6453fa248d1fb0",
+    "replaySha256": "d4f93db14d8ac721b52006d6cd7941abbdf56b92e035ba5e6c0d9865e4386ddf",
+    "originalFocusedTests": {
+      "tests": 17,
+      "pass": 17,
+      "fail": 0
+    },
+    "additionalChecks": {
+      "total": 5,
+      "unexpectedAccepts": 4,
+      "copyIsolationControlsPassed": 1,
+      "notCombinedWithOriginal17": true
+    },
+    "source": "existing independent review files read only; not rewritten or rerun under their old compiled candidate"
+  },
+  "fixes": [
+    {
+      "id": "R1",
+      "change": "Freeze invocation identity snapshot; capture original guard once, preserving receiver; initial and final original-guard checks, identity consistency at supply boundary; no reacquisition from mutable guard property",
+      "cases": [
+        "requester mutation across deterministic qualification barrier",
+        "session mutation across barrier",
+        "stale original guard replaced by noop",
+        "non-stale original guard replaced: original called2,replacement0"
+      ]
+    },
+    {
+      "id": "R2",
+      "change": "After admission, an observed native input mismatch or inability to reaffirm committed input closes the request and clears its cache; restoration cannot revive. Argument validation and pending first admission remain nonterminal",
+      "cases": [
+        "entry/session/logicalTurn/native-idempotency conflicts then restoration inactive",
+        "ordinary invalid params then legal call",
+        "pending first call then commit and legal call",
+        "unchanged admitted continuation and source snapshot reuse remain permitted"
+      ]
+    }
+  ],
+  "validation": {
+    "directCompile": {
+      "exitCode": 0,
+      "argv": [
+        "./node_modules/.bin/tsc",
+        "-p",
+        "tsconfig.test.json",
+        "--outDir",
+        "/tmp/core-offline-source-r1-20261031-wcftv5tf/compiled"
+      ],
+      "receiptStderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "officialBuildIdentityWrapperRun": false
+    },
+    "red": {
+      "argv": [
+        "/Users/zangtao/.nvm/versions/node/v24.22.1/bin/node",
+        "--test",
+        "--test-reporter=tap",
+        "/tmp/core-offline-source-r1-20261031-wcftv5tf/compiled/tests/offline-author-source-request.test.js"
+      ],
+      "exitCode": 1,
+      "sourceSha256": "652a3752b3361f7e11eabe680e4426574bce31a7eebd225c7150c83db304276d",
+      "testSha256": "d0607eea41d6848c96276520022784556026e6f89ad50ea135f847b170c5c0fd",
+      "tests": 17,
+      "pass": 13,
+      "fail": 4,
+      "failedCases": [
+        "R1 changed factory requesterSenderId during qualification cannot supply source",
+        "R1 changed factory sessionId during qualification cannot supply source",
+        "R1 original guard survives replacement; a stale original guard rejects final supply",
+        "R2 observed admitted identity conflict cannot revive after recorder restoration"
+      ],
+      "copyIsolationControlPassed": true,
+      "receiptSha256": "5da6c898d465794246ddf16441ed2c331ac15dfb6880cbc08a5f078aea421245"
+    },
+    "green": {
+      "argv": [
+        "/Users/zangtao/.nvm/versions/node/v24.22.1/bin/node",
+        "--test",
+        "--test-reporter=tap",
+        "/tmp/core-offline-source-r1-20261031-wcftv5tf/compiled/tests/offline-author-source-request.test.js",
+        "/tmp/core-offline-source-r1-20261031-wcftv5tf/compiled/tests/author-intent-tool.test.js"
+      ],
+      "exitCode": 0,
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "sourceGroups": 17,
+      "unchangedCandidateTests": 5,
+      "originalT3T9T12Retained": true,
+      "receiptSha256": "ab06eaae471725d6b14e02add233ad91149793498a1490146771ffb3d8479ccf"
+    },
+    "countsNotCumulative": true,
+    "rawReceiptsDirectory": "/tmp/core-offline-source-r1-20261031-wcftv5tf"
+  },
+  "preservation": {
+    "originalOfflineReportSha256": "557bca79089a81e2ff84f92c83a57fa9bc2fd5c56515cdcbbce1d43703bcdddb",
+    "originalPatchSha256": "9ffc61578eb7539eff050f51d480c67f2ed0f663a6eacaf53ff01e648e6230f5",
+    "allUnrelatedBaselineFilesUnchanged": true,
+    "historicHostClaimsResultsAndUnknownUnchanged": true,
+    "headAndIndexUnchanged": true
+  },
+  "scopeLimits": {
+    "Host": 0,
+    "models": 0,
+    "network": 0,
+    "listeners": 0,
+    "psOrSignals": 0,
+    "realSourcesOrCredentials": false,
+    "HostCodeChange": false,
+    "formalWiring": false,
+    "toolPermissionChange": false,
+    "publisherBound": false,
+    "publicationCas": false,
+    "policyImmediateRevocationPlatform": false,
+    "dependencyInstall": false,
+    "commitPush": false,
+    "batchConsumed": 3,
+    "batchRemaining": 0
+  },
+  "transportRecovery": {
+    "initialAction": "baseline/state preparation",
+    "failure": "exec-server transport disconnected at process creation",
+    "readOnlyCheck": "revision38/hash unchanged, R1 pointer absent and source unchanged; resumed only after channel health succeeded",
+    "outcome": "reconciled no duplicate state mutation; not a permission denial",
+    "receiptSha256": "963090d19df569b2c5a7497baf5765aafe3dcc5909d5ec0346e25ad976c89420"
+  },
+  "remainingBlocker": {
+    "action": "independent revision acceptance, then production source wiring evidence",
+    "status": "pending; no current execution rejection or uncertain outcome",
+    "reason": "real original transformations, author mapping, public recorder lifetime and formal ingress/call binding unverified; publisher remains off",
+    "nextAction": "Review exact R1 diff and deterministic red/green; do not run Host6 or activate production sources under exhausted quota"
+  }
+}

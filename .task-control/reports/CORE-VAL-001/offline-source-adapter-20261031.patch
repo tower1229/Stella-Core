@@ -1,0 +1,432 @@
+diff --git a/src/openclaw/offline-author-source-request.ts b/src/openclaw/offline-author-source-request.ts
+new file mode 100644
+index 00000000..a1cc0fff
+--- /dev/null
++++ b/src/openclaw/offline-author-source-request.ts
+@@ -0,0 +1,147 @@
++import type { AuthorIntentPorts } from "../canghai/author-intent-repository.js";
++import type { IntentSource } from "../canghai/author-intent-asset.js";
++import { intentId, intentVersion } from "../canghai/author-intent-asset.js";
++import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
++
++/** Synthetic offline contract only. No Host registration, source reader, publisher,
++ * persistence or authority recovery. Production ingress/lifetime remains unverified. */
++export type SourceRequest = {
++  runId: string; agentId: string; sessionId: string; sessionKey: string;
++  clientIdempotencyKey: string; channel: string; accountId: string; senderId: string;
++};
++export type SourceAdmission = {
++  agentId: string; sessionId: string; sessionKey: string; storePath: string;
++  entryId: string; logicalTurnId: string; generation: string; rawSeq: number;
++  effectiveParentId: string | null; activeMessagePosition: number; idempotencyKey: string; role: "user";
++};
++type Message = { role: "user"; content: string; idempotencyKey: string; provenance?: { kind: string } };
++export type CommittedSourceInput = { request: SourceRequest; admission: SourceAdmission; message: Message };
++/** Read-only subset; deliberately has no persist/stage/mark/handler methods. */
++export type PassiveSourceRecorder = {
++  hasPersisted(): boolean; isBlocked(): boolean;
++  getAdmissionReceipt(): unknown; getPersistedMessage(): unknown;
++};
++export type OfflineSourceBinding = {
++  request: SourceRequest; admission: SourceAdmission; source: IntentSource;
++  origin: "direct_author" | "third_party" | "assistant" | "internal" | "inter_session";
++  representation: "exact_whole_text" | "projected";
++  senderId: string; authorId: string; authorMappingVersion: string;
++};
++type CallIdentity = Pick<SourceRequest, "runId" | "agentId" | "sessionId" | "sessionKey" | "senderId"> & { toolCallId: string; toolName: string };
++type Factory = Pick<SourceRequest, "agentId" | "sessionId" | "sessionKey"> & {
++  requesterSenderId: string; assertInvocationCurrent(): void;
++};
++export class SourceRequestError extends Error {
++  constructor(readonly category: string) { super(`Offline author source: ${category}`); }
++}
++function check(ok: unknown, category: string): asserts ok { if (!ok) throw new SourceRequestError(category); }
++function record(x: unknown): x is Record<string, unknown> { return x !== null && typeof x === "object" && !Array.isArray(x); }
++function text(x: unknown): x is string { return typeof x === "string" && x.length > 0 && x.length <= 16_384; }
++function equal(a: unknown, b: unknown) { return canonicalJson(a) === canonicalJson(b); }
++function requestValid(x: SourceRequest) { return record(x) && Object.keys(x).sort().join() ===
++  "accountId,agentId,channel,clientIdempotencyKey,runId,senderId,sessionId,sessionKey" && Object.values(x).every(text); }
++function admissionValid(x: unknown): x is SourceAdmission {
++  return record(x) && ["agentId", "sessionId", "sessionKey", "storePath", "entryId", "logicalTurnId", "generation", "idempotencyKey"].every(k => text(x[k])) &&
++    x.role === "user" && Number.isSafeInteger(x.rawSeq) && Number(x.rawSeq) >= 1 &&
++    Number.isSafeInteger(x.activeMessagePosition) && Number(x.activeMessagePosition) >= 0 &&
++    (x.effectiveParentId === null || text(x.effectiveParentId));
++}
++
++export function createOfflineAuthorSourceRequest(options: {
++  toolName: string;
++  /** Existing trusted caller-owned qualification ports; synthetic fixtures only here. */
++  ports: AuthorIntentPorts;
++  /** Missing production seam, supplied solely by synthetic offline fixtures. Never tool arguments. */
++  resolveSource(input: CommittedSourceInput): Promise<OfflineSourceBinding | null>;
++  transport?: { set(reference: { runId: string; admissionHash: string }): boolean };
++}) {
++  const { ports, resolveSource, transport, toolName } = options;
++  let captured: { request: SourceRequest; recorder: PassiveSourceRecorder; signal: AbortSignal } | undefined;
++  let admitted: CommittedSourceInput | undefined, source: IntentSource | undefined;
++  let closed = false, failed = false, qualifying = false;
++  const calls = new Map<string, CallIdentity>();
++  const seenCalls = new Set<string>();
++  const close = () => { closed = true; calls.clear(); seenCalls.clear(); source = undefined; admitted = undefined;
++    captured?.signal.removeEventListener("abort", close); captured = undefined; };
++  function active() {
++    check(!closed && !failed && captured && !captured.signal.aborted, "request_inactive");
++    return captured;
++  }
++  function snapshot(): CommittedSourceInput {
++    const c = active(), r = c.recorder;
++    check(r.hasPersisted() === true && r.isBlocked() === false, "admission_uncommitted");
++    const a: unknown = structuredClone(r.getAdmissionReceipt()), m: unknown = structuredClone(r.getPersistedMessage());
++    check(admissionValid(a) && record(m) && m.role === "user" && text(m.content) && text(m.idempotencyKey), "admission_uncommitted");
++    check(!Object.hasOwn(m, "media") && !Object.hasOwn(m, "attachments") && m.excludeFromContext !== true && m.display !== false,
++      "source_representation_unverified");
++    check(m.provenance === undefined || record(m.provenance) && m.provenance.kind === "external_user", "author_binding_unavailable");
++    check(a.agentId === c.request.agentId && a.sessionId === c.request.sessionId && a.sessionKey === c.request.sessionKey &&
++      a.idempotencyKey === m.idempotencyKey, "request_binding_mismatch");
++    return { request: structuredClone(c.request), admission: a, message: m as Message };
++  }
++  async function qualify(current: CommittedSourceInput) {
++    check(!qualifying, "request_concurrency_unsupported"); qualifying = true;
++    try {
++      await ports.assertRequest("read_current"); active();
++      const binding = structuredClone(await resolveSource(structuredClone(current))); active();
++      check(binding, "source_producer_unavailable");
++      check(equal(binding.request, current.request) && equal(binding.admission, current.admission), "request_binding_mismatch");
++      check(binding.origin === "direct_author" && binding.source.role === "author" && binding.senderId === current.request.senderId &&
++        binding.authorId === binding.source.authorId && text(binding.authorId) && intentVersion(binding.authorMappingVersion), "author_binding_unavailable");
++      check(binding.representation === "exact_whole_text" && binding.source.excerpt === current.message.content,
++        "source_representation_unverified");
++      check(intentId(binding.source.id) && text(binding.source.locator) && intentVersion(binding.source.version), "source_version_conflict");
++      await ports.assertSources([structuredClone(binding.source)], "read_current"); active();
++      check(await ports.currentSourceVersion(binding.source.id) === binding.source.version, "source_version_conflict"); active();
++      const proof = await ports.verifyAuthor(structuredClone(binding.source)); active();
++      check(proof !== null && equal(proof, { sourceId: binding.source.id, version: binding.source.version, authorId: binding.source.authorId,
++        locator: binding.source.locator, excerptHash: bytesVersion(binding.source.excerpt) }), "author_binding_unavailable");
++      // Recheck admission/cancellation after awaits, without re-reading source/policy versions.
++      check(equal(snapshot(), current), "admission_replay_conflict");
++      check(!transport || transport.set({ runId: current.request.runId, admissionHash: bytesVersion(canonicalJson(current.admission)) }) === true,
++        "run_context_unavailable"); active();
++      check(equal(snapshot(), current), "admission_replay_conflict");
++      admitted = current; source = structuredClone(binding.source);
++    } catch (error) { failed = true; throw error; }
++    finally { qualifying = false; }
++  }
++  return {
++    /** Passive dispatch observation: no recorder reads, awaits, commit or qualification. */
++    observe(request: SourceRequest, recorder: PassiveSourceRecorder, signal: AbortSignal) {
++      check(!closed && !failed && requestValid(request) && !signal.aborted, "source_producer_unavailable");
++      if (captured) {
++        // Reference equality only rejects ambiguous re-observation; it grants no qualification.
++        if (!equal(captured.request, request) || captured.recorder !== recorder || captured.signal !== signal) {
++          failed = true; throw new SourceRequestError("request_binding_mismatch");
++        }
++        return;
++      }
++      captured = { request: structuredClone(request), recorder, signal }; signal.addEventListener("abort", close, { once: true });
++    },
++    /** Arguments are Host hook metadata, never the model's tool params. One use per call. */
++    bindCall(event: CallIdentity, context: CallIdentity) {
++      const c = active();
++      check(equal(event, context) && text(event.toolCallId) && event.toolName === toolName &&
++        ["runId", "agentId", "sessionId", "sessionKey", "senderId"].every(k => event[k as keyof CallIdentity] === c.request[k as keyof SourceRequest]),
++        "request_binding_mismatch");
++      check(!seenCalls.has(event.toolCallId) && seenCalls.size < 32, "call_identity_conflict");
++      seenCalls.add(event.toolCallId);
++      calls.set(event.toolCallId, structuredClone(event));
++    },
++    async candidate(callId: string, factory: Factory, parameters: unknown) {
++      const c = active(); factory.assertInvocationCurrent(); active();
++      const call = calls.get(callId); calls.delete(callId);
++      check(call && factory.agentId === c.request.agentId && factory.sessionId === c.request.sessionId && factory.sessionKey === c.request.sessionKey &&
++        factory.requesterSenderId === c.request.senderId, "request_binding_mismatch");
++      check(record(parameters) && Object.getPrototypeOf(parameters) === Object.prototype && Object.keys(parameters).length === 0,
++        "tool_arguments_invalid");
++      const current = snapshot(); // Synchronous first-use observation, before qualification awaits.
++      if (admitted) check(equal(current, admitted), "admission_replay_conflict");
++      else await qualify(current);
++      active(); factory.assertInvocationCurrent(); active();
++      return { status: "candidate" as const, confirmation: "candidate" as const, code: "semantic_adoption_unavailable" as const,
++        source: structuredClone(source!), publisherBound: false as const };
++    },
++    close,
++  };
++}
+diff --git a/tests/offline-author-source-request.test.ts b/tests/offline-author-source-request.test.ts
+new file mode 100644
+index 00000000..15a58a6a
+--- /dev/null
++++ b/tests/offline-author-source-request.test.ts
+@@ -0,0 +1,205 @@
++import assert from "node:assert/strict";
++import { isDeepStrictEqual } from "node:util";
++import test from "node:test";
++import { createOfflineAuthorSourceRequest, SourceRequestError, type SourceRequest, type SourceAdmission,
++  type OfflineSourceBinding, type CommittedSourceInput } from "../src/openclaw/offline-author-source-request.js";
++import type { AuthorIntentPorts } from "../src/canghai/author-intent-repository.js";
++import { bytesVersion } from "../src/canghai/content-version.js";
++
++const toolName = "stella_author_intent_candidate";
++const raw = "Synthetic author text with an unresolved appendix.";
++function fixture(suffix = "A") {
++  const request: SourceRequest = { runId: `run_${suffix}`, agentId: "fixture_agent", sessionId: "session_synthetic", sessionKey: "fixture:direct",
++    clientIdempotencyKey: `client_${suffix}`, channel: "synthetic", accountId: "fixture_account", senderId: "fixture_sender" };
++  const admission: SourceAdmission = { agentId: request.agentId, sessionId: request.sessionId, sessionKey: request.sessionKey,
++    storePath: "synthetic:never-read", entryId: `entry_${suffix}`, logicalTurnId: `turn_${suffix}`, generation: "generation_fixture", rawSeq: 1,
++    effectiveParentId: null, activeMessagePosition: 0, idempotencyKey: `native_input_${suffix}`, role: "user" };
++  const state = { persisted: true, blocked: false, admission: structuredClone(admission) as unknown,
++    message: { role: "user", content: raw, idempotencyKey: admission.idempotencyKey } as Record<string, unknown> };
++  const accesses = { reads: 0, forbidden: 0, request: 0, sources: 0, version: 0, author: 0, resolve: 0, guard: 0, transport: 0 };
++  const forbidden = () => { accesses.forbidden++; throw new Error("forbidden_recorder_mutation"); };
++  const recorder = { hasPersisted() { accesses.reads++; return state.persisted; }, isBlocked() { accesses.reads++; return state.blocked; },
++    getAdmissionReceipt() { accesses.reads++; return state.admission; }, getPersistedMessage() { accesses.reads++; return state.message; },
++    persist: forbidden, persistApproved: forbidden, stageApproved: forbidden, markPersisted: forbidden, markRuntimePersisted: forbidden,
++    markBlocked: forbidden, markSentToProvider: forbidden, setAdmissionHandler: forbidden,
++    get message() { throw new Error("precommit_message_must_not_be_read"); }, resolveMessage: forbidden };
++  const binding: OfflineSourceBinding = { request: structuredClone(request), admission: structuredClone(admission),
++    source: { id: `fixture_source_${suffix}`, version: bytesVersion(`whole_source_${suffix}`), authorId: "fixture_author", role: "author",
++      locator: "synthetic:whole-text", purpose: "support", excerpt: raw }, origin: "direct_author", representation: "exact_whole_text",
++    senderId: request.senderId, authorId: "fixture_author", authorMappingVersion: bytesVersion("fixture_mapping_v1") };
++  const authoritativeSource = structuredClone(binding.source);
++  let currentVersion = binding.source.version, denySource = false, proofValid = true, available = true, transportOk = true;
++  let pause: (() => Promise<void>) | undefined;
++  const ports: AuthorIntentPorts = {
++    async assertRequest(action) { accesses.request++; assert.equal(action, "read_current"); },
++    async assertSources(sources, action) { accesses.sources++; assert.equal(action, "read_current");
++      if (denySource || !isDeepStrictEqual(sources, [authoritativeSource])) throw new SourceRequestError("source_purpose_denied"); },
++    async currentSourceVersion(id) { accesses.version++; assert.equal(id, binding.source.id); return currentVersion; },
++    async verifyAuthor() { accesses.author++; return proofValid ? { sourceId: authoritativeSource.id, version: authoritativeSource.version,
++      authorId: authoritativeSource.authorId, locator: authoritativeSource.locator, excerptHash: bytesVersion(authoritativeSource.excerpt) } : null; },
++  };
++  const seen: CommittedSourceInput[] = [];
++  const adapter = createOfflineAuthorSourceRequest({ toolName, ports,
++    async resolveSource(input) { accesses.resolve++; seen.push(input); await pause?.(); return available ? structuredClone(binding) : null; },
++    transport: { set(reference) { accesses.transport++; assert.equal(reference.runId, request.runId);
++      assert.match(reference.admissionHash, /^sha256:[a-f0-9]{64}$/); assert.deepEqual(Object.keys(reference).sort(), ["admissionHash", "runId"]); return transportOk; } } });
++  const controller = new AbortController();
++  const observe = () => adapter.observe(request, recorder, controller.signal);
++  const call = (id = "call_1") => ({ runId: request.runId, agentId: request.agentId, sessionId: request.sessionId, sessionKey: request.sessionKey,
++    senderId: request.senderId, toolCallId: id, toolName });
++  const factory = { agentId: request.agentId, sessionId: request.sessionId, sessionKey: request.sessionKey, requesterSenderId: request.senderId,
++    assertInvocationCurrent() { accesses.guard++; if (controller.signal.aborted) throw new Error("fixture_inactive"); } };
++  const execute = async (id = "call_1", parameters: unknown = {}) => { adapter.bindCall(call(id), call(id)); return adapter.candidate(id, factory, parameters); };
++  return { adapter, request, admission, binding, state, accesses, recorder, controller, observe, call, execute, factory, seen,
++    setVersion(v: string) { currentVersion = v; }, deny() { denySource = true; }, invalidateProof() { proofValid = false; },
++    setOriginalText(text: string) { state.message.content = text; binding.source.excerpt = text; authoritativeSource.excerpt = text; },
++    unavailable() { available = false; }, noTransport() { transportOk = false; }, pause(fn: () => Promise<void>) { pause = fn; } };
++}
++function category(code: string) { return (error: unknown) => error instanceof SourceRequestError && error.category === code; }
++
++test("T1 exact synthetic request/admission/source/call qualifies only a candidate", async () => {
++  const f = fixture(); f.observe(); assert.equal(f.accesses.reads, 0); assert.equal(f.accesses.resolve, 0);
++  const result = await f.execute(); assert.deepEqual({ ...result, source: undefined }, {
++    status: "candidate", confirmation: "candidate", code: "semantic_adoption_unavailable", source: undefined, publisherBound: false });
++  assert.deepEqual(result.source, f.binding.source); assert.equal(f.accesses.guard, 2);
++  assert.equal(f.accesses.forbidden, 0); assert.equal(f.accesses.sources, 1); assert.equal(f.accesses.author, 1);
++  assert.notEqual(f.request.runId, f.request.clientIdempotencyKey); assert.notEqual(f.admission.entryId, f.admission.idempotencyKey);
++  assert.notEqual(f.binding.source.version, bytesVersion(f.binding.source.excerpt)); f.adapter.close();
++});
++
++test("T2 actual missing-source shape never qualifies via prompt, history or source-shaped params", async () => {
++  const f = fixture(); await assert.rejects(f.execute(), category("request_inactive"));
++  f.observe(); f.unavailable(); await assert.rejects(f.execute(), category("source_producer_unavailable"));
++  assert.equal(f.accesses.author, 0); assert.equal(f.accesses.forbidden, 0);
++});
++
++test("T3 dispatch can precede commit; only first-call current committed state matters", async () => {
++  const later = fixture(); later.state.persisted = false; later.observe(); assert.equal(later.accesses.reads, 0);
++  later.state.persisted = true; assert.equal((await later.execute()).status, "candidate");
++  for (const mode of ["uncommitted", "blocked", "no_receipt", "no_message"] as const) {
++    const f = fixture(); f.state.persisted = false; f.observe();
++    f.state.persisted = mode !== "uncommitted"; f.state.blocked = mode === "blocked";
++    if (mode === "no_receipt") f.state.admission = undefined;
++    if (mode === "no_message") f.state.message = {};
++    await assert.rejects(f.execute(), category("admission_uncommitted")); assert.equal(f.accesses.resolve, 0); assert.equal(f.accesses.forbidden, 0);
++  }
++  assert.equal(later.accesses.forbidden, 0);
++});
++
++test("T4 owner/external_user/current-input strings cannot replace a trusted producer proof", async () => {
++  for (const fake of ["owner", "provenance", "id", "mapping", "proof"]) {
++    const f = fixture(); f.observe();
++    f.state.message.senderIsOwner = true; f.state.message.provenance = { kind: "external_user" };
++    f.state.message.currentUserMessage = raw; f.state.message.currentUserMessageId = "guessed_id";
++    if (fake === "owner" || fake === "provenance") f.binding.origin = "third_party";
++    if (fake === "id") f.binding.admission.entryId = "forged_entry";
++    if (fake === "mapping") f.binding.authorMappingVersion = "unverified";
++    if (fake === "proof") f.invalidateProof();
++    await assert.rejects(f.execute(), category(fake === "id" ? "request_binding_mismatch" : "author_binding_unavailable"));
++  }
++});
++
++test("T5 exact event/context/factory identities and unique calls, never session latest", async () => {
++  for (const field of ["runId", "agentId", "sessionId", "sessionKey", "senderId", "toolCallId", "toolName"] as const) {
++    const f = fixture(); f.observe(); assert.throws(() => f.adapter.bindCall(f.call(), { ...f.call(), [field]: "other" }), category("request_binding_mismatch"));
++  }
++  const f = fixture(); f.observe(); f.adapter.bindCall(f.call(), f.call());
++  assert.throws(() => f.adapter.bindCall(f.call(), f.call()), category("call_identity_conflict"));
++  await assert.rejects(f.adapter.candidate("call_1", { ...f.factory, requesterSenderId: "other" }, {}), category("request_binding_mismatch"));
++  await assert.rejects(f.adapter.candidate("call_1", f.factory, {}), category("request_binding_mismatch"));
++  assert.throws(() => f.adapter.bindCall(f.call(), f.call()), category("call_identity_conflict"));
++  const a = fixture("A"), b = fixture("B"); a.observe(); b.observe();
++  assert.equal(a.request.sessionKey, b.request.sessionKey); b.binding.request = a.binding.request; b.binding.admission = a.binding.admission;
++  assert.equal((await a.execute()).status, "candidate"); await assert.rejects(b.execute(), category("request_binding_mismatch"));
++  const client = fixture(); client.observe(); client.binding.request.clientIdempotencyKey = "another_client_key";
++  await assert.rejects(client.execute(), category("request_binding_mismatch"));
++  const nativeKey = fixture(); nativeKey.observe(); nativeKey.state.message.idempotencyKey = "another_native_key";
++  await assert.rejects(nativeKey.execute(), category("request_binding_mismatch"));
++  const capped = fixture(); capped.observe();
++  for (let i = 0; i < 32; i++) capped.adapter.bindCall(capped.call(`c${i}`), capped.call(`c${i}`));
++  assert.throws(() => capped.adapter.bindCall(capped.call("overflow"), capped.call("overflow")), category("call_identity_conflict"));
++});
++
++test("T6 duplicate observation is idempotent; changed request/admission or new request cannot reuse proof", async () => {
++  const f = fixture(); f.observe(); f.observe(); await f.execute();
++  await f.execute("call_2"); assert.equal(f.accesses.resolve, 1); assert.equal(f.accesses.sources, 1);
++  assert.throws(() => f.adapter.observe({ ...f.request, clientIdempotencyKey: "new_request" }, f.recorder, f.controller.signal), category("request_binding_mismatch"));
++  await assert.rejects(f.execute("call_3"), category("request_inactive"));
++  const changed = fixture(); changed.observe(); await changed.execute(); changed.state.admission = { ...changed.admission, entryId: "other_entry" };
++  await assert.rejects(changed.execute("call_2"), category("admission_replay_conflict"));
++  const ambiguous = fixture(); ambiguous.observe();
++  assert.throws(() => ambiguous.adapter.observe(ambiguous.request, Object.create(ambiguous.recorder), ambiguous.controller.signal), category("request_binding_mismatch"));
++  await assert.rejects(ambiguous.execute(), category("request_inactive"));
++  const next = fixture("B"); next.observe(); next.deny(); await assert.rejects(next.execute(), category("source_purpose_denied"));
++  assert.equal(next.accesses.request, 1); assert.equal(next.accesses.resolve, 1);
++});
++
++test("T7 model parameter authority and third-party/internal/inter-session sources are rejected", async () => {
++  for (const parameters of [{ owner: true }, { confirmation: "author_confirmed" }, { source: "fake" }, { currentUserMessage: raw }, [], null]) {
++    const f = fixture(); f.observe(); await assert.rejects(f.execute("call", parameters), category("tool_arguments_invalid")); assert.equal(f.accesses.resolve, 0);
++  }
++  for (const origin of ["third_party", "assistant", "internal", "inter_session"] as const) {
++    const f = fixture(); f.observe(); f.binding.origin = origin; await assert.rejects(f.execute(), category("author_binding_unavailable"));
++  }
++  for (const kind of ["inter_session", "internal_system"]) {
++    const f = fixture(); f.observe(); f.state.message.provenance = { kind }; await assert.rejects(f.execute(), category("author_binding_unavailable"));
++  }
++});
++
++test("T8 no normalization or attachment projection is silently declared exact author original", async () => {
++  for (const changed of [` ${raw}`, `${raw}\n`, `\uFEFF${raw}`, "\u00e9", "assistant rewritten text"]) {
++    const f = fixture(); f.observe(); if (changed === "\u00e9") f.binding.source.excerpt = "e\u0301";
++    f.state.message.content = changed; await assert.rejects(f.execute(), category("source_representation_unverified"));
++  }
++  for (const field of ["media", "attachments"]) {
++    const f = fixture(); f.observe(); f.state.message[field] = []; await assert.rejects(f.execute(), category("source_representation_unverified"));
++  }
++  const projected = fixture(); projected.observe(); projected.binding.representation = "projected";
++  await assert.rejects(projected.execute(), category("source_representation_unverified"));
++  const altered = fixture(); altered.observe(); altered.pause(async () => { altered.state.message.content = "changed during qualification"; });
++  await assert.rejects(altered.execute(), category("admission_replay_conflict"));
++});
++
++test("T9 first supply/new request recheck sources; admitted continuations do not implement live revocation", async () => {
++  const stale = fixture(); stale.observe(); stale.setVersion(bytesVersion("changed_source"));
++  await assert.rejects(stale.execute(), category("source_version_conflict"));
++  const denied = fixture(); denied.observe(); denied.deny(); await assert.rejects(denied.execute(), category("source_purpose_denied"));
++  const moved = fixture(); moved.observe(); moved.binding.source.locator = "synthetic:other-location";
++  await assert.rejects(moved.execute(), category("source_purpose_denied"));
++  const current = fixture(); current.observe(); await current.execute(); current.setVersion(bytesVersion("later_version")); current.deny();
++  assert.equal((await current.execute("continuation")).status, "candidate"); assert.equal(current.accesses.version, 1); assert.equal(current.accesses.sources, 1);
++  const next = fixture("B"); next.observe(); next.setVersion(bytesVersion("later_version")); await assert.rejects(next.execute(), category("source_version_conflict"));
++  // No publisher/transaction/CAS is exposed by this module. Existing writer CAS is not simulated as passing here.
++  assert.equal("publish" in current.adapter, false); assert.equal("ports" in current.adapter, false);
++});
++
++test("T10 cancellation, missing transport acceptance and closed/recreated instances fail closed", async () => {
++  const canceled = fixture(); canceled.observe(); canceled.controller.abort(); await assert.rejects(canceled.execute(), category("request_inactive"));
++  const late = fixture(); late.observe(); late.pause(async () => { late.controller.abort(); }); await assert.rejects(late.execute(), category("request_inactive"));
++  const transport = fixture(); transport.observe(); transport.noTransport(); await assert.rejects(transport.execute(), category("run_context_unavailable"));
++  await assert.rejects(transport.execute("retry"), category("request_inactive"));
++  const closed = fixture(); closed.observe(); closed.adapter.close(); closed.adapter.close(); await assert.rejects(closed.execute(), category("request_inactive"));
++  const restarted = fixture(); await assert.rejects(restarted.execute(), category("request_inactive")); assert.equal(restarted.accesses.resolve, 0);
++  const stale = fixture(); stale.observe(); stale.adapter.bindCall(stale.call(), stale.call());
++  await assert.rejects(stale.adapter.candidate("call_1", { ...stale.factory, assertInvocationCurrent() { throw new Error("stale_fixture_guard"); } }, {}), /stale_fixture_guard/);
++  assert.equal(stale.accesses.resolve, 0);
++});
++
++test("T11 ambiguous new input/concurrent first qualification rejected, same-request tool continuation allowed", async () => {
++  const f = fixture(); f.observe(); let release!: () => void;
++  f.pause(() => new Promise<void>(resolve => { release = resolve; }));
++  const first = f.execute("first"); await Promise.resolve(); await Promise.resolve();
++  await assert.rejects(f.execute("concurrent"), category("request_concurrency_unsupported")); release();
++  assert.equal((await first).status, "candidate"); assert.equal((await f.execute("continuation")).status, "candidate");
++  f.state.admission = { ...f.admission, logicalTurnId: "new_user_input" };
++  await assert.rejects(f.execute("ambiguous"), category("admission_replay_conflict")); assert.equal(f.accesses.resolve, 1);
++});
++
++test("T12 source qualification never manufactures semantic adoption, even for confirmation-shaped text", async () => {
++  for (const text of ["Synthetic: why do you interpret it this way?", "Synthetic: yes", "Synthetic: scope remains unresolved"]) {
++    const f = fixture(); f.setOriginalText(text); f.observe();
++    const result = await f.execute(); assert.equal(result.confirmation, "candidate"); assert.equal(result.publisherBound, false);
++    assert.equal(result.code, "semantic_adoption_unavailable"); assert.equal("author_confirmed" in result, false);
++    assert.equal(f.accesses.forbidden, 0);
++  }
++});
+diff --git a/docs/design/2026-10-31-offline-author-source-request.md b/docs/design/2026-10-31-offline-author-source-request.md
+new file mode 100644
+index 00000000..f8a64075
+--- /dev/null
++++ b/docs/design/2026-10-31-offline-author-source-request.md
+@@ -0,0 +1,40 @@
++# 单请求来源适配：合成离线薄片
++
++2026-10-31。接续[来源设计](2026-10-31-current-author-source-adapter.md)的独审条件，仅实现离线合同；原设计、原报告及第五次 Host 结果保持原字节。代码为 [offline-author-source-request.ts](../../src/openclaw/offline-author-source-request.ts)，定向用例为 [offline-author-source-request.test.ts](../../tests/offline-author-source-request.test.ts)，冻结与实测摘要见[交付证据](../../.task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.json)。没有正式插件接线或真实来源适配器。
++
++## 本轮实施合同
++
++- **被动采集与资格判定分开。** `observe` 只复制最小请求事实、保存公开 recorder 引用/取消 signal，不调用 recorder 的任何方法，不等待提交。首次 `candidate` 同步调用只读 `hasPersisted/isBlocked/getAdmissionReceipt/getPersistedMessage`，在所有资格判断的 await 之前形成快照。dispatch 尚未提交、首次调用前已提交可以进入离线资格判断；首次调用仍未提交或 blocked 则拒绝。没有 persist/stage/mark/setAdmissionHandler 调用，也不接管 dispatch。
++- **资格从可信端口来。** 复用既有 `AuthorIntentPorts.assertRequest/assertSources/currentSourceVersion/verifyAuthor`。本片另需一个最小 `resolveSource(CommittedSourceInput)` 交接回调，将当前已提交输入关联到来源；这正是生产环境尚缺的接缝，本轮只有合成夹具实现。它不能来自模型参数。测试的作者/原文/映射证明独立保存在合成夹具中，不通过回显工具参数产生。
++- **四种身份分别核对。** Request 保存 runId 与客户端 idempotencyKey；native receipt 保存 entry/logicalTurn/generation/序列及自身 idempotencyKey；Source.version 单独校验。已提交 message 的原生键须与 receipt 一致。来源回调的 request 和完整 admission 必须与实际快照一致。call 的 event/context 必须一致，且 factory 的 agent/session/requester 和 execute call ID 对应此请求。客户端键、runId、文本 hash 均不代替 native admission。
++- **不支持的歧义明确拒绝。** 一个对象仅持有一个请求；相同观察幂等，变更请求或换 recorder/signal 使该对象失败。引用相同只用于排除歧义，不签发作者资格。不做 session→latest 或全局身份索引。call ID 在此请求中只能使用一次，总量上限 32；同时进行首次资格判断的第二个调用拒绝。一个 run 注入新 admission 而无法证明 call 对应哪个输入时拒绝。
++- **runContext 仅运输小引用。** 可选 transport 只写 runId/admissionHash；没有读取、恢复或签发许可接口，set 未接受则明确失败。关闭/取消清除对象内绑定。新实例、新用户请求均不能读取旧对象资格。
++- **沿用 D-058。** 首次供给核对当前 Source 版本/用途；同一已合法入场请求的工具续轮复用该来源快照，不重新读取来源版本实施即时撤回。下一用户请求重新检查。receipt/admission 的变更属于请求身份冲突，仍拒绝。正常取消和调用活性 guard 保留。
++- **发布始终关闭。** 返回值只能是 candidate / semantic_adoption_unavailable，publisherBound 恒 false；没有 publish、writer 或语义采纳入口。只使用 read_current 资格动作。发布 CAS 仍由既有 writer 独立负责，本轮没有模拟或重跑 CAS，更没有将它算作新通过。先前单资产/CAS 证据保留原身份。
++
++## 实际验证
++
++直接 TypeScript 编译整个测试工程到任务专属临时目录，exit 0。随后一次定向运行新增 12 组和原有候选工具 5 项，共 **17/17 pass，0 fail/cancel/skip/todo**。无全量测试、Host 第六次、真实模型或语义评测。
++
++| 组 | 实际覆盖 |
++| --- | --- |
++| T1 | 精确合成 request/admission/source/call；独立四种身份；只返回候选；被动采集零读取 |
++| T2 | 无观察/无可信来源回调结果时拒绝；prompt/history 形状不能补来源 |
++| T3 | dispatch 未提交→首次调用前提交可用；首次仍未提交、blocked、缺 receipt/message 拒绝；提交/handler 方法零调用 |
++| T4 | owner、external_user、伪当前 ID、缺映射版本、无作者证明均不产生作者资格 |
++| T5 | event/context/factory 的 run/call/session/requester、客户端键/原生键错配；已消费 call 重绑、容量上限拒绝；同 session 不取最新资格 |
++| T6 | 重复观察幂等；换请求/recorder、变 admission 拒绝；同文本新请求独立重新检查 |
++| T7 | 模型参数携带 owner/confirmation/source/原话拒绝；第三方、assistant、internal、inter-session 拒绝作为作者来源 |
++| T8 | BOM/NFC/trim/改写、附件/投影、异步资格期间输入变更拒绝；不声称真实转换无损 |
++| T9 | 首次及新请求的来源版本、locator、用途拒绝；已合法供给后的同请求续轮不实施即时撤回；无发布出口（CAS 未执行） |
++| T10 | 取消、资格期间取消、失活 guard、transport set=false、关闭/重建对象无资格；未知/失败不自动恢复 |
++| T11 | 并发首次判断拒绝；同请求模型工具续轮可用；同 run 新输入造成的 admission 歧义拒绝 |
++| T12 | 即使文本形似确认，也只返回缺语义证据的候选；固定夹具不证明理解 |
++
++历史首轮 12 组为 10 pass/2 fail：测试 helper 在 bindCall 阶段同步抛错，与 assert.rejects 用法不匹配；修正包装器后原 12/12 通过。该红例不是已证明的产品安全缺陷。后续补充已消费 call 重绑/歧义拒绝、独立合成来源证明、locator/键/guard/容量负例，最后定向组合 17/17。原失败回执与源 hash 保留，不与最终通过累加。
++
++## 交接边界
++
++本轮没有提供真实 authorId/sender 映射，没有证明真实入口/recorder 生命周期、原文与 NFC/trim/附件投影的关系或真实 call→admission 关联。代码没有 import OpenClaw runtime、注册 hook、改正式工具/权限、调用真实 writer；运行时代码仅依赖现有纯结构/摘要模块，类型端口导入被编译擦除。真实接线继续阻塞，不能因为离线合成端口通过而开启 publisher。
++
++下一步先独审这两份代码及限定合同。接着才选择一个已有私人入站入口，证明来源生产和只读 recorder 生命周期；如无公开保证，报告缺失能力并保持候选。真实输入、任何额外 Host 次数或模型调用需各自已有授权，当前追加 Host 批次仍 3/3 耗尽。第四次历史 unknown 和所有五次旧 claim/result 保留。没有提交、推送或依赖安装。
+diff --git a/tmp/core-offline-source-adapter-20261031-h1riuk1v/PROJECT-before.yaml b/PROJECT-STATE.yaml
+index 32a05ebb..51600a2d 100644
+--- a/tmp/core-offline-source-adapter-20261031-h1riuk1v/PROJECT-before.yaml
++++ b/PROJECT-STATE.yaml
+@@ -525,3 +525,17 @@ bounded_host_and_source_evidence_20261031:
+   publisher_bound: false
+   full_memory_accepted: false
+   historical_limit: attempt4 original group unknown remains historical; no old resource queries in this evidence package
++
++# Synthetic-only implementation supplement; no production source-adapter activation.
++offline_author_source_contract_20261031:
++  module: src/openclaw/offline-author-source-request.ts
++  evidence: .task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.json
++  contract: docs/design/2026-10-31-offline-author-source-request.md
++  result: direct TypeScript compilation and17focused cases pass (12newgroups plus5existing candidate-tool cases)
++  passive_capture: recorder reference only; synchronous committed snapshot at first protected call
++  source_checks: first supply and new request; admitted continuations retain source snapshot under D058
++  production_wiring: false
++  real_source_and_author_mapping_verified: false
++  semantic_adoption_accepted: false
++  publisher_bound: false
++  publication_cas_executed_by_this_package: false
