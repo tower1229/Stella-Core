@@ -28,7 +28,7 @@ test('synthetic waiting owner',async()=>{await recordOwnedWorkState({status:'com
     if (mode === "timeout") {
       const actual = new URL("../../scripts/lib/captured-command.mjs", import.meta.url).href;
       await writeFile(path.join(root, "scripts/lib/captured-command.mjs"), `import assert from 'node:assert/strict';import {captureCommand as real} from ${JSON.stringify(actual)};
-export function captureCommand(command,args,options,capture){assert.equal(options.timeout,600000);assert.equal(options.maxBuffer,32*1024*1024);
+export function captureCommand(command,args,options,capture){assert.equal(options.timeout,capture.stdoutPath.endsWith('test.stdout')?900000:600000);assert.equal(options.maxBuffer,32*1024*1024);
 return real(command,args,{...options,timeout:capture.stdoutPath.endsWith('test.stdout')?1500:options.timeout},capture);}`);
     }
     const cliFile = path.join(root, "scripts/run-workspace-tests.mjs");
