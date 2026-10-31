@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-31T10:29:21.514579+00:00",
+  "baseCommit": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539",
+  "phase": "candidate_code_ready_main_restored_pending_concentrated_review_and_host_declared_tool_consent",
+  "scope": "Explicit unconfirmed synthetic work-brief draft save/read/versioned replacement; no semantic classification or confirmed author publication",
+  "implementation": {
+    "entry": "src/ordinary-plugin.ts",
+    "adapter": "src/openclaw/candidate-work-brief.ts",
+    "proposalParser": "src/openclaw/work-brief-proposal.ts",
+    "reusedRepository": "src/canghai/author-intent-repository.ts",
+    "schema": "stella.author-intent/v1 unchanged",
+    "newTool": "stella_work_brief",
+    "actions": [
+      "read",
+      "save"
+    ],
+    "newConfiguration": "candidateDraftsRoot",
+    "fixedDirectory": "drafts/<validated briefId>",
+    "candidateOnly": true,
+    "publisher": false,
+    "sourceSemantics": "one enclosed unverified assistant proposal; evidence references opaque, never fetched",
+    "trustedAuthorOrInputAdmission": "not connected",
+    "access": "configured agent; captured Host v2 guard; existing owner-only debug access, not author proof; workspace-only root restriction; sandbox rejected",
+    "freshness": "new repository and qualification ports per call, exact expectedVersion CAS for update; no session/latest/grant cache",
+    "transaction": "existing local Git journal/fence/clean-CAS; no new DB, remote or model client",
+    "sizeLimit": "enclosed canonical proposal excerpt <=16384 characters; explicit rejection, no truncation"
+  },
+  "validation": {
+    "testCompileExit": 0,
+    "buildExit": 0,
+    "focused": {
+      "tests": 53,
+      "pass": 53,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "newDraftGroups": 9,
+      "retainedOrdinary": 5,
+      "retainedBinding": 10,
+      "retainedRepository": 29
+    },
+    "testedFlow": "fresh tool factories: save A, new-request read A, CAS modification B, new-request read B; real synthetic Git commits on disk",
+    "negativeCases": [
+      "stale CAS",
+      "operation ID content conflict",
+      "old operation retry reports original/current separately without rollback",
+      "confirmation/source/path injection",
+      "unconfigured store",
+      "invalid marker",
+      "oversize",
+      "dirty Git",
+      "closed or replaced guard",
+      "owner mismatch",
+      "sandbox",
+      "workspace escape"
+    ],
+    "realGatewayDraftConsumer": "not_run",
+    "modelSemanticUse": "not_run",
+    "newPaidRequests": 0,
+    "legacyFullSuite": "not_run; old26 not a precondition"
+  },
+  "actualMain": {
+    "baselineGeneration": 8,
+    "newGenerationApplied": false,
+    "newWorkBriefRpcCalls": 0,
+    "newModelCalls": 0,
+    "configValidation": {
+      "initialRestrictedCliExit": 1,
+      "initialReason": "normal private cache directory unavailable in restricted invocation; no schema result",
+      "sameCommandNormalApprovalExit": 0,
+      "schemaValid": true
+    },
+    "firstReload": {
+      "exitCode": 1,
+      "reason": "Config invalid; run openclaw doctor --fix before managing plugins",
+      "configAtAttempt": "only new Core candidateDraftsRoot; opaque backup retained",
+      "diagnosis": "plain and management-style read-only snapshots valid; first live management discrepancy cause unproven"
+    },
+    "secondReload": {
+      "exitCode": 1,
+      "reason": "Plugin stella-core requires capability consent",
+      "configuration": "new option deferred; exact baseline config",
+      "permissionChangeApplied": false,
+      "acceptCapabilitiesFlagUsed": false,
+      "doctorUsed": false
+    },
+    "capabilityReview": {
+      "acceptedTools": [
+        "stella_author_intent_candidate",
+        "stella_status"
+      ],
+      "declaredTools": [
+        "stella_status",
+        "stella_author_intent_candidate",
+        "stella_work_brief"
+      ],
+      "addedTools": [
+        "stella_work_brief"
+      ],
+      "addedContracts": [
+        "tools: stella_work_brief"
+      ],
+      "otherDeclaredCapabilityChanges": [],
+      "inspectionRuntimeImported": false,
+      "capabilityCount": 0,
+      "source": "official plugins inspect stella-core --json; code-derived consent gate before runtime application",
+      "notAutomaticApprovalReviewDenial": true
+    },
+    "rollback": {
+      "restoredFilesMatch": 2734,
+      "mainConfigRestoredExactly": true,
+      "mainConfigSha256": "baa78a2ae7c71c4f8e74ba19a8315f01ec9911a9ebb173cd38c04f39c8390583",
+      "candidateRoot": ".artifacts/candidate-work-brief-20261031/package",
+      "candidateRetained": true,
+      "noCapabilityConsentAccepted": true,
+      "noNewWorkBriefRpcCalls": true
+    },
+    "afterRollbackStatus": {
+      "rpcExitCode": 0,
+      "ok": true,
+      "persistence": "none",
+      "publisher": false,
+      "sourceAdapter": "not_connected",
+      "requestBinding": "public-tool-hook-metadata"
+    },
+    "configRestoredSha256": "baa78a2ae7c71c4f8e74ba19a8315f01ec9911a9ebb173cd38c04f39c8390583",
+    "originalAndSyntheticDataDeleted": false
+  },
+  "candidate": {
+    "artifact": ".artifacts/candidate-work-brief-20261031/package",
+    "files": 2741,
+    "manifestSha256": "1629d9edb86e2a502da28b165ffee0cfd90e3482fc6c4897d565136f647a5730",
+    "syntheticStore": ".artifacts/candidate-work-brief-data-20261031",
+    "storeInitial": {
+      "head": "27435af80ecdb8f0fca2ea300057cefc3dca6607",
+      "hasRemotes": false,
+      "onlyMarkerCommitted": true
+    },
+    "installedProductionDeltaFiles": 10,
+    "unchangedOtherCompiledDependencies": true,
+    "fullMain8Rollback": ".artifacts/candidate-work-brief-main8-rollback-20261031/package"
+  },
+  "remaining": [
+    "One concentrated review of candidate implementation and exact new declared tool",
+    "Host consent decision for only stella_work_brief before actual reload; no accept flag applied",
+    "Then schema-first official Core-only reload, enable prepared synthetic store and reload, four no-model Gateway steps",
+    "No actual Gateway cross-request restore, model discovery/semantic adoption, real author/source admission, private-memory or full_memory acceptance yet",
+    "Interrupted fenced updates may require deliberate repository-level recovery; thin tool does not bypass fence"
+  ],
+  "nextDemonstration": {
+    "requests": 4,
+    "paidModelRequests": 0,
+    "steps": [
+      "save fictional harbor brief with operation create_A and expectedVersion null",
+      "new RPC read harbor, retain exact version A",
+      "save full revised harbor with operation revise_B and expectedVersion A",
+      "new RPC read harbor; verify B and retained unresolved questions"
+    ],
+    "sourceData": "fictional only; prepared dedicated synthetic Git store, no remote",
+    "noNewIdentityOrExternalSourceGrant": true
+  },
+  "files": {
+    "src/ordinary-plugin.ts": "a1c0d4bdecf483fbe531aa69ca7e37ff3182097cd700289d3c125b3a5a45145d",
+    "src/openclaw/work-brief-proposal.ts": "0223ee14c0ee0ed55a0d17f1c49adcc030af98fc1330d057a6ad120afc711398",
+    "src/openclaw/candidate-work-brief.ts": "a74f581caf248ed908f5682a9f2dcacecf72a95f3ce82696e9640976638b6c83",
+    "tests/ordinary-plugin.test.ts": "ad832b2d00c7fab0c52c886c1e46ce9548d3f88f1bdf7575e625909aca81537e",
+    "tests/candidate-work-brief.test.ts": "ec7a88d002211cf2b373d028f8d7a18d3d48ca0f308822f1ed1b29cc07824b4d",
+    "openclaw.plugin.json": "03a2903b3c2ba7a06436b60198368d164936fe57ad369f11bd30e7e866330809",
+    "package.json": "583aa58d621e4ed77142f0f4a56752aa8dd25c63d7b422cdbfc64e200251c80c",
+    "README.md": "42d1f76fd92bf83ec8858873716fe70e2b0e9d52d048ba5946bf2082da871b61",
+    "docs/MAIN-DEBUG-INSTALL.md": "670498439afb3f2ae75e323f53404deee5b9dec21ce3448f47f3329760ba738a",
+    "docs/CANDIDATE-WORK-BRIEF.md": "3dddd0c2ee8f113661bfb217b8b33b0f0b673f451df65d6dcd42420d6932bc5d"
+  },
+  "patch": {
+    "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-20261031.patch",
+    "sha256": "59336e17dc9b444083463aff2570332c949c028b874154a042bb7e952077307d"
+  },
+  "scan": {
+    "files": 10,
+    "secretPatternsFound": 0,
+    "noConfigBackupsDatabasesOrRawLogsInRepositoryEvidence": true
+  },
+  "delivery": {
+    "commit": "not_created",
+    "push": "not_run",
+    "concentratedReview": "pending"
+  },
+  "rawEvidenceHashes": {
+    "focused-tests.stdout": "1d8936a603ec91602420d8dd5238d831c80223e7f77ee2c41c55bb7768e612e1",
+    "focused-tests.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reload.stdout": "178b0ce8d922aefbe53ab96a98a5c2b81e7964bfcadbfff14c843c929c15791e",
+    "reload-schema.stdout": "618c091e29494b32e5935ef797f15c031acea3515d9c3a39e46e14cf0422698d",
+    "candidate-inspect.stdout": "007e0d0d60778f698deae9a984cefcb3f05926bd4334dff56db2e9200dfa0c6b",
+    "ROLLBACK-COMPLETE.json": "a0f3b2b6cd66522d866d1c89a7997c778d94617618d8d99e4f86d8dfd57f3f31",
+    "main-restored-status.stdout": "86e69922dc44a91d1b807fae75e5af02a6c2a623386926e6b5c8e29de23edad1"
+  },
+  "privateLocalDiagnosticRoot": "/tmp/core-work-brief-20261031-jf0_fk2r",
+  "fixedHost": {
+    "version": "2026.10.8",
+    "files": {
+      "openclaw.mjs": "98caf565334400768d4a8ee54f7f9302c4b2c79881552c79785ed7d66da6a996",
+      "dist/management-config-BYEA2Hwl.mjs": "9168aa236d2692ce05fce07ae7d434d9598a3efaab399d080141d480b39c877d",
+      "dist/management-mutations-DHvpC5KB.mjs": "651273dc953b2c30f85c19312d87567e55541e36ee4d916c952a1bd567514cc1",
+      "dist/capability-consent-JPgjdlWr.mjs": "20dfe6d35f9e594b9ee4edafd02ac21314113f064772870b99ef73679b89b233",
+      "dist/tools-invoke-DmR7b8R2.mjs": "5009df024f87f8e4f0bdaae79868e04a34b4d9b727c42a1836a5781613838fb8"
+    }
+  },
+  "reusedSourceHashes": {
+    "src/canghai/author-intent-repository.ts": "a0133a913a0e860095336d5abc12eb7c10c0d3330a0ac323e69e408acdb19d5e",
+    "src/canghai/author-intent-asset.ts": "15acc47b55a373be56b000efa1ab6a4fc67612f7fa89c2c43ef27aa5cd4b4bb5",
+    "src/canghai/memory-transaction.ts": "dbe1fb87b7af2a3ef847bfdaf8eae37f80484d3073f265d3287ab7c933f6c345",
+    "src/canghai/content-version.ts": "12830edf4006307e12a1819c49032b3199570038994729a4bacb2f02d6035f64",
+    "src/openclaw/tool-request-binding.ts": "328fc4f52b887197006df00d8c4e5987b2018dd6b6c3466545dcecf30ea5dea2"
+  }
+}

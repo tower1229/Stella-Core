@@ -543,3 +543,39 @@ tool_binding_r1_and_realmodel_20261031:
   main_r1_promotion_after_review: generation8; official Core-only reload succeeded, no Gateway restart
   main_r1_promotion_scope: three compiled helper files, same tracked path; main config unchanged; complete preR1 artifact rollback retained
   main_r1_status: no-model status passed; source/publisher off; no further paid request
+
+
+candidate_work_brief_20261031:
+  evidence: .task-control/reports/CORE-VAL-001/candidate-work-brief-20261031.json
+  implementation: explicit stella_work_brief read/save; existing author-intent v1 asset and Git transaction repository
+  qualification: configured synthetic-debug store only; captured Host guard and existing owner restriction are not author proof
+  versions: exact expectedVersion CAS; separate operation identity; original/current versions distinguished on replay
+  data: unverified enclosed assistant proposal; evidence references opaque; no real source lookup or confirmed memory
+  focused_tests: 53 passed, 0 failed; 9 new draft groups and 44 retained ordinary/binding/repository groups
+  real_gateway_draft_calls: 0
+  installation_observation: official reload refused additional declared stella_work_brief until capability consent; no acceptance flag used
+  main_restore: 2734 package files exactly match pre-change main8; config bytes restored; actual no-model status persistence none/source disconnected/publisher false
+  candidate_artifact: .artifacts/candidate-work-brief-20261031/package
+  synthetic_store: .artifacts/candidate-work-brief-data-20261031; own Git, marker-only, no remotes
+  model_calls_by_this_increment: 0
+  publisher: false
+  limits: no actual Gateway draft consumer, semantic adoption, real author/source, private-memory or full_memory acceptance
+
+
+candidate_work_brief_actual_main_20261031:
+  evidence: .task-control/reports/CORE-VAL-001/candidate-work-brief-main-20261031.json
+  independent_review: code/synthetic boundary accepted; 53/53 independent focused tests
+  main_gateway_generation: 11
+  scoped_reload: official schema-first Core-only reload; restartRequired false
+  declared_surface: stella_work_brief plus matching tools contract accepted persistently until revoked; no new OS/identity/auth/source grant
+  actual_consumer: 4 successful separate public SDK owner-context tools.invoke calls; save A/read A/CAS update B/read B
+  first_ordinary_cli_failure: generic tool error; preserved separately; store remained marker-only clean; fixed CLI requests operator.write while tool needs Host owner context
+  total_tool_submissions: 5; first ordinary CLI failure and 4 public SDK successes
+  first_second_versions: [sha256:9cda6c6420135577c236e4f367c1ed7a76349234de2ce8e24102651e4ab368c5, sha256:30abae0790ffdf7b8ba54c82bedc6fba333f690ebb966e1e90c6491c92bd72d8]
+  actual_draft_commits: [c34534822dafaee8f1ab4164b2a6b620445e922c, b016720f96abc53ac4e3a53953f84ec8c4d7d298]
+  persistence: local_committed; exact proposals and unresolved questions restored; previousVersion A verified for B
+  configured_store: fixed .artifacts/candidate-work-brief-data-20261031; own Git, 8 tracked files, clean, no remotes
+  authority: unconfirmed assistant proposal only; authorConfirmation false; publisher false; source/input admission disconnected
+  main_configuration: only Core candidateDraftsRoot added; opaque hash 85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4
+  model_requests: 0
+  limits: model discovery/semantic adoption/real author or source/full_memory not accepted

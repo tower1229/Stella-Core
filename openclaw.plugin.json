@@ -5,7 +5,8 @@
   "contracts": {
     "tools": [
       "stella_status",
-      "stella_author_intent_candidate"
+      "stella_author_intent_candidate",
+      "stella_work_brief"
     ]
   },
   "toolMetadata": {
@@ -15,6 +16,11 @@
       ]
     },
     "stella_author_intent_candidate": {
+      "profiles": [
+        "coding"
+      ]
+    },
+    "stella_work_brief": {
       "profiles": [
         "coding"
       ]
@@ -39,6 +45,12 @@
         "type": "boolean",
         "const": false,
         "default": false
+      },
+      "candidateDraftsRoot": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096,
+        "description": "Optional dedicated synthetic-debug Git repository; explicit initialization marker required. No legacy or private source repository."
       }
     }
   }

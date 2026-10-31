@@ -77,3 +77,21 @@ This debug milestone does not enable confirmed publication, connect private
 sources, migrate old state, call paid models or establish `full_memory`.
 The previously exhausted isolated Host batch remains historical and is not
 reused by the main-instance installation.
+
+The later optional [unconfirmed work-brief increment](CANDIDATE-WORK-BRIEF.md)
+adds `stella_work_brief` and `candidateDraftsRoot` for an explicitly initialized,
+separate synthetic-debug Git store. It preserves the candidate-only authority
+boundary while allowing explicit save and versioned restore across requests.
+Without this configuration, persistence remains disabled. The initial installation
+facts above retain their historical identity; the new increment has separate
+tool, transaction, installation and rollback evidence.
+
+The reviewed draft increment is now loaded on main at generation 11. The official
+reload first accepted only the added declared tool, then enabled the fixed
+synthetic root. That declared-surface acceptance persists until revoked; it is
+not a four-call grant or OS/source permission. Four public SDK owner-context
+calls verified save/read/CAS update/read without a model. Ordinary CLI
+`tools.invoke` selects only `operator.write`, so use the existing authorized
+owner SDK entry described in the draft guide. Initial failures and main8 rollback
+remain historical; the current main package is the reviewed candidate, with
+native memory/context/Agent loop unchanged.

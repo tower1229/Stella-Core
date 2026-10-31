@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { Ajv } from "ajv";
-import plugin, { CANDIDATE_TOOL, STATUS_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
+import plugin, { CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 
 const proposal = { topic: "Synthetic writing task", interpretation: "A proposed argument, not a confirmed conclusion",
@@ -30,7 +30,7 @@ test("default package is ordinary and historical config is rejected without impo
     assert.equal(validate(config), false); assert.throws(() => parseOrdinaryConfig(config));
   }
   assert.deepEqual(parseOrdinaryConfig({}), { agentId: "main", publisher: false });
-  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL].sort());
+  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL].sort());
 });
 
 test("registration contributes guarded ordinary tools, a metadata-only hook and a no-model command", async () => {

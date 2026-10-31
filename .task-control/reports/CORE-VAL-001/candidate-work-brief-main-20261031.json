@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-31T11:20:27.770729+00:00",
+  "baseCommit": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539",
+  "phase": "reviewed_native_candidate_draft_consumer_pass_prepare_save",
+  "implementationReport": {
+    "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-20261031.json",
+    "sha256": "50ea81c8e27fea0e92001e904a0bc2744ce5c9b475b6939206b9af333bdb3ab8"
+  },
+  "independentReview": {
+    "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-review-20261031.json",
+    "sha256": "945f39758113124258610fd4a4fdb61ad3c65ba494026efa2752c65f816698fb",
+    "originalSummarySha256": "f4707a8fe9900b3468c6409bed45208ccb6bdfc5a185c10b244367297ffd334d",
+    "focused": "53/53pass; no suite rerun for this activation"
+  },
+  "main": {
+    "hostVersion": "2026.10.8",
+    "consentReload": {
+      "exitCode": 0,
+      "generation": 9,
+      "restartRequired": false
+    },
+    "fixedStoreReload": {
+      "exitCode": 0,
+      "generation": 11,
+      "restartRequired": false,
+      "sourceDigest": "3e8e3e092943ab0172df1cb1fe78bffd10c81fa5e1c51be3a3cadf4dfec388bf"
+    },
+    "installedRoot": ".artifacts/tool-request-binding-20261031/package",
+    "installedFilesMatched": 2741,
+    "installedManifestSha256": "1629d9edb86e2a502da28b165ffee0cfd90e3482fc6c4897d565136f647a5730",
+    "codeMatchesAcceptedArtifact": true,
+    "installedDocumentationIdentity": "reviewed pre-activation docs frozen with package; repository guide now records subsequent actual consumer result, no runtime code change",
+    "consent": {
+      "acceptedSurface": {
+        "channels": [],
+        "providers": [],
+        "tools": [
+          "stella_author_intent_candidate",
+          "stella_status",
+          "stella_work_brief"
+        ],
+        "contracts": [
+          "tools: stella_author_intent_candidate",
+          "tools: stella_status",
+          "tools: stella_work_brief"
+        ],
+        "hooks": [],
+        "mcpServers": [],
+        "cliCommands": [],
+        "cliBackends": [],
+        "skills": [],
+        "dangerousConfigFlags": []
+      },
+      "acceptedSurfaceHash": "f57b121351a720f239f5eb64489bd9802dd7acc085cf13022c4b0665abbd1f3c",
+      "persistence": "durable until revoked, not four-call quota",
+      "addsOsIdentityAuthOrSourceGrant": false,
+      "acceptedThrough": "official plugins reload --accept-capabilities after concentrated review/parent assignment"
+    },
+    "configuration": {
+      "beforeSha256": "baa78a2ae7c71c4f8e74ba19a8315f01ec9911a9ebb173cd38c04f39c8390583",
+      "afterSha256": "85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4",
+      "onlySemanticChange": "plugins.entries.stella-core.config.candidateDraftsRoot",
+      "fixedRoot": ".artifacts/candidate-work-brief-data-20261031",
+      "privateBackupRetained": true,
+      "noOtherConfigChange": true
+    },
+    "publisher": false,
+    "sourceAdapter": "not_connected"
+  },
+  "demo": {
+    "gatewaySdkSubmissions": 4,
+    "priorCliFailureSubmissions": 1,
+    "requestedExistingScopes": [
+      "operator.admin"
+    ],
+    "allExitCodes": 0,
+    "steps": [
+      "save_A",
+      "new_request_read_A",
+      "CAS_update_B",
+      "new_request_read_B"
+    ],
+    "briefId": "harbor_main_demo",
+    "firstVersion": "sha256:9cda6c6420135577c236e4f367c1ed7a76349234de2ce8e24102651e4ab368c5",
+    "secondVersion": "sha256:30abae0790ffdf7b8ba54c82bedc6fba333f690ebb966e1e90c6491c92bd72d8",
+    "firstCommit": "c34534822dafaee8f1ab4164b2a6b620445e922c",
+    "secondCommit": "b016720f96abc53ac4e3a53953f84ec8c4d7d298",
+    "expectedPreviousVersionMatched": true,
+    "exactProposalRestoredEachTime": true,
+    "unresolvedQuestionsRetained": true,
+    "candidateOnly": true,
+    "authorConfirmation": false,
+    "publisher": false,
+    "evidenceReferences": "opaque/unverified",
+    "modelRequests": 0,
+    "syntheticStoreClean": true,
+    "syntheticStoreRemotes": [],
+    "trackedFiles": 8,
+    "storeHead": "b016720f96abc53ac4e3a53953f84ec8c4d7d298",
+    "actualCanonicalDocHashMatched": true
+  },
+  "initialFailure": {
+    "gatewayCliSubmissions": 1,
+    "cliExitCode": 0,
+    "rpcOk": false,
+    "errorCode": "internal_error",
+    "message": "tool execution failed",
+    "storeRemainedMarkerOnlyCleanAtBaselineHead": true,
+    "baselineHead": "27435af80ecdb8f0fca2ea300057cefc3dca6607",
+    "subsequentCallsStopped": true,
+    "fixedSourceFacts": {
+      "defaultToolsInvokeScope": [
+        "operator.write"
+      ],
+      "serverOwnerRule": "client.connect.scopes includes operator.admin",
+      "publicSdkScopeParameter": "callGatewayFromCli extra.scopes",
+      "successfulRequestScopes": [
+        "operator.admin"
+      ]
+    },
+    "diagnosisEvidence": "fixed source plus same-config success with public SDK existing owner scope; original server owner flag/stack not independently captured",
+    "noToolGuardLoosened": true,
+    "noNewIdentityOrScopeGrant": true,
+    "notAnAutomaticApprovalReviewRejection": true
+  },
+  "actualSubmissionCounts": {
+    "failedOrdinaryCli": 1,
+    "successfulPublicSdk": 4,
+    "totalToolsInvoke": 5,
+    "agentRequests": 0,
+    "paidModelRequests": 0
+  },
+  "retainedBoundaries": [
+    "only synthetic fictional text and fixed new Git store, no remotes",
+    "owner-context and Host v2 guard enforced, source references opaque",
+    "candidate/authorConfirmationfalse/publisherfalse remain explicit",
+    "no Host source, CangHai production path, main history or model call",
+    "cross-request tool storage is observed; model discovery/semantic adoption/current input admission/full_memory remain unverified",
+    "prior failures, old groupunknown and exhausted model/Host quotas unchanged"
+  ],
+  "rollback": {
+    "fullMain8Artifact": ".artifacts/candidate-work-brief-main8-rollback-20261031/package",
+    "opaque0600ConfigBackupRetained": true,
+    "noDataDeletionNeeded": true,
+    "consentRecord": "persists; old tools/data config restoration does not imply explicit record revocation"
+  },
+  "transportRecovery": "Before initial demo creation transport failed with no process; recovered original Mac and verified absent script/claims/results, did not repeat successful consent/reload",
+  "sourceRuntimeFiles": {
+    "src/ordinary-plugin.ts": "a1c0d4bdecf483fbe531aa69ca7e37ff3182097cd700289d3c125b3a5a45145d",
+    "src/openclaw/work-brief-proposal.ts": "0223ee14c0ee0ed55a0d17f1c49adcc030af98fc1330d057a6ad120afc711398",
+    "src/openclaw/candidate-work-brief.ts": "a74f581caf248ed908f5682a9f2dcacecf72a95f3ce82696e9640976638b6c83",
+    "tests/ordinary-plugin.test.ts": "ad832b2d00c7fab0c52c886c1e46ce9548d3f88f1bdf7575e625909aca81537e",
+    "tests/candidate-work-brief.test.ts": "ec7a88d002211cf2b373d028f8d7a18d3d48ca0f308822f1ed1b29cc07824b4d",
+    "openclaw.plugin.json": "03a2903b3c2ba7a06436b60198368d164936fe57ad369f11bd30e7e866330809",
+    "package.json": "583aa58d621e4ed77142f0f4a56752aa8dd25c63d7b422cdbfc64e200251c80c"
+  },
+  "rawEvidenceHashes": {
+    "consent-reload.stdout": "92426889f26723dbd6939af4ee8e926519bf6874406e7c1d5a154391f58f4508",
+    "consent-reload.result.json": "e91baeb7e587e55919aea7d67930031f6412370b8ab72627f758eb6150531275",
+    "accepted-inspect.stdout": "e170e58387089153b3bc959abe9e7583a58e61f2a6268700c6873e62fced0114",
+    "store-reload.stdout": "2c0badc8f1f3dbeec934f7eb8c254f8fd76b80cf5d778ff41b835e0f5bbdbc4b",
+    "store-reload.result.json": "50fc7e91e8d0f9b29e0afde4cbf242d67df3333ac5fa2972d862daa03d798412",
+    "CONFIG-ENABLED.json": "ba8b33d1e4d9d358efb4c5ff0f94e23c60a8395ce06f8fdc592987fd2d81122d",
+    "demo-1.stdout": "cca4d32c33013df30dccce0c289a24f69c188e7fc6a3d4fcb39d59053d114b1d",
+    "demo-1.result.json": "de5f27bd85e6b47b8915149b4f2a13fb16ae7e72c6c107d6e4c3a36d083ad00a",
+    "OWNER-DEMO-SUMMARY.json": "0ac689703458f3246301f2cb61d14cea77a1847cfdbe0dab486bfb2cea0c5047",
+    "owner-demo-1.claim.json": "1738931027b3e6a404c71dd04a2a952a1effeff06ae42695cfbedccad1c19719",
+    "owner-demo-1.result.json": "66ecc0b14af7e035a4f44a69755fe3bfa1daa6545051831ea277c343e77d8d9b",
+    "owner-demo-1.stdout": "f71bfe9c59053e511fa54b5cfbe832c71f60a53b9f4635ddd6c9d815512abbf4",
+    "owner-demo-1.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "owner-demo-2.claim.json": "43df3cf11ca0179be421fc038a7249b5e0bb7d21eade859c18c29bb6b3569309",
+    "owner-demo-2.result.json": "96b8fcb916d39a81d524c7fc6e5cbe4f341ed2a2d41771aaad886cf592f4d24b",
+    "owner-demo-2.stdout": "964dd750d1647659c46349a5aa09277572aed66a2e39d58f09972c8a493c49c5",
+    "owner-demo-2.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "owner-demo-3.claim.json": "469943b62b433f5340a9df1532ff1d866c71471ef10bae0478410f813adf53d8",
+    "owner-demo-3.result.json": "138156e5497909cfac8ba4e2d586a5bd3003095c3711ee0fa343d51e4a32a5cc",
+    "owner-demo-3.stdout": "520766960f579e954b3c3f849b5f1b15db4280c93363163f218b5f163acfa0c4",
+    "owner-demo-3.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "owner-demo-4.claim.json": "0718fd5d4f3d8c0f117bbdbce5da3d316f4fe9ec09d34a1fe5ecb4c354100064",
+    "owner-demo-4.result.json": "ac7520f45b82b3eab122a3ff29e27864574dec8eccbca670fb8d3a10a4d02e3e",
+    "owner-demo-4.stdout": "7f006f96ba79cbb587df6c9796def7021e2f7ebb44b19b1f354ffc3d42f7a59a",
+    "owner-demo-4.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "privateDiagnostics": "/tmp/core-work-brief-activation-20261031-sh71tcjg",
+  "delivery": {
+    "commit": "not_created",
+    "push": "not_run",
+    "ci": "not_started"
+  },
+  "ciBaseline": {
+    "head": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539",
+    "tests": 1775,
+    "pass": 1749,
+    "fail": 26,
+    "newDraftGroups": 9,
+    "expectedCurrentTests": 1784,
+    "expectedCurrentPassIfNoNewFailures": 1758
+  },
+  "fixedAuthSourceHashes": {
+    "dist/method-scopes-CRSVCw9J.mjs": "4ea0721254497560d62fff7b725e23567dd3c650617734cb7b95cd8f58408ed7",
+    "dist/tools-invoke-DmR7b8R2.mjs": "5009df024f87f8e4f0bdaae79868e04a34b4d9b727c42a1836a5781613838fb8",
+    "dist/tools-invoke-shared-5vGAZIc1.mjs": "80f383bcfd4f9c548483b390588bb2f94fac022d52156a25fbaf9133e3e0a380",
+    "dist/plugin-sdk/gateway-runtime.js": "0bf1ec9b1c4e89c0b51be29c0d8cb7d67884deeafd900e2a965577b145719357",
+    "dist/gateway-rpc.runtime-DBZBB6E9.mjs": "b0717c86068f9d1f2123fe55e4b173656b46edf063278c9d9bcaea35a5390f19"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "scope": "Independent code/synthetic data boundary review, before native activation; historical pending-consent statement retained by identity",
+  "verdict": "accepted_no_implementation_blocker",
+  "originalSummarySha256": "f4707a8fe9900b3468c6409bed45208ccb6bdfc5a185c10b244367297ffd334d",
+  "originalReviewSha256": "f05b945b3ae80fa73a4469033bfb3868431bca19ebc34c51bdb5077969ad7621",
+  "independentFocused": {
+    "tests": 53,
+    "pass": 53,
+    "fail": 0
+  },
+  "candidateArtifactFileMatches": 2741,
+  "main8RestorationFileMatches": 2734,
+  "addedDeclaredSurface": {
+    "tools": [
+      "stella_work_brief"
+    ],
+    "contracts": [
+      "tools: stella_work_brief"
+    ]
+  },
+  "nextSurfaceHash": "f57b121351a720f239f5eb64489bd9802dd7acc085cf13022c4b0665abbd1f3c",
+  "boundary": "Only fixed prepared synthetic Git root; no OS/identity/auth/source expansion; publisheroff; consent persistent rather than4calls",
+  "reviewedSourceHashes": {
+    "src/ordinary-plugin.ts": "a1c0d4bdecf483fbe531aa69ca7e37ff3182097cd700289d3c125b3a5a45145d",
+    "src/openclaw/work-brief-proposal.ts": "0223ee14c0ee0ed55a0d17f1c49adcc030af98fc1330d057a6ad120afc711398",
+    "src/openclaw/candidate-work-brief.ts": "a74f581caf248ed908f5682a9f2dcacecf72a95f3ce82696e9640976638b6c83",
+    "tests/ordinary-plugin.test.ts": "ad832b2d00c7fab0c52c886c1e46ce9548d3f88f1bdf7575e625909aca81537e",
+    "tests/candidate-work-brief.test.ts": "ec7a88d002211cf2b373d028f8d7a18d3d48ca0f308822f1ed1b29cc07824b4d",
+    "openclaw.plugin.json": "03a2903b3c2ba7a06436b60198368d164936fe57ad369f11bd30e7e866330809",
+    "package.json": "583aa58d621e4ed77142f0f4a56752aa8dd25c63d7b422cdbfc64e200251c80c",
+    "README.md": "42d1f76fd92bf83ec8858873716fe70e2b0e9d52d048ba5946bf2082da871b61",
+    "docs/MAIN-DEBUG-INSTALL.md": "670498439afb3f2ae75e323f53404deee5b9dec21ce3448f47f3329760ba738a",
+    "docs/CANDIDATE-WORK-BRIEF.md": "3dddd0c2ee8f113661bfb217b8b33b0f0b673f451df65d6dcd42420d6932bc5d"
+  }
+}

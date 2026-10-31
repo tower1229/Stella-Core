@@ -1,0 +1,611 @@
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -1,57 +1,34 @@
+ import { definePluginEntry, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+ import { Type } from "typebox";
++import path from "node:path";
+ import { isRecord } from "./shared/type-guards.js";
+ import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
++import { CANDIDATE_PARAMETERS, parseProposal, type Proposal } from "./openclaw/work-brief-proposal.js";
++import { WORK_BRIEF_TOOL, WORK_BRIEF_PARAMETERS, executeWorkBrief, validDraftsRoot, workBriefFailure } from "./openclaw/candidate-work-brief.js";
++export { WORK_BRIEF_TOOL } from "./openclaw/candidate-work-brief.js";
+ 
+ export const CANDIDATE_TOOL = "stella_author_intent_candidate";
+ export const STATUS_TOOL = "stella_status";
+-const text = () => Type.String({ minLength: 1, maxLength: 4000 });
+-const list = () => Type.Array(text(), { maxItems: 16 });
+-export const CANDIDATE_PARAMETERS = Type.Object({
+-  topic: text(),
+-  interpretation: text(),
+-  proposedPremises: list(),
+-  openQuestions: list(),
+-  evidenceReferences: list(),
+-}, { additionalProperties: false });
++export { CANDIDATE_PARAMETERS, parseProposal } from "./openclaw/work-brief-proposal.js";
+ 
+-type Proposal = {
+-  topic: string; interpretation: string; proposedPremises: string[];
+-  openQuestions: string[]; evidenceReferences: string[];
+-};
+-const keys = ["topic", "interpretation", "proposedPremises", "openQuestions", "evidenceReferences"];
+-function validText(value: unknown): value is string {
+-  return typeof value === "string" && value.length > 0 && value.length <= 4000;
+-}
+-function validList(value: unknown): value is string[] {
+-  return Array.isArray(value) && value.length <= 16 && value.every(validText);
+-}
+-export function parseProposal(value: unknown): Proposal {
+-  if (!isRecord(value) || Object.getPrototypeOf(value) !== Object.prototype ||
+-      Object.keys(value).length !== keys.length || !keys.every(key => Object.hasOwn(value, key)) ||
+-      !validText(value.topic) || !validText(value.interpretation) ||
+-      !validList(value.proposedPremises) || !validList(value.openQuestions) || !validList(value.evidenceReferences)) {
+-    throw new Error("stella_candidate_arguments_invalid");
++export function parseOrdinaryConfig(value: unknown): { agentId: string; publisher: false; candidateDraftsRoot?: string } {
++  const config = value ?? {};
++  if (!isRecord(config) || Object.keys(config).some(key => key !== "agentId" && key !== "publisher" && key !== "candidateDraftsRoot") ||
++      (config.publisher !== undefined && config.publisher !== false) ||
++      (config.candidateDraftsRoot !== undefined && !validDraftsRoot(config.candidateDraftsRoot)) ||
++      (config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(config.agentId)))) {
++    throw new Error("stella_ordinary_configuration_invalid: use agentId, publisher:false and optional dedicated candidateDraftsRoot; legacy configuration is not migrated implicitly");
+   }
+-  return structuredClone(value) as Proposal;
+-}
+-
+-export function parseOrdinaryConfig(value: unknown): { agentId: string; publisher: false } {
+-  const config = value ?? {};
+-  if (!isRecord(config) || Object.keys(config).some(key => key !== "agentId" && key !== "publisher") ||
+-      (config.publisher !== undefined && config.publisher !== false) ||
+-      (config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(config.agentId)))) {
+-    throw new Error("stella_ordinary_configuration_invalid: use agentId and publisher:false; legacy configuration is not migrated implicitly");
+-  }
+-  return { agentId: typeof config.agentId === "string" ? config.agentId : "main", publisher: false };
++  return { agentId: typeof config.agentId === "string" ? config.agentId : "main", publisher: false,
++    ...(typeof config.candidateDraftsRoot === "string" ? { candidateDraftsRoot: config.candidateDraftsRoot } : {}) };
+ }
+ 
+ function result(details: Record<string, unknown>, isError = false) {
+   return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details, ...(isError ? { isError: true } : {}) };
+ }
+ 
+-/** Ordinary, data-free entry. No legacy loader, provider, context engine,
+- * filesystem reader/writer, model client or automatic background task is bound.
++/** Ordinary entry. No legacy loader, provider, context engine, model client or
++ * automatic background task is bound. Draft storage is explicit and synthetic-only.
+  * The Host's model supplies semantics; this tool only validates and labels its
+  * proposal. References remain unverified and cannot become author admission. */
+ export default definePluginEntry({
+@@ -68,7 +45,9 @@
+     const status = () => ({
+       architecture: "ordinary-plugin", stage: "candidate-only", agentId: config.agentId,
+       publisher: false, sourceAdapter: "not_connected", authorConfirmation: false,
+-      persistence: "none", modelCalls: false, legacyRuntime: "inactive",
++      persistence: config.candidateDraftsRoot ? "candidate_drafts_only" : "none",
++      candidateDraftsConfigured: Boolean(config.candidateDraftsRoot), draftScope: "synthetic_debug",
++      modelCalls: false, legacyRuntime: "inactive",
+       requestBinding: "public-tool-hook-metadata", currentInputAdmission: "not_connected",
+       memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
+     });
+@@ -77,6 +56,9 @@
+       // Capture the Host guard once. The mutable factory object cannot replace it.
+       const invocationGuard = context.assertInvocationCurrent.bind(context);
+       const identity = { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId };
++      const owner = context.senderIsOwner;
++      const fsPolicy = context.fsPolicy ? { workspaceOnly: context.fsPolicy.workspaceOnly, root: context.fsPolicy.root } : undefined;
++      const sandboxed = context.sandboxed;
+       const check = (signal?: AbortSignal) => {
+         invocationGuard(); signal?.throwIfAborted();
+         if (context.agentId !== identity.agentId || context.sessionKey !== identity.sessionKey || context.sessionId !== identity.sessionId) {
+@@ -106,8 +88,33 @@
+               proposal, evidenceStatus: "model_supplied_unverified", authorConfirmation: false,
+               publisher: false, saved: false, requestBinding: binding });
+           } },
++        { name: WORK_BRIEF_TOOL, label: "Unconfirmed work brief",
++          description: "Explicitly save or read a synthetic, unconfirmed work brief in the configured debug draft store. Read by briefId in each new request. Save requires a new operationId and the exact last-read expectedVersion (null only to create); stale versions fail. No author confirmation, source-file access, formal publication or long-term memory. Evidence references stay unverified. This debug store is owner-only.",
++          parameters: WORK_BRIEF_PARAMETERS,
++          async execute(_callId, parameters, signal) {
++            const draftGuard = () => {
++              check(signal);
++              if (owner !== true || context.senderIsOwner !== owner) throw new Error("work_brief_owner_required");
++              // No host-filesystem bridge for sandboxed callers. A workspace-only
++              // caller cannot use configuration to escape its Host-owned root.
++              if (sandboxed === true) throw new Error("work_brief_sandbox_unsupported");
++              if (fsPolicy?.workspaceOnly && config.candidateDraftsRoot) {
++                const relative = fsPolicy.root ? path.relative(fsPolicy.root, config.candidateDraftsRoot) : "..";
++                if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) {
++                  throw new Error("work_brief_workspace_denied");
++                }
++              }
++            };
++            draftGuard();
++            if (!config.candidateDraftsRoot) return result({ status: "rejected", code: "work_brief_not_configured" }, true);
++            try { return result(await executeWorkBrief(config.candidateDraftsRoot, parameters, draftGuard, signal)); }
++            catch (error) {
++              draftGuard();
++              return result({ status: "failed", code: workBriefFailure(error), publisher: false, authorConfirmation: false }, true);
++            }
++          } },
+       ];
+-    } }, { names: [STATUS_TOOL, CANDIDATE_TOOL] });
++    } }, { names: [STATUS_TOOL, CANDIDATE_TOOL, WORK_BRIEF_TOOL] });
+     api.registerCommand({ name: "stella-status", description: "Show Stella architecture and candidate-only limits without a model call", requireAuth: true,
+       handler: () => ({ text: JSON.stringify(status(), null, 2) }) });
+   },
+--- /dev/null
++++ b/src/openclaw/work-brief-proposal.ts
+@@ -0,0 +1,24 @@
++import { Type } from "typebox";
++import { isRecord } from "../shared/type-guards.js";
++
++const text = () => Type.String({ minLength: 1, maxLength: 4000 });
++const list = () => Type.Array(text(), { maxItems: 16 });
++export const CANDIDATE_PARAMETERS = Type.Object({
++  topic: text(), interpretation: text(), proposedPremises: list(), openQuestions: list(), evidenceReferences: list(),
++}, { additionalProperties: false });
++export type Proposal = {
++  topic: string; interpretation: string; proposedPremises: string[];
++  openQuestions: string[]; evidenceReferences: string[];
++};
++const keys = ["topic", "interpretation", "proposedPremises", "openQuestions", "evidenceReferences"];
++const validText = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 4000;
++const validList = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 16 && value.every(validText);
++export function parseProposal(value: unknown): Proposal {
++  if (!isRecord(value) || Object.getPrototypeOf(value) !== Object.prototype ||
++      Object.keys(value).length !== keys.length || !keys.every(key => Object.hasOwn(value, key)) ||
++      !validText(value.topic) || !validText(value.interpretation) ||
++      !validList(value.proposedPremises) || !validList(value.openQuestions) || !validList(value.evidenceReferences)) {
++    throw new Error("stella_candidate_arguments_invalid");
++  }
++  return structuredClone(value) as Proposal;
++}
+--- /dev/null
++++ b/src/openclaw/candidate-work-brief.ts
+@@ -0,0 +1,118 @@
++import { lstat, realpath } from "node:fs/promises";
++import path from "node:path";
++import { Type } from "typebox";
++import { AuthorIntentError, intentId, intentVersion, type AuthorIntentContent, type IntentSource } from "../canghai/author-intent-asset.js";
++import { createAuthorIntentRepository, type IntentSnapshot } from "../canghai/author-intent-repository.js";
++import { readRepositoryBytes } from "../canghai/catalog-reader.js";
++import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
++import { isRecord } from "../shared/type-guards.js";
++import { CANDIDATE_PARAMETERS, parseProposal, type Proposal } from "./work-brief-proposal.js";
++
++export const WORK_BRIEF_TOOL = "stella_work_brief";
++export const DRAFT_MARKER = ".stella-candidate-drafts.json";
++export const DRAFT_MARKER_BYTES = canonicalJson({ schemaVersion: "stella.candidate-drafts/v1", scope: "synthetic_debug" });
++const id = () => Type.String({ pattern: "^[A-Za-z][A-Za-z0-9_-]{0,99}$" });
++export const WORK_BRIEF_PARAMETERS = Type.Object({
++  action: Type.Union([Type.Literal("read"), Type.Literal("save")]), briefId: id(),
++  operationId: Type.Optional(id()),
++  expectedVersion: Type.Optional(Type.Union([Type.Null(), Type.String({ pattern: "^sha256:[a-f0-9]{64}$" })])),
++  proposal: Type.Optional(CANDIDATE_PARAMETERS),
++}, { additionalProperties: false });
++type Input = { action: "read"; briefId: string } | {
++  action: "save"; briefId: string; operationId: string; expectedVersion: string | null; proposal: Proposal;
++};
++export class WorkBriefError extends Error {
++  constructor(readonly category: string) { super(category); }
++}
++function check(value: unknown, code: string): asserts value { if (!value) throw new WorkBriefError(code); }
++export function validDraftsRoot(value: unknown): value is string {
++  return typeof value === "string" && value.length <= 4096 && path.isAbsolute(value) &&
++    path.resolve(value) === value && !/[\\\x00-\x1f\x7f]/.test(value);
++}
++function parseInput(value: unknown): Input {
++  check(isRecord(value) && Object.getPrototypeOf(value) === Object.prototype && intentId(value.briefId), "work_brief_arguments_invalid");
++  const keys = value.action === "read" ? ["action", "briefId"] : ["action", "briefId", "operationId", "expectedVersion", "proposal"];
++  check(Object.keys(value).sort().join() === keys.sort().join(), "work_brief_arguments_invalid");
++  if (value.action === "read") return { action: "read", briefId: value.briefId };
++  check(value.action === "save" && intentId(value.operationId) &&
++    (value.expectedVersion === null || intentVersion(value.expectedVersion)), "work_brief_arguments_invalid");
++  return { action: "save", briefId: value.briefId, operationId: value.operationId,
++    expectedVersion: value.expectedVersion, proposal: parseProposal(value.proposal) };
++}
++function content(briefId: string, proposal: Proposal): AuthorIntentContent {
++  const excerpt = canonicalJson(proposal);
++  check(excerpt.length <= 16_384, "work_brief_too_large");
++  return {
++    topic: proposal.topic, scope: "Unconfirmed synthetic work brief; no author authority or long-term memory",
++    nonGoals: ["Author confirmation", "Formal publication", "Long-term personal memory"],
++    sources: [{ id: "proposal", version: bytesVersion(excerpt), authorId: "unverified-proposal", role: "assistant",
++      locator: `candidate:${briefId}`, purpose: "support", excerpt }],
++    originalIntent: [], established: [], interpretation: null, authorityConflicts: [],
++    candidates: [{ id: "interpretation_candidate", text: proposal.interpretation, sourceIds: ["proposal"] },
++      ...proposal.proposedPremises.map((text, index) => ({ id: `premise_${index}`, text, sourceIds: ["proposal"] }))],
++    unresolved: proposal.openQuestions,
++  };
++}
++const labels = { status: "candidate", authorConfirmation: false, publisher: false,
++  evidenceStatus: "model_supplied_unverified", storageScope: "synthetic_debug", longTermMemory: false } as const;
++
++/** A request-scoped adapter for a separately configured, synthetic-only Git store.
++ * Its source is ONLY the enclosed assistant proposal, never an external author.
++ * References are opaque strings: no source, URL, transcript or user-file lookup.
++ * The operator selects this store; the caller guard restricts its use, not author qualification. */
++export async function executeWorkBrief(root: string, value: unknown, assertCurrent: () => void, signal?: AbortSignal) {
++  const input = parseInput(value);
++  check(validDraftsRoot(root), "work_brief_store_invalid");
++  const guard = () => { assertCurrent(); signal?.throwIfAborted(); };
++  const assertStore = async () => {
++    guard();
++    check(await realpath(root) === root, "work_brief_store_invalid");
++    const git = await lstat(path.join(root, ".git"));
++    check(git.isDirectory() && !git.isSymbolicLink(), "work_brief_store_invalid");
++    check((await readRepositoryBytes(root, DRAFT_MARKER)).toString("utf8") === DRAFT_MARKER_BYTES, "work_brief_store_invalid");
++    guard();
++  };
++  // New map for every invocation; no session/latest permission or cross-request grant cache.
++  let validatedProposalVersion: string | undefined;
++  const qualify = (sources: readonly IntentSource[]) => {
++    guard(); check(sources.length === 1, "work_brief_source_invalid");
++    const source = sources[0]!;
++    let proposal: Proposal;
++    try { proposal = parseProposal(JSON.parse(source.excerpt)); } catch { throw new WorkBriefError("work_brief_source_invalid"); }
++    check(canonicalJson(content(input.briefId, proposal).sources) === canonicalJson(sources), "work_brief_source_invalid");
++    validatedProposalVersion = source.version;
++  };
++  const repository = createAuthorIntentRepository({ root, directory: `drafts/${input.briefId}`, assetId: input.briefId, ports: {
++    assertRequest: assertStore,
++    async assertSources(sources) { qualify(sources); },
++    async currentSourceVersion(sourceId) {
++      guard(); check(sourceId === "proposal" && validatedProposalVersion, "work_brief_source_invalid");
++      return validatedProposalVersion;
++    },
++    async verifyAuthor() { return null; },
++  } });
++  const decode = (snapshot: IntentSnapshot) => {
++    check(snapshot.document.revision.confirmation === "candidate", "work_brief_not_candidate");
++    const proposal = parseProposal(JSON.parse(snapshot.document.content.sources[0]!.excerpt));
++    check(canonicalJson(snapshot.document.content) === canonicalJson(content(input.briefId, proposal)), "work_brief_source_invalid");
++    return proposal;
++  };
++  if (input.action === "read") {
++    const snapshot = await repository.readCurrent(signal), proposal = decode(snapshot); guard();
++    return { ...labels, briefId: input.briefId, saved: true, version: snapshot.version,
++      commitRevision: snapshot.commitRevision, proposal, persistenceStatus: "local_committed" };
++  }
++  const previous = input.expectedVersion === null ? null : await repository.readHistorical(input.expectedVersion, signal);
++  if (previous) decode(previous);
++  const receipt = await repository.publish({ operationId: input.operationId, expectedVersion: input.expectedVersion,
++    confirmation: "candidate", triggerSourceId: null, content: content(input.briefId, input.proposal),
++    replaces: previous?.document.content.candidates.map(row => row.id) ?? [], reason: "Explicit save of an unconfirmed work brief" }, signal);
++  guard();
++  return { ...labels, briefId: input.briefId, saved: true, ...receipt,
++    isCurrent: receipt.publishedVersion === receipt.currentVersion };
++}
++export function workBriefFailure(error: unknown): string {
++  if (error instanceof WorkBriefError || error instanceof AuthorIntentError) return error.category;
++  if (error instanceof Error && "category" in error && typeof error.category === "string") return error.category;
++  return "work_brief_operation_failed";
++}
+--- a/tests/ordinary-plugin.test.ts
++++ b/tests/ordinary-plugin.test.ts
+@@ -2,7 +2,7 @@
+ import assert from "node:assert/strict";
+ import { readFile } from "node:fs/promises";
+ import { Ajv } from "ajv";
+-import plugin, { CANDIDATE_TOOL, STATUS_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
++import plugin, { CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
+ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+ 
+ const proposal = { topic: "Synthetic writing task", interpretation: "A proposed argument, not a confirmed conclusion",
+@@ -30,7 +30,7 @@
+     assert.equal(validate(config), false); assert.throws(() => parseOrdinaryConfig(config));
+   }
+   assert.deepEqual(parseOrdinaryConfig({}), { agentId: "main", publisher: false });
+-  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL].sort());
++  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL].sort());
+ });
+ 
+ test("registration contributes guarded ordinary tools, a metadata-only hook and a no-model command", async () => {
+--- /dev/null
++++ b/tests/candidate-work-brief.test.ts
+@@ -0,0 +1,126 @@
++import test, { type TestContext } from "node:test";
++import assert from "node:assert/strict";
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++import { mkdtemp, realpath, rm, writeFile, readFile } from "node:fs/promises";
++import path from "node:path";
++import os from "node:os";
++import { DRAFT_MARKER, DRAFT_MARKER_BYTES, executeWorkBrief, WORK_BRIEF_TOOL } from "../src/openclaw/candidate-work-brief.js";
++import plugin, { parseOrdinaryConfig } from "../src/ordinary-plugin.js";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++
++const run = promisify(execFile);
++const proposal = { topic: "Synthetic harbor walk", interpretation: "Keep two possible endings open",
++  proposedPremises: ["A fictional walk may connect the scenes"], openQuestions: ["Which ending fits?"],
++  evidenceReferences: ["synthetic:unverified-reference"] };
++const save = (operationId = "create_A", expectedVersion: string | null = null, next = proposal) =>
++  ({ action: "save", briefId: "harbor", operationId, expectedVersion, proposal: next });
++const read = { action: "read", briefId: "harbor" };
++async function fixture(t: TestContext) {
++  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-drafts-")));
++  t.after(() => rm(root, { recursive: true, force: true }));
++  const git = async (...args: string[]) => (await run("git", ["-C", root, ...args])).stdout.trim();
++  await git("init", "--quiet", "--initial-branch=main");
++  await git("config", "user.name", "Synthetic Draft Test"); await git("config", "user.email", "synthetic@example.invalid");
++  await writeFile(path.join(root, DRAFT_MARKER), DRAFT_MARKER_BYTES);
++  await git("add", DRAFT_MARKER); await git("commit", "--quiet", "-m", "Synthetic draft baseline");
++  let current = true, guards = 0;
++  const guard = () => { guards++; if (!current) throw Error("request_closed"); };
++  // Each call constructs new repository/ports; no prior factory or qualification cache is reused.
++  const invoke = (input: unknown) => executeWorkBrief(root, input, guard);
++  return { root, git, invoke, guard, guards: () => guards, close() { current = false; } };
++}
++test("save, restore in a new request, and versioned modification preserve candidate meaning", async t => {
++  const f = await fixture(t), a = await f.invoke(save());
++  assert.equal(a.saved, true); assert.equal(a.authorConfirmation, false); assert.equal(a.publisher, false);
++  assert.ok("publishedVersion" in a);
++  const first = await f.invoke(read); assert.ok("proposal" in first && "version" in first);
++  assert.deepEqual(first.proposal, proposal); assert.equal(first.version, a.publishedVersion);
++  const next = { ...proposal, interpretation: "The ending remains an open question", openQuestions: ["Keep both endings for now?"] };
++  const b = await f.invoke(save("revise_B", first.version, next)); assert.ok("publishedVersion" in b);
++  const restored = await f.invoke(read); assert.ok("proposal" in restored && "version" in restored);
++  assert.deepEqual(restored.proposal, next); assert.equal(restored.version, b.publishedVersion);
++  assert.notEqual(restored.version, first.version); assert.equal(restored.longTermMemory, false);
++  const disk = JSON.parse(await readFile(path.join(f.root, "drafts/harbor/current.json"), "utf8"));
++  assert.equal(disk.revision.confirmation, "candidate"); assert.equal(disk.revision.previousVersion, first.version);
++  assert.equal(disk.content.sources[0].role, "assistant"); assert.deepEqual(disk.content.originalIntent, []);
++  assert.deepEqual(disk.content.established, []); assert.equal(disk.content.interpretation, null);
++  assert.equal(await f.git("status", "--porcelain"), "");
++});
++test("stale CAS and operation identity conflicts fail without changing the committed draft", async t => {
++  const f = await fixture(t), a = await f.invoke(save()); assert.ok("publishedVersion" in a);
++  const next = { ...proposal, openQuestions: ["A newer unresolved question"] };
++  await f.invoke(save("revise_B", a.publishedVersion, next)); const before = await f.git("rev-parse", "HEAD");
++  await assert.rejects(f.invoke(save("stale_C", a.publishedVersion)), /asset_version_conflict/);
++  await assert.rejects(f.invoke(save("create_A", null, next)), /operation_identity_conflict/);
++  assert.equal(await f.git("rev-parse", "HEAD"), before); assert.equal(await f.git("status", "--porcelain"), "");
++});
++test("exact retry is idempotent and an older operation never rolls back the new version", async t => {
++  const f = await fixture(t), a = await f.invoke(save()); assert.ok("publishedVersion" in a);
++  const same = await f.invoke(save()); assert.ok("replayed" in same); assert.equal(same.replayed, true);
++  const b = await f.invoke(save("revise_B", a.publishedVersion, { ...proposal, openQuestions: ["New question"] }));
++  assert.ok("publishedVersion" in b);
++  const old = await f.invoke(save()); assert.ok("currentVersion" in old);
++  assert.equal(old.publishedVersion, a.publishedVersion); assert.equal(old.currentVersion, b.publishedVersion); assert.equal(old.isCurrent, false);
++});
++test("input cannot add author confirmation, source lookup, paths or an implicit expected version", async t => {
++  const f = await fixture(t), before = await f.git("rev-parse", "HEAD");
++  for (const input of [{ ...save(), confirmation: "author_confirmed" }, { ...save(), briefId: "../outside" },
++    { ...save(), proposal: { ...proposal, requester: "owner" } }, { action: "save", briefId: "harbor", proposal },
++    { ...read, proposal }, { ...save(), expectedVersion: "latest" }]) await assert.rejects(f.invoke(input));
++  assert.equal(await f.git("rev-parse", "HEAD"), before);
++});
++test("unverified evidence is retained opaquely, with no file or URL resolution", async t => {
++  const f = await fixture(t), next = { ...proposal, evidenceReferences: ["/nonexistent/private/credential", "https://invalid.example/never-request"] };
++  await f.invoke(save("create_A", null, next)); const restored = await f.invoke(read);
++  assert.ok("proposal" in restored); assert.deepEqual(restored.proposal.evidenceReferences, next.evidenceReferences);
++  assert.equal(restored.evidenceStatus, "model_supplied_unverified");
++});
++test("missing marker, oversized proposal, dirty store and closed invocation fail explicitly", async t => {
++  const f = await fixture(t);
++  await assert.rejects(f.invoke(save("large", null, { ...proposal, proposedPremises: Array(16).fill("x".repeat(4000)) })), /work_brief_too_large/);
++  await writeFile(path.join(f.root, "unexpected.txt"), "synthetic dirt");
++  await assert.rejects(f.invoke(save()), /asset_repository_dirty/); await rm(path.join(f.root, "unexpected.txt"));
++  await writeFile(path.join(f.root, DRAFT_MARKER), "{}"); await assert.rejects(f.invoke(save()), /work_brief_store_invalid/);
++  f.close(); await assert.rejects(f.invoke(save()), /request_closed/);
++});
++function toolFixture(root?: string, owner: unknown = true) {
++  let factory: any, active = true;
++  plugin.register!({ pluginConfig: { publisher: false, ...(root ? { candidateDraftsRoot: root } : {}) },
++    registerTool(value: unknown) { factory = value; }, registerCommand() {}, on() {},
++  } as unknown as OpenClawPluginApi);
++  const context = { agentId: "main", senderIsOwner: owner, assertInvocationCurrent() { if (!active) throw Error("closed"); } };
++  return { tool: factory.create(context).find((x: any) => x.name === WORK_BRIEF_TOOL), context, close() { active = false; } };
++}
++test("actual plugin tool restores across fresh factories and keeps publisher off", async t => {
++  const f = await fixture(t), a = await toolFixture(f.root).tool.execute("save_A", save());
++  assert.equal(a.isError, undefined); assert.equal(a.details.persistenceStatus, "local_committed");
++  const b = await toolFixture(f.root).tool.execute("new_request_read", read);
++  assert.deepEqual(b.details.proposal, proposal); assert.equal(b.details.version, a.details.publishedVersion);
++  assert.equal(b.details.publisher, false);
++});
++test("new draft tool restricts existing owner context without using it as author proof", async t => {
++  const f = await fixture(t);
++  for (const owner of [false, null, "true"]) await assert.rejects(toolFixture(f.root, owner).tool.execute("denied", save()), /owner_required/);
++  const changed = toolFixture(f.root); changed.context.senderIsOwner = false;
++  await assert.rejects(changed.tool.execute("changed", save()), /owner_required/);
++  const closed = toolFixture(f.root); closed.close(); closed.context.assertInvocationCurrent = () => {};
++  await assert.rejects(closed.tool.execute("closed", save()), /closed/);
++  const absent = await toolFixture().tool.execute("not_configured", read); assert.equal(absent.details.code, "work_brief_not_configured");
++  assert.throws(() => parseOrdinaryConfig({ candidateDraftsRoot: "relative" }));
++});
++test("configured drafts cannot escape a workspace-only or sandboxed Host context", async t => {
++  const f = await fixture(t);
++  let factory: any;
++  plugin.register!({ pluginConfig: { candidateDraftsRoot: f.root }, registerTool(value: unknown) { factory = value; },
++    registerCommand() {}, on() {},
++  } as unknown as OpenClawPluginApi);
++  const base = { agentId: "main", senderIsOwner: true, assertInvocationCurrent() {} };
++  for (const context of [{ ...base, fsPolicy: { workspaceOnly: true, root: f.root + "-other" } },
++    { ...base, fsPolicy: { workspaceOnly: true } }, { ...base, sandboxed: true }]) {
++    const tool = factory.create(context).find((x: any) => x.name === WORK_BRIEF_TOOL);
++    await assert.rejects(tool.execute("denied", save()), /workspace_denied|sandbox_unsupported/);
++  }
++  const tool = factory.create({ ...base, fsPolicy: { workspaceOnly: true, root: f.root } }).find((x: any) => x.name === WORK_BRIEF_TOOL);
++  assert.equal((await tool.execute("allowed", save())).details.saved, true);
++});
+--- a/openclaw.plugin.json
++++ b/openclaw.plugin.json
+@@ -5,7 +5,8 @@
+   "contracts": {
+     "tools": [
+       "stella_status",
+-      "stella_author_intent_candidate"
++      "stella_author_intent_candidate",
++      "stella_work_brief"
+     ]
+   },
+   "toolMetadata": {
+@@ -15,6 +16,11 @@
+       ]
+     },
+     "stella_author_intent_candidate": {
++      "profiles": [
++        "coding"
++      ]
++    },
++    "stella_work_brief": {
+       "profiles": [
+         "coding"
+       ]
+@@ -39,6 +45,12 @@
+         "type": "boolean",
+         "const": false,
+         "default": false
++      },
++      "candidateDraftsRoot": {
++        "type": "string",
++        "minLength": 1,
++        "maxLength": 4096,
++        "description": "Optional dedicated synthetic-debug Git repository; explicit initialization marker required. No legacy or private source repository."
+       }
+     }
+   }
+--- a/package.json
++++ b/package.json
+@@ -17,7 +17,8 @@
+     "docs/CHECKPOINT-WORK-SUPPLY.md",
+     "docs/CHECKPOINT-UNDERSTANDING-SUPPLY.md",
+     "docs/CHECKPOINT-CORRECTION-WRITER.md",
+-    "docs/MAIN-DEBUG-INSTALL.md"
++    "docs/MAIN-DEBUG-INSTALL.md",
++    "docs/CANDIDATE-WORK-BRIEF.md"
+   ],
+   "scripts": {
+     "build": "node scripts/compile.mjs build",
+--- a/README.md
++++ b/README.md
+@@ -10,6 +10,12 @@
+ [main debug installation and rollback guide](docs/MAIN-DEBUG-INSTALL.md).
+ The older runtime and its acceptance records remain historical; the old
+ activation scripts do not configure this new entry.
++
++The next [unconfirmed work-brief increment](docs/CANDIDATE-WORK-BRIEF.md) adds
++explicit save/read and versioned modification in a separate synthetic-debug Git
++store. Its code and focused tests are ready; the main Gateway installation is
++pending review and the Host's consent for the additional declared tool. The
++currently loaded main8 build remains unchanged, with persistence disabled.
+ 
+ ## Current design
+ 
+--- a/docs/MAIN-DEBUG-INSTALL.md
++++ b/docs/MAIN-DEBUG-INSTALL.md
+@@ -77,3 +77,11 @@
+ sources, migrate old state, call paid models or establish `full_memory`.
+ The previously exhausted isolated Host batch remains historical and is not
+ reused by the main-instance installation.
++
++The later optional [unconfirmed work-brief increment](CANDIDATE-WORK-BRIEF.md)
++adds `stella_work_brief` and `candidateDraftsRoot` for an explicitly initialized,
++separate synthetic-debug Git store. It preserves the candidate-only authority
++boundary while allowing explicit save and versioned restore across requests.
++Without this configuration, persistence remains disabled. The initial installation
++facts above retain their historical identity; the new increment has separate
++tool, transaction, installation and rollback evidence.
+--- /dev/null
++++ b/docs/CANDIDATE-WORK-BRIEF.md
+@@ -0,0 +1,101 @@
++# Unconfirmed work briefs
++
++The candidate ordinary plugin has an explicit `stella_work_brief` tool. It saves and
++restores the same **unconfirmed candidate**, including proposed premises,
++unresolved questions and opaque, unverified references. It does not confirm the
++author, publish an author position or write Core's authoritative long-term
++memory. The existing `stella_author_intent_candidate` remains unsaved.
++
++This increment is restricted to a **synthetic debug** store.
++It uses the existing author-intent v1 asset and Git transaction repository, not
++another memory database. The asset's confirmation is always `candidate`;
++`originalIntent`, `established` and authoritative `interpretation` are empty.
++The structured proposal is enclosed as one explicitly unverified assistant
++source. References never trigger file, URL, transcript or credential access.
++Host history and native memory remain Host-owned; this feature makes no claim
++about how the Host might retain or later summarize tool results.
++
++The operator configures `candidateDraftsRoot`, an absolute, canonical path to a
++dedicated local Git repository with its own real `.git` directory. The repository
++must already contain the exact canonical marker exported as `DRAFT_MARKER_BYTES`
++by `src/openclaw/candidate-work-brief.ts`. The tool never initializes a repository,
++changes Git identity or adds a remote. The current marker scope is
++`synthetic_debug`; pointing it at a private source or legacy production repository
++is outside this milestone. No old source pointer, archive or data is migrated.
++
++Only the configured agent and the Host's existing owner context can use the draft
++store. This restricts access to the debug domain; the owner bit is **not** author
++confirmation or permission to read other sources. The original v2 invocation
++guard is captured and rechecked through repository operations. Sandboxed callers
++are unsupported. A workspace-only caller must contain the configured store in
++its Host-supplied root; read-only roots cannot authorize writes. Each invocation
++constructs fresh ports and reads current disk state. No session-to-latest lookup,
++persisted grant or cross-request permission cache exists.
++
++Use the same `briefId` in later requests:
++
++```json
++{
++  "action": "save",
++  "briefId": "harbor",
++  "operationId": "create_A",
++  "expectedVersion": null,
++  "proposal": {
++    "topic": "Synthetic harbor walk",
++    "interpretation": "Keep two endings open",
++    "proposedPremises": ["The walk may connect the scenes"],
++    "openQuestions": ["Which ending fits?"],
++    "evidenceReferences": ["synthetic:unverified"]
++  }
++}
++```
++
++A later request reads `{"action":"read","briefId":"harbor"}`. To modify it,
++save the full revised proposal with a new operation ID and the exact returned
++`version` as `expectedVersion`. There is no implicit latest-version overwrite,
++automatic rebase or semantic merge. Semantic choices remain the model's job.
++The first creation alone uses `null`. Input cannot supply confirmation, author
++identity, a filesystem path or an authorization override.
++
++A save returns `publishedVersion` (the existing repository's field name for the
++saved candidate version), `currentVersion`, `commitRevision`, `replayed` and
++`isCurrent`. This is a local candidate Git commit, **not formal publication**.
++Exact operation retries preserve their original result. Retrying an old operation
++after another update does not roll it back; `isCurrent` will be false. Reusing an
++operation ID for different content fails. A read returns the current proposal,
++version and commit. The tool exposes no list, search, external source reader,
++confirmation, deletion, automatic background job, remote sync or new model client.
++
++Version conflicts, dirty repository state, missing history, malformed data,
++cancellation and transaction uncertainty are explicit failures, never an empty
++brief or an unsaved-success fallback. Existing transaction fences protect
++incomplete writes. An update interrupted while fenced may require deliberate
++repository-level recovery: the thin tool does not bypass the fence to derive its
++historical base. No crash-recovery UI is claimed here. The enclosed proposal JSON
++must fit the existing source excerpt limit of 16,384 characters; oversized input
++is rejected without truncation.
++
++Focused tests use fictional text in fresh Git repositories and separate tool
++factories to save, read, modify and read again, without a model. A new `.artifacts/`
++store with no remotes is prepared for the main Gateway demonstration. That actual
++Gateway demonstration is **not run**: the official reload requires consent for
++the added declared tool, `stella_work_brief`. The two formerly accepted tools are
++unchanged. No consent flag was applied. Main8 package/configuration are restored;
++the pending candidate and rollback evidence are retained. A local config schema
++check passed, while the first live management attempt rejected the new option;
++deferring that option exposed the explicit consent gate. The exact internal cache
++cause of the first discrepancy is not established.
++
++After review/consent, load the new schema first with persistence disabled, then
++set the already prepared synthetic store and reload Core only. Separately invoke
++save, read, modify and read through the real Gateway. Until that happens, existing
++test-factory and repository evidence is not actual Gateway consumer acceptance.
++Neither layer alone proves model selection, semantic adoption, real author/source
++admission or `full_memory`. No paid request is part of this increment. Publisher
++stays off.
++
++Rollback retains the complete pre-change main8 plugin artifact and an opaque
++mode-0600 main configuration backup. Reverting this feature restores only the
++Core package/configuration after checking for intervening changes, followed by
++the official Core-only reload. Keep the synthetic Git store; no data deletion is
++needed. Do not overwrite another plugin's configuration or restart the Gateway.

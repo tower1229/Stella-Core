@@ -11,6 +11,14 @@ admission and confirmed publication remain disconnected. See the
 The older runtime and its acceptance records remain historical; the old
 activation scripts do not configure this new entry.
 
+The [unconfirmed work-brief increment](docs/CANDIDATE-WORK-BRIEF.md) adds explicit
+save/read and versioned modification in a separate synthetic-debug Git store.
+The existing main Gateway has loaded this reviewed build (generation 11), and
+four no-model calls saved, restored and revised one fictional brief across
+requests. Author confirmation and formal publication remain disabled. The
+Host's acceptance of the added declared tool persists until revoked; this does
+not enable private sources or authorize paid model calls.
+
 ## Current design
 
 Start with [the design baseline](docs/10-DESIGN-BASELINE.md). It defines document authority,

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 57,
-  "updatedAt": "2026-10-31T09:34:56.555777+00:00",
+  "revision": 64,
+  "updatedAt": "2026-10-31T11:21:07.431271+00:00",
   "writer": {
-    "agent": "Core reviewed R1 main promotion/save/exact-SHA CI sole writer",
-    "session": "delegated:core-binding-r1-save-ci-20261031"
+    "agent": "Core reviewed draft activation/save sole writer",
+    "session": "delegated-core-work-brief-20261031"
   },
   "workstreams": [
     {
@@ -521,8 +521,8 @@
       ],
       "status": "running",
       "owner": {
-        "agent": "Core reviewed R1 main promotion/save/exact-SHA CI sole writer",
-        "session": "delegated:core-binding-r1-save-ci-20261031"
+        "agent": "Core reviewed draft activation/save sole writer",
+        "session": "delegated-core-work-brief-20261031"
       },
       "evidence": [
         {
@@ -1133,11 +1133,55 @@
             "sha256": "9dfa0d4659607efcf393cedec851045e913e1f4db534d781fc01eaaa0381e91f",
             "baseCommit": "421af72baa75bd313d251a1961a1e5f6b135ede0"
           }
+        },
+        {
+          "id": "C-VAL-BINDING-R1-PUSHED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/binding-r1-save-ci-20261031.json",
+          "claim": "Exact13reviewfiles committed/normalpushed6b3d07b4 and fullremoteSHAverified;R1main8/nopathconfigchange/statuspassed/rollbackretained. Two exactSHA CI inprogress. No furtherpaidrequests or unrelateddirty staging.",
+          "observedAt": "2026-10-31T09:37:21.529456+00:00",
+          "subject": {
+            "sha256": "3615817a5462ed69aff487cc2d92f272f5a5e09086bf6dacdde6934dc9cdac72",
+            "commit": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539"
+          }
+        },
+        {
+          "id": "C-VAL-BINDING-R1-CI-TERMINAL",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/binding-r1-ci-6b3d07b4-20261031.json",
+          "claim": "Exact6b3d07b4 remoteverified,13reviewedfilesnormalpushed;main8R1reload/status/configunchanged/rollbackretained. CI41189359231+41189359354 terminalfailureeach1775/1749pass/26oldfail;10binding+5ordinary+22offline pass each. Experimental26fullnormalized diagnostics same;CI25same+oneoldSDKassertion Nodecompletionstacktailvariationonly. No newregression. Both runners realexit1,groupgone,stdio/ownedwork0pending/cleanupcomplete;probes skipped/verify missing preparedpackage. No furtherpaidcall/localtests/workflowrerun/cancel.",
+          "observedAt": "2026-10-31T09:51:42.457975+00:00",
+          "subject": {
+            "sha256": "c51b615e4d4b5fad115e7f211acddb4c9624f0c9fc9b8cd445eed692d46cc3f4",
+            "commit": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539"
+          }
+        },
+        {
+          "id": "C-VAL-CANDIDATE-WORK-BRIEF-CODE-READY",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-20261031.json",
+          "claim": "Explicit synthetic candidate draft tool reuses existing asset/Git transaction repository. Compile/build0, focused53/53 including9newdraftgroups. Actual Gateway draft consumer not_run: new declaredtool requires Host capability consent, no acceptance flag used. Candidate preserved; main8 exact2734files/config restored and actual no-modelstatus persistence none/publisherfalse. No paid/model/realdata/newidentitygrant/commit/push. Concentrated review pending.",
+          "observedAt": "2026-10-31T10:30:25.500729+00:00",
+          "subject": {
+            "sha256": "50ea81c8e27fea0e92001e904a0bc2744ce5c9b475b6939206b9af333bdb3ab8",
+            "baseCommit": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539"
+          }
+        },
+        {
+          "id": "C-VAL-CANDIDATE-WORK-BRIEF-MAIN-PASS",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/candidate-work-brief-main-20261031.json",
+          "claim": "Reviewed code53/53 accepted. Exact additional tool surface officially accepted durably; Core-only schema-first reload generation11/noRestart. Four public SDK existing owner-scope tools.invoke calls actually saved A/read A/CASupdated B/read B, canonical hashes/2localcommits/clean8file syntheticGit/noRemotes verified. First ordinary CLI failure retained separately; total5calls, no model/realdata/source/publisher permission change. Preparing reviewed scoped save/push; historical quotas and unknowns unchanged.",
+          "observedAt": "2026-10-31T11:21:07.431271+00:00",
+          "subject": {
+            "sha256": "743e3afaba9b7a284bb3c43c29ef1ea960aa1c0b227cdaf953592c08a335b971",
+            "baseCommit": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "R1+one genuine modeltest independentlyaccepted; actualmain R1promotion generation8 completevia same trackedpath3compiledfiles andofficialCoreonlyreload/no-modelstatus. FullpreR1artifactrollback retained;mainconfigunchanged. No furtherpaidcalls; new1/1andold3/3exhausted. Preparing exact10reviewfiles+summary+state+twoPROJECTappendices only; no rawprivateassets or unrelateddirty.",
-        "nextAction": "Scopednormalcommit/push existingdevbranch, verify remote and monitor exactSHA CIterminal. Compare baseline421af72b1765/1739pass/26oldfail, expect10additional binding groups and unchanged5ordinary/22offline tests. Do not restart main/repeat paidrequest or reopen old26 as universal gates.",
+        "checkpoint": "Generation11 actual candidate draft consumer passed4owner-context publicSDK calls save/read/CASupdate/read; two commits and exact proposals/versions verified. Initial ordinaryCLI failure1 retained; defaultwrite vs requiredexistingadmin request corrected through publicSDK without newgrant. Consent durable exacttoolonly; fixed syntheticstore clean/no remotes; publisher/sourceoff and model0. Native report archived.",
+        "nextAction": "Commit/push exact reviewed10source/test/manifest/docs plus bounded initial/native/review reports and minimal state/PROJECT appendices; exclude artifacts/config/logs/data/oldpausedrunnerdiffs. Follow exactSHA dualCI vs1775/1749/26baseline, expected+9draftgroups. No new model/Host design or replay.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -1232,9 +1276,33 @@
           "actualToolCallId": "call_281565",
           "sourceAndPublisher": "off",
           "evidence": "C-VAL-REALMODEL-ONCE-PASS"
+        },
+        "candidateWorkBrief": {
+          "report": ".task-control/reports/CORE-VAL-001/candidate-work-brief-20261031.json",
+          "sha256": "50ea81c8e27fea0e92001e904a0bc2744ce5c9b475b6939206b9af333bdb3ab8",
+          "code": "independently_accepted53of53",
+          "focusedTests": 53,
+          "newGroups": 9,
+          "actualGatewayDraftCalls": 5,
+          "newPaidRequests": 0,
+          "nativeConsentAccepted": true,
+          "mainRestored": false,
+          "candidateArtifact": ".artifacts/candidate-work-brief-20261031/package",
+          "syntheticStore": ".artifacts/candidate-work-brief-data-20261031",
+          "nextNativeExecutionAssigned": false,
+          "independentSummarySha256": "f4707a8fe9900b3468c6409bed45208ccb6bdfc5a185c10b244367297ffd334d",
+          "consentScope": "durable declared tool/contract only, not4call quota; fixed syntheticroot; no OS/auth/identity/private-data grant",
+          "acceptedSurfaceHash": "f57b121351a720f239f5eb64489bd9802dd7acc085cf13022c4b0665abbd1f3c",
+          "gatewayGeneration": 11,
+          "configSha256": "85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4",
+          "successfulGatewayDraftCalls": 4,
+          "initialFailedOrdinaryCli": 1,
+          "nativeReport": ".task-control/reports/CORE-VAL-001/candidate-work-brief-main-20261031.json",
+          "nativeReportSha256": "743e3afaba9b7a284bb3c43c29ef1ea960aa1c0b227cdaf953592c08a335b971",
+          "demoCompleted": true
         }
       },
-      "updatedAt": "2026-10-31T09:34:56.555777+00:00",
+      "updatedAt": "2026-10-31T11:21:07.431271+00:00",
       "delivery": {
         "local": {
           "status": "committed",
@@ -1519,12 +1587,14 @@
         }
       },
       "currentRequestBinding": {
-        "status": "r1_independently_accepted_main8_saving",
+        "status": "r1_main8_pushed_ci_terminal_no_observed_regression",
         "generation": 8,
-        "observedAt": "2026-10-31T09:34:56.555777+00:00",
+        "observedAt": "2026-10-31T09:51:42.457975+00:00",
         "evidence": [
           "C-VAL-TOOL-REQUEST-BINDING-INSTALLED",
-          "C-VAL-BINDING-R1-ACCEPTED-MAIN8"
+          "C-VAL-BINDING-R1-ACCEPTED-MAIN8",
+          "C-VAL-BINDING-R1-PUSHED",
+          "C-VAL-BINDING-R1-CI-TERMINAL"
         ],
         "localFocusedTests": {
           "tests": 15,
@@ -1536,14 +1606,21 @@
           "runId": null,
           "sessionBound": true,
           "sessionIncarnationBound": false,
-          "spoofedBinding": "rejected_isError"
+          "spoofedBinding": "rejected_isError",
+          "observedGeneration": 7
         },
         "fullRunBinding": "synthetic_tests_only",
         "inputAdmission": "not_connected",
         "publisher": false,
         "modelCalls": 0,
-        "commit": "not_committed",
-        "push": "not_pushed",
+        "commit": {
+          "sha": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539",
+          "files": 13
+        },
+        "push": {
+          "status": "pushed",
+          "remoteSha": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539"
+        },
         "localRevision": "R1 independentlyaccepted; realmodelvalidpathpass; main8 now R1; no new paidcall",
         "independentReview": "accepted",
         "mainPromotion": {
@@ -1551,7 +1628,121 @@
           "restartRequired": false,
           "noModelStatusPassed": true,
           "mainConfigUnchanged": true,
-          "oldArtifactRollbackRetained": true
+          "oldArtifactRollbackRetained": true,
+          "generation": 8,
+          "verification": "officialreload+reviewedcompiledhelperbytes+no-modelstatus; no further candidate/model replay"
+        },
+        "ci": {
+          "status": "failed",
+          "conclusion": "failure",
+          "headSha": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539",
+          "countsEach": {
+            "tests": 1775,
+            "pass": 1749,
+            "fail": 26,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "bindingCasesPassedEach": 10,
+          "ordinaryCasesPassedEach": 5,
+          "offlineCasesPassedEach": 22,
+          "newRegressionObserved": false,
+          "oldFailureCausesUnchanged": 26,
+          "normalizedIdentical": {
+            "ci": 25,
+            "experimental": 26
+          },
+          "stackTailVariation": "one old SDKversionassertion has alternate Node childprocess completion callback tail only",
+          "runs": [
+            {
+              "id": 41189359231,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41189359231",
+              "workflow": "Full capability assessment",
+              "headSha": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539",
+              "status": "completed",
+              "conclusion": "failure",
+              "startedAt": "2026-10-31T09:36:03Z",
+              "updatedAt": "2026-10-31T09:47:09Z",
+              "jobs": [
+                {
+                  "id": 124502746682,
+                  "name": "prepare",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T09:36:06Z",
+                  "completedAt": "2026-10-31T09:46:56Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41189359231/job/124502746682",
+                  "failedSteps": [
+                    {
+                      "number": 6,
+                      "name": "Check, test, build and freeze one package"
+                    }
+                  ]
+                },
+                {
+                  "id": 124504877188,
+                  "name": "verify",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T09:46:59Z",
+                  "completedAt": "2026-10-31T09:47:09Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41189359231/job/124504877188",
+                  "failedSteps": [
+                    {
+                      "number": 5,
+                      "name": "Require all 152 unique cases and successful jobs"
+                    }
+                  ]
+                },
+                {
+                  "id": 124504877405,
+                  "name": "probes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-31T09:46:56Z",
+                  "completedAt": "2026-10-31T09:46:56Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41189359231/job/124504877405",
+                  "failedSteps": []
+                }
+              ]
+            },
+            {
+              "id": 41189359354,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41189359354",
+              "workflow": "Experimental owner chat",
+              "headSha": "6b3d07b4a9b882954842e2d2a11bd7c45ae31539",
+              "status": "completed",
+              "conclusion": "failure",
+              "startedAt": "2026-10-31T09:36:03Z",
+              "updatedAt": "2026-10-31T09:41:26Z",
+              "jobs": [
+                {
+                  "id": 124502746953,
+                  "name": "Installed experimental owner chat (synthetic)",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T09:36:07Z",
+                  "completedAt": "2026-10-31T09:41:26Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41189359354/job/124502746953",
+                  "failedSteps": [
+                    {
+                      "number": 5,
+                      "name": "Check source and test one installed package with stock Host"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "realModelProof": {
+          "scope": "dedicatedR1artifact, one approved syntheticGoogle/gemini3.8Flash/low request, not dailyGatewaymain",
+          "evidence": "C-VAL-REALMODEL-ONCE-PASS",
+          "fullRunSessionCallBound": true,
+          "inputAdmission": "not_connected",
+          "publisher": false,
+          "quotaRemaining": 0
         }
       }
     },

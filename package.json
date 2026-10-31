@@ -17,7 +17,8 @@
     "docs/CHECKPOINT-WORK-SUPPLY.md",
     "docs/CHECKPOINT-UNDERSTANDING-SUPPLY.md",
     "docs/CHECKPOINT-CORRECTION-WRITER.md",
-    "docs/MAIN-DEBUG-INSTALL.md"
+    "docs/MAIN-DEBUG-INSTALL.md",
+    "docs/CANDIDATE-WORK-BRIEF.md"
   ],
   "scripts": {
     "build": "node scripts/compile.mjs build",
