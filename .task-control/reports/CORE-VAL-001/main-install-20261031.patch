@@ -1,0 +1,946 @@
+diff --git a/src/ordinary-plugin.ts b/src/ordinary-plugin.ts
+new file mode 100644
+index 00000000..1983f21a
+--- /dev/null
++++ b/src/ordinary-plugin.ts
+@@ -0,0 +1,99 @@
++import { definePluginEntry, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
++import { Type } from "typebox";
++import { isRecord } from "./shared/type-guards.js";
++
++export const CANDIDATE_TOOL = "stella_author_intent_candidate";
++export const STATUS_TOOL = "stella_status";
++const text = () => Type.String({ minLength: 1, maxLength: 4000 });
++const list = () => Type.Array(text(), { maxItems: 16 });
++export const CANDIDATE_PARAMETERS = Type.Object({
++  topic: text(),
++  interpretation: text(),
++  proposedPremises: list(),
++  openQuestions: list(),
++  evidenceReferences: list(),
++}, { additionalProperties: false });
++
++type Proposal = {
++  topic: string; interpretation: string; proposedPremises: string[];
++  openQuestions: string[]; evidenceReferences: string[];
++};
++const keys = ["topic", "interpretation", "proposedPremises", "openQuestions", "evidenceReferences"];
++function validText(value: unknown): value is string {
++  return typeof value === "string" && value.length > 0 && value.length <= 4000;
++}
++function validList(value: unknown): value is string[] {
++  return Array.isArray(value) && value.length <= 16 && value.every(validText);
++}
++export function parseProposal(value: unknown): Proposal {
++  if (!isRecord(value) || Object.getPrototypeOf(value) !== Object.prototype ||
++      Object.keys(value).length !== keys.length || !keys.every(key => Object.hasOwn(value, key)) ||
++      !validText(value.topic) || !validText(value.interpretation) ||
++      !validList(value.proposedPremises) || !validList(value.openQuestions) || !validList(value.evidenceReferences)) {
++    throw new Error("stella_candidate_arguments_invalid");
++  }
++  return structuredClone(value) as Proposal;
++}
++
++export function parseOrdinaryConfig(value: unknown): { agentId: string; publisher: false } {
++  const config = value ?? {};
++  if (!isRecord(config) || Object.keys(config).some(key => key !== "agentId" && key !== "publisher") ||
++      (config.publisher !== undefined && config.publisher !== false) ||
++      (config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(config.agentId)))) {
++    throw new Error("stella_ordinary_configuration_invalid: use agentId and publisher:false; legacy configuration is not migrated implicitly");
++  }
++  return { agentId: typeof config.agentId === "string" ? config.agentId : "main", publisher: false };
++}
++
++function result(details: Record<string, unknown>, isError = false) {
++  return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details, ...(isError ? { isError: true } : {}) };
++}
++
++/** Ordinary, data-free entry. No legacy loader, provider, context engine,
++ * filesystem reader/writer, model client or automatic background task is bound.
++ * The Host's model supplies semantics; this tool only validates and labels its
++ * proposal. References remain unverified and cannot become author admission. */
++export default definePluginEntry({
++  id: "stella-core",
++  name: "Stella Core",
++  description: "Source-aware work-brief candidates alongside native OpenClaw memory and context",
++  register(api) {
++    const config = parseOrdinaryConfig(api.pluginConfig);
++    const status = () => ({
++      architecture: "ordinary-plugin", stage: "candidate-only", agentId: config.agentId,
++      publisher: false, sourceAdapter: "not_connected", authorConfirmation: false,
++      persistence: "none", modelCalls: false, legacyRuntime: "inactive",
++      memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
++    });
++    api.registerTool({ contextVersion: 2, create(context: OpenClawPluginToolContext<2>) {
++      if (context.agentId !== config.agentId) return null;
++      // Capture the Host guard once. The mutable factory object cannot replace it.
++      const invocationGuard = context.assertInvocationCurrent.bind(context);
++      const check = (signal?: AbortSignal) => { invocationGuard(); signal?.throwIfAborted(); };
++      return [
++        { name: STATUS_TOOL, label: "Stella status", description: "Show Stella's active architecture and available capabilities. No model or personal files are accessed.",
++          parameters: Type.Object({}, { additionalProperties: false }),
++          async execute(_callId, parameters, signal) {
++            check(signal);
++            if (!isRecord(parameters) || Object.keys(parameters).length) return result({ status: "rejected", code: "stella_status_arguments_invalid" }, true);
++            return result(status());
++          } },
++        { name: CANDIDATE_TOOL, label: "Author intent candidate",
++          description: "Structure your proposed understanding of an author's work. Preserve unresolved questions and distinguish proposed premises from verified author intent. This returns an unconfirmed, unsaved candidate only. Evidence references are model-supplied and unverified. Never use this tool as confirmation, publication or memory saving.",
++          parameters: CANDIDATE_PARAMETERS,
++          async execute(callId, parameters, signal) {
++            check(signal);
++            let proposal: Proposal;
++            try { proposal = parseProposal(parameters); }
++            catch { return result({ status: "rejected", code: "stella_candidate_arguments_invalid" }, true); }
++            check(signal);
++            return result({ status: "candidate", code: "author_source_unavailable", toolCallId: callId,
++              proposal, evidenceStatus: "model_supplied_unverified", authorConfirmation: false,
++              publisher: false, saved: false });
++          } },
++      ];
++    } }, { names: [STATUS_TOOL, CANDIDATE_TOOL] });
++    api.registerCommand({ name: "stella-status", description: "Show Stella architecture and candidate-only limits without a model call", requireAuth: true,
++      handler: () => ({ text: JSON.stringify(status(), null, 2) }) });
++  },
++});
+diff --git a/tests/ordinary-plugin.test.ts b/tests/ordinary-plugin.test.ts
+new file mode 100644
+index 00000000..6258ed7a
+--- /dev/null
++++ b/tests/ordinary-plugin.test.ts
+@@ -0,0 +1,68 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { readFile } from "node:fs/promises";
++import { Ajv } from "ajv";
++import plugin, { CANDIDATE_TOOL, STATUS_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++
++const proposal = { topic: "Synthetic writing task", interpretation: "A proposed argument, not a confirmed conclusion",
++  proposedPremises: ["A tentative premise"], openQuestions: ["Which conclusion does the author intend?"], evidenceReferences: ["synthetic:unverified"] };
++function fixture() {
++  let factory: any, command: any, guardCalls = 0, active = true;
++  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
++    registerTool(value: unknown) { factory = value; }, registerCommand(value: unknown) { command = value; },
++  } as unknown as OpenClawPluginApi);
++  const context = { agentId: "main", assertInvocationCurrent() { guardCalls++; if (!active) throw Error("closed"); } };
++  const tools = factory.create(context);
++  return { tools, factory, context, command, close() { active = false; }, guards: () => guardCalls };
++}
++
++test("default package is ordinary and historical config is rejected without importing old runtime", async () => {
++  const pkg = JSON.parse(await readFile("package.json", "utf8"));
++  assert.equal(pkg.main, "./dist/src/ordinary-plugin.js"); assert.deepEqual(pkg.openclaw.extensions, [pkg.main]);
++  const manifest = JSON.parse(await readFile("openclaw.plugin.json", "utf8"));
++  assert.equal(manifest.kind, undefined); assert.equal(manifest.providers, undefined);
++  const validate = new Ajv({ strict: false }).compile(manifest.configSchema);
++  assert.equal(validate({ agentId: "main", publisher: false }), true);
++  for (const config of [{ publisher: true }, { canghaiRoot: "/synthetic" }, { agentId: "" }]) {
++    assert.equal(validate(config), false); assert.throws(() => parseOrdinaryConfig(config));
++  }
++  assert.deepEqual(parseOrdinaryConfig({}), { agentId: "main", publisher: false });
++  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL].sort());
++});
++
++test("registration only contributes guarded ordinary tools and a no-model command", async () => {
++  const f = fixture();
++  assert.equal(f.factory.contextVersion, 2); assert.equal(f.factory.create({ agentId: "other" }), null);
++  assert.equal(f.command.requireAuth, true);
++  const status = await f.tools.find((t: any) => t.name === STATUS_TOOL).execute("status", {});
++  assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
++  assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
++  assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
++});
++
++test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {
++  const f = fixture(), tool = f.tools.find((t: any) => t.name === CANDIDATE_TOOL);
++  const result = await tool.execute("synthetic-call", proposal);
++  assert.equal(result.details.status, "candidate"); assert.equal(result.details.saved, false);
++  assert.equal(result.details.authorConfirmation, false); assert.equal(result.details.publisher, false);
++  assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
++  assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 2);
++  result.details.proposal.openQuestions.push("mutated"); assert.equal(proposal.openQuestions.length, 1);
++});
++
++test("spoofed confirmation, missing fields and oversized input are rejected", async () => {
++  const tool = fixture().tools.find((t: any) => t.name === CANDIDATE_TOOL);
++  for (const input of [{ ...proposal, confirmed: true }, {}, { ...proposal, interpretation: "x".repeat(4001) },
++    { ...proposal, evidenceReferences: Array(17).fill("x") }]) {
++    const result = await tool.execute("invalid", input); assert.equal(result.isError, true); assert.equal(result.details.status, "rejected");
++  }
++});
++
++test("closed invocation, replaced guard and cancellation cannot return a candidate", async () => {
++  const f = fixture(), tool = f.tools.find((t: any) => t.name === CANDIDATE_TOOL);
++  f.close(); f.context.assertInvocationCurrent = () => {};
++  await assert.rejects(tool.execute("closed", proposal), /closed/);
++  const signal = AbortSignal.abort(Error("cancelled"));
++  await assert.rejects(fixture().tools[1].execute("cancelled", proposal, signal), /cancelled/);
++});
+diff --git a/openclaw.plugin.json b/openclaw.plugin.json
+index 5ecd9db4..a13507a1 100644
+--- a/openclaw.plugin.json
++++ b/openclaw.plugin.json
+@@ -1,18 +1,25 @@
+ {
+   "id": "stella-core",
+   "name": "Stella Core",
+-  "providers": [
+-    "stella-guarded"
+-  ],
+-  "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
++  "description": "Ordinary work-brief candidate plugin; native memory/context retained, publisher off",
+   "contracts": {
+     "tools": [
+-      "stella_initialize",
+-      "stella_read_fragment",
+-      "stella_memory_data",
+-      "stella_memory_correct"
++      "stella_status",
++      "stella_author_intent_candidate"
+     ]
+   },
++  "toolMetadata": {
++    "stella_status": {
++      "profiles": [
++        "coding"
++      ]
++    },
++    "stella_author_intent_candidate": {
++      "profiles": [
++        "coding"
++      ]
++    }
++  },
+   "activation": {
+     "onStartup": true,
+     "onAgentHarnesses": [
+@@ -22,269 +29,17 @@
+   "configSchema": {
+     "type": "object",
+     "additionalProperties": false,
+-    "required": [
+-      "canghaiRoot",
+-      "dataMode"
+-    ],
+     "properties": {
+-      "initializationGatewayAccess": {
+-        "type": "string",
+-        "enum": [
+-          "local_operator_read"
+-        ],
+-        "description": "Explicit permission to verify initialization through the local authenticated Gateway using operator.read; credentials remain in Host configuration."
+-      },
+-      "canghaiRoot": {
+-        "type": "string",
+-        "minLength": 1,
+-        "description": "Absolute path to the local CangHai checkout"
+-      },
+-      "manifestPath": {
+-        "type": "string",
+-        "default": "50_PersonalAgent/stella/manifest.yaml",
+-        "description": "Path to the Stella consciousness manifest relative to CangHai root"
+-      },
+-      "recoveryRevision": {
+-        "type": "string",
+-        "pattern": "^[0-9a-fA-F]{40}$",
+-        "description": "Exact clean CangHai Git commit selected as the recovery revision"
+-      },
+       "agentId": {
+         "type": "string",
+-        "default": "stella",
+-        "description": "OpenClaw agent id that Stella Core should augment"
+-      },
+-      "dataMode": {
+-        "type": "string",
+-        "enum": [
+-          "read_only",
+-          "local_write",
+-          "managed_durable_write"
+-        ],
+-        "description": "Explicit CangHai data mode"
+-      },
+-      "durabilityRemote": {
+-        "type": "string",
+-        "minLength": 1,
+-        "description": "Explicit Git remote used only by managed_durable_write"
+-      },
+-      "durabilityBranch": {
+-        "type": "string",
+-        "minLength": 1,
+-        "description": "Explicit Git branch used only by managed_durable_write"
+-      },
+-      "archiveRetention": {
+-        "type": "string",
+-        "enum": [
+-          "hold_and_monitor"
+-        ],
+-        "description": "Opt in to native-maintenance hold checks and continuous archive backlog monitoring for the configured agent; requires session.maintenance.mode=warn and managed durability. Does not authorize deletion or certify all historical generations."
+-      },
+-      "contextHistorySignerId": {
+-        "type": "string",
+-        "pattern": "^sha256:[a-f0-9]{64}$",
+-        "description": "Pinned Ed25519 public key identity for Core history; initialize the private key outside CangHai before enabling managed context."
+-      },
+-      "contextHistoryArchiveRoot": {
+-        "type": "string",
+-        "minLength": 1,
+-        "description": "Repository-relative retained Core context archive directory; requires managed durable writes and a pinned signing key."
++        "pattern": "^[a-zA-Z0-9_-]{1,64}$",
++        "default": "main"
+       },
+-      "recoveryAuthority": {
+-        "type": "string",
+-        "enum": [
+-          "legacy_config",
+-          "core_checkpoint"
+-        ],
+-        "default": "legacy_config",
+-        "description": "Explicit authority mode. Core checkpoint is restricted maintenance; Agent memory is blocked until migrated."
+-      },
+-      "checkpointStateDirectory": {
+-        "type": "string",
+-        "minLength": 1,
+-        "description": "Explicit existing canonical state directory outside CangHai, required only in core_checkpoint mode. Never auto-initialized."
+-      },
+-      "requestArchive": {
+-        "type": "string",
+-        "enum": [
+-          "local"
+-        ],
+-        "description": "Explicit checkpoint-mode owner input retention. With agentMemory fresh_tools, archive once before normal Host Agent execution; alone, retain without running an Agent."
+-      },
+-      "agentMemory": {
+-        "type": "string",
+-        "enum": [
+-          "fresh_tools"
+-        ],
+-        "description": "Experimental same-owner Host conversation with retained history and fresh Core authority per user request. Existing fresh_tools name is retained for compatibility; full_memory is separate."
+-      },
+-      "webchatOwnerProfileId": {
+-        "type": "string",
+-        "minLength": 1,
+-        "maxLength": 512,
+-        "pattern": "^[^\\u0000-\\u0020\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\u0000-\\u0020\\u007f])?$",
+-        "description": "Explicit owner profile for current authenticated WebChat ingress. Requires a separate source processing requester grant; never aliases a Telegram identity."
+-      },
+-      "webchatOwnerDeviceId": {
+-        "type": "string",
+-        "minLength": 64,
+-        "maxLength": 64,
+-        "pattern": "^[a-f0-9]{64}$",
+-        "description": "Opt-in owner device for direct WebChat admin requests without a human profile. Mutually exclusive with webchatOwnerProfileId. Identifies the device holder, requires a separate source grant, and does not isolate people sharing that browser."
+-      },
+-      "agentCorrection": {
+-        "type": "string",
+-        "enum": [
+-          "tool"
+-        ],
+-        "description": "Explicit opt-in to the separate owner correction write tool. Requires fresh_tools, local input archive, local_write and existing source learn/view/model permissions; absent means disabled."
+-      }
+-    },
+-    "allOf": [
+-      {
+-        "if": {
+-          "properties": {
+-            "recoveryAuthority": {
+-              "const": "core_checkpoint"
+-            }
+-          },
+-          "required": [
+-            "recoveryAuthority"
+-          ]
+-        },
+-        "then": {
+-          "required": [
+-            "checkpointStateDirectory"
+-          ],
+-          "properties": {
+-            "dataMode": {
+-              "enum": [
+-                "read_only",
+-                "local_write"
+-              ]
+-            },
+-            "initializationGatewayAccess": false,
+-            "durabilityRemote": false,
+-            "durabilityBranch": false,
+-            "archiveRetention": false,
+-            "contextHistorySignerId": false,
+-            "contextHistoryArchiveRoot": false,
+-            "requestArchive": {
+-              "type": "string",
+-              "enum": [
+-                "local"
+-              ]
+-            }
+-          },
+-          "not": {
+-            "required": [
+-              "recoveryRevision"
+-            ]
+-          }
+-        },
+-        "else": {
+-          "required": [
+-            "recoveryRevision"
+-          ],
+-          "not": {
+-            "required": [
+-              "checkpointStateDirectory"
+-            ]
+-          }
+-        }
+-      },
+-      {
+-        "if": {
+-          "required": [
+-            "requestArchive"
+-          ]
+-        },
+-        "then": {
+-          "required": [
+-            "recoveryAuthority"
+-          ],
+-          "properties": {
+-            "recoveryAuthority": {
+-              "const": "core_checkpoint"
+-            },
+-            "dataMode": {
+-              "const": "local_write"
+-            }
+-          }
+-        }
+-      },
+-      {
+-        "if": {
+-          "required": [
+-            "agentMemory"
+-          ]
+-        },
+-        "then": {
+-          "required": [
+-            "recoveryAuthority"
+-          ],
+-          "properties": {
+-            "recoveryAuthority": {
+-              "const": "core_checkpoint"
+-            }
+-          }
+-        }
+-      },
+-      {
+-        "if": {
+-          "required": [
+-            "webchatOwnerProfileId"
+-          ]
+-        },
+-        "then": {
+-          "required": [
+-            "recoveryAuthority"
+-          ],
+-          "properties": {
+-            "recoveryAuthority": {
+-              "const": "core_checkpoint"
+-            }
+-          }
+-        }
+-      },
+-      {
+-        "if": {
+-          "required": ["webchatOwnerDeviceId"]
+-        },
+-        "then": {
+-          "required": ["recoveryAuthority", "agentMemory"],
+-          "properties": { "recoveryAuthority": { "const": "core_checkpoint" }, "agentMemory": { "const": "fresh_tools" } },
+-          "not": { "required": ["webchatOwnerProfileId"] }
+-        }
+-      },
+-      {
+-        "if": {
+-          "required": [
+-            "agentCorrection"
+-          ]
+-        },
+-        "then": {
+-          "required": [
+-            "recoveryAuthority",
+-            "agentMemory",
+-            "requestArchive"
+-          ],
+-          "properties": {
+-            "recoveryAuthority": {
+-              "const": "core_checkpoint"
+-            },
+-            "agentMemory": {
+-              "const": "fresh_tools"
+-            },
+-            "requestArchive": {
+-              "const": "local"
+-            },
+-            "dataMode": {
+-              "const": "local_write"
+-            }
+-          }
+-        }
++      "publisher": {
++        "type": "boolean",
++        "const": false,
++        "default": false
+       }
+-    ]
++    }
+   }
+ }
+diff --git a/package.json b/package.json
+index 3f91ccdf..9244f336 100644
+--- a/package.json
++++ b/package.json
+@@ -1,10 +1,10 @@
+ {
+   "name": "@tower1229/stella-core",
+   "version": "0.1.0-alpha.0",
+-  "description": "Stella 3.0 cognitive runtime plugin for OpenClaw",
++  "description": "Source-aware work-brief plugin alongside native OpenClaw memory and context",
+   "type": "module",
+-  "main": "./dist/src/plugin.js",
+-  "types": "./dist/src/plugin.d.ts",
++  "main": "./dist/src/ordinary-plugin.js",
++  "types": "./dist/src/ordinary-plugin.d.ts",
+   "files": [
+     "dist",
+     "openclaw.plugin.json",
+@@ -16,7 +16,8 @@
+     "docs/EXPLICIT-SNAPSHOT-IMPORT.md",
+     "docs/CHECKPOINT-WORK-SUPPLY.md",
+     "docs/CHECKPOINT-UNDERSTANDING-SUPPLY.md",
+-    "docs/CHECKPOINT-CORRECTION-WRITER.md"
++    "docs/CHECKPOINT-CORRECTION-WRITER.md",
++    "docs/MAIN-DEBUG-INSTALL.md"
+   ],
+   "scripts": {
+     "build": "node scripts/compile.mjs build",
+@@ -55,7 +56,7 @@
+   },
+   "openclaw": {
+     "extensions": [
+-      "./dist/src/plugin.js"
++      "./dist/src/ordinary-plugin.js"
+     ],
+     "compat": {
+       "pluginApi": ">=2026.10.7",
+diff --git a/legacy/openclaw.plugin.json b/legacy/openclaw.plugin.json
+new file mode 100644
+index 00000000..5ecd9db4
+--- /dev/null
++++ b/legacy/openclaw.plugin.json
+@@ -0,0 +1,290 @@
++{
++  "id": "stella-core",
++  "name": "Stella Core",
++  "providers": [
++    "stella-guarded"
++  ],
++  "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
++  "contracts": {
++    "tools": [
++      "stella_initialize",
++      "stella_read_fragment",
++      "stella_memory_data",
++      "stella_memory_correct"
++    ]
++  },
++  "activation": {
++    "onStartup": true,
++    "onAgentHarnesses": [
++      "openclaw"
++    ]
++  },
++  "configSchema": {
++    "type": "object",
++    "additionalProperties": false,
++    "required": [
++      "canghaiRoot",
++      "dataMode"
++    ],
++    "properties": {
++      "initializationGatewayAccess": {
++        "type": "string",
++        "enum": [
++          "local_operator_read"
++        ],
++        "description": "Explicit permission to verify initialization through the local authenticated Gateway using operator.read; credentials remain in Host configuration."
++      },
++      "canghaiRoot": {
++        "type": "string",
++        "minLength": 1,
++        "description": "Absolute path to the local CangHai checkout"
++      },
++      "manifestPath": {
++        "type": "string",
++        "default": "50_PersonalAgent/stella/manifest.yaml",
++        "description": "Path to the Stella consciousness manifest relative to CangHai root"
++      },
++      "recoveryRevision": {
++        "type": "string",
++        "pattern": "^[0-9a-fA-F]{40}$",
++        "description": "Exact clean CangHai Git commit selected as the recovery revision"
++      },
++      "agentId": {
++        "type": "string",
++        "default": "stella",
++        "description": "OpenClaw agent id that Stella Core should augment"
++      },
++      "dataMode": {
++        "type": "string",
++        "enum": [
++          "read_only",
++          "local_write",
++          "managed_durable_write"
++        ],
++        "description": "Explicit CangHai data mode"
++      },
++      "durabilityRemote": {
++        "type": "string",
++        "minLength": 1,
++        "description": "Explicit Git remote used only by managed_durable_write"
++      },
++      "durabilityBranch": {
++        "type": "string",
++        "minLength": 1,
++        "description": "Explicit Git branch used only by managed_durable_write"
++      },
++      "archiveRetention": {
++        "type": "string",
++        "enum": [
++          "hold_and_monitor"
++        ],
++        "description": "Opt in to native-maintenance hold checks and continuous archive backlog monitoring for the configured agent; requires session.maintenance.mode=warn and managed durability. Does not authorize deletion or certify all historical generations."
++      },
++      "contextHistorySignerId": {
++        "type": "string",
++        "pattern": "^sha256:[a-f0-9]{64}$",
++        "description": "Pinned Ed25519 public key identity for Core history; initialize the private key outside CangHai before enabling managed context."
++      },
++      "contextHistoryArchiveRoot": {
++        "type": "string",
++        "minLength": 1,
++        "description": "Repository-relative retained Core context archive directory; requires managed durable writes and a pinned signing key."
++      },
++      "recoveryAuthority": {
++        "type": "string",
++        "enum": [
++          "legacy_config",
++          "core_checkpoint"
++        ],
++        "default": "legacy_config",
++        "description": "Explicit authority mode. Core checkpoint is restricted maintenance; Agent memory is blocked until migrated."
++      },
++      "checkpointStateDirectory": {
++        "type": "string",
++        "minLength": 1,
++        "description": "Explicit existing canonical state directory outside CangHai, required only in core_checkpoint mode. Never auto-initialized."
++      },
++      "requestArchive": {
++        "type": "string",
++        "enum": [
++          "local"
++        ],
++        "description": "Explicit checkpoint-mode owner input retention. With agentMemory fresh_tools, archive once before normal Host Agent execution; alone, retain without running an Agent."
++      },
++      "agentMemory": {
++        "type": "string",
++        "enum": [
++          "fresh_tools"
++        ],
++        "description": "Experimental same-owner Host conversation with retained history and fresh Core authority per user request. Existing fresh_tools name is retained for compatibility; full_memory is separate."
++      },
++      "webchatOwnerProfileId": {
++        "type": "string",
++        "minLength": 1,
++        "maxLength": 512,
++        "pattern": "^[^\\u0000-\\u0020\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\u0000-\\u0020\\u007f])?$",
++        "description": "Explicit owner profile for current authenticated WebChat ingress. Requires a separate source processing requester grant; never aliases a Telegram identity."
++      },
++      "webchatOwnerDeviceId": {
++        "type": "string",
++        "minLength": 64,
++        "maxLength": 64,
++        "pattern": "^[a-f0-9]{64}$",
++        "description": "Opt-in owner device for direct WebChat admin requests without a human profile. Mutually exclusive with webchatOwnerProfileId. Identifies the device holder, requires a separate source grant, and does not isolate people sharing that browser."
++      },
++      "agentCorrection": {
++        "type": "string",
++        "enum": [
++          "tool"
++        ],
++        "description": "Explicit opt-in to the separate owner correction write tool. Requires fresh_tools, local input archive, local_write and existing source learn/view/model permissions; absent means disabled."
++      }
++    },
++    "allOf": [
++      {
++        "if": {
++          "properties": {
++            "recoveryAuthority": {
++              "const": "core_checkpoint"
++            }
++          },
++          "required": [
++            "recoveryAuthority"
++          ]
++        },
++        "then": {
++          "required": [
++            "checkpointStateDirectory"
++          ],
++          "properties": {
++            "dataMode": {
++              "enum": [
++                "read_only",
++                "local_write"
++              ]
++            },
++            "initializationGatewayAccess": false,
++            "durabilityRemote": false,
++            "durabilityBranch": false,
++            "archiveRetention": false,
++            "contextHistorySignerId": false,
++            "contextHistoryArchiveRoot": false,
++            "requestArchive": {
++              "type": "string",
++              "enum": [
++                "local"
++              ]
++            }
++          },
++          "not": {
++            "required": [
++              "recoveryRevision"
++            ]
++          }
++        },
++        "else": {
++          "required": [
++            "recoveryRevision"
++          ],
++          "not": {
++            "required": [
++              "checkpointStateDirectory"
++            ]
++          }
++        }
++      },
++      {
++        "if": {
++          "required": [
++            "requestArchive"
++          ]
++        },
++        "then": {
++          "required": [
++            "recoveryAuthority"
++          ],
++          "properties": {
++            "recoveryAuthority": {
++              "const": "core_checkpoint"
++            },
++            "dataMode": {
++              "const": "local_write"
++            }
++          }
++        }
++      },
++      {
++        "if": {
++          "required": [
++            "agentMemory"
++          ]
++        },
++        "then": {
++          "required": [
++            "recoveryAuthority"
++          ],
++          "properties": {
++            "recoveryAuthority": {
++              "const": "core_checkpoint"
++            }
++          }
++        }
++      },
++      {
++        "if": {
++          "required": [
++            "webchatOwnerProfileId"
++          ]
++        },
++        "then": {
++          "required": [
++            "recoveryAuthority"
++          ],
++          "properties": {
++            "recoveryAuthority": {
++              "const": "core_checkpoint"
++            }
++          }
++        }
++      },
++      {
++        "if": {
++          "required": ["webchatOwnerDeviceId"]
++        },
++        "then": {
++          "required": ["recoveryAuthority", "agentMemory"],
++          "properties": { "recoveryAuthority": { "const": "core_checkpoint" }, "agentMemory": { "const": "fresh_tools" } },
++          "not": { "required": ["webchatOwnerProfileId"] }
++        }
++      },
++      {
++        "if": {
++          "required": [
++            "agentCorrection"
++          ]
++        },
++        "then": {
++          "required": [
++            "recoveryAuthority",
++            "agentMemory",
++            "requestArchive"
++          ],
++          "properties": {
++            "recoveryAuthority": {
++              "const": "core_checkpoint"
++            },
++            "agentMemory": {
++              "const": "fresh_tools"
++            },
++            "requestArchive": {
++              "const": "local"
++            },
++            "dataMode": {
++              "const": "local_write"
++            }
++          }
++        }
++      }
++    ]
++  }
++}
+diff --git a/tests/checkpoint-plugin-runtime.test.ts b/tests/checkpoint-plugin-runtime.test.ts
+index 0e822611..c10e5e63 100644
+--- a/tests/checkpoint-plugin-runtime.test.ts
++++ b/tests/checkpoint-plugin-runtime.test.ts
+@@ -202,7 +202,7 @@ test("a changed bootstrap projection remains protected and a stopped initializer
+ });
+ 
+ test("plugin manifest requires exactly one authority; legacy pointer remains required by default", async () => {
+-  const document = JSON.parse(await readFile(path.join(process.cwd(), "openclaw.plugin.json"), "utf8"));
++  const document = JSON.parse(await readFile(path.join(process.cwd(), "legacy/openclaw.plugin.json"), "utf8"));
+   const validate = new Ajv({ strict: false }).compile(document.configSchema);
+   const legacy = { canghaiRoot: "/synthetic", dataMode: "read_only", recoveryRevision: "a".repeat(40) };
+   assert.equal(validate(legacy), true); assert.equal(validate({ canghaiRoot: "/synthetic", dataMode: "read_only" }), false);
+diff --git a/tests/webchat-identity-diagnostic.test.ts b/tests/webchat-identity-diagnostic.test.ts
+index 0df36e26..6930bf4d 100644
+--- a/tests/webchat-identity-diagnostic.test.ts
++++ b/tests/webchat-identity-diagnostic.test.ts
+@@ -131,7 +131,7 @@ test("profile binding is optional, validated and restricted to checkpoint config
+   assert.equal(parseCheckpointPluginConfig(value).webchatOwnerProfileId, profileId);
+   for (const invalid of ["", " spaced ", "bad\nprofile", 7, "x".repeat(513)]) assert.throws(() => parseCheckpointPluginConfig({ ...value, webchatOwnerProfileId: invalid }), /checkpoint_configuration_invalid/);
+   assert.equal(profileRequesterId("bad\nprofile"), undefined);
+-  const manifest = JSON.parse(await readFile("openclaw.plugin.json", "utf8"));
++  const manifest = JSON.parse(await readFile("legacy/openclaw.plugin.json", "utf8"));
+   const validate = new Ajv({ strict: false }).compile(manifest.configSchema);
+   assert.equal(validate(value), true, JSON.stringify(validate.errors));
+   assert.equal(validate({ ...value, recoveryAuthority: "legacy_config", recoveryRevision: "a".repeat(40) }), false);
+diff --git a/README.md b/README.md
+index 9aa6066d..7f519280 100644
+--- a/README.md
++++ b/README.md
+@@ -3,6 +3,14 @@
+ Stella Core is the OpenClaw plugin for Stella 3.0: a personal digital twin and high-dimensional self.
+ One Cortex combines Personal Twin, Framework Compiler, Reality / Social Intelligence and Praxis.
+ 
++The current debug build uses an **ordinary plugin** beside OpenClaw's native
++memory, context and Agent loop. Its default entry provides an unconfirmed,
++unsaved author-intent candidate tool and a no-model status command. Private-source
++admission and confirmed publication remain disconnected. See the
++[main debug installation and rollback guide](docs/MAIN-DEBUG-INSTALL.md).
++The older runtime and its acceptance records remain historical; the old
++activation scripts do not configure this new entry.
++
+ ## Current design
+ 
+ Start with [the design baseline](docs/10-DESIGN-BASELINE.md). It defines document authority,
+diff --git a/docs/MAIN-DEBUG-INSTALL.md b/docs/MAIN-DEBUG-INSTALL.md
+new file mode 100644
+index 00000000..8c4cac39
+--- /dev/null
++++ b/docs/MAIN-DEBUG-INSTALL.md
+@@ -0,0 +1,68 @@
++# Ordinary-plugin main debug build
++
++The default package entry is `dist/src/ordinary-plugin.js`. It contributes two
++ordinary tools and the authenticated `/stella-status` command. OpenClaw owns its
++memory, context and Agent loop. No Core provider, context replacement, background
++consolidation, private source reader or writer is registered by this entry.
++
++Use `{ "agentId": "main", "publisher": false }` as the plugin configuration.
++Legacy checkpoint configuration is rejected explicitly. Historical implementation
++and its manifest remain in `src/plugin.ts` and `legacy/openclaw.plugin.json`;
++the package entry does not import them. Existing source repositories, checkpoints
++and user files are not migrated or removed.
++
++`stella_author_intent_candidate` accepts a structured proposal from the Host's
++model: topic, interpretation, proposed premises, open questions and evidence
++references. It validates structure only, preserves unresolved questions and
++returns an **unconfirmed, unsaved candidate**. References supplied in arguments
++are unverified. The tool cannot confirm the author, publish an asset or save
++memory. Natural-language interpretation remains the model's responsibility.
++
++`stella_status` and `/stella-status` show the active contract without a model
++call. The existing main Gateway can invoke the tool directly:
++
++```sh
++openclaw gateway call tools.invoke \
++  --params '{"name":"stella_status","agentId":"main","args":{}}' --json
++```
++
++This checks real tool execution, not model understanding or personal-source
++admission. Normal conversations can discover the tools through the `coding`
++profile and OpenClaw's existing Tool Search. No Tool Search configuration change
++is required for this install.
++
++For local debug installation, build and pack the repository, unpack into a new
++artifact directory and retain the previous artifact. Runtime dependencies must
++be inside the package boundary; a `node_modules` symlink to the workspace is
++rejected by OpenClaw's install scan. Use the existing Host's public SDK rather
++than bundling another Host. No dependency download is needed when reusing the
++already installed runtime dependencies; record their actual versions separately
++from the lockfile.
++
++Before changing the current main configuration, save its exact bytes privately
++with mode `0600`. Replace only the old Core load path and Core entry with the new
++artifact/configuration, then validate it with `openclaw config validate --json`.
++The official local link install records package ownership and applies the running
++generation:
++
++```sh
++openclaw plugins install --link /absolute/path/to/unpacked/package --force --no-enable
++openclaw plugins inspect stella-core --runtime --json
++```
++
++Here `--force` confirms this reviewed local build. `--no-enable` preserves the
++existing activation/allowlist/slot policy. Do not add capability-consent or safety
++override flags to make an install succeed. Preserve failures before fixing the
++actual package defect.
++
++Rollback retains both artifacts and the private config backup. If the current
++config changed since installation, restore only the two Core fields after
++comparing the changes; never overwrite intervening user edits. If removing the
++new link's official install record, use `plugins uninstall stella-core
++--keep-files --force` before restoring the old entry/path. Verify the restored
++runtime separately; a restored file is not proof of a loaded generation.
++
++This debug milestone does not enable confirmed publication, connect private
++sources, migrate old state, call paid models or establish `full_memory`.
++The previously exhausted isolated Host batch remains historical and is not
++reused by the main-instance installation.

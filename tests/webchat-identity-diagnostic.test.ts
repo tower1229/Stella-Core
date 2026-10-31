@@ -131,7 +131,7 @@ test("profile binding is optional, validated and restricted to checkpoint config
   assert.equal(parseCheckpointPluginConfig(value).webchatOwnerProfileId, profileId);
   for (const invalid of ["", " spaced ", "bad\nprofile", 7, "x".repeat(513)]) assert.throws(() => parseCheckpointPluginConfig({ ...value, webchatOwnerProfileId: invalid }), /checkpoint_configuration_invalid/);
   assert.equal(profileRequesterId("bad\nprofile"), undefined);
-  const manifest = JSON.parse(await readFile("openclaw.plugin.json", "utf8"));
+  const manifest = JSON.parse(await readFile("legacy/openclaw.plugin.json", "utf8"));
   const validate = new Ajv({ strict: false }).compile(manifest.configSchema);
   assert.equal(validate(value), true, JSON.stringify(validate.errors));
   assert.equal(validate({ ...value, recoveryAuthority: "legacy_config", recoveryRevision: "a".repeat(40) }), false);

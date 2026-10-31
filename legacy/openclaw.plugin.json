@@ -1,0 +1,290 @@
+{
+  "id": "stella-core",
+  "name": "Stella Core",
+  "providers": [
+    "stella-guarded"
+  ],
+  "description": "Stella 3.0 cognitive runtime: Personal Twin, Framework Runtime, Reality Intelligence, and Praxis Loop",
+  "contracts": {
+    "tools": [
+      "stella_initialize",
+      "stella_read_fragment",
+      "stella_memory_data",
+      "stella_memory_correct"
+    ]
+  },
+  "activation": {
+    "onStartup": true,
+    "onAgentHarnesses": [
+      "openclaw"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "canghaiRoot",
+      "dataMode"
+    ],
+    "properties": {
+      "initializationGatewayAccess": {
+        "type": "string",
+        "enum": [
+          "local_operator_read"
+        ],
+        "description": "Explicit permission to verify initialization through the local authenticated Gateway using operator.read; credentials remain in Host configuration."
+      },
+      "canghaiRoot": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Absolute path to the local CangHai checkout"
+      },
+      "manifestPath": {
+        "type": "string",
+        "default": "50_PersonalAgent/stella/manifest.yaml",
+        "description": "Path to the Stella consciousness manifest relative to CangHai root"
+      },
+      "recoveryRevision": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{40}$",
+        "description": "Exact clean CangHai Git commit selected as the recovery revision"
+      },
+      "agentId": {
+        "type": "string",
+        "default": "stella",
+        "description": "OpenClaw agent id that Stella Core should augment"
+      },
+      "dataMode": {
+        "type": "string",
+        "enum": [
+          "read_only",
+          "local_write",
+          "managed_durable_write"
+        ],
+        "description": "Explicit CangHai data mode"
+      },
+      "durabilityRemote": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Explicit Git remote used only by managed_durable_write"
+      },
+      "durabilityBranch": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Explicit Git branch used only by managed_durable_write"
+      },
+      "archiveRetention": {
+        "type": "string",
+        "enum": [
+          "hold_and_monitor"
+        ],
+        "description": "Opt in to native-maintenance hold checks and continuous archive backlog monitoring for the configured agent; requires session.maintenance.mode=warn and managed durability. Does not authorize deletion or certify all historical generations."
+      },
+      "contextHistorySignerId": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$",
+        "description": "Pinned Ed25519 public key identity for Core history; initialize the private key outside CangHai before enabling managed context."
+      },
+      "contextHistoryArchiveRoot": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Repository-relative retained Core context archive directory; requires managed durable writes and a pinned signing key."
+      },
+      "recoveryAuthority": {
+        "type": "string",
+        "enum": [
+          "legacy_config",
+          "core_checkpoint"
+        ],
+        "default": "legacy_config",
+        "description": "Explicit authority mode. Core checkpoint is restricted maintenance; Agent memory is blocked until migrated."
+      },
+      "checkpointStateDirectory": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Explicit existing canonical state directory outside CangHai, required only in core_checkpoint mode. Never auto-initialized."
+      },
+      "requestArchive": {
+        "type": "string",
+        "enum": [
+          "local"
+        ],
+        "description": "Explicit checkpoint-mode owner input retention. With agentMemory fresh_tools, archive once before normal Host Agent execution; alone, retain without running an Agent."
+      },
+      "agentMemory": {
+        "type": "string",
+        "enum": [
+          "fresh_tools"
+        ],
+        "description": "Experimental same-owner Host conversation with retained history and fresh Core authority per user request. Existing fresh_tools name is retained for compatibility; full_memory is separate."
+      },
+      "webchatOwnerProfileId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\u0000-\\u0020\\u007f](?:[^\\u0000-\\u001f\\u007f]*[^\\u0000-\\u0020\\u007f])?$",
+        "description": "Explicit owner profile for current authenticated WebChat ingress. Requires a separate source processing requester grant; never aliases a Telegram identity."
+      },
+      "webchatOwnerDeviceId": {
+        "type": "string",
+        "minLength": 64,
+        "maxLength": 64,
+        "pattern": "^[a-f0-9]{64}$",
+        "description": "Opt-in owner device for direct WebChat admin requests without a human profile. Mutually exclusive with webchatOwnerProfileId. Identifies the device holder, requires a separate source grant, and does not isolate people sharing that browser."
+      },
+      "agentCorrection": {
+        "type": "string",
+        "enum": [
+          "tool"
+        ],
+        "description": "Explicit opt-in to the separate owner correction write tool. Requires fresh_tools, local input archive, local_write and existing source learn/view/model permissions; absent means disabled."
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            }
+          },
+          "required": [
+            "recoveryAuthority"
+          ]
+        },
+        "then": {
+          "required": [
+            "checkpointStateDirectory"
+          ],
+          "properties": {
+            "dataMode": {
+              "enum": [
+                "read_only",
+                "local_write"
+              ]
+            },
+            "initializationGatewayAccess": false,
+            "durabilityRemote": false,
+            "durabilityBranch": false,
+            "archiveRetention": false,
+            "contextHistorySignerId": false,
+            "contextHistoryArchiveRoot": false,
+            "requestArchive": {
+              "type": "string",
+              "enum": [
+                "local"
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "recoveryRevision"
+            ]
+          }
+        },
+        "else": {
+          "required": [
+            "recoveryRevision"
+          ],
+          "not": {
+            "required": [
+              "checkpointStateDirectory"
+            ]
+          }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "requestArchive"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            },
+            "dataMode": {
+              "const": "local_write"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "agentMemory"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "webchatOwnerProfileId"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "required": ["webchatOwnerDeviceId"]
+        },
+        "then": {
+          "required": ["recoveryAuthority", "agentMemory"],
+          "properties": { "recoveryAuthority": { "const": "core_checkpoint" }, "agentMemory": { "const": "fresh_tools" } },
+          "not": { "required": ["webchatOwnerProfileId"] }
+        }
+      },
+      {
+        "if": {
+          "required": [
+            "agentCorrection"
+          ]
+        },
+        "then": {
+          "required": [
+            "recoveryAuthority",
+            "agentMemory",
+            "requestArchive"
+          ],
+          "properties": {
+            "recoveryAuthority": {
+              "const": "core_checkpoint"
+            },
+            "agentMemory": {
+              "const": "fresh_tools"
+            },
+            "requestArchive": {
+              "const": "local"
+            },
+            "dataMode": {
+              "const": "local_write"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

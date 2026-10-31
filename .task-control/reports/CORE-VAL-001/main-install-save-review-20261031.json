@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "decision": "accepted_for_scoped_save_and_existing_main_candidate_debug",
+  "independentSummarySha256": "bf6e8b20e2985ff9d517c8ad60b8642379cb40699961325a9151f5ca0f240105",
+  "reviewMarkdownSha256": "6c188eca2c068df70548988dfdedbdda13f9764b3049ed651902462d945bed2a",
+  "baseCommit": "376690333ef69097c322d586280b3647c8868e51",
+  "sourceFiles": {
+    "src/ordinary-plugin.ts": "490d1e26091475f1e179d03dde763661145047c477b2b67cf88b6af06859f808",
+    "tests/ordinary-plugin.test.ts": "b0d51e19e057521876d517d690385abdf802664937f2c837fd278f59eec247a8",
+    "openclaw.plugin.json": "cbf491a15899ae87d68f4e8c666c6ff3fa198f01f5e9a89da40240aad7eb8723",
+    "package.json": "261d4c80e1ea059dc9fce6d8af0079cc55fbfcaa137a735aceddd65c624c59f3",
+    "legacy/openclaw.plugin.json": "4a11236240c2831358d1a9ec726f741b36047c956804049d94794ab6ce4ac46e",
+    "tests/checkpoint-plugin-runtime.test.ts": "c6281375cac4fe9c56a5dd1bc99633a98332980bc9c765cbf63e459e9263563f",
+    "tests/webchat-identity-diagnostic.test.ts": "2efbb0aa0fe6ad1fb46501d3ec0bd5749d8d43fae1b78b2f4caa6d246fa3d6f7",
+    "README.md": "93119e20631c6de641852d27a6a875538c83e6e4748d660edfd9256cec2532a2",
+    "docs/MAIN-DEBUG-INSTALL.md": "38dbd2a229db55ca844ee2e44ce514af8ad6ca34d6ed8f480c7e4230c456dcf0"
+  },
+  "reportSha256": "bf6ca8b2a905ef7c0d644b054b7f9a273aa3eee11f0d2eb8419f4df0a09dc83d",
+  "patchSha256": "90cda6c5d57fbcd3ec9557364b0504e80e54c45d906a778827abace5be44a420",
+  "verified": {
+    "nineSourceHashesMatched": true,
+    "legacyManifestByteIdenticalToPriorRoot": true,
+    "rawReceiptHashesMatched": 14,
+    "installedFilesMatched": 2730,
+    "installedManifestSha256": "13dcb1616081a868b45f507d8a2d4ee8b882d3255d2c1efa64caec15b2269e96",
+    "installedEntrySha256": "68ced01dee62195977c4362ee0833f29e6d56ea901394ad49671c72af578ed3d",
+    "entryMatchesCurrentCompiledOutput": true,
+    "officialInstallGeneration": 4,
+    "runtimeLoadedImported": true,
+    "ordinaryTools": [
+      "stella_status",
+      "stella_author_intent_candidate"
+    ],
+    "noHooksProvidersContextEnginesHarnessesServices": true,
+    "actualMainRpc": [
+      "status success",
+      "synthetic unsaved candidate success",
+      "confirmation argument explicitly rejected with isError"
+    ],
+    "memorySearchAndGetStillCataloged": true,
+    "configChangeReview": "scoped install script plus hash-bound sanitized comparison receipt; actual user configuration not parsed by reviewer",
+    "backupDirectoryMode": "0700",
+    "backupFileMode": "0600",
+    "opaqueBackupHashMatchesBeforeReceipt": true,
+    "oldArtifactRetained": true,
+    "rollbackExecuted": false
+  },
+  "validation": {
+    "authorBuildExit": 0,
+    "authorTestCompileExit": 0,
+    "authorFocusedTests": {
+      "tests": 44,
+      "pass": 44,
+      "fail": 0
+    },
+    "reviewerReranTests": false,
+    "reason": "reused bounded author evidence and read source/tests; no unrelated rerun"
+  },
+  "limits": {
+    "candidateUnconfirmedUnsaved": true,
+    "publisher": false,
+    "privateSourceReader": false,
+    "realModelOrModelToolDiscoveryVerified": false,
+    "fullMemoryVerified": false,
+    "nativeMemoryReadVerified": false,
+    "generalSdkDrainVerified": false,
+    "rollbackDrillVerified": false,
+    "prior26Reclassified": false,
+    "oldIsolatedQuotaReused": false
+  },
+  "saveScope": "nine reviewed source/test/docs plus reviewed main report/patch; this summary; only main technical appendix; necessary coordinator ledger. No artifacts/config/backups/raw logs/other dirty.",
+  "historyRefs": "Previous accepted evidence remains historical; this save does not reopen or bundle untracked older packages."
+}

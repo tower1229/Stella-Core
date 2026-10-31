@@ -3,6 +3,14 @@
 Stella Core is the OpenClaw plugin for Stella 3.0: a personal digital twin and high-dimensional self.
 One Cortex combines Personal Twin, Framework Compiler, Reality / Social Intelligence and Praxis.
 
+The current debug build uses an **ordinary plugin** beside OpenClaw's native
+memory, context and Agent loop. Its default entry provides an unconfirmed,
+unsaved author-intent candidate tool and a no-model status command. Private-source
+admission and confirmed publication remain disconnected. See the
+[main debug installation and rollback guide](docs/MAIN-DEBUG-INSTALL.md).
+The older runtime and its acceptance records remain historical; the old
+activation scripts do not configure this new entry.
+
 ## Current design
 
 Start with [the design baseline](docs/10-DESIGN-BASELINE.md). It defines document authority,

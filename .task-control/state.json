@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 41,
-  "updatedAt": "2026-10-31T07:19:29.686789+00:00",
+  "revision": 47,
+  "updatedAt": "2026-10-31T08:13:21.956065+00:00",
   "writer": {
-    "agent": "Core delegated accepted offline-source package save writer (exclusive whitelist stage/commit/push)",
-    "session": "parent-delegation:01a18d89-0f02-7627-af05-10b2d9b00017/offline-source-save-20261031"
+    "agent": "Core ordinary-main reviewed package save and exact-SHA CI sole writer",
+    "session": "delegated:core-main-save-ci-20261031"
   },
   "workstreams": [
     {
@@ -31,7 +31,7 @@
         },
         {
           "id": "CORE-M2",
-          "title": "一个新普通插件合成薄片及运行证据",
+          "title": "最小新架构普通插件安装到现有main调试实例并实际使用",
           "taskIds": [
             "CORE-VAL-001"
           ]
@@ -51,8 +51,7 @@
         "CORE-VAL-001"
       ],
       "active": [
-        "CORE-VAL-001",
-        "CORE-LEGACY-001"
+        "CORE-VAL-001"
       ],
       "decisions": [
         {
@@ -450,8 +449,8 @@
     {
       "id": "CORE-VAL-001",
       "workstream": "CORE",
-      "title": "新普通插件作者意图合成薄片",
-      "scope": "保留memory-core/native context/Agent Loop；只一份纯合成工作说明及固定结构响应，真实harness/作者来源/资格、发布与流向逐项验证；不是旧runner重放或语义效果验收。",
+      "title": "新普通插件最小版本与main真机安装调试",
+      "scope": "User-directed switch to installable ordinary plugin in existing main debug instance. Keep native memory/context/Agent loop; preserve rollback/data; candidate-only and publisher off; no paid model, production, Host source or new source/identity permission.",
       "inputs": [
         "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
         "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md",
@@ -482,7 +481,9 @@
         ".task-control/reports/CORE-VAL-001/offline-source-adapter-20261031.patch",
         ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.json",
         ".task-control/reports/CORE-VAL-001/offline-source-adapter-r1-20261031.patch",
-        ".task-control/reports/CORE-VAL-001/offline-source-adapter-save-review-20261031.json"
+        ".task-control/reports/CORE-VAL-001/offline-source-adapter-save-review-20261031.json",
+        ".task-control/reports/CORE-VAL-001/offline-source-push-20261031.json",
+        ".task-control/reports/CORE-VAL-001/offline-source-ci-37669033-20261031.json"
       ],
       "acceptance": [
         {
@@ -520,8 +521,8 @@
       ],
       "status": "running",
       "owner": {
-        "agent": "Core delegated accepted offline-source package save writer (exclusive whitelist stage/commit/push)",
-        "session": "parent-delegation:01a18d89-0f02-7627-af05-10b2d9b00017/offline-source-save-20261031"
+        "agent": "Core ordinary-main reviewed package save and exact-SHA CI sole writer",
+        "session": "delegated:core-main-save-ci-20261031"
       },
       "evidence": [
         {
@@ -971,16 +972,92 @@
             "sourceSha256": "d4c08d48b64ae4827ddb3151a3a7d212d079f8019941a96c1e7b8e9b97bfc8f1",
             "r1PatchSha256": "b8ae4e1fd9d062ada597c90122216852a22e0c33863ec6cf76b3b191b3249aa9"
           }
+        },
+        {
+          "id": "C-VAL-OFFLINE-SOURCE-LOCAL-COMMIT-PUSH-DENIED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-adapter-save-review-20261031.json",
+          "claim": "Reviewed package plus2unchanged previously reviewed candidate-tool reproduction files committed376690333ef69097c322d586280b3647c8868e51:12files/exact staged bytes/HEAD parent7a9a3b42. PROJECT only26line package appendices staged; full unrelated working changes preserved. Secret/contact pattern scan0findings, synthetic literals reviewed. Ordinary push rejected by automatic approval before execution for missing explicit trusted user exact remote-push consent. No retry/workaround. Readonly remote remains7a9a3b42, exact-commit CI list empty. Public10.8 manifest+4producer/type hashes match prior trace; no private input/wiring/Host/model.",
+          "observedAt": "2026-10-31T07:23:58.507821+00:00",
+          "subject": {
+            "commit": "376690333ef69097c322d586280b3647c8868e51",
+            "parentCommit": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "files": 12,
+            "committedStateRevision": 41,
+            "remoteObservedSha": "7a9a3b424225ec2fdce690d2ebe9d522cf33bca5",
+            "exactCommitCiRunIds": [],
+            "approvalOutcome": "push denied before execution",
+            "saveResultSha256": "c463f488fed3aad1a4c87ab8d240753b9d070d8040d2f7f41bc65e662c33be58"
+          }
+        },
+        {
+          "id": "C-VAL-OFFLINE-SOURCE-PUSHED-AFTER-USER-RULE",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-push-20261031.json",
+          "claim": "Exact376690333ef69097c322d586280b3647c8868e51 normal-pushed to existing dev branch; same command retried exactlyonce after trusted user AGENTS rule supplied, through normal approval. Previous approval rejection and nonexecution retained. Remote SHA matched; CI41180602958 and41180602947 triggered for exactSHA, currentlyin_progress. No state-only push, code edit or Host/model execution by monitor.",
+          "observedAt": "2026-10-31T07:30:06.852996+00:00",
+          "subject": {
+            "sha256": "3f990c943452a0a9c2e57980ad539a1fee1fad1e686ad3c1539d60fae0e5ffd0",
+            "commit": "376690333ef69097c322d586280b3647c8868e51",
+            "remoteSha": "376690333ef69097c322d586280b3647c8868e51",
+            "retryCount": 1
+          }
+        },
+        {
+          "id": "C-VAL-37669033-CI-TERMINAL-NO-NEW-REGRESSION",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/offline-source-ci-37669033-20261031.json",
+          "claim": "Exact37669033 two workflows completedfailure:each1760tests/1734pass/26fail/0cancel/skip/todo. All22new package tests pass each; all26old full diagnostic blocks match corresponding1738/1712/26 baselines after only ordinal/duration/temp normalization;0added/removed/changedfailures. CIprepare test stage failed; probes skipped; verify missing prepared artifact after preparefailure. Experimental test stage failed on same26. Both real runner childexit1/no signal/timeout/kill, fullstdio/groupGone/ownedWorkcomplete0pending/cleanupremoved; checks/schema pass. SDKactive-leases remain, formal152/consumer/fullMemory/realmodel notaccepted. No code/localHost/model/rerun/cancel/newpush; old26do not block all new routes.",
+          "observedAt": "2026-10-31T07:41:06.315761+00:00",
+          "subject": {
+            "sha256": "ebaea5b4e3db7f44a44f0156cd28961ffb8e09a359150fc2319a6867f8609c14",
+            "commit": "376690333ef69097c322d586280b3647c8868e51",
+            "runs": [
+              41180602958,
+              41180602947
+            ],
+            "testsEach": 1760,
+            "passEach": 1734,
+            "oldFailuresEach": 26,
+            "newTestsPassedEach": 22,
+            "newRegressionsObserved": 0,
+            "sameNormalizedOldBlocksEach": 26
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-INSTALL-DIRECTION",
+          "kind": "decision",
+          "ref": ".task-control/reports/CORE-VAL-001/main-install-20261031.json",
+          "claim": "New user direction via parent: implement minimal new architecture and install/debug existing main instance; ordinary engineering work authorized; no paid model/new trust/source access or production. Prior isolated quota stays exhausted.",
+          "observedAt": "2026-10-31T07:49:44.056010+00:00"
+        },
+        {
+          "id": "C-VAL-MAIN-ORDINARY-INSTALLED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-install-20261031.json",
+          "claim": "Actual official install generation4, runtime loaded/imported, real main status+candidate success and spoofed confirmation rejection;44/44focused tests. Native memory tools/config preserved; publisher/source/model off; old failures retained. Author package review complete, independent review and commit pending.",
+          "observedAt": "2026-10-31T08:02:52.034249+00:00",
+          "subject": {
+            "sha256": "bf6ca8b2a905ef7c0d644b054b7f9a273aa3eee11f0d2eb8419f4df0a09dc83d",
+            "baseCommit": "376690333ef69097c322d586280b3647c8868e51",
+            "artifactEntrySha256": "68ced01dee62195977c4362ee0833f29e6d56ea901394ad49671c72af578ed3d"
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-INDEPENDENT-ACCEPTED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-install-save-review-20261031.json",
+          "claim": "Independent concentrated review accepted9code/test/docs,2730installed files and14receipts; no blocking install/code/data-protection defect. Actual no-model tool chain only; source/publisher off; rollback available not drilled. Parent assigns scoped normal commit/push and exact-SHA CI monitor.",
+          "observedAt": "2026-10-31T08:13:21.956065+00:00",
+          "subject": {
+            "sha256": "66066bb4393c0822b4ddde892ff1956fa995181bcf15d1900691fc3903623928",
+            "independentSummarySha256": "bf6e8b20e2985ff9d517c8ad60b8642379cb40699961325a9151f5ca0f240105"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Initial offline17/17 remains historical; independent extra5found4unexpected accepts plus1copy-controlpass, changes requested. R1 now captures each invocation factory identity/original guard and rechecks final identity; observed already-admitted native-input mismatch closes request, restoration cannot revive. Deterministic added regressions red source17=13pass4fail; repaired focused22/22=17sourcegroups+5candidate tests, TypeScriptcompile0. T3 initial pending/ordinary args recover, T9 legitimate admitted source reuse/no immediate revocation, T12 candidate-only remain. Reconciled initial transport disconnect before execution via unchanged state38/pointerabsent; no unresolved execution uncertainty. No Host6/real source/permissions/publisher/CAS; all histories and3/3quota preserved.",
-        "nextAction": "Save only reviewed offline whitelist, exact partial PROJECT appendices, necessary current ledger/minimal review summary plus2previously reviewed unchanged candidate-tool reproduction dependencies; normal commit/push existing codex/issue23-integrated-regression and verify remote/CI IDs. No larger local tests, real ingress/wiring/Host6/publisher.",
-        "blocker": {
-          "reason": "Offline R1 independent review accepted; production original/authenticated author mapping/public recorder lifetime/actual ingress-call binding remain unverified. Current assigned work is bounded archival commit/push only.",
-          "neededAction": "Save accepted synthetic package and report exact remote/CI identities; then hand off concrete private-ingress evidence checklist, no activation or further Host budget.",
-          "source": "C-VAL-OFFLINE-SOURCE-R1-INDEPENDENT-ACCEPTED"
-        },
+        "checkpoint": "Ordinary main generation4 remains installed and actual no-model status/candidate/rejection evidence accepted by independent review;44/44authorfocused tests reused. Saving exactly14 scoped files; no artifacts/config/backups/raw logs or unrelated dirty. Source/publisher off, old batch3/3 exhausted and old unknown retained.",
+        "nextAction": "Commit/push only reviewed main package on existing dev branch, verify remote exactSHA and follow its two CI runs to terminal; compare against1760/1734pass/26oldfail baseline, including5new ordinary cases and retained22offline cases. No local Host/model/restart/rollback or unrelated full-suite rerun.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -1038,7 +1115,179 @@
           "ownRunTerminalComplete": true
         }
       },
-      "updatedAt": "2026-10-31T07:19:29.686789+00:00"
+      "updatedAt": "2026-10-31T08:13:21.956065+00:00",
+      "delivery": {
+        "local": {
+          "status": "committed",
+          "commit": "376690333ef69097c322d586280b3647c8868e51",
+          "evidence": [
+            "C-VAL-OFFLINE-SOURCE-LOCAL-COMMIT-PUSH-DENIED"
+          ]
+        },
+        "commit": {
+          "status": "committed",
+          "sha": "376690333ef69097c322d586280b3647c8868e51",
+          "files": 12,
+          "committedStateRevision": 41,
+          "scope": "accepted offline package only, not full CORE-VAL acceptance"
+        },
+        "push": {
+          "status": "pushed",
+          "remoteObservedSha": "376690333ef69097c322d586280b3647c8868e51",
+          "targetBranch": "codex/issue23-integrated-regression",
+          "evidence": [
+            "C-VAL-OFFLINE-SOURCE-PUSHED-AFTER-USER-RULE"
+          ],
+          "priorDenialEvidence": "C-VAL-OFFLINE-SOURCE-LOCAL-COMMIT-PUSH-DENIED",
+          "retryAfterTrustedUserRule": 1
+        },
+        "ci": {
+          "status": "failed",
+          "conclusion": "failure",
+          "headSha": "376690333ef69097c322d586280b3647c8868e51",
+          "evidence": [
+            "C-VAL-37669033-CI-TERMINAL-NO-NEW-REGRESSION"
+          ],
+          "regressionIntroducedObserved": false,
+          "countsEach": {
+            "tests": 1760,
+            "pass": 1734,
+            "fail": 26,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "baselineCounts": {
+            "tests": 1738,
+            "pass": 1712,
+            "fail": 26
+          },
+          "newPackageTestsPassedEach": 22,
+          "normalizedOld26Unchanged": true,
+          "allGreen": false,
+          "consumer": null,
+          "fullMemoryAccepted": false,
+          "runs": [
+            {
+              "id": 41180602958,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41180602958",
+              "workflow": "CI",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1760,
+                "pass": 1734,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "jobs": [
+                {
+                  "id": 124477046406,
+                  "name": "prepare",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T07:26:23Z",
+                  "completedAt": "2026-10-31T07:36:55Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41180602958/job/124477046406",
+                  "failedSteps": [
+                    {
+                      "number": 6,
+                      "name": "Check, test, build and freeze one package"
+                    }
+                  ]
+                },
+                {
+                  "id": 124479089665,
+                  "name": "verify",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T07:36:58Z",
+                  "completedAt": "2026-10-31T07:37:06Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41180602958/job/124479089665",
+                  "failedSteps": [
+                    {
+                      "number": 5,
+                      "name": "Require all 152 unique cases and successful jobs"
+                    }
+                  ]
+                },
+                {
+                  "id": 124479090683,
+                  "name": "probes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-31T07:36:56Z",
+                  "completedAt": "2026-10-31T07:36:55Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41180602958/job/124479090683",
+                  "failedSteps": []
+                }
+              ]
+            },
+            {
+              "id": 41180602947,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41180602947",
+              "workflow": "Experimental owner chat",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1760,
+                "pass": 1734,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "jobs": [
+                {
+                  "id": 124477046357,
+                  "name": "Installed experimental owner chat (synthetic)",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T07:26:24Z",
+                  "completedAt": "2026-10-31T07:37:27Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41180602947/job/124477046357",
+                  "failedSteps": [
+                    {
+                      "number": 5,
+                      "name": "Check source and test one installed package with stock Host"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "scope": "Previously reviewed offline-source package37669033; this delivery record does not describe the new uncommitted ordinary entry."
+      },
+      "mainDebugDelivery": {
+        "status": "independently_accepted_saving",
+        "observedAt": "2026-10-31T08:13:21.956065+00:00",
+        "evidence": [
+          "C-VAL-MAIN-ORDINARY-INSTALLED",
+          "C-VAL-MAIN-INDEPENDENT-ACCEPTED"
+        ],
+        "local": "implemented and focused44/44 passed",
+        "installation": {
+          "instance": "existing main debug",
+          "generation": 4,
+          "runtime": "loaded/imported",
+          "toolCalls": [
+            "status success",
+            "synthetic candidate success",
+            "invalid confirmation rejected"
+          ],
+          "rollbackRetained": true
+        },
+        "commit": "prepared_not_committed",
+        "push": "not_pushed",
+        "independentReview": "accepted",
+        "publisher": false,
+        "realModelAccepted": false,
+        "fullMemoryAccepted": false,
+        "ci": "not_started_for_new_commit"
+      }
     },
     {
       "id": "CORE-LEGACY-001",

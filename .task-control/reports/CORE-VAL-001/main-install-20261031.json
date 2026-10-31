@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-31T08:01:37.191194+00:00",
+  "phase": "installed_and_real_no_model_chain_verified_pending_independent_review",
+  "baseCommit": "376690333ef69097c322d586280b3647c8868e51",
+  "branch": "codex/issue23-integrated-regression",
+  "sourceFiles": {
+    "src/ordinary-plugin.ts": "490d1e26091475f1e179d03dde763661145047c477b2b67cf88b6af06859f808",
+    "tests/ordinary-plugin.test.ts": "b0d51e19e057521876d517d690385abdf802664937f2c837fd278f59eec247a8",
+    "openclaw.plugin.json": "cbf491a15899ae87d68f4e8c666c6ff3fa198f01f5e9a89da40240aad7eb8723",
+    "package.json": "261d4c80e1ea059dc9fce6d8af0079cc55fbfcaa137a735aceddd65c624c59f3",
+    "legacy/openclaw.plugin.json": "4a11236240c2831358d1a9ec726f741b36047c956804049d94794ab6ce4ac46e",
+    "tests/checkpoint-plugin-runtime.test.ts": "c6281375cac4fe9c56a5dd1bc99633a98332980bc9c765cbf63e459e9263563f",
+    "tests/webchat-identity-diagnostic.test.ts": "2efbb0aa0fe6ad1fb46501d3ec0bd5749d8d43fae1b78b2f4caa6d246fa3d6f7",
+    "README.md": "93119e20631c6de641852d27a6a875538c83e6e4748d660edfd9256cec2532a2",
+    "docs/MAIN-DEBUG-INSTALL.md": "38dbd2a229db55ca844ee2e44ce514af8ad6ca34d6ed8f480c7e4230c456dcf0"
+  },
+  "implementation": {
+    "defaultEntry": "dist/src/ordinary-plugin.js",
+    "legacyEntry": "src/plugin.ts (retained, not imported by default entry)",
+    "legacyManifest": "legacy/openclaw.plugin.json",
+    "ordinaryTools": [
+      "stella_status",
+      "stella_author_intent_candidate"
+    ],
+    "command": "stella-status",
+    "dataSource": "none",
+    "writer": "none",
+    "publisher": false,
+    "modelClient": "none"
+  },
+  "validation": {
+    "buildExit": 0,
+    "testCompileExit": 0,
+    "focusedTests": {
+      "command": "node --test .test-dist/tests/ordinary-plugin.test.js .test-dist/tests/checkpoint-plugin-runtime.test.js .test-dist/tests/webchat-identity-diagnostic.test.js",
+      "tests": 44,
+      "pass": 44,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 20227.807542,
+      "newOrdinaryTests": 5,
+      "retainedLegacyContractTests": 39,
+      "receiptOrigin": "actual tool terminal exit0; no full-suite rerun"
+    },
+    "initialTypecheck": "failed only on new test Ajv default import; fixed to named import; subsequent full test compilation succeeded",
+    "configValid": true,
+    "configWarning": "unrelated already-disabled stella-fitness retains config",
+    "diffCheckExit": 0,
+    "review": "concentrated author review completed; independent package review pending"
+  },
+  "installation": {
+    "hostVersion": "2026.10.8",
+    "packageVersion": "0.1.0-alpha.0",
+    "packageRoot": ".artifacts/main-ordinary-20261031/consumer/package",
+    "entrySha256": "68ced01dee62195977c4362ee0833f29e6d56ea901394ad49671c72af578ed3d",
+    "originalTgzSha256": "05e453fb831e05116a317a451f68bb082610ea2915ba755178779a86c0ef2aa0",
+    "installedFileCount": 2730,
+    "installedManifestSha256": "13dcb1616081a868b45f507d8a2d4ee8b882d3255d2c1efa64caec15b2269e96",
+    "officialInstall": "local --link --force --no-enable; applied in running Gateway generation4",
+    "installExit": 0,
+    "runtimeInspection": {
+      "status": "loaded",
+      "imported": true,
+      "shape": "non-capability",
+      "capabilityMode": "none",
+      "toolNames": [
+        "stella_status",
+        "stella_author_intent_candidate"
+      ],
+      "commands": [
+        "stella-status"
+      ],
+      "hooks": 0,
+      "providers": [],
+      "contextEngines": [],
+      "agentHarnesses": [],
+      "services": [],
+      "diagnostics": []
+    },
+    "dependencyBoundaryFix": {
+      "priorInstall": "blocked_before_install_by_official_dependency_boundary_scan",
+      "change": "removed package-external node_modules symlink; copied complete existing runtime dependency closure inside package root",
+      "dependencies": {
+        "ajv": {
+          "version": "8.20.0",
+          "packageSha256": "1f9033ee5a6515e7d76938b7072941862d1ed228a6879cc7fe10cdeb75107989"
+        },
+        "semver": {
+          "version": "7.8.5",
+          "packageSha256": "7c94cb7f2a53c27b20d76386ec144c062894dbcc909cfabd0f728c37874b1776"
+        },
+        "typebox": {
+          "version": "1.3.16",
+          "packageSha256": "88cc8c19f9c8a6c49d45e420a502fb58b54a29e64491f76b9a39c0dce3b82646"
+        },
+        "yaml": {
+          "version": "2.9.0",
+          "packageSha256": "20b8b197cbd10dad245d45e463dfe58e4c8c25a47e24bc4256ad9ab58bf35683"
+        },
+        "fast-deep-equal": {
+          "version": "3.1.3",
+          "packageSha256": "a5c63940db0260739be9e2ac67f3aac268df4db5770420ee4e34e493152f97d2"
+        },
+        "fast-uri": {
+          "version": "3.1.6",
+          "packageSha256": "d62cb9be0a111b42131b264efe1fee4638a5f643ff25fe0bc3627675a9b92a8b"
+        },
+        "json-schema-traverse": {
+          "version": "1.0.0",
+          "packageSha256": "156fb24af02845c190701360d06dfda35ef04282e34a734289ea9535ad9819ae"
+        },
+        "require-from-string": {
+          "version": "2.0.2",
+          "packageSha256": "c0002f7d4c7d7e2a885cf0f97226344902417c3a0980f2beca41962d2bc1f6d8"
+        }
+      },
+      "peerOpenClaw": "Host public plugin SDK, not bundled or copied",
+      "networkOrDependencyInstall": false
+    },
+    "docsNotInFirstArtifact": [
+      "docs/MAIN-DEBUG-INSTALL.md and new README introduction were added after initial pack; runtime source/manifest/package bytes match installed artifact"
+    ],
+    "noGatewayRestart": true
+  },
+  "actualMainEvidence": {
+    "status": {
+      "ok": true,
+      "toolName": "stella_status",
+      "output": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"architecture\":\"ordinary-plugin\",\"stage\":\"candidate-only\",\"agentId\":\"main\",\"publisher\":false,\"sourceAdapter\":\"not_connected\",\"authorConfirmation\":false,\"persistence\":\"none\",\"modelCalls\":false,\"legacyRuntime\":\"inactive\",\"memory\":\"host-owned\",\"context\":\"host-owned\",\"agentLoop\":\"host-owned\"}"
+          }
+        ],
+        "details": {
+          "architecture": "ordinary-plugin",
+          "stage": "candidate-only",
+          "agentId": "main",
+          "publisher": false,
+          "sourceAdapter": "not_connected",
+          "authorConfirmation": false,
+          "persistence": "none",
+          "modelCalls": false,
+          "legacyRuntime": "inactive",
+          "memory": "host-owned",
+          "context": "host-owned",
+          "agentLoop": "host-owned"
+        }
+      },
+      "source": "plugin"
+    },
+    "candidate": {
+      "ok": true,
+      "toolName": "stella_author_intent_candidate",
+      "output": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"status\":\"candidate\",\"code\":\"author_source_unavailable\",\"toolCallId\":\"rpc-delegated-stella-ordinary-main-20261031-candidate\",\"proposal\":{\"topic\":\"Synthetic main installation check\",\"interpretation\":\"A proposed interpretation awaiting author confirmation\",\"proposedPremises\":[\"This is synthetic debug input\"],\"openQuestions\":[\"What conclusion does the author intend?\"],\"evidenceReferences\":[\"synthetic:unverified-install-check\"]},\"evidenceStatus\":\"model_supplied_unverified\",\"authorConfirmation\":false,\"publisher\":false,\"saved\":false}"
+          }
+        ],
+        "details": {
+          "status": "candidate",
+          "code": "author_source_unavailable",
+          "toolCallId": "rpc-delegated-stella-ordinary-main-20261031-candidate",
+          "proposal": {
+            "topic": "Synthetic main installation check",
+            "interpretation": "A proposed interpretation awaiting author confirmation",
+            "proposedPremises": [
+              "This is synthetic debug input"
+            ],
+            "openQuestions": [
+              "What conclusion does the author intend?"
+            ],
+            "evidenceReferences": [
+              "synthetic:unverified-install-check"
+            ]
+          },
+          "evidenceStatus": "model_supplied_unverified",
+          "authorConfirmation": false,
+          "publisher": false,
+          "saved": false
+        }
+      },
+      "source": "plugin"
+    },
+    "invalidConfirmation": {
+      "ok": true,
+      "toolName": "stella_author_intent_candidate",
+      "output": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"status\":\"rejected\",\"code\":\"stella_candidate_arguments_invalid\"}"
+          }
+        ],
+        "details": {
+          "status": "rejected",
+          "code": "stella_candidate_arguments_invalid"
+        },
+        "isError": true
+      },
+      "source": "plugin"
+    },
+    "catalog": [
+      {
+        "id": "memory_search",
+        "source": "core"
+      },
+      {
+        "id": "memory_get",
+        "source": "core"
+      },
+      {
+        "id": "stella_author_intent_candidate",
+        "source": "plugin",
+        "pluginId": "stella-core"
+      },
+      {
+        "id": "stella_status",
+        "source": "plugin",
+        "pluginId": "stella-core"
+      }
+    ],
+    "oldCoreToolsAbsent": [
+      "stella_initialize",
+      "stella_memory_data"
+    ],
+    "allInvocationCliExitCodes": 0,
+    "interpretation": "invalid-confirmation RPC transport succeeds but tool explicitly returns isError=true/status=rejected; not a successful confirmation",
+    "modelCalls": 0,
+    "privateSourceReads": 0,
+    "confirmedPublications": 0
+  },
+  "configComparison": {
+    "changedPaths": [
+      ".meta.lastTouchedVersion",
+      ".plugins.entries.stella-core.hooks",
+      ".plugins.entries.stella-core.config.canghaiRoot",
+      ".plugins.entries.stella-core.config.webchatOwnerDeviceId",
+      ".plugins.entries.stella-core.config.publisher",
+      ".plugins.entries.stella-core.config.recoveryAuthority",
+      ".plugins.entries.stella-core.config.requestArchive",
+      ".plugins.entries.stella-core.config.agentMemory",
+      ".plugins.entries.stella-core.config.checkpointStateDirectory",
+      ".plugins.entries.stella-core.config.manifestPath",
+      ".plugins.entries.stella-core.config.dataMode",
+      ".plugins.entries.stella-core.llm",
+      ".plugins.load.paths"
+    ],
+    "memoryContextSlotsUnchanged": true,
+    "modelConfigUnchanged": true,
+    "toolPolicyUnchanged": true,
+    "allowListUnchanged": true,
+    "gatewayConfigUnchanged": true,
+    "currentConfigSha256": "28341a608d7b4c08a100eaf8deade611f6737099717c905a054845c121572e8f"
+  },
+  "rollback": {
+    "backup": "Host-private backups/stella-ordinary-main-20261031/openclaw.before.json (0600); not copied into repository",
+    "beforeSha256": "fe24c8fdabe5634bfb502185ec915cc3c6b39d25ca3f0779d5eaa9c5a4cf1b55",
+    "oldArtifactRetained": true,
+    "userDataMigratedOrDeleted": false,
+    "instructions": "docs/MAIN-DEBUG-INSTALL.md",
+    "rollbackExecuted": false
+  },
+  "retainedFailures": [
+    {
+      "operation": "npm pack in tool sandbox",
+      "result": "EPERM writing normal npm cache; same command succeeded through normal approval, no permission change"
+    },
+    {
+      "operation": "Gateway tools.catalog in tool sandbox",
+      "result": "connect EPERM on127.0.0.1:18789; same official command succeeded through normal approval"
+    },
+    {
+      "operation": "plugins reload",
+      "result": "missing authoritative package-owner install record; exit1; fixed by official link install"
+    },
+    {
+      "operation": "first official link install",
+      "result": "dependency boundary code-safety scan rejected external node_modules symlink; exit1 before install; removed link and copied runtime dependency closure, then same official scan/install succeeded; no scan override"
+    }
+  ],
+  "limits": [
+    "No paid/model or semantic acceptance",
+    "No trusted author/original/source connection or confirmed publisher",
+    "Candidate is intentionally returned without persistent saving",
+    "Native memory tools present and configuration unchanged; no actual memory read or full_memory acceptance",
+    "Old isolated Host batch remains3/3 exhausted; no sixth old attempt; old fourth unknown preserved",
+    "Old26 CI failures not rerun or reclassified",
+    "New changes local and not committed/pushed pending one concentrated independent review"
+  ],
+  "rawReceiptHashes": {
+    "pack.json": "1b7bb252a25e92c5ab45c5d361e33e2931cff422c402e0874386562cde2a8958",
+    "reload.json": "ddb5ddbdc6cd31572928abd1cf5b81e5298c273bea90e3d0aa90a09ab470b5c6",
+    "install-official.stdout": "0498d569a5634bca283b78495c894bcfa43ff4d11cc7c78692e81ab35ef7baf3",
+    "install-official.stderr": "5951c66c7952a86456700cf25786d5f16310cf503691e1411769f8307f85e967",
+    "install-official-r1.stdout": "1fc188102e4607697155b38c9aceef36064c10e5b59fe294457bbe3930a57e71",
+    "install-official-r1.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "inspect-runtime.json": "a1afdd97714ebe923cf6a8b19845d8e4e64d1fe3551b4babf2eef6015d5d37ea",
+    "status-invoke.json": "510575f34ccaaa2e62a30fd4746fd67f00088457f08426b11b96c7ab5393bf7e",
+    "candidate-invoke.json": "b8e31602491ccdf163750b21ca4257a2f19da3c2f08c14447d41ddd30d284782",
+    "rejected-invoke.json": "40d4bcc50d48243c14b0ea3df9f3e15bcfd7ca3a740947aeea87fa5bc429e6d5",
+    "catalog-before.json": "8a23b1585fbf927bff6177c25e17bfa02324f5dd9cd9d22892aec4773dcf5fbe",
+    "catalog-after.json": "9e1b7e4be05b46cc86ad1897d24760ca42efdb9e27f4de63ee3135deb701f2cc",
+    "CONFIG-COMPARISON.json": "837eae8b4e51ae1e72b4a052d564ea6579594005caa9aec7c36ef8c07c7068c5",
+    "DEPENDENCY-BOUNDARY-FIX.json": "5a2006c52aaaaa0106de17b367a2732d618bcd4d890f55c979952885b4b8a5be"
+  },
+  "diagnosticRoot": "/tmp/core-main-install-20261031-bi1fy027"
+}

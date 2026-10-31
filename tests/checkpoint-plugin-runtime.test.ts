@@ -202,7 +202,7 @@ test("a changed bootstrap projection remains protected and a stopped initializer
 });
 
 test("plugin manifest requires exactly one authority; legacy pointer remains required by default", async () => {
-  const document = JSON.parse(await readFile(path.join(process.cwd(), "openclaw.plugin.json"), "utf8"));
+  const document = JSON.parse(await readFile(path.join(process.cwd(), "legacy/openclaw.plugin.json"), "utf8"));
   const validate = new Ajv({ strict: false }).compile(document.configSchema);
   const legacy = { canghaiRoot: "/synthetic", dataMode: "read_only", recoveryRevision: "a".repeat(40) };
   assert.equal(validate(legacy), true); assert.equal(validate({ canghaiRoot: "/synthetic", dataMode: "read_only" }), false);

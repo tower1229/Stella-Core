@@ -489,3 +489,19 @@ offline_author_source_r1_20261031:
   production_wiring: false
   publisher_bound: false
   real_author_source_verified: false
+
+ordinary_main_debug_20261031:
+  evidence: .task-control/reports/CORE-VAL-001/main-install-20261031.json
+  architecture: ordinary-plugin; native memory/context/Agent loop retained
+  default_entry: dist/src/ordinary-plugin.js
+  host_version: 2026.10.8
+  gateway_generation: 4
+  actual_runtime: loaded/imported; two tools and stella-status command; no Core providers/hooks/services/context or harness replacement
+  main_tool_calls: status and synthetic candidate returned; spoofed confirmation rejected with tool isError true
+  candidate: unconfirmed, unsaved, model-supplied references unverified
+  source_adapter: not_connected
+  publisher: false
+  paid_model_calls: 0
+  focused_tests: 44 passed, 0 failed; five new ordinary tests and 39 retained legacy contract tests
+  rollback: old artifact and private0600 config backup retained; no user data migration or deletion
+  limits: no semantic/full_memory/real-source acceptance; historical failures unchanged
