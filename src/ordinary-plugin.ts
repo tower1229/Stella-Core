@@ -1,6 +1,7 @@
 import { definePluginEntry, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
 import { isRecord } from "./shared/type-guards.js";
+import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
 
 export const CANDIDATE_TOOL = "stella_author_intent_candidate";
 export const STATUS_TOOL = "stella_status";
@@ -59,17 +60,29 @@ export default definePluginEntry({
   description: "Source-aware work-brief candidates alongside native OpenClaw memory and context",
   register(api) {
     const config = parseOrdinaryConfig(api.pluginConfig);
+    const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
+    api.on("before_tool_call", (event, context) => {
+      const error = requestBinding.observe(event, context);
+      if (error) return { block: true, blockReason: error };
+    });
     const status = () => ({
       architecture: "ordinary-plugin", stage: "candidate-only", agentId: config.agentId,
       publisher: false, sourceAdapter: "not_connected", authorConfirmation: false,
       persistence: "none", modelCalls: false, legacyRuntime: "inactive",
+      requestBinding: "public-tool-hook-metadata", currentInputAdmission: "not_connected",
       memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
     });
     api.registerTool({ contextVersion: 2, create(context: OpenClawPluginToolContext<2>) {
       if (context.agentId !== config.agentId) return null;
       // Capture the Host guard once. The mutable factory object cannot replace it.
       const invocationGuard = context.assertInvocationCurrent.bind(context);
-      const check = (signal?: AbortSignal) => { invocationGuard(); signal?.throwIfAborted(); };
+      const identity = { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId };
+      const check = (signal?: AbortSignal) => {
+        invocationGuard(); signal?.throwIfAborted();
+        if (context.agentId !== identity.agentId || context.sessionKey !== identity.sessionKey || context.sessionId !== identity.sessionId) {
+          throw new Error("stella_request_factory_identity_changed");
+        }
+      };
       return [
         { name: STATUS_TOOL, label: "Stella status", description: "Show Stella's active architecture and available capabilities. No model or personal files are accessed.",
           parameters: Type.Object({}, { additionalProperties: false }),
@@ -83,13 +96,15 @@ export default definePluginEntry({
           parameters: CANDIDATE_PARAMETERS,
           async execute(callId, parameters, signal) {
             check(signal);
+            const binding = requestBinding.consume(callId, identity);
+            if (binding.status === "rejected") return result({ status: "rejected", code: binding.code }, true);
             let proposal: Proposal;
             try { proposal = parseProposal(parameters); }
             catch { return result({ status: "rejected", code: "stella_candidate_arguments_invalid" }, true); }
             check(signal);
             return result({ status: "candidate", code: "author_source_unavailable", toolCallId: callId,
               proposal, evidenceStatus: "model_supplied_unverified", authorConfirmation: false,
-              publisher: false, saved: false });
+              publisher: false, saved: false, requestBinding: binding });
           } },
       ];
     } }, { names: [STATUS_TOOL, CANDIDATE_TOOL] });

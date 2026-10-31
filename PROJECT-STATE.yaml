@@ -505,3 +505,41 @@ ordinary_main_debug_20261031:
   focused_tests: 44 passed, 0 failed; five new ordinary tests and 39 retained legacy contract tests
   rollback: old artifact and private0600 config backup retained; no user data migration or deletion
   limits: no semantic/full_memory/real-source acceptance; historical failures unchanged
+
+ordinary_tool_request_binding_20261031:
+  evidence: .task-control/reports/CORE-VAL-001/tool-request-binding-20261031.json
+  public_seam: before_tool_call metadata to exact candidate execute and factory agent/session binding
+  main_gateway_generation: 7
+  actual_main_rpc: candidate call bound; runId null and sessionIncarnationBound false explicitly reported
+  model_injected_binding: rejected with isError true
+  source_and_input_admission: not_connected
+  publisher: false
+  persistence: none
+  focused_tests: 11 passed, 0 failed; full run binding covered synthetically only
+  config_change: only Core load path; model/tools/Gateway/slots/allowlist/Core-entry unchanged
+  install_repair: official link replacement retained duplicate Core paths; exact old path removed then official reload succeeded
+  rollback: previous artifact and private0600 before/partial config snapshots retained; not exercised
+  limits: no paid model, real author/source, semantic, full_memory or full Agent-run acceptance
+
+tool_binding_r1_and_realmodel_20261031:
+  r1_evidence: .task-control/reports/CORE-VAL-001/tool-request-binding-r1-20261031.json
+  r1_fix: validate optional hook/factory sessionId as bounded primitive nonempty strings before claiming incarnation binding
+  r1_validation: four deterministic red regression groups; final focused15/15; compile/build0; missing/valid/mismatch preserved
+  realmodel_evidence: .task-control/reports/CORE-VAL-001/realmodel-once-20261031.json
+  realmodel_scope: one approved synthetic agent exec; no main history/USER/MEMORY or source data; explicit config/fresh workspace and state/skipbootstrap
+  actual_provider_model: google/gemini-3.8-flash
+  thinking: low
+  process_exit: 0
+  elapsed_seconds: 21.60929
+  assistant_turns: 2
+  candidate_tool_calls: 1
+  input_output_total_tokens: [4872, 146, 5018]
+  host_reported_cost_usd: 0.008403
+  billing_or_physical_request_hardcap_verified: false
+  actual_binding: run_and_tool_call; sessionBound true; sessionIncarnationBound true; canonical own-session call IDs agree
+  candidate_authority: unconfirmed/unsaved; model-supplied references unverified; input admission/source/publisher disconnected
+  main_runtime: generation7 untouched; R1 used only in dedicated realmodel test artifact
+  limits: one synthetic direct-schema model-driven call; no daily Gateway/default ToolSearch/private understanding or full_memory acceptance
+  main_r1_promotion_after_review: generation8; official Core-only reload succeeded, no Gateway restart
+  main_r1_promotion_scope: three compiled helper files, same tracked path; main config unchanged; complete preR1 artifact rollback retained
+  main_r1_status: no-model status passed; source/publisher off; no further paid request

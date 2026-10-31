@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "verdict": "accepted_bounded_scope_no_new_blocker",
+  "independentSummarySha256": "9df38c3f9fe45a17017468d5c854abb1b8dd1c1e13a9c6f278bb0ea5e5dc11ea",
+  "independentReviewMarkdownSha256": "96cb6db676c403deb5c9c040e9eeff6f2b3b296d3de82540bd9a925fa957ad48",
+  "baseCommit": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+  "reviewedHashes": {
+    "src/ordinary-plugin.ts": "669c8b06e008a0ca5599fe5c045cb999051ad5e03647ebd471e1da94f3922c77",
+    "src/openclaw/tool-request-binding.ts": "328fc4f52b887197006df00d8c4e5987b2018dd6b6c3466545dcecf30ea5dea2",
+    "tests/ordinary-plugin.test.ts": "4ac715287628df35104a90598f94d703f7618ee1f4f1b8d4b21c5a4236fa52f4",
+    "tests/tool-request-binding.test.ts": "95f54e4e09d779a7c02c8ba61753d3b098432f54c847d61778b35bc242d7da50",
+    "docs/MAIN-DEBUG-INSTALL.md": "3a7b7851138687754f3f866887386f2d56a6be08b5a2c3f3c601c44700cc2197",
+    ".task-control/reports/CORE-VAL-001/tool-request-binding-20261031.json": "dba80185040185e68f441b62c4ea01e062dffda4b37783c81bab2724745f5e04",
+    ".task-control/reports/CORE-VAL-001/tool-request-binding-20261031.patch": "bf0c0326a18bd815d5c4f6aecfb51afdbdb7b8d56feefc9ee6929034611aafff",
+    ".task-control/reports/CORE-VAL-001/tool-request-binding-r1-20261031.json": "69aa91c4fac9b0197cb8f2aa9c1ce2a3e6f6eeb9a94764cbf1d3184b0e79aef7",
+    ".task-control/reports/CORE-VAL-001/tool-request-binding-r1-20261031.patch": "ffdf28b2d538605589c7d83107f4794d7262f9207240140ac3baeca47761e71f",
+    ".task-control/reports/CORE-VAL-001/realmodel-once-20261031.json": "abea6db101f22a62328ead427c831e483273bbb7c2286023f74a4e0abf837637"
+  },
+  "independentFocused": {
+    "tests": 15,
+    "pass": 15,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "originalSixReplaySeparate": {
+    "cases": 6,
+    "allExpected": true,
+    "separateFrom15": true
+  },
+  "realModelSummary": {
+    "agentRequests": 1,
+    "assistantTurns": 2,
+    "toolCalls": 1,
+    "callId": "call_281565",
+    "runId": "0bb50782-e712-4262-a2b2-7b4343efe80c",
+    "sessionBound": true,
+    "incarnationBound": true,
+    "input": 4872,
+    "output": 146,
+    "total": 5018,
+    "hostCostUsd": 0.008403,
+    "exitCode": 0,
+    "elapsedSeconds": 21.609
+  },
+  "costAttribution": "Host reported estimate; billing/physical retry count not independently verified; no hardUSDcap",
+  "mainR1Promotion": {
+    "generation": 8,
+    "officialReloadExit": 0,
+    "restartRequired": false,
+    "scopedPluginIds": [
+      "stella-core"
+    ],
+    "sourceDigest": "c81f120d45c0a01f1d6a926f8334b407def75483d355e5483cba1d0d1c20a2b1",
+    "sameTrackedInstallPath": true,
+    "reviewedCompiledHelperFiles": [
+      {
+        "path": "dist/src/openclaw/tool-request-binding.js",
+        "oldSha256": "886b8598916c978692a82cd184458775f3d140d2022dceb8a2dd874a4b856742",
+        "newSha256": "46450c11518c0923d5ab40b75d7f03b913d49643d18ff287a81f1c96f731fb8f"
+      },
+      {
+        "path": "dist/src/openclaw/tool-request-binding.d.ts",
+        "oldSha256": "1f556a5d7f364bd717ba12ad15b700720fedee824c76baf3b0ec196a1ac8a237",
+        "newSha256": "1f556a5d7f364bd717ba12ad15b700720fedee824c76baf3b0ec196a1ac8a237"
+      },
+      {
+        "path": "dist/src/openclaw/tool-request-binding.js.map",
+        "oldSha256": "241d4f366349001f0de6bfe72a6816da073e746e9fa404cbd33b0d0b7ddfdde1",
+        "newSha256": "142cc1bec55dacd3d662f34d82268b1f0035a68d048b5c88fc7918b55496cfd4"
+      }
+    ],
+    "preR1FullArtifactRollback": ".artifacts/tool-request-binding-r1-main-rollback-20261031/package",
+    "oldArtifactFileCount": 2734,
+    "mainConfigOpaqueSha256Unchanged": "baa78a2ae7c71c4f8e74ba19a8315f01ec9911a9ebb173cd38c04f39c8390583",
+    "noModelStatus": {
+      "architecture": "ordinary-plugin",
+      "stage": "candidate-only",
+      "agentId": "main",
+      "publisher": false,
+      "sourceAdapter": "not_connected",
+      "authorConfirmation": false,
+      "persistence": "none",
+      "modelCalls": false,
+      "legacyRuntime": "inactive",
+      "requestBinding": "public-tool-hook-metadata",
+      "currentInputAdmission": "not_connected",
+      "memory": "host-owned",
+      "context": "host-owned",
+      "agentLoop": "host-owned"
+    },
+    "furtherPaidRequests": 0,
+    "rollbackExercised": false
+  },
+  "saveScope": "exact10 independent whitelist files plus this non-sensitive summary, necessary unique coordinator ledger and only two binding/R1 technical appendices; no artifacts/config/DB/rawlogs/unrelated dirty",
+  "historicalReferences": "Earlier unbundled reports remain historical audit refs, not build/runtime dependencies; frozen initial binding/model reports retain original identities and dates.",
+  "limits": [
+    "Host-reported usage/cost only, no independent billing or physical HTTP retry count",
+    "Canonical transcript continuation, no independent provider outbound payload capture",
+    "No independent OS whole-group-gone probe; native CLI exit0 and no reported cleanup failure only",
+    "No real author/source admission, daily main conversation/default ToolSearch, persistence/publisher or full_memory acceptance"
+  ]
+}

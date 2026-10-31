@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 47,
-  "updatedAt": "2026-10-31T08:13:21.956065+00:00",
+  "revision": 57,
+  "updatedAt": "2026-10-31T09:34:56.555777+00:00",
   "writer": {
-    "agent": "Core ordinary-main reviewed package save and exact-SHA CI sole writer",
-    "session": "delegated:core-main-save-ci-20261031"
+    "agent": "Core reviewed R1 main promotion/save/exact-SHA CI sole writer",
+    "session": "delegated:core-binding-r1-save-ci-20261031"
   },
   "workstreams": [
     {
@@ -521,8 +521,8 @@
       ],
       "status": "running",
       "owner": {
-        "agent": "Core ordinary-main reviewed package save and exact-SHA CI sole writer",
-        "session": "delegated:core-main-save-ci-20261031"
+        "agent": "Core reviewed R1 main promotion/save/exact-SHA CI sole writer",
+        "session": "delegated:core-binding-r1-save-ci-20261031"
       },
       "evidence": [
         {
@@ -1053,11 +1053,91 @@
             "sha256": "66066bb4393c0822b4ddde892ff1956fa995181bcf15d1900691fc3903623928",
             "independentSummarySha256": "bf6e8b20e2985ff9d517c8ad60b8642379cb40699961325a9151f5ca0f240105"
           }
+        },
+        {
+          "id": "C-VAL-MAIN-SAVE-PUSH",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-save-ci-20261031.json",
+          "claim": "14exact reviewed files committed/pushed421af72b via normal branch push and full remoteSHA readback; no private config/backup/artifacts/rawlogs or unrelated dirty. Both exactSHA CI running; runtime unchanged.",
+          "observedAt": "2026-10-31T08:15:14.008543+00:00",
+          "subject": {
+            "sha256": "e1c0c1e90968e0302140581ed1af4a62ba22ee2bcecbae5b972f85b7a554f1ba",
+            "commit": "421af72baa75bd313d251a1961a1e5f6b135ede0"
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-421AF72B-CI-TERMINAL",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-ci-421af72b-20261031.json",
+          "claim": "Exact421af72b ordinary reviewed14file commit/push/remote verified. CI41183765090 and41183765105 both completedfailure,each1765/1739pass/26historicalfail/0cancel/skip/todo;5new ordinary and22retainedoffline pass each. Experimental26full normalized failures unchanged; CI25identical plus one same SDK mismatch with Node asynccompletion stack-tail variation only. No new failure cause/regression observed. Both real runners exit1, no timeout/kill, stdio/groupgone/ownedwork0pending/cleanup complete. Maingeneration4 untouched; no model/semantic/full_memory claim.",
+          "observedAt": "2026-10-31T08:28:07.852520+00:00",
+          "subject": {
+            "sha256": "da96eb75e9d274d57bb7974d740841fedcd7b8bfa9c7bb7b7e3138551467e290",
+            "commit": "421af72baa75bd313d251a1961a1e5f6b135ede0"
+          }
+        },
+        {
+          "id": "C-VAL-TOOL-REQUEST-BINDING-START",
+          "kind": "decision",
+          "ref": ".task-control/reports/CORE-VAL-001/tool-request-binding-20261031.json",
+          "claim": "Parent assigned next practical current-request seam increment; metadata-only before_tool_call needs no conversation-access grant in fixed10.8; actual main reload deferred to shared-window coordination. Transport restored, prior non-executed attempts retained.",
+          "observedAt": "2026-10-31T08:42:09.368539+00:00"
+        },
+        {
+          "id": "C-VAL-TOOL-REQUEST-BINDING-INSTALLED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/tool-request-binding-20261031.json",
+          "claim": "Public before_tool_call metadata reaches exact candidate execution with factory agent/session checks. Build/testcompile0 and11/11focused; shared Bili window released, Core scoped official reload generation7 after duplicate linked-path fix. Actual mainRPC candidate bound to current call, runIdnull/incarnationfalse explicit; injected binding rejected; status source/publisher off. Only Coreloadpath config changed. Full run path synthetic-only; no model/private source/writer/old6thHost. Uncommitted package ready for one concentrated review.",
+          "observedAt": "2026-10-31T08:53:02.977220+00:00",
+          "subject": {
+            "sha256": "dba80185040185e68f441b62c4ea01e062dffda4b37783c81bab2724745f5e04",
+            "baseCommit": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+            "installedEntrySha256": "3c9b2db3174ffd9ec72c7ac9b65f950531c2c1f6adfe13323d5436443246df97"
+          }
+        },
+        {
+          "id": "C-VAL-TOOL-BINDING-P2-REVIEW",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/tool-request-binding-r1-20261031.json",
+          "claim": "Independent review found onlyP2invalidoptional-sessionId incarnation misreport; author/source/data protection unaffected. Four invalidclaims separate from11/11suite and2normalcontrols. Parent assigns local narrowfix only.",
+          "observedAt": "2026-10-31T09:02:10.922086+00:00"
+        },
+        {
+          "id": "C-VAL-TOOL-BINDING-R1-LOCAL",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/tool-request-binding-r1-20261031.json",
+          "claim": "P2 invalidoptional-sessionId repaired with existing string predicate;4red regression groups then15/15green andcompile/build0. Missing/valid/mismatch preserved. Original independent11+4invalid+2controls separate. No Host/model/mainupdate in thisfix slice.",
+          "observedAt": "2026-10-31T09:09:58.378755+00:00",
+          "subject": {
+            "sha256": "69aa91c4fac9b0197cb8f2aa9c1ce2a3e6f6eeb9a94764cbf1d3184b0e79aef7"
+          }
+        },
+        {
+          "id": "C-VAL-REALMODEL-ONCE-PASS",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/realmodel-once-20261031.json",
+          "claim": "One newly approved realGoogleGemini3.8Flash/low agentexec on dedicated pure synthetic config/workspace/state completedexit0 in21.609s. Two assistantturns,onecandidate tool,5018tokens,HostreportedUSD0.008403. Own canonical transcript verifies exactmodeltoolcall/result callID and run/session/incarnation binding;candidateunconfirmed/unsaved/sourceoff. Mainconfig/runtime unchanged;noautoresend,remaining0,nohardUSDcap. R1fix15/15 pendingindependent recheck.",
+          "observedAt": "2026-10-31T09:21:59.905819+00:00",
+          "subject": {
+            "sha256": "abea6db101f22a62328ead427c831e483273bbb7c2286023f74a4e0abf837637",
+            "baseCommit": "421af72baa75bd313d251a1961a1e5f6b135ede0"
+          }
+        },
+        {
+          "id": "C-VAL-BINDING-R1-ACCEPTED-MAIN8",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/tool-binding-save-review-20261031.json",
+          "claim": "IndependentR1andrealmodel scope accepted15/15+6replayseparate,2734artifact and9receipts. Three reviewed compiled helper files promoted at same tracked main installpath with preR1fullartifact rollbackcopy; official Core-onlyreload generation8 restartfalse and no-modelstatuspassed; mainconfig unchanged. No furtherpaidrequest. Scoped13files save next.",
+          "observedAt": "2026-10-31T09:34:56.555777+00:00",
+          "subject": {
+            "sha256": "9dfa0d4659607efcf393cedec851045e913e1f4db534d781fc01eaaa0381e91f",
+            "baseCommit": "421af72baa75bd313d251a1961a1e5f6b135ede0"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Ordinary main generation4 remains installed and actual no-model status/candidate/rejection evidence accepted by independent review;44/44authorfocused tests reused. Saving exactly14 scoped files; no artifacts/config/backups/raw logs or unrelated dirty. Source/publisher off, old batch3/3 exhausted and old unknown retained.",
-        "nextAction": "Commit/push only reviewed main package on existing dev branch, verify remote exactSHA and follow its two CI runs to terminal; compare against1760/1734pass/26oldfail baseline, including5new ordinary cases and retained22offline cases. No local Host/model/restart/rollback or unrelated full-suite rerun.",
+        "checkpoint": "R1+one genuine modeltest independentlyaccepted; actualmain R1promotion generation8 completevia same trackedpath3compiledfiles andofficialCoreonlyreload/no-modelstatus. FullpreR1artifactrollback retained;mainconfigunchanged. No furtherpaidcalls; new1/1andold3/3exhausted. Preparing exact10reviewfiles+summary+state+twoPROJECTappendices only; no rawprivateassets or unrelateddirty.",
+        "nextAction": "Scopednormalcommit/push existingdevbranch, verify remote and monitor exactSHA CIterminal. Compare baseline421af72b1765/1739pass/26oldfail, expect10additional binding groups and unchanged5ordinary/22offline tests. Do not restart main/repeat paidrequest or reopen old26 as universal gates.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -1113,9 +1193,48 @@
           "ownedGroupOutcome": "confirmed_gone",
           "quotaExhausted": true,
           "ownRunTerminalComplete": true
+        },
+        "realModelTest": {
+          "id": "core-realmodel-once-20261031-0901",
+          "authorizedAgentRequests": 1,
+          "submitted": 1,
+          "remaining": 0,
+          "grantObservedAt": "2026-10-31T09:01:36Z",
+          "provider": "google",
+          "model": "gemini-3.8-flash",
+          "thinking": "low",
+          "runTimeoutSeconds": 90,
+          "noAutomaticResubmission": true,
+          "hardDollarCapVerified": false,
+          "scope": "one<=500character fictionalcitywalking prompt only; no mainhistory/USER/MEMORY/real sources; syntheticworkspace/freshstate/explicitconfig/skipbootstrap; nofallback/newcredential/permission/publisher",
+          "status": "completed_successfully",
+          "reserved": 0,
+          "diagnosticRoot": "/tmp/core-realmodel-once-20261031-vxkaf42j",
+          "preflightPassed": true,
+          "promptCharacters": 134,
+          "sourceIsolation": "explicit config cleared all non-model sections, fresh state/empty workspace/skipbootstrap; only Core candidate tool, existing Google credential retained solely by normal Host loader",
+          "mainConfigUnchangedBeforeLaunch": true,
+          "actualExitCode": 0,
+          "actualAssistantTurns": 2,
+          "actualCandidateToolCalls": 1,
+          "usage": {
+            "input": 4872,
+            "output": 146,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 5018,
+            "cost": {
+              "total": 0.008403
+            }
+          },
+          "hostReportedCostUsd": 0.008403,
+          "actualRunId": "0bb50782-e712-4262-a2b2-7b4343efe80c",
+          "actualToolCallId": "call_281565",
+          "sourceAndPublisher": "off",
+          "evidence": "C-VAL-REALMODEL-ONCE-PASS"
         }
       },
-      "updatedAt": "2026-10-31T08:13:21.956065+00:00",
+      "updatedAt": "2026-10-31T09:34:56.555777+00:00",
       "delivery": {
         "local": {
           "status": "committed",
@@ -1262,11 +1381,12 @@
         "scope": "Previously reviewed offline-source package37669033; this delivery record does not describe the new uncommitted ordinary entry."
       },
       "mainDebugDelivery": {
-        "status": "independently_accepted_saving",
-        "observedAt": "2026-10-31T08:13:21.956065+00:00",
+        "status": "pushed_ci_terminal_no_observed_regression",
+        "observedAt": "2026-10-31T08:28:07.852520+00:00",
         "evidence": [
           "C-VAL-MAIN-ORDINARY-INSTALLED",
-          "C-VAL-MAIN-INDEPENDENT-ACCEPTED"
+          "C-VAL-MAIN-INDEPENDENT-ACCEPTED",
+          "C-VAL-MAIN-421AF72B-CI-TERMINAL"
         ],
         "local": "implemented and focused44/44 passed",
         "installation": {
@@ -1280,13 +1400,159 @@
           ],
           "rollbackRetained": true
         },
-        "commit": "prepared_not_committed",
-        "push": "not_pushed",
+        "commit": {
+          "status": "committed",
+          "sha": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+          "files": 14
+        },
+        "push": {
+          "status": "pushed",
+          "remoteSha": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+          "exitCode": 0
+        },
         "independentReview": "accepted",
         "publisher": false,
         "realModelAccepted": false,
         "fullMemoryAccepted": false,
-        "ci": "not_started_for_new_commit"
+        "ci": {
+          "status": "failed",
+          "conclusion": "failure",
+          "headSha": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+          "countsEach": {
+            "tests": 1765,
+            "pass": 1739,
+            "fail": 26,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "ordinaryCasesPassedEach": 5,
+          "retainedOfflineCasesPassedEach": 22,
+          "newRegressionObserved": false,
+          "historicalFailureCausesUnchanged": 26,
+          "normalizedBlocksIdentical": {
+            "ci": 25,
+            "experimental": 26
+          },
+          "diagnosticVariation": "one CI old SDK2026.10.8-vs2026.8.2 failure differs only in Node async child completion stack tail; source assertion/error/actual/expected unchanged",
+          "runs": [
+            {
+              "id": 41183765090,
+              "workflow": "Full capability assessment",
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41183765090",
+              "headSha": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+              "status": "completed",
+              "conclusion": "failure",
+              "startedAt": "2026-10-31T08:14:17Z",
+              "updatedAt": "2026-10-31T08:25:35Z",
+              "jobs": [
+                {
+                  "id": 124486379200,
+                  "name": "prepare",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T08:14:20Z",
+                  "completedAt": "2026-10-31T08:25:24Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41183765090/job/124486379200",
+                  "failedSteps": [
+                    {
+                      "number": 6,
+                      "name": "Check, test, build and freeze one package"
+                    }
+                  ]
+                },
+                {
+                  "id": 124488655080,
+                  "name": "verify",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T08:25:27Z",
+                  "completedAt": "2026-10-31T08:25:35Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41183765090/job/124488655080",
+                  "failedSteps": [
+                    {
+                      "number": 5,
+                      "name": "Require all 152 unique cases and successful jobs"
+                    }
+                  ]
+                },
+                {
+                  "id": 124488656515,
+                  "name": "probes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-31T08:25:25Z",
+                  "completedAt": "2026-10-31T08:25:24Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41183765090/job/124488656515",
+                  "failedSteps": []
+                }
+              ]
+            },
+            {
+              "id": 41183765105,
+              "workflow": "Experimental owner chat",
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41183765105",
+              "headSha": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+              "status": "completed",
+              "conclusion": "failure",
+              "startedAt": "2026-10-31T08:14:17Z",
+              "updatedAt": "2026-10-31T08:21:45Z",
+              "jobs": [
+                {
+                  "id": 124486379242,
+                  "name": "Installed experimental owner chat (synthetic)",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "startedAt": "2026-10-31T08:14:20Z",
+                  "completedAt": "2026-10-31T08:21:45Z",
+                  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41183765105/job/124486379242",
+                  "failedSteps": [
+                    {
+                      "number": 5,
+                      "name": "Check source and test one installed package with stock Host"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "currentRequestBinding": {
+        "status": "r1_independently_accepted_main8_saving",
+        "generation": 8,
+        "observedAt": "2026-10-31T09:34:56.555777+00:00",
+        "evidence": [
+          "C-VAL-TOOL-REQUEST-BINDING-INSTALLED",
+          "C-VAL-BINDING-R1-ACCEPTED-MAIN8"
+        ],
+        "localFocusedTests": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0
+        },
+        "actualMain": {
+          "callBinding": "bound",
+          "runId": null,
+          "sessionBound": true,
+          "sessionIncarnationBound": false,
+          "spoofedBinding": "rejected_isError"
+        },
+        "fullRunBinding": "synthetic_tests_only",
+        "inputAdmission": "not_connected",
+        "publisher": false,
+        "modelCalls": 0,
+        "commit": "not_committed",
+        "push": "not_pushed",
+        "localRevision": "R1 independentlyaccepted; realmodelvalidpathpass; main8 now R1; no new paidcall",
+        "independentReview": "accepted",
+        "mainPromotion": {
+          "officialReloadExit": 0,
+          "restartRequired": false,
+          "noModelStatusPassed": true,
+          "mainConfigUnchanged": true,
+          "oldArtifactRollbackRetained": true
+        }
       }
     },
     {

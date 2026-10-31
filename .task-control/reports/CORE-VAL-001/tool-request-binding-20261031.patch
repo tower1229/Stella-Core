@@ -1,0 +1,278 @@
+diff --git a/src/ordinary-plugin.ts b/src/ordinary-plugin.ts
+index 1983f21a..d2bb4275 100644
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -1,6 +1,7 @@
+ import { definePluginEntry, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+ import { Type } from "typebox";
+ import { isRecord } from "./shared/type-guards.js";
++import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
+ 
+ export const CANDIDATE_TOOL = "stella_author_intent_candidate";
+ export const STATUS_TOOL = "stella_status";
+@@ -59,17 +60,29 @@ export default definePluginEntry({
+   description: "Source-aware work-brief candidates alongside native OpenClaw memory and context",
+   register(api) {
+     const config = parseOrdinaryConfig(api.pluginConfig);
++    const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
++    api.on("before_tool_call", (event, context) => {
++      const error = requestBinding.observe(event, context);
++      if (error) return { block: true, blockReason: error };
++    });
+     const status = () => ({
+       architecture: "ordinary-plugin", stage: "candidate-only", agentId: config.agentId,
+       publisher: false, sourceAdapter: "not_connected", authorConfirmation: false,
+       persistence: "none", modelCalls: false, legacyRuntime: "inactive",
++      requestBinding: "public-tool-hook-metadata", currentInputAdmission: "not_connected",
+       memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
+     });
+     api.registerTool({ contextVersion: 2, create(context: OpenClawPluginToolContext<2>) {
+       if (context.agentId !== config.agentId) return null;
+       // Capture the Host guard once. The mutable factory object cannot replace it.
+       const invocationGuard = context.assertInvocationCurrent.bind(context);
+-      const check = (signal?: AbortSignal) => { invocationGuard(); signal?.throwIfAborted(); };
++      const identity = { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId };
++      const check = (signal?: AbortSignal) => {
++        invocationGuard(); signal?.throwIfAborted();
++        if (context.agentId !== identity.agentId || context.sessionKey !== identity.sessionKey || context.sessionId !== identity.sessionId) {
++          throw new Error("stella_request_factory_identity_changed");
++        }
++      };
+       return [
+         { name: STATUS_TOOL, label: "Stella status", description: "Show Stella's active architecture and available capabilities. No model or personal files are accessed.",
+           parameters: Type.Object({}, { additionalProperties: false }),
+@@ -83,13 +96,15 @@ export default definePluginEntry({
+           parameters: CANDIDATE_PARAMETERS,
+           async execute(callId, parameters, signal) {
+             check(signal);
++            const binding = requestBinding.consume(callId, identity);
++            if (binding.status === "rejected") return result({ status: "rejected", code: binding.code }, true);
+             let proposal: Proposal;
+             try { proposal = parseProposal(parameters); }
+             catch { return result({ status: "rejected", code: "stella_candidate_arguments_invalid" }, true); }
+             check(signal);
+             return result({ status: "candidate", code: "author_source_unavailable", toolCallId: callId,
+               proposal, evidenceStatus: "model_supplied_unverified", authorConfirmation: false,
+-              publisher: false, saved: false });
++              publisher: false, saved: false, requestBinding: binding });
+           } },
+       ];
+     } }, { names: [STATUS_TOOL, CANDIDATE_TOOL] });
+diff --git a/src/openclaw/tool-request-binding.ts b/src/openclaw/tool-request-binding.ts
+new file mode 100644
+index 00000000..2bc6ce22
+--- /dev/null
++++ b/src/openclaw/tool-request-binding.ts
+@@ -0,0 +1,51 @@
++/** Correlates only public tool lifecycle metadata. It does not read prompts,
++ * messages, recorder state, requester identity, source permissions or proposals. */
++type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
++type Event = { toolName: string; toolCallId?: string; runId?: string };
++type Context = Identity & Event & { abortSignal?: AbortSignal };
++type Pending = Identity & { runId?: string; conflict: boolean; release(): void };
++const value = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 512;
++
++export function createToolRequestBinding(agentId: string, toolName: string) {
++  const pending = new Map<string, Pending>();
++  return {
++    observe(event: Event, context: Context): string | undefined {
++      if (event.toolName !== toolName || context.toolName !== toolName || context.agentId !== agentId) return;
++      const call = context.toolCallId;
++      if (!value(call) || event.toolCallId !== call || !value(context.sessionKey) ||
++          (event.runId !== context.runId) || (context.runId !== undefined && !value(context.runId))) {
++        return "stella_request_binding_invalid";
++      }
++      const previous = pending.get(call);
++      if (previous) {
++        previous.conflict = true;
++        return "stella_request_binding_ambiguous";
++      }
++      if (context.abortSignal?.aborted) return "stella_request_binding_cancelled";
++      if (pending.size >= 128) return "stella_request_binding_capacity";
++      const signal = context.abortSignal;
++      const entry: Pending = { agentId, sessionKey: context.sessionKey, sessionId: context.sessionId,
++        runId: context.runId, conflict: false, release: () => signal?.removeEventListener("abort", discard) };
++      function discard() {
++        if (pending.get(call!) === entry) pending.delete(call!);
++        entry.release();
++      }
++      pending.set(call, entry);
++      signal?.addEventListener("abort", discard, { once: true });
++    },
++    consume(callId: string, factory: Identity) {
++      const entry = pending.get(callId);
++      if (!entry) return { status: "unavailable" as const, code: "host_tool_hook_not_observed" };
++      pending.delete(callId); entry.release();
++      if (entry.conflict || factory.agentId !== entry.agentId || factory.sessionKey !== entry.sessionKey ||
++          (entry.sessionId !== undefined && factory.sessionId !== undefined && entry.sessionId !== factory.sessionId)) {
++        return { status: "rejected" as const, code: "stella_request_binding_mismatch" };
++      }
++      return { status: "bound" as const, scope: entry.runId === undefined ? "tool_call" as const : "run_and_tool_call" as const,
++        code: entry.runId === undefined ? "host_run_not_provided" : "host_run_and_call_observed",
++        agentId: entry.agentId, toolCallId: callId, runId: entry.runId ?? null,
++        sessionBound: true, sessionIncarnationBound: entry.sessionId !== undefined && factory.sessionId !== undefined,
++        authorConfirmation: false as const, inputAdmission: "not_connected" as const };
++    },
++  };
++}
+diff --git a/tests/ordinary-plugin.test.ts b/tests/ordinary-plugin.test.ts
+index 6258ed7a..ec9bd7e5 100644
+--- a/tests/ordinary-plugin.test.ts
++++ b/tests/ordinary-plugin.test.ts
+@@ -9,12 +9,14 @@ const proposal = { topic: "Synthetic writing task", interpretation: "A proposed
+   proposedPremises: ["A tentative premise"], openQuestions: ["Which conclusion does the author intend?"], evidenceReferences: ["synthetic:unverified"] };
+ function fixture() {
+   let factory: any, command: any, guardCalls = 0, active = true;
++  const hooks = new Map<string, Function>();
+   plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
+     registerTool(value: unknown) { factory = value; }, registerCommand(value: unknown) { command = value; },
++    on(name: string, handler: Function) { hooks.set(name, handler); },
+   } as unknown as OpenClawPluginApi);
+   const context = { agentId: "main", assertInvocationCurrent() { guardCalls++; if (!active) throw Error("closed"); } };
+   const tools = factory.create(context);
+-  return { tools, factory, context, command, close() { active = false; }, guards: () => guardCalls };
++  return { tools, factory, context, command, hooks, close() { active = false; }, guards: () => guardCalls };
+ }
+ 
+ test("default package is ordinary and historical config is rejected without importing old runtime", async () => {
+@@ -31,7 +33,7 @@ test("default package is ordinary and historical config is rejected without impo
+   assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL].sort());
+ });
+ 
+-test("registration only contributes guarded ordinary tools and a no-model command", async () => {
++test("registration contributes guarded ordinary tools, a metadata-only hook and a no-model command", async () => {
+   const f = fixture();
+   assert.equal(f.factory.contextVersion, 2); assert.equal(f.factory.create({ agentId: "other" }), null);
+   assert.equal(f.command.requireAuth, true);
+@@ -39,6 +41,7 @@ test("registration only contributes guarded ordinary tools and a no-model comman
+   assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
+   assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
+   assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
++  assert.deepEqual([...f.hooks.keys()], ["before_tool_call"]);
+ });
+ 
+ test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {
+@@ -48,13 +51,14 @@ test("real tool contract returns an unsaved candidate, retaining open questions
+   assert.equal(result.details.authorConfirmation, false); assert.equal(result.details.publisher, false);
+   assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
+   assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 2);
++  assert.equal(result.details.requestBinding.status, "unavailable");
+   result.details.proposal.openQuestions.push("mutated"); assert.equal(proposal.openQuestions.length, 1);
+ });
+ 
+ test("spoofed confirmation, missing fields and oversized input are rejected", async () => {
+   const tool = fixture().tools.find((t: any) => t.name === CANDIDATE_TOOL);
+   for (const input of [{ ...proposal, confirmed: true }, {}, { ...proposal, interpretation: "x".repeat(4001) },
+-    { ...proposal, evidenceReferences: Array(17).fill("x") }]) {
++    { ...proposal, evidenceReferences: Array(17).fill("x") }, { ...proposal, requestBinding: { runId: "forged" } }]) {
+     const result = await tool.execute("invalid", input); assert.equal(result.isError, true); assert.equal(result.details.status, "rejected");
+   }
+ });
+diff --git a/tests/tool-request-binding.test.ts b/tests/tool-request-binding.test.ts
+new file mode 100644
+index 00000000..56d51ab2
+--- /dev/null
++++ b/tests/tool-request-binding.test.ts
+@@ -0,0 +1,80 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { createToolRequestBinding } from "../src/openclaw/tool-request-binding.js";
++import plugin, { CANDIDATE_TOOL } from "../src/ordinary-plugin.js";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++
++const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
++const event = (call = "call-1", run: string | undefined = "run-1") => ({ toolName: CANDIDATE_TOOL, toolCallId: call, runId: run });
++
++test("exact public run/call and factory session bind without reading tool params or author facts", () => {
++  const binding = createToolRequestBinding("main", CANDIDATE_TOOL);
++  const e = Object.defineProperty(event(), "params", { get() { throw Error("No proposal reads"); } });
++  const c = Object.defineProperty({ ...identity, ...event() }, "requester", { get() { throw Error("No author reads"); } });
++  assert.equal(binding.observe(e, c), undefined);
++  assert.deepEqual(binding.consume("call-1", identity), { status: "bound", scope: "run_and_tool_call", code: "host_run_and_call_observed",
++    agentId: "main", toolCallId: "call-1", runId: "run-1", sessionBound: true, sessionIncarnationBound: true,
++    authorConfirmation: false, inputAdmission: "not_connected" });
++  assert.deepEqual(binding.consume("call-1", identity), { status: "unavailable", code: "host_tool_hook_not_observed" });
++});
++
++test("direct invocation keeps missing run explicit and never upgrades it to user admission", () => {
++  const binding = createToolRequestBinding("main", CANDIDATE_TOOL);
++  const e = { toolName: CANDIDATE_TOOL, toolCallId: "rpc-call" };
++  assert.equal(binding.observe(e, { ...identity, ...e }), undefined);
++  const result = binding.consume("rpc-call", identity);
++  assert.equal(result.status, "bound"); assert.equal(result.scope, "tool_call");
++  assert.equal(result.runId, null); assert.equal(result.code, "host_run_not_provided");
++  assert.equal(result.inputAdmission, "not_connected"); assert.equal(result.authorConfirmation, false);
++});
++
++test("different calls and same-session runs stay distinct; identity conflicts and ambiguity reject", () => {
++  const binding = createToolRequestBinding("main", CANDIDATE_TOOL);
++  binding.observe(event("a", "run-a"), { ...identity, ...event("a", "run-a") });
++  binding.observe(event("b", "run-b"), { ...identity, ...event("b", "run-b") });
++  assert.equal(binding.consume("b", identity).runId, "run-b");
++  assert.equal(binding.consume("a", identity).runId, "run-a");
++  for (const changed of [{ ...identity, agentId: "other" }, { ...identity, sessionKey: "agent:main:other" }, { ...identity, sessionId: "other-incarnation" }]) {
++    binding.observe(event(), { ...identity, ...event() });
++    assert.equal(binding.consume("call-1", changed).status, "rejected");
++  }
++  binding.observe(event(), { ...identity, ...event() });
++  assert.equal(binding.observe(event(), { ...identity, ...event() }), "stella_request_binding_ambiguous");
++  assert.equal(binding.consume("call-1", identity).status, "rejected");
++});
++
++test("malformed event/context pairs reject; unrelated agents/tools never enter the pending map", () => {
++  const binding = createToolRequestBinding("main", CANDIDATE_TOOL);
++  for (const change of [{ toolCallId: "different" }, { runId: "different" }, { sessionKey: undefined }, { runId: "x".repeat(513) }]) {
++    assert.equal(binding.observe(event(), { ...identity, ...event(), ...change }), "stella_request_binding_invalid");
++  }
++  binding.observe(event(), { ...identity, ...event(), agentId: "other" });
++  binding.observe({ ...event(), toolName: "other_tool" }, { ...identity, ...event() });
++  assert.equal(binding.consume("call-1", identity).status, "unavailable");
++});
++
++test("cancellation removes pending metadata; capacity is explicit and consumption frees a slot", () => {
++  const binding = createToolRequestBinding("main", CANDIDATE_TOOL), abort = new AbortController();
++  binding.observe(event(), { ...identity, ...event(), abortSignal: abort.signal }); abort.abort();
++  assert.equal(binding.consume("call-1", identity).status, "unavailable");
++  assert.equal(binding.observe(event(), { ...identity, ...event(), abortSignal: abort.signal }), "stella_request_binding_cancelled");
++  for (let i = 0; i < 128; i++) assert.equal(binding.observe(event(`c${i}`), { ...identity, ...event(`c${i}`) }), undefined);
++  assert.equal(binding.observe(event("overflow"), { ...identity, ...event("overflow") }), "stella_request_binding_capacity");
++  binding.consume("c0", identity);
++  assert.equal(binding.observe(event("after-consume"), { ...identity, ...event("after-consume") }), undefined);
++});
++
++test("plugin hook metadata reaches only the exact candidate execution and retains unsaved/source-off contract", async () => {
++  let factory: any; const hooks = new Map<string, Function>();
++  plugin.register!({ pluginConfig: { agentId: "main", publisher: false }, on(name: string, handler: Function) { hooks.set(name, handler); },
++    registerTool(value: unknown) { factory = value; }, registerCommand() {} } as unknown as OpenClawPluginApi);
++  const context = { ...identity, assertInvocationCurrent() {} };
++  const tool = factory.create(context).find((t: any) => t.name === CANDIDATE_TOOL);
++  assert.equal(hooks.get("before_tool_call")!(event(), { ...identity, ...event() }), undefined);
++  const proposal = { topic: "Synthetic", interpretation: "Unconfirmed", proposedPremises: [], openQuestions: ["Still unresolved"], evidenceReferences: [] };
++  const result = await tool.execute("call-1", proposal);
++  assert.equal(result.details.requestBinding.runId, "run-1"); assert.equal(result.details.status, "candidate");
++  assert.equal(result.details.saved, false); assert.equal(result.details.publisher, false); assert.equal(result.details.authorConfirmation, false);
++  context.sessionId = "changed";
++  await assert.rejects(tool.execute("call-2", proposal), /factory_identity_changed/);
++});
+diff --git a/docs/MAIN-DEBUG-INSTALL.md b/docs/MAIN-DEBUG-INSTALL.md
+index 8c4cac39..7c93224f 100644
+--- a/docs/MAIN-DEBUG-INSTALL.md
++++ b/docs/MAIN-DEBUG-INSTALL.md
+@@ -18,6 +18,17 @@ returns an **unconfirmed, unsaved candidate**. References supplied in arguments
+ are unverified. The tool cannot confirm the author, publish an asset or save
+ memory. Natural-language interpretation remains the model's responsibility.
+ 
++Candidate results also report the current public tool lifecycle binding.
++`requestBinding.scope=run_and_tool_call` means the Host supplied matching run and
++call metadata; `scope=tool_call` with `host_run_not_provided` means only the actual
++call was supplied. Direct Gateway tool invocation currently follows the latter
++path. Neither scope establishes a user-input admission, author identity or source
++permission. A missing hook is explicitly `unavailable`; conflicting observed
++identities reject the call. Model arguments cannot supply or override this field.
++The hook reads no proposal, prompt, transcript, recorder or requester data. Only
++pending calls are retained in memory, consumed once or discarded on cancellation;
++capacity exhaustion is explicit. No conversation-access grant is configured.
++
+ `stella_status` and `/stella-status` show the active contract without a model
+ call. The existing main Gateway can invoke the tool directly:
+ 

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "phase": "narrow_fix_complete_pending_independent_recheck",
+  "observedAt": "2026-10-31T09:09:58.378755+00:00",
+  "baseCommit": "421af72baa75bd313d251a1961a1e5f6b135ede0",
+  "originalEvidence": {
+    "report": ".task-control/reports/CORE-VAL-001/tool-request-binding-20261031.json",
+    "reportSha256": "dba80185040185e68f441b62c4ea01e062dffda4b37783c81bab2724745f5e04",
+    "independentSummarySha256": "9e49f023bf76d5d0500acfcc59bb137b44646dc788a7868304841ffc2cbc4dda",
+    "originalFocused11Passed": true,
+    "extra4InvalidAnd2NormalNotAddedTo11": true
+  },
+  "changes": [
+    "observe rejects present invalid optional sessionId using existing primitive nonempty <=512 string predicate",
+    "consume rejects invalid present factory sessionId",
+    "incarnationBound requires valid strings on both sides; missing remains bound-to-session with incarnationfalse, mismatches stillreject"
+  ],
+  "sourceFiles": {
+    "src/openclaw/tool-request-binding.ts": "328fc4f52b887197006df00d8c4e5987b2018dd6b6c3466545dcecf30ea5dea2",
+    "tests/tool-request-binding.test.ts": "95f54e4e09d779a7c02c8ba61753d3b098432f54c847d61778b35bc242d7da50"
+  },
+  "red": {
+    "command": "node --test --test-name-pattern ^incarnation\\ rejects .test-dist/tests/tool-request-binding.test.js",
+    "exitCode": 1,
+    "fourInvalidGroupsFailed": [
+      "empty",
+      "null",
+      "number",
+      "same object"
+    ],
+    "unselectedOriginalGroupsNotCountedAsPass": true
+  },
+  "green": {
+    "testCompileExit": 0,
+    "buildExit": 0,
+    "focused": {
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "coverage": "four regressions check both hook/factory paths; existing missing/valid/mismatch controls retained; optional sessionId over512 rejected"
+  },
+  "noNewHostOrModelForNarrowFix": true,
+  "main": "generation7 pre-R1 artifact remains unchanged; no reload/rollback; R1 not installed there",
+  "publisher": false,
+  "diagnosticRoot": "/tmp/core-tool-binding-r1-20261031-be93xo1z"
+}

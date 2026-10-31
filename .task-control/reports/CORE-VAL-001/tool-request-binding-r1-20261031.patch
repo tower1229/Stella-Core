@@ -1,0 +1,75 @@
+diff --git a/tmp/core-tool-binding-r1-20261031-be93xo1z/tool-request-binding.ts.before b/src/openclaw/tool-request-binding.ts
+index 2bc6ce22..b0ec593b 100644
+--- a/tmp/core-tool-binding-r1-20261031-be93xo1z/tool-request-binding.ts.before
++++ b/src/openclaw/tool-request-binding.ts
+@@ -13,6 +13,7 @@ export function createToolRequestBinding(agentId: string, toolName: string) {
+       if (event.toolName !== toolName || context.toolName !== toolName || context.agentId !== agentId) return;
+       const call = context.toolCallId;
+       if (!value(call) || event.toolCallId !== call || !value(context.sessionKey) ||
++          (context.sessionId !== undefined && !value(context.sessionId)) ||
+           (event.runId !== context.runId) || (context.runId !== undefined && !value(context.runId))) {
+         return "stella_request_binding_invalid";
+       }
+@@ -38,13 +39,14 @@ export function createToolRequestBinding(agentId: string, toolName: string) {
+       if (!entry) return { status: "unavailable" as const, code: "host_tool_hook_not_observed" };
+       pending.delete(callId); entry.release();
+       if (entry.conflict || factory.agentId !== entry.agentId || factory.sessionKey !== entry.sessionKey ||
++          (factory.sessionId !== undefined && !value(factory.sessionId)) ||
+           (entry.sessionId !== undefined && factory.sessionId !== undefined && entry.sessionId !== factory.sessionId)) {
+         return { status: "rejected" as const, code: "stella_request_binding_mismatch" };
+       }
+       return { status: "bound" as const, scope: entry.runId === undefined ? "tool_call" as const : "run_and_tool_call" as const,
+         code: entry.runId === undefined ? "host_run_not_provided" : "host_run_and_call_observed",
+         agentId: entry.agentId, toolCallId: callId, runId: entry.runId ?? null,
+-        sessionBound: true, sessionIncarnationBound: entry.sessionId !== undefined && factory.sessionId !== undefined,
++        sessionBound: true, sessionIncarnationBound: value(entry.sessionId) && value(factory.sessionId),
+         authorConfirmation: false as const, inputAdmission: "not_connected" as const };
+     },
+   };
+diff --git a/tmp/core-tool-binding-r1-20261031-be93xo1z/tool-request-binding.test.ts.before b/tests/tool-request-binding.test.ts
+index 56d51ab2..a19279b9 100644
+--- a/tmp/core-tool-binding-r1-20261031-be93xo1z/tool-request-binding.test.ts.before
++++ b/tests/tool-request-binding.test.ts
+@@ -26,6 +26,13 @@ test("direct invocation keeps missing run explicit and never upgrades it to user
+   assert.equal(result.status, "bound"); assert.equal(result.scope, "tool_call");
+   assert.equal(result.runId, null); assert.equal(result.code, "host_run_not_provided");
+   assert.equal(result.inputAdmission, "not_connected"); assert.equal(result.authorConfirmation, false);
++  const { sessionId: _sessionId, ...withoutIncarnation } = identity;
++  for (const [hook, factory] of [[withoutIncarnation, withoutIncarnation], [identity, withoutIncarnation], [withoutIncarnation, identity]]) {
++    const next = createToolRequestBinding("main", CANDIDATE_TOOL);
++    next.observe(e, { ...hook, ...e });
++    const missing = next.consume("rpc-call", factory);
++    assert.equal(missing.status, "bound"); assert.equal(missing.sessionIncarnationBound, false);
++  }
+ });
+ 
+ test("different calls and same-session runs stay distinct; identity conflicts and ambiguity reject", () => {
+@@ -45,7 +52,7 @@ test("different calls and same-session runs stay distinct; identity conflicts an
+ 
+ test("malformed event/context pairs reject; unrelated agents/tools never enter the pending map", () => {
+   const binding = createToolRequestBinding("main", CANDIDATE_TOOL);
+-  for (const change of [{ toolCallId: "different" }, { runId: "different" }, { sessionKey: undefined }, { runId: "x".repeat(513) }]) {
++  for (const change of [{ toolCallId: "different" }, { runId: "different" }, { sessionKey: undefined }, { runId: "x".repeat(513) }, { sessionId: "x".repeat(513) }]) {
+     assert.equal(binding.observe(event(), { ...identity, ...event(), ...change }), "stella_request_binding_invalid");
+   }
+   binding.observe(event(), { ...identity, ...event(), agentId: "other" });
+@@ -53,6 +60,19 @@ test("malformed event/context pairs reject; unrelated agents/tools never enter t
+   assert.equal(binding.consume("call-1", identity).status, "unavailable");
+ });
+ 
++for (const [name, invalid] of [["empty", ""], ["null", null], ["number", 7], ["same object", {}]] as const) {
++  test(`incarnation rejects ${name} sessionId from hook and factory`, () => {
++    const malformed = { ...identity, sessionId: invalid } as unknown as typeof identity;
++    const observed = createToolRequestBinding("main", CANDIDATE_TOOL);
++    assert.equal(observed.observe(event(), { ...malformed, ...event() }), "stella_request_binding_invalid");
++    const result = observed.consume("call-1", malformed);
++    assert.equal(result.status, "unavailable"); assert.notEqual(result.sessionIncarnationBound, true);
++    const factory = createToolRequestBinding("main", CANDIDATE_TOOL);
++    assert.equal(factory.observe(event(), { ...identity, ...event() }), undefined);
++    assert.equal(factory.consume("call-1", malformed).status, "rejected");
++  });
++}
++
+ test("cancellation removes pending metadata; capacity is explicit and consumption frees a slot", () => {
+   const binding = createToolRequestBinding("main", CANDIDATE_TOOL), abort = new AbortController();
+   binding.observe(event(), { ...identity, ...event(), abortSignal: abort.signal }); abort.abort();

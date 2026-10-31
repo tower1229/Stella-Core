@@ -18,6 +18,17 @@ returns an **unconfirmed, unsaved candidate**. References supplied in arguments
 are unverified. The tool cannot confirm the author, publish an asset or save
 memory. Natural-language interpretation remains the model's responsibility.
 
+Candidate results also report the current public tool lifecycle binding.
+`requestBinding.scope=run_and_tool_call` means the Host supplied matching run and
+call metadata; `scope=tool_call` with `host_run_not_provided` means only the actual
+call was supplied. Direct Gateway tool invocation currently follows the latter
+path. Neither scope establishes a user-input admission, author identity or source
+permission. A missing hook is explicitly `unavailable`; conflicting observed
+identities reject the call. Model arguments cannot supply or override this field.
+The hook reads no proposal, prompt, transcript, recorder or requester data. Only
+pending calls are retained in memory, consumed once or discarded on cancellation;
+capacity exhaustion is explicit. No conversation-access grant is configured.
+
 `stella_status` and `/stella-status` show the active contract without a model
 call. The existing main Gateway can invoke the tool directly:
 

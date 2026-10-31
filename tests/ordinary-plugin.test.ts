@@ -9,12 +9,14 @@ const proposal = { topic: "Synthetic writing task", interpretation: "A proposed 
   proposedPremises: ["A tentative premise"], openQuestions: ["Which conclusion does the author intend?"], evidenceReferences: ["synthetic:unverified"] };
 function fixture() {
   let factory: any, command: any, guardCalls = 0, active = true;
+  const hooks = new Map<string, Function>();
   plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
     registerTool(value: unknown) { factory = value; }, registerCommand(value: unknown) { command = value; },
+    on(name: string, handler: Function) { hooks.set(name, handler); },
   } as unknown as OpenClawPluginApi);
   const context = { agentId: "main", assertInvocationCurrent() { guardCalls++; if (!active) throw Error("closed"); } };
   const tools = factory.create(context);
-  return { tools, factory, context, command, close() { active = false; }, guards: () => guardCalls };
+  return { tools, factory, context, command, hooks, close() { active = false; }, guards: () => guardCalls };
 }
 
 test("default package is ordinary and historical config is rejected without importing old runtime", async () => {
@@ -31,7 +33,7 @@ test("default package is ordinary and historical config is rejected without impo
   assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL].sort());
 });
 
-test("registration only contributes guarded ordinary tools and a no-model command", async () => {
+test("registration contributes guarded ordinary tools, a metadata-only hook and a no-model command", async () => {
   const f = fixture();
   assert.equal(f.factory.contextVersion, 2); assert.equal(f.factory.create({ agentId: "other" }), null);
   assert.equal(f.command.requireAuth, true);
@@ -39,6 +41,7 @@ test("registration only contributes guarded ordinary tools and a no-model comman
   assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
   assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
   assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
+  assert.deepEqual([...f.hooks.keys()], ["before_tool_call"]);
 });
 
 test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {
@@ -48,13 +51,14 @@ test("real tool contract returns an unsaved candidate, retaining open questions 
   assert.equal(result.details.authorConfirmation, false); assert.equal(result.details.publisher, false);
   assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
   assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 2);
+  assert.equal(result.details.requestBinding.status, "unavailable");
   result.details.proposal.openQuestions.push("mutated"); assert.equal(proposal.openQuestions.length, 1);
 });
 
 test("spoofed confirmation, missing fields and oversized input are rejected", async () => {
   const tool = fixture().tools.find((t: any) => t.name === CANDIDATE_TOOL);
   for (const input of [{ ...proposal, confirmed: true }, {}, { ...proposal, interpretation: "x".repeat(4001) },
-    { ...proposal, evidenceReferences: Array(17).fill("x") }]) {
+    { ...proposal, evidenceReferences: Array(17).fill("x") }, { ...proposal, requestBinding: { runId: "forged" } }]) {
     const result = await tool.execute("invalid", input); assert.equal(result.isError, true); assert.equal(result.details.status, "rejected");
   }
 });
