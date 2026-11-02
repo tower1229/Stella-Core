@@ -764,3 +764,18 @@ ordinary_source_fixed90f_readiness_20261102:
   exact_existing_device_requester_matches: 0
   host_source_binding: not_applied_requester_mismatch
   identity_changes_private_payload_reads_model_calls: zero
+
+# 2026-11-02 actual WebUI identity observed; temporary diagnostic removed.
+ordinary_source_browser_identity_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/device-source-browser-closeout-20261102.json
+  implementation_commit: 00dab376aea6f751e673c437226d6314fecb8861
+  actual_host_version: 2026.10.9
+  final_gateway_generation: 9
+  real_webui_diagnostic_invocations: 1
+  authenticated_control_ui_operator_current_authority_device_present_exact_grant_match: all_true
+  temporary_diagnostic_and_private_seed: removed
+  ordinary_status_diagnostic_field: absent
+  sourceRead: not_configured
+  publisher: false
+  private_body_and_model_calls: zero
+  native_source_admission_and_semantic_consumption: not_verified

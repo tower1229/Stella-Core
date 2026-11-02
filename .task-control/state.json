@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 126,
-  "updatedAt": "2026-11-02T09:18:31.419817+00:00",
+  "revision": 127,
+  "updatedAt": "2026-11-02T09:33:59.107983+00:00",
   "writer": {
     "agent": "Core actual main source activation and forward-data handoff single writer",
     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
@@ -1581,11 +1581,24 @@
             "stateUpdateBaseRevision": 125,
             "stateUpdateBaseSha256": "fadaa0008ba32a6f4a89549157aa7a411522880cdf887fd4e3e9d72a900d5054"
           }
+        },
+        {
+          "id": "C-VAL-DEVICE-SOURCE-REAL-BROWSER-CLOSEOUT-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/device-source-browser-closeout-20261102.json",
+          "claim": "R1commit00dab376; actual Chrome WebUI once returned5true incl exact old device grant match. Official temporarygeneration7 -> ordinary9; actual ordinary status fieldabsent/sourceReadunconfigured/publisheroff,2752filematch,private diagnostic seed/artifact removed. No chat.send/model/privatepayload; native data/semantic proof stillunverified.",
+          "observedAt": "2026-11-02T09:33:59.107983+00:00",
+          "subject": {
+            "sha256": "091ffe7de25e1fc90f19770d4c564297aa3d23fab877a7a951af523655f1f03b",
+            "implementationCommit": "00dab376aea6f751e673c437226d6314fecb8861",
+            "stateUpdateBaseRevision": 126,
+            "stateUpdateBaseSha256": "204d21897d6dd358b3b946bb7993f46893b4657cce266a5e3ee3cdb5fdca9277"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "R1 independently accepted; same-device grant cannot fall back to transport SenderId. Bounded temporary status diagnostic accepted. Preparing exact local save, then safe currentHost/window check and one real WebUI boolean-only diagnostic. No sourceRead enabled or paid model.",
-        "nextAction": "Save exact reviewed non-sensitive package; privately prepare fixed original-grant digest and temporary artifact, one genuine WebUI status invocation, restore ordinary artifact and verify diagnostic absent. Do not substitute CLI or issue identity/grant. Stop safely if browser/auth/currentwork unavailable.",
+        "checkpoint": "R1 accepted/saved00dab376/installed ordinarygeneration9. Actual realChrome WebUI diagnostic once:5true/exact original device grant match. Temporary diagnostic+private seed removed; live ordinary tool fieldabsent, sourceReadnotconfigured, publisheroff; otheruser/selfie config preserved. Native request/source supply and Gemini understanding remain unverified.",
+        "nextAction": "Continue next allocated fixed90f/original97source362descriptor minimal binding phase with safe rollback and no-model status/unsupported-context denial. Do not repeat browser identity test, replace grant, expand finance/catalog scope or call Gemini without separate valid model/material authorization. Status identity proof is not native admission or source consumption.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2440,7 +2453,7 @@
           },
           "sharedHostActionsScope": "zero during original offline compatibility validation; subsequent actual main activation is recorded separately",
           "deviceIdentityR1": {
-            "phase": "accepted_pending_local_save_and_bounded_real_browser_diagnostic",
+            "phase": "committed_installed_browser_match_ordinary_restored_source_unbound",
             "rejectedR0": "C-VAL-DEVICE-SOURCE-COMPAT-CANDIDATE-20261102",
             "report": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.json",
             "reportSha256": "2acbd4599feda2486802344986b0c2ea48c014d4a3d51b0d2aee6dcfac04dd40",
@@ -2461,11 +2474,16 @@
               "pass": 6
             },
             "diagnosticPrivateSeedPrepared": false,
-            "actualBrowserDeviceMatch": "not_verified",
+            "actualBrowserDeviceMatch": true,
             "sourceBindingApplied": false,
-            "commitPush": "not_performed_unreviewed",
+            "commitPush": "local_commit_only",
             "paidModelCalls": 0,
-            "review": ".task-control/reports/CORE-VAL-001/device-source-r1-independent-20261102.json"
+            "review": ".task-control/reports/CORE-VAL-001/device-source-r1-independent-20261102.json",
+            "commit": "00dab376aea6f751e673c437226d6314fecb8861",
+            "temporaryDiagnostic": "removed",
+            "privateSeed": "removed_not_in_Git",
+            "ordinaryGatewayGeneration": 9,
+            "closeoutReport": ".task-control/reports/CORE-VAL-001/device-source-browser-closeout-20261102.json"
           }
         },
         "sourceSave": {
@@ -3059,7 +3077,7 @@
           }
         }
       },
-      "updatedAt": "2026-11-02T09:18:31.419817+00:00",
+      "updatedAt": "2026-11-02T09:33:59.107983+00:00",
       "delivery": {
         "local": {
           "status": "committed",

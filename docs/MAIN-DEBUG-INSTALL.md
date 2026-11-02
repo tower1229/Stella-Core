@@ -132,3 +132,13 @@ the later continuation increment and its evidence are recorded in the draft guid
 TTS／视频的唯一详细正文位于同一工作区的 [Bili `docs/ARCHITECTURE.md` §9.2.1 制作路线与开发交接](../../openclaw-bili-plugin/docs/ARCHITECTURE.md#media-development-handoff)。Core所需的最小交接是：用户已确认15pro声音合成服务开发调试成功，Mac开发按已有服务可用的依赖准备。声音质量／成本与媒体制作路线均到Bili正文取用；Core不重复定义服务接口、供应商或视频策略，也不由此新增直接TTS功能契约。
 
 用户确认服务现状不等于Core已取得URL／协议／声音标识、已验证Mac跨机调用或已在15pro完成联调；这些未验证项不能用本机健康检查、固定音频或工具读改代替。跨项目边界仍见 [Host 集成 §9.8](04-OPENCLAW-INTEGRATION.md#98-2026108-技术评估与当前接线门槛)。
+
+## 2026-11-02 已审设备许可修复与真实浏览器身份诊断
+
+已审生产修复提交 `00dab376aea6f751e673c437226d6314fecb8861` 已保存并加载，普通产物为 `.artifacts/device-source-20261102-00dab376/ordinary`，本机 OpenClaw 10.9 当前 Gateway generation 9。设备类型许可始终要求 Host 认证设备事实，不再回退普通 SenderId；原 grant、受众、资料范围和 publisher 设置未扩大。
+
+在现有 Chrome 认证 profile 的独立官方 WebUI Debug 页，实际仅一次 `tools.invoke stella_status {}` 返回五项 true：认证 Control UI、认证 operator、当前 authority、Host 设备事实存在、与原 grant 精确相等。用户原聊天页未触碰；这不是 CLI 代测，也不宣称观察了原聊天 WebSocket 或取得原生用户请求准入。
+
+随后官方恢复普通产物；真实状态工具确认临时字段消失，2752 文件匹配，sourceRead 仍未配置，publisher 关闭，无模型调用。临时诊断产物和私有比较种子已清理；旧产物及私有配置回滚点保留，selfie/其他用户配置语义未改。完整脱敏回执见 [浏览器诊断收尾](../.task-control/reports/CORE-VAL-001/device-source-browser-closeout-20261102.json)。
+
+下一阶段是固定90f/原97来源362描述符的受控绑定及真实原生入场链，不能把这次身份观察当作资料供给或语义理解通过。真实 Gemini 调用及私人内容发送仍需各自明确范围。

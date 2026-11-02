@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T09:33:59.107983+00:00",
+  "phase": "reviewed_R1_saved_installed_browser_device_match_restored_ordinary_source_unbound",
+  "implementationCommit": "00dab376aea6f751e673c437226d6314fecb8861",
+  "pushedThisPhase": false,
+  "independentReview": {
+    "ref": ".task-control/reports/CORE-VAL-001/device-source-r1-independent-20261102.json",
+    "sha256": "fef93ee30834ced158885fcf81967ba58125252ce21965e9966f0b421f2a9f1b"
+  },
+  "savedPackage": {
+    "files": 53,
+    "scope": "reviewed three implementation/test/contract files; exact historical failure/frozen/replay and diagnostic source evidence; state126",
+    "excluded": "mixed PROJECT old changes, private seed/debugbuild/config/raw logs",
+    "frozenPatchContextWhitespace": "retained immutable unified-diff context lines; all nonpatch staged content passed git diff --check"
+  },
+  "browser": {
+    "observedAt": "2026-11-02T09:27:36.269626+00:00",
+    "transport": "actual Chrome WebUI Debug tools.invoke; no CLI substitution",
+    "invocations": 1,
+    "terminal": "returned_ok",
+    "diagnostic": {
+      "authenticatedControlUi": true,
+      "authenticatedOperator": true,
+      "currentAuthority": true,
+      "deviceFactPresent": true,
+      "matchesOriginalGrant": true
+    },
+    "scope": "connection identity observation only; no native ingress/source qualification or model"
+  },
+  "browserScope": "Real already-authenticated Chrome profile in a separate official WebUI Debug tab; user original chat tab untouched. This proves that diagnostic connection, not an observation of the original chat WebSocket. No credential/token/private key read or copied.",
+  "temporaryLoad": {
+    "exitCode": 0,
+    "at": "2026-11-02T09:26:06.930978+00:00",
+    "stdoutSha256": "a8cde20a01b279dbfee3ea87ac0806196892056bd41156941826cf599a0ae6b9",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "configAfterSha256": "8dcafbc2c82e25f0f49d8fe05be52c3e65163e3dd24ad108cb991ff6bcf37d50",
+    "generation": 7,
+    "fixedGrantFileHash": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+    "fixedGrantHashMatched": true,
+    "actualSeedNotRecorded": true,
+    "artifactDeltaPaths": [
+      "dist/src/ordinary-plugin.js",
+      "dist/src/openclaw/temporary-device-diagnostic.js",
+      "dist/src/openclaw/temporary-device-diagnostic-seed.js"
+    ]
+  },
+  "restore": {
+    "at": "2026-11-02T09:30:09.582176+00:00",
+    "rollback": "ordinary_R1_restored",
+    "statusTool": "actual CLI invocation for rollback only, not browser identity proof",
+    "temporaryFieldAbsent": true,
+    "sourceReadPort": "not_configured",
+    "publisher": false,
+    "modelCalls": false,
+    "plugins": {
+      "generation": 9,
+      "core": [
+        {
+          "id": "stella-core",
+          "status": null,
+          "source": null,
+          "loaded": null,
+          "enabled": true
+        }
+      ]
+    },
+    "runtimeVersion": "2026.10.9",
+    "activeWork": {
+      "rootRequests": 0,
+      "cronRuns": 0,
+      "sessionMutations": 0,
+      "terminalPersistence": 0,
+      "lifecycleWrites": 0
+    },
+    "userAndSelfieConfigurationPreserved": true,
+    "ordinaryFilesMatched": 2752,
+    "toolResponseSha256": "b38612bde45d204a6cd79bf3ad9656e77ff303db9a86f95b92035f5cf715c838",
+    "pluginsResponseSha256": "6e896ba94be16f2eb4bce49ba268a48844d03473e7e5602156612923d34f0d98",
+    "healthResponseSha256": "15e55138343e839b593d2d7c3acb8c45b7405086b659c4ef8a9295f59c4673dc"
+  },
+  "restoreInstall": {
+    "exitCode": 0,
+    "at": "2026-11-02T09:28:43.694292+00:00",
+    "stdoutSha256": "373c6ba5d4e925a1efc2ea86825aca345aad1dff5c8f2caecf9754a14eacac3c",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "configAfterSha256": "d137118742efad3330d9062bf64aed40cb3dc5cbf232a2126764889ab788b87e"
+  },
+  "cleanup": {
+    "diagnosticArtifactRemoved": true,
+    "privateSeedRemoved": true,
+    "ordinaryArtifactRetained": true,
+    "oldArtifactRetained": true,
+    "userDataTouched": false,
+    "priorCleanupCheck": "stopped before deletion: obsolete config.plugins.installs assumption; actual official install exit0/generation9 and live field-absence/config-path evidence used"
+  },
+  "ordinaryArtifact": {
+    "path": "/Users/zangtao/Workspace/tower1229/Stella-Core/.artifacts/device-source-20261102-00dab376/ordinary",
+    "files": 2752,
+    "manifestSha256": "d560a96c530270d4f33dae31783dd72a41c51490752258b40e421617ba959e50",
+    "entrySha256": "e0f939faaf96bc3378c74c37a67b6dbbe8f89935567e4f883be8eb3f589b1459",
+    "sourceAdmissionSha256": "e9531cd676ca3483f2a88189dbdf4bf4cb0f51445d7a843bc593bf5b8fb262f6",
+    "actualSdk": "2026.10.9",
+    "declaredRepoSdk": "2026.10.8 unchanged"
+  },
+  "retainedPreliminaryFailures": [
+    {
+      "action": "Gateway readonly status in restricted execution environment",
+      "exitCode": 1,
+      "reason": "connect EPERM 127.0.0.1:18789",
+      "resolution": "same readonly action through normal require_escalated approval succeeded; no OS/sandbox setting changed",
+      "firstAttempt": "exit1/stderr empty; stdout was not persisted before assertion; second read-only diagnostic captured precise EPERM",
+      "noMutationBeforeFailure": true
+    },
+    {
+      "action": "cleanup precondition",
+      "reason": "KeyError: config.plugins.installs is absent in current version",
+      "resolution": "stopped before deletion, then used actual official install success/generation9, live ordinary tool result and current load path; owned diagnostic cleanup completed"
+    }
+  ],
+  "boundaries": {
+    "sourceReadConfigured": false,
+    "publisher": false,
+    "privatePayloadReads": 0,
+    "paidModelCalls": 0,
+    "chatSendCalls": 0,
+    "newIdentityOrGrant": false,
+    "selfieConfigPreserved": true,
+    "CangHaiModified": false,
+    "oldArtifactRetained": true,
+    "browserDebugTabClosed": true
+  },
+  "nextMinimum": {
+    "identityGap": "exact existing device match now observed through genuine WebUI; no new grant or mapping needed for that device",
+    "dataBinding": "next allocated phase may bind fixed90f exact manifest and original97source/362descriptor scope, with no-model status and unsupported-context rejection; this phase deliberately leaves sourceRead absent",
+    "nativeConsumption": "true reply_dispatch/native admission -> run/call -> metadata/original supply not proved by tools.invoke status",
+    "semantic": "original read invokes semantic source-policy completion; real Gemini request/private-sending scope requires its own valid authorization; one Agent request is not a dollar or physical-call hard cap",
+    "model": "google/gemini-3.8-flash low; none called"
+  },
+  "privateRecoveryPointer": "/tmp/core-device-live-current.json",
+  "receiptHashes": {
+    "SAVE-PLAN.json": "902dbd6769972938e58e713a3d63b93c581a5fbc49d343ce0ea5e6964f88b7a6",
+    "SAVE-RESULT.json": "c6e503d9f2139002518d053d8740cfa42a89d911859b12b27b510e676e4e68c8",
+    "BEFORE-HOST.json": "3906236e576e8229e2f4c9f3ecff756ffdb06cacd5f5e12da14fba5d700f9c38",
+    "BUILD-FINAL.json": "c7c17bdef808a74357019fb2591c7fd03b26b567c4bcc154f91d67532f3915f6",
+    "diagnostic-load.claim.json": "eb771ec1ff4fce8de21bf6d1da0d25738205180f4a98ef17554b92b61aca6037",
+    "diagnostic-install.receipt.json": "1db92e20c8c1947ee53cb4bb6f9c27700a9354115ae834fd1f655373011a86c9",
+    "browser-once.claim.json": "cfeb0af087fe845fa688df3c56568d6edee4cd5068be0d42a83d60c99c0d0311",
+    "BROWSER-RESULT.json": "ab5cd58c6645d26482c5cb8d2ac25644f6082bf7ed63ccd19c537b67d180d711",
+    "ordinary-restore.claim.json": "411e73d617a6d87a78caaae085cefd390f8bb9b58caea77240f7ac9cac51e0a4",
+    "ordinary-install.receipt.json": "4dec6bb2fa90c77500d1aaf94ac524692286f052dbaac40cd448725d8eb28e8d",
+    "RESTORE-VERIFIED.json": "00308027ef485b90b70ab6366a24801cb2dd28a839c45fea7c5cbe106532853e",
+    "CLEANUP.json": "1d757c5b2df8f6445c63a75eebb52081fc6b6f983164ac869e61837f3487552c"
+  }
+}
