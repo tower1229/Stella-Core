@@ -170,16 +170,34 @@ identity or OS permissions. Runtime code, dependencies, the main configuration
 and fixed synthetic store remain unchanged. The complete main11 artifact is
 retained for rollback.
 
-The authoritative `skills info stella-continue --agent main --json` result is
+The 2026-10-31 authoritative `skills info stella-continue --agent main --json` result was
 `eligible:true`, `userInvocable:true`, `modelVisible:false`, but also
-`blockedByAgentFilter:true`, `commandVisible:false`. Main's existing
-`agents.entries.main.skills` array has 110 entries and excludes this new skill.
-The loaded package and its materialized skill bytes match the reviewed candidate;
-the command is **not yet available on main**. This activation did not change
-that filter or route around it. Making the explicit entry visible requires the
+`blockedByAgentFilter:true`, `commandVisible:false`. Main's then-existing
+`agents.entries.main.skills` array had 110 entries and excluded this new skill.
+The loaded package and its materialized skill bytes matched the reviewed candidate;
+the command was **not available on main at that checkpoint**. That activation did not change
+that filter or route around it. Making the explicit entry visible required the
 normal agent skill selection to include this one reviewed skill. No model
 request or command invocation was made. This concrete configuration gap is
 separate from the still-unverified model instruction adherence and semantics.
+
+On 2026-11-02, recovery verified the same Host 2026.10.8, Git commit and all
+2,742 installed package files. The official `config set` interface appended only
+`stella-continue` at `agents.entries.main.skills[110]`, retaining all 110 prior
+entries and every other setting. A private mode-0600 rollback copy preserves the
+previous config. No plugin reinstall, Gateway restart, credential/identity grant
+or source access was needed. The authoritative main result is now
+`eligible:true`, `userInvocable:true`, `blockedByAgentFilter:false`,
+`commandVisible:true`, `modelVisible:false` (explicit use only).
+
+Four separate real Gateway `tools.invoke` requests then saved candidate A,
+read A, saved B using A's exact version, and read B for the new fictional brief
+`recovery_walk_20261102`. Canonical document hashes, both Git commits, exact
+proposals and the previous-version link matched. All eight existing store files
+were unchanged; the store remained clean with no remote. These are actual
+no-model tool consumers. No skill/Agent model request was submitted: instruction
+adherence, semantic understanding and automatic fresh-read behavior still need
+their separate acceptance. The earlier filter failure remains historical.
 
 For a later semantic acceptance, use the existing fictional brief and two new
 Agent requests in distinct sessions: the first reads and revises one explicit

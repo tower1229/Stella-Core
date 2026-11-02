@@ -22,10 +22,11 @@ not enable private sources or authorize paid model calls.
 The [explicit continuation entry](docs/CANDIDATE-WORK-BRIEF.md#explicit-continuation)
 uses `/stella_continue <briefId> <request>` to guide the native Agent through
 current read, open questions and candidate revision. The reviewed skill package
-is loaded at main generation 12. Authoritative inventory finds it eligible, but
-main's existing agent skill filter currently excludes its command. That filter
-has not been widened. Scripted tool behavior is verified; actual model-driven
-use and semantic acceptance remain untested.
+was loaded at main generation 12. On 2026-11-02, the official config interface
+added exactly this skill to main's existing selection. Authoritative inventory
+now reports its command visible. Four no-model Gateway calls saved, restored,
+revised and restored a separate fictional brief without changing the old data.
+Actual model-driven use and semantic acceptance remain untested.
 
 ## Current design
 

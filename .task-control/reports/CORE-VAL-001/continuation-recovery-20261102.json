@@ -1,0 +1,323 @@
+{
+  "schemaVersion": 1,
+  "phase": "recovered_exact_skill_visibility_and_no_model_host_flow_passed",
+  "observedAt": "2026-11-02T01:00:10.679827+00:00",
+  "baseCommit": "f5be7098f3775442914d78a8c2fce5a6955a2a35",
+  "site": {
+    "hostVersion": "OpenClaw2026.10.8 dc2523e",
+    "branch": "codex/issue23-integrated-regression",
+    "remoteVerified": true,
+    "localStateRecovered": 73,
+    "committedStateRevision": 72,
+    "trackedCodeChangesAtRecovery": false,
+    "preservedDirty": [
+      ".task-control/state.json prior push/CI bookkeeping",
+      "PROJECT-STATE.yaml paused/older CI deltas",
+      "unrelated untracked diagnostics/tests/docs left untouched"
+    ],
+    "agentsSkillsDirectory": "absent; root AGENTS.md read",
+    "installedPackageExactReviewedFiles": 2742,
+    "installedRuntimeOrDependenciesChanged": false,
+    "pluginReloadIssued": false,
+    "gatewayRestartIssued": false,
+    "priorCorePackageLoadGeneration": 12
+  },
+  "fix": {
+    "beforeSha256": "85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4",
+    "afterSha256": "e503fa40f2f1e32776ca47819cda904f992feb619abab1aa67eb24f0b337b575",
+    "authorableDelta": {
+      "path": "agents.entries.main.skills[110]",
+      "value": "stella-continue"
+    },
+    "beforeCount": 110,
+    "afterCount": 111,
+    "allPriorSkillSelectionsPreserved": true,
+    "allOtherAuthorableSettingsUnchanged": true,
+    "officialMetadataChanged": false,
+    "exitCode": 0,
+    "backupMode": "0600",
+    "scope": "skill instruction selection only; no data/identity/credential/tool permission change"
+  },
+  "actualMainSkill": {
+    "eligible": true,
+    "disabled": false,
+    "blockedByAgentFilter": false,
+    "commandVisible": true,
+    "userInvocable": true,
+    "modelVisible": false
+  },
+  "entry": {
+    "slash": "/stella_continue recovery_walk_20261102 <request>",
+    "dollar": "$stella-continue briefId=recovery_walk_20261102 <request>",
+    "visibleOnMain": true,
+    "executionWouldBeNormalModelAgentRequest": true,
+    "invokedInThisStage": false
+  },
+  "actualNoModelHostFlow": {
+    "actualGatewayToolSubmissions": 4,
+    "allExitCodes": 0,
+    "briefId": "recovery_walk_20261102",
+    "steps": [
+      "save_A",
+      "new_RPC_read_A",
+      "CAS_revise_B",
+      "new_RPC_read_B"
+    ],
+    "firstVersion": "sha256:26ddc80043d97af12479a2ed2ac31fa23dd100538422933343070110f33ca5d5",
+    "secondVersion": "sha256:ee2ea3ba8fa2d2e6c19c2907d6aba4448265bf946a4e3ca2e8770ae527c02d35",
+    "firstCommit": "ecd3b4689f69756eaff3cdf49d2da32907c8b321",
+    "secondCommit": "3585118dda2ab6c9acda91d02ac00edc7e79e099",
+    "previousVersionMatched": true,
+    "exactProposalsRestored": true,
+    "unresolvedQuestionsRetained": true,
+    "oldStoreFilesPreserved": 8,
+    "storeHeadBefore": "b016720f96abc53ac4e3a53953f84ec8c4d7d298",
+    "storeHeadAfter": "3585118dda2ab6c9acda91d02ac00edc7e79e099",
+    "storeClean": true,
+    "storeHasNoRemotes": true,
+    "canonicalCurrentHashMatched": true,
+    "authorConfirmation": false,
+    "publisher": false,
+    "modelRequests": 0,
+    "agentRequests": 0,
+    "requestedExistingScope": "operator.admin",
+    "semanticUnderstanding": "not_tested; revision is fixed fictional input, no skill/Agent model execution"
+  },
+  "existingScope": "normal public SDK with preexisting operator.admin; no scopes/identity/credentials created or widened; all original tool owner/fs/guard checks preserved",
+  "providerModelPolicy": "future model tests only google/gemini-3.8-flash low; no new paid request assigned/executed",
+  "publisher": false,
+  "realSourcesOrAuthorAdmission": "not connected; synthetic candidates only",
+  "retainedPriorCI": [
+    {
+      "runId": 41200125141,
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41200125141",
+      "headSha": "f5be7098f3775442914d78a8c2fce5a6955a2a35",
+      "conclusion": "failure",
+      "counts": {
+        "tests": 1786,
+        "pass": 1760,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "baselineCounts": {
+        "tests": 1784,
+        "pass": 1758,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "baselineSha": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+      "newFailures": [],
+      "removedFailures": [],
+      "changedNormalizedBlocks": [],
+      "passedGroups": {
+        "binding": 10,
+        "ordinary": 5,
+        "offline": 22,
+        "draft": 9,
+        "continuation": 2
+      },
+      "oldFailureNames": [
+        "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+        "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+        "isolated installer supports every acceptance runner but rejects unrelated consumers",
+        "native memory uses the pinned codec and rejects serialized producer/output credentials",
+        "native summary must descend from its exact provider output receipt",
+        "real provider and tool results extend context and inherit source revocation",
+        "fixed Google projection changes only the known declaration from original bound input",
+        "Google codec cannot be selected by observed schema or for another Host/model",
+        "Google original schema rejects unbound required",
+        "Google original schema rejects unbound enum",
+        "Google original schema rejects unbound extra property",
+        "Google original schema rejects unbound description",
+        "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+        "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+        "native index bytes are consumed only after exact authorized hit and range validation",
+        "native index authorization preserves indexed provenance and rejects concurrent changes",
+        "native index cannot certify an unrelated indexed body for an authorized locator",
+        "verified native read digests bind index identity and never observe rejected bytes",
+        "native vector-backed reads bind the actual vector and embedding cache without search",
+        "a complete vector marker cannot certify missing or changed selected vector bytes",
+        "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+        "concurrent vector invalidation wins before native file read",
+        "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+        "native exact reads without query embeddings revalidate the original index generation",
+        "native exact reads revalidate source authority before another model call",
+        "a second native read cannot replace the first consumed index identity"
+      ],
+      "stdoutSha256": "08477f33641ba732fd5febdcac4558b6d5d680b8cfdb20a8d2e874dc01c4db07",
+      "baselineStdoutSha256": "daf3df02cc65c508908649a016e1a22bcf334d4555e7ff82ce4c4da114487bd2",
+      "comparisonSha256": "9e3fbe542f093b0d48a8d761eba0afd7dfdaf2d0efaf46a6ded74c05a74a3d55",
+      "supervisor": {
+        "realChildExit": {
+          "exitCode": 1,
+          "signal": null,
+          "killed": false,
+          "closeObserved": true
+        },
+        "groupGone": true,
+        "timedOut": false,
+        "stdioComplete": true,
+        "ownedWorkStatus": "complete",
+        "pending": 0,
+        "cleanup": "removed"
+      },
+      "failedNodes": [
+        {
+          "job": "prepare",
+          "failedSteps": [
+            "Check, test, build and freeze one package"
+          ]
+        },
+        {
+          "job": "verify",
+          "failedSteps": [
+            "Require all 152 unique cases and successful jobs"
+          ]
+        }
+      ],
+      "probes": "skipped",
+      "formalConsumer": null,
+      "formalAcceptance": {
+        "fullMemoryAccepted": false,
+        "privateMainAccepted": false,
+        "realModelAccepted": false
+      }
+    },
+    {
+      "runId": 41200125146,
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41200125146",
+      "headSha": "f5be7098f3775442914d78a8c2fce5a6955a2a35",
+      "conclusion": "failure",
+      "counts": {
+        "tests": 1786,
+        "pass": 1760,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "baselineCounts": {
+        "tests": 1784,
+        "pass": 1758,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "baselineSha": "0980775f0b427cc72a71b083f5930d8427a80cf7",
+      "newFailures": [],
+      "removedFailures": [],
+      "changedNormalizedBlocks": [],
+      "passedGroups": {
+        "binding": 10,
+        "ordinary": 5,
+        "offline": 22,
+        "draft": 9,
+        "continuation": 2
+      },
+      "oldFailureNames": [
+        "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+        "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+        "isolated installer supports every acceptance runner but rejects unrelated consumers",
+        "native memory uses the pinned codec and rejects serialized producer/output credentials",
+        "native summary must descend from its exact provider output receipt",
+        "real provider and tool results extend context and inherit source revocation",
+        "fixed Google projection changes only the known declaration from original bound input",
+        "Google codec cannot be selected by observed schema or for another Host/model",
+        "Google original schema rejects unbound required",
+        "Google original schema rejects unbound enum",
+        "Google original schema rejects unbound extra property",
+        "Google original schema rejects unbound description",
+        "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+        "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+        "native index bytes are consumed only after exact authorized hit and range validation",
+        "native index authorization preserves indexed provenance and rejects concurrent changes",
+        "native index cannot certify an unrelated indexed body for an authorized locator",
+        "verified native read digests bind index identity and never observe rejected bytes",
+        "native vector-backed reads bind the actual vector and embedding cache without search",
+        "a complete vector marker cannot certify missing or changed selected vector bytes",
+        "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+        "concurrent vector invalidation wins before native file read",
+        "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+        "native exact reads without query embeddings revalidate the original index generation",
+        "native exact reads revalidate source authority before another model call",
+        "a second native read cannot replace the first consumed index identity"
+      ],
+      "stdoutSha256": "ae99eafd369491738a2e57d65ad3fa9fd8462719c3c85ed0a9eca3061b713382",
+      "baselineStdoutSha256": "697604408b50df19b19f4c0cc712b0e5a0078076a5322235a5b7d3ccde69cdfa",
+      "comparisonSha256": "0ec3a670c17f2801e87a33560c259477ac033490535a05e9e80e815aa89dbd2d",
+      "supervisor": {
+        "realChildExit": {
+          "exitCode": 1,
+          "signal": null,
+          "killed": false,
+          "closeObserved": true
+        },
+        "groupGone": true,
+        "timedOut": false,
+        "stdioComplete": true,
+        "ownedWorkStatus": "complete",
+        "pending": 0,
+        "cleanup": "removed"
+      },
+      "failedNodes": [
+        {
+          "job": "Installed experimental owner chat (synthetic)",
+          "failedSteps": [
+            "Check source and test one installed package with stock Host"
+          ]
+        }
+      ],
+      "probes": "not reached",
+      "formalConsumer": null,
+      "formalAcceptance": {
+        "fullMemoryAccepted": false,
+        "privateMainAccepted": false,
+        "realModelAccepted": false
+      }
+    }
+  ],
+  "ciConclusion": "both old exactSHA runs terminal;1786 total/1760pass/26oldfail each;new2continuation pass;all26 normalized blocks unchanged from0980775, no new observed unit regression. Downstream formal consumers not executed. No rerun.",
+  "evidenceHashes": {
+    "BASE.json": "a09ab17b5d20e79d8758256154a6eda7ec12aa14dede9135367733cdc4f386df",
+    "runtime-before.stdout": "c0b09036e341eaa91e5f5a0ece1ad754cb7c8752a86b9b3d0cf6174af52460c0",
+    "skill-before.stdout": "3a607dcc5bd8ecce656dce8dc8cf734d9dde968d458225400ac7d7e41c50c2b7",
+    "config-set.claim.json": "bf400d0a539fe4dfd0d19743d59dcbed4843940848d1ba144cf0bbb64d7f9f56",
+    "config-set.result.json": "ffe8fba4767b38572eb27976bdb4cd43a1254b879b8e33a4273bced394ab359b",
+    "CONFIG-VERIFIED.json": "5472fd2fd3427c57ac6637d7a3376604b23db479a783595991238845a3953487",
+    "skill-after.stdout": "ed97c524ced0186a16f8472071ec4bdca012da2040cc47b0eaa93672bcff619e",
+    "DEMO-SUMMARY.json": "47be1cad0d0045c4033d7e036abc20b85744da7d9e8d3c773f6fc61ffc8b06bb",
+    "demo.py": "0a64e25c36b4c4e8892cdea10a7ba5ebab0c240e827a202c5ed433bac11bc68e",
+    "invoke-owner.mjs": "f800b6e71b5c934232d6a72d354c26013d1ef2d6299d36689fcc324cc1748865",
+    "demo-1.claim.json": "171f03b2978d323fe2e242fbc486e335cebf9c56a8828c2caa45f44b0d27a708",
+    "demo-1.result.json": "344896840b0052c38bfb923df5f46812d9f4a42181d833410e8841069b15aa0f",
+    "demo-1.stdout": "aa755d77b476b2b564192d23d166481cc66a03d7eb043f1a8148c3a9a2375dbb",
+    "demo-2.claim.json": "00e22d66078ad85da94f0a053b71f03f2397edceeb6db46a3a748817dd336b89",
+    "demo-2.result.json": "4288c6f416db9d9d69ae76b61cff5085cd50d3a38463758bd0581bd9fcf85c8e",
+    "demo-2.stdout": "b540f5625fd068c5854ee2dec51d8eb27766352ce631dfc9dd54c8bc69d68986",
+    "demo-3.claim.json": "780c2297a2b4926a2335ed13a97b8e68593b366e98f07fd412cb44c2c39767f0",
+    "demo-3.result.json": "9ec3443bfd5fede4e9107b103893a30cf77d052e4148d8e717e245e598ceff6c",
+    "demo-3.stdout": "068a15e1756dd1d7196fc6d3b73546bb642cf38a333e2c4c4cc5bd8c32e96cd3",
+    "demo-4.claim.json": "b4e8cc12257ea48fc2e3e3887e5124c771d5eeafeb9da104e63668e6492aadac",
+    "demo-4.result.json": "624e565f7767b401c24d9320d599f4abdafba101e100b6a6736196df9e65a9b2",
+    "demo-4.stdout": "85a64656692922107216acbf2b410c286dd45556ccf1615d17edc0b25b18ce0c"
+  },
+  "rollback": {
+    "privateConfigBackup": "mode0600 in task diagnostics, excluded from repo",
+    "beforeConfigSha256": "85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4",
+    "afterConfigSha256": "e503fa40f2f1e32776ca47819cda904f992feb619abab1aa67eb24f0b337b575",
+    "procedure": "compare intervening changes; remove only appended stella-continue through official config API, preserving other settings; no data deletion",
+    "oldPackageBackup": ".artifacts/brief-continuation-main11-rollback-20261031/package retained; no package rollback required"
+  },
+  "unverified": [
+    "Actual skill-driven model call and faithful semantic consumption",
+    "Automatic fresh-read instruction adherence on ordinary followups",
+    "Trusted real author/current source qualification",
+    "USER/MEMORY co-learning or full_memory acceptance"
+  ],
+  "scopeOutcome": "requested no-paid synthetic visibility and actual Host tool closure complete; no new implementation or permission framework"
+}

@@ -607,3 +607,20 @@ explicit_brief_continuation_main_20261031:
   rollback: complete main11 artifact2741files retained; opaque config backup0600; no restoration needed
   paid_model_requests: 0
   limits: loaded package is not visible entry acceptance, faithful model consumption or automatic fresh-read enforcement
+
+
+continuation_recovery_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/continuation-recovery-20261102.json
+  recovered_site: branch codex/issue23-integrated-regression at f5be7098; local state73 versus committed72; old uncommitted differences preserved
+  host: OpenClaw2026.10.8 dc2523e; all2742 installed files match reviewed package; no package reload or Gateway restart
+  repair: official config set appends only stella-continue at agents.entries.main.skills[110]; all110 prior entries and other authorable settings unchanged
+  config_hashes: before85e01af033c51a9b4f715c737a7d7dcd2f1638ec66a6987eb8aac3a6f73169d4; aftere503fa40f2f1e32776ca47819cda904f992feb619abab1aa67eb24f0b337b575
+  main_visibility: eligible true, userInvocable true, commandVisible true, blockedByAgentFilter false, modelVisible false
+  actual_host_flow: four separate public SDK tools.invoke calls; candidate A/save/read, exact CAS revision B/read; all exit0
+  synthetic_brief: recovery_walk_20261102; fixed existing candidateDraftsRoot; original8 tracked files unchanged; clean Git store with no remotes
+  candidate_commits: [ecd3b4689f69756eaff3cdf49d2da32907c8b321, 3585118dda2ab6c9acda91d02ac00edc7e79e099]
+  authority: candidate only; authorConfirmation false; publisher false; normal existing operator.admin scope without new grants
+  model_and_agent_requests: 0; no skill-driven model invocation or semantic understanding claim
+  historical_ci_f5be7098: runs41200125141/41200125146 both terminal failure; each1786/1760pass/26oldfail;2newcontinuation pass;all26 normalized blocks unchanged from0980775
+  ci_cleanup: each actual childexit1/groupGone/stdioComplete/ownedWork complete0pending/cleanup removed; downstream formal consumers not reached
+  boundaries: native memory/context/Agent loop retained; no new real source, author, credential or identity access; old paused/unknown evidence and quotas preserved
