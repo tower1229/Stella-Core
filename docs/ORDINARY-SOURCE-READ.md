@@ -1,7 +1,10 @@
 # Ordinary-plugin selected-source read port
 
-2026-11-02 local implementation candidate; **not installed, independently accepted,
-or connected to private CangHai**. This supplies the deterministic read seam for
+2026-11-02 selected-source read implementation: the state97 offline package was
+independently accepted and saved in `4e50567`; its evidence/docs are in `4498a46`.
+The public WebChat/default-model compatibility increment below is a local
+candidate awaiting independent review. **Neither package is installed or connected
+to private CangHai.** This supplies the deterministic read seam for
 the [data-first priority](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority).
 It does not implement semantic routing or claim that a model understands data.
 
@@ -114,18 +117,52 @@ Listing and deterministic source checks cannot decide natural-language meaning.
 The native Agent / properly qualified structured LLM port must select relevant
 sources, follow leads, distinguish facts/inferences and decide answer versus
 clarification. No lexical routing or fallback is added. For per-source policy semantics, the
-adapter calls only the public Host `llm.complete` port, explicitly selecting
+adapter calls only the public Host `llm.complete` port, requiring
 `google/gemini-3.8-flash` with `low`, no sampling parameter, and no configured
 fallback. The code passes only the current normalized request and one reviewed
 descriptor/policy context; it does not pass original bodies to that judgment.
 Actual runtime dispatch/consumption is not verified by these synthetic tests.
-No provider call was made by this implementation or its tests. The explicit
-agent/model parameters also remain subject to the Host's existing LLM capability
-policy. No override permission was added here; an unbound/disallowed Host runtime
-must reject rather than select another agent/model. The real public capability
-scope must be checked before a later model-backed run.
+No provider call was made by this implementation or its tests. The state97
+wrapper passed explicit agent/model parameters; its offline evidence does not
+establish the Host's override authorization. The compatibility candidate below
+uses the exact proven native default without adding override permissions. An
+unproven/disallowed runtime fails rather than selecting another agent/model.
 
-## Actual verification and remaining integration
+## Public WebChat and native-default compatibility candidate
+
+OpenClaw2026.10.9 deliberately omits transport `SenderId` for authenticated
+operator WebChat. The added mode reads only the exported
+`getPluginRuntimeGatewayRequestScope` facts: Host-attested authenticated Control
+UI/operator, authenticated profile, connection identity and live admission at
+dispatch. Client IDs, prompt/tool parameters, `toolBindings` and `runContext`
+cannot supply this identity. Synthetic/delegated clients reject even when they
+copy a matching sender/profile. No `SenderId` field is fabricated or changed.
+
+The profile must exactly equal the selected grant's existing requester; no alias,
+requester addition or new audience is created. The same native run, call, session
+incarnation, committed admission and original v2 guard still apply. Hook and read
+require the same public profile/connection scope. Conflicting identities reject.
+RPC/socket completion alone does not revoke a previously admitted run; original
+native/v2 cancellation/end still applies. Each new request needs fresh live
+admission and the current selected version/grant. Normal channel/CLI ingress
+continues to require its Host-supplied sender and original owner checks.
+
+The default completion path first proves `main` is the configured ambient owner
+(explicit system owner or sole agent), its public resolved default is exactly
+`google/gemini-3.8-flash`, and no default/agent fallback is configured. Only then
+does it omit the `agentId` and `model` override parameters. The Host still checks
+completion/operator/source/model capabilities; denial propagates without retry.
+Returned agent, provider/model and direct-provider execution must still match.
+Unknown owner, ambiguous fleet, different model or fallback fails before calling
+completion. No override capability, identity grant or configuration is changed.
+
+This is code and synthetic callback coverage on SDK10.9, **not** evidence that
+the actual browser callbacks carry the public scope, or that a real human profile
+matches the existing selected grant. The approved independent CLI/local-protocol
+producer test remains unused; it can prove native technical plumbing, not browser
+human identity or semantic understanding. Shared main/selfie remains untouched.
+
+## Historical verification before state97
 
 TypeScript compilation passed on the observed local OpenClaw SDK2026.10.9 and
 Node24.22.1; project manifest/lock still pin10.8 and were not changed. Focused
@@ -134,7 +171,7 @@ checks passed **37/37**:11new source-port groups plus5ordinary,10binding and
 were synthetic. The real plugin registration/factory code was exercised with an
 explicit test issuer; no Gateway, live ingestion, external model or private
 payload was used. The initial34pass/2fail run is retained separately. No full
-suite, installation, reload, consent, commit or push was performed.
+suite, installation, reload, consent, commit or push was performed at that checkpoint.
 
 The original37/37 run did not repair or approve the pre-existing metadata P2.
 Its failure evidence and the read-port increment remain in
@@ -146,12 +183,12 @@ Four getter-change counterexamples reproduced false observations before the
 repair and are rejected after it. A valid snapshot/hash control and the affected
 metadata/ordinary-entry cases passed **19/19**; the37cases were not rerun or
 combined into a new total. This does not add source/author qualification.
-The full entry and both local modules remain pending independent review and
-uninstalled; no mixed working tree is approved merely by these test results.
+At that checkpoint the full entry and both local modules remained pending
+independent review and uninstalled; a mixed working tree was not approved by these tests.
 The [R1 delivery receipt](../.task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.json)
 pins the combined entry patch and its dependency/test evidence.
 
-## Next thin binding candidate and Host validation
+## State97 binding review and remaining Host validation
 
 The next package includes that request adapter, descriptor-scoped listing and
 the independent review's request-lifetime/reference-projection repairs. The old
@@ -166,7 +203,12 @@ The final author run passed63/63 focused cases; the same independent probe logic
 replayed7/9 before the fixes and9/9 after them. The existing Evidence kernel suite
 passed28/28 after its temporary harness was supplied the unchanged schema path;
 the initial24/28 missing-schema failure is retained. These separate runs are not
-summed or represented as independent acceptance. It is not installed.
+summed or represented as independent acceptance. Subsequently the independent
+[review summary](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)
+accepted the fixed13 package:63/63 focused,28/28 kernel,9/9 counterexample replay
+and4/4 default-entry probes, separately attributed. Both source defects and the
+metadata P2 closed at that boundary. This does not cover the newer compatibility
+increment above or actual Host behavior. It is not installed.
 
 After review, a nonconflicting Host window must use an exclusively synthetic
 source/grant/root and preserve rollback. A direct no-model Gateway tool invocation

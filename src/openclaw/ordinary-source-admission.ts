@@ -1,5 +1,6 @@
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import type { PluginHookReplyDispatchContext, PluginHookReplyDispatchEvent } from "openclaw/plugin-sdk/core";
+import { getPluginRuntimeGatewayRequestScope } from "openclaw/plugin-sdk/plugin-runtime";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { realpath } from "node:fs/promises";
@@ -20,14 +21,47 @@ import { SOURCE_READ_TOOL, type SourceReadAdmission, type SourceReadBinding } fr
 
 export const SOURCE_POLICY_MODEL = "google/gemini-3.8-flash";
 export type SourcePolicyCompletion = (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
+export type GatewayRequestScopeReader = typeof getPluginRuntimeGatewayRequestScope;
+type GatewayPrincipal = { id: string; connection: string; assertIdentity(): void };
 type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
 type Call = Identity & { runId: string; senderId: string; signal?: AbortSignal; conflict: boolean; release(): void };
-type Turn = { sessionKey: string; rawText: string; senderId: string; cutoff: string; conflict: boolean; calls: Set<string>; release(): void };
+type Turn = { sessionKey: string; rawText: string; senderId: string; gateway?: GatewayPrincipal; cutoff: string; conflict: boolean; calls: Set<string>; release(): void };
 type ToolEvent = { toolName: string; toolCallId?: string; runId?: string };
 type ToolContext = Identity & ToolEvent & { abortSignal?: AbortSignal; requester?: { senderId?: string; senderIsOwner?: boolean } };
 const run = promisify(execFile);
 const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 4096;
 function check(ok: unknown, code: string): asserts ok { if (!ok) throw new CatalogError(code); }
+
+/** Identity from the genuine public Gateway scope, not client-supplied fields.
+ * Only the initial capture uses live transport admission. An admitted run keeps
+ * its native/v2 lifetime; a completed RPC is not a newly invented revocation. */
+function gatewayPrincipal(read: GatewayRequestScopeReader): GatewayPrincipal | undefined {
+  const scope = read(), client = scope?.client, internal = client?.internal;
+  check(!internal?.syntheticClient && !internal?.agentToolCaller && !internal?.agentRuntimeIdentity &&
+    !internal?.pluginSubagentRequester, "source_gateway_delegated_principal_forbidden");
+  // Normal channel/CLI ingress continues to use its Host-supplied sender. A
+  // Control UI scope must qualify completely; it cannot fall back to SenderId.
+  if (internal?.authenticatedControlUi !== true && !scope?.isWebchatConnect?.(client?.connect)) return;
+  const profileId = client?.authenticatedUserProfile?.profileId, connection = client?.connId;
+  const live = scope?.hasCurrentClientAuthority;
+  check(client && internal?.authenticatedControlUi === true &&
+    (text(client.authenticatedUserId) || internal.authenticatedOperator === true) &&
+    text(profileId) && text(connection) && typeof live === "function" && live.call(scope) === true &&
+    !scope?.signal?.aborted && !client.connectionSignal?.aborted && !client.invalidated,
+  "source_gateway_principal_unavailable");
+  const assertIdentity = () => {
+    const flags = client.internal;
+    check(client.connId === connection && client.authenticatedUserProfile?.profileId === profileId &&
+      flags?.authenticatedControlUi === true && !flags.syntheticClient && !flags.agentToolCaller &&
+      !flags.agentRuntimeIdentity && !flags.pluginSubagentRequester, "source_gateway_principal_changed");
+    const current = read()?.client, currentFlags = current?.internal;
+    check(current?.connId === connection && current.authenticatedUserProfile?.profileId === profileId &&
+      currentFlags?.authenticatedControlUi === true && !currentFlags.syntheticClient && !currentFlags.agentToolCaller &&
+      !currentFlags.agentRuntimeIdentity && !currentFlags.pluginSubagentRequester, "source_gateway_scope_mismatch");
+  };
+  assertIdentity();
+  return { id: profileId, connection, assertIdentity };
+}
 function relativeRef(value: string) {
   const ref = parseCangHaiRef(value);
   check(!ref.fragment && !ref.relativePath.split("/").some(p => p === ".." || p.toLowerCase() === ".git"), "source_processing_reference_invalid");
@@ -77,6 +111,7 @@ async function processingBinding(binding: SourceReadBinding, guard: () => void) 
  * bounded current-turn references only; it neither issues identities nor grants. */
 export function createOrdinarySourceAdmission(input: {
   agentId: string; metadata: ReturnType<typeof createCurrentInputMetadata>; complete: SourcePolicyCompletion;
+  getGatewayRequestScope?: GatewayRequestScopeReader;
 }) {
   const turns = new Map<string, Turn>(), calls = new Map<string, Call>();
   const discardCall = (id: string) => { const call = calls.get(id); if (call) { calls.delete(id); call.release(); } };
@@ -88,18 +123,24 @@ export function createOrdinarySourceAdmission(input: {
   return {
     observeDispatch(event: PluginHookReplyDispatchEvent, context: PluginHookReplyDispatchContext) {
       const ctx = event.ctx, runId = event.runId, sessionKey = event.sessionKey;
-      const rawText = ctx.rawText, senderId = ctx.SenderId, signal = context.abortSignal;
+      const rawText = ctx.rawText, transportSender = ctx.SenderId, signal = context.abortSignal;
+      let gateway: GatewayPrincipal | undefined;
+      try { gateway = gatewayPrincipal(input.getGatewayRequestScope ?? getPluginRuntimeGatewayRequestScope); }
+      catch { const previous = turns.get(runId ?? ""); if (previous) previous.conflict = true; return; }
+      const senderId = gateway?.id ?? transportSender;
       if (input.agentId !== "main" || context.dispatchKind !== "agent" || ctx.AgentId !== input.agentId ||
           !text(runId) || !text(sessionKey) || ctx.SessionKey !== sessionKey || !text(senderId) ||
+          (gateway && transportSender !== undefined && transportSender !== gateway.id) ||
           typeof rawText !== "string" || !rawText.trim() || rawText.length > 16_000 || ctx.ChatType !== "direct" || ctx.InternalTurnSource !== undefined || !signal || signal.aborted) return;
       const previous = turns.get(runId);
       if (previous) {
-        if (previous.sessionKey !== sessionKey || previous.rawText !== rawText || previous.senderId !== senderId) previous.conflict = true;
+        if (previous.sessionKey !== sessionKey || previous.rawText !== rawText || previous.senderId !== senderId ||
+            previous.gateway?.connection !== gateway?.connection) previous.conflict = true;
         return;
       }
       if (turns.size >= 32) return;
       const discard = () => discardTurn(runId, turn);
-      const turn: Turn = { sessionKey, rawText, senderId, cutoff: new Date().toISOString(), conflict: false, calls: new Set(),
+      const turn: Turn = { sessionKey, rawText, senderId, gateway, cutoff: new Date().toISOString(), conflict: false, calls: new Set(),
         release: () => signal.removeEventListener("abort", discard) };
       turns.set(runId, turn); signal.addEventListener("abort", discard, { once: true });
     },
@@ -107,16 +148,19 @@ export function createOrdinarySourceAdmission(input: {
       if (event.toolName !== SOURCE_READ_TOOL || context.toolName !== SOURCE_READ_TOOL) return;
       const callId = context.toolCallId, runId = context.runId, requester = context.requester;
       if (!text(callId) || event.toolCallId !== callId || !text(runId) || event.runId !== runId ||
-          context.agentId !== input.agentId || !text(context.sessionKey) || !text(context.sessionId) ||
-          requester?.senderIsOwner !== true || !text(requester.senderId)) return "source_request_admission_unavailable";
+          context.agentId !== input.agentId || !text(context.sessionKey) || !text(context.sessionId)) return "source_request_admission_unavailable";
       const previous = calls.get(callId), turn = turns.get(runId);
       if (previous) { previous.conflict = true; return "source_call_ambiguous"; }
-      if (!turn || turn.conflict || turn.sessionKey !== context.sessionKey || turn.senderId !== requester.senderId || turn.calls.has(callId)) return "source_request_binding_mismatch";
+      if (!turn || turn.conflict || turn.sessionKey !== context.sessionKey || turn.calls.has(callId)) return "source_request_binding_mismatch";
+      if (turn.gateway) {
+        try { turn.gateway.assertIdentity(); } catch { turn.conflict = true; return "source_gateway_principal_changed"; }
+        if (requester && (requester.senderIsOwner !== true || requester.senderId !== undefined && requester.senderId !== turn.senderId)) return "source_requester_or_audience_forbidden";
+      } else if (requester?.senderIsOwner !== true || requester.senderId !== turn.senderId) return "source_request_admission_unavailable";
       if (context.abortSignal?.aborted || calls.size >= 128 || turn.calls.size >= 128) return "source_call_unavailable";
       const signal = context.abortSignal;
       const discard = () => discardCall(callId);
       calls.set(callId, { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId, runId,
-        senderId: requester.senderId, signal, conflict: false, release: () => signal?.removeEventListener("abort", discard) });
+        senderId: turn.senderId, signal, conflict: false, release: () => signal?.removeEventListener("abort", discard) });
       signal?.addEventListener("abort", discard, { once: true });
     },
     end(event: { runId?: string }, context: Identity & { runId?: string }) {
@@ -143,8 +187,11 @@ export function createOrdinarySourceAdmission(input: {
             context.sessionKey === identity.sessionKey && context.sessionId === identity.sessionId &&
             call.agentId === identity.agentId && call.sessionKey === identity.sessionKey && call.sessionId === identity.sessionId,
           "source_request_binding_mismatch");
-          check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && text(senderId) &&
-            context.requesterSenderId === senderId && call.senderId === senderId && turn.senderId === senderId &&
+          try { turn.gateway?.assertIdentity(); }
+          catch (error) { turn.conflict = true; throw error; }
+          const senderMatches = turn.gateway ? senderId === undefined || senderId === turn.senderId : text(senderId) && senderId === turn.senderId;
+          check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && senderMatches &&
+            context.requesterSenderId === senderId && call.senderId === turn.senderId &&
             audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
             canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
           check(modelRef === SOURCE_POLICY_MODEL && context.activeModel?.modelRef === modelRef, "personal_context_model_forbidden");
@@ -154,9 +201,9 @@ export function createOrdinarySourceAdmission(input: {
         guard();
         const processing = await processingBinding(binding, guard); guard();
         const config = processing.loaded.config;
-        check(config.requesterIds[0] === senderId, "personal_context_requester_forbidden");
+        check(config.requesterIds[0] === turn.senderId, "personal_context_requester_forbidden");
         const request = snapshotTurnRequest({ agentId: identity.agentId!, sessionId: identity.sessionId!, sessionKey: identity.sessionKey!,
-          prompt: turn.rawText, senderId, senderIsOwner: true, chatType: "direct" }, call.runId);
+          prompt: turn.rawText, senderId: turn.senderId, senderIsOwner: true, chatType: "direct" }, call.runId);
         const authority = bindProcessingAuthority({ request, ownerId: config.ownerId, modelRef: SOURCE_POLICY_MODEL,
           purpose: config.purpose, deployment: bytesVersion(canonicalJson(binding)), generationId: binding.revision });
         const sourceAccess = createPersonalContextAccess({ request, modelRef: SOURCE_POLICY_MODEL, binding: processing.loaded,

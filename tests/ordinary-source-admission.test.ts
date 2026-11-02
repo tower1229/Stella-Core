@@ -7,11 +7,12 @@ import { createOrdinaryPlugin, SOURCE_READ_TOOL } from "../src/ordinary-plugin.j
 import { canonicalJson } from "../src/canghai/content-version.js";
 import { segmentLocator } from "../src/canghai/source-segments.js";
 import { fixture, prefix, profilePath, hostVersion } from "./fixtures/ordinary-source-read.js";
+import type { GatewayRequestScopeReader } from "../src/openclaw/ordinary-source-admission.js";
 
 const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
 const purpose = { readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" };
 const grantPath = `${prefix}/capabilities/source_access_context.json`;
-async function setup(t: TestContext, leafDerivePurposes?: string[]) {
+async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader) {
   const f = await fixture(t, 2, 0, undefined, purpose, leafDerivePurposes);
   const source = JSON.parse(await readFile(path.join(f.root, f.catalog.sources[0]!.locator.path), "utf8"));
   const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
@@ -24,7 +25,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[]) {
   await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
   const hooks = new Map<string, Function>(); let factory: any, modelCalls = 0, active = true, denyScenario = false;
   const modelRequestHashes = new Set<string>();
-  const plugin = createOrdinaryPlugin({ completeSourceAccess: async params => {
+  const plugin = createOrdinaryPlugin({ getGatewayRequestScope, completeSourceAccess: async params => {
     modelCalls++;
     const value = JSON.parse(params.prompt.slice(params.prompt.lastIndexOf("\n") + 1));
     modelRequestHashes.add(value.requestHash);
@@ -152,5 +153,135 @@ test("semantic policy denial remains an explicit read failure; metadata access d
 test("reviewed descriptor membership cannot override the segment's metadata-processing purpose", async t => {
   const f = await setup(t, ["other-purpose"]), turn = f.turn(); turn.dispatch(); turn.hook("metadata-denied");
   assert.equal((await turn.tool.execute("metadata-denied", { action: "list" })).details.code, "permission_denied");
+  assert.equal(f.modelCalls(), 0);
+});
+
+function browserScope() {
+  const rpc = new AbortController(), connection = new AbortController();
+  const client: any = { connId: "synthetic-browser-connection", authenticatedUserProfile: { profileId: "synthetic-requester" },
+    connectionSignal: connection.signal, internal: { authenticatedControlUi: true, authenticatedOperator: true } };
+  const scope: any = { client, signal: rpc.signal, isWebchatConnect: () => true, hasCurrentClientAuthority: () => true };
+  return { scope, client, rpc, connection };
+}
+const browserFields = { ctx: { SenderId: undefined }, factory: { requesterSenderId: undefined } };
+
+test("authenticated public WebChat profile binds the same native run/call and existing grant without fabricating SenderId", async t => {
+  const browser = browserScope(), f = await setup(t, undefined, () => browser.scope);
+  const turn = f.turn("browser", browserFields); turn.dispatch();
+  assert.equal(turn.event.ctx.SenderId, undefined);
+  assert.equal(turn.hook("browser-list", { requester: undefined }), undefined);
+  assert.equal((await turn.tool.execute("browser-list", { action: "list" })).details.items.length, 1);
+  turn.hook("browser-read", { requester: { senderIsOwner: true } });
+  const read = await turn.tool.execute("browser-read", { action: "read", ref: f.refs[0] });
+  assert.equal(read.details.original.text, f.texts[0]); assert.equal(read.details.publisher, false);
+  assert.equal(f.modelCalls(), 2); assert.equal(turn.context.requesterSenderId, undefined);
+});
+
+test("missing or unqualified WebChat scope cannot be replaced with wire-looking owner/profile fields", async t => {
+  let scope: any;
+  const f = await setup(t, undefined, () => scope);
+  for (const [i, mutate] of [
+    () => undefined,
+    (v: any) => { v.client.internal.authenticatedControlUi = undefined; },
+    (v: any) => { v.client.authenticatedUserProfile = undefined; },
+    (v: any) => { v.hasCurrentClientAuthority = undefined; },
+    (v: any) => { v.hasCurrentClientAuthority = () => false; },
+    (v: any) => { v.client.internal.authenticatedOperator = undefined; },
+    (v: any) => { v.client.connId = ""; },
+    (v: any) => { v.client.invalidated = true; },
+  ].entries()) {
+    scope = browserScope().scope; if (i === 0) scope = undefined; else mutate(scope);
+    const turn = f.turn(`missing-browser-${i}`, browserFields); turn.dispatch();
+    assert.equal(turn.hook(`missing-browser-${i}`, { requester: undefined })?.block, true);
+    assert.equal((await turn.tool.execute(`missing-browser-${i}`, { action: "list", authenticatedUserProfile: { profileId: "synthetic-requester" },
+      owner: true, requester: "synthetic-requester" })).isError, true);
+  }
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("synthetic and delegated Gateway clients cannot fall back to matching transport sender or owner flags", async t => {
+  let scope: any;
+  const f = await setup(t, undefined, () => scope);
+  for (const [i, flag] of ["syntheticClient", "agentToolCaller", "agentRuntimeIdentity", "pluginSubagentRequester"].entries()) {
+    scope = browserScope().scope; scope.client.internal[flag] = true;
+    for (const [j, fields] of [browserFields, {}].entries()) {
+      const turn = f.turn(`delegate-${i}-${j}`, fields); turn.dispatch();
+      assert.equal(turn.hook(`delegate-${i}-${j}`)?.block, true);
+      assert.equal((await turn.tool.execute(`delegate-${i}-${j}`, { action: "list" })).isError, true);
+    }
+  }
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("WebChat profile cannot alias the selected grant or disagree with Host sender, owner or audience", async t => {
+  let scope: any = browserScope().scope;
+  const f = await setup(t, undefined, () => scope);
+  scope.client.authenticatedUserProfile.profileId = "different-profile";
+  const other = f.turn("profile-not-granted", browserFields); other.dispatch(); other.hook("profile-not-granted", { requester: undefined });
+  assert.equal((await other.tool.execute("profile-not-granted", { action: "list" })).details.code, "personal_context_requester_forbidden");
+  scope = browserScope().scope;
+  const ctxConflict = f.turn("ctx-conflict", { ...browserFields, ctx: { SenderId: "different-profile" } }); ctxConflict.dispatch();
+  assert.equal(ctxConflict.hook("ctx-conflict")?.block, true);
+  const hookConflict = f.turn("hook-conflict", browserFields); hookConflict.dispatch();
+  assert.equal(hookConflict.hook("hook-conflict", { requester: { senderId: "different-profile", senderIsOwner: true } })?.block, true);
+  for (const [i, factory] of [
+    { requesterSenderId: "different-profile" }, { requesterSenderId: undefined, senderIsOwner: false },
+    { requesterSenderId: undefined, memoryAudience: { kind: "conversation", agentId: "main" } },
+  ].entries()) {
+    const turn = f.turn(`factory-conflict-${i}`, { ctx: browserFields.ctx, factory }); turn.dispatch(); turn.hook(`factory-conflict-${i}`, { requester: undefined });
+    assert.equal((await turn.tool.execute(`factory-conflict-${i}`, { action: "list" })).isError, true);
+  }
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("WebChat keeps native request lifetime after RPC completion; each new request needs fresh live admission", async t => {
+  const browser = browserScope(), f = await setup(t, undefined, () => browser.scope);
+  const turn = f.turn("admitted-browser", browserFields); turn.dispatch();
+  browser.rpc.abort(); browser.connection.abort(); browser.scope.hasCurrentClientAuthority = () => false;
+  turn.hook("admitted-list", { requester: undefined });
+  assert.equal((await turn.tool.execute("admitted-list", { action: "list" })).details.status, "listed");
+  const next = f.turn("new-browser", browserFields); next.dispatch();
+  assert.equal(next.hook("new-browser", { requester: undefined })?.block, true);
+  turn.hook("old-call", { requester: undefined }); turn.end();
+  assert.equal((await turn.tool.execute("old-call", { action: "list" })).isError, true);
+});
+
+test("WebChat identity mutation, cross-run call, incarnation mismatch and cancellation remain closed", async t => {
+  let scope: any = browserScope().scope;
+  const f = await setup(t, undefined, () => scope);
+  const changed = f.turn("changed-browser", browserFields); changed.dispatch(); changed.hook("changed-browser", { requester: undefined });
+  scope.client.authenticatedUserProfile.profileId = "changed-profile";
+  assert.equal((await changed.tool.execute("changed-browser", { action: "list" })).details.code, "source_gateway_principal_changed");
+  scope.client.authenticatedUserProfile.profileId = "synthetic-requester";
+  assert.equal(changed.hook("restored-profile", { requester: undefined })?.block, true);
+  scope = browserScope().scope;
+  const first = f.turn("parallel-first", browserFields); first.dispatch();
+  const second = f.turn("parallel-second", browserFields); second.dispatch();
+  assert.equal(first.hook("cross-run", { requester: undefined, runId: "parallel-second" })?.block, true);
+  assert.equal((await second.tool.execute("cross-run", { action: "list" })).isError, true);
+  second.hook("wrong-incarnation", { requester: undefined, sessionId: "wrong-incarnation" });
+  assert.equal((await second.tool.execute("wrong-incarnation", { action: "list" })).isError, true);
+  second.hook("cancelled", { requester: undefined }); second.abort.abort();
+  assert.equal((await second.tool.execute("cancelled", { action: "list" })).isError, true);
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("each WebChat hook and protected read requires the same public scope; parallel principals never merge", async t => {
+  const a = browserScope(), b = browserScope();
+  b.client.connId = "another-connection"; b.client.authenticatedUserProfile.profileId = "another-profile";
+  let scope: any = a.scope;
+  const f = await setup(t, undefined, () => scope);
+  const first = f.turn("scope-a", browserFields); first.dispatch();
+  scope = b.scope;
+  const second = f.turn("scope-b", browserFields); second.dispatch(); second.hook("scope-b", { requester: undefined });
+  assert.equal((await second.tool.execute("scope-b", { action: "list" })).details.code, "personal_context_requester_forbidden");
+  assert.equal(first.hook("scope-conflict", { requester: undefined })?.block, true);
+  scope = a.scope;
+  assert.equal(first.hook("cannot-revive", { requester: undefined })?.block, true);
+  const third = f.turn("scope-c", browserFields); third.dispatch(); third.hook("scope-c", { requester: undefined });
+  scope = undefined;
+  assert.equal((await third.tool.execute("scope-c", { action: "list" })).details.code, "source_gateway_scope_mismatch");
+  scope = a.scope;
+  assert.equal(third.hook("restored-scope", { requester: undefined })?.block, true);
   assert.equal(f.modelCalls(), 0);
 });

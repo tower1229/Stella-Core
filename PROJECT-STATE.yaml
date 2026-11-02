@@ -681,3 +681,21 @@ ordinary_source_admission_review_20261102:
   prior_source_and_metadata_findings: closed_in_fixed_offline_candidate
   actual_host_producer_private_data_and_semantic_consumption: unverified
   reviewed_runtime_files_changed_during_save: false
+
+# 2026-11-02 public WebChat/default-model compatibility, synthetic-only technical evidence.
+ordinary_source_compatibility_20261102:
+  sdk: '2026.10.9'
+  manifest_lock_sdk: '2026.10.8, unchanged; not acceptance on10.8'
+  entry: 'genuine public Gateway profile/connection + native admission/run/call/v2 guard; exact existing requester grant only'
+  default_model: 'prove main ambient owner and exact Gemini3.8 default before omitting override parameters; Host completion policies retained'
+  tests: 'earlier62/62; final affected20/20; separate runs, not summed; full TypeScript compile exit0'
+  evidence: '.task-control/reports/CORE-VAL-001/source-compat-20261102.json'
+  actual_host_browser_private_source_semantics: 'not verified; no activation or model request'
+
+# 2026-11-02 delivery diagnostic contract pin refresh after unchanged acceptance rows moved.
+delivery_catalog_pin_repair_20261102:
+  source: src/acceptance/delivery-catalog.ts
+  evidence: .task-control/reports/CORE-VAL-001/delivery-pin-fix-20261102.json
+  delta: G01-G10 document hash and line locators only; all49 acceptance data unchanged
+  local_red_green: 8fail_before_and_11pass_after_including3_unchanged_tamper_rejection_children
+  full_ci_host_and_semantic_acceptance: not_implied

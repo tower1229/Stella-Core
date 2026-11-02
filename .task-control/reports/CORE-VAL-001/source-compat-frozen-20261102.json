@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+  "phase": "compatibility_candidate_for_independent_review_no_Host",
+  "files": {
+    "src/openclaw/ordinary-source-admission.ts": "cd0241fd02605b5f88a478eeba7d500545d89ac9543e94a6c350fc89fce85d96",
+    "src/ordinary-plugin.ts": "d1b9f34d16e1d3e07698cc50161e8942fc497ecbf2f03ccf9871fb3b9333d0d7",
+    "tests/ordinary-source-admission.test.ts": "8ac9a5b8b1ce7fd7e1841573f99d9aeea76b5b16e6a465dab338fa2792134b36",
+    "tests/source-policy-completion.test.ts": "4d4fc222a3108febb1d92069c0b22168804a93de3fd0fbf83cadb95ed48a5160",
+    "docs/ORDINARY-SOURCE-READ.md": "fad5e7b9cbda4c94716326300099b7d89e1e61e43c4a76fdd7e08cb3f2bb9bb7"
+  }
+}

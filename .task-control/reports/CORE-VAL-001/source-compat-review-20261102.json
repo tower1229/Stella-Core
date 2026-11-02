@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T06:19:49.467594+00:00",
+  "decision": "accepted_finite_offline_scope",
+  "reviewPath": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-independent-20261102-qmR6y3/REVIEW.md",
+  "actualReviewSha256": "850f24f6c3393ca6ed927949d71265b392308a931c8fb46e9eb3154e5812cba6",
+  "parentReportedReviewSha256": "98db7e82dece7b82a6b30a8973cd1be9a7c44ce65273af812a82ba8a60a1f242",
+  "hashDifferenceNote": "Actual read file includes an appended separate catalog repair review. Both hashes recorded without claiming equality; parent explicitly accepted exact source/report identities, current bytes match those identities.",
+  "hostPrivateModelAcceptance": false,
+  "new55788RunConsumed": false,
+  "scope": "exact five-file WebChat/default-model compatibility candidate",
+  "files": {
+    "src/openclaw/ordinary-source-admission.ts": "cd0241fd02605b5f88a478eeba7d500545d89ac9543e94a6c350fc89fce85d96",
+    "src/ordinary-plugin.ts": "d1b9f34d16e1d3e07698cc50161e8942fc497ecbf2f03ccf9871fb3b9333d0d7",
+    "tests/ordinary-source-admission.test.ts": "8ac9a5b8b1ce7fd7e1841573f99d9aeea76b5b16e6a465dab338fa2792134b36",
+    "tests/source-policy-completion.test.ts": "4d4fc222a3108febb1d92069c0b22168804a93de3fd0fbf83cadb95ed48a5160",
+    "docs/ORDINARY-SOURCE-READ.md": "fad5e7b9cbda4c94716326300099b7d89e1e61e43c4a76fdd7e08cb3f2bb9bb7"
+  },
+  "independentCompileExit": 0,
+  "independentTests": {
+    "total": 39,
+    "pass": 39,
+    "fail": 0,
+    "ordinarySourceAdmission": 16,
+    "completion": 4,
+    "ordinary": 5,
+    "metadata": 14
+  },
+  "author20AndEarlier62NotSummedWithIndependent39": true,
+  "sdk": "2026.10.9",
+  "lockSDK": "2026.10.8 unchanged",
+  "actualBrowserScopeProfileGrantAndConsumption": "unverified; no namespace alias/grant inferred"
+}

@@ -1,10 +1,11 @@
-import { definePluginEntry, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+import { definePluginEntry, type OpenClawPluginApi, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+import { listAgentIds, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import { Type } from "typebox";
 import path from "node:path";
 import { isRecord } from "./shared/type-guards.js";
 import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
 import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
-import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion } from "./openclaw/ordinary-source-admission.js";
+import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion, type GatewayRequestScopeReader } from "./openclaw/ordinary-source-admission.js";
 import { CatalogError } from "./canghai/catalog-reader.js";
 import { SOURCE_READ_TOOL, SOURCE_READ_PARAMETERS, parseSourceReadBinding, executeOrdinarySourceRead, sourceReadFailure,
   type SourceReadAdmission, type SourceReadBinding } from "./openclaw/ordinary-source-read.js";
@@ -34,6 +35,36 @@ function result(details: Record<string, unknown>, isError = false) {
   return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details, ...(isError ? { isError: true } : {}) };
 }
 
+/** Use the Host's already configured main/default only. Omitting overrides is
+ * valid here only after proving the same target; Host completion/source/model
+ * policies still run normally. No override permission is issued by this code. */
+export function createSourcePolicyCompletion(api: OpenClawPluginApi, agentId: string): SourcePolicyCompletion {
+  return async params => {
+    const cfg = api.runtime.config.current(), ids = listAgentIds(cfg);
+    const owner = cfg.agents?.defaults?.systemAgent?.agentId;
+    if (agentId !== "main" || !ids.includes(agentId) ||
+        (owner === undefined ? ids.length !== 1 : owner !== agentId)) {
+      throw new CatalogError("source_default_agent_unproven");
+    }
+    for (const model of [cfg.agents?.defaults?.model, cfg.agents?.entries?.[agentId]?.model]) {
+      if (typeof model === "object" && model !== null && model.fallbacks?.length) throw new CatalogError("source_model_fallback_forbidden");
+    }
+    // The SDK resolver reads the runtime's readonly snapshot; its public input
+    // type still uses mutable OpenClawConfig. Both discovery paths are disabled.
+    const selected = resolveDefaultModelForAgent({ cfg: cfg as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"],
+      agentId, allowManifestNormalization: false, allowPluginNormalization: false });
+    if (`${selected.provider}/${selected.model}` !== SOURCE_POLICY_MODEL) throw new CatalogError("source_default_model_mismatch");
+    const value = await api.runtime.llm.complete({
+      purpose: "stella-source-access", reasoning: "low", maxTokens: params.maxTokens, signal: params.signal,
+      messages: [{ role: "user", content: params.prompt }],
+    });
+    if (value.agentId !== agentId || `${value.provider}/${value.model}` !== SOURCE_POLICY_MODEL || value.execution.mode !== "direct-provider") {
+      throw new CatalogError("personal_context_model_mismatch");
+    }
+    return { text: value.text };
+  };
+}
+
 /** Ordinary entry. No legacy loader, provider, context engine or automatic
  * background task is bound. Source-policy inference is explicit and on demand.
  * Draft storage is explicit and synthetic-only.
@@ -43,7 +74,7 @@ function result(details: Record<string, unknown>, isError = false) {
  * grant. Internal test ports never become configuration or model arguments. */
 export function createOrdinaryPlugin(options: { admitSourceRead?: (input: {
   binding: SourceReadBinding; context: OpenClawPluginToolContext<2>; callId: string; signal?: AbortSignal;
-}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion } = {}) {
+}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion; getGatewayRequestScope?: GatewayRequestScopeReader } = {}) {
 const admitSourceRead = options.admitSourceRead;
 return definePluginEntry({
   id: "stella-core",
@@ -54,19 +85,8 @@ return definePluginEntry({
     const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
     const currentInput = createCurrentInputMetadata(config.agentId);
     const sourceInput = createOrdinarySourceAdmission({ agentId: config.agentId, metadata: currentInput,
-      complete: options.completeSourceAccess ?? (async params => {
-        const cfg = api.runtime.config.current();
-        for (const model of [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model]) {
-          if (typeof model === "object" && model !== null && model.fallbacks?.length) throw new CatalogError("source_model_fallback_forbidden");
-        }
-        const value = await api.runtime.llm.complete({ agentId: config.agentId, model: SOURCE_POLICY_MODEL,
-          purpose: "stella-source-access", reasoning: "low", maxTokens: params.maxTokens, signal: params.signal,
-          messages: [{ role: "user", content: params.prompt }] });
-        if (value.agentId !== config.agentId || `${value.provider}/${value.model}` !== SOURCE_POLICY_MODEL || value.execution.mode !== "direct-provider") {
-          throw new CatalogError("personal_context_model_mismatch");
-        }
-        return { text: value.text };
-      }) });
+      getGatewayRequestScope: options.getGatewayRequestScope,
+      complete: options.completeSourceAccess ?? createSourcePolicyCompletion(api, config.agentId) });
     api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
     api.on("agent_end", (event, context) => { currentInput.end(event, context); if (config.sourceRead) sourceInput.end(event, context); });
     api.on("before_tool_call", (event, context) => {

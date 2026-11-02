@@ -1,0 +1,15 @@
+{
+  "baseRevision": 104,
+  "baseSha256": "9223939b0f99ee5ef5aadcc1d5d71821108edbd20a5336fa1622008ab0211da6",
+  "revision": 105,
+  "stateSha256": "a16a4cea752cc70fcfd13bd77e02833872ed3dbcbe5dfbb856ce28bc9440fa58",
+  "writer": {
+    "agent": "Core minimal public WebChat principal/default-model compatibility implementation single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:source-compat-20261102"
+  },
+  "onlyThisWriter": true,
+  "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+  "sourceReportSha256": "ebb33599b4335c995ca9f59911f9b2ffcfdefb851407ca5741b49cda85b2b4ba",
+  "oldProjectBytesPreservedAsPrefix": true,
+  "noStaging": true
+}

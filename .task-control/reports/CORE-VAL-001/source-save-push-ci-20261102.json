@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "phase": "two_reviewed_commits_pushed_dual_CI_terminal_new_document_pin_regression",
+  "observedAt": "2026-11-02T06:04:26.680123+00:00",
+  "branch": "codex/issue23-integrated-regression",
+  "commits": [
+    {
+      "sha": "4e50567ae6f951077628e806a8feea500ee4d799",
+      "files": 13,
+      "scope": "independently reviewed selected source implementation; one EOF blank line removed with identical emitted JS"
+    },
+    {
+      "sha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+      "files": 27,
+      "scope": "reviewed docs/evidence and selected PROJECT appendices/state103; old PROJECT runner history excluded"
+    }
+  ],
+  "push": {
+    "exitCode": 0,
+    "destination": "tower1229/Stella-Core",
+    "branch": "codex/issue23-integrated-regression",
+    "remoteVerifiedSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+    "forceOrTrustChange": false,
+    "rejectionsThisRound": 0
+  },
+  "ci": [
+    {
+      "id": 41395963656,
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41395963656",
+      "headSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+      "status": "completed",
+      "conclusion": "failure",
+      "counts": {
+        "tests": 1820,
+        "pass": 1786,
+        "fail": 34,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "oldFailureNamesMatched": 26,
+      "oldFailureNamesMissing": [],
+      "oldNormalizedBlocksCompared": false,
+      "additionalFailures": [
+        {
+          "name": "a missing memory catalog is unavailable rather than a valid empty collection",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "33feabe9b08663fc6299dde5248a89835a2e475a310419e6f653c6f263e7f47c"
+        },
+        {
+          "name": "acceptance locators identify all 49 rows in their pinned contract documents",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "4032a464b5da16c4b822d52dae79e0020eff0fe0c6028bd1b774b0557ead9387"
+        },
+        {
+          "name": "contract edits cannot be silently reported as the pinned specification",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "d3a91ea859c39a7b40701cbfee61305d6a2877e383f006cbd91a1f5fd67e9b96"
+        },
+        {
+          "name": "delivery report expands every work item and acceptance without claiming missing evidence passed",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "d2d1f2f7087a807e7c685d1e14923d5fa8cab9845933b124bf5aeed4554d3e10"
+        },
+        {
+          "name": "only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "0f6c1d30df46dbdbcebc250b7f646260ff22d83e5d5894ed6ec5144549a56e1e"
+        },
+        {
+          "name": "partial, expired, superseded, dirty and different-version evidence cannot complete delivery",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "912a1224918f95a1a7ec88f95a0e6ab0a51a5ea5ef3e529f1a64a564bc5dfabe"
+        },
+        {
+          "name": "preflight separates unavailable acceptance, missing configuration and valid empty memory without exposing private fields",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "039c8b3eb0591612ac003a72a6482f052c12a5a8e76fa4bcc0b7780fdd5a82ac"
+        },
+        {
+          "name": "public blockers retain actionable categories and work ownership while unknown private text stays private",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "4a7a0fcd589d35d4f455640a7b44a91b4b5d732a92527715b53d0a6011b076d4"
+        }
+      ],
+      "stdoutSha256": "1bcfce94864148a1e2bb06e90a1c15b05ce818fa4b6577f0380ef881c2708e72"
+    },
+    {
+      "id": 41395963672,
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41395963672",
+      "headSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+      "status": "completed",
+      "conclusion": "failure",
+      "counts": {
+        "tests": 1820,
+        "pass": 1786,
+        "fail": 34,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "oldFailureNamesMatched": 26,
+      "oldFailureNamesMissing": [],
+      "oldNormalizedBlocksCompared": false,
+      "additionalFailures": [
+        {
+          "name": "a missing memory catalog is unavailable rather than a valid empty collection",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "4d837089349d8d6e94f2d007e9019c90733af53e3e1eefdef7bb0dbf7cc416f6"
+        },
+        {
+          "name": "acceptance locators identify all 49 rows in their pinned contract documents",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "39283928ec6e118f20f05c01eb129bf4b8289aa1c90ad87cb042679d8df3cb8e"
+        },
+        {
+          "name": "contract edits cannot be silently reported as the pinned specification",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "aeb2068c38e6621e1b2babe25581fbc28ed282569ef20547369c9f596b40551e"
+        },
+        {
+          "name": "delivery report expands every work item and acceptance without claiming missing evidence passed",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "10e91cc32dcb161de58f531a30d956f97bd018cb19d323ad1fb058cc4c13fd17"
+        },
+        {
+          "name": "only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "0cdef5b8eb3f82be6bbf552e4dc39b29208cb80febdea2075f286b517c2f7613"
+        },
+        {
+          "name": "partial, expired, superseded, dirty and different-version evidence cannot complete delivery",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "cd80c0d6c055dcfa30391f0922105282da7ee52cbfa54471c88c61066ae9cacd"
+        },
+        {
+          "name": "preflight separates unavailable acceptance, missing configuration and valid empty memory without exposing private fields",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "18b1a5bdb537f260b4451fa33aed4b4506c60571bb3c9466288dfb76420ebf45"
+        },
+        {
+          "name": "public blockers retain actionable categories and work ownership while unknown private text stays private",
+          "firstFailure": "delivery_contract_version_mismatch",
+          "laterAssertions": "not verified",
+          "blockSha256": "4a3d7595db65fc20fac63b1097f9e5baa096b97035f0c6cb4f8e94e636b20f5d"
+        }
+      ],
+      "stdoutSha256": "6cb8fb066e28899065742bf35fe30ab2be7bcf67a7443bb95149b71b24ce788c"
+    }
+  ],
+  "newRegression": {
+    "testFile": "tests/delivery-ledger.test.ts",
+    "firstFailure": "delivery_contract_version_mismatch",
+    "cause": "This documentation commit added4 lines before the acceptance tables in docs/10-DESIGN-BASELINE.md, but delivery-catalog still pins its previous full document hash and G01-G10 line numbers. All8 ledger parent tests fail at this first precondition.",
+    "catalogSource": "src/acceptance/delivery-catalog.ts",
+    "contract": "docs/10-DESIGN-BASELINE.md",
+    "pinnedSha256": "511c8424881bd3af0978d5e499a17b79fd9f9623b35d19b3ee81bae9670eae1d",
+    "actualSha256": "350a3766d4219db0ca78ba4b7a7696834f4df741e5ea9e45de804bb545dfaac2",
+    "driftedRows": 10,
+    "totalRows": 49,
+    "lineOffset": 4,
+    "allTenAcceptanceRowsByteIdenticalToPrior": true,
+    "oldBaselineDocumentAtCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+    "suggestedMinimalRepair": "Review and mechanically refresh only the10 G01-G10 contract hashes/line locators (+4), preserving all49 acceptance IDs/requirement strings and mismatch rejection. Keep added user-priority/navigation paragraphs. Run only delivery-ledger tests plus a49-row locator/hash audit; no weakening or legacy bridge revival. Separate from frozen compatibility5.",
+    "implemented": false,
+    "whyNotSilentlyFixed": "New regression reported with evidence/minimal repair first; current frozen compatibility package is not changed by an unrelated acceptance catalog patch.",
+    "notClaimed": "Not old26, not whole-suite green, not proof of data runtime defect absence. Later assertions remain unverified."
+  },
+  "remainingDirty": {
+    "compatibilityCandidate": [
+      "src/openclaw/ordinary-source-admission.ts",
+      "src/ordinary-plugin.ts",
+      "tests/ordinary-source-admission.test.ts",
+      "tests/source-policy-completion.test.ts",
+      "docs/ORDINARY-SOURCE-READ.md"
+    ],
+    "compatibilityReviewed": false,
+    "localProgressAndEvidence": "state105 and compatibility report/patch/manifest/state-update receipt; no pending reviewed runtime code left unsaved",
+    "PROJECT": "old paused runner/history differences + new technical appendix, preserved unstaged",
+    "priorLocalOrHistoricalPaths": [
+      ".task-control/reports/CORE-CI-BUDGET-001/recovery-validation-20261030.json",
+      ".task-control/reports/CORE-VAL-001/author-source-admission-closeout-20261030.json",
+      ".task-control/reports/CORE-VAL-001/binding-r1-ci-6b3d07b4-20261031.json",
+      ".task-control/reports/CORE-VAL-001/binding-r1-save-ci-20261031.json",
+      ".task-control/reports/CORE-VAL-001/candidate-work-brief-ci-0980775f-20261031.json",
+      ".task-control/reports/CORE-VAL-001/candidate-work-brief-push-ci-20261031.json",
+      ".task-control/reports/CORE-VAL-001/candidate-work-brief-save-20261031.json",
+      ".task-control/reports/CORE-VAL-001/current-author-source-design-20261031.json",
+      ".task-control/reports/CORE-VAL-001/host-attempt2-20261031.json",
+      ".task-control/reports/CORE-VAL-001/host-attempt3-20261031.json",
+      ".task-control/reports/CORE-VAL-001/host-attempt4-20261031.json",
+      ".task-control/reports/CORE-VAL-001/host-attempt5-20261031.json",
+      ".task-control/reports/CORE-VAL-001/host-once-20261031.json",
+      ".task-control/reports/CORE-VAL-001/legacy26-save-blocked-20261102.json",
+      ".task-control/reports/CORE-VAL-001/legacy26-save-ci-20261102.json",
+      ".task-control/reports/CORE-VAL-001/main-ci-421af72b-20261031.json",
+      ".task-control/reports/CORE-VAL-001/main-save-ci-20261031.json",
+      ".task-control/reports/CORE-VAL-001/offline-independent-handoff-20261030.json",
+      ".task-control/reports/CORE-VAL-001/offline-source-ci-37669033-20261031.json",
+      ".task-control/reports/CORE-VAL-001/offline-source-push-20261031.json",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/docs/ORDINARY-SOURCE-READ.md",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/openclaw.plugin.json",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/package.json",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/src/openclaw/current-input-metadata.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/src/openclaw/ordinary-source-admission.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/src/openclaw/ordinary-source-read.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/src/ordinary-plugin.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/src/praxis/episode-evidence.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/tests/current-input-metadata.test.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/tests/fixtures/ordinary-source-read.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/tests/ordinary-plugin.test.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/tests/ordinary-source-admission.test.ts",
+      ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/tests/ordinary-source-read.test.ts",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/docs/ORDINARY-SOURCE-READ.md",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/openclaw.plugin.json",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/package.json",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/source-read-port-combined-20261102.patch",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/source-read-port-r1-20261102.json",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/src/openclaw/current-input-metadata.ts",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/src/openclaw/ordinary-source-read.ts",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/src/ordinary-plugin.ts",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/tests/current-input-metadata.test.ts",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/tests/ordinary-plugin.test.ts",
+      ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/tests/ordinary-source-read.test.ts",
+      ".task-control/reports/CORE-VAL-001/v2-tool-start-20261030.json",
+      ".task-control/reports/CORE-VAL-001/webchat-principal-plan-20261102.json",
+      ".task-control/reports/design-docs-20261030/CHANGES.patch",
+      ".task-control/reports/design-docs-20261030/FROZEN.json",
+      ".task-control/reports/design-docs-20261030/REPORT.md",
+      ".task-control/reports/management-isolation-20261030/BASELINE.json",
+      ".task-control/reports/management-isolation-20261030/HEAD-management.patch",
+      ".task-control/reports/management-isolation-20261030/ISOLATION.json",
+      ".task-control/reports/management-isolation-20261030/REPORT.md",
+      ".task-control/reports/management-isolation-20261030/legacy-business-residual.patch",
+      "docs/design/2026-10-30-author-source-admission-verdict.md",
+      "docs/design/2026-10-31-current-author-source-adapter.md",
+      "docs/evidence/2026-10-29-installed-correction-host-runner/README.md",
+      "docs/evidence/2026-10-29-installed-correction-host-runner/failure-diagnostics-r1-verification.json",
+      "docs/evidence/2026-10-29-installed-correction-host-runner/failure-diagnostics-r2-verification.json",
+      "docs/evidence/2026-10-29-installed-correction-host-runner/failure-diagnostics-verification.json",
+      "docs/evidence/2026-10-29-installed-correction-host-runner/r1-verification.json",
+      "docs/evidence/2026-10-29-installed-correction-host-runner/verification-summary.json",
+      "docs/evidence/2026-10-30-ordinary-v2-intent-tool/README.md",
+      "docs/evidence/2026-10-30-ordinary-v2-intent-tool/verification-summary.json",
+      "docs/suqing-m1-2026-10-22.md",
+      "docs/suqing-m1-plugin-boundary-review-2026-10-22.md",
+      "docs/suqing-midterm-plan-2026-10-22.md",
+      "scripts/fixtures/installed-correction-observer.mjs",
+      "scripts/lib/author-intent-gemini-fixture.mjs",
+      "scripts/lib/installed-correction-diagnostics.mjs",
+      "scripts/lib/installed-correction-fixed-provider.mjs",
+      "scripts/lib/installed-correction-host-trial.test.mjs",
+      "scripts/lib/installed-correction-network.mjs",
+      "scripts/run-installed-correction-host.mjs",
+      "tests/installed-correction-diagnostics.test.ts",
+      "tests/installed-correction-host-runner.test.ts",
+      "tests/recovery-pointer-barriers.test.ts"
+    ],
+    "priorLocalPathCount": 77,
+    "originNotAssumedUserAuthored": "historical docs/reports/full frozen duplicate snapshots/paused runner code; retained, not swept into new commits"
+  },
+  "noActions": [
+    "No shared main/config/reload",
+    "No real model/private payload/new credentials",
+    "No old PGID operations",
+    "No source compatibility commit before independent review",
+    "No automatic new CI run"
+  ],
+  "freshHostApproval": {
+    "extraLocalhost55788RuleApplied": false,
+    "chatSendUsed": 0,
+    "maxChatSend": 1,
+    "protocolHttpUsed": 0,
+    "maxProtocolHttp": 4,
+    "totalMs": 90000,
+    "oldQuotaReused": false
+  }
+}

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 103,
-  "updatedAt": "2026-11-02T05:42:07.791615+00:00",
+  "revision": 110,
+  "updatedAt": "2026-11-02T06:21:37.112321+00:00",
   "writer": {
-    "agent": "Core minimal public WebChat principal/default-model compatibility implementation single writer",
-    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:source-compat-20261102"
+    "agent": "Core reviewed package save and approved synthetic Host writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:save-host-20261102"
   },
   "workstreams": [
     {
@@ -1418,11 +1418,37 @@
             "stateUpdateBaseRevision": 100,
             "stateUpdateBaseSha256": "6bd206c2e2e6518dbe2540019030d48a7678fe5b857db148ea63541c66fc13e6"
           }
+        },
+        {
+          "id": "C-VAL-SOURCE-COMPAT-SYNTHETIC-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/source-compat-20261102.json",
+          "claim": "Public WebChat authenticated-profile/default-main-model minimal compatibility candidate; full compile0, final affected20/20, earlier62/62 separate, exact patch5/5. No actual Host/private source/semantic acceptance. Independent review pending.",
+          "observedAt": "2026-11-02T05:58:48.754339+00:00",
+          "subject": {
+            "sha256": "ebb33599b4335c995ca9f59911f9b2ffcfdefb851407ca5741b49cda85b2b4ba",
+            "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+            "patchSha256": "60763abce63e4d4db0da035edb80c8fd1f3db69c6c7d2c7168376a3319924aef",
+            "manifestSha256": "e1018f0ff9f95f1fec9e6b038e7b368ec864cb7a6248014d3da1a2b9415dff80"
+          }
+        },
+        {
+          "id": "C-VAL-DELIVERY-PIN-FIX-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/delivery-pin-fix-20261102.json",
+          "claim": "One-file exact10G document pin/locator refresh. Red8fail then green11pass including3 existing tamper-negative children; full TS compile0; all49 catalog bindings audited; guard/test bytes and compatibility5 unchanged. Pending independent review; no push/Host.",
+          "observedAt": "2026-11-02T06:11:03.130107+00:00",
+          "subject": {
+            "sha256": "1e0779ee21e6b40ebb92d5a26e6551da641783dd955101f1980d94f1e7b71a3b",
+            "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+            "patchSha256": "374be40c3eb4cd8f9bace6b5a20fb2c662726120e0ead33dd6a19e7e0fe7c74f",
+            "sourceSha256": "88cd63d24e448b4731ebaf9d3cd76f447c4228a48476083bd007866ae0759539"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Fixed state97 source-admission13 offline implementation independently accepted; minimal summary/identity63/28/9/4 separate counts permanently archived. Frozen13 remains exact reviewed bytes. Main/coordination/technical index now reference acceptance and actual-runtime boundaries; report/technical patch only, no stage/commit/push. SDK source proves omitted model uses configured native primary/default with completion/operator allowlists still enforced; an already exact main/default/active Gemini3.8 scope can avoid unnecessary override permissions, but current frozen wrapper still passes explicit model/agent. Actual shared main defaults/capabilities not read; no claim it is suitable. Native CLI chat.send through separate synthetic Gateway is a concrete future producer candidate; browser operator ctxSenderId omission is a separate compatibility fact. No paid request/private data/shared Host action; writer returned.",
-        "nextAction": "Manager assign minimal public Gateway-profile/default-model compatibility increment preserving accepted13 snapshot; implement/test synthetic guards only, no trust/grant expansion. Then use already approved one isolated90s/max4local-model-HTTP nativeCLI chat.send run with exact extra localhost55788 rule; approval recorded, not executed/consumed. WebChat profile mapping uses public SDK getter facts and requires actual callback verification; do not fake SenderId or call a real model to discover missing fields. Keep shared selfie main untouched; push withheld.",
+        "checkpoint": "Pushed4498a46 dualCI1820/1786/34 retained; exact new8 reproduced locally. Minimal single-file catalog10G pin/+4line refresh now compile0 and delivery tests11/11 including3 unchanged document-tamper negative children; all49 locators/hashes and unchanged row payloads audited. Frozen compatibility5 unchanged, unreviewed/uncommitted; old dirty preserved. No Host/model/private action.",
+        "nextAction": "Parent independently review one-file delivery pin repair + report/patch, then immediately commit/push exact accepted package and follow exact newSHA CI. Do not stage compatibility5 or old PROJECT/history. Compatibility5 separate review remains pending; approved fresh native producer scope still unused.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2185,14 +2211,46 @@
           "identityOrSourceGrantChanged": false
         },
         "sourceCompatibility": {
-          "phase": "implementation_running",
+          "phase": "independently_accepted_committing",
           "baseRevision": 101,
           "accepted13Snapshot": ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/MANIFEST.json",
           "sha256": "eaca37f7977aea4d23bace5adc988988d785977640d521f9b1dadcd7d5f1cf3a",
-          "scope": "public Gateway authenticated profile -> existing current-run source grant, legitimate exact default main/Gemini route; synthetic only, no new rights/Host/model"
+          "scope": "public Gateway authenticated profile -> existing current-run source grant, legitimate exact default main/Gemini route; synthetic only, no new rights/Host/model",
+          "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+          "report": ".task-control/reports/CORE-VAL-001/source-compat-20261102.json",
+          "reportSha256": "ebb33599b4335c995ca9f59911f9b2ffcfdefb851407ca5741b49cda85b2b4ba",
+          "patch": ".task-control/reports/CORE-VAL-001/source-compat-20261102.patch",
+          "patchSha256": "60763abce63e4d4db0da035edb80c8fd1f3db69c6c7d2c7168376a3319924aef",
+          "frozenManifest": ".task-control/reports/CORE-VAL-001/source-compat-frozen-20261102.json",
+          "frozenManifestSha256": "e1018f0ff9f95f1fec9e6b038e7b368ec864cb7a6248014d3da1a2b9415dff80",
+          "frozenFiles": 5,
+          "earlyFocused": {
+            "tests": 62,
+            "pass": 62,
+            "phase": "before last same-scope case"
+          },
+          "finalAffected": {
+            "tests": 20,
+            "pass": 20
+          },
+          "countsNotSummed": true,
+          "compileExit": 0,
+          "actualHostValidated": false,
+          "privateSourceBound": false,
+          "paidRequests": 0,
+          "sharedHostActions": 0,
+          "executionReady": false,
+          "committed": false,
+          "pushed": false,
+          "patchReplayExact": true,
+          "review": ".task-control/reports/CORE-VAL-001/source-compat-review-20261102.json",
+          "independentTests": {
+            "total": 39,
+            "pass": 39
+          }
         },
         "sourceSave": {
-          "phase": "code13_committed_document_evidence_staging",
+          "phase": "pushed_dual_ci_terminal_document_pin_regression",
           "codeCommit": "4e50567ae6f951077628e806a8feea500ee4d799",
           "codeFiles": 13,
           "fixtureFormattingOnly": {
@@ -2204,12 +2262,226 @@
           },
           "receipt": ".task-control/reports/CORE-VAL-001/source-save-20261102.json",
           "receiptSha256": "4cb403bc5c5657442f5f480c7ffebee3df5f5a30ba63961f6ef93edf20a550d6",
-          "push": "not_run",
+          "push": "succeeded",
           "compatibilityWorktree": "unreviewed source admission changes retained; not in code commit",
-          "projectStateIndex": "only source-read technical appendices; old runner/history diff excluded"
+          "projectStateIndex": "only source-read technical appendices; old runner/history diff excluded",
+          "documentCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+          "documentFiles": 27,
+          "remoteSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+          "committedStateRevision": 103,
+          "ci": [
+            {
+              "id": 41395963656,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41395963656",
+              "headSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1820,
+                "pass": 1786,
+                "fail": 34,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "oldFailureNamesMatched": 26,
+              "oldFailureNamesMissing": [],
+              "oldNormalizedBlocksCompared": false,
+              "additionalFailures": [
+                {
+                  "name": "a missing memory catalog is unavailable rather than a valid empty collection",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "33feabe9b08663fc6299dde5248a89835a2e475a310419e6f653c6f263e7f47c"
+                },
+                {
+                  "name": "acceptance locators identify all 49 rows in their pinned contract documents",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "4032a464b5da16c4b822d52dae79e0020eff0fe0c6028bd1b774b0557ead9387"
+                },
+                {
+                  "name": "contract edits cannot be silently reported as the pinned specification",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "d3a91ea859c39a7b40701cbfee61305d6a2877e383f006cbd91a1f5fd67e9b96"
+                },
+                {
+                  "name": "delivery report expands every work item and acceptance without claiming missing evidence passed",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "d2d1f2f7087a807e7c685d1e14923d5fa8cab9845933b124bf5aeed4554d3e10"
+                },
+                {
+                  "name": "only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "0f6c1d30df46dbdbcebc250b7f646260ff22d83e5d5894ed6ec5144549a56e1e"
+                },
+                {
+                  "name": "partial, expired, superseded, dirty and different-version evidence cannot complete delivery",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "912a1224918f95a1a7ec88f95a0e6ab0a51a5ea5ef3e529f1a64a564bc5dfabe"
+                },
+                {
+                  "name": "preflight separates unavailable acceptance, missing configuration and valid empty memory without exposing private fields",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "039c8b3eb0591612ac003a72a6482f052c12a5a8e76fa4bcc0b7780fdd5a82ac"
+                },
+                {
+                  "name": "public blockers retain actionable categories and work ownership while unknown private text stays private",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "4a7a0fcd589d35d4f455640a7b44a91b4b5d732a92527715b53d0a6011b076d4"
+                }
+              ],
+              "stdoutSha256": "1bcfce94864148a1e2bb06e90a1c15b05ce818fa4b6577f0380ef881c2708e72"
+            },
+            {
+              "id": 41395963672,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41395963672",
+              "headSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1820,
+                "pass": 1786,
+                "fail": 34,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "oldFailureNamesMatched": 26,
+              "oldFailureNamesMissing": [],
+              "oldNormalizedBlocksCompared": false,
+              "additionalFailures": [
+                {
+                  "name": "a missing memory catalog is unavailable rather than a valid empty collection",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "4d837089349d8d6e94f2d007e9019c90733af53e3e1eefdef7bb0dbf7cc416f6"
+                },
+                {
+                  "name": "acceptance locators identify all 49 rows in their pinned contract documents",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "39283928ec6e118f20f05c01eb129bf4b8289aa1c90ad87cb042679d8df3cb8e"
+                },
+                {
+                  "name": "contract edits cannot be silently reported as the pinned specification",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "aeb2068c38e6621e1b2babe25581fbc28ed282569ef20547369c9f596b40551e"
+                },
+                {
+                  "name": "delivery report expands every work item and acceptance without claiming missing evidence passed",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "10e91cc32dcb161de58f531a30d956f97bd018cb19d323ad1fb058cc4c13fd17"
+                },
+                {
+                  "name": "only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "0cdef5b8eb3f82be6bbf552e4dc39b29208cb80febdea2075f286b517c2f7613"
+                },
+                {
+                  "name": "partial, expired, superseded, dirty and different-version evidence cannot complete delivery",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "cd80c0d6c055dcfa30391f0922105282da7ee52cbfa54471c88c61066ae9cacd"
+                },
+                {
+                  "name": "preflight separates unavailable acceptance, missing configuration and valid empty memory without exposing private fields",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "18b1a5bdb537f260b4451fa33aed4b4506c60571bb3c9466288dfb76420ebf45"
+                },
+                {
+                  "name": "public blockers retain actionable categories and work ownership while unknown private text stays private",
+                  "firstFailure": "delivery_contract_version_mismatch",
+                  "laterAssertions": "not verified",
+                  "blockSha256": "4a3d7595db65fc20fac63b1097f9e5baa096b97035f0c6cb4f8e94e636b20f5d"
+                }
+              ],
+              "stdoutSha256": "6cb8fb066e28899065742bf35fe30ab2be7bcf67a7443bb95149b71b24ce788c"
+            }
+          ],
+          "remainingDirty": "unreviewed compatibility5 + new minimal report/patch/manifest and progress; old PROJECT runner/history and historical untracked packages retained; no remaining independently reviewed runtime code awaiting save",
+          "ciReport": ".task-control/reports/CORE-VAL-001/source-save-push-ci-20261102.json",
+          "ciReportSha256": "f552970f467c5bee1dd24643351a99a3162a56fdf120edbc22ef5e02a784bd3d",
+          "wholeSuitePassed": false,
+          "newObservedRegression": true,
+          "newRegression": "8 delivery-ledger tests fail first on unchanged catalog pin after docs10 +4 lines; repair suggestion recorded, not implemented"
+        },
+        "deliveryPinRepair": {
+          "phase": "committed_push_rejected_before_process",
+          "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+          "baseRevision": 106,
+          "baseSha256": "c8d57bc1ca7ae4d49d223f74c22631443ba3eca2e40ef62f7eb5d8351e74166b",
+          "scope": "only exact10G-row document pin and line refresh; guard/acceptance content unchanged; compatibility5 stays frozen; no Host/model",
+          "push": "not assigned before independent review",
+          "report": ".task-control/reports/CORE-VAL-001/delivery-pin-fix-20261102.json",
+          "reportSha256": "1e0779ee21e6b40ebb92d5a26e6551da641783dd955101f1980d94f1e7b71a3b",
+          "patch": ".task-control/reports/CORE-VAL-001/delivery-pin-fix-20261102.patch",
+          "patchSha256": "374be40c3eb4cd8f9bace6b5a20fb2c662726120e0ead33dd6a19e7e0fe7c74f",
+          "sourceSha256": "88cd63d24e448b4731ebaf9d3cd76f447c4228a48476083bd007866ae0759539",
+          "red": {
+            "tests": 8,
+            "pass": 0,
+            "fail": 8,
+            "exitCode": 1,
+            "stdoutSha256": "c1af421e02c21a3971f488c68141cfa07b5489f66ed522df08907a7142391c2a",
+            "argv": [
+              "node",
+              "--test",
+              "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-delivery-pin-20261102-q9zeocpo/compiled/tests/delivery-ledger.test.js"
+            ],
+            "time": "2026-11-02T06:08:08.659026+00:00"
+          },
+          "green": {
+            "tests": 11,
+            "pass": 11,
+            "fail": 0,
+            "exitCode": 0,
+            "stdoutSha256": "1551373bd65580bb3c347e6fb33ed7593eaf86ba37ab135a41d47f6100b9b5ba",
+            "argv": [
+              "node",
+              "--test",
+              "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-delivery-pin-20261102-q9zeocpo/compiled/tests/delivery-ledger.test.js"
+            ],
+            "time": "2026-11-02T06:08:57.928027+00:00"
+          },
+          "catalogRowsAudited": 49,
+          "guardAndTestsUnchanged": true,
+          "compatibilityFiveUnchanged": true,
+          "committed": true,
+          "pushed": false,
+          "review": ".task-control/reports/CORE-VAL-001/delivery-pin-review-20261102.json",
+          "commit": "1749b1c09c8dddc7a627f6ba50867a2439c06e1c",
+          "pushBlocker": ".task-control/reports/CORE-VAL-001/source-package-save-20261102.json"
+        },
+        "sourcePackageSave": {
+          "report": ".task-control/reports/CORE-VAL-001/source-package-save-20261102.json",
+          "sha256": "e1d23ae1568fd5a006cbba0245da62b05e8f88f1c22e7fcf8c51b16f65a19156",
+          "pinCommit": "1749b1c09c8dddc7a627f6ba50867a2439c06e1c",
+          "push": "auto_review_denied_process_not_created",
+          "newCITriggered": false
+        },
+        "sourceNativeProducer": {
+          "phase": "assigned_not_started",
+          "scope": "current10.9 isolated syntheticGateway + fixedlocal protocol; one nativeCLI chat.send/max4protocolHTTP/90stotal; only additional localhost55788 in profile copy",
+          "approvalMessage": "Sentinel_91bd6b82d66c8191ab3cde93710b106e",
+          "consumed": 0,
+          "remaining": 1,
+          "privateDataOrRealProvider": false,
+          "sharedMainChanges": false,
+          "oldQuotaReused": false
         }
       },
-      "updatedAt": "2026-11-02T05:42:07.791615+00:00",
+      "updatedAt": "2026-11-02T06:21:37.112321+00:00",
       "delivery": {
         "local": {
           "status": "committed",

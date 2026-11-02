@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "phase": "implemented_synthetic_checks_passed_pending_independent_review_no_Host",
+  "observedAt": "2026-11-02T05:57:24.165387+00:00",
+  "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+  "branch": "codex/issue23-integrated-regression",
+  "scope": "Minimal public authenticated WebChat principal and exact native main/default model compatibility; no new grant/identity service/configuration",
+  "files": {
+    "src/openclaw/ordinary-source-admission.ts": "cd0241fd02605b5f88a478eeba7d500545d89ac9543e94a6c350fc89fce85d96",
+    "src/ordinary-plugin.ts": "d1b9f34d16e1d3e07698cc50161e8942fc497ecbf2f03ccf9871fb3b9333d0d7",
+    "tests/ordinary-source-admission.test.ts": "8ac9a5b8b1ce7fd7e1841573f99d9aeea76b5b16e6a465dab338fa2792134b36",
+    "tests/source-policy-completion.test.ts": "4d4fc222a3108febb1d92069c0b22168804a93de3fd0fbf83cadb95ed48a5160",
+    "docs/ORDINARY-SOURCE-READ.md": "fad5e7b9cbda4c94716326300099b7d89e1e61e43c4a76fdd7e08cb3f2bb9bb7"
+  },
+  "frozenManifest": ".task-control/reports/CORE-VAL-001/source-compat-frozen-20261102.json",
+  "frozenManifestSha256": "e1018f0ff9f95f1fec9e6b038e7b368ec864cb7a6248014d3da1a2b9415dff80",
+  "patch": ".task-control/reports/CORE-VAL-001/source-compat-20261102.patch",
+  "patchSha256": "60763abce63e4d4db0da035edb80c8fd1f3db69c6c7d2c7168376a3319924aef",
+  "taskLocalFrozenRoot": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/frozen",
+  "sdk": "2026.10.9",
+  "manifestLockSDK": "2026.10.8 unchanged; not claimed tested on10.8",
+  "node": "24.22.1",
+  "tests": {
+    "focused": {
+      "receipt": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/ordinary-source-admission.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/source-policy-completion.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/ordinary-plugin.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/current-input-metadata.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/ordinary-source-read.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/tool-request-binding.test.js"
+        ],
+        "exitCode": 0,
+        "startedAt": "2026-11-02T05:51:31.351499+00:00",
+        "finishedAt": "2026-11-02T05:51:47.130798+00:00"
+      },
+      "stdoutSha256": "e6440baabdf534d4b70fbfeb47b891f6c220f4e365a308a1191ae3979a1efce7",
+      "tests": 62,
+      "pass": 62,
+      "fail": 0,
+      "rawLog": "task-local only; not archived or staged"
+    },
+    "affected-r2": {
+      "receipt": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/ordinary-source-admission.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/source-policy-completion.test.js"
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-11-02T05:53:34.856830+00:00"
+      },
+      "stdoutSha256": "c57facce71fdaef4607080db9301fcb735dca2dcab5e27408b6f9f46197ce61f",
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "rawLog": "task-local only; not archived or staged"
+    },
+    "affected-final": {
+      "receipt": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/ordinary-source-admission.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled/tests/source-policy-completion.test.js"
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-11-02T05:56:12.114499+00:00"
+      },
+      "stdoutSha256": "e8dd67f672c60aee2d1f73abaa8b84fd98e6f920a40df558b65501f491de8cdb",
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "rawLog": "task-local only; not archived or staged"
+    }
+  },
+  "compile": {
+    "argv": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-p",
+      "tsconfig.test.json",
+      "--outDir",
+      "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-20261102-pk5gn6ey/compiled",
+      "--sourceMap",
+      "false",
+      "--declaration",
+      "false"
+    ],
+    "exitCode": 0,
+    "finishedAt": "2026-11-02T05:56:04.503125+00:00"
+  },
+  "countsNotSummed": true,
+  "testVersionNote": "Initial62/62 preceded the last same-scope guard/case. Final affected20/20 exercises all16 admission cases plus4 default completion cases after final code changes; no combined63 claim. Full TS compilation exit0. No full local suite rerun.",
+  "publicEvidence": {
+    "sdkHashes": {
+      "dist/plugin-sdk/plugin-runtime.d.ts": "3f3e485dee18cb8765a4ddec5b72e3456f4344b77a849ae84e82f2f20158d0cf",
+      "dist/plugin-sdk/plugin-runtime.js": "bc0721dd1181550ff2f5d8f158e5acbd6a8c553322e3e01e9227358c482bd9f7",
+      "dist/plugin-sdk/agent-runtime.d.ts": "392ae7489bd963b27716c90969c4b6303674ef6250ba8c7d7efbaf8b4148a8b0",
+      "dist/plugin-sdk/agent-runtime.js": "e4c9b71ce376eeaf0b07a19bfe23fd832120158b722cb49c292e8dba6c200868",
+      "dist/config-contracts-DzLaG7FV.d.ts": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17",
+      "dist/server-methods-BgKN9CSB.mjs": "d7ee50c6296dc3114abaa1aa552aba61c188a782bfe41b4d386e9dfefb0552cd",
+      "dist/gateway-request-scope-DV3FHtde.mjs": "3fc75198eb5db433da3550fc7182b82d64df910de4e27d425ae422da28404118",
+      "dist/gateway-client-identity-C-9Xwi8i.mjs": "320b1a38ee1b8c293d0d0f4e83e7019b0c8e0850f9394fec489786f88f1c5f9e",
+      "dist/chat-send-handler-B0jivtwJ.mjs": "496e4dd3478b22cbd134839dc9861e0528d2ddacb1bc281423b673add9e2e1b5",
+      "dist/tools-DQdRObqo.mjs": "de48b6fa22ada137138857e06c8d04130568dffd31cc967edbf63f67213b8e85",
+      "dist/runtime-llm.runtime-BKhiUWXy.mjs": "614e55064e7fa322738be94470d42ba0bb0c624a3157ac57ca9cc67e9839523a",
+      "dist/agent-scope-config-BEk6-ThS.mjs": "94f6e5a4f2b60ae6f470ae42520e9e888daea57ee79ba48cb246287ffd02dc00",
+      "dist/model-selection-config-BC0CegJ7.mjs": "003b56a923ae759cdf95de0e68d640bac5ec4ffa99aa21e89bf803c8743587a5",
+      "dist/simple-completion-runtime-C71S2ucI.mjs": "7acbcbfc547f401ae6e7e62561ebc3e6afb240bb4e114d8b7c682ac917acf112"
+    },
+    "entryPrincipal": "Exported getPluginRuntimeGatewayRequestScope; public client authenticatedUserProfile/profileId + connId + authenticatedControlUi/operator and initial live authority. No private Symbol/module imports.",
+    "producer": "server-methods dispatcher installs genuine options; copyGatewayScope preserves public context through plugin wrappers. Browser ctx.SenderId deliberately omitted in gateway-client-identity. Simultaneous actual callback availability still unverified.",
+    "completion": "public listAgentIds/resolveDefaultModelForAgent; fixed SDK runtime-llm resolveAgentId244-259 supports ambient owner; model allowlists460-471 remain for implicit default; only requestedModel requires override473. Simple completion primary selection uses native default when modelRef absent; no useUtilityModel enabled.",
+    "noPrivateHostSourceModification": true
+  },
+  "implementation": {
+    "webchat": "Capture genuine authenticated profile/connection at actual dispatch; same public scope at hooks/read; original native/v2 guards and exact run/call/incarnation. No SenderId mutation. Reject synthetic/delegated, missing/expired entry, conflicting profile/sender, absent current scope; observed profile/scope conflict poisons this binding.",
+    "authorization": "Captured profile must equal the existing unique requester in the pinned source-access grant. Source/base+segment policy/purpose/model/owner-private unchanged. No alias or requester addition.",
+    "lifetime": "Initial live transport only for entry. RPC/socket retirement alone does not revoke admitted work; native/v2 cancellation/end still governs. Next user request requires fresh live admission/current version.",
+    "defaultModel": "Only main with explicit main system owner or sole main, exact public resolved google/gemini-3.8-flash and empty configured fallbacks may use absent agentId/model parameters. Low/maxTokens/signal preserved; no sampling params. Host denial propagates once, result identity/route checked.",
+    "normalIngress": "CLI/channel path retains Host transport sender and owner requirements; synthetic/delegated scope cannot fall back to a copied SenderId.",
+    "testPorts": "getGatewayRequestScope/completeSourceAccess are JS constructor test ports, absent from plugin JSON/tool schema; default entry uses actual SDK getter/runtime."
+  },
+  "boundaries": {
+    "sharedMainConfigProcessPortChanges": 0,
+    "actualHostOrListenerStarts": 0,
+    "realModelOrExternalRequests": 0,
+    "privatePayloadReads": 0,
+    "credentialsOrTrustChanges": 0,
+    "publisher": false,
+    "authorConfirmation": false,
+    "privateSourceBinding": false,
+    "actualWebChatMappingValidated": false,
+    "semanticUnderstandingValidated": false,
+    "permissionExpansion": false,
+    "fresh55788ApprovalUsed": false,
+    "freshChatSendCount": 0,
+    "oldExhaustedQuotaReused": false
+  },
+  "nextStep": "One independent review of these5 frozen files; then parent assign already approved isolated native CLI chat.send/local-protocol90s/max4HTTP with only exact extra localhost55788 rule in copy. This proves technical producer plumbing, not durable browser/human identity or LLM semantics. No additional paid/data permission is inferred.",
+  "knownUncovered": [
+    "Actual browser scope presence at reply_dispatch/hook/tool and exact existing profile-to-grant match",
+    "Actual native producer source-policy completion and final model consumption",
+    "Real private-source binding, original author mapping, paid semantics/full_memory"
+  ],
+  "priorReviewedDelivery": {
+    "codeCommit": "4e50567ae6f951077628e806a8feea500ee4d799",
+    "codeFiles": 13,
+    "documentCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+    "documentFiles": 27,
+    "push": "normal_success_remote_verified",
+    "remoteSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+    "compatibilityIncluded": false
+  },
+  "uncommittedByDesign": "This5-file compatibility candidate/report/patch and local progress await independent review; old PROJECT runner/history and historical untracked packages preserved. No git add-all."
+}

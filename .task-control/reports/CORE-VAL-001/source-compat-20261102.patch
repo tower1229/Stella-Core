@@ -1,0 +1,574 @@
+diff --git a/docs/ORDINARY-SOURCE-READ.md b/docs/ORDINARY-SOURCE-READ.md
+index b26fd0dd..3ff4fc3d 100644
+--- a/docs/ORDINARY-SOURCE-READ.md
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -1,7 +1,10 @@
+ # Ordinary-plugin selected-source read port
+ 
+-2026-11-02 local implementation candidate; **not installed, independently accepted,
+-or connected to private CangHai**. This supplies the deterministic read seam for
++2026-11-02 selected-source read implementation: the state97 offline package was
++independently accepted and saved in `4e50567`; its evidence/docs are in `4498a46`.
++The public WebChat/default-model compatibility increment below is a local
++candidate awaiting independent review. **Neither package is installed or connected
++to private CangHai.** This supplies the deterministic read seam for
+ the [data-first priority](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority).
+ It does not implement semantic routing or claim that a model understands data.
+ 
+@@ -114,18 +117,52 @@ Listing and deterministic source checks cannot decide natural-language meaning.
+ The native Agent / properly qualified structured LLM port must select relevant
+ sources, follow leads, distinguish facts/inferences and decide answer versus
+ clarification. No lexical routing or fallback is added. For per-source policy semantics, the
+-adapter calls only the public Host `llm.complete` port, explicitly selecting
++adapter calls only the public Host `llm.complete` port, requiring
+ `google/gemini-3.8-flash` with `low`, no sampling parameter, and no configured
+ fallback. The code passes only the current normalized request and one reviewed
+ descriptor/policy context; it does not pass original bodies to that judgment.
+ Actual runtime dispatch/consumption is not verified by these synthetic tests.
+-No provider call was made by this implementation or its tests. The explicit
+-agent/model parameters also remain subject to the Host's existing LLM capability
+-policy. No override permission was added here; an unbound/disallowed Host runtime
+-must reject rather than select another agent/model. The real public capability
+-scope must be checked before a later model-backed run.
+-
+-## Actual verification and remaining integration
++No provider call was made by this implementation or its tests. The state97
++wrapper passed explicit agent/model parameters; its offline evidence does not
++establish the Host's override authorization. The compatibility candidate below
++uses the exact proven native default without adding override permissions. An
++unproven/disallowed runtime fails rather than selecting another agent/model.
++
++## Public WebChat and native-default compatibility candidate
++
++OpenClaw2026.10.9 deliberately omits transport `SenderId` for authenticated
++operator WebChat. The added mode reads only the exported
++`getPluginRuntimeGatewayRequestScope` facts: Host-attested authenticated Control
++UI/operator, authenticated profile, connection identity and live admission at
++dispatch. Client IDs, prompt/tool parameters, `toolBindings` and `runContext`
++cannot supply this identity. Synthetic/delegated clients reject even when they
++copy a matching sender/profile. No `SenderId` field is fabricated or changed.
++
++The profile must exactly equal the selected grant's existing requester; no alias,
++requester addition or new audience is created. The same native run, call, session
++incarnation, committed admission and original v2 guard still apply. Hook and read
++require the same public profile/connection scope. Conflicting identities reject.
++RPC/socket completion alone does not revoke a previously admitted run; original
++native/v2 cancellation/end still applies. Each new request needs fresh live
++admission and the current selected version/grant. Normal channel/CLI ingress
++continues to require its Host-supplied sender and original owner checks.
++
++The default completion path first proves `main` is the configured ambient owner
++(explicit system owner or sole agent), its public resolved default is exactly
++`google/gemini-3.8-flash`, and no default/agent fallback is configured. Only then
++does it omit the `agentId` and `model` override parameters. The Host still checks
++completion/operator/source/model capabilities; denial propagates without retry.
++Returned agent, provider/model and direct-provider execution must still match.
++Unknown owner, ambiguous fleet, different model or fallback fails before calling
++completion. No override capability, identity grant or configuration is changed.
++
++This is code and synthetic callback coverage on SDK10.9, **not** evidence that
++the actual browser callbacks carry the public scope, or that a real human profile
++matches the existing selected grant. The approved independent CLI/local-protocol
++producer test remains unused; it can prove native technical plumbing, not browser
++human identity or semantic understanding. Shared main/selfie remains untouched.
++
++## Historical verification before state97
+ 
+ TypeScript compilation passed on the observed local OpenClaw SDK2026.10.9 and
+ Node24.22.1; project manifest/lock still pin10.8 and were not changed. Focused
+@@ -134,7 +171,7 @@ checks passed **37/37**:11new source-port groups plus5ordinary,10binding and
+ were synthetic. The real plugin registration/factory code was exercised with an
+ explicit test issuer; no Gateway, live ingestion, external model or private
+ payload was used. The initial34pass/2fail run is retained separately. No full
+-suite, installation, reload, consent, commit or push was performed.
++suite, installation, reload, consent, commit or push was performed at that checkpoint.
+ 
+ The original37/37 run did not repair or approve the pre-existing metadata P2.
+ Its failure evidence and the read-port increment remain in
+@@ -146,12 +183,12 @@ Four getter-change counterexamples reproduced false observations before the
+ repair and are rejected after it. A valid snapshot/hash control and the affected
+ metadata/ordinary-entry cases passed **19/19**; the37cases were not rerun or
+ combined into a new total. This does not add source/author qualification.
+-The full entry and both local modules remain pending independent review and
+-uninstalled; no mixed working tree is approved merely by these test results.
++At that checkpoint the full entry and both local modules remained pending
++independent review and uninstalled; a mixed working tree was not approved by these tests.
+ The [R1 delivery receipt](../.task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.json)
+ pins the combined entry patch and its dependency/test evidence.
+ 
+-## Next thin binding candidate and Host validation
++## State97 binding review and remaining Host validation
+ 
+ The next package includes that request adapter, descriptor-scoped listing and
+ the independent review's request-lifetime/reference-projection repairs. The old
+@@ -166,7 +203,12 @@ The final author run passed63/63 focused cases; the same independent probe logic
+ replayed7/9 before the fixes and9/9 after them. The existing Evidence kernel suite
+ passed28/28 after its temporary harness was supplied the unchanged schema path;
+ the initial24/28 missing-schema failure is retained. These separate runs are not
+-summed or represented as independent acceptance. It is not installed.
++summed or represented as independent acceptance. Subsequently the independent
++[review summary](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)
++accepted the fixed13 package:63/63 focused,28/28 kernel,9/9 counterexample replay
++and4/4 default-entry probes, separately attributed. Both source defects and the
++metadata P2 closed at that boundary. This does not cover the newer compatibility
++increment above or actual Host behavior. It is not installed.
+ 
+ After review, a nonconflicting Host window must use an exclusively synthetic
+ source/grant/root and preserve rollback. A direct no-model Gateway tool invocation
+diff --git a/src/openclaw/ordinary-source-admission.ts b/src/openclaw/ordinary-source-admission.ts
+index 9ee94c73..4187daf9 100644
+--- a/src/openclaw/ordinary-source-admission.ts
++++ b/src/openclaw/ordinary-source-admission.ts
+@@ -1,5 +1,6 @@
+ import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+ import type { PluginHookReplyDispatchContext, PluginHookReplyDispatchEvent } from "openclaw/plugin-sdk/core";
++import { getPluginRuntimeGatewayRequestScope } from "openclaw/plugin-sdk/plugin-runtime";
+ import { execFile } from "node:child_process";
+ import { promisify } from "node:util";
+ import { realpath } from "node:fs/promises";
+@@ -20,14 +21,47 @@ import { SOURCE_READ_TOOL, type SourceReadAdmission, type SourceReadBinding } fr
+ 
+ export const SOURCE_POLICY_MODEL = "google/gemini-3.8-flash";
+ export type SourcePolicyCompletion = (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
++export type GatewayRequestScopeReader = typeof getPluginRuntimeGatewayRequestScope;
++type GatewayPrincipal = { id: string; connection: string; assertIdentity(): void };
+ type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
+ type Call = Identity & { runId: string; senderId: string; signal?: AbortSignal; conflict: boolean; release(): void };
+-type Turn = { sessionKey: string; rawText: string; senderId: string; cutoff: string; conflict: boolean; calls: Set<string>; release(): void };
++type Turn = { sessionKey: string; rawText: string; senderId: string; gateway?: GatewayPrincipal; cutoff: string; conflict: boolean; calls: Set<string>; release(): void };
+ type ToolEvent = { toolName: string; toolCallId?: string; runId?: string };
+ type ToolContext = Identity & ToolEvent & { abortSignal?: AbortSignal; requester?: { senderId?: string; senderIsOwner?: boolean } };
+ const run = promisify(execFile);
+ const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 4096;
+ function check(ok: unknown, code: string): asserts ok { if (!ok) throw new CatalogError(code); }
++
++/** Identity from the genuine public Gateway scope, not client-supplied fields.
++ * Only the initial capture uses live transport admission. An admitted run keeps
++ * its native/v2 lifetime; a completed RPC is not a newly invented revocation. */
++function gatewayPrincipal(read: GatewayRequestScopeReader): GatewayPrincipal | undefined {
++  const scope = read(), client = scope?.client, internal = client?.internal;
++  check(!internal?.syntheticClient && !internal?.agentToolCaller && !internal?.agentRuntimeIdentity &&
++    !internal?.pluginSubagentRequester, "source_gateway_delegated_principal_forbidden");
++  // Normal channel/CLI ingress continues to use its Host-supplied sender. A
++  // Control UI scope must qualify completely; it cannot fall back to SenderId.
++  if (internal?.authenticatedControlUi !== true && !scope?.isWebchatConnect?.(client?.connect)) return;
++  const profileId = client?.authenticatedUserProfile?.profileId, connection = client?.connId;
++  const live = scope?.hasCurrentClientAuthority;
++  check(client && internal?.authenticatedControlUi === true &&
++    (text(client.authenticatedUserId) || internal.authenticatedOperator === true) &&
++    text(profileId) && text(connection) && typeof live === "function" && live.call(scope) === true &&
++    !scope?.signal?.aborted && !client.connectionSignal?.aborted && !client.invalidated,
++  "source_gateway_principal_unavailable");
++  const assertIdentity = () => {
++    const flags = client.internal;
++    check(client.connId === connection && client.authenticatedUserProfile?.profileId === profileId &&
++      flags?.authenticatedControlUi === true && !flags.syntheticClient && !flags.agentToolCaller &&
++      !flags.agentRuntimeIdentity && !flags.pluginSubagentRequester, "source_gateway_principal_changed");
++    const current = read()?.client, currentFlags = current?.internal;
++    check(current?.connId === connection && current.authenticatedUserProfile?.profileId === profileId &&
++      currentFlags?.authenticatedControlUi === true && !currentFlags.syntheticClient && !currentFlags.agentToolCaller &&
++      !currentFlags.agentRuntimeIdentity && !currentFlags.pluginSubagentRequester, "source_gateway_scope_mismatch");
++  };
++  assertIdentity();
++  return { id: profileId, connection, assertIdentity };
++}
+ function relativeRef(value: string) {
+   const ref = parseCangHaiRef(value);
+   check(!ref.fragment && !ref.relativePath.split("/").some(p => p === ".." || p.toLowerCase() === ".git"), "source_processing_reference_invalid");
+@@ -77,6 +111,7 @@ async function processingBinding(binding: SourceReadBinding, guard: () => void)
+  * bounded current-turn references only; it neither issues identities nor grants. */
+ export function createOrdinarySourceAdmission(input: {
+   agentId: string; metadata: ReturnType<typeof createCurrentInputMetadata>; complete: SourcePolicyCompletion;
++  getGatewayRequestScope?: GatewayRequestScopeReader;
+ }) {
+   const turns = new Map<string, Turn>(), calls = new Map<string, Call>();
+   const discardCall = (id: string) => { const call = calls.get(id); if (call) { calls.delete(id); call.release(); } };
+@@ -88,18 +123,24 @@ export function createOrdinarySourceAdmission(input: {
+   return {
+     observeDispatch(event: PluginHookReplyDispatchEvent, context: PluginHookReplyDispatchContext) {
+       const ctx = event.ctx, runId = event.runId, sessionKey = event.sessionKey;
+-      const rawText = ctx.rawText, senderId = ctx.SenderId, signal = context.abortSignal;
++      const rawText = ctx.rawText, transportSender = ctx.SenderId, signal = context.abortSignal;
++      let gateway: GatewayPrincipal | undefined;
++      try { gateway = gatewayPrincipal(input.getGatewayRequestScope ?? getPluginRuntimeGatewayRequestScope); }
++      catch { const previous = turns.get(runId ?? ""); if (previous) previous.conflict = true; return; }
++      const senderId = gateway?.id ?? transportSender;
+       if (input.agentId !== "main" || context.dispatchKind !== "agent" || ctx.AgentId !== input.agentId ||
+           !text(runId) || !text(sessionKey) || ctx.SessionKey !== sessionKey || !text(senderId) ||
++          (gateway && transportSender !== undefined && transportSender !== gateway.id) ||
+           typeof rawText !== "string" || !rawText.trim() || rawText.length > 16_000 || ctx.ChatType !== "direct" || ctx.InternalTurnSource !== undefined || !signal || signal.aborted) return;
+       const previous = turns.get(runId);
+       if (previous) {
+-        if (previous.sessionKey !== sessionKey || previous.rawText !== rawText || previous.senderId !== senderId) previous.conflict = true;
++        if (previous.sessionKey !== sessionKey || previous.rawText !== rawText || previous.senderId !== senderId ||
++            previous.gateway?.connection !== gateway?.connection) previous.conflict = true;
+         return;
+       }
+       if (turns.size >= 32) return;
+       const discard = () => discardTurn(runId, turn);
+-      const turn: Turn = { sessionKey, rawText, senderId, cutoff: new Date().toISOString(), conflict: false, calls: new Set(),
++      const turn: Turn = { sessionKey, rawText, senderId, gateway, cutoff: new Date().toISOString(), conflict: false, calls: new Set(),
+         release: () => signal.removeEventListener("abort", discard) };
+       turns.set(runId, turn); signal.addEventListener("abort", discard, { once: true });
+     },
+@@ -107,16 +148,19 @@ export function createOrdinarySourceAdmission(input: {
+       if (event.toolName !== SOURCE_READ_TOOL || context.toolName !== SOURCE_READ_TOOL) return;
+       const callId = context.toolCallId, runId = context.runId, requester = context.requester;
+       if (!text(callId) || event.toolCallId !== callId || !text(runId) || event.runId !== runId ||
+-          context.agentId !== input.agentId || !text(context.sessionKey) || !text(context.sessionId) ||
+-          requester?.senderIsOwner !== true || !text(requester.senderId)) return "source_request_admission_unavailable";
++          context.agentId !== input.agentId || !text(context.sessionKey) || !text(context.sessionId)) return "source_request_admission_unavailable";
+       const previous = calls.get(callId), turn = turns.get(runId);
+       if (previous) { previous.conflict = true; return "source_call_ambiguous"; }
+-      if (!turn || turn.conflict || turn.sessionKey !== context.sessionKey || turn.senderId !== requester.senderId || turn.calls.has(callId)) return "source_request_binding_mismatch";
++      if (!turn || turn.conflict || turn.sessionKey !== context.sessionKey || turn.calls.has(callId)) return "source_request_binding_mismatch";
++      if (turn.gateway) {
++        try { turn.gateway.assertIdentity(); } catch { turn.conflict = true; return "source_gateway_principal_changed"; }
++        if (requester && (requester.senderIsOwner !== true || requester.senderId !== undefined && requester.senderId !== turn.senderId)) return "source_requester_or_audience_forbidden";
++      } else if (requester?.senderIsOwner !== true || requester.senderId !== turn.senderId) return "source_request_admission_unavailable";
+       if (context.abortSignal?.aborted || calls.size >= 128 || turn.calls.size >= 128) return "source_call_unavailable";
+       const signal = context.abortSignal;
+       const discard = () => discardCall(callId);
+       calls.set(callId, { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId, runId,
+-        senderId: requester.senderId, signal, conflict: false, release: () => signal?.removeEventListener("abort", discard) });
++        senderId: turn.senderId, signal, conflict: false, release: () => signal?.removeEventListener("abort", discard) });
+       signal?.addEventListener("abort", discard, { once: true });
+     },
+     end(event: { runId?: string }, context: Identity & { runId?: string }) {
+@@ -143,8 +187,11 @@ export function createOrdinarySourceAdmission(input: {
+             context.sessionKey === identity.sessionKey && context.sessionId === identity.sessionId &&
+             call.agentId === identity.agentId && call.sessionKey === identity.sessionKey && call.sessionId === identity.sessionId,
+           "source_request_binding_mismatch");
+-          check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && text(senderId) &&
+-            context.requesterSenderId === senderId && call.senderId === senderId && turn.senderId === senderId &&
++          try { turn.gateway?.assertIdentity(); }
++          catch (error) { turn.conflict = true; throw error; }
++          const senderMatches = turn.gateway ? senderId === undefined || senderId === turn.senderId : text(senderId) && senderId === turn.senderId;
++          check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && senderMatches &&
++            context.requesterSenderId === senderId && call.senderId === turn.senderId &&
+             audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
+             canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
+           check(modelRef === SOURCE_POLICY_MODEL && context.activeModel?.modelRef === modelRef, "personal_context_model_forbidden");
+@@ -154,9 +201,9 @@ export function createOrdinarySourceAdmission(input: {
+         guard();
+         const processing = await processingBinding(binding, guard); guard();
+         const config = processing.loaded.config;
+-        check(config.requesterIds[0] === senderId, "personal_context_requester_forbidden");
++        check(config.requesterIds[0] === turn.senderId, "personal_context_requester_forbidden");
+         const request = snapshotTurnRequest({ agentId: identity.agentId!, sessionId: identity.sessionId!, sessionKey: identity.sessionKey!,
+-          prompt: turn.rawText, senderId, senderIsOwner: true, chatType: "direct" }, call.runId);
++          prompt: turn.rawText, senderId: turn.senderId, senderIsOwner: true, chatType: "direct" }, call.runId);
+         const authority = bindProcessingAuthority({ request, ownerId: config.ownerId, modelRef: SOURCE_POLICY_MODEL,
+           purpose: config.purpose, deployment: bytesVersion(canonicalJson(binding)), generationId: binding.revision });
+         const sourceAccess = createPersonalContextAccess({ request, modelRef: SOURCE_POLICY_MODEL, binding: processing.loaded,
+diff --git a/src/ordinary-plugin.ts b/src/ordinary-plugin.ts
+index fda0ba5b..e3e88c7c 100644
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -1,10 +1,11 @@
+-import { definePluginEntry, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
++import { definePluginEntry, type OpenClawPluginApi, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
++import { listAgentIds, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
+ import { Type } from "typebox";
+ import path from "node:path";
+ import { isRecord } from "./shared/type-guards.js";
+ import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
+ import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
+-import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion } from "./openclaw/ordinary-source-admission.js";
++import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion, type GatewayRequestScopeReader } from "./openclaw/ordinary-source-admission.js";
+ import { CatalogError } from "./canghai/catalog-reader.js";
+ import { SOURCE_READ_TOOL, SOURCE_READ_PARAMETERS, parseSourceReadBinding, executeOrdinarySourceRead, sourceReadFailure,
+   type SourceReadAdmission, type SourceReadBinding } from "./openclaw/ordinary-source-read.js";
+@@ -34,6 +35,36 @@ function result(details: Record<string, unknown>, isError = false) {
+   return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details, ...(isError ? { isError: true } : {}) };
+ }
+ 
++/** Use the Host's already configured main/default only. Omitting overrides is
++ * valid here only after proving the same target; Host completion/source/model
++ * policies still run normally. No override permission is issued by this code. */
++export function createSourcePolicyCompletion(api: OpenClawPluginApi, agentId: string): SourcePolicyCompletion {
++  return async params => {
++    const cfg = api.runtime.config.current(), ids = listAgentIds(cfg);
++    const owner = cfg.agents?.defaults?.systemAgent?.agentId;
++    if (agentId !== "main" || !ids.includes(agentId) ||
++        (owner === undefined ? ids.length !== 1 : owner !== agentId)) {
++      throw new CatalogError("source_default_agent_unproven");
++    }
++    for (const model of [cfg.agents?.defaults?.model, cfg.agents?.entries?.[agentId]?.model]) {
++      if (typeof model === "object" && model !== null && model.fallbacks?.length) throw new CatalogError("source_model_fallback_forbidden");
++    }
++    // The SDK resolver reads the runtime's readonly snapshot; its public input
++    // type still uses mutable OpenClawConfig. Both discovery paths are disabled.
++    const selected = resolveDefaultModelForAgent({ cfg: cfg as Parameters<typeof resolveDefaultModelForAgent>[0]["cfg"],
++      agentId, allowManifestNormalization: false, allowPluginNormalization: false });
++    if (`${selected.provider}/${selected.model}` !== SOURCE_POLICY_MODEL) throw new CatalogError("source_default_model_mismatch");
++    const value = await api.runtime.llm.complete({
++      purpose: "stella-source-access", reasoning: "low", maxTokens: params.maxTokens, signal: params.signal,
++      messages: [{ role: "user", content: params.prompt }],
++    });
++    if (value.agentId !== agentId || `${value.provider}/${value.model}` !== SOURCE_POLICY_MODEL || value.execution.mode !== "direct-provider") {
++      throw new CatalogError("personal_context_model_mismatch");
++    }
++    return { text: value.text };
++  };
++}
++
+ /** Ordinary entry. No legacy loader, provider, context engine or automatic
+  * background task is bound. Source-policy inference is explicit and on demand.
+  * Draft storage is explicit and synthetic-only.
+@@ -43,7 +74,7 @@ function result(details: Record<string, unknown>, isError = false) {
+  * grant. Internal test ports never become configuration or model arguments. */
+ export function createOrdinaryPlugin(options: { admitSourceRead?: (input: {
+   binding: SourceReadBinding; context: OpenClawPluginToolContext<2>; callId: string; signal?: AbortSignal;
+-}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion } = {}) {
++}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion; getGatewayRequestScope?: GatewayRequestScopeReader } = {}) {
+ const admitSourceRead = options.admitSourceRead;
+ return definePluginEntry({
+   id: "stella-core",
+@@ -54,19 +85,8 @@ return definePluginEntry({
+     const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
+     const currentInput = createCurrentInputMetadata(config.agentId);
+     const sourceInput = createOrdinarySourceAdmission({ agentId: config.agentId, metadata: currentInput,
+-      complete: options.completeSourceAccess ?? (async params => {
+-        const cfg = api.runtime.config.current();
+-        for (const model of [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model]) {
+-          if (typeof model === "object" && model !== null && model.fallbacks?.length) throw new CatalogError("source_model_fallback_forbidden");
+-        }
+-        const value = await api.runtime.llm.complete({ agentId: config.agentId, model: SOURCE_POLICY_MODEL,
+-          purpose: "stella-source-access", reasoning: "low", maxTokens: params.maxTokens, signal: params.signal,
+-          messages: [{ role: "user", content: params.prompt }] });
+-        if (value.agentId !== config.agentId || `${value.provider}/${value.model}` !== SOURCE_POLICY_MODEL || value.execution.mode !== "direct-provider") {
+-          throw new CatalogError("personal_context_model_mismatch");
+-        }
+-        return { text: value.text };
+-      }) });
++      getGatewayRequestScope: options.getGatewayRequestScope,
++      complete: options.completeSourceAccess ?? createSourcePolicyCompletion(api, config.agentId) });
+     api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
+     api.on("agent_end", (event, context) => { currentInput.end(event, context); if (config.sourceRead) sourceInput.end(event, context); });
+     api.on("before_tool_call", (event, context) => {
+diff --git a/tests/ordinary-source-admission.test.ts b/tests/ordinary-source-admission.test.ts
+index bb705b15..3677c38b 100644
+--- a/tests/ordinary-source-admission.test.ts
++++ b/tests/ordinary-source-admission.test.ts
+@@ -7,11 +7,12 @@ import { createOrdinaryPlugin, SOURCE_READ_TOOL } from "../src/ordinary-plugin.j
+ import { canonicalJson } from "../src/canghai/content-version.js";
+ import { segmentLocator } from "../src/canghai/source-segments.js";
+ import { fixture, prefix, profilePath, hostVersion } from "./fixtures/ordinary-source-read.js";
++import type { GatewayRequestScopeReader } from "../src/openclaw/ordinary-source-admission.js";
+ 
+ const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
+ const purpose = { readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" };
+ const grantPath = `${prefix}/capabilities/source_access_context.json`;
+-async function setup(t: TestContext, leafDerivePurposes?: string[]) {
++async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader) {
+   const f = await fixture(t, 2, 0, undefined, purpose, leafDerivePurposes);
+   const source = JSON.parse(await readFile(path.join(f.root, f.catalog.sources[0]!.locator.path), "utf8"));
+   const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
+@@ -24,7 +25,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[]) {
+   await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
+   const hooks = new Map<string, Function>(); let factory: any, modelCalls = 0, active = true, denyScenario = false;
+   const modelRequestHashes = new Set<string>();
+-  const plugin = createOrdinaryPlugin({ completeSourceAccess: async params => {
++  const plugin = createOrdinaryPlugin({ getGatewayRequestScope, completeSourceAccess: async params => {
+     modelCalls++;
+     const value = JSON.parse(params.prompt.slice(params.prompt.lastIndexOf("\n") + 1));
+     modelRequestHashes.add(value.requestHash);
+@@ -154,3 +155,133 @@ test("reviewed descriptor membership cannot override the segment's metadata-proc
+   assert.equal((await turn.tool.execute("metadata-denied", { action: "list" })).details.code, "permission_denied");
+   assert.equal(f.modelCalls(), 0);
+ });
++
++function browserScope() {
++  const rpc = new AbortController(), connection = new AbortController();
++  const client: any = { connId: "synthetic-browser-connection", authenticatedUserProfile: { profileId: "synthetic-requester" },
++    connectionSignal: connection.signal, internal: { authenticatedControlUi: true, authenticatedOperator: true } };
++  const scope: any = { client, signal: rpc.signal, isWebchatConnect: () => true, hasCurrentClientAuthority: () => true };
++  return { scope, client, rpc, connection };
++}
++const browserFields = { ctx: { SenderId: undefined }, factory: { requesterSenderId: undefined } };
++
++test("authenticated public WebChat profile binds the same native run/call and existing grant without fabricating SenderId", async t => {
++  const browser = browserScope(), f = await setup(t, undefined, () => browser.scope);
++  const turn = f.turn("browser", browserFields); turn.dispatch();
++  assert.equal(turn.event.ctx.SenderId, undefined);
++  assert.equal(turn.hook("browser-list", { requester: undefined }), undefined);
++  assert.equal((await turn.tool.execute("browser-list", { action: "list" })).details.items.length, 1);
++  turn.hook("browser-read", { requester: { senderIsOwner: true } });
++  const read = await turn.tool.execute("browser-read", { action: "read", ref: f.refs[0] });
++  assert.equal(read.details.original.text, f.texts[0]); assert.equal(read.details.publisher, false);
++  assert.equal(f.modelCalls(), 2); assert.equal(turn.context.requesterSenderId, undefined);
++});
++
++test("missing or unqualified WebChat scope cannot be replaced with wire-looking owner/profile fields", async t => {
++  let scope: any;
++  const f = await setup(t, undefined, () => scope);
++  for (const [i, mutate] of [
++    () => undefined,
++    (v: any) => { v.client.internal.authenticatedControlUi = undefined; },
++    (v: any) => { v.client.authenticatedUserProfile = undefined; },
++    (v: any) => { v.hasCurrentClientAuthority = undefined; },
++    (v: any) => { v.hasCurrentClientAuthority = () => false; },
++    (v: any) => { v.client.internal.authenticatedOperator = undefined; },
++    (v: any) => { v.client.connId = ""; },
++    (v: any) => { v.client.invalidated = true; },
++  ].entries()) {
++    scope = browserScope().scope; if (i === 0) scope = undefined; else mutate(scope);
++    const turn = f.turn(`missing-browser-${i}`, browserFields); turn.dispatch();
++    assert.equal(turn.hook(`missing-browser-${i}`, { requester: undefined })?.block, true);
++    assert.equal((await turn.tool.execute(`missing-browser-${i}`, { action: "list", authenticatedUserProfile: { profileId: "synthetic-requester" },
++      owner: true, requester: "synthetic-requester" })).isError, true);
++  }
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("synthetic and delegated Gateway clients cannot fall back to matching transport sender or owner flags", async t => {
++  let scope: any;
++  const f = await setup(t, undefined, () => scope);
++  for (const [i, flag] of ["syntheticClient", "agentToolCaller", "agentRuntimeIdentity", "pluginSubagentRequester"].entries()) {
++    scope = browserScope().scope; scope.client.internal[flag] = true;
++    for (const [j, fields] of [browserFields, {}].entries()) {
++      const turn = f.turn(`delegate-${i}-${j}`, fields); turn.dispatch();
++      assert.equal(turn.hook(`delegate-${i}-${j}`)?.block, true);
++      assert.equal((await turn.tool.execute(`delegate-${i}-${j}`, { action: "list" })).isError, true);
++    }
++  }
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("WebChat profile cannot alias the selected grant or disagree with Host sender, owner or audience", async t => {
++  let scope: any = browserScope().scope;
++  const f = await setup(t, undefined, () => scope);
++  scope.client.authenticatedUserProfile.profileId = "different-profile";
++  const other = f.turn("profile-not-granted", browserFields); other.dispatch(); other.hook("profile-not-granted", { requester: undefined });
++  assert.equal((await other.tool.execute("profile-not-granted", { action: "list" })).details.code, "personal_context_requester_forbidden");
++  scope = browserScope().scope;
++  const ctxConflict = f.turn("ctx-conflict", { ...browserFields, ctx: { SenderId: "different-profile" } }); ctxConflict.dispatch();
++  assert.equal(ctxConflict.hook("ctx-conflict")?.block, true);
++  const hookConflict = f.turn("hook-conflict", browserFields); hookConflict.dispatch();
++  assert.equal(hookConflict.hook("hook-conflict", { requester: { senderId: "different-profile", senderIsOwner: true } })?.block, true);
++  for (const [i, factory] of [
++    { requesterSenderId: "different-profile" }, { requesterSenderId: undefined, senderIsOwner: false },
++    { requesterSenderId: undefined, memoryAudience: { kind: "conversation", agentId: "main" } },
++  ].entries()) {
++    const turn = f.turn(`factory-conflict-${i}`, { ctx: browserFields.ctx, factory }); turn.dispatch(); turn.hook(`factory-conflict-${i}`, { requester: undefined });
++    assert.equal((await turn.tool.execute(`factory-conflict-${i}`, { action: "list" })).isError, true);
++  }
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("WebChat keeps native request lifetime after RPC completion; each new request needs fresh live admission", async t => {
++  const browser = browserScope(), f = await setup(t, undefined, () => browser.scope);
++  const turn = f.turn("admitted-browser", browserFields); turn.dispatch();
++  browser.rpc.abort(); browser.connection.abort(); browser.scope.hasCurrentClientAuthority = () => false;
++  turn.hook("admitted-list", { requester: undefined });
++  assert.equal((await turn.tool.execute("admitted-list", { action: "list" })).details.status, "listed");
++  const next = f.turn("new-browser", browserFields); next.dispatch();
++  assert.equal(next.hook("new-browser", { requester: undefined })?.block, true);
++  turn.hook("old-call", { requester: undefined }); turn.end();
++  assert.equal((await turn.tool.execute("old-call", { action: "list" })).isError, true);
++});
++
++test("WebChat identity mutation, cross-run call, incarnation mismatch and cancellation remain closed", async t => {
++  let scope: any = browserScope().scope;
++  const f = await setup(t, undefined, () => scope);
++  const changed = f.turn("changed-browser", browserFields); changed.dispatch(); changed.hook("changed-browser", { requester: undefined });
++  scope.client.authenticatedUserProfile.profileId = "changed-profile";
++  assert.equal((await changed.tool.execute("changed-browser", { action: "list" })).details.code, "source_gateway_principal_changed");
++  scope.client.authenticatedUserProfile.profileId = "synthetic-requester";
++  assert.equal(changed.hook("restored-profile", { requester: undefined })?.block, true);
++  scope = browserScope().scope;
++  const first = f.turn("parallel-first", browserFields); first.dispatch();
++  const second = f.turn("parallel-second", browserFields); second.dispatch();
++  assert.equal(first.hook("cross-run", { requester: undefined, runId: "parallel-second" })?.block, true);
++  assert.equal((await second.tool.execute("cross-run", { action: "list" })).isError, true);
++  second.hook("wrong-incarnation", { requester: undefined, sessionId: "wrong-incarnation" });
++  assert.equal((await second.tool.execute("wrong-incarnation", { action: "list" })).isError, true);
++  second.hook("cancelled", { requester: undefined }); second.abort.abort();
++  assert.equal((await second.tool.execute("cancelled", { action: "list" })).isError, true);
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("each WebChat hook and protected read requires the same public scope; parallel principals never merge", async t => {
++  const a = browserScope(), b = browserScope();
++  b.client.connId = "another-connection"; b.client.authenticatedUserProfile.profileId = "another-profile";
++  let scope: any = a.scope;
++  const f = await setup(t, undefined, () => scope);
++  const first = f.turn("scope-a", browserFields); first.dispatch();
++  scope = b.scope;
++  const second = f.turn("scope-b", browserFields); second.dispatch(); second.hook("scope-b", { requester: undefined });
++  assert.equal((await second.tool.execute("scope-b", { action: "list" })).details.code, "personal_context_requester_forbidden");
++  assert.equal(first.hook("scope-conflict", { requester: undefined })?.block, true);
++  scope = a.scope;
++  assert.equal(first.hook("cannot-revive", { requester: undefined })?.block, true);
++  const third = f.turn("scope-c", browserFields); third.dispatch(); third.hook("scope-c", { requester: undefined });
++  scope = undefined;
++  assert.equal((await third.tool.execute("scope-c", { action: "list" })).details.code, "source_gateway_scope_mismatch");
++  scope = a.scope;
++  assert.equal(third.hook("restored-scope", { requester: undefined })?.block, true);
++  assert.equal(f.modelCalls(), 0);
++});
+diff --git a/tests/source-policy-completion.test.ts b/tests/source-policy-completion.test.ts
+new file mode 100644
+index 00000000..fb65270d
+--- /dev/null
++++ b/tests/source-policy-completion.test.ts
+@@ -0,0 +1,58 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createSourcePolicyCompletion } from "../src/ordinary-plugin.js";
++
++function setup(change: (cfg: any) => void = () => {}) {
++  const cfg: any = { agents: { defaults: { model: { primary: "google/gemini-3.8-flash", fallbacks: [] } }, entries: { main: {} } } };
++  change(cfg);
++  const requests: any[] = [];
++  let denied = false;
++  const response: any = { text: "synthetic-policy-verdict", agentId: "main", provider: "google", model: "gemini-3.8-flash", execution: { mode: "direct-provider" } };
++  const complete = createSourcePolicyCompletion({ runtime: { config: { current: () => cfg }, llm: {
++    complete: async (request: unknown) => { requests.push(request); if (denied) throw Error("LLM_COMPLETION_NOT_AUTHORIZED"); return response; },
++  } } } as unknown as OpenClawPluginApi, "main");
++  return { complete, requests, response, deny() { denied = true; } };
++}
++const input = { prompt: "A fictional source-policy question", maxTokens: 192 };
++
++test("proven native main/default Gemini completes without requesting model or agent overrides", async () => {
++  for (const change of [() => {}, (cfg: any) => { cfg.agents.entries.other = {}; cfg.agents.defaults.systemAgent = { agentId: "main" }; }]) {
++    const f = setup(change), abort = new AbortController();
++    assert.deepEqual(await f.complete({ ...input, signal: abort.signal }), { text: "synthetic-policy-verdict" });
++    assert.deepEqual(f.requests, [{ purpose: "stella-source-access", reasoning: "low", maxTokens: 192, signal: abort.signal,
++      messages: [{ role: "user", content: input.prompt }] }]);
++    assert.equal(Object.hasOwn(f.requests[0], "agentId"), false); assert.equal(Object.hasOwn(f.requests[0], "model"), false);
++    assert.equal(Object.hasOwn(f.requests[0], "temperature"), false);
++  }
++});
++
++test("unknown owner, ambiguous fleet, wrong default and any configured fallback fail before completion", async () => {
++  for (const change of [
++    (cfg: any) => { cfg.agents.entries = { other: {} }; },
++    (cfg: any) => { cfg.agents.entries.other = {}; },
++    (cfg: any) => { cfg.agents.defaults.systemAgent = { agentId: "other" }; },
++    (cfg: any) => { cfg.agents.defaults.model.primary = "google/old-model"; },
++    (cfg: any) => { cfg.agents.entries.main.model = "google/old-model"; },
++    (cfg: any) => { delete cfg.agents.defaults.model; },
++    (cfg: any) => { cfg.agents.defaults.model.fallbacks = ["google/gemini-3.8-flash"]; },
++    (cfg: any) => { cfg.agents.entries.main.model = { primary: "google/gemini-3.8-flash", fallbacks: ["google/old-model"] }; },
++  ]) {
++    const f = setup(change); await assert.rejects(f.complete(input)); assert.equal(f.requests.length, 0);
++  }
++});
++
++test("Host denial is propagated once; no fallback or override permission is introduced", async () => {
++  const f = setup(); f.deny(); await assert.rejects(f.complete(input), /LLM_COMPLETION_NOT_AUTHORIZED/);
++  assert.equal(f.requests.length, 1);
++  assert.equal(Object.keys(f.requests[0]).some(k => k.includes("Override") || k.includes("fallback")), false);
++});
++
++test("returned agent, model and execution route must still match the admitted source-policy target", async () => {
++  for (const change of [
++    { agentId: "other" }, { provider: "other" }, { model: "old-model" }, { execution: { mode: "subagent" } },
++  ]) {
++    const f = setup(); Object.assign(f.response, change);
++    await assert.rejects(f.complete(input), /personal_context_model_mismatch/); assert.equal(f.requests.length, 1);
++  }
++});

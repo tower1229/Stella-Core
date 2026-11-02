@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T06:21:37.112321+00:00",
+  "phase": "pin_committed_push_rejected_compatibility_reviewed_local_commit_preparation",
+  "pinCommit": "1749b1c09c8dddc7a627f6ba50867a2439c06e1c",
+  "pinCommittedFiles": 4,
+  "blockedOperation": "git push origin HEAD:refs/heads/codex/issue23-integrated-regression",
+  "target": "git@github.com:tower1229/Stella-Core.git, existing codex/issue23-integrated-regression",
+  "pushProcessCreated": false,
+  "pushStatus": "denied_auto_review",
+  "reason": "Pushing commits to the remote repository is an external commitment; the trusted user text authorizes timely commits but does not explicitly authorize this remote push or destination.",
+  "noRetryOrAlternativeRoute": true,
+  "newCIForPin": "not_triggered_by_rejected_action",
+  "compatibility": "exact5 accepted, ordinary local commit authorized; push remains subject to the same unresolved rejection",
+  "oldAndUnrelatedDirty": "preserved, no blanket add",
+  "hostScope": "fresh local synthetic90s/4HTTP/onechat.send approved, not yet run; unrelated to Git push denial",
+  "remainingBlocker": "remote push authorization evidence must be resolved by normal approval channel; no trust/access change"
+}
