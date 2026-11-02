@@ -1,0 +1,943 @@
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -4,6 +4,8 @@
+ import { isRecord } from "./shared/type-guards.js";
+ import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
+ import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
++import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion } from "./openclaw/ordinary-source-admission.js";
++import { CatalogError } from "./canghai/catalog-reader.js";
+ import { SOURCE_READ_TOOL, SOURCE_READ_PARAMETERS, parseSourceReadBinding, executeOrdinarySourceRead, sourceReadFailure,
+   type SourceReadAdmission, type SourceReadBinding } from "./openclaw/ordinary-source-read.js";
+ export { SOURCE_READ_TOOL } from "./openclaw/ordinary-source-read.js";
+@@ -32,15 +34,16 @@
+   return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details, ...(isError ? { isError: true } : {}) };
+ }
+ 
+-/** Ordinary entry. No legacy loader, provider, context engine, model client or
+- * automatic background task is bound. Draft storage is explicit and synthetic-only.
++/** Ordinary entry. No legacy loader, provider, context engine or automatic
++ * background task is bound. Source-policy inference is explicit and on demand.
++ * Draft storage is explicit and synthetic-only.
+  * The Host's model supplies semantics; this tool only validates and labels its
+  * proposal. References remain unverified and cannot become author admission. */
+-/** The production default intentionally has no source-admission issuer. Existing
+- * trusted adapters can supply this port; neither config nor model arguments do. */
++/** Request/source admission uses public Host facts plus the selected existing
++ * grant. Internal test ports never become configuration or model arguments. */
+ export function createOrdinaryPlugin(options: { admitSourceRead?: (input: {
+   binding: SourceReadBinding; context: OpenClawPluginToolContext<2>; callId: string; signal?: AbortSignal;
+-}) => Promise<SourceReadAdmission> } = {}) {
++}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion } = {}) {
+ const admitSourceRead = options.admitSourceRead;
+ return definePluginEntry({
+   id: "stella-core",
+@@ -50,19 +53,33 @@
+     const config = parseOrdinaryConfig(api.pluginConfig);
+     const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
+     const currentInput = createCurrentInputMetadata(config.agentId);
+-    api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); });
+-    api.on("agent_end", (event, context) => { currentInput.end(event, context); });
++    const sourceInput = createOrdinarySourceAdmission({ agentId: config.agentId, metadata: currentInput,
++      complete: options.completeSourceAccess ?? (async params => {
++        const cfg = api.runtime.config.current();
++        for (const model of [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model]) {
++          if (typeof model === "object" && model !== null && model.fallbacks?.length) throw new CatalogError("source_model_fallback_forbidden");
++        }
++        const value = await api.runtime.llm.complete({ agentId: config.agentId, model: SOURCE_POLICY_MODEL,
++          purpose: "stella-source-access", reasoning: "low", maxTokens: params.maxTokens, signal: params.signal,
++          messages: [{ role: "user", content: params.prompt }] });
++        if (value.agentId !== config.agentId || `${value.provider}/${value.model}` !== SOURCE_POLICY_MODEL || value.execution.mode !== "direct-provider") {
++          throw new CatalogError("personal_context_model_mismatch");
++        }
++        return { text: value.text };
++      }) });
++    api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
++    api.on("agent_end", (event, context) => { currentInput.end(event, context); if (config.sourceRead) sourceInput.end(event, context); });
+     api.on("before_tool_call", (event, context) => {
+-      const error = requestBinding.observe(event, context);
++      const error = requestBinding.observe(event, context) ?? (config.sourceRead ? sourceInput.observeTool(event, context) : undefined);
+       if (error) return { block: true, blockReason: error };
+     });
+     const status = () => ({
+       architecture: "ordinary-plugin", stage: "candidate-only", agentId: config.agentId,
+       publisher: false, sourceAdapter: "not_connected", authorConfirmation: false,
+-      sourceReadPort: !config.sourceRead ? "not_configured" : admitSourceRead ? "registered_requires_current_admission" : "request_admission_unbound",
++      sourceReadPort: !config.sourceRead ? "not_configured" : admitSourceRead ? "registered_requires_current_admission" : "public_request_adapter_requires_admission",
+       persistence: config.candidateDraftsRoot ? "candidate_drafts_only" : "none",
+       candidateDraftsConfigured: Boolean(config.candidateDraftsRoot), draftScope: "synthetic_debug",
+-      modelCalls: false, legacyRuntime: "inactive",
++      modelCalls: config.sourceRead ? "on_demand_source_policy" : false, legacyRuntime: "inactive",
+       requestBinding: "public-tool-hook-metadata", currentInputAdmission: "not_connected",
+       currentInputObservation: "passive-native-admission-metadata-only",
+       memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
+@@ -75,6 +92,7 @@
+       const owner = context.senderIsOwner;
+       const fsPolicy = context.fsPolicy ? { workspaceOnly: context.fsPolicy.workspaceOnly, root: context.fsPolicy.root } : undefined;
+       const sandboxed = context.sandboxed;
++      const admitCurrentSource = sourceInput.forFactory(context);
+       const check = (signal?: AbortSignal) => {
+         invocationGuard(); signal?.throwIfAborted();
+         if (context.agentId !== identity.agentId || context.sessionKey !== identity.sessionKey || context.sessionId !== identity.sessionId) {
+@@ -142,9 +160,9 @@
+               const relative = fsPolicy.root ? path.relative(fsPolicy.root, config.sourceRead.root) : "..";
+               if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) return result({ status: "rejected", code: "source_read_workspace_denied" }, true);
+             }
+-            if (!admitSourceRead) return result({ status: "unavailable", code: "source_request_admission_unavailable" }, true);
+             try {
+-              const admission = await admitSourceRead({ binding: config.sourceRead, context, callId, signal }); check(signal);
++              const admission = admitSourceRead ? await admitSourceRead({ binding: config.sourceRead, context, callId, signal }) :
++                await admitCurrentSource(config.sourceRead, callId, signal); check(signal);
+               const value = await executeOrdinarySourceRead({ binding: config.sourceRead, agentId: config.agentId,
+                 hostVersion: api.runtime.version, parameters, admission, signal }); check(signal);
+               return result(value);
+--- a/src/openclaw/ordinary-source-read.ts
++++ b/src/openclaw/ordinary-source-read.ts
+@@ -20,7 +20,8 @@
+  * arguments or plugin config. Root selection and owner status do not mint it. */
+ export type SourceReadAdmission = {
+   assertCurrent(): void | Promise<void>;
+-  assertMetadata(reader: CatalogReader, ref: VersionedRef): Promise<void>;
++  /** false is an explicit descriptor-scope exclusion, never an arbitrary error. */
++  assertMetadata(reader: CatalogReader, ref: VersionedRef): Promise<void | false>;
+   purpose: EvidencePurpose;
+ };
+ const run = promisify(execFile);
+@@ -81,7 +82,9 @@
+   const purpose: EvidencePurpose = { ...structuredClone({ readPurpose: supplied.readPurpose, derivePurpose: supplied.derivePurpose,
+     deliveryScope: supplied.deliveryScope, evidenceCutoff: supplied.evidenceCutoff, trustedAdapters: supplied.trustedAdapters,
+     ...(supplied.eventWindow ? { eventWindow: supplied.eventWindow } : {}) }),
+-    sourceAccess, ...(signal ? { signal } : {}) };
++    sourceAccess: async (...args) => {
++      await guard(); const decision = await sourceAccess(...args); await guard(); return decision;
++    }, ...(signal ? { signal } : {}) };
+   const guard = async () => { signal?.throwIfAborted(); await originalGuard(); signal?.throwIfAborted(); };
+   await guard();
+   check(await realpath(binding.root) === binding.root, "source_root_not_canonical"); await guard();
+@@ -140,28 +143,30 @@
+     check(!args.cursor || args.cursor.catalogHash === reader.catalogHash, "source_cursor_stale");
+     const entries = reader.catalog.evidence.filter(e => e.status === "current" && reader.eligible(e));
+     const offset = args.cursor?.offset ?? 0; check(offset <= entries.length, "source_cursor_invalid");
+-    const items = [];
++    const items = []; let excludedByScopeOnPage = 0;
+     const page = entries.slice(offset, offset + 32);
+     for (const entry of page) {
+       const ref = { id: entry.id, version: entry.version };
+-      await metadata(reader, ref); await guard();
++      const allowed = await metadata(reader, ref); await guard();
++      if (allowed === false) { excludedByScopeOnPage++; continue; }
+       await pinRef(ref);
+       const e = await reader.read(ref, "evidence"); await guard();
+       check(validMemoryRef(e.source) && ["owner", "other", "assistant", "tool", "external_author", "unknown"].includes(String(e.role)) &&
+         ["direct_observation", "reported", "inference", "quotation", "unknown"].includes(String(e.kind)) && timestamp(e.occurredAt, true) &&
+         timestamp(e.authoredAt, true) && timestamp(e.capturedAt), "invalid_evidence");
+       if (!evidenceTemporallyEligible(e, purpose)) continue;
+-      items.push({ ref, sourceRef: e.source, role: e.role, kind: e.kind, occurredAt: e.occurredAt, authoredAt: e.authoredAt, capturedAt: e.capturedAt });
++      items.push({ ref, sourceRef: { id: e.source.id, version: e.source.version }, role: e.role, kind: e.kind, occurredAt: e.occurredAt, authoredAt: e.authoredAt, capturedAt: e.capturedAt });
+     }
+     await current();
+     return { status: "listed" as const, ...snapshot, items,
+       nextCursor: offset + page.length < entries.length ? { catalogHash: reader.catalogHash, offset: offset + page.length } : null,
+-      excludedByTimeOnPage: page.length - items.length,
++      excludedByScopeOnPage, excludedByTimeOnPage: page.length - items.length - excludedByScopeOnPage,
+       semanticSelection: "not_performed" as const, questionSufficiency: "not_assessed" as const };
+   }
+-  await metadata(reader, args.ref); await guard();
++  const allowed = await metadata(reader, args.ref); await guard();
++  check(allowed !== false, "source_descriptor_scope_denied");
+   await pinRef(args.ref);
+-  const original = await resolver.readEvidence(args.ref); await guard();
++  const original = await resolver.readEvidence(args.ref, guard); await guard();
+   check(Buffer.byteLength(original.text, "utf8") <= 128 * 1024, "source_output_capacity");
+   const e = await reader.read(args.ref, "evidence");
+   check(validMemoryRef(e.source), "invalid_evidence");
+@@ -176,8 +181,9 @@
+     check(Buffer.from(original.text, "utf8").equals(pinnedPayload.subarray(start, end)), "source_text_representation_unverified");
+   }
+   await current();
+-  return { status: "read" as const, ...snapshot, original, sourceRef: e.source,
+-    locator: { payloadSha256: e.payloadSha256, selector: e.selector }, authorConfirmation: false, publisher: false };
++  check(isRecord(e.selector) && typeof e.selector.kind === "string" && typeof e.selector.value === "string", "invalid_selector");
++  return { status: "read" as const, ...snapshot, original, sourceRef: { id: e.source.id, version: e.source.version },
++    locator: { payloadSha256: e.payloadSha256, selector: { kind: e.selector.kind, value: e.selector.value } }, authorConfirmation: false, publisher: false };
+ }
+ 
+ export function sourceReadFailure(error: unknown): string {
+--- a/src/praxis/episode-evidence.ts
++++ b/src/praxis/episode-evidence.ts
+@@ -171,7 +171,7 @@
+     await this.reader.assertCurrent();
+   }
+ 
+-  async readEvidence(ref: VersionedRef): Promise<OriginalEvidence> {
++  async readEvidence(ref: VersionedRef, assertBeforePayload?: () => void | Promise<void>): Promise<OriginalEvidence> {
+     ref = { id: ref.id, version: ref.version };
+     const evidence = await this.reader.read(ref, "evidence");
+     check(evidence.schemaVersion === "stella.memory-evidence/v1" && validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef) &&
+@@ -220,6 +220,7 @@
+       check(Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.eventWindow.to), "evidence_outside_event_window");
+     }
+     this.purpose.signal?.throwIfAborted();
++    await assertBeforePayload?.();
+     const payload = await this.reader.readPayload(evidence.source, evidence.payloadSha256);
+     await this.reader.read(evidence.policyRef, "policies");
+     if (!includesRef([evidence.policyRef], source.policyRef)) await this.reader.read(source.policyRef, "policies");
+--- a/tests/ordinary-source-read.test.ts
++++ b/tests/ordinary-source-read.test.ts
+@@ -9,84 +9,11 @@
+ import { createOrdinaryPlugin, SOURCE_READ_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
+ import { executeOrdinarySourceRead, parseSourceReadBinding, type SourceReadAdmission } from "../src/openclaw/ordinary-source-read.js";
+ import { prepareRepositorySource } from "../src/canghai/repository-source.js";
+-import { CatalogError, parseMemoryCatalog } from "../src/canghai/catalog-reader.js";
++import { CatalogError, CatalogReader, parseMemoryCatalog } from "../src/canghai/catalog-reader.js";
+ import { canonicalJson, bytesVersion, objectVersion } from "../src/canghai/content-version.js";
+ import type { VersionedRef } from "../src/praxis/episode-v2.js";
+ 
+-const run = promisify(execFile);
+-const prefix = "50_PersonalAgent/stella/knowledge-migration-v1";
+-const manifestPath = `${prefix}/manifest.json`, profilePath = `${prefix}/runtime-profile.json`;
+-const catalogPath = "30_Knowledge/migration-v1/runtime/catalog.json";
+-const hostVersion = "2026.10.9";
+-async function fixture(t: TestContext, count = 3, textSize = 0, payloadText?: string) {
+-  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-source-port-")));
+-  t.after(() => rm(root, { recursive: true, force: true }));
+-  const put = async (file: string, value: string) => { await mkdir(path.dirname(path.join(root, file)), { recursive: true }); await writeFile(path.join(root, file), value); };
+-  const policy = (id: string) => ({ schemaVersion: "stella.source-policy/v2", id, ownerId: "synthetic-owner", readPurposes: ["read"],
+-    derivePurposes: ["interpret"], deliveryScopes: ["host"], retention: "retain", authorityEvidenceRefs: [],
+-    restrictions: { sensitivity: "private", quotePolicy: "never_quote", allowedScenarios: ["writing"], forbiddenScenarios: ["social"] } });
+-  const basePolicy = policy("synthetic-base"), leafPolicy = policy("synthetic-leaf");
+-  const baseRef = { id: basePolicy.id, version: objectVersion(basePolicy) }, leafRef = { id: leafPolicy.id, version: objectVersion(leafPolicy) };
+-  const catalog = parseMemoryCatalog({ schemaVersion: "stella.memory-catalog/v1", generationId: "synthetic-migration-one", parentGenerationId: null,
+-    sources: [], evidence: [], policies: [], coverage: [], understandings: [], works: [], changes: [], bundles: [], views: [] });
+-  for (const p of [basePolicy, leafPolicy]) {
+-    const bytes = canonicalJson(p), file = `30_Knowledge/migration-v1/runtime/objects/${p.id}.json`;
+-    await put(file, bytes); catalog.policies.push({ id: p.id, version: objectVersion(p), status: "current", dependencies: [], locator: { path: file, sha256: bytesVersion(bytes) } });
+-  }
+-  const refs: VersionedRef[] = [], texts: string[] = [];
+-  for (let index = 0; index < count; index++) {
+-    const text = payloadText ?? (textSize ? "x".repeat(textSize) : `Fictional source ${index}: the harbor walk is planned for July.\n`);
+-    const file = `30_Knowledge/migration-v1/runtime/payloads/source-${index}.txt`; await put(file, text); texts.push(text);
+-    const prepared = await prepareRepositorySource({ root, collectionId: "synthetic-migration", sourceId: `source-${index}`, relativePath: file,
+-      expectedSha256: bytesVersion(text), capturedAt: "2026-09-01T00:00:00Z", policyRef: baseRef, objectRoot: "30_Knowledge/migration-v1/runtime/objects",
+-      reviewedSegments: [{ start: 0, end: Buffer.byteLength(text), policyRef: leafRef }] });
+-    for (const item of prepared.objects) {
+-      if (item.group === "evidence") {
+-        const e: Record<string, unknown> = { ...item.object, role: index % 3 === 0 ? "owner" : index % 3 === 1 ? "assistant" : "external_author",
+-          kind: index % 3 === 0 ? "reported" : index % 3 === 1 ? "inference" : "quotation",
+-          occurredAt: "2026-07-01T00:00:00Z", authoredAt: "2026-08-01T00:00:00Z" };
+-        delete e.version;
+-        item.ref = { id: String(e.id), version: objectVersion(e) }; item.object = e; item.bytes = canonicalJson(e);
+-        item.entry = { ...item.entry, ...item.ref, locator: { path: `30_Knowledge/migration-v1/runtime/objects/evidence-${index}.json`, sha256: bytesVersion(item.bytes) } };
+-        refs.push(item.ref);
+-      }
+-      await put(item.entry.locator.path, item.bytes); catalog[item.group].push(item.entry);
+-    }
+-  }
+-  await put(catalogPath, canonicalJson(catalog));
+-  const manifest = { schemaVersion: "stella.consciousness-manifest/v1", sourceBaseline: { repository: "synthetic/CangHai", commit: "a".repeat(40) },
+-    instance: { id: "synthetic", ownerRef: "path:identity/owner.json" }, compatibility: { stellaCore: ">=3.0.0-alpha <4", openclaw: ">=2026.10.8" },
+-    identity: { soulRef: "path:identity/soul.md", runtimeProfileRef: `path:${profilePath}` }, twin: { hypothesisRegistryRef: "path:identity/twin.yaml" },
+-    frameworks: { sourceRegistryRef: "path:identity/frameworks.yaml", activeIrRegistryRef: "path:identity/active-ir.yaml" },
+-    praxis: { episodeRootRef: "path:praxis/episodes" }, experience: { corpusRegistryRef: "path:identity/corpora.yaml" },
+-    derived: { rebuild: [] }, runtimeState: { activationStatus: "active", runtimeProfileRef: `path:${profilePath}` } };
+-  const profile = { schema_version: "stella.runtime-profile/v2", contract_profile: "full_memory", host_materialization_ref: `path:${prefix}/host-materialization.json`,
+-    agent_id: "main", language: "zh-CN", timezone: "Etc/UTC", models: Object.fromEntries(["main", "router", "learning", "framework_compiler"].map(k =>
+-      [k, { provider: "google", model: "gemini-3.8-flash", required_capabilities: [] }])), capabilities: [], source_policies_ref: `path:${prefix}/source-policies.json`,
+-    memory: { catalog_ref: `path:${catalogPath}`, semantic_provider: "stella-structured-llm", required_views: ["current_understanding", "ongoing_work"], archive_max_rpo_seconds: 300 },
+-    autonomy: { research_enabled: false, proactive_delivery_enabled: false, delivery_policy_ref: "path:identity/delivery.json", delegation_registry_ref: "path:identity/delegation.json" } };
+-  await put(manifestPath, canonicalJson(manifest)); await put(profilePath, canonicalJson(profile));
+-  // No identity/Host config/bootstrap references are materialized: the narrow
+-  // reader must not load them or pretend full consciousness has been accepted.
+-  const git = async (...args: string[]) => (await run("git", ["-C", root, ...args])).stdout;
+-  await git("init", "--quiet");
+-  const commit = async () => {
+-    await git("add", "--", ".");
+-    await git("-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "synthetic source snapshot");
+-    return (await git("rev-parse", "HEAD")).trim();
+-  };
+-  const revision = await commit();
+-  let metadataCalls = 0; const sourcePolicies: string[] = [];
+-  const admission: SourceReadAdmission = { assertCurrent() {}, async assertMetadata() { metadataCalls++; },
+-    purpose: { readPurpose: "read", derivePurpose: "interpret", deliveryScope: "host", evidenceCutoff: "2026-10-01T00:00:00Z",
+-      trustedAdapters: { user_report: [], tool_observation: [], system_event: [] },
+-      sourceAccess: async (_reader, target) => { sourcePolicies.push(target.policyRef.id); return { judgment: {
+-        scenarios: ["writing"], trigger: "user_requested", topicRequested: true, topicExplicitlyNamed: true, presentation: "summary" }, quoteGrants: [] }; } } };
+-  const binding = { root, manifestPath, revision };
+-  const execute = (parameters: unknown, use = admission) => executeOrdinarySourceRead({ binding, agentId: "main", hostVersion, parameters, admission: use });
+-  return { root, put, refs, texts, binding, admission, execute, git, commit, manifest, profile, catalog,
+-    metadataCalls: () => metadataCalls, sourcePolicies };
+-}
++import { fixture, prefix, manifestPath, profilePath, catalogPath, hostVersion } from "./fixtures/ordinary-source-read.js";
+ 
+ test("selected real-contract manifest/profile/catalog lists roles and times without reading original payloads", async t => {
+   const f = await fixture(t), result = await f.execute({ action: "list" });
+@@ -205,3 +132,45 @@
+   assert.equal(f.sourcePolicies.length, 0);
+   assert.deepEqual(parseOrdinaryConfig({ sourceRead: f.binding }).sourceRead, f.binding);
+ });
++
++test("request expiry during source judgment stops before any protected payload load", async t => {
++  const f = await fixture(t, 1); let active = true, payloadReads = 0;
++  const originalRead = CatalogReader.prototype.readPayload;
++  CatalogReader.prototype.readPayload = async function (...args) { payloadReads++; return originalRead.apply(this, args); };
++  t.after(() => { CatalogReader.prototype.readPayload = originalRead; });
++  const admission = { ...f.admission, assertCurrent() { if (!active) throw new CatalogError("request_expired"); },
++    purpose: { ...f.admission.purpose, sourceAccess: async (...args: Parameters<NonNullable<typeof f.admission.purpose.sourceAccess>>) => {
++      await Promise.resolve(); active = false; return f.admission.purpose.sourceAccess!(...args);
++    } } };
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, admission), /request_expired/);
++  assert.equal(payloadReads, 0);
++});
++
++test("request expiry while reading coverage is checked immediately before the first payload load", async t => {
++  const f = await fixture(t, 1); let active = true, payloadReads = 0;
++  const originalRead = CatalogReader.prototype.read, originalPayload = CatalogReader.prototype.readPayload;
++  CatalogReader.prototype.read = async function (...args) {
++    const value = await originalRead.apply(this, args); if (args[1] === "coverage") active = false; return value;
++  };
++  CatalogReader.prototype.readPayload = async function (...args) { payloadReads++; return originalPayload.apply(this, args); };
++  t.after(() => { CatalogReader.prototype.read = originalRead; CatalogReader.prototype.readPayload = originalPayload; });
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, { ...f.admission,
++    assertCurrent() { if (!active) throw new CatalogError("request_expired"); } }), /request_expired/);
++  assert.equal(payloadReads, 0);
++});
++
++test("source references and selectors expose documented fields only", async t => {
++  const f = await fixture(t, 1), entry = f.catalog.evidence[0]!;
++  const e = JSON.parse(await readFile(path.join(f.root, entry.locator.path), "utf8"));
++  e.source.extraPrivateBody = "SYNTHETIC_UNAPPROVED_REFERENCE_BODY";
++  const bytes = canonicalJson(e); entry.version = objectVersion(e); entry.locator.sha256 = bytesVersion(bytes);
++  f.refs[0] = { id: entry.id, version: entry.version };
++  await f.put(entry.locator.path, bytes); await f.put(catalogPath, canonicalJson(f.catalog)); f.binding.revision = await f.commit();
++  for (const args of [{ action: "list" }, { action: "read", ref: f.refs[0] }]) {
++    const result = await f.execute(args);
++    assert.equal(JSON.stringify(result).includes("SYNTHETIC_UNAPPROVED_REFERENCE_BODY"), false);
++    const ref = result.status === "read" ? result.sourceRef : result.items[0]!.sourceRef;
++    assert.deepEqual(Object.keys(ref).sort(), ["id", "version"]);
++    if (result.status === "read") assert.deepEqual(Object.keys(result.locator.selector).sort(), ["kind", "value"]);
++  }
++});
+--- a/docs/ORDINARY-SOURCE-READ.md
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -41,21 +41,39 @@
+ revision). Paths cannot escape the root or cross a symlink into another file.
+ The binding and filesystem-policy restrictions are not model tool arguments.
+ 
+-**This configuration grants no data access.** `createOrdinaryPlugin` exposes an
+-internal `admitSourceRead` integration port for an existing trusted request and
+-source-processing adapter. That adapter must supply a captured current-request
+-guard, metadata-processing checks and the existing `EvidencePurpose` with
+-`SourceAccessProvider`. Original guards are retained across awaits. The port
+-does not create a grant, turn an owner flag into a source permission, or accept
+-an issuer through plugin JSON, tool arguments, runContext or toolBindings.
++**This configuration grants no data access.** The ordinary entry now has a thin
++public-request adapter in `ordinary-source-admission.ts`. It combines:
+ 
+-The default shipped entry has **no issuer**. Unconfigured calls fail with
+-`source_read_not_configured`; config without an issuer fails with
+-`source_request_admission_unavailable` before source filesystem access.
+-`sourceReadPort` in status distinguishes these states. Existing
+-`sourceAdapter:not_connected` remains conservative; registration of an internal
+-port is not private-source activation. Actual source/request qualification is
+-still a code-integration gap, not merely an enable flag.
++- One supported `reply_dispatch`'s canonical normalized `rawText`, exact run and
++  session, direct-chat sender, and committed native receipt observation. Dispatch
++  only captures references/text in memory; it does not persist, stage, replace an
++  admission handler, wait for a commit, or claim the dispatch. The input is the
++  Host's normalized request representation, not proof of original author wording.
++- The actual source-tool hook call/run/session incarnation and Host requester,
++  plus the v2 factory's original invocation guard, matching requester/owner,
++  owner-private audience and exact active `google/gemini-3.8-flash` model. Missing
++  fields, duplicate calls, conflicting admissions, cancellation and ended turns
++  reject. No session-to-latest identity or qualification recovery is used.
++- The selected profile's unique `source_access_context` capability using the
++  existing `stella.personal-context-access/v1` adapter. Its grant is read from
++  the same clean, pinned Git revision. This limited path requires one existing
++  requester and `personal_context / personal_understanding / owner-direct`.
++  It neither appends a requester/model nor enables operator, learning or writer
++  capabilities. Exact Source/segment/base-policy descriptors bound the scope.
++
++`createPersonalContextAccess`, `assertPersonalSourceMetadata` and existing source
++policy kernels are reused. Each new user request obtains its own committed input,
++reads the current selected grant/version and makes new source judgments. Native
++receipt hashes are only one consistency check; they never independently grant
++source access or author confirmation. Internal test injection ports cannot be
++supplied through plugin JSON, tool parameters, runContext or toolBindings.
++
++Unconfigured calls fail with `source_read_not_configured`; configured calls
++without the required actual Host facts fail before source filesystem access.
++`sourceReadPort` reports configuration/adapter availability; the conservative
++`sourceAdapter:not_connected` label remains until actual binding is validated.
++Neither is proof of successful private-source activation. The installed main remains unchanged
++and unconnected. Actual producer field availability and lifecycle remain untested.
+ 
+ Sandboxed callers are unsupported. A workspace-only Host caller must contain the
+ selected root. These checks precede admission; the issuer is not called for a
+@@ -70,12 +88,17 @@
+   Evidence metadata rows, exact source/evidence refs, recorded role/kind and
+   timestamps. Every row requires metadata-processing admission. No payload is
+   read and no semantic ranking is performed. The cursor binds the catalog hash;
+-  known-by/event-window exclusions are explicit. A page is not evidence that the
++  known-by/event-window and exact descriptor-scope exclusions are explicit. A scope
++  exclusion is only the adapter's explicit `false`; arbitrary metadata errors fail
++  the operation. No out-of-scope row identity or body is returned. A page is not evidence that the
+   whole repository was searched or that the question has sufficient evidence.
+ - `{"action":"read","ref":{"id":"...","version":"sha256:..."}}`: one exact
+   original Evidence slice with Source/version, payload hash/selector, original
+   role/kind/time, coverage and usage constraints. Both base and segment policy
+-  remain enforced. The result is neither author confirmation nor publication.
++  remain enforced. Request lifetime is checked around semantic policy awaits and
++  immediately before the first payload read. Returned Source references and
++  selectors are projected to documented fields. The result is neither author
++  confirmation nor publication.
+ 
+ Each invocation opens current data afresh. There is no session-to-latest lookup
+ or retained permission/reader cache. Original reads enforce the declared time
+@@ -90,7 +113,17 @@
+ Listing and deterministic source checks cannot decide natural-language meaning.
+ The native Agent / properly qualified structured LLM port must select relevant
+ sources, follow leads, distinguish facts/inferences and decide answer versus
+-clarification. This package adds no lexical routing, model client or fallback.
++clarification. No lexical routing or fallback is added. For per-source policy semantics, the
++adapter calls only the public Host `llm.complete` port, explicitly selecting
++`google/gemini-3.8-flash` with `low`, no sampling parameter, and no configured
++fallback. The code passes only the current normalized request and one reviewed
++descriptor/policy context; it does not pass original bodies to that judgment.
++Actual runtime dispatch/consumption is not verified by these synthetic tests.
++No provider call was made by this implementation or its tests. The explicit
++agent/model parameters also remain subject to the Host's existing LLM capability
++policy. No override permission was added here; an unbound/disallowed Host runtime
++must reject rather than select another agent/model. The real public capability
++scope must be checked before a later model-backed run.
+ 
+ ## Actual verification and remaining integration
+ 
+@@ -118,14 +151,38 @@
+ The [R1 delivery receipt](../.task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.json)
+ pins the combined entry patch and its dependency/test evidence.
+ 
+-Next: review this package; then implement the normal public Host request →
+-existing source/processing-admission adapter for this read port. Reconcile the
+-explicit selected private root/manifest/revision and its existing reviewed
+-scopes before any real data use. Current private source selection and shared
+-main remain untouched. Once that dependency and a nonconflicting, authorized
+-Host window are established, the shortest forward scenario is a natural
+-question over a small allowed corpus: native Agent discovers relevant evidence,
+-reads exact originals, follows material leads and answers or clarifies with
+-source/role/time distinctions. Real model/semantic evidence uses
+-`google/gemini-3.8-flash`, `low`, under its own valid call/material scope. The
+-synthetic API tests here do not supply that authorization or acceptance.
++## Next thin binding candidate and Host validation
++
++The next package includes that request adapter, descriptor-scoped listing and
++the independent review's request-lifetime/reference-projection repairs. The old
++state95 nine-file version is preserved in the immutable
++[frozen review manifest](../.task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/MANIFEST.json);
++its review found51/51 baseline checks plus7/9 extra probes, with two real
++synthetic boundary failures. The metadata P2 was independently closed; those two
++source-read failures are retained, not reclassified as old passes.
++The [request-adapter receipt](../.task-control/reports/CORE-VAL-001/source-admission-20261102.json)
++records this candidate's exact code, tests, replay and incremental boundary.
++The final author run passed63/63 focused cases; the same independent probe logic
++replayed7/9 before the fixes and9/9 after them. The existing Evidence kernel suite
++passed28/28 after its temporary harness was supplied the unchanged schema path;
++the initial24/28 missing-schema failure is retained. These separate runs are not
++summed or represented as independent acceptance. It is not installed.
++
++After review, a nonconflicting Host window must use an exclusively synthetic
++source/grant/root and preserve rollback. A direct no-model Gateway tool invocation
++should demonstrate missing-ingress denial. A positive actual-ingress test must
++use a supported Host producer that really supplies dispatch/run/native admission
++and matching tool requester/audience facts; it cannot manufacture callback values
++or substitute a session identity. No public no-model positive producer has been
++established in this package. If a loopback protocol stub is needed to drive a real
++Agent turn, its bounded run must be separately assigned; the old exhausted batch
++is not reused. Do not call an actual model just to produce ingress receipts.
++
++Only after those facts and the exact existing scope are reconciled should a real
++private root be bound. The later forward scenario is a natural question over a
++small permitted corpus: native Agent selects relevant evidence, reads exact
++originals, follows leads and answers or clarifies with source/role/time
++distinctions. Real semantic acceptance uses `google/gemini-3.8-flash`, `low`,
++under its own valid call/material scope. Synthetic API tests supply neither that
++authorization nor acceptance. No shared Host configuration, private binding,
++source file, permission or publication setting changed here.
+--- a/docs/MAIN-DEBUG-INSTALL.md
++++ b/docs/MAIN-DEBUG-INSTALL.md
+@@ -109,7 +109,7 @@
+ 
+ 当前开发优先级由 [需求 §1.5 的2026-11-02决定](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)统一维护：数据结构／必要转换／开发接入先行，再做已有资料的正向理解、召回、语义路由和回答，之后推进纠正及传播。此前“先纠正”的开发排序不再调度；完整纠正目标和验收要求保留。具体执行状态和恢复条件只在唯一台账维护，不从本文历史安装记录恢复任务。当前数据源与已安装普通插件的接入区别见 [两仓数据基础核查](CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102)。
+ 
+-2026-11-02 本地新增 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)，已用等价合成目录通过确定性读取契约；尚未独审／安装，默认入口没有真实来源资格签发器，不能据配置根路径放行私人数据。它不是当前 main 已读沧海的证明。该包不依赖未验收的元数据 P2；后者保持未启用／不得随混合工作树推广。
++2026-11-02 本地 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)已继续接入公开当前请求／工具调用与既有处理配置的薄适配器，并按原获准描述符过滤；仅合成验证63/63及独审反例修后重放通过，尚未对本增量独审／安装。原元数据 P2 已独审关闭；固定旧包的两项来源读取缺陷保留并在本增量修复。当前 main／私人根仍未绑定，公开生产者字段及真实语义消费仍待实际验证；不能据配置、hash或合成回执称已读沧海。
+ 
+ 工作说明仍可作为以后纠正闭环的单资产载体。候选 CRUD、手动 briefId 和 `stella-continue` 只是当前合成调试脚手架，不是 Stella 的完整产品形态，也不是用户被要求永久采用的交互方式。不能把合成回读、字段齐备或 hash 匹配升级为模型已经理解和采用；真实工具供给、模型消费与回答仍需各自证据，且不把检索和路由僵化成单向硬流水。
+ 
+--- a/docs/CORE-CANGHAI-COORDINATION.md
++++ b/docs/CORE-CANGHAI-COORDINATION.md
+@@ -141,3 +141,5 @@
+ 下一有限前置是对齐这份**已存在**的迁移集与新普通插件所需读取契约：固定源 revision、manifest/profile/catalog、语义描述符和用途边界，先用等价合成目录验证解析、来源版本／角色／时间、允许／拒绝及引用闭包，再提出精确的开发绑定方案。复用既有 CatalogReader、原件／策略校验和可用的原生搜索／文件读取；不重建迁移平台、不机械转换非空理解资产、不自动切 dev 或消费指针。真实资料读取／模型发送及实际 main 接入分别核其既有有效授权；本核查未执行这些步骤。聚合 hash、范围和版本见 [本轮审查证据](../.task-control/reports/CORE-VAL-001/direction-audit-20261102.json)。
+ 
+ 2026-11-02 后续本地实现：[普通插件只读来源端口](ORDINARY-SOURCE-READ.md)沿用上表 manifest/profile/catalog 与 Source v2／双策略契约，37项合成定向验证通过；私人源未读取或激活，真实 Host 资格端口仍缺接线。`knowledge-migration-v1/manifest.json` 的两个 runtime profile 引用实际一致指向同目录 `runtime-profile.json`；这与根 `manifest.yaml` 的旧引用不同，所以候选读取器要求显式 manifest，缺失／不一致就失败。此增量不改变上表现场绑定状态，也不把纯读取器通过标为正向语义理解已完成。
++
++2026-11-02 后续请求薄适配候选沿用 `source_access_context` 的原有单请求者、`google/gemini-3.8-flash`、`personal_context / personal_understanding / owner-direct` 合同，不追加授权。普通入口仅在配置来源端口时被动保存当前规范化请求表示；首次工具调用须匹配真实 Host 入场、run/call/session、请求者／受众及提交回执，列表按精确 Source／分段描述符过滤，原文仍经双策略判定。63项合成定向用例通过；上表真实未绑定状态不变，Host 字段与生命周期、真实资料供给／模型消费均未验证。固定 state95 独审包与本增量的代码／证据边界见 [读取契约](ORDINARY-SOURCE-READ.md#next-thin-binding-candidate-and-host-validation)，不把历史97／362许可扩大到整个 runtime catalog。
+--- a/PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -778,3 +778,15 @@
+   source_read_37_cases: preserved_not_rerun
+   source_or_author_qualification: unchanged_unbound
+   independent_review_or_activation: not_performed
++
++# 2026-11-02 local public-request to selected-source read adapter; synthetic only.
++ordinary_source_admission_20261102:
++  evidence: .task-control/reports/CORE-VAL-001/source-admission-20261102.json
++  frozen_prior_review: .task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/MANIFEST.json
++  contract: docs/ORDINARY-SOURCE-READ.md
++  request: public_run_call_session_requester_audience_and_committed_native_input
++  processing: existing_single_requester_and_exact_reviewed_source_segment_descriptors
++  read_boundaries: guard_around_policy_and_before_payload_whitelisted_refs_and_selectors
++  verification: author_63_of_63_probe_replay_9_of_9_kernel_28_of_28_separate
++  actual_host_or_private_source_binding: none
++  model_calls_or_new_grants: none
+--- /dev/null
++++ b/src/openclaw/ordinary-source-admission.ts
+@@ -0,0 +1,188 @@
++import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
++import type { PluginHookReplyDispatchContext, PluginHookReplyDispatchEvent } from "openclaw/plugin-sdk/core";
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++import { realpath } from "node:fs/promises";
++import { parse as parseYaml } from "yaml";
++import { CatalogError, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
++import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
++import { parseConsciousnessManifest } from "../canghai/manifest.js";
++import { parseRuntimeProfile } from "../canghai/runtime-profile.js";
++import { parseCangHaiRef } from "../canghai/ref.js";
++import { createPersonalContextAccess, loadPersonalContextAccess, readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
++import { sourceAccessKey } from "../canghai/source-access.js";
++import { sourceSegments, assertEvidenceSegment, segmentLocator } from "../canghai/source-segments.js";
++import { assertPersonalSourceMetadata } from "../praxis/personal-views.js";
++import { bindProcessingAuthority, assertProcessingStage } from "./processing-authority.js";
++import { snapshotTurnRequest } from "./turn-request.js";
++import type { createCurrentInputMetadata } from "./current-input-metadata.js";
++import { SOURCE_READ_TOOL, type SourceReadAdmission, type SourceReadBinding } from "./ordinary-source-read.js";
++
++export const SOURCE_POLICY_MODEL = "google/gemini-3.8-flash";
++export type SourcePolicyCompletion = (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
++type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
++type Call = Identity & { runId: string; senderId: string; signal?: AbortSignal; conflict: boolean; release(): void };
++type Turn = { sessionKey: string; rawText: string; senderId: string; cutoff: string; conflict: boolean; calls: Set<string>; release(): void };
++type ToolEvent = { toolName: string; toolCallId?: string; runId?: string };
++type ToolContext = Identity & ToolEvent & { abortSignal?: AbortSignal; requester?: { senderId?: string; senderIsOwner?: boolean } };
++const run = promisify(execFile);
++const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 4096;
++function check(ok: unknown, code: string): asserts ok { if (!ok) throw new CatalogError(code); }
++function relativeRef(value: string) {
++  const ref = parseCangHaiRef(value);
++  check(!ref.fragment && !ref.relativePath.split("/").some(p => p === ".." || p.toLowerCase() === ".git"), "source_processing_reference_invalid");
++  return ref.relativePath;
++}
++
++/** Load only the selected profile's existing grant. No bootstrap, grant creation
++ * or adoption of the current checkout as a newly authorized revision. */
++async function processingBinding(binding: SourceReadBinding, guard: () => void) {
++  guard(); check(await realpath(binding.root) === binding.root, "source_root_not_canonical"); guard();
++  const env = { ...process.env };
++  for (const key of Object.keys(env)) if (key.startsWith("GIT_")) delete env[key];
++  const git = async (args: string[], binary = false) => {
++    guard(); const result = await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", binding.root, ...args],
++      { env, encoding: binary ? "buffer" : "utf8", maxBuffer: 2 * 1024 * 1024 }); guard(); return result.stdout;
++  };
++  const selected = async () => {
++    check(String(await git(["rev-parse", "HEAD"])).trim() === binding.revision, "source_revision_mismatch");
++    check(String(await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"])) === "", "source_repository_dirty");
++  };
++  await selected();
++  const document = async (path: string) => {
++    guard(); const bytes = await readRepositoryBytes(binding.root, path); guard();
++    check(bytes.length <= 256_000, "source_processing_document_capacity");
++    check(bytesVersion(await git(["cat-file", "blob", `${binding.revision}:${path}`], true) as Buffer) === bytesVersion(bytes), "source_git_blob_mismatch");
++    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
++  };
++  const manifest = parseConsciousnessManifest(await document(binding.manifestPath));
++  const profilePath = relativeRef(manifest.identity.runtimeProfileRef);
++  check(manifest.runtimeState.runtimeProfileRef === undefined || relativeRef(manifest.runtimeState.runtimeProfileRef) === profilePath, "source_profile_reference_conflict");
++  const profile = parseRuntimeProfile(parseYaml(await document(profilePath)));
++  check(profile.agent_id === "main" && profile.memory, "source_profile_binding_mismatch");
++  const capabilities = profile.capabilities.filter(c => c.id === "source_access_context" && c.adapter_id === "stella.personal-context-access");
++  check(capabilities.length === 1, "source_processing_binding_unavailable");
++  const path = relativeRef(capabilities[0]!.config_ref), grantText = await document(path);
++  const loaded = await loadPersonalContextAccess(binding.root, path); guard();
++  const receipt = await readPersonalContextAccessBinding(loaded); guard();
++  check(receipt.sha256 === bytesVersion(grantText), "personal_context_access_changed");
++  const config = loaded.config;
++  check(config.requesterIds.length === 1 && config.modelRefs.includes(SOURCE_POLICY_MODEL) &&
++    canonicalJson(config.purpose) === canonicalJson({ readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" }), "source_processing_scope_mismatch");
++  await selected();
++  return { loaded, catalogPath: relativeRef(profile.memory.catalog_ref) };
++}
++
++/** Ordinary public callbacks -> existing source processing checks. This stores
++ * bounded current-turn references only; it neither issues identities nor grants. */
++export function createOrdinarySourceAdmission(input: {
++  agentId: string; metadata: ReturnType<typeof createCurrentInputMetadata>; complete: SourcePolicyCompletion;
++}) {
++  const turns = new Map<string, Turn>(), calls = new Map<string, Call>();
++  const discardCall = (id: string) => { const call = calls.get(id); if (call) { calls.delete(id); call.release(); } };
++  const discardTurn = (id: string, turn: Turn) => {
++    if (turns.get(id) !== turn) return;
++    turns.delete(id); turn.release();
++    for (const [callId, call] of calls) if (call.runId === id) discardCall(callId);
++  };
++  return {
++    observeDispatch(event: PluginHookReplyDispatchEvent, context: PluginHookReplyDispatchContext) {
++      const ctx = event.ctx, runId = event.runId, sessionKey = event.sessionKey;
++      const rawText = ctx.rawText, senderId = ctx.SenderId, signal = context.abortSignal;
++      if (input.agentId !== "main" || context.dispatchKind !== "agent" || ctx.AgentId !== input.agentId ||
++          !text(runId) || !text(sessionKey) || ctx.SessionKey !== sessionKey || !text(senderId) ||
++          typeof rawText !== "string" || !rawText.trim() || rawText.length > 16_000 || ctx.ChatType !== "direct" || ctx.InternalTurnSource !== undefined || !signal || signal.aborted) return;
++      const previous = turns.get(runId);
++      if (previous) {
++        if (previous.sessionKey !== sessionKey || previous.rawText !== rawText || previous.senderId !== senderId) previous.conflict = true;
++        return;
++      }
++      if (turns.size >= 32) return;
++      const discard = () => discardTurn(runId, turn);
++      const turn: Turn = { sessionKey, rawText, senderId, cutoff: new Date().toISOString(), conflict: false, calls: new Set(),
++        release: () => signal.removeEventListener("abort", discard) };
++      turns.set(runId, turn); signal.addEventListener("abort", discard, { once: true });
++    },
++    observeTool(event: ToolEvent, context: ToolContext) {
++      if (event.toolName !== SOURCE_READ_TOOL || context.toolName !== SOURCE_READ_TOOL) return;
++      const callId = context.toolCallId, runId = context.runId, requester = context.requester;
++      if (!text(callId) || event.toolCallId !== callId || !text(runId) || event.runId !== runId ||
++          context.agentId !== input.agentId || !text(context.sessionKey) || !text(context.sessionId) ||
++          requester?.senderIsOwner !== true || !text(requester.senderId)) return "source_request_admission_unavailable";
++      const previous = calls.get(callId), turn = turns.get(runId);
++      if (previous) { previous.conflict = true; return "source_call_ambiguous"; }
++      if (!turn || turn.conflict || turn.sessionKey !== context.sessionKey || turn.senderId !== requester.senderId || turn.calls.has(callId)) return "source_request_binding_mismatch";
++      if (context.abortSignal?.aborted || calls.size >= 128 || turn.calls.size >= 128) return "source_call_unavailable";
++      const signal = context.abortSignal;
++      const discard = () => discardCall(callId);
++      calls.set(callId, { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId, runId,
++        senderId: requester.senderId, signal, conflict: false, release: () => signal?.removeEventListener("abort", discard) });
++      signal?.addEventListener("abort", discard, { once: true });
++    },
++    end(event: { runId?: string }, context: Identity & { runId?: string }) {
++      if (!text(event.runId) || event.runId !== context.runId || context.agentId !== input.agentId) return;
++      const turn = turns.get(event.runId);
++      if (!turn || turn.sessionKey !== context.sessionKey) return;
++      discardTurn(event.runId, turn);
++    },
++    forFactory(context: OpenClawPluginToolContext<2>) {
++      const identity = { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId };
++      const senderId = context.requesterSenderId, owner = context.senderIsOwner, audience = context.memoryAudience;
++      const audienceSnapshot = audience ? structuredClone(audience) : undefined, modelRef = context.activeModel?.modelRef;
++      const originalGuard = context.assertInvocationCurrent.bind(context);
++      const audienceGuard = context.assertMemoryAudienceCurrent?.bind(context);
++      return async (binding: SourceReadBinding, callId: string, signal?: AbortSignal): Promise<SourceReadAdmission> => {
++        const call = calls.get(callId); discardCall(callId);
++        check(call && !call.conflict && !call.signal?.aborted, "source_request_admission_unavailable");
++        const turn = turns.get(call.runId);
++        check(turn && !turn.conflict && !turn.calls.has(callId), "source_request_binding_mismatch");
++        turn.calls.add(callId);
++        const guard = () => {
++          originalGuard(); audienceGuard?.(); signal?.throwIfAborted(); call.signal?.throwIfAborted();
++          check(turns.get(call.runId) === turn && !turn.conflict && context.agentId === identity.agentId &&
++            context.sessionKey === identity.sessionKey && context.sessionId === identity.sessionId &&
++            call.agentId === identity.agentId && call.sessionKey === identity.sessionKey && call.sessionId === identity.sessionId,
++          "source_request_binding_mismatch");
++          check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && text(senderId) &&
++            context.requesterSenderId === senderId && call.senderId === senderId && turn.senderId === senderId &&
++            audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
++            canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
++          check(modelRef === SOURCE_POLICY_MODEL && context.activeModel?.modelRef === modelRef, "personal_context_model_forbidden");
++          const native = input.metadata.inspect(call.runId, identity);
++          check(native.status === "observed", "source_native_admission_unavailable");
++        };
++        guard();
++        const processing = await processingBinding(binding, guard); guard();
++        const config = processing.loaded.config;
++        check(config.requesterIds[0] === senderId, "personal_context_requester_forbidden");
++        const request = snapshotTurnRequest({ agentId: identity.agentId!, sessionId: identity.sessionId!, sessionKey: identity.sessionKey!,
++          prompt: turn.rawText, senderId, senderIsOwner: true, chatType: "direct" }, call.runId);
++        const authority = bindProcessingAuthority({ request, ownerId: config.ownerId, modelRef: SOURCE_POLICY_MODEL,
++          purpose: config.purpose, deployment: bytesVersion(canonicalJson(binding)), generationId: binding.revision });
++        const sourceAccess = createPersonalContextAccess({ request, modelRef: SOURCE_POLICY_MODEL, binding: processing.loaded,
++          assertRequestCurrent: guard, reuseWithinRequest: true, signal, processingAuthority: authority,
++          complete: async params => { guard(); const value = await input.complete(params); guard(); return value; } });
++        const descriptors = new Set(config.descriptors.map(sourceAccessKey));
++        return { assertCurrent: guard,
++          purpose: { ...config.purpose, evidenceCutoff: turn.cutoff, trustedAdapters: { user_report: [], tool_observation: [], system_event: [] }, sourceAccess },
++          async assertMetadata(reader, ref) {
++            guard(); await processing.loaded.assertCurrent(); guard();
++            check(reader.root === binding.root && reader.catalogPath === processing.catalogPath, "source_processing_catalog_mismatch");
++            const evidence = await reader.read(ref, "evidence"); guard();
++            check(validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef), "invalid_evidence");
++            const source = await reader.read(evidence.source, "sources"); guard();
++            check(validMemoryRef(source.policyRef), "invalid_source");
++            const segment = assertEvidenceSegment(sourceSegments(source), evidence);
++            const policies = [evidence.policyRef, source.policyRef];
++            if (!policies.every(policyRef => descriptors.has(sourceAccessKey({ sourceRef: evidence.source as typeof ref, policyRef,
++              ...(segment ? { segment: segmentLocator(segment) } : {}) })))) return false;
++            await assertPersonalSourceMetadata({ reader, sourceRef: evidence.source, ownerId: config.ownerId, processingAuthority: authority });
++            const leafPolicy = await reader.read(evidence.policyRef, "policies"); guard();
++            check(leafPolicy.ownerId === config.ownerId, "personal_context_owner_mismatch");
++            assertProcessingStage(authority, leafPolicy, "derive");
++            guard();
++          } };
++      };
++    },
++  };
++}
+--- /dev/null
++++ b/tests/ordinary-source-admission.test.ts
+@@ -0,0 +1,156 @@
++import test, { type TestContext } from "node:test";
++import assert from "node:assert/strict";
++import { readFile } from "node:fs/promises";
++import path from "node:path";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createOrdinaryPlugin, SOURCE_READ_TOOL } from "../src/ordinary-plugin.js";
++import { canonicalJson } from "../src/canghai/content-version.js";
++import { segmentLocator } from "../src/canghai/source-segments.js";
++import { fixture, prefix, profilePath, hostVersion } from "./fixtures/ordinary-source-read.js";
++
++const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
++const purpose = { readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" };
++const grantPath = `${prefix}/capabilities/source_access_context.json`;
++async function setup(t: TestContext, leafDerivePurposes?: string[]) {
++  const f = await fixture(t, 2, 0, undefined, purpose, leafDerivePurposes);
++  const source = JSON.parse(await readFile(path.join(f.root, f.catalog.sources[0]!.locator.path), "utf8"));
++  const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
++  const segment = source.accessSegments[0];
++  const grant = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic-owner", requesterIds: ["synthetic-requester"],
++    modelRefs: ["google/gemini-3.8-flash"], purpose, descriptors: [source.policyRef, segment.policyRef].map(policyRef =>
++      ({ sourceRef, policyRef, segment: segmentLocator(segment), description: "A synthetic harbor-walk record; no real person or private history." })) };
++  f.profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
++    config_ref: `path:${grantPath}`, acceptance_ref: `path:${prefix}/not-loaded-acceptance.json`, required_secret_refs: [] } as never);
++  await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
++  const hooks = new Map<string, Function>(); let factory: any, modelCalls = 0, active = true, denyScenario = false;
++  const modelRequestHashes = new Set<string>();
++  const plugin = createOrdinaryPlugin({ completeSourceAccess: async params => {
++    modelCalls++;
++    const value = JSON.parse(params.prompt.slice(params.prompt.lastIndexOf("\n") + 1));
++    modelRequestHashes.add(value.requestHash);
++    return { text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef, policyRef: value.policyRef, segment: value.segment,
++      applicable: true, scenarios: [denyScenario ? "social" : "writing"], topicRequested: true, topicExplicitlyNamed: true }) };
++  } });
++  plugin.register!({ pluginConfig: { agentId: "main", publisher: false, sourceRead: f.binding }, runtime: { version: hostVersion },
++    registerTool(v: unknown) { factory = v; }, registerCommand() {}, on(name: string, handler: Function) { hooks.set(name, handler); } } as unknown as OpenClawPluginApi);
++  function turn(runId = "run-1", changes: { ctx?: Record<string, unknown>; factory?: Record<string, unknown>; receipt?: Record<string, unknown> } = {}) {
++    const abort = new AbortController(); let persisted = true, blocked = false;
++    const receipt: Record<string, unknown> = { ...identity, storePath: "/synthetic/not-read.db", entryId: runId + "-entry", logicalTurnId: runId + "-turn",
++      generation: "synthetic-generation", idempotencyKey: runId + "-key", role: "user", rawSeq: 1, effectiveParentId: null, activeMessagePosition: 0, ...changes.receipt };
++    const recorder = new Proxy({ hasPersisted: () => persisted, isBlocked: () => blocked, getAdmissionReceipt: () => receipt }, {
++      get(target, key, receiver) { assert.ok(Object.hasOwn(target, key), `forbidden recorder access ${String(key)}`); return Reflect.get(target, key, receiver); },
++    });
++    const context = { ...identity, requesterSenderId: "synthetic-requester", senderIsOwner: true,
++      memoryAudience: { kind: "owner-private", agentId: "main" }, activeModel: { modelRef: "google/gemini-3.8-flash" },
++      assertInvocationCurrent() { assert.ok(active, "request_expired"); }, ...changes.factory };
++    const event = { runId, sessionKey: identity.sessionKey, ctx: { AgentId: "main", SessionKey: identity.sessionKey,
++      SenderId: "synthetic-requester", rawText: "Use the fictional harbor-walk record to answer this synthetic question.", ChatType: "direct", ...changes.ctx } };
++    const dispatch = () => hooks.get("reply_dispatch")!(event, { dispatchKind: "agent", abortSignal: abort.signal, userTurnTranscriptRecorder: recorder });
++    const tool = factory.create(context).find((v: any) => v.name === SOURCE_READ_TOOL);
++    const hook = (callId: string, extra = {}) => hooks.get("before_tool_call")!({ toolName: SOURCE_READ_TOOL, toolCallId: callId, runId },
++      { ...identity, toolName: SOURCE_READ_TOOL, toolCallId: callId, runId, abortSignal: abort.signal,
++        requester: { senderId: "synthetic-requester", senderIsOwner: true }, ...extra });
++    return { receipt, context, event, dispatch, hook, tool, abort,
++      pending() { persisted = false; }, commit() { persisted = true; }, block() { blocked = true; },
++      end() { hooks.get("agent_end")!({ runId }, { ...identity, runId }); } };
++  }
++  return { ...f, grant, turn, hooks, modelCalls: () => modelCalls, modelRequestHashes, expire() { active = false; }, deny() { denyScenario = true; } };
++}
++
++test("actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch(); assert.equal(turn.hook("list"), undefined);
++  const listed = await turn.tool.execute("list", { action: "list" });
++  assert.equal(listed.details.status, "listed"); assert.equal(listed.details.items.length, 1); assert.equal(listed.details.excludedByScopeOnPage, 1);
++  assert.equal(f.modelCalls(), 0); assert.equal(JSON.stringify(listed).includes("harbor walk is planned"), false);
++  assert.equal(turn.hook("read"), undefined);
++  const read = await turn.tool.execute("read", { action: "read", ref: f.refs[0] });
++  assert.equal(read.details.status, "read"); assert.equal(read.details.original.text, f.texts[0]); assert.equal(f.modelCalls(), 2);
++  assert.equal(read.details.publisher, false); assert.equal(read.details.authorConfirmation, false);
++  turn.hook("out-of-scope"); const denied = await turn.tool.execute("out-of-scope", { action: "read", ref: f.refs[1] });
++  assert.equal(denied.details.code, "source_descriptor_scope_denied"); assert.equal(f.modelCalls(), 2);
++});
++
++test("missing real hook/request fields never use owner flags, model parameters or session latest", async t => {
++  const f = await setup(t);
++  const absent = f.turn("absent");
++  assert.equal((await absent.tool.execute("no-hook", { action: "list" })).details.code, "source_request_admission_unavailable");
++  for (const [index, ctx] of [{ rawText: undefined }, { ChatType: "group" }, { InternalTurnSource: "cron" }, { SenderId: undefined }].entries()) {
++    const turn = f.turn(`missing-${index}`, { ctx }); turn.dispatch(); assert.equal(turn.hook(`call-${index}`)?.block, true);
++    assert.equal((await turn.tool.execute(`call-${index}`, { action: "list", owner: true, requester: "synthetic-requester" })).isError, true);
++  }
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("Host owner/requester/audience/model must match existing grant without granting new identities", async t => {
++  const f = await setup(t);
++  for (const [index, changes] of [
++    { factory: { senderIsOwner: false } }, { factory: { requesterSenderId: "different" } },
++    { factory: { memoryAudience: { kind: "conversation", ...identity } } },
++    { factory: { activeModel: { modelRef: "google/old-model" } } },
++  ].entries()) {
++    const turn = f.turn(`denied-${index}`, changes); turn.dispatch(); turn.hook(`call-${index}`);
++    const value = await turn.tool.execute(`call-${index}`, { action: "list" }); assert.equal(value.isError, true);
++  }
++  const other = f.turn("other", { ctx: { SenderId: "other-requester" }, factory: { requesterSenderId: "other-requester" } });
++  other.dispatch(); assert.equal(other.hook("other", { requester: { senderId: "other-requester", senderIsOwner: true } }), undefined);
++  assert.equal((await other.tool.execute("other", { action: "list" })).details.code, "personal_context_requester_forbidden");
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("exact call/run/incarnation rejects ambiguity, mismatch, replay and expired original guard", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch();
++  turn.hook("duplicate"); assert.equal(turn.hook("duplicate")?.block, true);
++  assert.equal((await turn.tool.execute("duplicate", { action: "list" })).isError, true);
++  turn.hook("incarnation", { sessionId: "other-session" });
++  assert.equal((await turn.tool.execute("incarnation", { action: "list" })).details.code, "source_request_binding_mismatch");
++  turn.hook("once"); assert.equal((await turn.tool.execute("once", { action: "list" })).details.status, "listed");
++  assert.equal(turn.hook("once")?.block, true);
++  assert.equal((await turn.tool.execute("once", { action: "list" })).isError, true);
++  turn.hook("closed"); f.expire(); turn.context.assertInvocationCurrent = () => {};
++  await assert.rejects(turn.tool.execute("closed", { action: "list" }), /request_expired/);
++});
++
++test("uncommitted or blocked native turn cannot read; commitment before a later first valid call is supported", async t => {
++  const f = await setup(t), turn = f.turn(); turn.pending(); turn.dispatch(); turn.hook("pending");
++  assert.equal((await turn.tool.execute("pending", { action: "list" })).details.code, "source_native_admission_unavailable");
++  turn.commit(); turn.hook("committed"); assert.equal((await turn.tool.execute("committed", { action: "list" })).details.status, "listed");
++  const blocked = f.turn("blocked"); blocked.block(); blocked.dispatch(); blocked.hook("blocked");
++  assert.equal((await blocked.tool.execute("blocked", { action: "read", ref: f.refs[0] })).details.code, "source_native_admission_unavailable");
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("new user request in same session requalifies its own input and rereads selected version; old qualification is not reused", async t => {
++  const f = await setup(t), first = f.turn("first"); first.dispatch(); first.hook("first-read");
++  assert.equal((await first.tool.execute("first-read", { action: "read", ref: f.refs[0] })).details.status, "read"); first.end();
++  const second = f.turn("second", { ctx: { rawText: "A new synthetic request over the same fictional record." } });
++  assert.equal(second.hook("no-dispatch")?.block, true); second.dispatch(); second.hook("second-read");
++  assert.equal((await second.tool.execute("second-read", { action: "read", ref: f.refs[0] })).details.status, "read");
++  assert.equal(f.modelCalls(), 4); assert.equal(f.modelRequestHashes.size, 2);
++  await f.put(grantPath, canonicalJson({ ...f.grant, requesterIds: ["changed-requester"] })); await f.commit();
++  const third = f.turn("third"); third.dispatch(); third.hook("third-read");
++  assert.equal((await third.tool.execute("third-read", { action: "read", ref: f.refs[0] })).details.code, "source_revision_mismatch");
++  assert.equal(f.modelCalls(), 4);
++});
++
++test("native admission conflict, cancellation and end do not revive an old binding", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch(); turn.hook("list");
++  assert.equal((await turn.tool.execute("list", { action: "list" })).details.status, "listed");
++  turn.receipt.logicalTurnId = "different-turn"; turn.hook("changed");
++  assert.equal((await turn.tool.execute("changed", { action: "list" })).details.code, "source_native_admission_unavailable");
++  const cancelled = f.turn("cancelled"); cancelled.dispatch(); cancelled.hook("cancelled"); cancelled.abort.abort();
++  assert.equal((await cancelled.tool.execute("cancelled", { action: "list" })).isError, true);
++  const ended = f.turn("ended"); ended.dispatch(); ended.hook("ended"); ended.end();
++  assert.equal((await ended.tool.execute("ended", { action: "list" })).isError, true);
++});
++
++test("semantic policy denial remains an explicit read failure; metadata access does not grant body access", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch(); turn.hook("denied"); f.deny();
++  assert.equal((await turn.tool.execute("denied", { action: "read", ref: f.refs[0] })).details.code, "source_scenario_forbidden");
++  assert.equal(f.modelCalls(), 1);
++});
++
++test("reviewed descriptor membership cannot override the segment's metadata-processing purpose", async t => {
++  const f = await setup(t, ["other-purpose"]), turn = f.turn(); turn.dispatch(); turn.hook("metadata-denied");
++  assert.equal((await turn.tool.execute("metadata-denied", { action: "list" })).details.code, "permission_denied");
++  assert.equal(f.modelCalls(), 0);
++});
+--- /dev/null
++++ b/tests/fixtures/ordinary-source-read.ts
+@@ -0,0 +1,90 @@
++import test, { type TestContext } from "node:test";
++import assert from "node:assert/strict";
++import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from "node:fs/promises";
++import os from "node:os";
++import path from "node:path";
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createOrdinaryPlugin, SOURCE_READ_TOOL, parseOrdinaryConfig } from "../../src/ordinary-plugin.js";
++import { executeOrdinarySourceRead, parseSourceReadBinding, type SourceReadAdmission } from "../../src/openclaw/ordinary-source-read.js";
++import { prepareRepositorySource } from "../../src/canghai/repository-source.js";
++import { CatalogError, parseMemoryCatalog } from "../../src/canghai/catalog-reader.js";
++import { canonicalJson, bytesVersion, objectVersion } from "../../src/canghai/content-version.js";
++import type { VersionedRef } from "../../src/praxis/episode-v2.js";
++
++const run = promisify(execFile);
++export const prefix = "50_PersonalAgent/stella/knowledge-migration-v1";
++export const manifestPath = `${prefix}/manifest.json`, profilePath = `${prefix}/runtime-profile.json`;
++export const catalogPath = "30_Knowledge/migration-v1/runtime/catalog.json";
++export const hostVersion = "2026.10.9";
++export async function fixture(t: TestContext, count = 3, textSize = 0, payloadText?: string, purpose = { readPurpose: "read", derivePurpose: "interpret", deliveryScope: "host" }, leafDerivePurposes = [purpose.derivePurpose]) {
++  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-source-port-")));
++  t.after(() => rm(root, { recursive: true, force: true }));
++  const put = async (file: string, value: string) => { await mkdir(path.dirname(path.join(root, file)), { recursive: true }); await writeFile(path.join(root, file), value); };
++  const policy = (id: string) => ({ schemaVersion: "stella.source-policy/v2", id, ownerId: "synthetic-owner", readPurposes: [purpose.readPurpose],
++    derivePurposes: [purpose.derivePurpose], deliveryScopes: [purpose.deliveryScope], retention: "retain", authorityEvidenceRefs: [],
++    restrictions: { sensitivity: "private", quotePolicy: "never_quote", allowedScenarios: ["writing"], forbiddenScenarios: ["social"] } });
++  const basePolicy = policy("synthetic-base"), leafPolicy = { ...policy("synthetic-leaf"), derivePurposes: leafDerivePurposes };
++  const baseRef = { id: basePolicy.id, version: objectVersion(basePolicy) }, leafRef = { id: leafPolicy.id, version: objectVersion(leafPolicy) };
++  const catalog = parseMemoryCatalog({ schemaVersion: "stella.memory-catalog/v1", generationId: "synthetic-migration-one", parentGenerationId: null,
++    sources: [], evidence: [], policies: [], coverage: [], understandings: [], works: [], changes: [], bundles: [], views: [] });
++  for (const p of [basePolicy, leafPolicy]) {
++    const bytes = canonicalJson(p), file = `30_Knowledge/migration-v1/runtime/objects/${p.id}.json`;
++    await put(file, bytes); catalog.policies.push({ id: p.id, version: objectVersion(p), status: "current", dependencies: [], locator: { path: file, sha256: bytesVersion(bytes) } });
++  }
++  const refs: VersionedRef[] = [], texts: string[] = [];
++  for (let index = 0; index < count; index++) {
++    const text = payloadText ?? (textSize ? "x".repeat(textSize) : `Fictional source ${index}: the harbor walk is planned for July.\n`);
++    const file = `30_Knowledge/migration-v1/runtime/payloads/source-${index}.txt`; await put(file, text); texts.push(text);
++    const prepared = await prepareRepositorySource({ root, collectionId: "synthetic-migration", sourceId: `source-${index}`, relativePath: file,
++      expectedSha256: bytesVersion(text), capturedAt: "2026-09-01T00:00:00Z", policyRef: baseRef, objectRoot: "30_Knowledge/migration-v1/runtime/objects",
++      reviewedSegments: [{ start: 0, end: Buffer.byteLength(text), policyRef: leafRef }] });
++    for (const item of prepared.objects) {
++      if (item.group === "evidence") {
++        const e: Record<string, unknown> = { ...item.object, role: index % 3 === 0 ? "owner" : index % 3 === 1 ? "assistant" : "external_author",
++          kind: index % 3 === 0 ? "reported" : index % 3 === 1 ? "inference" : "quotation",
++          occurredAt: "2026-07-01T00:00:00Z", authoredAt: "2026-08-01T00:00:00Z" };
++        delete e.version;
++        item.ref = { id: String(e.id), version: objectVersion(e) }; item.object = e; item.bytes = canonicalJson(e);
++        item.entry = { ...item.entry, ...item.ref, locator: { path: `30_Knowledge/migration-v1/runtime/objects/evidence-${index}.json`, sha256: bytesVersion(item.bytes) } };
++        refs.push(item.ref);
++      }
++      await put(item.entry.locator.path, item.bytes); catalog[item.group].push(item.entry);
++    }
++  }
++  await put(catalogPath, canonicalJson(catalog));
++  const manifest = { schemaVersion: "stella.consciousness-manifest/v1", sourceBaseline: { repository: "synthetic/CangHai", commit: "a".repeat(40) },
++    instance: { id: "synthetic", ownerRef: "path:identity/owner.json" }, compatibility: { stellaCore: ">=3.0.0-alpha <4", openclaw: ">=2026.10.8" },
++    identity: { soulRef: "path:identity/soul.md", runtimeProfileRef: `path:${profilePath}` }, twin: { hypothesisRegistryRef: "path:identity/twin.yaml" },
++    frameworks: { sourceRegistryRef: "path:identity/frameworks.yaml", activeIrRegistryRef: "path:identity/active-ir.yaml" },
++    praxis: { episodeRootRef: "path:praxis/episodes" }, experience: { corpusRegistryRef: "path:identity/corpora.yaml" },
++    derived: { rebuild: [] }, runtimeState: { activationStatus: "active", runtimeProfileRef: `path:${profilePath}` } };
++  const profile = { schema_version: "stella.runtime-profile/v2", contract_profile: "full_memory", host_materialization_ref: `path:${prefix}/host-materialization.json`,
++    agent_id: "main", language: "zh-CN", timezone: "Etc/UTC", models: Object.fromEntries(["main", "router", "learning", "framework_compiler"].map(k =>
++      [k, { provider: "google", model: "gemini-3.8-flash", required_capabilities: [] }])), capabilities: [], source_policies_ref: `path:${prefix}/source-policies.json`,
++    memory: { catalog_ref: `path:${catalogPath}`, semantic_provider: "stella-structured-llm", required_views: ["current_understanding", "ongoing_work"], archive_max_rpo_seconds: 300 },
++    autonomy: { research_enabled: false, proactive_delivery_enabled: false, delivery_policy_ref: "path:identity/delivery.json", delegation_registry_ref: "path:identity/delegation.json" } };
++  await put(manifestPath, canonicalJson(manifest)); await put(profilePath, canonicalJson(profile));
++  // No identity/Host config/bootstrap references are materialized: the narrow
++  // reader must not load them or pretend full consciousness has been accepted.
++  const git = async (...args: string[]) => (await run("git", ["-C", root, ...args])).stdout;
++  await git("init", "--quiet");
++  const commit = async () => {
++    await git("add", "--", ".");
++    await git("-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "synthetic source snapshot");
++    return (await git("rev-parse", "HEAD")).trim();
++  };
++  const revision = await commit();
++  let metadataCalls = 0; const sourcePolicies: string[] = [];
++  const admission: SourceReadAdmission = { assertCurrent() {}, async assertMetadata() { metadataCalls++; },
++    purpose: { readPurpose: "read", derivePurpose: "interpret", deliveryScope: "host", evidenceCutoff: "2026-10-01T00:00:00Z",
++      trustedAdapters: { user_report: [], tool_observation: [], system_event: [] },
++      sourceAccess: async (_reader, target) => { sourcePolicies.push(target.policyRef.id); return { judgment: {
++        scenarios: ["writing"], trigger: "user_requested", topicRequested: true, topicExplicitlyNamed: true, presentation: "summary" }, quoteGrants: [] }; } } };
++  const binding = { root, manifestPath, revision };
++  const execute = (parameters: unknown, use = admission) => executeOrdinarySourceRead({ binding, agentId: "main", hostVersion, parameters, admission: use });
++  return { root, put, refs, texts, binding, admission, execute, git, commit, manifest, profile, catalog,
++    metadataCalls: () => metadataCalls, sourcePolicies };
++}
++

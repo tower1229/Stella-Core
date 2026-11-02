@@ -1,0 +1,21 @@
+{
+  "reviewedState": 97,
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "acceptedImplementationReportSha256": "699e57163b42e19b35ffb21f4e8751db73a3f4e860fc90de61014ce27543a29c",
+  "independentSummarySha256": "09634aae232a2e3529c77d85b18cc261d7b352f379d84e2b183d9eef83703d29",
+  "files": {
+    "src/openclaw/current-input-metadata.ts": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+    "src/openclaw/ordinary-source-read.ts": "697e8279689f65983b61ce5feff1f1485e650ecd5fac728466d5529e093e45ab",
+    "src/ordinary-plugin.ts": "053723da7bac21efad4afa1e60aacc8022b748127b5b1e46df5a613869abf03d",
+    "tests/current-input-metadata.test.ts": "533953dce4fcc46c64300576377ddba4d78d9e680e73e8a3e78f4f442eec63e1",
+    "tests/ordinary-source-read.test.ts": "808c9f66be0cf7d770b36c0e900aa2d775c94dd014de64510325be13991fb280",
+    "tests/ordinary-plugin.test.ts": "ae284eb682e3fc4815b645f9b242c3f640a4e4058ee1d4509ad5ffe8348bf9c2",
+    "openclaw.plugin.json": "e2dd21013ae5cce8a1e85493c5d6cf64ae75951e13ee38cf79a3a3bc35d61960",
+    "package.json": "30b44c2addf9478afa4e23ae526cfa1c18666e3406b7ed2a0850ea61e19a2e05",
+    "docs/ORDINARY-SOURCE-READ.md": "20650a2aca5d9aa251b48a28adddd35a61881c2d345736ac104794233146ec63",
+    "src/openclaw/ordinary-source-admission.ts": "9d3c60f7cfbaf0e279dc3d292ba354f5e04ec52a3e71da9a6a512d383c675d7e",
+    "tests/ordinary-source-admission.test.ts": "35c655365f48cd7fa530690b095a9da857dcaf210d21cac854d841d7e8b423f4",
+    "tests/fixtures/ordinary-source-read.ts": "21a39b490ab41286d7f844f6f0bea17c731d1dbe733699df3345be1a903b7a92",
+    "src/praxis/episode-evidence.ts": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d"
+  }
+}

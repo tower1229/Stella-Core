@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "phase": "canonical_documentation_written_read_back_and_link_checked",
+  "observedAt": "2026-11-02T02:20:47.698050+00:00",
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "documentAudit": [
+    {
+      "topic": "privateAgent long-term understanding",
+      "alreadyRecorded": [
+        "docs/09-REQUIREMENTS-ALIGNMENT.md section1",
+        "docs/design/2026-10-30-core-realignment/README.md"
+      ],
+      "added": "docs/MAIN-DEBUG-INSTALL.md long-term section links the existing goal; no new product requirement"
+    },
+    {
+      "topic": "ordinary plugin/native memory context loop",
+      "alreadyRecorded": [
+        "docs/10-DESIGN-BASELINE.md 20261030 entry",
+        "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md sections1 and6",
+        "docs/MAIN-DEBUG-INSTALL.md initial install"
+      ],
+      "added": "required navigation only; oldBridge/SQL/26legacy not resurrected; no architecture/ADR change"
+    },
+    {
+      "topic": "actualHost minimal increment then optimize",
+      "alreadyRecorded": [
+        ".task-control/state.json CORE-VAL-001 user-directed install scope",
+        "docs/MAIN-DEBUG-INSTALL.md actual install procedure"
+      ],
+      "gap": "workflow was fragmented across task history and install receipts",
+      "added": "docs/MAIN-DEBUG-INSTALL.md long-term development workflow now explicit and linked from AGENTS/design baseline"
+    },
+    {
+      "topic": "tool read-write vs model semantic consumption",
+      "alreadyRecorded": [
+        "docs/CANDIDATE-WORK-BRIEF.md explicit continuation and recovery evidence"
+      ],
+      "added": "main long-term section points to existing evidence boundaries; historical two-tool/generation11 phrasing marked historical"
+    },
+    {
+      "topic": "Mac dev,15pro final integration,TTS/media handoff",
+      "alreadyRecorded": [
+        "Bili docs/ARCHITECTURE.md section9.2.1 media-development-handoff"
+      ],
+      "gap": "Core had no discoverable device/TTS cross-project handoff",
+      "added": "Core main long-term section records minimal device/dependency summary and one canonical Bili workspace link; TTS/video interfaces and strategy not duplicated"
+    },
+    {
+      "topic": "manager documentation and unique progress maintenance",
+      "alreadyRecorded": [
+        ".task-control/README.md atomic-state/single-writer update procedure",
+        "AGENTS.md recovery instructions"
+      ],
+      "gap": "canonical正文 synchronization/readback and transmitted-vs-landed distinction were not explicit",
+      "added": ".task-control/README.md update/handoff section; AGENTS required-link only, no copied permission rules"
+    }
+  ],
+  "changedCanonicalDocuments": {
+    "AGENTS.md": {
+      "beforeSha256": "40e1c0499922d2918ac45f4a5200bedf131d6f4b20908c94c0d30ef98db06e70",
+      "afterSha256": "8e167cf8321bd6a06119b0bf30cdf8051c9b6023254860f9fc0a046c93a26f28"
+    },
+    ".task-control/README.md": {
+      "beforeSha256": "8658ae7691e52cc8c387b45f7a41257b13de596226a012f267810a32a82f1320",
+      "afterSha256": "88f24a57cf04efc73f3134283fe1493db7d0f3af8fb2f01c9d8dc5615adb2301"
+    },
+    "docs/10-DESIGN-BASELINE.md": {
+      "beforeSha256": "511c8424881bd3af0978d5e499a17b79fd9f9623b35d19b3ee81bae9670eae1d",
+      "afterSha256": "92b5f3e5e10f20efe0ffcbcb49ec77092bd54b2f7e38f5c5954713658d0ed917"
+    },
+    "docs/MAIN-DEBUG-INSTALL.md": {
+      "beforeSha256": "a263edbf119c5dd8a361e78cf3cb842c2eeef7b7278091e063d418bffdd6e964",
+      "afterSha256": "bb6eba32369e776a50cff15b2763be0176999418131ed25ce237133c61afabf9"
+    }
+  },
+  "sourceDocuments": {
+    "docs/09-REQUIREMENTS-ALIGNMENT.md": "e54f3279f9545a8fe6e02e25ea91395c50b44ed1bc4061581c6990befbb5ed5a",
+    "docs/design/2026-10-30-core-realignment/README.md": "31bec2c86f9e1151d74c0b9c9723db0ef2c36ea8808ea4bdaa6f4dd9bde66129",
+    "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md": "38282fb0985caff7dc650a0a155e9518806d273eed4d268d8f3d937995231d5c",
+    "docs/CANDIDATE-WORK-BRIEF.md": "d149dc8c794750f6f6236d33ada60f10acff0d5fc4cf03732c36fa036a1ba612",
+    "docs/DECISIONS.md": "f32e2378562815c524b46a88f537f2396e0c64a9852910d95555fcfdd850e9da"
+  },
+  "singleFactSources": {
+    "product": "docs/09-REQUIREMENTS-ALIGNMENT.md",
+    "engineeringDecisions": "docs/DECISIONS.md and existing dated realignment docs/accepted CORE-D1",
+    "developmentAndDeviceHandoff": "docs/MAIN-DEBUG-INSTALL.md long-term section",
+    "updateResponsibilitiesAndStateProcedure": ".task-control/README.md update/handoff",
+    "executionState": ".task-control/state.json only",
+    "TTSAndVideoDetailedText": "Bili docs/ARCHITECTURE.md section9.2.1; Core workspace cross-link only"
+  },
+  "biliCanonical": {
+    "workspaceRelativePath": "../openclaw-bili-plugin/docs/ARCHITECTURE.md",
+    "section": "9.2.1 制作路线与开发交接",
+    "explicitAnchor": "media-development-handoff",
+    "sourceSha256": "5a32c66cebd6b7091b881f994ee5c224f6726ec495289c3c9891c0b2f9444225",
+    "repositoryHeadObserved": "db491b1c421d1ce5df0da6d16c2670bda37b3ac4",
+    "hashIsWorkingDocumentSnapshotNotRemotePublishedProof": true,
+    "readOnlyNotModified": true,
+    "factStatus": "15pro TTS success is user-confirmed service availability; Mac development assumption; not Core interface/network/TTS-quality or15pro final-integration test evidence"
+  },
+  "stateVersionClarification": {
+    "commit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+    "committedRevision": 80,
+    "preAuditLocalRevision": 84,
+    "initialAuditTakeoverRevision": 85,
+    "commit80VsLocal84TopLevelChanged": [
+      "revision",
+      "updatedAt",
+      "writer",
+      "tasks"
+    ],
+    "changedTaskIds": [
+      "CORE-VAL-001"
+    ],
+    "changes": {
+      "phase": {
+        "committed80": "reviewed_narrowed_five_file_save_ready",
+        "local84": "saved_pushed_both_ci_terminal_old26_unchanged"
+      },
+      "committed": {
+        "committed80": false,
+        "local84": true
+      },
+      "pushed": {
+        "committed80": false,
+        "local84": true
+      },
+      "remoteObservedSha": {
+        "committed80": null,
+        "local84": "2fdf47a660df50202e66d5567349ad2e5efdd3dc"
+      },
+      "ci": {
+        "committed80": null,
+        "local84": "completed_failure_26old_each"
+      },
+      "ciRuns": {
+        "committed80": null,
+        "local84": [
+          {
+            "id": 41373840347,
+            "url": "https://github.com/tower1229/Stella-Core/actions/runs/41373840347",
+            "status": "completed",
+            "conclusion": "failure",
+            "headSha": "2fdf47a660df50202e66d5567349ad2e5efdd3dc"
+          },
+          {
+            "id": 41373840365,
+            "url": "https://github.com/tower1229/Stella-Core/actions/runs/41373840365",
+            "status": "completed",
+            "conclusion": "failure",
+            "headSha": "2fdf47a660df50202e66d5567349ad2e5efdd3dc"
+          }
+        ]
+      },
+      "pushHistory": {
+        "committed80": null,
+        "local84": [
+          {
+            "kind": "auto_review_rejection",
+            "processCreated": false,
+            "retainedReport": ".task-control/reports/CORE-VAL-001/legacy26-save-blocked-20261102.json"
+          },
+          {
+            "kind": "supplemental_original_user_authorization",
+            "destination": "tower1229/Stella-Core",
+            "scope": "same reviewed five nonsensitive documentation/state files on existing branch"
+          },
+          {
+            "kind": "single_same_normal_approval_retry",
+            "exitCode": 0,
+            "remoteSha": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+            "trustAccountOrAccessChanges": false
+          }
+        ]
+      },
+      "ciReport": {
+        "committed80": null,
+        "local84": ".task-control/reports/CORE-VAL-001/legacy26-save-ci-20261102.json"
+      },
+      "ciCountsEach": {
+        "committed80": null,
+        "local84": {
+          "tests": 1786,
+          "pass": 1760,
+          "oldFail": 26,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      }
+    },
+    "interpretation": "state80 was pre-save bookkeeping in the commit; local84 subsequently records actual push/approval-history/CI-terminal and handoff facts; no new runtime/test/architecture decision in that difference; audit85 only took ownership before disconnected document write"
+  },
+  "transportRecovery": {
+    "firstAttempt": "apply_patch failed while reading first target AGENTS; readonly health-check process creation then failed on exec-server transport",
+    "afterRestoration": "all four document hashes matched pre-disconnect snapshots, confirming no partial document write; current effective AGENTS re-read after user re-provided instructions",
+    "scopeMaintained": "no replay of Host/model operations"
+  },
+  "linkValidation": {
+    "newLinksChecked": 11,
+    "allTargetsAndAnchorsExist": true,
+    "externalWorkspaceLinkExplicitlyIdentified": true,
+    "receiptSha256": "7799e18531196fa24676d0e3cba680ab21025b6a4e3aebeeacd48d2c17d281a0"
+  },
+  "historicalOrUncoveredBoundaries": [
+    "D-063 and20261030 research documents retain their original engineering/draft/time scope; not rewritten as user approval of the whole architecture",
+    "Initial two-tool/generation11 installation facts now explicitly historical; later progression stays in existing candidate-work-brief evidence",
+    "Actual model-driven continuation semantics and automatic freshness remain unverified",
+    "Core real source/author admission/full_memory and15pro final integration remain unverified",
+    "Core has no newly introduced directTTS contract; URL/protocol/voice identifiers and media quality/cost stay with Bili canonical owner",
+    "This audit does not verify a published remote version of newly edited Bili documentation"
+  ],
+  "sharedHostHealthSubtask": {
+    "observedAt": "2026-11-02T02:11:26.752880+00:00",
+    "version": "OpenClaw 2026.10.8 (dc2523e)",
+    "loopbackPort": 18789,
+    "checks": [
+      {
+        "endpoint": "/healthz",
+        "reachable": true,
+        "httpStatus": 200,
+        "summary": {
+          "ok": true,
+          "status": "live"
+        },
+        "responseSha256": "6191c1f860b8a0225c697e46ebce756193dfb18c189218cfe742037501da05eb",
+        "bodyBytes": 27
+      },
+      {
+        "endpoint": "/readyz",
+        "reachable": true,
+        "httpStatus": 200,
+        "summary": {
+          "ready": true,
+          "uptimeMs": 253787195,
+          "eventLoop": {
+            "degraded": false
+          }
+        },
+        "responseSha256": "b14546fed0185eb4b4a781ad903c2676d80ede88d2b99ea06e14e0025be1642b",
+        "bodyBytes": 373
+      }
+    ],
+    "selfieBusinessTested": false,
+    "configurationOrServiceChanged": false,
+    "receiptSha256": "877d439f59c5c57bb08c15490d2e95ce8fb35d78d46a7a98147eb093868c6508",
+    "scope": "prior explicitly requested readonly health subtask; no subsequent Host action during documentation writing"
+  },
+  "noAction": [
+    "no code or tests executed as functional validation",
+    "no model/Agent request",
+    "no shared OpenClaw configuration/package/restart/stop action",
+    "no source data/credential access expansion",
+    "no Bili repository writes",
+    "no commit/stage/push or CI trigger"
+  ],
+  "projectStatePreserved": {
+    "sha256": "44999cfbc5438c11cd319a1d46f9a98a562b64ac144641bac318bd6988691515",
+    "unchangedSinceAuditStart": true
+  },
+  "userRequirementSources": "trusted user instructions supplied by parent: privateAgent/officialHost practical iteration,15pro service/device handoff, and manager duty to maintain canonical docs and unique progress; no private conversation URL/body needed by future team readers because the actual requirements now reside in project files"
+}

@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "phase": "local_implementation_focused_checks_complete_pending_independent_review_not_activated",
+  "observedAt": "2026-11-02T02:52:12.446170+00:00",
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "baseRevision": 86,
+  "implementationRevision": 87,
+  "gap": {
+    "implemented": "ordinary-plugin public reply_dispatch recorder reference -> exact public run/call + factory session -> synchronous native receipt metadata annotation",
+    "notImplemented": "trusted author/source binding, original-text representation, Source/version/purpose qualification and model/semantic consumption; offline author qualifier deliberately not wired"
+  },
+  "implementation": {
+    "newModule": "src/openclaw/current-input-metadata.ts",
+    "ordinaryEntry": "src/ordinary-plugin.ts",
+    "newHooks": [
+      "reply_dispatch",
+      "agent_end"
+    ],
+    "reads": [
+      "event.ctx.AgentId",
+      "event.ctx.SessionKey",
+      "event.runId",
+      "event.sessionKey",
+      "context.dispatchKind",
+      "context.abortSignal",
+      "context.userTurnTranscriptRecorder.hasPersisted",
+      "context.userTurnTranscriptRecorder.isBlocked",
+      "context.userTurnTranscriptRecorder.getAdmissionReceipt"
+    ],
+    "dispatchRecorderMethodCalls": 0,
+    "readsMessageTextHistoryProvenanceSenderConfigOrCredentials": false,
+    "recorderMutationOrHandlerCalls": 0,
+    "claimsDispatch": false,
+    "awaitsPersistence": false,
+    "lifetime": "original read methods captured; 32 live run references max; cancellation and exact agent_end cleanup; run/address only, no session latest or persistence",
+    "result": "additive currentInputObservation unavailable/rejected/observed; observed hash is native receipt snapshot only, never Source version/admission authorization",
+    "sourceAuthorQualification": false,
+    "sourceRepresentation": "unverified",
+    "modelConsumption": "unverified",
+    "publisher": false,
+    "candidateSaved": false,
+    "degradation": "observation failure remains explicit; unchanged ordinary unconfirmed candidate does not claim source qualification or protected-action success"
+  },
+  "verification": {
+    "typeScript": {
+      "initialExitCode": 2,
+      "initialCompilerErrors": {
+        "TS2305_public_types_not_exported": 2,
+        "TS2349_fixture_counter_call": 1,
+        "TS2339_union_narrowing_in_tests": 4
+      },
+      "correction": "use structural public callback end parameters; fixture counter value; discriminate observation results",
+      "finalExitCode": 0,
+      "command": "node node_modules/typescript/bin/tsc -p tsconfig.test.json --outDir TASK_TMP/compiled --sourceMap false --declaration false",
+      "runtimeTestsBeforeCompileFix": "not_run"
+    },
+    "nodeVersion": "v24.22.1",
+    "sdkVersion": "2026.10.9",
+    "testFiles": [
+      "tests/current-input-metadata.test.ts",
+      "tests/ordinary-plugin.test.ts",
+      "tests/tool-request-binding.test.ts"
+    ],
+    "counts": {
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "newCases": 9,
+    "priorOrdinaryCases": 5,
+    "priorBindingCases": 10,
+    "exitCode": 0,
+    "startedAt": "2026-11-02T02:47:40.842759+00:00",
+    "finishedAt": "2026-11-02T02:47:41.295698+00:00",
+    "testOutputSha256": "00363965a847fe824d54f26d262221f241cc93746a9593f3c93df7cc3efd8259",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "coverage": [
+      "passive dispatch/forbidden member reads",
+      "pending then committed timing",
+      "missing identity/lifetime",
+      "exact agent/session/incarnation",
+      "receipt shape/read failure",
+      "duplicate/changed recorder/admission cannot revive",
+      "same-session independent runs",
+      "bounded lifetime/cancellation/agent_end including during read",
+      "ordinary callbacks to candidate and publisher/source-off contract"
+    ],
+    "usesActualHostProducer": false,
+    "actualModelCalls": 0,
+    "fullSuite": "not_run",
+    "meaning": "synthetic callback/factory engineering only; not live lifecycle, 10.8 compatibility or model consumption"
+  },
+  "sdkDrift": {
+    "localDependencyIsSymlink": true,
+    "resolvedVersion": "2026.10.9",
+    "projectManifest": "2026.10.8",
+    "lock": "2026.10.8",
+    "dependencyInstallationChanged": false,
+    "runningGatewayVersion": "not_checked",
+    "historical10_8Evidence": "retained under original identity; not revalidated or relabeled",
+    "officialSourcesPostVerificationSnapshot": [
+      {
+        "ref": "SDK_ROOT/package.json",
+        "sha256": "0027ed3db83ae083c60cff564e63a0e6a867327485a6d257129b75882e10b7fd"
+      },
+      {
+        "ref": "SDK_ROOT/dist/plugin-sdk/core.d.ts",
+        "sha256": "5e229422da52095966cd16f87d2f7df0c23ddd285fbd76914aabea4e9b5868e6"
+      },
+      {
+        "ref": "SDK_ROOT/dist/config-contracts-DzLaG7FV.d.ts",
+        "sha256": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17"
+      },
+      {
+        "ref": "SDK_ROOT/dist/dispatch-from-config-D0ByBFxM.mjs",
+        "sha256": "5b42abe88035db530bd69bf397ecc614e129e84e2e7cd8886662c9ac2b983986"
+      },
+      {
+        "ref": "SDK_ROOT/dist/user-turn-transcript-DuAfBkUt.mjs",
+        "sha256": "ec4a2477247f78ec8f46fcd13a8639e06c1135fbb5518baba226a708ba9d6edc"
+      }
+    ]
+  },
+  "sourceFiles": {
+    "src/openclaw/current-input-metadata.ts": "ae61754c245603d2b7f5c8c3eebd76abc7234300a0cd4992e0ec7eca4af355a7",
+    "src/ordinary-plugin.ts": "753c719df5f77ad9bbf638b5561d3e273869ca1c2a2f9b76bbefbc88c113ed73",
+    "tests/current-input-metadata.test.ts": "a5acd49e17c0acf2e00e5837b012d6b515e868a471098bd6b054dc60b5e2e00e",
+    "tests/ordinary-plugin.test.ts": "b1d3770a17b4d6c857124dd74b0bc5dc84a49f1644f9fa88fd3228d35c645380",
+    "docs/CANDIDATE-WORK-BRIEF.md": "4fbfbb85ae681d094bc3fa75d758663ee1c3b811fe26116705b0c7d4db74b523"
+  },
+  "patch": {
+    "ref": ".task-control/reports/CORE-VAL-001/current-input-metadata-20261102.patch",
+    "sha256": "34900762e538ba496f7dedf49f4b55dd603e4490c2a4604ce8a480849e155e59",
+    "includes": "five code/test/doc files plus only new PROJECT technical-facts append; excludes state and all prior dirty"
+  },
+  "priorDirty": {
+    "trackedAndUntrackedFilesCaptured": 59,
+    "unchangedExceptAuthorizedStateAndProjectAppend": true,
+    "projectOriginalPrefixPreserved": true,
+    "indexEmpty": true
+  },
+  "nextPackages": [
+    {
+      "package": "independent local-code review",
+      "input": "this patch/report and source/test files",
+      "requires": "no account, model, source permission or shared Host operation"
+    },
+    {
+      "package": "actual synthetic public-ingress callback lifecycle",
+      "purpose": "prove dispatch signal duration and first-tool receipt timing on current explicitly selected SDK, without upgrading authorship claims",
+      "requires": "separate currently applicable run scope and nonconflicting Host window; no old exhausted quota or this local-only scope reused",
+      "status": "not_run"
+    },
+    {
+      "package": "explicit brief continuation semantic acceptance",
+      "purpose": "two synthetic user requests, first revise an explicit premise and preserve another open question, second receive only briefId and use fresh read",
+      "model": "google/gemini-3.8-flash",
+      "thinking": "low",
+      "noFallback": true,
+      "maxAgentSubmissions": 2,
+      "timeoutSecondsEach": 90,
+      "automaticRetry": false,
+      "sendOnly": "fictional brief, its unresolved question and explicit continuation instructions; no personal history/material",
+      "maxOutputOrModelTurnHardLimit": "not established for existing Agent path; do not promise one request is one billable call",
+      "dollarHardCap": "not verified; record tokens/assistant turns/available Host cost, missing cost unknown",
+      "authorization": "not granted or executed by this package; prior paid approval exhausted"
+    }
+  ],
+  "unverified": [
+    "live reply_dispatch/agent_end lifecycle and receipt timing",
+    "missing optional fields in actual producers",
+    "trusted sender-to-author mapping",
+    "original text normalization/projection and provenance",
+    "Source version and purpose authorization",
+    "actual provider/model tool-result consumption and semantic adoption",
+    "10.8 runtime compatibility",
+    "full_memory and 15pro final integration"
+  ],
+  "noAction": [
+    "shared OpenClaw config, process, reload, restart, port or model operations",
+    "real source/person/credential reads",
+    "dependency install or Host source modifications",
+    "permission or identity/trust changes",
+    "formal writer, memory or publication",
+    "Windows operations",
+    "staging, commit or push",
+    "old group/port/log/Host retry"
+  ]
+}

@@ -1,0 +1,34 @@
+--- a/docs/MAIN-DEBUG-INSTALL.md
++++ b/docs/MAIN-DEBUG-INSTALL.md
+@@ -109,7 +109,7 @@
+ 
+ 当前开发优先级由 [需求 §1.5 的2026-11-02决定](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)统一维护：数据结构／必要转换／开发接入先行，再做已有资料的正向理解、召回、语义路由和回答，之后推进纠正及传播。此前“先纠正”的开发排序不再调度；完整纠正目标和验收要求保留。具体执行状态和恢复条件只在唯一台账维护，不从本文历史安装记录恢复任务。当前数据源与已安装普通插件的接入区别见 [两仓数据基础核查](CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102)。
+ 
+-2026-11-02 本地 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)已继续接入公开当前请求／工具调用与既有处理配置的薄适配器，并按原获准描述符过滤；仅合成验证63/63及独审反例修后重放通过，尚未对本增量独审／安装。原元数据 P2 已独审关闭；固定旧包的两项来源读取缺陷保留并在本增量修复。当前 main／私人根仍未绑定，公开生产者字段及真实语义消费仍待实际验证；不能据配置、hash或合成回执称已读沧海。
++2026-11-02 本地 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)已继续接入公开当前请求／工具调用与既有处理配置的薄适配器，并按原获准描述符过滤；仅合成验证63/63及独审反例修后重放通过，离线候选已独审通过、尚未安装。原元数据 P2 已独审关闭；固定旧包的两项来源读取缺陷保留并在本增量修复。当前 main／私人根仍未绑定，公开生产者字段及真实语义消费仍待实际验证；不能据配置、hash或合成回执称已读沧海。 最小独审摘要与默认模型／实际入口的后续边界见 [验收证据](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)，不由离线通过推导新的执行授权。
+ 
+ 工作说明仍可作为以后纠正闭环的单资产载体。候选 CRUD、手动 briefId 和 `stella-continue` 只是当前合成调试脚手架，不是 Stella 的完整产品形态，也不是用户被要求永久采用的交互方式。不能把合成回读、字段齐备或 hash 匹配升级为模型已经理解和采用；真实工具供给、模型消费与回答仍需各自证据，且不把检索和路由僵化成单向硬流水。
+ 
+--- a/docs/CORE-CANGHAI-COORDINATION.md
++++ b/docs/CORE-CANGHAI-COORDINATION.md
+@@ -143,3 +143,5 @@
+ 2026-11-02 后续本地实现：[普通插件只读来源端口](ORDINARY-SOURCE-READ.md)沿用上表 manifest/profile/catalog 与 Source v2／双策略契约，37项合成定向验证通过；私人源未读取或激活，真实 Host 资格端口仍缺接线。`knowledge-migration-v1/manifest.json` 的两个 runtime profile 引用实际一致指向同目录 `runtime-profile.json`；这与根 `manifest.yaml` 的旧引用不同，所以候选读取器要求显式 manifest，缺失／不一致就失败。此增量不改变上表现场绑定状态，也不把纯读取器通过标为正向语义理解已完成。
+ 
+ 2026-11-02 后续请求薄适配候选沿用 `source_access_context` 的原有单请求者、`google/gemini-3.8-flash`、`personal_context / personal_understanding / owner-direct` 合同，不追加授权。普通入口仅在配置来源端口时被动保存当前规范化请求表示；首次工具调用须匹配真实 Host 入场、run/call/session、请求者／受众及提交回执，列表按精确 Source／分段描述符过滤，原文仍经双策略判定。63项合成定向用例通过；上表真实未绑定状态不变，Host 字段与生命周期、真实资料供给／模型消费均未验证。固定 state95 独审包与本增量的代码／证据边界见 [读取契约](ORDINARY-SOURCE-READ.md#next-thin-binding-candidate-and-host-validation)，不把历史97／362许可扩大到整个 runtime catalog。
++
++2026-11-02 固定 state97 的13文件离线候选已独审接受：63/63定向、28/28内核、9/9原反例及4/4默认入口／并发对照分别记录，不累加计分。当前真实来源／Host生产者仍未验，冻结代码未因结论保存而改变。默认模型可否合法复用及精确后续运行条件，见 [最小独审摘要](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)；Host显式model-override许可与CangHai逐来源处理许可是不同边界，不能混称缺资料授权。
+--- a/PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -790,3 +790,12 @@
+   verification: author_63_of_63_probe_replay_9_of_9_kernel_28_of_28_separate
+   actual_host_or_private_source_binding: none
+   model_calls_or_new_grants: none
++
++# Fixed state97 independent offline implementation acceptance, not Host/private/model acceptance.
++ordinary_source_admission_review_20261102:
++  evidence: .task-control/reports/CORE-VAL-001/source-admission-review-20261102.json
++  source_summary_sha256: 09634aae232a2e3529c77d85b18cc261d7b352f379d84e2b183d9eef83703d29
++  independent_checks_separate: focused_63_of_63_kernel_28_of_28_original_9_of_9_default_entry_4_of_4
++  prior_source_and_metadata_findings: closed_in_fixed_offline_candidate
++  actual_host_producer_private_data_and_semantic_consumption: unverified
++  reviewed_runtime_files_changed_during_save: false

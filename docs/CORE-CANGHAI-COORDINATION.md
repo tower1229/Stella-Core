@@ -124,3 +124,24 @@ Telegram/WebChat 授权、后续更新接纳或 full_memory 已验收；私人�
 复制改变，没有同步／安装到旧消费者。它与领域投影候选、私密录入分别交付，不能互相
 冒用版本或授权。下一项只读 Understanding 供给沿用既有格式与权限，无需沧海改 schema；
 本轮三轮同包机制验收通过；真实语义质量、main 及完整能力不据此通过。
+
+<a id="data-foundation-snapshot-20261102"></a>
+## 2026-11-02 数据基础与当前消费绑定核查
+
+本次只读设计、Git 元数据、迁移清单／catalog 聚合统计与 Core 配置的指定结构字段；没有读取资料正文、金融持仓、凭据或原始会话，没有迁移、重建索引、改配置或运行 Host。当前排程的唯一需求正文见 [需求 §1.5](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)。
+
+| 层次 | 当前可证事实 | 不能据此推导 |
+| --- | --- | --- |
+| 设计 | CangHai `50_PersonalAgent/design/stella-redesign/02-Stella-数据架构规范.md` 标为架构基线 v0.21，2026-10-26；V1 完整方案及 DS-01～04A／RT 契约已固化，DS-04B 完整治理后置。迁移生产者独立分支 `codex/knowledge-migration-v1@2ea285d98d21c0882092582141aac92f93fa432a` 干净，含 `99_System/Scripts/knowledge-migration/` 的 plan/review/materialize 工具和具体转换文档。 | 设计已定不等于全部数据已转换，也不证明与当前普通插件已接通。CangHai 的独立访谈状态仍有自己的范围，不能覆盖 Core 唯一执行台账。 |
+| 实际转换 | 独立本机源 `stella-sources/migration-v1` 当前为 `local/knowledge-migration-v1@112be540a3988af53d1076a38f8f1c155da7a745`、工作区干净；有 `30_Knowledge/migration-v1/{converted,runtime}` 与 manifest/profile。物化 manifest 的 hash 与原报告一致，记录1167原始文件保留、98 Source v2、342新 Evidence、200原历史 Source；供给投影当前复核为97 current来源／362描述符。runtime catalog 另有98 current来源／347 current Evidence。 | 这是有限迁移集，不能说从未转换或已经全迁完。审计表374描述符；供给表排除3个能力门槛来源及1个 native 快照，保留历史。`understandings/works/changes/bundles/views` 仍为空；转换器对非空派生对象明确返回待重评，不是完整理解／持续工作迁移器。本轮仅复核清单和统计，未重新读取1167份原始正文逐字节验收。 |
+| 历史与现在的接入 | 父任务补充的已核历史记录表明：2026-10-27曾批准并切换上述97／362有限集，旧 checkpoint 路线曾完成真实问题读取。**当前普通插件**的配置却仅有 `agentId`、`publisher:false`、独立合成 `candidateDraftsRoot`；无 `canghaiRoot/manifestPath`。配置所指安装产物静态仍返回 `sourceAdapter:not_connected`、`currentInputAdmission:not_connected`。 | 不能把“过去旧 checkpoint 已加载”写成“本期普通插件仍在消费”，也不能反过来说从未接入。当前合成草稿演示不是已有资料召回。配置／产物静态核查不等于本轮已调用 Gateway 或验证实时索引。 |
+
+CangHai 主工作区仍为生产 `dev@c050a046f48837f755c9b3f10bba2910d5218083`，两个已有 tracked 差异未触碰；其根目录没有 `30_Knowledge`，不能据此否认上述独立副本。既有 `stella-sources/main@644eafa63db75231fabc376129d56c02835cef8f` 是另一个旧源，不能自动替换显式源。迁移副本旧 manifest 内的 `active`、8.2版本标记和 `full_memory` profile 是文件中的历史声明，不是当前 main 已启用证明。
+
+下一有限前置是对齐这份**已存在**的迁移集与新普通插件所需读取契约：固定源 revision、manifest/profile/catalog、语义描述符和用途边界，先用等价合成目录验证解析、来源版本／角色／时间、允许／拒绝及引用闭包，再提出精确的开发绑定方案。复用既有 CatalogReader、原件／策略校验和可用的原生搜索／文件读取；不重建迁移平台、不机械转换非空理解资产、不自动切 dev 或消费指针。真实资料读取／模型发送及实际 main 接入分别核其既有有效授权；本核查未执行这些步骤。聚合 hash、范围和版本见 [本轮审查证据](../.task-control/reports/CORE-VAL-001/direction-audit-20261102.json)。
+
+2026-11-02 后续本地实现：[普通插件只读来源端口](ORDINARY-SOURCE-READ.md)沿用上表 manifest/profile/catalog 与 Source v2／双策略契约，37项合成定向验证通过；私人源未读取或激活，真实 Host 资格端口仍缺接线。`knowledge-migration-v1/manifest.json` 的两个 runtime profile 引用实际一致指向同目录 `runtime-profile.json`；这与根 `manifest.yaml` 的旧引用不同，所以候选读取器要求显式 manifest，缺失／不一致就失败。此增量不改变上表现场绑定状态，也不把纯读取器通过标为正向语义理解已完成。
+
+2026-11-02 后续请求薄适配候选沿用 `source_access_context` 的原有单请求者、`google/gemini-3.8-flash`、`personal_context / personal_understanding / owner-direct` 合同，不追加授权。普通入口仅在配置来源端口时被动保存当前规范化请求表示；首次工具调用须匹配真实 Host 入场、run/call/session、请求者／受众及提交回执，列表按精确 Source／分段描述符过滤，原文仍经双策略判定。63项合成定向用例通过；上表真实未绑定状态不变，Host 字段与生命周期、真实资料供给／模型消费均未验证。固定 state95 独审包与本增量的代码／证据边界见 [读取契约](ORDINARY-SOURCE-READ.md#next-thin-binding-candidate-and-host-validation)，不把历史97／362许可扩大到整个 runtime catalog。
+
+2026-11-02 固定 state97 的13文件离线候选已独审接受：63/63定向、28/28内核、9/9原反例及4/4默认入口／并发对照分别记录，不累加计分。当前真实来源／Host生产者仍未验，冻结代码未因结论保存而改变。默认模型可否合法复用及精确后续运行条件，见 [最小独审摘要](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)；Host显式model-override许可与CangHai逐来源处理许可是不同边界，不能混称缺资料授权。

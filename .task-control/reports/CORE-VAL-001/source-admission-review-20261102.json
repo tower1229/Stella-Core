@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T05:11:22.488090+00:00",
+  "scope": "persisted independent acceptance of fixed state97 scoped offline candidate; no new execution or activation authority",
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "baseRevision": 97,
+  "saveOwnerRevision": 98,
+  "acceptedImplementation": {
+    "report": ".task-control/reports/CORE-VAL-001/source-admission-20261102.json",
+    "sha256": "699e57163b42e19b35ffb21f4e8751db73a3f4e860fc90de61014ce27543a29c",
+    "combinedPatch": {
+      "ref": ".task-control/reports/CORE-VAL-001/source-admission-combined-20261102.patch",
+      "sha256": "bf15b8b84bc5d8ca7d821802739a6edfad19f666d2d32004cd035e07f47bb1f3",
+      "files": 13,
+      "baseline": "actual HEAD2fdf; complete changed executable/test/config/package/source-contract scope including original P2 repair; technical docs deltas separately in increment"
+    },
+    "reviewed13": {
+      "src/openclaw/current-input-metadata.ts": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+      "src/openclaw/ordinary-source-read.ts": "697e8279689f65983b61ce5feff1f1485e650ecd5fac728466d5529e093e45ab",
+      "src/ordinary-plugin.ts": "053723da7bac21efad4afa1e60aacc8022b748127b5b1e46df5a613869abf03d",
+      "tests/current-input-metadata.test.ts": "533953dce4fcc46c64300576377ddba4d78d9e680e73e8a3e78f4f442eec63e1",
+      "tests/ordinary-source-read.test.ts": "808c9f66be0cf7d770b36c0e900aa2d775c94dd014de64510325be13991fb280",
+      "tests/ordinary-plugin.test.ts": "ae284eb682e3fc4815b645f9b242c3f640a4e4058ee1d4509ad5ffe8348bf9c2",
+      "openclaw.plugin.json": "e2dd21013ae5cce8a1e85493c5d6cf64ae75951e13ee38cf79a3a3bc35d61960",
+      "package.json": "30b44c2addf9478afa4e23ae526cfa1c18666e3406b7ed2a0850ea61e19a2e05",
+      "docs/ORDINARY-SOURCE-READ.md": "20650a2aca5d9aa251b48a28adddd35a61881c2d345736ac104794233146ec63",
+      "src/openclaw/ordinary-source-admission.ts": "9d3c60f7cfbaf0e279dc3d292ba354f5e04ec52a3e71da9a6a512d383c675d7e",
+      "tests/ordinary-source-admission.test.ts": "35c655365f48cd7fa530690b095a9da857dcaf210d21cac854d841d7e8b423f4",
+      "tests/fixtures/ordinary-source-read.ts": "21a39b490ab41286d7f844f6f0bea17c731d1dbe733699df3345be1a903b7a92",
+      "src/praxis/episode-evidence.ts": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d"
+    },
+    "currentBytesMatch": true
+  },
+  "independentReview": {
+    "sourceSummarySha256": "09634aae232a2e3529c77d85b18cc261d7b352f379d84e2b183d9eef83703d29",
+    "sourceReviewSha256": "8e2770a4203a48bd2d4b802c54b1fba365156087606cb53fe24d29a0c86fc0ff",
+    "relayedDigestIdentity": "parent supplied09634 matches REVIEW-SUMMARY.json; REVIEW.md actual8e2770 matches its hash in that summary",
+    "summary": {
+      "accepted": true,
+      "scope": "offline state97 combined13 implementation; ready for scoped producer validation, not activated Host/model/private consumer",
+      "blockerCount": 0,
+      "previousFindingsClosed": [
+        "request-guard-before-payload",
+        "source-selector-whitelist",
+        "metadata-scalar-snapshot"
+      ],
+      "compileExit": 0,
+      "focused": {
+        "tests": 63,
+        "pass": 63,
+        "fail": 0
+      },
+      "kernel": {
+        "tests": 28,
+        "pass": 28,
+        "fail": 0
+      },
+      "originalProbes": {
+        "tests": 9,
+        "pass": 9
+      },
+      "defaultEntryProbes": {
+        "tests": 4,
+        "pass": 4
+      },
+      "sdkExecuted": "2026.10.9",
+      "sdkLocked": "2026.10.8",
+      "runtimePrerequisite": "explicit params.model always requires existing Host model-override authority/policy plus allowlists; actual live producer fields and matching source binding unverified",
+      "repositoryModified": false,
+      "sharedHostOperations": 0,
+      "modelNetworkCalls": 0,
+      "hashes": {
+        "REVIEW.md": "8e2770a4203a48bd2d4b802c54b1fba365156087606cb53fe24d29a0c86fc0ff",
+        "FROZEN-CHECK.json": "24545fc1b3c9ca3f5a3902da361a1f9b89a72910bf194db72e6556860856b9c7",
+        "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "focused.tap": "bfcc2d6f6f6b5d7dde5c83c08d4d186f3ca485d1d763d2d3e3bedd15d68441b5",
+        "kernel.tap": "4a4c98611046979156162013e1bc4be2765a212e19a3c238eca0a673eca30516",
+        "PROBES.json": "df7329e4e44ba2ba55975770aa65ed1f6ce8d6b1b74ebf30c8c3a836d789ccd0",
+        "original-probes.mjs": "7395d0e29f49b5742ab3b4f943023c1cb84a8bcf7e6c3a2855a46856d1d3b1ae",
+        "DEFAULT-ENTRY-PROBES.json": "3743b034bb89f9a0e2e6ad17c1702574ca0e56e6d484ad4e81a09efda11d3468",
+        "default-entry-probes.mjs": "90541a0f1a6cf218a776132f6f2496341a3a1959e960982af20054d5ab200335"
+      }
+    },
+    "noLogsSecretsPrivateMaterialCopied": true,
+    "countsNotAggregated": true
+  },
+  "sdkPublicSources": {
+    "dist/runtime-llm.runtime-BKhiUWXy.mjs": "614e55064e7fa322738be94470d42ba0bb0c624a3157ac57ca9cc67e9839523a",
+    "dist/runtime-BYO1NOXw.mjs": "6aa490fefdf8bfcea8714364810ad7b8eb4e511a2c36825f713ed67fd333e74a",
+    "dist/simple-completion-runtime-C71S2ucI.mjs": "7acbcbfc547f401ae6e7e62561ebc3e6afb240bb4e114d8b7c682ac917acf112",
+    "dist/agent-scope-config-BEk6-ThS.mjs": "94f6e5a4f2b60ae6f470ae42520e9e888daea57ee79ba48cb246287ffd02dc00",
+    "dist/gateway-client-identity-C-9Xwi8i.mjs": "320b1a38ee1b8c293d0d0f4e83e7019b0c8e0850f9394fec489786f88f1c5f9e",
+    "dist/chat-send-handler-B0jivtwJ.mjs": "496e4dd3478b22cbd134839dc9861e0528d2ddacb1bc281423b673add9e2e1b5",
+    "dist/call-D6fWfxgB.mjs": "0ff2c3ebfc86a60e79dc8ab787663d97233f238fdb3132c48482021870584db6",
+    "docs/cli/gateway/running.md": "bd75ebc4e076397376e77ade1bc13ee0a408fd0b6a55bbf516d859f75ef8d59b"
+  },
+  "defaultModelReuseFinding": {
+    "implementedInFrozen13": false,
+    "explicitModel": "nonempty params.model always requires existing model-override authority/policy, even when equal to active model",
+    "legalDefaultPath": "absence of params.model selects configured native primary/default; source/operator and completion-model allowlists remain checked before provider dispatch; only override check is conditional on explicit request",
+    "preconditions": [
+      "public resolved operation owner and actual factory agent are exactly main; in a sole-main isolated fixture this is unambiguous",
+      "configured/default provider+model and actual activeModel all resolve exactly google/gemini-3.8-flash; no fallback or cross-agent selection",
+      "existing request/source/processing checks remain unchanged; verify returned agent/provider/model/execution too",
+      "unknown/different owner/model fails before completion; do not alter config or suppress a real denial"
+    ],
+    "agentParameter": "omission is legitimate only if existing public ambient-owner resolution yields exactly main; otherwise keep an already-bound permitted target or report precise missing capability, never guess main",
+    "noPermissionByOmission": "this uses the standard default execution path, not a model switch; completion and operator policies still apply",
+    "actualMainConfigOrCapability": "not read or changed; no assertion that current main is suitable",
+    "nextCodeDecision": "manager may assign the small default-model/owner compatibility adjustment plus targeted fakeAPI rejection cases; accepted13 remains frozen now"
+  },
+  "producerFindings": {
+    "nativeCandidate": "separate loopback Gateway10.9 + normal authenticated CLI chat.send; Host creates run/native recorder/tool contexts, no callback injection",
+    "requesterLimit": "CLI uses real Host-derived authenticated transport sender cli for a synthetic grant; it proves transport plumbing, not durable human/WebChat identity mapping",
+    "webChatLimitation": "browser operator context intentionally omits ctx.SenderId; profile identity is carried through private Host capability. Frozen adapter requires ctx.SenderId. Do not fund a browser-path model run expecting this static mismatch to repair itself or invent owner/profile mapping",
+    "execMarkersObserved": {
+      "OPENCLAW_SHELL_is_exec": false,
+      "OPENCLAW_SUBAGENT_EXEC_is_1": false
+    },
+    "laterExecMarkerRule": "if genuine agent/subagent exec marker applies, respect CLI chat.send rejection; never remove marker or switch RPC routes to bypass"
+  },
+  "minimalNextRunProposal": {
+    "authorizedOrExecuted": false,
+    "sharedMain": "untouched; no restart/config/source/model changes",
+    "isolation": "fresh child under previously allowed test root, dedicated HOME/state/config/workspace and only synthetic source/grant/auth; actual SDK10.9; no real keys or source",
+    "nativeIngress": "one normal CLI chat.send, one bounded wait; actual dispatch/native receipt/tool requester facts observed, absent facts remain failure",
+    "agentRequests": 1,
+    "totalMs": 90000,
+    "realProviderRequests": 0,
+    "modelFixtureRequestsMax": 4,
+    "fixtureStages": [
+      "Agent chooses exact synthetic Evidence read",
+      "base source policy verdict",
+      "segment policy verdict",
+      "Agent consumes tool result and emits final"
+    ],
+    "semanticClaim": "fixed protocol responses prove bounded Host mechanics only, not Gemini semantic understanding",
+    "additionalSandboxRule": "(allow network-outbound (remote tcp \"localhost:55788\"))",
+    "whyRule": "existing approved profilea0f72 only allows outboundlocalhost55787 for stub; isolated Gateway/client needs distinct55788; no route outside sandbox as workaround",
+    "existingRuleOrProfileChanged": false,
+    "noOldQuotaReuse": true,
+    "freshRunAssignmentNeeded": true,
+    "ifPortOrFieldUnavailable": "stop and preserve evidence; no main eviction, hidden fallback or automatic retry",
+    "neededUserDecision": "only the exact additional loopback permission plus one fresh isolated synthetic run if this route is selected; no paid Gemini/private-data grant required"
+  },
+  "paidModelAlternative": {
+    "neededForProducerMechanics": false,
+    "model": "google/gemini-3.8-flash",
+    "thinking": "low",
+    "sendOnly": "synthetic question/source/descriptor with no real user history or private corpus",
+    "agentRequestsAtMost": 1,
+    "timeoutSeconds": 90,
+    "automaticRetry": false,
+    "modelCallOrToolTurnHardCap": "not established by one Agent request; source judgments add model calls, and tool continuations may repeat",
+    "maxTokens": "SDK advisory; no proved total-output or USD hard cap",
+    "record": "assistant turns, actual tool calls, available tokens/costUsd; missing is unknown",
+    "authorization": "old paid grant exhausted, none used or requested here"
+  },
+  "saveBoundary": {
+    "noRuntime13Change": true,
+    "technicalDocIncrementOnly": [
+      "docs/MAIN-DEBUG-INSTALL.md",
+      "docs/CORE-CANGHAI-COORDINATION.md",
+      "PROJECT-STATE.yaml"
+    ],
+    "commit": "not_run; wait precise reviewed whitelist assignment",
+    "push": "not_run, explicitly withheld"
+  },
+  "transport": {
+    "oneReadCommand": "process creation failed because exec-server transport disconnected; no action denied by approval review",
+    "recovery": "same-channel pwd read succeeded, then exact readonly source checks resumed; no alternate channel or permission change"
+  },
+  "noActions": [
+    "real Host/listener/process/model/provider/port operations",
+    "main config, credentials, private source or session reads",
+    "permission/trust changes",
+    "frozen runtime edits",
+    "stage/commit/push"
+  ],
+  "technicalDocPatch": {
+    "ref": ".task-control/reports/CORE-VAL-001/source-admission-review-20261102.patch",
+    "sha256": "53b18ba1a03d4c36ade3af8fb71521372c7612c742240372f3d75586f565ecad"
+  },
+  "technicalDocHashes": {
+    "docs/MAIN-DEBUG-INSTALL.md": "f8af7d9a58ddbfeb1a8b44c8892ed8aaa49dc40d10f122b95642a353033492d9",
+    "docs/CORE-CANGHAI-COORDINATION.md": "8bb99054bca1c78f36b93be8085ada37fd362d8a07e59d1b002a8f8acff7fb82",
+    "PROJECT-STATE.yaml": "56e29916105968f7240698e4356d5d70c24532ec2878e53b84403e15ccbe9a26"
+  }
+}

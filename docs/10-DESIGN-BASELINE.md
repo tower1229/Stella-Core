@@ -1,6 +1,10 @@
 # 现行设计基线与验收口径
 
+2026-11-02 当前优先级已按用户新决定调整：先确认并补齐所选范围的数据结构、必要旧数据转换及开发环境接入，再完成已有数据的正确召回、来源／语义理解、路由与回答，之后推进纠正理解及传播。唯一需求正文见 [需求 §1.5](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)，数据接入事实见 [两仓协调记录](CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102)；它替代九月“纠正优先”的当前排程，保留其历史和能力要求。下列带日期方案／旧计划不自动恢复该旧顺序，也不以候选 CRUD 或显式续谈替代正向理解。
+
 2026-10-30 经理研究取舍交接：[本期Core架构与工作包](design/2026-10-30-core-realignment/README.md)保留官方memory-core、原生context/Agent Loop，以普通插件补来源及单资产语义发布；ARCH-02/03/04仅有限研究已交付，运行门槛仍待证。此为文档候选，不是用户整体批准或已实现；任务状态以[唯一台账](../.task-control/state.json)为准。下文旧分层/旧工具先行排程及D063保留原时间身份，不作为本期先修旧runner的前置。
+
+2026-11-02 长期开发导航补记：既定方向下的实际 Host 迭代方式、设备分工与跨项目依赖交接见 [Main 调试文档](MAIN-DEBUG-INSTALL.md#长期开发约定与设备交接)；工具读改、skill 可见性与模型消费的证据边界见 [工作说明接续](CANDIDATE-WORK-BRIEF.md#explicit-continuation)。带日期的研究和旧路径段落保留原身份；本次只补维护入口，不新增架构决定或改变产品契约。
 
 2026-10-27 宿主兼容补充：当前有限 `core_checkpoint + fresh_tools` 路径承接 OpenClaw 2026.10.7；身份 capability/stamp/config 绑定、实际验证及未迁移的8.2 legacy路径见 [最小兼容范围](OPENCLAW-2026.10.7-COMPATIBILITY.md)。这不改变下文产品契约、历史验收身份或 full_memory 未通过状态。
 

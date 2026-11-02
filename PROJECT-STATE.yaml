@@ -639,3 +639,45 @@ legacy26_relevance_triage_20261102:
   retirement_boundary: runtime old path excluded by ordinary entry; old source/tests/evidence remain and legacy task paused; this is not new deprecation or scope approval
   unverified: actual skill model consumption, real source/author admission and full_memory remain open; no paid or formal consumer run
   independent_review: accepted17module/source and26signatures16of16; wording narrowed to local static imports and first observed blockers before save
+
+# 2026-11-02 local selected-manifest source read-port candidate, not private source activation.
+ordinary_source_read_port_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/source-read-port-20261102.json
+  contract: docs/ORDINARY-SOURCE-READ.md
+  selected_manifest_profile_catalog_parsers: existing_contracts_reused
+  verification: typecheck_pass_and_37_of_37_focused_synthetic_cases
+  local_sdk: 2026.10.9
+  source_admission: internal_port_only_default_entry_unbound
+  private_source_or_host_model_use: none
+  metadata_P2_dependency: false
+  independently_accepted_or_installed: false
+
+# 2026-11-02 minimal metadata dependency repair for the source-read delivery candidate.
+ordinary_source_read_metadata_r1_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.json
+  receipt_fields: once_captured_immutable_scalar_snapshot
+  verification: four_false_observations_reproduced_then_rejected_and_19_of_19_affected_cases_pass
+  source_read_37_cases: preserved_not_rerun
+  source_or_author_qualification: unchanged_unbound
+  independent_review_or_activation: not_performed
+
+# 2026-11-02 local public-request to selected-source read adapter; synthetic only.
+ordinary_source_admission_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/source-admission-20261102.json
+  frozen_prior_review: .task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/MANIFEST.json
+  contract: docs/ORDINARY-SOURCE-READ.md
+  request: public_run_call_session_requester_audience_and_committed_native_input
+  processing: existing_single_requester_and_exact_reviewed_source_segment_descriptors
+  read_boundaries: guard_around_policy_and_before_payload_whitelisted_refs_and_selectors
+  verification: author_63_of_63_probe_replay_9_of_9_kernel_28_of_28_separate
+  actual_host_or_private_source_binding: none
+  model_calls_or_new_grants: none
+
+# Fixed state97 independent offline implementation acceptance, not Host/private/model acceptance.
+ordinary_source_admission_review_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/source-admission-review-20261102.json
+  source_summary_sha256: 09634aae232a2e3529c77d85b18cc261d7b352f379d84e2b183d9eef83703d29
+  independent_checks_separate: focused_63_of_63_kernel_28_of_28_original_9_of_9_default_entry_4_of_4
+  prior_source_and_metadata_findings: closed_in_fixed_offline_candidate
+  actual_host_producer_private_data_and_semantic_consumption: unverified
+  reviewed_runtime_files_changed_during_save: false

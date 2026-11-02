@@ -1,0 +1,112 @@
+--- a/src/openclaw/current-input-metadata.ts
++++ b/src/openclaw/current-input-metadata.ts
+@@ -59,8 +59,16 @@
+         if (entry.persisted() !== true || entry.blocked() !== false) {
+           return entry.admitted ? reject("native_input_changed") : unavailable("admission_uncommitted");
+         }
+-        const a = entry.receipt();
+-        if (!isRecord(a) || !["agentId", "sessionId", "sessionKey", "storePath", "entryId", "logicalTurnId", "generation", "idempotencyKey"].every(k => text(a[k])) ||
++        const receipt = entry.receipt();
++        if (!isRecord(receipt)) return reject("native_input_receipt_invalid");
++        // Host objects may expose getters. Read each selected field once, then
++        // validate, bind and hash only this immutable scalar snapshot.
++        const a = Object.freeze({ agentId: receipt.agentId, sessionId: receipt.sessionId, sessionKey: receipt.sessionKey,
++          storePath: receipt.storePath, entryId: receipt.entryId, logicalTurnId: receipt.logicalTurnId,
++          generation: receipt.generation, idempotencyKey: receipt.idempotencyKey, role: receipt.role,
++          rawSeq: receipt.rawSeq, effectiveParentId: receipt.effectiveParentId,
++          activeMessagePosition: receipt.activeMessagePosition });
++        if (!["agentId", "sessionId", "sessionKey", "storePath", "entryId", "logicalTurnId", "generation", "idempotencyKey"].every(k => text(a[k as keyof typeof a])) ||
+             a.role !== "user" || !Number.isSafeInteger(a.rawSeq) || Number(a.rawSeq) < 1 ||
+             !Number.isSafeInteger(a.activeMessagePosition) || Number(a.activeMessagePosition) < 0 ||
+             !(a.effectiveParentId === null || text(a.effectiveParentId))) return reject("native_input_receipt_invalid");
+--- a/tests/current-input-metadata.test.ts
++++ b/tests/current-input-metadata.test.ts
+@@ -99,6 +99,44 @@
+   assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_recorder_read_failed");
+ });
+ 
++for (const scenario of [
++  { key: "rawSeq", first: 0, later: 1, code: "native_input_receipt_invalid" },
++  { key: "activeMessagePosition", first: -1, later: 0, code: "native_input_receipt_invalid" },
++  { key: "effectiveParentId", first: 7, later: "parent-1", code: "native_input_receipt_invalid" },
++  { key: "sessionId", first: "different-session", later: identity.sessionId, code: "native_input_binding_mismatch" },
++]) {
++  test(`receipt getter snapshot rejects invalid first ${scenario.key} without accepting a later value`, () => {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++    let reads = 0;
++    Object.defineProperty(f.receipt, scenario.key, { get() { return ++reads === 1 ? scenario.first : scenario.later; } });
++    observer.observe(f.event, f.context);
++    const result = observer.inspect(f.event.runId, identity);
++    assert.equal(result.code, scenario.code);
++    assert.equal(result.status, "rejected");
++    assert.equal(reads, 1);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_ambiguous");
++    assert.equal(reads, 1);
++  });
++}
++
++test("receipt scalar snapshot is read once and the same validated values determine its hash", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++  const expected = createCurrentInputMetadata("main"), stable = fixture(); stable.commit();
++  expected.observe(stable.event, stable.context);
++  const expectedHash = hash(expected.inspect(stable.event.runId, identity));
++  const reads = new Map<string, number>();
++  for (const [key, value] of Object.entries(f.receipt)) {
++    Object.defineProperty(f.receipt, key, { get() {
++      const count = (reads.get(key) ?? 0) + 1; reads.set(key, count);
++      return count === 1 ? value : { invalid: "later non-scalar value" };
++    } });
++  }
++  observer.observe(f.event, f.context);
++  assert.equal(hash(observer.inspect(f.event.runId, identity)), expectedHash);
++  assert.equal(reads.size, Object.keys(f.receipt).length);
++  for (const count of reads.values()) assert.equal(count, 1);
++});
++
+ test("one run cannot switch recorders or native admissions; restoring old metadata cannot revive it", () => {
+   const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); observer.observe(f.event, f.context);
+   assert.equal(observer.observe(f.event, f.context), "dispatch_observed");
+--- a/docs/ORDINARY-SOURCE-READ.md
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -103,12 +103,20 @@
+ payload was used. The initial34pass/2fail run is retained separately. No full
+ suite, installation, reload, consent, commit or push was performed.
+ 
+-The prior current-input metadata P2 remains independently unaccepted and was not
+-used or repaired here. Its pre-existing local code/wiring remains outside this
+-increment's approval; the source read seam does not depend on that observer.
+-No combined working tree is eligible for promotion merely because these tests
+-pass. Evidence and an increment relative to the preserved task-start bytes are
+-in [the implementation receipt](../.task-control/reports/CORE-VAL-001/source-read-port-20261102.json).
++The original37/37 run did not repair or approve the pre-existing metadata P2.
++Its failure evidence and the read-port increment remain in
++[the original receipt](../.task-control/reports/CORE-VAL-001/source-read-port-20261102.json).
++Because the ordinary entry also registers that observer, the delivery candidate
++now includes its minimal scalar-snapshot repair: each selected receipt field is
++read once, then the same immutable snapshot is validated, bound and hashed.
++Four getter-change counterexamples reproduced false observations before the
++repair and are rejected after it. A valid snapshot/hash control and the affected
++metadata/ordinary-entry cases passed **19/19**; the37cases were not rerun or
++combined into a new total. This does not add source/author qualification.
++The full entry and both local modules remain pending independent review and
++uninstalled; no mixed working tree is approved merely by these test results.
++The [R1 delivery receipt](../.task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.json)
++pins the combined entry patch and its dependency/test evidence.
+ 
+ Next: review this package; then implement the normal public Host request →
+ existing source/processing-admission adapter for this read port. Reconcile the
+--- a/PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -769,3 +769,12 @@
+   private_source_or_host_model_use: none
+   metadata_P2_dependency: false
+   independently_accepted_or_installed: false
++
++# 2026-11-02 minimal metadata dependency repair for the source-read delivery candidate.
++ordinary_source_read_metadata_r1_20261102:
++  evidence: .task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.json
++  receipt_fields: once_captured_immutable_scalar_snapshot
++  verification: four_false_observations_reproduced_then_rejected_and_19_of_19_affected_cases_pass
++  source_read_37_cases: preserved_not_rerun
++  source_or_author_qualification: unchanged_unbound
++  independent_review_or_activation: not_performed

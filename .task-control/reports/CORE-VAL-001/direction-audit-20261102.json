@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "phase": "direction_rebased_data_foundation_then_forward_understanding_documents_landed_no_runtime_change",
+  "observedAt": "2026-11-02T03:26:35.859929+00:00",
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "baseRevision": 88,
+  "documentationOwnerRevision": 89,
+  "readScope": {
+    "fullProductDocuments": [
+      "README.md",
+      "CONTEXT.md",
+      "docs/00-VISION.md",
+      "docs/09-REQUIREMENTS-ALIGNMENT.md",
+      "docs/10-DESIGN-BASELINE.md",
+      "docs/01-ARCHITECTURE.md",
+      "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
+      "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md",
+      "docs/CANDIDATE-WORK-BRIEF.md",
+      "skills/stella-continue/SKILL.md"
+    ],
+    "decisionSections": [
+      "D-055",
+      "D-056",
+      "D-057",
+      "D-058",
+      "D-062",
+      "D-063"
+    ],
+    "privateSourceBodiesOrFinancialHoldings": "not_read",
+    "CangHaiChecks": "project instructions/design headers and migration docs/code; Git state; selected config fields; manifest/catalog aggregate statistics only"
+  },
+  "objectiveFindings": [
+    {
+      "fact": "One product goal remains digital counterpart/high-dimensional self supporting real judgment/action; memory/provenance are means",
+      "refs": [
+        "docs/00-VISION.md:7",
+        "docs/00-VISION.md:9",
+        "docs/09-REQUIREMENTS-ALIGNMENT.md:9"
+      ]
+    },
+    {
+      "fact": "Six product capabilities and on-request social judgment plus collaborative writing remain; work-brief CRUD is a small implementation slice",
+      "refs": [
+        "docs/09-REQUIREMENTS-ALIGNMENT.md:11",
+        "docs/09-REQUIREMENTS-ALIGNMENT.md:30",
+        "docs/01-ARCHITECTURE.md:252"
+      ]
+    },
+    {
+      "fact": "Ordinary plugin/native memory/context/Agent loop topology remains aligned; exact asset/phase choices in October proposal are manager decisions, not overall user product approval",
+      "refs": [
+        "docs/09-REQUIREMENTS-ALIGNMENT.md:81",
+        "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md:19",
+        "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md:7"
+      ]
+    },
+    {
+      "fact": "September correction-first priority existed; it cannot now override the new November user instruction",
+      "refs": [
+        "docs/09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority",
+        "docs/DECISIONS.md:584"
+      ],
+      "kind": "chronological_priority_not_new_architecture"
+    },
+    {
+      "fact": "Candidate persistence/explicit continuation and installation are engineering scaffolds; actual understanding/retrieval/routing/answer behavior are not established by their tests",
+      "refs": [
+        "docs/CANDIDATE-WORK-BRIEF.md",
+        "src/ordinary-plugin.ts"
+      ],
+      "inference": "execution and reporting emphasis drifted from product behavior toward convenient synthetic scaffolding; preserve results but do not treat them as primary milestone"
+    }
+  ],
+  "nameOrigin": {
+    "name": "stella-continue",
+    "meaning": "explicitly selected synthetic work-brief continuation",
+    "introducedCommit": "f5be7098f3775442914d78a8c2fce5a6955a2a35",
+    "commitSubject": "feat: add explicit work brief continuation skill",
+    "implementationReceipt": ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.json:7",
+    "userSpecifiedNameEvidence": "none in reviewed project requirements or visible trusted task history; this is an implementation name",
+    "hostCommandNormalization": "hyphen to underscore, as recorded in reviewed 10.8 evidence; no fresh Host call",
+    "recommendation": "do not rename automatically; clearly subordinate the skill and explicit IDs to product behavior"
+  },
+  "originalGoalEvidence": {
+    "repositoryGoalsActuallyRead": [
+      "docs/00-VISION.md",
+      "docs/09-REQUIREMENTS-ALIGNMENT.md"
+    ],
+    "olderPrivateIntent": "not_re_read",
+    "reference": ".task-control/reports/CORE-RES-001/handoff-20261030.md:9",
+    "historicallyRecordedIntentSha256": "3815addd03423f4fb112361722b36675f9d41c0615a56addd4b53ee954801a2d",
+    "libraryAccess": "Known research ZIP metadata resolved and size107815 matched recorded size; Library read returned no readable content/zero lines. No download/materialization or private session-link reads were performed. This does not prove intent.md absent from the archive, and no original-byte hash revalidation is claimed."
+  },
+  "latestUserPriority": {
+    "canonical": "docs/09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority",
+    "sequence": [
+      "necessary selected-scope data design/conversion/development integration",
+      "forward existing-data recall/source and semantic understanding/routing/grounded answer",
+      "correction and subsequent propagation"
+    ],
+    "newDecisionTime": "2026-11-02T03:10:18Z",
+    "dataPrerequisite": "user reiterated same day; historical October26 local data-copy/sync and migration requirement preserved, not relabeled as new demand",
+    "interpretation": "retrieval/routing may iterate; original phrase about reverse recall is preserved, not construed as disabling forward recall or adding a new product taxonomy",
+    "notCancelled": [
+      "full six-capability product",
+      "correction and learning",
+      "original-data retention and portability"
+    ],
+    "noNewPermission": true
+  },
+  "dataLayer": {
+    "design": {
+      "canonicalRoot": "CangHai:50_PersonalAgent/design/stella-redesign/",
+      "spec": "02-Stella-数据架构规范.md",
+      "specVersion": "v0.21",
+      "specUpdated": "2026-10-26",
+      "state": "confirmed minimum physical/semantic baseline and V1 plan documented; full DS-04B governance postponed; not proof of conversion or current Core loading",
+      "producerBranch": "codex/knowledge-migration-v1",
+      "producerCommit": "2ea285d98d21c0882092582141aac92f93fa432a",
+      "producerClean": true,
+      "separateState": "50_PersonalAgent/design/stella-redesign/01-TASK-STATE.yaml; interview/finance scope, does not schedule Core"
+    },
+    "localConvertedSource": {
+      "alias": "MIGRATION_ROOT=existing local stella-sources/migration-v1 checkout",
+      "branch": "local/knowledge-migration-v1",
+      "commit": "112be540a3988af53d1076a38f8f1c155da7a745",
+      "commitTime": "2026-10-27T09:47:16+08:00",
+      "clean": true,
+      "materializationManifest": {
+        "ref": "MIGRATION_ROOT/materialization-manifest.json",
+        "sha256": "f882f1ff8a101f6fe7c06e0a3204ae527df554ddcef3454d12ff58246a1b7177",
+        "counts": {
+          "rawFiles": 1167,
+          "convertedSources": 98,
+          "newEvidence": 342,
+          "originalHistoricalSources": 200,
+          "auditDescriptors": 374,
+          "supplyCurrentSources": 97,
+          "supplyDescriptors": 362
+        },
+        "originalFlags": "phase4 inactive-materialization actualApproval/readyToActivate false are NOT evidence no later runtime authorization ever occurred"
+      },
+      "convertedSupply": {
+        "ref": "30_Knowledge/migration-v1/converted/catalog.supply.json",
+        "sha256": "18d2bce4d2c25f7e0d8be506ec00b3bdbfcdd0553483a7df548c305ec260bc3d",
+        "sourceStatus": {
+          "superseded": 298,
+          "current": 97,
+          "removed": 4
+        },
+        "currentEvidence": 346,
+        "descriptorCount": 362,
+        "uniqueDescriptorSources": 97
+      },
+      "runtimeCatalog": {
+        "ref": "30_Knowledge/migration-v1/runtime/catalog.json",
+        "sha256": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+        "sourceStatus": {
+          "superseded": 298,
+          "current": 98,
+          "removed": 4
+        },
+        "currentEvidence": 347,
+        "understandings": 0,
+        "works": 0,
+        "changes": 0,
+        "bundles": 0,
+        "views": 0,
+        "extraCurrentSourceOrigin": "not inspected; do not infer from count alone"
+      },
+      "partialMigrationBoundary": "materialize.mjs refuses nonempty understandings/works/changes/bundles as derived_objects_require_explicit_reassessment; not a complete derived-understanding/work migration",
+      "notVerifiedThisAudit": "No individual raw-payload reread or repeat of historical44tests; manifest/counts/hash only. Selected catalog is not whole-repository coverage."
+    },
+    "historicalActivation": {
+      "source": "trusted parent-supplied independent history, not a new reproduction",
+      "facts": [
+        "Oct27 00:57 approval for97sources/362descriptors",
+        "Oct27 01:45 reported migration-v1 source switch/reload",
+        "Oct27 02:23 reported real writing-preference query against new source with version-matched E42"
+      ],
+      "conclusion": "finite migrated set historically used by old checkpoint route; cannot say never converted or never connected"
+    },
+    "currentOrdinaryBinding": {
+      "configurationObservedSha256": "a0fee4fc9fe180c46ecc13371139ff0d26932126656b58fb5c8e42e696f05651",
+      "selectedPluginConfigKeys": [
+        "agentId",
+        "publisher",
+        "candidateDraftsRoot"
+      ],
+      "canghaiRootOrManifestPath": false,
+      "installedArtifact": "CORE_ROOT/.artifacts/tool-request-binding-20261031/package",
+      "installedEntry": "dist/src/ordinary-plugin.js",
+      "installedStaticSourceAdapter": "not_connected",
+      "installedStaticCurrentInputAdmission": "not_connected",
+      "installedEntryHasCanghaiConfig": false,
+      "scope": "selected config and installed bytes only; no Gateway/health/index/model call; not proof entire Host lacks every other CangHai access path",
+      "conclusion": "the current ordinary-plugin development path has not carried the migrated source binding forward; historical checkpoint connection cannot establish current ordinary consumption"
+    },
+    "otherRoots": {
+      "productionDevCommit": "c050a046f48837f755c9b3f10bba2910d5218083",
+      "productionExistingTrackedChanges": 2,
+      "root30KnowledgePresent": false,
+      "separateOldMainSourceCommit": "644eafa63db75231fabc376129d56c02835cef8f",
+      "interpretation": "absence in production dev is not absence of independent migration work; no branch/source pointer changed"
+    },
+    "legacyManifestCaution": "8.2 active/full_memory labels in the source manifest/profile are historical serialized declarations, not current ordinary-plugin activation evidence"
+  },
+  "forwardReuseAndGaps": {
+    "officialLocalSDK": "2026.10.9 documentation snapshot; no runtime compatibility test",
+    "hostReuse": [
+      "native Agent/model/tool iteration",
+      "normal search/index and file/original reads within actual supported permissions",
+      "sessions/context lifecycle"
+    ],
+    "notPublicConsumerShortcut": "memory-host-search is documented private-local facade; do not import it or take over memory slot to manufacture a consumer",
+    "existingCoreKernels": [
+      "src/canghai/catalog-reader.ts",
+      "src/canghai/source-access.ts",
+      "src/canghai/semantic-retrieval.ts:57",
+      "src/praxis/question-evidence.ts:75",
+      "src/routing/semantic-router.ts"
+    ],
+    "staticCapability": "LLM-port semantic candidate selection, original-driven additional rounds, current version/policy checks, explicit resource exhaustion and evidence assessment already exist in leaf modules; not all are in ordinary-plugin active import path",
+    "actualGap": "default ordinary entry offers status/candidate/synthetic draft tools; no selected migrated-catalog reader/native retrieval-to-source-evidence integration or model-consumed grounded-answer proof",
+    "noLexicalSemanticRouting": true
+  },
+  "nextFinitePackage": {
+    "name": "selected migrated-data compatibility and ordinary read-only source seam, synthetic equivalents first",
+    "deliverables": [
+      "pin existing data/spec/catalog/manifest/source-policy version matrix and minimum mutable/readonly paths",
+      "build a thin ordinary-compatible read port around existing CatalogReader/SourceAccess, using a dedicated synthetic fixture equivalent to the migrated Source v2/descriptor shape; no new database or generic migration framework",
+      "directed contract cases: identity/version/reference closure, source role/time and original selection, allow/deny, missing/partial/exhausted is explicit, original read independent of description, no owner/text-derived permission",
+      "one forward scenario: existing synthetic source set with older/current statements, quoted third-party view and an assistant inference; natural question requires relevant originals, role/time distinction, grounded answer or material-unknown clarification"
+    ],
+    "semanticOwnership": "native Agent or existing structured LLM ports decide semantic routing and further retrieval; deterministic code validates and executes, never keywords or lexical scores",
+    "currentAuthorityCovers": "local public code and synthetic offline contract tests; no private payloads, model calls, new permission or shared Host activation",
+    "notCurrentAuthority": "actual private-source use/model transmission, new source policy/trust grants, paid model calls or shared main activation; check exact existing authorization/versions before any such action",
+    "notADependency": "metadata P2 repair is required if that observer is used, not a universal prerequisite for the data/forward-understanding package"
+  },
+  "metadataReview": {
+    "status": "not_accepted_paused",
+    "author24TestsRetained": true,
+    "parentIndependentUnexpectedAccepts": 4,
+    "finding": "repeated getter reads permit inconsistent validated/hash scalar values",
+    "fix": "snapshot each selected scalar exactly once; validate/hash only the snapshot",
+    "fixPerformedThisAudit": false,
+    "source": "parent relay; no original independent report path or rerun in this task"
+  },
+  "changedDocuments": {
+    "docs/09-REQUIREMENTS-ALIGNMENT.md": "9193d9073e9e05495d6f27a55faa76f1b0b3e1255a243c8fd9013d96d62f2674",
+    "docs/10-DESIGN-BASELINE.md": "350a3766d4219db0ca78ba4b7a7696834f4df741e5ea9e45de804bb545dfaac2",
+    "docs/MAIN-DEBUG-INSTALL.md": "4d7ef8ae0da9559282b3694cc19a155f8cec8b3d25514265306678f3c0c21d4c",
+    "docs/CANDIDATE-WORK-BRIEF.md": "c567cbe90030750e1d921db48d7080665b116ecd7986c6c02a9dcf73a1df05a1",
+    "docs/CORE-CANGHAI-COORDINATION.md": "7fd822cebb6f80dad8f7b1dc102cf8b1b7027bac852c2b953d97034ea0aa50e9",
+    "PROJECT-STATE.yaml": "97c6b1697a60241497f93e2e52fef28d0a0427385e2a2a76cf8d3464fd6f989d"
+  },
+  "incrementPatch": {
+    "ref": ".task-control/reports/CORE-VAL-001/direction-audit-20261102.patch",
+    "sha256": "158666884ccb1b0521033e922ea2bcdf35d0eb4289c6dd41facb561dd0ac8f3f"
+  },
+  "noAction": [
+    "runtime code/test modifications",
+    "tests or model/semantic calls",
+    "shared Host configuration/process/port/reload operations",
+    "source payload/financial-holdings or credential reads",
+    "migration/index rebuild/source switch",
+    "CangHai writes",
+    "staging/commit/push",
+    "rename/delete/ADR creation"
+  ],
+  "remaining": [
+    "original private intent.md not re-read",
+    "selected-source mapping/nonempty derived migration gap",
+    "current ordinary-plugin migrated-data seam disconnected",
+    "new source/processing qualifications must be checked before actual use",
+    "actual forward semantic understanding and grounded answering not established",
+    "full_memory, correction propagation and final integration not accepted"
+  ],
+  "documentationReadback": {
+    "newPriorityDataAnchorLinks": 7,
+    "status": "passed",
+    "diffCheck": "passed",
+    "initialReadbackVerifier": "self-anchor incorrectly treated as parent directory; verifier corrected, no document failure or runtime change",
+    "runtimeCodeAndTestBytes": "unchanged from audit base"
+  }
+}

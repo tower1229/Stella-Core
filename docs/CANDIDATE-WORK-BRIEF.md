@@ -6,6 +6,17 @@ unresolved questions and opaque, unverified references. It does not confirm the
 author, publish an author position or write Core's authoritative long-term
 memory. The existing `stella_author_intent_candidate` remains unsaved.
 
+This is engineering scaffolding, not a replacement product goal. The owner's
+2026-11-02 priority is the necessary data structure, legacy conversion and actual
+development-source integration first, then correct understanding of existing data
+through semantic recall, source interpretation, routing and grounded answers,
+before expanding correction/propagation or continuation features; see the single current decision
+in [requirements §1.5](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority).
+`stella-continue` is the implementation's name for this explicit synthetic-debug
+entry, not a user-chosen name for Stella or a requirement to issue a command and
+manage brief IDs in everyday use. Its narrowness is intentional for the fixture;
+it cannot define the full product or justify postponing correction semantics.
+
 This increment is restricted to a **synthetic debug** store.
 It uses the existing author-intent v1 asset and Git transaction repository, not
 another memory database. The asset's confirmation is always `candidate`;
@@ -211,3 +222,82 @@ there is no verified dollar hard cap. A missing cost is unknown, not zero.
 These are proposed limits, not new execution authorization. Neither prior paid
 approval nor old exhausted isolated-Host batches are reused. No real personal
 material or new source permission is required for this bounded synthetic case.
+
+## Passive current-input metadata (local candidate, 2026-11-02)
+
+The ordinary-plugin candidate now connects the public `reply_dispatch` callback
+to the exact `before_tool_call` / candidate execution using the Host run ID and
+factory session identity. Dispatch only retains the recorder reference and its
+original three read methods; it neither claims dispatch nor waits for or triggers
+persistence. At candidate execution it reads `hasPersisted`, `isBlocked` and
+`getAdmissionReceipt` synchronously. It never reads message text, prompt, history,
+sender/provenance, configuration, transcript files or credentials, and calls no
+recorder mutation/handler methods.
+
+The candidate's additive `currentInputObservation` field distinguishes missing
+dispatch/run/commit information, invalid or conflicting native metadata, and
+`observed / native_input_metadata_only`. An observation exposes only a receipt
+hash and explicit `authorQualification:false`, `sourceRepresentation:unverified`
+and `modelConsumption:unverified` labels. The hash identifies a selected native
+receipt snapshot; it is **not** a Source version, client idempotency key, author
+proof or evidence that the model received/understood the input. The existing
+`author_source_unavailable`, unverified proposal references, unsaved candidate
+and publisher-off contract are unchanged. A failed observation cannot authorize
+anything; an ordinary unconfirmed proposal may still be returned as such.
+
+The observer accepts only the configured agent's ordinary agent dispatch with
+matching explicit session keys, run ID, recorder and cancellation signal. It
+retains at most 32 live run references. Cancellation and an exactly matched
+`agent_end` release them. Repeated identical dispatch is passive; changing the
+recorder, lifetime, session or an already-observed native admission makes that
+run ambiguous. Restoring old metadata cannot revive it. Same-session concurrent
+runs are addressed by exact run ID, never by a latest-session lookup. Missing
+fields are reported unavailable; the code does not invent them from text or
+owner status. `agent exec` and direct tool RPC without this ingress still cannot
+provide current-input observation. No registry is persisted across requests or
+processes, and no new identity/permission service is introduced.
+
+This local implementation has **24/24 synthetic focused cases** (9 new metadata
+cases, 5 ordinary-plugin cases and 10 request-binding cases), plus successful
+TypeScript compilation. The callbacks were driven by fixtures through the real
+plugin registration/factory code, not by a live Host or model. During recovery,
+the local `node_modules/openclaw` symlink was found to resolve to global SDK
+**2026.10.9**, while the project manifest/lock retain **2026.10.8**. Those files
+and the global installation were preserved. The new compilation/test results
+belong to 10.9; they do not revalidate the historical 10.8 artifact or establish
+the running Gateway's version. Details, source hashes and the exact local delta
+are recorded in [the implementation receipt](../.task-control/reports/CORE-VAL-001/current-input-metadata-20261102.json).
+
+The candidate has **not been loaded into main**. The user's shared selfie debug
+instance, its configuration, processes and ports were untouched. Review this
+local package first. The next integration check must prove actual dispatch
+lifetime/receipt timing in a separately permitted synthetic run; no old exhausted
+Host or paid-model quota is reused. Trusted sender-to-author mapping, original
+text/normalization evidence, Source/version/purpose qualification and semantic
+adoption remain separate missing capabilities. Do not wire the offline author
+qualifier or enable publication merely because native metadata was observed.
+
+### Historical independent review: original metadata candidate not accepted
+
+The earlier 24/24 is the author's focused synthetic test result, not independent
+acceptance. The coordinator subsequently reported a P2 defect: receipt fields
+are read through getters repeatedly, allowing validation and the eventual hash
+to describe different scalar values; four independent counterexamples were
+unexpectedly accepted. Their result was relayed by the parent review and was not
+rerun in this documentation audit. Source/author qualification and publisher
+still remain off; this is not evidence of an accepted source binding.
+
+The candidate is paused and must not be loaded or pushed as accepted. The narrow
+required fix is to read each selected scalar once into a stable plain snapshot,
+then validate and hash only that snapshot, adding the independent counterexamples
+to the regression set. That is a prerequisite repair only where this observer is
+needed; it is not the next product milestone or a reason to block independent
+correction-loop engineering. The existing code and both passing/failing evidence
+retain their identities. No runtime fix was performed in this direction audit.
+
+2026-11-02 follow-up: the scalar-snapshot repair was independently closed in the
+fixed state97 source-read package. The failure above retains its original identity;
+it no longer schedules a paused metadata repair. The reviewed ordinary hooks and
+factory keep native observation separate from source/author permission. See the
+[accepted offline package evidence](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json).
+Actual Host lifecycle and semantic consumption remain unverified.

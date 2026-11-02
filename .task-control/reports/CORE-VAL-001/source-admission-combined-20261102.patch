@@ -1,0 +1,1596 @@
+--- /dev/null
++++ b/src/openclaw/current-input-metadata.ts
+@@ -0,0 +1,99 @@
++import type { PluginHookReplyDispatchEvent, PluginHookReplyDispatchContext } from "openclaw/plugin-sdk/core";
++import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
++import { isRecord } from "../shared/type-guards.js";
++
++type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
++type Recorder = NonNullable<PluginHookReplyDispatchContext["userTurnTranscriptRecorder"]>;
++type Entry = {
++  sessionKey: string; recorder: Recorder; signal: AbortSignal;
++  persisted(): boolean; blocked(): boolean; receipt(): unknown; release(): void;
++  conflict: boolean; admitted?: string;
++};
++const text = (x: unknown): x is string => typeof x === "string" && x.length > 0 && x.length <= 4096;
++const unavailable = (code: string) => ({ status: "unavailable" as const, code });
++
++/** Passive metadata only. No message/provenance/sender reads, source qualification,
++ * persistent store or session-to-latest lookup. A receipt hash is NOT a Source
++ * version, author proof, or proof of what the provider consumed. */
++export function createCurrentInputMetadata(agentId: string) {
++  const runs = new Map<string, Entry>();
++  function forget(runId: string, entry: Entry) {
++    if (runs.get(runId) === entry) runs.delete(runId);
++    entry.release();
++  }
++  return {
++    observe(event: PluginHookReplyDispatchEvent, context: PluginHookReplyDispatchContext) {
++      // Observe the ordinary agent path only; never claim dispatch or wait for it.
++      if (context.dispatchKind !== "agent" || event.ctx.AgentId !== agentId) return "dispatch_scope_unavailable";
++      const runId = event.runId, sessionKey = event.sessionKey;
++      const recorder = context.userTurnTranscriptRecorder, signal = context.abortSignal;
++      if (!text(runId) || !text(sessionKey) || event.ctx.SessionKey !== sessionKey || !recorder || !signal || signal.aborted) {
++        return "dispatch_identity_or_lifetime_unavailable";
++      }
++      const previous = runs.get(runId);
++      if (previous) {
++        if (previous.recorder !== recorder || previous.signal !== signal || previous.sessionKey !== sessionKey) previous.conflict = true;
++        return previous.conflict ? "dispatch_ambiguous" : "dispatch_observed";
++      }
++      if (runs.size >= 32) return "dispatch_capacity";
++      if (typeof recorder.hasPersisted !== "function" || typeof recorder.isBlocked !== "function" ||
++          typeof recorder.getAdmissionReceipt !== "function") return "recorder_contract_unavailable";
++      // Capture the original read methods; no recorder method is called here.
++      const entry: Entry = { sessionKey, recorder, signal, conflict: false,
++        persisted: recorder.hasPersisted.bind(recorder), blocked: recorder.isBlocked.bind(recorder),
++        receipt: recorder.getAdmissionReceipt.bind(recorder), release: () => signal.removeEventListener("abort", discard) };
++      function discard() { forget(runId!, entry); }
++      runs.set(runId, entry); signal.addEventListener("abort", discard, { once: true });
++      return "dispatch_observed";
++    },
++    inspect(runId: string | null | undefined, identity: Identity) {
++      if (!text(runId)) return unavailable("host_run_not_provided");
++      const entry = runs.get(runId);
++      if (!entry || entry.signal.aborted) return unavailable("reply_dispatch_not_observed");
++      const reject = (code: string) => { entry.conflict = true; return { status: "rejected" as const, code }; };
++      if (entry.conflict) return reject("native_input_ambiguous");
++      if (identity.agentId !== agentId || identity.sessionKey !== entry.sessionKey || !text(identity.sessionId)) {
++        return reject("native_input_binding_mismatch");
++      }
++      try {
++        if (entry.persisted() !== true || entry.blocked() !== false) {
++          return entry.admitted ? reject("native_input_changed") : unavailable("admission_uncommitted");
++        }
++        const receipt = entry.receipt();
++        if (!isRecord(receipt)) return reject("native_input_receipt_invalid");
++        // Host objects may expose getters. Read each selected field once, then
++        // validate, bind and hash only this immutable scalar snapshot.
++        const a = Object.freeze({ agentId: receipt.agentId, sessionId: receipt.sessionId, sessionKey: receipt.sessionKey,
++          storePath: receipt.storePath, entryId: receipt.entryId, logicalTurnId: receipt.logicalTurnId,
++          generation: receipt.generation, idempotencyKey: receipt.idempotencyKey, role: receipt.role,
++          rawSeq: receipt.rawSeq, effectiveParentId: receipt.effectiveParentId,
++          activeMessagePosition: receipt.activeMessagePosition });
++        if (!["agentId", "sessionId", "sessionKey", "storePath", "entryId", "logicalTurnId", "generation", "idempotencyKey"].every(k => text(a[k as keyof typeof a])) ||
++            a.role !== "user" || !Number.isSafeInteger(a.rawSeq) || Number(a.rawSeq) < 1 ||
++            !Number.isSafeInteger(a.activeMessagePosition) || Number(a.activeMessagePosition) < 0 ||
++            !(a.effectiveParentId === null || text(a.effectiveParentId))) return reject("native_input_receipt_invalid");
++        if (a.agentId !== agentId || a.sessionKey !== entry.sessionKey || a.sessionId !== identity.sessionId) {
++          return reject("native_input_binding_mismatch");
++        }
++        // Deliberately select fields; neither transcript paths nor receipt objects
++        // escape through the candidate result. Do not read getPersistedMessage.
++        const encoded = canonicalJson({ agentId: a.agentId, sessionId: a.sessionId, sessionKey: a.sessionKey,
++          storePath: a.storePath, entryId: a.entryId, logicalTurnId: a.logicalTurnId, generation: a.generation,
++          idempotencyKey: a.idempotencyKey, role: a.role, rawSeq: a.rawSeq,
++          effectiveParentId: a.effectiveParentId, activeMessagePosition: a.activeMessagePosition });
++        if (entry.signal.aborted || runs.get(runId) !== entry) return unavailable("reply_dispatch_not_observed");
++        if (entry.admitted !== undefined && entry.admitted !== encoded) return reject("native_input_changed");
++        entry.admitted = encoded;
++        return { status: "observed" as const, code: "native_input_metadata_only", receiptHash: bytesVersion(encoded),
++          authorQualification: false as const, sourceRepresentation: "unverified" as const, modelConsumption: "unverified" as const };
++      } catch {
++        return reject("native_input_recorder_read_failed");
++      }
++    },
++    end(event: { runId?: string }, context: Identity & { runId?: string }) {
++      if (!text(event.runId) || event.runId !== context.runId || context.agentId !== agentId) return;
++      const entry = runs.get(event.runId);
++      if (entry && context.sessionKey === entry.sessionKey) forget(event.runId, entry);
++    },
++  };
++}
+--- /dev/null
++++ b/src/openclaw/ordinary-source-read.ts
+@@ -0,0 +1,191 @@
++import path from "node:path";
++import { realpath } from "node:fs/promises";
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++import { satisfies } from "semver";
++import { parse as parseYaml } from "yaml";
++import { Type } from "typebox";
++import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
++import { bytesVersion } from "../canghai/content-version.js";
++import { MAX_CANGHAI_DOCUMENT_BYTES, parseConsciousnessManifest } from "../canghai/manifest.js";
++import { parseRuntimeProfile } from "../canghai/runtime-profile.js";
++import { parseCangHaiRef } from "../canghai/ref.js";
++import { EpisodeEvidenceResolver, evidenceTemporallyEligible, type EvidencePurpose } from "../praxis/episode-evidence.js";
++import type { VersionedRef } from "../praxis/episode-v2.js";
++import { isRecord } from "../shared/type-guards.js";
++
++export const SOURCE_READ_TOOL = "stella_source_read";
++export type SourceReadBinding = Readonly<{ root: string; manifestPath: string; revision: string }>;
++/** Supplied by an existing trusted request/source-processing adapter, never tool
++ * arguments or plugin config. Root selection and owner status do not mint it. */
++export type SourceReadAdmission = {
++  assertCurrent(): void | Promise<void>;
++  /** false is an explicit descriptor-scope exclusion, never an arbitrary error. */
++  assertMetadata(reader: CatalogReader, ref: VersionedRef): Promise<void | false>;
++  purpose: EvidencePurpose;
++};
++const run = promisify(execFile);
++const check: (ok: unknown, code: string) => asserts ok = (ok, code) => { if (!ok) throw new CatalogError(code); };
++const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 4096;
++function relative(v: unknown): string {
++  check(text(v) && !path.isAbsolute(v) && !v.includes("\\") && !v.includes(":") &&
++    !v.split("/").some(p => !p || p === "." || p === ".." || p.toLowerCase() === ".git"), "source_binding_invalid");
++  const ref = parseCangHaiRef(`path:${v}`);
++  check(!ref.fragment && ref.relativePath === v && !v.split("/").some(p => !p || p === "." || p === ".." || p.toLowerCase() === ".git"), "source_binding_invalid");
++  return v;
++}
++export function parseSourceReadBinding(value: unknown): SourceReadBinding {
++  check(isRecord(value), "source_binding_invalid");
++  const v = structuredClone(value);
++  check(Object.keys(v).sort().join() === "manifestPath,revision,root" && text(v.root) && path.isAbsolute(v.root) &&
++    path.normalize(v.root) === v.root && typeof v.revision === "string" && /^[a-f0-9]{40}$/.test(v.revision), "source_binding_invalid");
++  return Object.freeze({ root: v.root, manifestPath: relative(v.manifestPath), revision: v.revision });
++}
++const refSchema = Type.Object({ id: Type.String({ minLength: 1, maxLength: 512 }), version: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }) }, { additionalProperties: false });
++export const SOURCE_READ_PARAMETERS = Type.Union([
++  Type.Object({ action: Type.Literal("list"), cursor: Type.Optional(Type.Object({ catalogHash: Type.String(), offset: Type.Integer({ minimum: 0 }) }, { additionalProperties: false })) }, { additionalProperties: false }),
++  Type.Object({ action: Type.Literal("read"), ref: refSchema }, { additionalProperties: false }),
++]);
++function parameters(value: unknown) {
++  check(isRecord(value), "source_arguments_invalid");
++  const v = structuredClone(value);
++  if (v.action === "read") {
++    check(Object.keys(v).sort().join() === "action,ref" && validMemoryRef(v.ref) && Object.keys(v.ref).sort().join() === "id,version", "source_arguments_invalid");
++    return { action: "read" as const, ref: { id: v.ref.id, version: v.ref.version } };
++  }
++  check(v.action === "list" && Object.keys(v).every(k => k === "action" || k === "cursor"), "source_arguments_invalid");
++  const c = v.cursor;
++  check(c === undefined || isRecord(c) && Object.keys(c).sort().join() === "catalogHash,offset" &&
++    typeof c.catalogHash === "string" && /^sha256:[a-f0-9]{64}$/.test(c.catalogHash) && Number.isSafeInteger(c.offset) && Number(c.offset) >= 0, "source_arguments_invalid");
++  return { action: "list" as const, cursor: c as { catalogHash: string; offset: number } | undefined };
++}
++function pathRef(raw: string) {
++  try { const ref = parseCangHaiRef(raw); check(!ref.fragment, "source_reference_fragment_unsupported"); return relative(ref.relativePath); }
++  catch (error) { if (error instanceof CatalogError) throw error; throw new CatalogError("source_reference_invalid"); }
++}
++const timestamp = (v: unknown, nullable = false) => nullable && v === null || typeof v === "string" && /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(v) && Number.isFinite(Date.parse(v));
++
++/** One invocation, no retained reader/qualification across requests. This narrow
++ * loader reads only the chosen manifest/profile/catalog, not all consciousness
++ * references, bootstrap files or capability acceptance records. */
++export async function executeOrdinarySourceRead(input: {
++  binding: SourceReadBinding; agentId: string; hostVersion: string; parameters: unknown;
++  admission: SourceReadAdmission; signal?: AbortSignal;
++}) {
++  const { agentId, hostVersion, signal } = input;
++  const binding = parseSourceReadBinding(input.binding), args = parameters(input.parameters);
++  const originalGuard = input.admission.assertCurrent.bind(input.admission);
++  const metadata = input.admission.assertMetadata.bind(input.admission);
++  const supplied = input.admission.purpose;
++  check(typeof supplied.sourceAccess === "function", "source_access_context_required");
++  const sourceAccess = supplied.sourceAccess.bind(supplied);
++  const purpose: EvidencePurpose = { ...structuredClone({ readPurpose: supplied.readPurpose, derivePurpose: supplied.derivePurpose,
++    deliveryScope: supplied.deliveryScope, evidenceCutoff: supplied.evidenceCutoff, trustedAdapters: supplied.trustedAdapters,
++    ...(supplied.eventWindow ? { eventWindow: supplied.eventWindow } : {}) }),
++    sourceAccess: async (...args) => {
++      await guard(); const decision = await sourceAccess(...args); await guard(); return decision;
++    }, ...(signal ? { signal } : {}) };
++  const guard = async () => { signal?.throwIfAborted(); await originalGuard(); signal?.throwIfAborted(); };
++  await guard();
++  check(await realpath(binding.root) === binding.root, "source_root_not_canonical"); await guard();
++  // Keep the selected checkout fixed and clean. No git mutations or network.
++  const env = { ...process.env };
++  for (const key of Object.keys(env)) if (key.startsWith("GIT_")) delete env[key];
++  const git = async (args: string[]) => {
++    await guard();
++    const result = await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "diff.autoRefreshIndex=false", "-C", binding.root, ...args],
++      { env, maxBuffer: 2 * 1024 * 1024 });
++    await guard(); return result.stdout;
++  };
++  const pin = async (file: string, hash: string, at = binding.revision) => {
++    await guard();
++    const { stdout } = await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", binding.root,
++      "cat-file", "blob", `${at}:${relative(file)}`], { env, encoding: "buffer", maxBuffer: 16 * 1024 * 1024 });
++    await guard(); check(bytesVersion(stdout) === hash, "source_git_blob_mismatch"); return stdout;
++  };
++  const revision = async () => {
++    check((await git(["rev-parse", "HEAD"])).trim() === binding.revision, "source_revision_mismatch");
++    check((await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"])) === "", "source_repository_dirty");
++  };
++  await revision();
++  const document = async (file: string) => {
++    await guard(); const b = await readRepositoryBytes(binding.root, file); await guard();
++    check(b.length <= MAX_CANGHAI_DOCUMENT_BYTES, "source_document_capacity");
++    return { bytes: b, text: new TextDecoder("utf-8", { fatal: true }).decode(b), hash: bytesVersion(b) };
++  };
++  const manifestBytes = await document(binding.manifestPath), manifest = parseConsciousnessManifest(manifestBytes.text);
++  await pin(binding.manifestPath, manifestBytes.hash);
++  check(satisfies("3.0.0-alpha.0", manifest.compatibility.stellaCore, { includePrerelease: true }) &&
++    satisfies(hostVersion, manifest.compatibility.openclaw, { includePrerelease: true }), "source_compatibility_mismatch");
++  const profilePath = pathRef(manifest.identity.runtimeProfileRef);
++  check(manifest.runtimeState.runtimeProfileRef === undefined || pathRef(manifest.runtimeState.runtimeProfileRef) === profilePath, "source_profile_reference_conflict");
++  const profileBytes = await document(profilePath), profile = parseRuntimeProfile(parseYaml(profileBytes.text));
++  await pin(profilePath, profileBytes.hash);
++  check(profile.agent_id === agentId && profile.memory !== undefined, "source_profile_binding_mismatch");
++  const catalogPath = pathRef(profile.memory.catalog_ref), reader = await CatalogReader.load(binding.root, catalogPath); await guard();
++  await pin(catalogPath, reader.catalogHash);
++  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new CatalogError("source_read_does_not_run_models"); });
++  const pinned = new Set<string>();
++  const pinRef = async (ref: VersionedRef): Promise<void> => {
++    const key = `${ref.id}:${ref.version}`;
++    if (pinned.has(key)) return;
++    const e = reader.entry(ref); await pin(e.locator.path, e.locator.sha256); pinned.add(key);
++    for (const dependency of [...e.dependencies, ...(e.metadataRef ? [e.metadataRef] : [])]) await pinRef(dependency);
++  };
++  const current = async () => {
++    await guard(); await reader.assertCurrent(); await guard();
++    check((await document(binding.manifestPath)).hash === manifestBytes.hash && (await document(profilePath)).hash === profileBytes.hash, "source_binding_changed");
++    await revision();
++  };
++  const snapshot = { revision: binding.revision, generationId: reader.catalog.generationId, catalogHash: reader.catalogHash,
++    manifestHash: manifestBytes.hash, profileHash: profileBytes.hash, scope: "selected_manifest_catalog" as const };
++  if (args.action === "list") {
++    check(!args.cursor || args.cursor.catalogHash === reader.catalogHash, "source_cursor_stale");
++    const entries = reader.catalog.evidence.filter(e => e.status === "current" && reader.eligible(e));
++    const offset = args.cursor?.offset ?? 0; check(offset <= entries.length, "source_cursor_invalid");
++    const items = []; let excludedByScopeOnPage = 0;
++    const page = entries.slice(offset, offset + 32);
++    for (const entry of page) {
++      const ref = { id: entry.id, version: entry.version };
++      const allowed = await metadata(reader, ref); await guard();
++      if (allowed === false) { excludedByScopeOnPage++; continue; }
++      await pinRef(ref);
++      const e = await reader.read(ref, "evidence"); await guard();
++      check(validMemoryRef(e.source) && ["owner", "other", "assistant", "tool", "external_author", "unknown"].includes(String(e.role)) &&
++        ["direct_observation", "reported", "inference", "quotation", "unknown"].includes(String(e.kind)) && timestamp(e.occurredAt, true) &&
++        timestamp(e.authoredAt, true) && timestamp(e.capturedAt), "invalid_evidence");
++      if (!evidenceTemporallyEligible(e, purpose)) continue;
++      items.push({ ref, sourceRef: { id: e.source.id, version: e.source.version }, role: e.role, kind: e.kind, occurredAt: e.occurredAt, authoredAt: e.authoredAt, capturedAt: e.capturedAt });
++    }
++    await current();
++    return { status: "listed" as const, ...snapshot, items,
++      nextCursor: offset + page.length < entries.length ? { catalogHash: reader.catalogHash, offset: offset + page.length } : null,
++      excludedByScopeOnPage, excludedByTimeOnPage: page.length - items.length - excludedByScopeOnPage,
++      semanticSelection: "not_performed" as const, questionSufficiency: "not_assessed" as const };
++  }
++  const allowed = await metadata(reader, args.ref); await guard();
++  check(allowed !== false, "source_descriptor_scope_denied");
++  await pinRef(args.ref);
++  const original = await resolver.readEvidence(args.ref, guard); await guard();
++  check(Buffer.byteLength(original.text, "utf8") <= 128 * 1024, "source_output_capacity");
++  const e = await reader.read(args.ref, "evidence");
++  check(validMemoryRef(e.source), "invalid_evidence");
++  const source = await reader.read(e.source, "sources");
++  check(Array.isArray(source.payloads), "invalid_source");
++  const payload = source.payloads.find(p => isRecord(p) && p.sha256 === e.payloadSha256);
++  check(isRecord(payload) && typeof payload.path === "string" && typeof payload.sha256 === "string", "invalid_payload");
++  check(payload.revision === undefined || typeof payload.revision === "string" && /^[a-f0-9]{40}$/.test(payload.revision), "invalid_payload_revision");
++  const pinnedPayload = await pin(payload.path, payload.sha256, payload.revision as string | undefined);
++  if (isRecord(e.selector) && e.selector.kind === "utf8_bytes" && typeof e.selector.value === "string") {
++    const [start, end] = e.selector.value.split(":").map(Number);
++    check(Buffer.from(original.text, "utf8").equals(pinnedPayload.subarray(start, end)), "source_text_representation_unverified");
++  }
++  await current();
++  check(isRecord(e.selector) && typeof e.selector.kind === "string" && typeof e.selector.value === "string", "invalid_selector");
++  return { status: "read" as const, ...snapshot, original, sourceRef: { id: e.source.id, version: e.source.version },
++    locator: { payloadSha256: e.payloadSha256, selector: { kind: e.selector.kind, value: e.selector.value } }, authorConfirmation: false, publisher: false };
++}
++
++export function sourceReadFailure(error: unknown): string {
++  return error instanceof CatalogError && /^[a-z][a-z0-9_]{0,95}$/.test(error.category) ? error.category : "source_read_failed";
++}
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -3,6 +3,12 @@
+ import path from "node:path";
+ import { isRecord } from "./shared/type-guards.js";
+ import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
++import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
++import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion } from "./openclaw/ordinary-source-admission.js";
++import { CatalogError } from "./canghai/catalog-reader.js";
++import { SOURCE_READ_TOOL, SOURCE_READ_PARAMETERS, parseSourceReadBinding, executeOrdinarySourceRead, sourceReadFailure,
++  type SourceReadAdmission, type SourceReadBinding } from "./openclaw/ordinary-source-read.js";
++export { SOURCE_READ_TOOL } from "./openclaw/ordinary-source-read.js";
+ import { CANDIDATE_PARAMETERS, parseProposal, type Proposal } from "./openclaw/work-brief-proposal.js";
+ import { WORK_BRIEF_TOOL, WORK_BRIEF_PARAMETERS, executeWorkBrief, validDraftsRoot, workBriefFailure } from "./openclaw/candidate-work-brief.js";
+ export { WORK_BRIEF_TOOL } from "./openclaw/candidate-work-brief.js";
+@@ -11,15 +17,16 @@
+ export const STATUS_TOOL = "stella_status";
+ export { CANDIDATE_PARAMETERS, parseProposal } from "./openclaw/work-brief-proposal.js";
+ 
+-export function parseOrdinaryConfig(value: unknown): { agentId: string; publisher: false; candidateDraftsRoot?: string } {
++export function parseOrdinaryConfig(value: unknown): { agentId: string; publisher: false; candidateDraftsRoot?: string; sourceRead?: SourceReadBinding } {
+   const config = value ?? {};
+-  if (!isRecord(config) || Object.keys(config).some(key => key !== "agentId" && key !== "publisher" && key !== "candidateDraftsRoot") ||
++  if (!isRecord(config) || Object.keys(config).some(key => !["agentId", "publisher", "candidateDraftsRoot", "sourceRead"].includes(key)) ||
+       (config.publisher !== undefined && config.publisher !== false) ||
+       (config.candidateDraftsRoot !== undefined && !validDraftsRoot(config.candidateDraftsRoot)) ||
+       (config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(config.agentId)))) {
+     throw new Error("stella_ordinary_configuration_invalid: use agentId, publisher:false and optional dedicated candidateDraftsRoot; legacy configuration is not migrated implicitly");
+   }
+-  return { agentId: typeof config.agentId === "string" ? config.agentId : "main", publisher: false,
++  const sourceRead = config.sourceRead === undefined ? undefined : parseSourceReadBinding(config.sourceRead);
++  return { agentId: typeof config.agentId === "string" ? config.agentId : "main", publisher: false, ...(sourceRead ? { sourceRead } : {}),
+     ...(typeof config.candidateDraftsRoot === "string" ? { candidateDraftsRoot: config.candidateDraftsRoot } : {}) };
+ }
+ 
+@@ -27,28 +34,54 @@
+   return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details, ...(isError ? { isError: true } : {}) };
+ }
+ 
+-/** Ordinary entry. No legacy loader, provider, context engine, model client or
+- * automatic background task is bound. Draft storage is explicit and synthetic-only.
++/** Ordinary entry. No legacy loader, provider, context engine or automatic
++ * background task is bound. Source-policy inference is explicit and on demand.
++ * Draft storage is explicit and synthetic-only.
+  * The Host's model supplies semantics; this tool only validates and labels its
+  * proposal. References remain unverified and cannot become author admission. */
+-export default definePluginEntry({
++/** Request/source admission uses public Host facts plus the selected existing
++ * grant. Internal test ports never become configuration or model arguments. */
++export function createOrdinaryPlugin(options: { admitSourceRead?: (input: {
++  binding: SourceReadBinding; context: OpenClawPluginToolContext<2>; callId: string; signal?: AbortSignal;
++}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion } = {}) {
++const admitSourceRead = options.admitSourceRead;
++return definePluginEntry({
+   id: "stella-core",
+   name: "Stella Core",
+   description: "Source-aware work-brief candidates alongside native OpenClaw memory and context",
+   register(api) {
+     const config = parseOrdinaryConfig(api.pluginConfig);
+     const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
++    const currentInput = createCurrentInputMetadata(config.agentId);
++    const sourceInput = createOrdinarySourceAdmission({ agentId: config.agentId, metadata: currentInput,
++      complete: options.completeSourceAccess ?? (async params => {
++        const cfg = api.runtime.config.current();
++        for (const model of [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model]) {
++          if (typeof model === "object" && model !== null && model.fallbacks?.length) throw new CatalogError("source_model_fallback_forbidden");
++        }
++        const value = await api.runtime.llm.complete({ agentId: config.agentId, model: SOURCE_POLICY_MODEL,
++          purpose: "stella-source-access", reasoning: "low", maxTokens: params.maxTokens, signal: params.signal,
++          messages: [{ role: "user", content: params.prompt }] });
++        if (value.agentId !== config.agentId || `${value.provider}/${value.model}` !== SOURCE_POLICY_MODEL || value.execution.mode !== "direct-provider") {
++          throw new CatalogError("personal_context_model_mismatch");
++        }
++        return { text: value.text };
++      }) });
++    api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
++    api.on("agent_end", (event, context) => { currentInput.end(event, context); if (config.sourceRead) sourceInput.end(event, context); });
+     api.on("before_tool_call", (event, context) => {
+-      const error = requestBinding.observe(event, context);
++      const error = requestBinding.observe(event, context) ?? (config.sourceRead ? sourceInput.observeTool(event, context) : undefined);
+       if (error) return { block: true, blockReason: error };
+     });
+     const status = () => ({
+       architecture: "ordinary-plugin", stage: "candidate-only", agentId: config.agentId,
+       publisher: false, sourceAdapter: "not_connected", authorConfirmation: false,
++      sourceReadPort: !config.sourceRead ? "not_configured" : admitSourceRead ? "registered_requires_current_admission" : "public_request_adapter_requires_admission",
+       persistence: config.candidateDraftsRoot ? "candidate_drafts_only" : "none",
+       candidateDraftsConfigured: Boolean(config.candidateDraftsRoot), draftScope: "synthetic_debug",
+-      modelCalls: false, legacyRuntime: "inactive",
++      modelCalls: config.sourceRead ? "on_demand_source_policy" : false, legacyRuntime: "inactive",
+       requestBinding: "public-tool-hook-metadata", currentInputAdmission: "not_connected",
++      currentInputObservation: "passive-native-admission-metadata-only",
+       memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
+     });
+     api.registerTool({ contextVersion: 2, create(context: OpenClawPluginToolContext<2>) {
+@@ -59,6 +92,7 @@
+       const owner = context.senderIsOwner;
+       const fsPolicy = context.fsPolicy ? { workspaceOnly: context.fsPolicy.workspaceOnly, root: context.fsPolicy.root } : undefined;
+       const sandboxed = context.sandboxed;
++      const admitCurrentSource = sourceInput.forFactory(context);
+       const check = (signal?: AbortSignal) => {
+         invocationGuard(); signal?.throwIfAborted();
+         if (context.agentId !== identity.agentId || context.sessionKey !== identity.sessionKey || context.sessionId !== identity.sessionId) {
+@@ -84,9 +118,11 @@
+             try { proposal = parseProposal(parameters); }
+             catch { return result({ status: "rejected", code: "stella_candidate_arguments_invalid" }, true); }
+             check(signal);
++            const inputObservation = currentInput.inspect(binding.status === "bound" ? binding.runId : null, identity);
++            check(signal);
+             return result({ status: "candidate", code: "author_source_unavailable", toolCallId: callId,
+               proposal, evidenceStatus: "model_supplied_unverified", authorConfirmation: false,
+-              publisher: false, saved: false, requestBinding: binding });
++              publisher: false, saved: false, requestBinding: binding, currentInputObservation: inputObservation });
+           } },
+         { name: WORK_BRIEF_TOOL, label: "Unconfirmed work brief",
+           description: "Explicitly save or read a synthetic, unconfirmed work brief in the configured debug draft store. Read by briefId in each new request. Save requires a new operationId and the exact last-read expectedVersion (null only to create); stale versions fail. No author confirmation, source-file access, formal publication or long-term memory. Evidence references stay unverified. This debug store is owner-only.",
+@@ -113,9 +149,30 @@
+               return result({ status: "failed", code: workBriefFailure(error), publisher: false, authorConfirmation: false }, true);
+             }
+           } },
++        { name: SOURCE_READ_TOOL, label: "Versioned source evidence",
++          description: "List a page of current evidence metadata or read one exact Evidence id/version from the explicitly configured manifest/catalog. Requires existing trusted request/source admission; root selection or owner status alone grants nothing. Results preserve roles, timestamps, original selectors and usage constraints. Listing performs no semantic ranking or payload reads. This tool does not infer meaning, write memory or publish.",
++          parameters: SOURCE_READ_PARAMETERS,
++          async execute(callId, parameters, signal) {
++            check(signal);
++            if (!config.sourceRead) return result({ status: "unavailable", code: "source_read_not_configured" }, true);
++            if (sandboxed === true) return result({ status: "rejected", code: "source_read_sandbox_unsupported" }, true);
++            if (fsPolicy?.workspaceOnly) {
++              const relative = fsPolicy.root ? path.relative(fsPolicy.root, config.sourceRead.root) : "..";
++              if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) return result({ status: "rejected", code: "source_read_workspace_denied" }, true);
++            }
++            try {
++              const admission = admitSourceRead ? await admitSourceRead({ binding: config.sourceRead, context, callId, signal }) :
++                await admitCurrentSource(config.sourceRead, callId, signal); check(signal);
++              const value = await executeOrdinarySourceRead({ binding: config.sourceRead, agentId: config.agentId,
++                hostVersion: api.runtime.version, parameters, admission, signal }); check(signal);
++              return result(value);
++            } catch (error) { check(signal); return result({ status: "failed", code: sourceReadFailure(error), publisher: false }, true); }
++          } },
+       ];
+-    } }, { names: [STATUS_TOOL, CANDIDATE_TOOL, WORK_BRIEF_TOOL] });
++    } }, { names: [STATUS_TOOL, CANDIDATE_TOOL, WORK_BRIEF_TOOL, SOURCE_READ_TOOL] });
+     api.registerCommand({ name: "stella-status", description: "Show Stella architecture and candidate-only limits without a model call", requireAuth: true,
+       handler: () => ({ text: JSON.stringify(status(), null, 2) }) });
+   },
+ });
++}
++export default createOrdinaryPlugin();
+--- /dev/null
++++ b/tests/current-input-metadata.test.ts
+@@ -0,0 +1,222 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createCurrentInputMetadata } from "../src/openclaw/current-input-metadata.js";
++import plugin, { CANDIDATE_TOOL } from "../src/ordinary-plugin.js";
++
++const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
++const proposal = { topic: "Fictional walk", interpretation: "Two endings remain possible",
++  proposedPremises: [], openQuestions: ["Which ending?"], evidenceReferences: [] };
++function fixture(runId = "synthetic-run") {
++  const abort = new AbortController();
++  let persisted = false, blocked = false, reads = 0;
++  const receipt: Record<string, unknown> = { ...identity, storePath: "/synthetic/transcript.db", entryId: "entry-1",
++    logicalTurnId: "turn-1", generation: "generation-1", idempotencyKey: "native-key-1", role: "user",
++    rawSeq: 1, effectiveParentId: null, activeMessagePosition: 0 };
++  const methods = { hasPersisted() { reads++; return persisted; }, isBlocked() { reads++; return blocked; },
++    getAdmissionReceipt() { reads++; return receipt; } };
++  // Reading messages, config, provenance, credentials or a mutation method fails.
++  const recorder = new Proxy(methods, { get(target, key, receiver) {
++    assert.ok(Object.hasOwn(target, key), `forbidden recorder member ${String(key)}`);
++    return Reflect.get(target, key, receiver);
++  } });
++  const ctx = new Proxy({ AgentId: identity.agentId, SessionKey: identity.sessionKey }, { get(target, key, receiver) {
++    assert.ok(Object.hasOwn(target, key), `forbidden inbound member ${String(key)}`);
++    return Reflect.get(target, key, receiver);
++  } });
++  const event = { runId, sessionKey: identity.sessionKey, ctx } as any;
++  const context = { dispatchKind: "agent", userTurnTranscriptRecorder: recorder, abortSignal: abort.signal } as any;
++  return { event, context, receipt, recorder, methods, abort, reads: () => reads,
++    commit() { persisted = true; }, block() { blocked = true; }, uncommit() { persisted = false; } };
++}
++function hash(result: ReturnType<ReturnType<typeof createCurrentInputMetadata>["inspect"]>) {
++  assert.equal(result.status, "observed");
++  return result.receiptHash;
++}
++
++test("dispatch is passive; first call reads only committed native metadata and returns no transcript path or text", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture();
++  assert.equal(observer.observe(f.event, f.context), "dispatch_observed");
++  assert.equal(f.reads(), 0);
++  assert.equal(observer.inspect(f.event.runId, identity).code, "admission_uncommitted");
++  f.commit();
++  const result = observer.inspect(f.event.runId, identity);
++  assert.equal(result.status, "observed"); assert.equal(result.code, "native_input_metadata_only");
++  assert.match(result.receiptHash!, /^sha256:[a-f0-9]{64}$/);
++  assert.equal(result.authorQualification, false); assert.equal(result.sourceRepresentation, "unverified");
++  assert.equal(result.modelConsumption, "unverified");
++  assert.equal(JSON.stringify(result).includes("/synthetic"), false);
++  assert.equal(JSON.stringify(result).includes("entry-1"), false);
++  const previous = result.receiptHash;
++  result.receiptHash = "changed consumer copy";
++  assert.equal(hash(observer.inspect(f.event.runId, identity)), previous);
++});
++
++test("missing ingress, signal, session or agent fields never fall back to prompt, history or another run", () => {
++  for (const update of [
++    (f: any) => { f.event.runId = undefined; },
++    (f: any) => { f.event.sessionKey = undefined; },
++    (f: any) => { f.event.ctx = { AgentId: "other", SessionKey: identity.sessionKey }; },
++    (f: any) => { f.event.ctx = { AgentId: "main", SessionKey: "different" }; },
++    (f: any) => { f.context.abortSignal = undefined; },
++    (f: any) => { f.context.userTurnTranscriptRecorder = undefined; },
++    (f: any) => { f.context.dispatchKind = "acp"; },
++  ]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); update(f);
++    observer.observe(f.event, f.context); assert.equal(f.reads(), 0);
++    assert.equal(observer.inspect("synthetic-run", identity).status, "unavailable");
++  }
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++  observer.observe(f.event, f.context);
++  assert.equal(observer.inspect(null, identity).code, "host_run_not_provided");
++  assert.equal(observer.inspect("other-run", identity).code, "reply_dispatch_not_observed");
++  assert.equal(f.reads(), 0);
++});
++
++test("committed receipt and factory must match exact agent, session and incarnation", () => {
++  for (const patch of [{ agentId: "other" }, { sessionKey: "different" }, { sessionId: "different" }, { sessionId: undefined }]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, { ...identity, ...patch }).code, "native_input_binding_mismatch");
++    assert.equal(observer.inspect(f.event.runId, identity).status, "rejected");
++  }
++  for (const key of ["agentId", "sessionId", "sessionKey"]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); f.receipt[key] = "other";
++    observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_binding_mismatch");
++  }
++});
++
++test("receipt identity and numeric fields are required; receipt exceptions stay explicit", () => {
++  for (const patch of [{ idempotencyKey: undefined }, { role: "assistant" }, { rawSeq: 0 }, { rawSeq: 1.5 },
++    { activeMessagePosition: -1 }, { effectiveParentId: 7 }, { logicalTurnId: "" }]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); Object.assign(f.receipt, patch);
++    observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_receipt_invalid");
++  }
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++  f.methods.getAdmissionReceipt = () => { throw Error("synthetic failure"); };
++  observer.observe(f.event, f.context);
++  assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_recorder_read_failed");
++});
++
++for (const scenario of [
++  { key: "rawSeq", first: 0, later: 1, code: "native_input_receipt_invalid" },
++  { key: "activeMessagePosition", first: -1, later: 0, code: "native_input_receipt_invalid" },
++  { key: "effectiveParentId", first: 7, later: "parent-1", code: "native_input_receipt_invalid" },
++  { key: "sessionId", first: "different-session", later: identity.sessionId, code: "native_input_binding_mismatch" },
++]) {
++  test(`receipt getter snapshot rejects invalid first ${scenario.key} without accepting a later value`, () => {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++    let reads = 0;
++    Object.defineProperty(f.receipt, scenario.key, { get() { return ++reads === 1 ? scenario.first : scenario.later; } });
++    observer.observe(f.event, f.context);
++    const result = observer.inspect(f.event.runId, identity);
++    assert.equal(result.code, scenario.code);
++    assert.equal(result.status, "rejected");
++    assert.equal(reads, 1);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_ambiguous");
++    assert.equal(reads, 1);
++  });
++}
++
++test("receipt scalar snapshot is read once and the same validated values determine its hash", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++  const expected = createCurrentInputMetadata("main"), stable = fixture(); stable.commit();
++  expected.observe(stable.event, stable.context);
++  const expectedHash = hash(expected.inspect(stable.event.runId, identity));
++  const reads = new Map<string, number>();
++  for (const [key, value] of Object.entries(f.receipt)) {
++    Object.defineProperty(f.receipt, key, { get() {
++      const count = (reads.get(key) ?? 0) + 1; reads.set(key, count);
++      return count === 1 ? value : { invalid: "later non-scalar value" };
++    } });
++  }
++  observer.observe(f.event, f.context);
++  assert.equal(hash(observer.inspect(f.event.runId, identity)), expectedHash);
++  assert.equal(reads.size, Object.keys(f.receipt).length);
++  for (const count of reads.values()) assert.equal(count, 1);
++});
++
++test("one run cannot switch recorders or native admissions; restoring old metadata cannot revive it", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); observer.observe(f.event, f.context);
++  assert.equal(observer.observe(f.event, f.context), "dispatch_observed");
++  assert.equal(observer.inspect(f.event.runId, identity).status, "observed");
++  f.receipt.entryId = "entry-2";
++  assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_changed");
++  f.receipt.entryId = "entry-1";
++  assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_ambiguous");
++  const other = createCurrentInputMetadata("main"), a = fixture(), b = fixture();
++  other.observe(a.event, a.context);
++  assert.equal(other.observe(b.event, b.context), "dispatch_ambiguous");
++  assert.equal(other.inspect(a.event.runId, identity).code, "native_input_ambiguous");
++});
++
++test("blocked/vanished admission never becomes observed; independent new requests read their own receipt", () => {
++  const observer = createCurrentInputMetadata("main"), a = fixture("run-a"), b = fixture("run-b");
++  a.commit(); b.commit(); b.receipt.entryId = "entry-b"; b.receipt.idempotencyKey = "native-key-b";
++  observer.observe(a.event, a.context); observer.observe(b.event, b.context);
++  const first = hash(observer.inspect(a.event.runId, identity));
++  assert.notEqual(hash(observer.inspect(b.event.runId, identity)), first);
++  assert.equal(hash(observer.inspect(a.event.runId, identity)), first);
++  a.uncommit(); assert.equal(observer.inspect(a.event.runId, identity).code, "native_input_changed");
++  const c = fixture("run-c"); c.commit(); c.block(); observer.observe(c.event, c.context);
++  assert.equal(observer.inspect(c.event.runId, identity).code, "admission_uncommitted");
++});
++
++test("original read methods are captured; cancellation and exact agent-end release bounded references", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture(); observer.observe(f.event, f.context);
++  f.methods.hasPersisted = () => true; // Cannot replace the captured original method.
++  assert.equal(observer.inspect(f.event.runId, identity).code, "admission_uncommitted");
++  f.commit(); assert.equal(observer.inspect(f.event.runId, identity).status, "observed");
++  observer.end({ runId: f.event.runId } as any, { ...identity, runId: "different" });
++  assert.equal(observer.inspect(f.event.runId, identity).status, "observed");
++  observer.end({ runId: f.event.runId } as any, { ...identity, runId: f.event.runId });
++  assert.equal(observer.inspect(f.event.runId, identity).status, "unavailable");
++  const a = fixture("aborted"); observer.observe(a.event, a.context); a.abort.abort();
++  assert.equal(observer.inspect(a.event.runId, identity).status, "unavailable");
++  assert.equal(observer.observe(a.event, a.context), "dispatch_identity_or_lifetime_unavailable");
++  const live = Array.from({ length: 32 }, (_, i) => fixture(`bounded-${i}`));
++  for (const entry of live) assert.equal(observer.observe(entry.event, entry.context), "dispatch_observed");
++  const overflow = fixture("overflow"); assert.equal(observer.observe(overflow.event, overflow.context), "dispatch_capacity");
++  live[0].abort.abort(); assert.equal(observer.observe(overflow.event, overflow.context), "dispatch_observed");
++  for (const entry of [...live, overflow]) entry.abort.abort();
++});
++
++test("cancellation or agent-end during a recorder read cannot return an observation", () => {
++  for (const finish of ["abort", "end"]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++    f.methods.getAdmissionReceipt = () => {
++      if (finish === "abort") f.abort.abort();
++      else observer.end({ runId: f.event.runId }, { ...identity, runId: f.event.runId });
++      return f.receipt;
++    };
++    observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "reply_dispatch_not_observed");
++  }
++});
++
++test("ordinary plugin callbacks carry native metadata to only the exact candidate; candidate and publisher limits stay intact", async () => {
++  let factory: any; const hooks = new Map<string, Function>();
++  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
++    on(name: string, handler: Function) { hooks.set(name, handler); }, registerTool(value: unknown) { factory = value; },
++    registerCommand() {} } as unknown as OpenClawPluginApi);
++  const f = fixture(); const context = { ...identity, assertInvocationCurrent() {} };
++  const tool = factory.create(context).find((t: any) => t.name === CANDIDATE_TOOL);
++  assert.equal(hooks.get("reply_dispatch")!(f.event, f.context), undefined); assert.equal(f.reads(), 0);
++  f.commit();
++  const event = { toolName: CANDIDATE_TOOL, toolCallId: "call-1", runId: f.event.runId };
++  assert.equal(hooks.get("before_tool_call")!(event, { ...identity, ...event }), undefined);
++  const result = await tool.execute("call-1", proposal);
++  assert.equal(result.details.currentInputObservation.status, "observed");
++  assert.equal(result.details.requestBinding.runId, f.event.runId);
++  assert.equal(result.details.code, "author_source_unavailable");
++  for (const key of ["publisher", "authorConfirmation", "saved"]) assert.equal(result.details[key], false);
++  assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
++  assert.deepEqual(result.details.proposal, proposal);
++  const direct = await tool.execute("without-hook", proposal);
++  assert.equal(direct.details.currentInputObservation.code, "host_run_not_provided");
++  assert.equal(direct.details.status, "candidate");
++  hooks.get("agent_end")!({ runId: f.event.runId }, { ...identity, runId: f.event.runId });
++  const late = { ...event, toolCallId: "late" }; hooks.get("before_tool_call")!(late, { ...identity, ...late });
++  assert.equal((await tool.execute("late", proposal)).details.currentInputObservation.code, "reply_dispatch_not_observed");
++});
+--- /dev/null
++++ b/tests/ordinary-source-read.test.ts
+@@ -0,0 +1,176 @@
++import test, { type TestContext } from "node:test";
++import assert from "node:assert/strict";
++import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from "node:fs/promises";
++import os from "node:os";
++import path from "node:path";
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createOrdinaryPlugin, SOURCE_READ_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
++import { executeOrdinarySourceRead, parseSourceReadBinding, type SourceReadAdmission } from "../src/openclaw/ordinary-source-read.js";
++import { prepareRepositorySource } from "../src/canghai/repository-source.js";
++import { CatalogError, CatalogReader, parseMemoryCatalog } from "../src/canghai/catalog-reader.js";
++import { canonicalJson, bytesVersion, objectVersion } from "../src/canghai/content-version.js";
++import type { VersionedRef } from "../src/praxis/episode-v2.js";
++
++import { fixture, prefix, manifestPath, profilePath, catalogPath, hostVersion } from "./fixtures/ordinary-source-read.js";
++
++test("selected real-contract manifest/profile/catalog lists roles and times without reading original payloads", async t => {
++  const f = await fixture(t), result = await f.execute({ action: "list" });
++  assert.equal(result.status, "listed"); if (result.status !== "listed") assert.fail();
++  assert.equal(result.items.length, 3); assert.equal(f.metadataCalls(), 3); assert.equal(f.sourcePolicies.length, 0);
++  assert.deepEqual(result.items.map(i => i.role), ["owner", "assistant", "external_author"]);
++  assert.deepEqual(result.items.map(i => i.kind), ["reported", "inference", "quotation"]);
++  assert.equal(result.items[0].occurredAt, "2026-07-01T00:00:00Z"); assert.equal(result.items[0].authoredAt, "2026-08-01T00:00:00Z");
++  assert.equal(result.semanticSelection, "not_performed"); assert.equal(result.questionSufficiency, "not_assessed");
++  assert.equal(JSON.stringify(result).includes("the harbor walk"), false); assert.equal(result.scope, "selected_manifest_catalog");
++});
++
++test("exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies", async t => {
++  const f = await fixture(t), result = await f.execute({ action: "read", ref: f.refs[0] });
++  assert.equal(result.status, "read"); if (result.status !== "read") assert.fail();
++  assert.equal(result.original.text, f.texts[0]); assert.deepEqual(result.original.ref, f.refs[0]);
++  assert.equal(result.original.role, "owner"); assert.equal(result.original.kind, "reported");
++  assert.equal(result.original.occurredAt, "2026-07-01T00:00:00Z"); assert.equal(result.authorConfirmation, false); assert.equal(result.publisher, false);
++  assert.deepEqual(f.sourcePolicies.sort(), ["synthetic-base", "synthetic-leaf"]);
++  assert.equal(result.original.usageConstraints!.length, 2); assert.equal(result.original.usageConstraints![0].quotePolicy, "never_quote");
++  assert.equal(result.revision, f.binding.revision); assert.match(result.catalogHash, /^sha256:/);
++});
++
++test("missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access", async () => {
++  for (const configured of [false, true]) {
++    let factory: any;
++    const plugin = createOrdinaryPlugin();
++    plugin.register!({ pluginConfig: { agentId: "main", publisher: false, ...(configured ? { sourceRead: { root: "/nonexistent/synthetic", manifestPath, revision: "a".repeat(40) } } : {}) },
++      registerTool(v: unknown) { factory = v; }, registerCommand() {}, on() {} } as unknown as OpenClawPluginApi);
++    const tool = factory.create({ agentId: "main", senderIsOwner: true, assertInvocationCurrent() {} }).find((x: any) => x.name === SOURCE_READ_TOOL);
++    const result = await tool.execute("synthetic-call", { action: "read", owner: true, sourceRoot: "/forged", ref: { id: "forged", version: "sha256:" + "a".repeat(64) } });
++    assert.equal(result.isError, true);
++    assert.equal(result.details.code, configured ? "source_request_admission_unavailable" : "source_read_not_configured");
++  }
++  for (const binding of [{ root: "/tmp", revision: "a".repeat(40), manifestPath: "../escape" }, { root: "/tmp", manifestPath, revision: "HEAD" },
++    { root: "relative", manifestPath, revision: "a".repeat(40) }]) assert.throws(() => parseSourceReadBinding(binding), /source_binding_invalid/);
++});
++
++test("ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced", async t => {
++  const f = await fixture(t); let factory: any, admissions = 0, active = true;
++  const plugin = createOrdinaryPlugin({ async admitSourceRead() { admissions++; return f.admission; } });
++  plugin.register!({ pluginConfig: { agentId: "main", sourceRead: f.binding }, runtime: { version: hostVersion },
++    registerTool(v: unknown) { factory = v; }, registerCommand() {}, on() {} } as unknown as OpenClawPluginApi);
++  const make = (extra = {}) => factory.create({ agentId: "main", assertInvocationCurrent() { assert.ok(active, "closed"); }, ...extra }).find((x: any) => x.name === SOURCE_READ_TOOL);
++  assert.equal((await make().execute("read-call", { action: "read", ref: f.refs[0] })).details.original.text, f.texts[0]);
++  assert.equal(admissions, 1);
++  assert.equal((await make({ sandboxed: true }).execute("sandbox", { action: "list" })).details.code, "source_read_sandbox_unsupported");
++  assert.equal((await make({ fsPolicy: { workspaceOnly: true, root: "/unrelated" } }).execute("workspace", { action: "list" })).details.code, "source_read_workspace_denied");
++  assert.equal(admissions, 1); active = false;
++  await assert.rejects(make().execute("closed", { action: "list" }), /closed/);
++});
++
++test("metadata processing denial and semantic source-policy denial are explicit failures, never empty success", async t => {
++  const f = await fixture(t);
++  await assert.rejects(f.execute({ action: "list" }, { ...f.admission, async assertMetadata() { throw new CatalogError("metadata_processing_denied"); } }), /metadata_processing_denied/);
++  assert.equal(f.sourcePolicies.length, 0);
++  const denied = { ...f.admission, purpose: { ...f.admission.purpose, sourceAccess: async () => ({ judgment: {
++    scenarios: ["social"], trigger: "user_requested" as const, topicRequested: true, topicExplicitlyNamed: true, presentation: "summary" as const }, quoteGrants: [] }) } };
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, denied), /source_scenario_forbidden/);
++});
++
++test("explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits", async t => {
++  const f = await fixture(t);
++  await assert.rejects(executeOrdinarySourceRead({ binding: { ...f.binding, revision: "a".repeat(40) }, agentId: "main", hostVersion, parameters: { action: "list" }, admission: f.admission }), /source_revision_mismatch/);
++  await f.put("unrelated-dirty.txt", "synthetic dirty state");
++  await assert.rejects(f.execute({ action: "list" }), /source_repository_dirty/); await rm(path.join(f.root, "unrelated-dirty.txt"));
++  await assert.rejects(f.execute({ action: "read", ref: { ...f.refs[0], version: "sha256:" + "a".repeat(64) } }), /reference_unavailable/);
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0], confirmation: true }), /source_arguments_invalid/);
++});
++
++test("manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML", async t => {
++  const f = await fixture(t); f.manifest.runtimeState.runtimeProfileRef = "path:wrong.json";
++  await f.put(manifestPath, canonicalJson(f.manifest)); f.binding.revision = await f.commit();
++  await assert.rejects(f.execute({ action: "list" }), /source_profile_reference_conflict/);
++  f.manifest.runtimeState.runtimeProfileRef = `path:${profilePath}`; f.profile.agent_id = "other";
++  await f.put(manifestPath, canonicalJson(f.manifest)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
++  await assert.rejects(f.execute({ action: "list" }), /source_profile_binding_mismatch/);
++  await assert.rejects(executeOrdinarySourceRead({ binding: { ...f.binding, manifestPath: "missing.json" }, agentId: "main", hostVersion, parameters: { action: "list" }, admission: f.admission }));
++});
++
++test("catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking", async t => {
++  const f = await fixture(t, 33), a = await f.execute({ action: "list" }); if (a.status !== "listed") assert.fail();
++  assert.equal(a.items.length, 32); assert.ok(a.nextCursor);
++  const b = await f.execute({ action: "list", cursor: a.nextCursor }); if (b.status !== "listed") assert.fail();
++  assert.equal(b.items.length, 1); assert.equal(b.nextCursor, null);
++  f.catalog.generationId = "synthetic-migration-two"; await f.put(catalogPath, canonicalJson(f.catalog)); f.binding.revision = await f.commit();
++  await assert.rejects(f.execute({ action: "list", cursor: a.nextCursor }), /source_cursor_stale/);
++});
++
++test("original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence", async t => {
++  const f = await fixture(t);
++  const historical = { ...f.admission, purpose: { ...f.admission.purpose, evidenceCutoff: "2026-06-01T00:00:00Z" } };
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, historical), /evidence_after_cutoff/);
++  const metadata = await f.execute({ action: "list" }, historical); if (metadata.status !== "listed") assert.fail();
++  assert.equal(metadata.items.length, 0); assert.equal(metadata.excludedByTimeOnPage, 3);
++  const big = await fixture(t, 1, 128 * 1024 + 1);
++  await assert.rejects(big.execute({ action: "read", ref: big.refs[0] }), /source_output_capacity/);
++});
++
++test("UTF-8 original bytes are preserved; an inherited decoder's BOM projection is an explicit unsupported representation", async t => {
++  const text = "合成资料：保留尚未回答的问题。\n";
++  const plain = await fixture(t, 1, 0, text), result = await plain.execute({ action: "read", ref: plain.refs[0] });
++  if (result.status !== "read") assert.fail(); assert.equal(result.original.text, text);
++  const bom = await fixture(t, 1, 0, "\uFEFF" + text);
++  await assert.rejects(bom.execute({ action: "read", ref: bom.refs[0] }), /source_text_representation_unverified/);
++});
++
++test("cancelled or expired original admission cannot be replaced during awaits", async t => {
++  const f = await fixture(t), abort = new AbortController(); abort.abort(Error("synthetic cancelled"));
++  await assert.rejects(executeOrdinarySourceRead({ binding: f.binding, agentId: "main", hostVersion, parameters: { action: "list" }, admission: f.admission, signal: abort.signal }), /synthetic cancelled/);
++  let active = true;
++  const admission = { ...f.admission, assertCurrent() { assert.ok(active, "source admission expired"); }, async assertMetadata() {
++    active = false; admission.assertCurrent = () => {};
++  } };
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, admission), /source admission expired/);
++  assert.equal(f.sourcePolicies.length, 0);
++  assert.deepEqual(parseOrdinaryConfig({ sourceRead: f.binding }).sourceRead, f.binding);
++});
++
++test("request expiry during source judgment stops before any protected payload load", async t => {
++  const f = await fixture(t, 1); let active = true, payloadReads = 0;
++  const originalRead = CatalogReader.prototype.readPayload;
++  CatalogReader.prototype.readPayload = async function (...args) { payloadReads++; return originalRead.apply(this, args); };
++  t.after(() => { CatalogReader.prototype.readPayload = originalRead; });
++  const admission = { ...f.admission, assertCurrent() { if (!active) throw new CatalogError("request_expired"); },
++    purpose: { ...f.admission.purpose, sourceAccess: async (...args: Parameters<NonNullable<typeof f.admission.purpose.sourceAccess>>) => {
++      await Promise.resolve(); active = false; return f.admission.purpose.sourceAccess!(...args);
++    } } };
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, admission), /request_expired/);
++  assert.equal(payloadReads, 0);
++});
++
++test("request expiry while reading coverage is checked immediately before the first payload load", async t => {
++  const f = await fixture(t, 1); let active = true, payloadReads = 0;
++  const originalRead = CatalogReader.prototype.read, originalPayload = CatalogReader.prototype.readPayload;
++  CatalogReader.prototype.read = async function (...args) {
++    const value = await originalRead.apply(this, args); if (args[1] === "coverage") active = false; return value;
++  };
++  CatalogReader.prototype.readPayload = async function (...args) { payloadReads++; return originalPayload.apply(this, args); };
++  t.after(() => { CatalogReader.prototype.read = originalRead; CatalogReader.prototype.readPayload = originalPayload; });
++  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, { ...f.admission,
++    assertCurrent() { if (!active) throw new CatalogError("request_expired"); } }), /request_expired/);
++  assert.equal(payloadReads, 0);
++});
++
++test("source references and selectors expose documented fields only", async t => {
++  const f = await fixture(t, 1), entry = f.catalog.evidence[0]!;
++  const e = JSON.parse(await readFile(path.join(f.root, entry.locator.path), "utf8"));
++  e.source.extraPrivateBody = "SYNTHETIC_UNAPPROVED_REFERENCE_BODY";
++  const bytes = canonicalJson(e); entry.version = objectVersion(e); entry.locator.sha256 = bytesVersion(bytes);
++  f.refs[0] = { id: entry.id, version: entry.version };
++  await f.put(entry.locator.path, bytes); await f.put(catalogPath, canonicalJson(f.catalog)); f.binding.revision = await f.commit();
++  for (const args of [{ action: "list" }, { action: "read", ref: f.refs[0] }]) {
++    const result = await f.execute(args);
++    assert.equal(JSON.stringify(result).includes("SYNTHETIC_UNAPPROVED_REFERENCE_BODY"), false);
++    const ref = result.status === "read" ? result.sourceRef : result.items[0]!.sourceRef;
++    assert.deepEqual(Object.keys(ref).sort(), ["id", "version"]);
++    if (result.status === "read") assert.deepEqual(Object.keys(result.locator.selector).sort(), ["kind", "value"]);
++  }
++});
+--- a/tests/ordinary-plugin.test.ts
++++ b/tests/ordinary-plugin.test.ts
+@@ -2,7 +2,7 @@
+ import assert from "node:assert/strict";
+ import { readFile } from "node:fs/promises";
+ import { Ajv } from "ajv";
+-import plugin, { CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
++import plugin, { CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, SOURCE_READ_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
+ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+ 
+ const proposal = { topic: "Synthetic writing task", interpretation: "A proposed argument, not a confirmed conclusion",
+@@ -30,10 +30,10 @@
+     assert.equal(validate(config), false); assert.throws(() => parseOrdinaryConfig(config));
+   }
+   assert.deepEqual(parseOrdinaryConfig({}), { agentId: "main", publisher: false });
+-  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL].sort());
++  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, SOURCE_READ_TOOL].sort());
+ });
+ 
+-test("registration contributes guarded ordinary tools, a metadata-only hook and a no-model command", async () => {
++test("registration contributes guarded tools, passive metadata hooks and a no-model command", async () => {
+   const f = fixture();
+   assert.equal(f.factory.contextVersion, 2); assert.equal(f.factory.create({ agentId: "other" }), null);
+   assert.equal(f.command.requireAuth, true);
+@@ -41,7 +41,7 @@
+   assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
+   assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
+   assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
+-  assert.deepEqual([...f.hooks.keys()], ["before_tool_call"]);
++  assert.deepEqual([...f.hooks.keys()], ["reply_dispatch", "agent_end", "before_tool_call"]);
+ });
+ 
+ test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {
+@@ -50,7 +50,8 @@
+   assert.equal(result.details.status, "candidate"); assert.equal(result.details.saved, false);
+   assert.equal(result.details.authorConfirmation, false); assert.equal(result.details.publisher, false);
+   assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
+-  assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 2);
++  assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 3);
++  assert.equal(result.details.currentInputObservation.code, "host_run_not_provided");
+   assert.equal(result.details.requestBinding.status, "unavailable");
+   result.details.proposal.openQuestions.push("mutated"); assert.equal(proposal.openQuestions.length, 1);
+ });
+--- a/openclaw.plugin.json
++++ b/openclaw.plugin.json
+@@ -9,7 +9,8 @@
+     "tools": [
+       "stella_status",
+       "stella_author_intent_candidate",
+-      "stella_work_brief"
++      "stella_work_brief",
++      "stella_source_read"
+     ]
+   },
+   "toolMetadata": {
+@@ -27,6 +28,9 @@
+       "profiles": [
+         "coding"
+       ]
++    },
++    "stella_source_read": {
++      "profiles": ["coding"]
+     }
+   },
+   "activation": {
+@@ -54,6 +58,17 @@
+         "minLength": 1,
+         "maxLength": 4096,
+         "description": "Optional dedicated synthetic-debug Git repository; explicit initialization marker required. No legacy or private source repository."
++      },
++      "sourceRead": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": ["root", "manifestPath", "revision"],
++        "properties": {
++          "root": { "type": "string", "minLength": 1, "maxLength": 4096 },
++          "manifestPath": { "type": "string", "minLength": 1, "maxLength": 4096 },
++          "revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
++        },
++        "description": "Explicit selected clean Git source and manifest; this selects data only, never grants source/processing access. Default entry has no admission issuer and fails closed."
+       }
+     }
+   }
+--- a/package.json
++++ b/package.json
+@@ -19,7 +19,8 @@
+     "docs/CHECKPOINT-UNDERSTANDING-SUPPLY.md",
+     "docs/CHECKPOINT-CORRECTION-WRITER.md",
+     "docs/MAIN-DEBUG-INSTALL.md",
+-    "docs/CANDIDATE-WORK-BRIEF.md"
++    "docs/CANDIDATE-WORK-BRIEF.md",
++    "docs/ORDINARY-SOURCE-READ.md"
+   ],
+   "scripts": {
+     "build": "node scripts/compile.mjs build",
+--- /dev/null
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -0,0 +1,188 @@
++# Ordinary-plugin selected-source read port
++
++2026-11-02 local implementation candidate; **not installed, independently accepted,
++or connected to private CangHai**. This supplies the deterministic read seam for
++the [data-first priority](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority).
++It does not implement semantic routing or claim that a model understands data.
++
++## Existing contracts, not a new data model
++
++The port follows the selected migration layout that was checked on the existing
++local `migration-v1` source at `112be540a3988af53d1076a38f8f1c155da7a745`:
++
++| Selected document | Existing contract / pointer |
++| --- | --- |
++| `50_PersonalAgent/stella/knowledge-migration-v1/manifest.json` | `stella.consciousness-manifest/v1`, `identity.runtimeProfileRef` |
++| `50_PersonalAgent/stella/knowledge-migration-v1/runtime-profile.json` | `stella.runtime-profile/v2`, `memory.catalog_ref` |
++| `30_Knowledge/migration-v1/runtime/catalog.json` | `stella.memory-catalog/v1`, versioned Source/Evidence/policy/coverage entries |
++| Source / original | Existing Source v2 segments, Evidence selector and payload SHA-256, Source-base AND segment policy |
++
++The root `50_PersonalAgent/stella/manifest.yaml` is a different, historical
++manifest. The port requires an explicit manifest; it never substitutes that root
++file when the selected one is missing. Identity and runtimeState profile refs
++must agree when both are present. `sourceBaseline.commit` records original-data
++history; it does not select today's checkout. The configured full Git revision
++does. A serialized `active` or `full_memory` label is not Host activation or
++full-memory acceptance.
++
++Existing `parseConsciousnessManifest`, `parseRuntimeProfile`, `CatalogReader`,
++`EpisodeEvidenceResolver` and Source policy checks are reused. This narrow loader
++does not traverse identity, bootstrap, framework, secret or every capability
++reference to read one selected catalog. No database, migration executor, writer,
++new identity service, memory-slot replacement or Host-private consumer is added.
++
++## Operator selection and request admission are separate
++
++The candidate plugin schema adds optional `sourceRead` containing exactly
++`root`, `manifestPath` and a full lowercase 40-character `revision`. The root must
++be absolute/canonical and the entire selected checkout clean at that revision.
++The manifest/profile/catalog and selected object/dependency/payload blobs are
++checked against that Git revision (or a payload's explicitly recorded historical
++revision). Paths cannot escape the root or cross a symlink into another file.
++The binding and filesystem-policy restrictions are not model tool arguments.
++
++**This configuration grants no data access.** The ordinary entry now has a thin
++public-request adapter in `ordinary-source-admission.ts`. It combines:
++
++- One supported `reply_dispatch`'s canonical normalized `rawText`, exact run and
++  session, direct-chat sender, and committed native receipt observation. Dispatch
++  only captures references/text in memory; it does not persist, stage, replace an
++  admission handler, wait for a commit, or claim the dispatch. The input is the
++  Host's normalized request representation, not proof of original author wording.
++- The actual source-tool hook call/run/session incarnation and Host requester,
++  plus the v2 factory's original invocation guard, matching requester/owner,
++  owner-private audience and exact active `google/gemini-3.8-flash` model. Missing
++  fields, duplicate calls, conflicting admissions, cancellation and ended turns
++  reject. No session-to-latest identity or qualification recovery is used.
++- The selected profile's unique `source_access_context` capability using the
++  existing `stella.personal-context-access/v1` adapter. Its grant is read from
++  the same clean, pinned Git revision. This limited path requires one existing
++  requester and `personal_context / personal_understanding / owner-direct`.
++  It neither appends a requester/model nor enables operator, learning or writer
++  capabilities. Exact Source/segment/base-policy descriptors bound the scope.
++
++`createPersonalContextAccess`, `assertPersonalSourceMetadata` and existing source
++policy kernels are reused. Each new user request obtains its own committed input,
++reads the current selected grant/version and makes new source judgments. Native
++receipt hashes are only one consistency check; they never independently grant
++source access or author confirmation. Internal test injection ports cannot be
++supplied through plugin JSON, tool parameters, runContext or toolBindings.
++
++Unconfigured calls fail with `source_read_not_configured`; configured calls
++without the required actual Host facts fail before source filesystem access.
++`sourceReadPort` reports configuration/adapter availability; the conservative
++`sourceAdapter:not_connected` label remains until actual binding is validated.
++Neither is proof of successful private-source activation. The installed main remains unchanged
++and unconnected. Actual producer field availability and lifecycle remain untested.
++
++Sandboxed callers are unsupported. A workspace-only Host caller must contain the
++selected root. These checks precede admission; the issuer is not called for a
++denied filesystem context. No configuration, permissions or managed consent was
++changed on the user's shared Host by this package.
++
++## Tool contract
++
++`stella_source_read` supports only:
++
++- `{"action":"list"}` with an optional returned cursor: up to32 current eligible
++  Evidence metadata rows, exact source/evidence refs, recorded role/kind and
++  timestamps. Every row requires metadata-processing admission. No payload is
++  read and no semantic ranking is performed. The cursor binds the catalog hash;
++  known-by/event-window and exact descriptor-scope exclusions are explicit. A scope
++  exclusion is only the adapter's explicit `false`; arbitrary metadata errors fail
++  the operation. No out-of-scope row identity or body is returned. A page is not evidence that the
++  whole repository was searched or that the question has sufficient evidence.
++- `{"action":"read","ref":{"id":"...","version":"sha256:..."}}`: one exact
++  original Evidence slice with Source/version, payload hash/selector, original
++  role/kind/time, coverage and usage constraints. Both base and segment policy
++  remain enforced. Request lifetime is checked around semantic policy awaits and
++  immediately before the first payload read. Returned Source references and
++  selectors are projected to documented fields. The result is neither author
++  confirmation nor publication.
++
++Each invocation opens current data afresh. There is no session-to-latest lookup
++or retained permission/reader cache. Original reads enforce the declared time
++scope. Dirty state, a different revision, stale cursor, changed object/payload,
++invalid/missing reference, policy denial or cancellation is a failure, not an
++empty-success fallback. Output beyond128KiB fails without truncation. Selected
++UTF-8 byte slices must encode back to exactly the pinned bytes; the inherited
++decoder's BOM removal therefore produces
++`source_text_representation_unverified` rather than an unreported rewrite.
++The existing JSON-pointer selector retains its declared string projection.
++
++Listing and deterministic source checks cannot decide natural-language meaning.
++The native Agent / properly qualified structured LLM port must select relevant
++sources, follow leads, distinguish facts/inferences and decide answer versus
++clarification. No lexical routing or fallback is added. For per-source policy semantics, the
++adapter calls only the public Host `llm.complete` port, explicitly selecting
++`google/gemini-3.8-flash` with `low`, no sampling parameter, and no configured
++fallback. The code passes only the current normalized request and one reviewed
++descriptor/policy context; it does not pass original bodies to that judgment.
++Actual runtime dispatch/consumption is not verified by these synthetic tests.
++No provider call was made by this implementation or its tests. The explicit
++agent/model parameters also remain subject to the Host's existing LLM capability
++policy. No override permission was added here; an unbound/disallowed Host runtime
++must reject rather than select another agent/model. The real public capability
++scope must be checked before a later model-backed run.
++
++## Actual verification and remaining integration
++
++TypeScript compilation passed on the observed local OpenClaw SDK2026.10.9 and
++Node24.22.1; project manifest/lock still pin10.8 and were not changed. Focused
++checks passed **37/37**:11new source-port groups plus5ordinary,10binding and
++11draft/continuation cases. Sources, identities and semantic permission verdicts
++were synthetic. The real plugin registration/factory code was exercised with an
++explicit test issuer; no Gateway, live ingestion, external model or private
++payload was used. The initial34pass/2fail run is retained separately. No full
++suite, installation, reload, consent, commit or push was performed.
++
++The original37/37 run did not repair or approve the pre-existing metadata P2.
++Its failure evidence and the read-port increment remain in
++[the original receipt](../.task-control/reports/CORE-VAL-001/source-read-port-20261102.json).
++Because the ordinary entry also registers that observer, the delivery candidate
++now includes its minimal scalar-snapshot repair: each selected receipt field is
++read once, then the same immutable snapshot is validated, bound and hashed.
++Four getter-change counterexamples reproduced false observations before the
++repair and are rejected after it. A valid snapshot/hash control and the affected
++metadata/ordinary-entry cases passed **19/19**; the37cases were not rerun or
++combined into a new total. This does not add source/author qualification.
++The full entry and both local modules remain pending independent review and
++uninstalled; no mixed working tree is approved merely by these test results.
++The [R1 delivery receipt](../.task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.json)
++pins the combined entry patch and its dependency/test evidence.
++
++## Next thin binding candidate and Host validation
++
++The next package includes that request adapter, descriptor-scoped listing and
++the independent review's request-lifetime/reference-projection repairs. The old
++state95 nine-file version is preserved in the immutable
++[frozen review manifest](../.task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/MANIFEST.json);
++its review found51/51 baseline checks plus7/9 extra probes, with two real
++synthetic boundary failures. The metadata P2 was independently closed; those two
++source-read failures are retained, not reclassified as old passes.
++The [request-adapter receipt](../.task-control/reports/CORE-VAL-001/source-admission-20261102.json)
++records this candidate's exact code, tests, replay and incremental boundary.
++The final author run passed63/63 focused cases; the same independent probe logic
++replayed7/9 before the fixes and9/9 after them. The existing Evidence kernel suite
++passed28/28 after its temporary harness was supplied the unchanged schema path;
++the initial24/28 missing-schema failure is retained. These separate runs are not
++summed or represented as independent acceptance. It is not installed.
++
++After review, a nonconflicting Host window must use an exclusively synthetic
++source/grant/root and preserve rollback. A direct no-model Gateway tool invocation
++should demonstrate missing-ingress denial. A positive actual-ingress test must
++use a supported Host producer that really supplies dispatch/run/native admission
++and matching tool requester/audience facts; it cannot manufacture callback values
++or substitute a session identity. No public no-model positive producer has been
++established in this package. If a loopback protocol stub is needed to drive a real
++Agent turn, its bounded run must be separately assigned; the old exhausted batch
++is not reused. Do not call an actual model just to produce ingress receipts.
++
++Only after those facts and the exact existing scope are reconciled should a real
++private root be bound. The later forward scenario is a natural question over a
++small permitted corpus: native Agent selects relevant evidence, reads exact
++originals, follows leads and answers or clarifies with source/role/time
++distinctions. Real semantic acceptance uses `google/gemini-3.8-flash`, `low`,
++under its own valid call/material scope. Synthetic API tests supply neither that
++authorization nor acceptance. No shared Host configuration, private binding,
++source file, permission or publication setting changed here.
+--- /dev/null
++++ b/src/openclaw/ordinary-source-admission.ts
+@@ -0,0 +1,188 @@
++import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
++import type { PluginHookReplyDispatchContext, PluginHookReplyDispatchEvent } from "openclaw/plugin-sdk/core";
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++import { realpath } from "node:fs/promises";
++import { parse as parseYaml } from "yaml";
++import { CatalogError, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
++import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
++import { parseConsciousnessManifest } from "../canghai/manifest.js";
++import { parseRuntimeProfile } from "../canghai/runtime-profile.js";
++import { parseCangHaiRef } from "../canghai/ref.js";
++import { createPersonalContextAccess, loadPersonalContextAccess, readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
++import { sourceAccessKey } from "../canghai/source-access.js";
++import { sourceSegments, assertEvidenceSegment, segmentLocator } from "../canghai/source-segments.js";
++import { assertPersonalSourceMetadata } from "../praxis/personal-views.js";
++import { bindProcessingAuthority, assertProcessingStage } from "./processing-authority.js";
++import { snapshotTurnRequest } from "./turn-request.js";
++import type { createCurrentInputMetadata } from "./current-input-metadata.js";
++import { SOURCE_READ_TOOL, type SourceReadAdmission, type SourceReadBinding } from "./ordinary-source-read.js";
++
++export const SOURCE_POLICY_MODEL = "google/gemini-3.8-flash";
++export type SourcePolicyCompletion = (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
++type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
++type Call = Identity & { runId: string; senderId: string; signal?: AbortSignal; conflict: boolean; release(): void };
++type Turn = { sessionKey: string; rawText: string; senderId: string; cutoff: string; conflict: boolean; calls: Set<string>; release(): void };
++type ToolEvent = { toolName: string; toolCallId?: string; runId?: string };
++type ToolContext = Identity & ToolEvent & { abortSignal?: AbortSignal; requester?: { senderId?: string; senderIsOwner?: boolean } };
++const run = promisify(execFile);
++const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 4096;
++function check(ok: unknown, code: string): asserts ok { if (!ok) throw new CatalogError(code); }
++function relativeRef(value: string) {
++  const ref = parseCangHaiRef(value);
++  check(!ref.fragment && !ref.relativePath.split("/").some(p => p === ".." || p.toLowerCase() === ".git"), "source_processing_reference_invalid");
++  return ref.relativePath;
++}
++
++/** Load only the selected profile's existing grant. No bootstrap, grant creation
++ * or adoption of the current checkout as a newly authorized revision. */
++async function processingBinding(binding: SourceReadBinding, guard: () => void) {
++  guard(); check(await realpath(binding.root) === binding.root, "source_root_not_canonical"); guard();
++  const env = { ...process.env };
++  for (const key of Object.keys(env)) if (key.startsWith("GIT_")) delete env[key];
++  const git = async (args: string[], binary = false) => {
++    guard(); const result = await run("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", binding.root, ...args],
++      { env, encoding: binary ? "buffer" : "utf8", maxBuffer: 2 * 1024 * 1024 }); guard(); return result.stdout;
++  };
++  const selected = async () => {
++    check(String(await git(["rev-parse", "HEAD"])).trim() === binding.revision, "source_revision_mismatch");
++    check(String(await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"])) === "", "source_repository_dirty");
++  };
++  await selected();
++  const document = async (path: string) => {
++    guard(); const bytes = await readRepositoryBytes(binding.root, path); guard();
++    check(bytes.length <= 256_000, "source_processing_document_capacity");
++    check(bytesVersion(await git(["cat-file", "blob", `${binding.revision}:${path}`], true) as Buffer) === bytesVersion(bytes), "source_git_blob_mismatch");
++    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
++  };
++  const manifest = parseConsciousnessManifest(await document(binding.manifestPath));
++  const profilePath = relativeRef(manifest.identity.runtimeProfileRef);
++  check(manifest.runtimeState.runtimeProfileRef === undefined || relativeRef(manifest.runtimeState.runtimeProfileRef) === profilePath, "source_profile_reference_conflict");
++  const profile = parseRuntimeProfile(parseYaml(await document(profilePath)));
++  check(profile.agent_id === "main" && profile.memory, "source_profile_binding_mismatch");
++  const capabilities = profile.capabilities.filter(c => c.id === "source_access_context" && c.adapter_id === "stella.personal-context-access");
++  check(capabilities.length === 1, "source_processing_binding_unavailable");
++  const path = relativeRef(capabilities[0]!.config_ref), grantText = await document(path);
++  const loaded = await loadPersonalContextAccess(binding.root, path); guard();
++  const receipt = await readPersonalContextAccessBinding(loaded); guard();
++  check(receipt.sha256 === bytesVersion(grantText), "personal_context_access_changed");
++  const config = loaded.config;
++  check(config.requesterIds.length === 1 && config.modelRefs.includes(SOURCE_POLICY_MODEL) &&
++    canonicalJson(config.purpose) === canonicalJson({ readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" }), "source_processing_scope_mismatch");
++  await selected();
++  return { loaded, catalogPath: relativeRef(profile.memory.catalog_ref) };
++}
++
++/** Ordinary public callbacks -> existing source processing checks. This stores
++ * bounded current-turn references only; it neither issues identities nor grants. */
++export function createOrdinarySourceAdmission(input: {
++  agentId: string; metadata: ReturnType<typeof createCurrentInputMetadata>; complete: SourcePolicyCompletion;
++}) {
++  const turns = new Map<string, Turn>(), calls = new Map<string, Call>();
++  const discardCall = (id: string) => { const call = calls.get(id); if (call) { calls.delete(id); call.release(); } };
++  const discardTurn = (id: string, turn: Turn) => {
++    if (turns.get(id) !== turn) return;
++    turns.delete(id); turn.release();
++    for (const [callId, call] of calls) if (call.runId === id) discardCall(callId);
++  };
++  return {
++    observeDispatch(event: PluginHookReplyDispatchEvent, context: PluginHookReplyDispatchContext) {
++      const ctx = event.ctx, runId = event.runId, sessionKey = event.sessionKey;
++      const rawText = ctx.rawText, senderId = ctx.SenderId, signal = context.abortSignal;
++      if (input.agentId !== "main" || context.dispatchKind !== "agent" || ctx.AgentId !== input.agentId ||
++          !text(runId) || !text(sessionKey) || ctx.SessionKey !== sessionKey || !text(senderId) ||
++          typeof rawText !== "string" || !rawText.trim() || rawText.length > 16_000 || ctx.ChatType !== "direct" || ctx.InternalTurnSource !== undefined || !signal || signal.aborted) return;
++      const previous = turns.get(runId);
++      if (previous) {
++        if (previous.sessionKey !== sessionKey || previous.rawText !== rawText || previous.senderId !== senderId) previous.conflict = true;
++        return;
++      }
++      if (turns.size >= 32) return;
++      const discard = () => discardTurn(runId, turn);
++      const turn: Turn = { sessionKey, rawText, senderId, cutoff: new Date().toISOString(), conflict: false, calls: new Set(),
++        release: () => signal.removeEventListener("abort", discard) };
++      turns.set(runId, turn); signal.addEventListener("abort", discard, { once: true });
++    },
++    observeTool(event: ToolEvent, context: ToolContext) {
++      if (event.toolName !== SOURCE_READ_TOOL || context.toolName !== SOURCE_READ_TOOL) return;
++      const callId = context.toolCallId, runId = context.runId, requester = context.requester;
++      if (!text(callId) || event.toolCallId !== callId || !text(runId) || event.runId !== runId ||
++          context.agentId !== input.agentId || !text(context.sessionKey) || !text(context.sessionId) ||
++          requester?.senderIsOwner !== true || !text(requester.senderId)) return "source_request_admission_unavailable";
++      const previous = calls.get(callId), turn = turns.get(runId);
++      if (previous) { previous.conflict = true; return "source_call_ambiguous"; }
++      if (!turn || turn.conflict || turn.sessionKey !== context.sessionKey || turn.senderId !== requester.senderId || turn.calls.has(callId)) return "source_request_binding_mismatch";
++      if (context.abortSignal?.aborted || calls.size >= 128 || turn.calls.size >= 128) return "source_call_unavailable";
++      const signal = context.abortSignal;
++      const discard = () => discardCall(callId);
++      calls.set(callId, { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId, runId,
++        senderId: requester.senderId, signal, conflict: false, release: () => signal?.removeEventListener("abort", discard) });
++      signal?.addEventListener("abort", discard, { once: true });
++    },
++    end(event: { runId?: string }, context: Identity & { runId?: string }) {
++      if (!text(event.runId) || event.runId !== context.runId || context.agentId !== input.agentId) return;
++      const turn = turns.get(event.runId);
++      if (!turn || turn.sessionKey !== context.sessionKey) return;
++      discardTurn(event.runId, turn);
++    },
++    forFactory(context: OpenClawPluginToolContext<2>) {
++      const identity = { agentId: context.agentId, sessionKey: context.sessionKey, sessionId: context.sessionId };
++      const senderId = context.requesterSenderId, owner = context.senderIsOwner, audience = context.memoryAudience;
++      const audienceSnapshot = audience ? structuredClone(audience) : undefined, modelRef = context.activeModel?.modelRef;
++      const originalGuard = context.assertInvocationCurrent.bind(context);
++      const audienceGuard = context.assertMemoryAudienceCurrent?.bind(context);
++      return async (binding: SourceReadBinding, callId: string, signal?: AbortSignal): Promise<SourceReadAdmission> => {
++        const call = calls.get(callId); discardCall(callId);
++        check(call && !call.conflict && !call.signal?.aborted, "source_request_admission_unavailable");
++        const turn = turns.get(call.runId);
++        check(turn && !turn.conflict && !turn.calls.has(callId), "source_request_binding_mismatch");
++        turn.calls.add(callId);
++        const guard = () => {
++          originalGuard(); audienceGuard?.(); signal?.throwIfAborted(); call.signal?.throwIfAborted();
++          check(turns.get(call.runId) === turn && !turn.conflict && context.agentId === identity.agentId &&
++            context.sessionKey === identity.sessionKey && context.sessionId === identity.sessionId &&
++            call.agentId === identity.agentId && call.sessionKey === identity.sessionKey && call.sessionId === identity.sessionId,
++          "source_request_binding_mismatch");
++          check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && text(senderId) &&
++            context.requesterSenderId === senderId && call.senderId === senderId && turn.senderId === senderId &&
++            audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
++            canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
++          check(modelRef === SOURCE_POLICY_MODEL && context.activeModel?.modelRef === modelRef, "personal_context_model_forbidden");
++          const native = input.metadata.inspect(call.runId, identity);
++          check(native.status === "observed", "source_native_admission_unavailable");
++        };
++        guard();
++        const processing = await processingBinding(binding, guard); guard();
++        const config = processing.loaded.config;
++        check(config.requesterIds[0] === senderId, "personal_context_requester_forbidden");
++        const request = snapshotTurnRequest({ agentId: identity.agentId!, sessionId: identity.sessionId!, sessionKey: identity.sessionKey!,
++          prompt: turn.rawText, senderId, senderIsOwner: true, chatType: "direct" }, call.runId);
++        const authority = bindProcessingAuthority({ request, ownerId: config.ownerId, modelRef: SOURCE_POLICY_MODEL,
++          purpose: config.purpose, deployment: bytesVersion(canonicalJson(binding)), generationId: binding.revision });
++        const sourceAccess = createPersonalContextAccess({ request, modelRef: SOURCE_POLICY_MODEL, binding: processing.loaded,
++          assertRequestCurrent: guard, reuseWithinRequest: true, signal, processingAuthority: authority,
++          complete: async params => { guard(); const value = await input.complete(params); guard(); return value; } });
++        const descriptors = new Set(config.descriptors.map(sourceAccessKey));
++        return { assertCurrent: guard,
++          purpose: { ...config.purpose, evidenceCutoff: turn.cutoff, trustedAdapters: { user_report: [], tool_observation: [], system_event: [] }, sourceAccess },
++          async assertMetadata(reader, ref) {
++            guard(); await processing.loaded.assertCurrent(); guard();
++            check(reader.root === binding.root && reader.catalogPath === processing.catalogPath, "source_processing_catalog_mismatch");
++            const evidence = await reader.read(ref, "evidence"); guard();
++            check(validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef), "invalid_evidence");
++            const source = await reader.read(evidence.source, "sources"); guard();
++            check(validMemoryRef(source.policyRef), "invalid_source");
++            const segment = assertEvidenceSegment(sourceSegments(source), evidence);
++            const policies = [evidence.policyRef, source.policyRef];
++            if (!policies.every(policyRef => descriptors.has(sourceAccessKey({ sourceRef: evidence.source as typeof ref, policyRef,
++              ...(segment ? { segment: segmentLocator(segment) } : {}) })))) return false;
++            await assertPersonalSourceMetadata({ reader, sourceRef: evidence.source, ownerId: config.ownerId, processingAuthority: authority });
++            const leafPolicy = await reader.read(evidence.policyRef, "policies"); guard();
++            check(leafPolicy.ownerId === config.ownerId, "personal_context_owner_mismatch");
++            assertProcessingStage(authority, leafPolicy, "derive");
++            guard();
++          } };
++      };
++    },
++  };
++}
+--- /dev/null
++++ b/tests/ordinary-source-admission.test.ts
+@@ -0,0 +1,156 @@
++import test, { type TestContext } from "node:test";
++import assert from "node:assert/strict";
++import { readFile } from "node:fs/promises";
++import path from "node:path";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createOrdinaryPlugin, SOURCE_READ_TOOL } from "../src/ordinary-plugin.js";
++import { canonicalJson } from "../src/canghai/content-version.js";
++import { segmentLocator } from "../src/canghai/source-segments.js";
++import { fixture, prefix, profilePath, hostVersion } from "./fixtures/ordinary-source-read.js";
++
++const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
++const purpose = { readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" };
++const grantPath = `${prefix}/capabilities/source_access_context.json`;
++async function setup(t: TestContext, leafDerivePurposes?: string[]) {
++  const f = await fixture(t, 2, 0, undefined, purpose, leafDerivePurposes);
++  const source = JSON.parse(await readFile(path.join(f.root, f.catalog.sources[0]!.locator.path), "utf8"));
++  const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
++  const segment = source.accessSegments[0];
++  const grant = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic-owner", requesterIds: ["synthetic-requester"],
++    modelRefs: ["google/gemini-3.8-flash"], purpose, descriptors: [source.policyRef, segment.policyRef].map(policyRef =>
++      ({ sourceRef, policyRef, segment: segmentLocator(segment), description: "A synthetic harbor-walk record; no real person or private history." })) };
++  f.profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
++    config_ref: `path:${grantPath}`, acceptance_ref: `path:${prefix}/not-loaded-acceptance.json`, required_secret_refs: [] } as never);
++  await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
++  const hooks = new Map<string, Function>(); let factory: any, modelCalls = 0, active = true, denyScenario = false;
++  const modelRequestHashes = new Set<string>();
++  const plugin = createOrdinaryPlugin({ completeSourceAccess: async params => {
++    modelCalls++;
++    const value = JSON.parse(params.prompt.slice(params.prompt.lastIndexOf("\n") + 1));
++    modelRequestHashes.add(value.requestHash);
++    return { text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef, policyRef: value.policyRef, segment: value.segment,
++      applicable: true, scenarios: [denyScenario ? "social" : "writing"], topicRequested: true, topicExplicitlyNamed: true }) };
++  } });
++  plugin.register!({ pluginConfig: { agentId: "main", publisher: false, sourceRead: f.binding }, runtime: { version: hostVersion },
++    registerTool(v: unknown) { factory = v; }, registerCommand() {}, on(name: string, handler: Function) { hooks.set(name, handler); } } as unknown as OpenClawPluginApi);
++  function turn(runId = "run-1", changes: { ctx?: Record<string, unknown>; factory?: Record<string, unknown>; receipt?: Record<string, unknown> } = {}) {
++    const abort = new AbortController(); let persisted = true, blocked = false;
++    const receipt: Record<string, unknown> = { ...identity, storePath: "/synthetic/not-read.db", entryId: runId + "-entry", logicalTurnId: runId + "-turn",
++      generation: "synthetic-generation", idempotencyKey: runId + "-key", role: "user", rawSeq: 1, effectiveParentId: null, activeMessagePosition: 0, ...changes.receipt };
++    const recorder = new Proxy({ hasPersisted: () => persisted, isBlocked: () => blocked, getAdmissionReceipt: () => receipt }, {
++      get(target, key, receiver) { assert.ok(Object.hasOwn(target, key), `forbidden recorder access ${String(key)}`); return Reflect.get(target, key, receiver); },
++    });
++    const context = { ...identity, requesterSenderId: "synthetic-requester", senderIsOwner: true,
++      memoryAudience: { kind: "owner-private", agentId: "main" }, activeModel: { modelRef: "google/gemini-3.8-flash" },
++      assertInvocationCurrent() { assert.ok(active, "request_expired"); }, ...changes.factory };
++    const event = { runId, sessionKey: identity.sessionKey, ctx: { AgentId: "main", SessionKey: identity.sessionKey,
++      SenderId: "synthetic-requester", rawText: "Use the fictional harbor-walk record to answer this synthetic question.", ChatType: "direct", ...changes.ctx } };
++    const dispatch = () => hooks.get("reply_dispatch")!(event, { dispatchKind: "agent", abortSignal: abort.signal, userTurnTranscriptRecorder: recorder });
++    const tool = factory.create(context).find((v: any) => v.name === SOURCE_READ_TOOL);
++    const hook = (callId: string, extra = {}) => hooks.get("before_tool_call")!({ toolName: SOURCE_READ_TOOL, toolCallId: callId, runId },
++      { ...identity, toolName: SOURCE_READ_TOOL, toolCallId: callId, runId, abortSignal: abort.signal,
++        requester: { senderId: "synthetic-requester", senderIsOwner: true }, ...extra });
++    return { receipt, context, event, dispatch, hook, tool, abort,
++      pending() { persisted = false; }, commit() { persisted = true; }, block() { blocked = true; },
++      end() { hooks.get("agent_end")!({ runId }, { ...identity, runId }); } };
++  }
++  return { ...f, grant, turn, hooks, modelCalls: () => modelCalls, modelRequestHashes, expire() { active = false; }, deny() { denyScenario = true; } };
++}
++
++test("actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch(); assert.equal(turn.hook("list"), undefined);
++  const listed = await turn.tool.execute("list", { action: "list" });
++  assert.equal(listed.details.status, "listed"); assert.equal(listed.details.items.length, 1); assert.equal(listed.details.excludedByScopeOnPage, 1);
++  assert.equal(f.modelCalls(), 0); assert.equal(JSON.stringify(listed).includes("harbor walk is planned"), false);
++  assert.equal(turn.hook("read"), undefined);
++  const read = await turn.tool.execute("read", { action: "read", ref: f.refs[0] });
++  assert.equal(read.details.status, "read"); assert.equal(read.details.original.text, f.texts[0]); assert.equal(f.modelCalls(), 2);
++  assert.equal(read.details.publisher, false); assert.equal(read.details.authorConfirmation, false);
++  turn.hook("out-of-scope"); const denied = await turn.tool.execute("out-of-scope", { action: "read", ref: f.refs[1] });
++  assert.equal(denied.details.code, "source_descriptor_scope_denied"); assert.equal(f.modelCalls(), 2);
++});
++
++test("missing real hook/request fields never use owner flags, model parameters or session latest", async t => {
++  const f = await setup(t);
++  const absent = f.turn("absent");
++  assert.equal((await absent.tool.execute("no-hook", { action: "list" })).details.code, "source_request_admission_unavailable");
++  for (const [index, ctx] of [{ rawText: undefined }, { ChatType: "group" }, { InternalTurnSource: "cron" }, { SenderId: undefined }].entries()) {
++    const turn = f.turn(`missing-${index}`, { ctx }); turn.dispatch(); assert.equal(turn.hook(`call-${index}`)?.block, true);
++    assert.equal((await turn.tool.execute(`call-${index}`, { action: "list", owner: true, requester: "synthetic-requester" })).isError, true);
++  }
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("Host owner/requester/audience/model must match existing grant without granting new identities", async t => {
++  const f = await setup(t);
++  for (const [index, changes] of [
++    { factory: { senderIsOwner: false } }, { factory: { requesterSenderId: "different" } },
++    { factory: { memoryAudience: { kind: "conversation", ...identity } } },
++    { factory: { activeModel: { modelRef: "google/old-model" } } },
++  ].entries()) {
++    const turn = f.turn(`denied-${index}`, changes); turn.dispatch(); turn.hook(`call-${index}`);
++    const value = await turn.tool.execute(`call-${index}`, { action: "list" }); assert.equal(value.isError, true);
++  }
++  const other = f.turn("other", { ctx: { SenderId: "other-requester" }, factory: { requesterSenderId: "other-requester" } });
++  other.dispatch(); assert.equal(other.hook("other", { requester: { senderId: "other-requester", senderIsOwner: true } }), undefined);
++  assert.equal((await other.tool.execute("other", { action: "list" })).details.code, "personal_context_requester_forbidden");
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("exact call/run/incarnation rejects ambiguity, mismatch, replay and expired original guard", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch();
++  turn.hook("duplicate"); assert.equal(turn.hook("duplicate")?.block, true);
++  assert.equal((await turn.tool.execute("duplicate", { action: "list" })).isError, true);
++  turn.hook("incarnation", { sessionId: "other-session" });
++  assert.equal((await turn.tool.execute("incarnation", { action: "list" })).details.code, "source_request_binding_mismatch");
++  turn.hook("once"); assert.equal((await turn.tool.execute("once", { action: "list" })).details.status, "listed");
++  assert.equal(turn.hook("once")?.block, true);
++  assert.equal((await turn.tool.execute("once", { action: "list" })).isError, true);
++  turn.hook("closed"); f.expire(); turn.context.assertInvocationCurrent = () => {};
++  await assert.rejects(turn.tool.execute("closed", { action: "list" }), /request_expired/);
++});
++
++test("uncommitted or blocked native turn cannot read; commitment before a later first valid call is supported", async t => {
++  const f = await setup(t), turn = f.turn(); turn.pending(); turn.dispatch(); turn.hook("pending");
++  assert.equal((await turn.tool.execute("pending", { action: "list" })).details.code, "source_native_admission_unavailable");
++  turn.commit(); turn.hook("committed"); assert.equal((await turn.tool.execute("committed", { action: "list" })).details.status, "listed");
++  const blocked = f.turn("blocked"); blocked.block(); blocked.dispatch(); blocked.hook("blocked");
++  assert.equal((await blocked.tool.execute("blocked", { action: "read", ref: f.refs[0] })).details.code, "source_native_admission_unavailable");
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("new user request in same session requalifies its own input and rereads selected version; old qualification is not reused", async t => {
++  const f = await setup(t), first = f.turn("first"); first.dispatch(); first.hook("first-read");
++  assert.equal((await first.tool.execute("first-read", { action: "read", ref: f.refs[0] })).details.status, "read"); first.end();
++  const second = f.turn("second", { ctx: { rawText: "A new synthetic request over the same fictional record." } });
++  assert.equal(second.hook("no-dispatch")?.block, true); second.dispatch(); second.hook("second-read");
++  assert.equal((await second.tool.execute("second-read", { action: "read", ref: f.refs[0] })).details.status, "read");
++  assert.equal(f.modelCalls(), 4); assert.equal(f.modelRequestHashes.size, 2);
++  await f.put(grantPath, canonicalJson({ ...f.grant, requesterIds: ["changed-requester"] })); await f.commit();
++  const third = f.turn("third"); third.dispatch(); third.hook("third-read");
++  assert.equal((await third.tool.execute("third-read", { action: "read", ref: f.refs[0] })).details.code, "source_revision_mismatch");
++  assert.equal(f.modelCalls(), 4);
++});
++
++test("native admission conflict, cancellation and end do not revive an old binding", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch(); turn.hook("list");
++  assert.equal((await turn.tool.execute("list", { action: "list" })).details.status, "listed");
++  turn.receipt.logicalTurnId = "different-turn"; turn.hook("changed");
++  assert.equal((await turn.tool.execute("changed", { action: "list" })).details.code, "source_native_admission_unavailable");
++  const cancelled = f.turn("cancelled"); cancelled.dispatch(); cancelled.hook("cancelled"); cancelled.abort.abort();
++  assert.equal((await cancelled.tool.execute("cancelled", { action: "list" })).isError, true);
++  const ended = f.turn("ended"); ended.dispatch(); ended.hook("ended"); ended.end();
++  assert.equal((await ended.tool.execute("ended", { action: "list" })).isError, true);
++});
++
++test("semantic policy denial remains an explicit read failure; metadata access does not grant body access", async t => {
++  const f = await setup(t), turn = f.turn(); turn.dispatch(); turn.hook("denied"); f.deny();
++  assert.equal((await turn.tool.execute("denied", { action: "read", ref: f.refs[0] })).details.code, "source_scenario_forbidden");
++  assert.equal(f.modelCalls(), 1);
++});
++
++test("reviewed descriptor membership cannot override the segment's metadata-processing purpose", async t => {
++  const f = await setup(t, ["other-purpose"]), turn = f.turn(); turn.dispatch(); turn.hook("metadata-denied");
++  assert.equal((await turn.tool.execute("metadata-denied", { action: "list" })).details.code, "permission_denied");
++  assert.equal(f.modelCalls(), 0);
++});
+--- /dev/null
++++ b/tests/fixtures/ordinary-source-read.ts
+@@ -0,0 +1,90 @@
++import test, { type TestContext } from "node:test";
++import assert from "node:assert/strict";
++import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from "node:fs/promises";
++import os from "node:os";
++import path from "node:path";
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createOrdinaryPlugin, SOURCE_READ_TOOL, parseOrdinaryConfig } from "../../src/ordinary-plugin.js";
++import { executeOrdinarySourceRead, parseSourceReadBinding, type SourceReadAdmission } from "../../src/openclaw/ordinary-source-read.js";
++import { prepareRepositorySource } from "../../src/canghai/repository-source.js";
++import { CatalogError, parseMemoryCatalog } from "../../src/canghai/catalog-reader.js";
++import { canonicalJson, bytesVersion, objectVersion } from "../../src/canghai/content-version.js";
++import type { VersionedRef } from "../../src/praxis/episode-v2.js";
++
++const run = promisify(execFile);
++export const prefix = "50_PersonalAgent/stella/knowledge-migration-v1";
++export const manifestPath = `${prefix}/manifest.json`, profilePath = `${prefix}/runtime-profile.json`;
++export const catalogPath = "30_Knowledge/migration-v1/runtime/catalog.json";
++export const hostVersion = "2026.10.9";
++export async function fixture(t: TestContext, count = 3, textSize = 0, payloadText?: string, purpose = { readPurpose: "read", derivePurpose: "interpret", deliveryScope: "host" }, leafDerivePurposes = [purpose.derivePurpose]) {
++  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "stella-source-port-")));
++  t.after(() => rm(root, { recursive: true, force: true }));
++  const put = async (file: string, value: string) => { await mkdir(path.dirname(path.join(root, file)), { recursive: true }); await writeFile(path.join(root, file), value); };
++  const policy = (id: string) => ({ schemaVersion: "stella.source-policy/v2", id, ownerId: "synthetic-owner", readPurposes: [purpose.readPurpose],
++    derivePurposes: [purpose.derivePurpose], deliveryScopes: [purpose.deliveryScope], retention: "retain", authorityEvidenceRefs: [],
++    restrictions: { sensitivity: "private", quotePolicy: "never_quote", allowedScenarios: ["writing"], forbiddenScenarios: ["social"] } });
++  const basePolicy = policy("synthetic-base"), leafPolicy = { ...policy("synthetic-leaf"), derivePurposes: leafDerivePurposes };
++  const baseRef = { id: basePolicy.id, version: objectVersion(basePolicy) }, leafRef = { id: leafPolicy.id, version: objectVersion(leafPolicy) };
++  const catalog = parseMemoryCatalog({ schemaVersion: "stella.memory-catalog/v1", generationId: "synthetic-migration-one", parentGenerationId: null,
++    sources: [], evidence: [], policies: [], coverage: [], understandings: [], works: [], changes: [], bundles: [], views: [] });
++  for (const p of [basePolicy, leafPolicy]) {
++    const bytes = canonicalJson(p), file = `30_Knowledge/migration-v1/runtime/objects/${p.id}.json`;
++    await put(file, bytes); catalog.policies.push({ id: p.id, version: objectVersion(p), status: "current", dependencies: [], locator: { path: file, sha256: bytesVersion(bytes) } });
++  }
++  const refs: VersionedRef[] = [], texts: string[] = [];
++  for (let index = 0; index < count; index++) {
++    const text = payloadText ?? (textSize ? "x".repeat(textSize) : `Fictional source ${index}: the harbor walk is planned for July.\n`);
++    const file = `30_Knowledge/migration-v1/runtime/payloads/source-${index}.txt`; await put(file, text); texts.push(text);
++    const prepared = await prepareRepositorySource({ root, collectionId: "synthetic-migration", sourceId: `source-${index}`, relativePath: file,
++      expectedSha256: bytesVersion(text), capturedAt: "2026-09-01T00:00:00Z", policyRef: baseRef, objectRoot: "30_Knowledge/migration-v1/runtime/objects",
++      reviewedSegments: [{ start: 0, end: Buffer.byteLength(text), policyRef: leafRef }] });
++    for (const item of prepared.objects) {
++      if (item.group === "evidence") {
++        const e: Record<string, unknown> = { ...item.object, role: index % 3 === 0 ? "owner" : index % 3 === 1 ? "assistant" : "external_author",
++          kind: index % 3 === 0 ? "reported" : index % 3 === 1 ? "inference" : "quotation",
++          occurredAt: "2026-07-01T00:00:00Z", authoredAt: "2026-08-01T00:00:00Z" };
++        delete e.version;
++        item.ref = { id: String(e.id), version: objectVersion(e) }; item.object = e; item.bytes = canonicalJson(e);
++        item.entry = { ...item.entry, ...item.ref, locator: { path: `30_Knowledge/migration-v1/runtime/objects/evidence-${index}.json`, sha256: bytesVersion(item.bytes) } };
++        refs.push(item.ref);
++      }
++      await put(item.entry.locator.path, item.bytes); catalog[item.group].push(item.entry);
++    }
++  }
++  await put(catalogPath, canonicalJson(catalog));
++  const manifest = { schemaVersion: "stella.consciousness-manifest/v1", sourceBaseline: { repository: "synthetic/CangHai", commit: "a".repeat(40) },
++    instance: { id: "synthetic", ownerRef: "path:identity/owner.json" }, compatibility: { stellaCore: ">=3.0.0-alpha <4", openclaw: ">=2026.10.8" },
++    identity: { soulRef: "path:identity/soul.md", runtimeProfileRef: `path:${profilePath}` }, twin: { hypothesisRegistryRef: "path:identity/twin.yaml" },
++    frameworks: { sourceRegistryRef: "path:identity/frameworks.yaml", activeIrRegistryRef: "path:identity/active-ir.yaml" },
++    praxis: { episodeRootRef: "path:praxis/episodes" }, experience: { corpusRegistryRef: "path:identity/corpora.yaml" },
++    derived: { rebuild: [] }, runtimeState: { activationStatus: "active", runtimeProfileRef: `path:${profilePath}` } };
++  const profile = { schema_version: "stella.runtime-profile/v2", contract_profile: "full_memory", host_materialization_ref: `path:${prefix}/host-materialization.json`,
++    agent_id: "main", language: "zh-CN", timezone: "Etc/UTC", models: Object.fromEntries(["main", "router", "learning", "framework_compiler"].map(k =>
++      [k, { provider: "google", model: "gemini-3.8-flash", required_capabilities: [] }])), capabilities: [], source_policies_ref: `path:${prefix}/source-policies.json`,
++    memory: { catalog_ref: `path:${catalogPath}`, semantic_provider: "stella-structured-llm", required_views: ["current_understanding", "ongoing_work"], archive_max_rpo_seconds: 300 },
++    autonomy: { research_enabled: false, proactive_delivery_enabled: false, delivery_policy_ref: "path:identity/delivery.json", delegation_registry_ref: "path:identity/delegation.json" } };
++  await put(manifestPath, canonicalJson(manifest)); await put(profilePath, canonicalJson(profile));
++  // No identity/Host config/bootstrap references are materialized: the narrow
++  // reader must not load them or pretend full consciousness has been accepted.
++  const git = async (...args: string[]) => (await run("git", ["-C", root, ...args])).stdout;
++  await git("init", "--quiet");
++  const commit = async () => {
++    await git("add", "--", ".");
++    await git("-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "synthetic source snapshot");
++    return (await git("rev-parse", "HEAD")).trim();
++  };
++  const revision = await commit();
++  let metadataCalls = 0; const sourcePolicies: string[] = [];
++  const admission: SourceReadAdmission = { assertCurrent() {}, async assertMetadata() { metadataCalls++; },
++    purpose: { readPurpose: "read", derivePurpose: "interpret", deliveryScope: "host", evidenceCutoff: "2026-10-01T00:00:00Z",
++      trustedAdapters: { user_report: [], tool_observation: [], system_event: [] },
++      sourceAccess: async (_reader, target) => { sourcePolicies.push(target.policyRef.id); return { judgment: {
++        scenarios: ["writing"], trigger: "user_requested", topicRequested: true, topicExplicitlyNamed: true, presentation: "summary" }, quoteGrants: [] }; } } };
++  const binding = { root, manifestPath, revision };
++  const execute = (parameters: unknown, use = admission) => executeOrdinarySourceRead({ binding, agentId: "main", hostVersion, parameters, admission: use });
++  return { root, put, refs, texts, binding, admission, execute, git, commit, manifest, profile, catalog,
++    metadataCalls: () => metadataCalls, sourcePolicies };
++}
++
+--- a/src/praxis/episode-evidence.ts
++++ b/src/praxis/episode-evidence.ts
+@@ -171,7 +171,7 @@
+     await this.reader.assertCurrent();
+   }
+ 
+-  async readEvidence(ref: VersionedRef): Promise<OriginalEvidence> {
++  async readEvidence(ref: VersionedRef, assertBeforePayload?: () => void | Promise<void>): Promise<OriginalEvidence> {
+     ref = { id: ref.id, version: ref.version };
+     const evidence = await this.reader.read(ref, "evidence");
+     check(evidence.schemaVersion === "stella.memory-evidence/v1" && validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef) &&
+@@ -220,6 +220,7 @@
+       check(Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.eventWindow.to), "evidence_outside_event_window");
+     }
+     this.purpose.signal?.throwIfAborted();
++    await assertBeforePayload?.();
+     const payload = await this.reader.readPayload(evidence.source, evidence.payloadSha256);
+     await this.reader.read(evidence.policyRef, "policies");
+     if (!includesRef([evidence.policyRef], source.policyRef)) await this.reader.read(source.policyRef, "policies");

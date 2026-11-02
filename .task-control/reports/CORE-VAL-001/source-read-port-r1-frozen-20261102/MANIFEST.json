@@ -1,0 +1,18 @@
+{
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "sourceReportSha256": "735d1f3d5e7f8f842869347abc89c1dfe38ddb4ba0f7083a5cbd74c7d1ccf90f",
+  "combinedPatchSha256": "cc795bf5995de929bb847c8705a5a0e8eae8f69e920d4d6d43235abb77fa9652",
+  "files": {
+    "src/openclaw/current-input-metadata.ts": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+    "src/openclaw/ordinary-source-read.ts": "ffb6f038f684f0ebf144bc8d79dffbeb7f738800ce26b0637ddd39b4d34e21b8",
+    "src/ordinary-plugin.ts": "7a8c1a369a23d6347ce6bde422d3633d4986945608ce3aa8bc7209b4c22dedc0",
+    "tests/current-input-metadata.test.ts": "533953dce4fcc46c64300576377ddba4d78d9e680e73e8a3e78f4f442eec63e1",
+    "tests/ordinary-source-read.test.ts": "d58c948b62a8f45990d74a32558db55e86bb4edcf863b5c02a9c7628b50d3442",
+    "tests/ordinary-plugin.test.ts": "ae284eb682e3fc4815b645f9b242c3f640a4e4058ee1d4509ad5ffe8348bf9c2",
+    "openclaw.plugin.json": "e2dd21013ae5cce8a1e85493c5d6cf64ae75951e13ee38cf79a3a3bc35d61960",
+    "package.json": "30b44c2addf9478afa4e23ae526cfa1c18666e3406b7ed2a0850ea61e19a2e05",
+    "docs/ORDINARY-SOURCE-READ.md": "3845078beed3feff49a8c0976dc3b5a19ddd4c5811470e99198d6b3070d52e7a"
+  },
+  "stateAtFreeze": 95,
+  "purpose": "immutable review baseline; later worktree changes belong to next request-source admission package"
+}

@@ -1,0 +1,433 @@
+--- /dev/null
++++ b/src/openclaw/current-input-metadata.ts
+@@ -0,0 +1,91 @@
++import type { PluginHookReplyDispatchEvent, PluginHookReplyDispatchContext } from "openclaw/plugin-sdk/core";
++import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
++import { isRecord } from "../shared/type-guards.js";
++
++type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
++type Recorder = NonNullable<PluginHookReplyDispatchContext["userTurnTranscriptRecorder"]>;
++type Entry = {
++  sessionKey: string; recorder: Recorder; signal: AbortSignal;
++  persisted(): boolean; blocked(): boolean; receipt(): unknown; release(): void;
++  conflict: boolean; admitted?: string;
++};
++const text = (x: unknown): x is string => typeof x === "string" && x.length > 0 && x.length <= 4096;
++const unavailable = (code: string) => ({ status: "unavailable" as const, code });
++
++/** Passive metadata only. No message/provenance/sender reads, source qualification,
++ * persistent store or session-to-latest lookup. A receipt hash is NOT a Source
++ * version, author proof, or proof of what the provider consumed. */
++export function createCurrentInputMetadata(agentId: string) {
++  const runs = new Map<string, Entry>();
++  function forget(runId: string, entry: Entry) {
++    if (runs.get(runId) === entry) runs.delete(runId);
++    entry.release();
++  }
++  return {
++    observe(event: PluginHookReplyDispatchEvent, context: PluginHookReplyDispatchContext) {
++      // Observe the ordinary agent path only; never claim dispatch or wait for it.
++      if (context.dispatchKind !== "agent" || event.ctx.AgentId !== agentId) return "dispatch_scope_unavailable";
++      const runId = event.runId, sessionKey = event.sessionKey;
++      const recorder = context.userTurnTranscriptRecorder, signal = context.abortSignal;
++      if (!text(runId) || !text(sessionKey) || event.ctx.SessionKey !== sessionKey || !recorder || !signal || signal.aborted) {
++        return "dispatch_identity_or_lifetime_unavailable";
++      }
++      const previous = runs.get(runId);
++      if (previous) {
++        if (previous.recorder !== recorder || previous.signal !== signal || previous.sessionKey !== sessionKey) previous.conflict = true;
++        return previous.conflict ? "dispatch_ambiguous" : "dispatch_observed";
++      }
++      if (runs.size >= 32) return "dispatch_capacity";
++      if (typeof recorder.hasPersisted !== "function" || typeof recorder.isBlocked !== "function" ||
++          typeof recorder.getAdmissionReceipt !== "function") return "recorder_contract_unavailable";
++      // Capture the original read methods; no recorder method is called here.
++      const entry: Entry = { sessionKey, recorder, signal, conflict: false,
++        persisted: recorder.hasPersisted.bind(recorder), blocked: recorder.isBlocked.bind(recorder),
++        receipt: recorder.getAdmissionReceipt.bind(recorder), release: () => signal.removeEventListener("abort", discard) };
++      function discard() { forget(runId!, entry); }
++      runs.set(runId, entry); signal.addEventListener("abort", discard, { once: true });
++      return "dispatch_observed";
++    },
++    inspect(runId: string | null | undefined, identity: Identity) {
++      if (!text(runId)) return unavailable("host_run_not_provided");
++      const entry = runs.get(runId);
++      if (!entry || entry.signal.aborted) return unavailable("reply_dispatch_not_observed");
++      const reject = (code: string) => { entry.conflict = true; return { status: "rejected" as const, code }; };
++      if (entry.conflict) return reject("native_input_ambiguous");
++      if (identity.agentId !== agentId || identity.sessionKey !== entry.sessionKey || !text(identity.sessionId)) {
++        return reject("native_input_binding_mismatch");
++      }
++      try {
++        if (entry.persisted() !== true || entry.blocked() !== false) {
++          return entry.admitted ? reject("native_input_changed") : unavailable("admission_uncommitted");
++        }
++        const a = entry.receipt();
++        if (!isRecord(a) || !["agentId", "sessionId", "sessionKey", "storePath", "entryId", "logicalTurnId", "generation", "idempotencyKey"].every(k => text(a[k])) ||
++            a.role !== "user" || !Number.isSafeInteger(a.rawSeq) || Number(a.rawSeq) < 1 ||
++            !Number.isSafeInteger(a.activeMessagePosition) || Number(a.activeMessagePosition) < 0 ||
++            !(a.effectiveParentId === null || text(a.effectiveParentId))) return reject("native_input_receipt_invalid");
++        if (a.agentId !== agentId || a.sessionKey !== entry.sessionKey || a.sessionId !== identity.sessionId) {
++          return reject("native_input_binding_mismatch");
++        }
++        // Deliberately select fields; neither transcript paths nor receipt objects
++        // escape through the candidate result. Do not read getPersistedMessage.
++        const encoded = canonicalJson({ agentId: a.agentId, sessionId: a.sessionId, sessionKey: a.sessionKey,
++          storePath: a.storePath, entryId: a.entryId, logicalTurnId: a.logicalTurnId, generation: a.generation,
++          idempotencyKey: a.idempotencyKey, role: a.role, rawSeq: a.rawSeq,
++          effectiveParentId: a.effectiveParentId, activeMessagePosition: a.activeMessagePosition });
++        if (entry.signal.aborted || runs.get(runId) !== entry) return unavailable("reply_dispatch_not_observed");
++        if (entry.admitted !== undefined && entry.admitted !== encoded) return reject("native_input_changed");
++        entry.admitted = encoded;
++        return { status: "observed" as const, code: "native_input_metadata_only", receiptHash: bytesVersion(encoded),
++          authorQualification: false as const, sourceRepresentation: "unverified" as const, modelConsumption: "unverified" as const };
++      } catch {
++        return reject("native_input_recorder_read_failed");
++      }
++    },
++    end(event: { runId?: string }, context: Identity & { runId?: string }) {
++      if (!text(event.runId) || event.runId !== context.runId || context.agentId !== agentId) return;
++      const entry = runs.get(event.runId);
++      if (entry && context.sessionKey === entry.sessionKey) forget(event.runId, entry);
++    },
++  };
++}
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -3,6 +3,7 @@
+ import path from "node:path";
+ import { isRecord } from "./shared/type-guards.js";
+ import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
++import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
+ import { CANDIDATE_PARAMETERS, parseProposal, type Proposal } from "./openclaw/work-brief-proposal.js";
+ import { WORK_BRIEF_TOOL, WORK_BRIEF_PARAMETERS, executeWorkBrief, validDraftsRoot, workBriefFailure } from "./openclaw/candidate-work-brief.js";
+ export { WORK_BRIEF_TOOL } from "./openclaw/candidate-work-brief.js";
+@@ -38,6 +39,9 @@
+   register(api) {
+     const config = parseOrdinaryConfig(api.pluginConfig);
+     const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
++    const currentInput = createCurrentInputMetadata(config.agentId);
++    api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); });
++    api.on("agent_end", (event, context) => { currentInput.end(event, context); });
+     api.on("before_tool_call", (event, context) => {
+       const error = requestBinding.observe(event, context);
+       if (error) return { block: true, blockReason: error };
+@@ -49,6 +53,7 @@
+       candidateDraftsConfigured: Boolean(config.candidateDraftsRoot), draftScope: "synthetic_debug",
+       modelCalls: false, legacyRuntime: "inactive",
+       requestBinding: "public-tool-hook-metadata", currentInputAdmission: "not_connected",
++      currentInputObservation: "passive-native-admission-metadata-only",
+       memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
+     });
+     api.registerTool({ contextVersion: 2, create(context: OpenClawPluginToolContext<2>) {
+@@ -84,9 +89,11 @@
+             try { proposal = parseProposal(parameters); }
+             catch { return result({ status: "rejected", code: "stella_candidate_arguments_invalid" }, true); }
+             check(signal);
++            const inputObservation = currentInput.inspect(binding.status === "bound" ? binding.runId : null, identity);
++            check(signal);
+             return result({ status: "candidate", code: "author_source_unavailable", toolCallId: callId,
+               proposal, evidenceStatus: "model_supplied_unverified", authorConfirmation: false,
+-              publisher: false, saved: false, requestBinding: binding });
++              publisher: false, saved: false, requestBinding: binding, currentInputObservation: inputObservation });
+           } },
+         { name: WORK_BRIEF_TOOL, label: "Unconfirmed work brief",
+           description: "Explicitly save or read a synthetic, unconfirmed work brief in the configured debug draft store. Read by briefId in each new request. Save requires a new operationId and the exact last-read expectedVersion (null only to create); stale versions fail. No author confirmation, source-file access, formal publication or long-term memory. Evidence references stay unverified. This debug store is owner-only.",
+--- /dev/null
++++ b/tests/current-input-metadata.test.ts
+@@ -0,0 +1,184 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import { createCurrentInputMetadata } from "../src/openclaw/current-input-metadata.js";
++import plugin, { CANDIDATE_TOOL } from "../src/ordinary-plugin.js";
++
++const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
++const proposal = { topic: "Fictional walk", interpretation: "Two endings remain possible",
++  proposedPremises: [], openQuestions: ["Which ending?"], evidenceReferences: [] };
++function fixture(runId = "synthetic-run") {
++  const abort = new AbortController();
++  let persisted = false, blocked = false, reads = 0;
++  const receipt: Record<string, unknown> = { ...identity, storePath: "/synthetic/transcript.db", entryId: "entry-1",
++    logicalTurnId: "turn-1", generation: "generation-1", idempotencyKey: "native-key-1", role: "user",
++    rawSeq: 1, effectiveParentId: null, activeMessagePosition: 0 };
++  const methods = { hasPersisted() { reads++; return persisted; }, isBlocked() { reads++; return blocked; },
++    getAdmissionReceipt() { reads++; return receipt; } };
++  // Reading messages, config, provenance, credentials or a mutation method fails.
++  const recorder = new Proxy(methods, { get(target, key, receiver) {
++    assert.ok(Object.hasOwn(target, key), `forbidden recorder member ${String(key)}`);
++    return Reflect.get(target, key, receiver);
++  } });
++  const ctx = new Proxy({ AgentId: identity.agentId, SessionKey: identity.sessionKey }, { get(target, key, receiver) {
++    assert.ok(Object.hasOwn(target, key), `forbidden inbound member ${String(key)}`);
++    return Reflect.get(target, key, receiver);
++  } });
++  const event = { runId, sessionKey: identity.sessionKey, ctx } as any;
++  const context = { dispatchKind: "agent", userTurnTranscriptRecorder: recorder, abortSignal: abort.signal } as any;
++  return { event, context, receipt, recorder, methods, abort, reads: () => reads,
++    commit() { persisted = true; }, block() { blocked = true; }, uncommit() { persisted = false; } };
++}
++function hash(result: ReturnType<ReturnType<typeof createCurrentInputMetadata>["inspect"]>) {
++  assert.equal(result.status, "observed");
++  return result.receiptHash;
++}
++
++test("dispatch is passive; first call reads only committed native metadata and returns no transcript path or text", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture();
++  assert.equal(observer.observe(f.event, f.context), "dispatch_observed");
++  assert.equal(f.reads(), 0);
++  assert.equal(observer.inspect(f.event.runId, identity).code, "admission_uncommitted");
++  f.commit();
++  const result = observer.inspect(f.event.runId, identity);
++  assert.equal(result.status, "observed"); assert.equal(result.code, "native_input_metadata_only");
++  assert.match(result.receiptHash!, /^sha256:[a-f0-9]{64}$/);
++  assert.equal(result.authorQualification, false); assert.equal(result.sourceRepresentation, "unverified");
++  assert.equal(result.modelConsumption, "unverified");
++  assert.equal(JSON.stringify(result).includes("/synthetic"), false);
++  assert.equal(JSON.stringify(result).includes("entry-1"), false);
++  const previous = result.receiptHash;
++  result.receiptHash = "changed consumer copy";
++  assert.equal(hash(observer.inspect(f.event.runId, identity)), previous);
++});
++
++test("missing ingress, signal, session or agent fields never fall back to prompt, history or another run", () => {
++  for (const update of [
++    (f: any) => { f.event.runId = undefined; },
++    (f: any) => { f.event.sessionKey = undefined; },
++    (f: any) => { f.event.ctx = { AgentId: "other", SessionKey: identity.sessionKey }; },
++    (f: any) => { f.event.ctx = { AgentId: "main", SessionKey: "different" }; },
++    (f: any) => { f.context.abortSignal = undefined; },
++    (f: any) => { f.context.userTurnTranscriptRecorder = undefined; },
++    (f: any) => { f.context.dispatchKind = "acp"; },
++  ]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); update(f);
++    observer.observe(f.event, f.context); assert.equal(f.reads(), 0);
++    assert.equal(observer.inspect("synthetic-run", identity).status, "unavailable");
++  }
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++  observer.observe(f.event, f.context);
++  assert.equal(observer.inspect(null, identity).code, "host_run_not_provided");
++  assert.equal(observer.inspect("other-run", identity).code, "reply_dispatch_not_observed");
++  assert.equal(f.reads(), 0);
++});
++
++test("committed receipt and factory must match exact agent, session and incarnation", () => {
++  for (const patch of [{ agentId: "other" }, { sessionKey: "different" }, { sessionId: "different" }, { sessionId: undefined }]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, { ...identity, ...patch }).code, "native_input_binding_mismatch");
++    assert.equal(observer.inspect(f.event.runId, identity).status, "rejected");
++  }
++  for (const key of ["agentId", "sessionId", "sessionKey"]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); f.receipt[key] = "other";
++    observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_binding_mismatch");
++  }
++});
++
++test("receipt identity and numeric fields are required; receipt exceptions stay explicit", () => {
++  for (const patch of [{ idempotencyKey: undefined }, { role: "assistant" }, { rawSeq: 0 }, { rawSeq: 1.5 },
++    { activeMessagePosition: -1 }, { effectiveParentId: 7 }, { logicalTurnId: "" }]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); Object.assign(f.receipt, patch);
++    observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_receipt_invalid");
++  }
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++  f.methods.getAdmissionReceipt = () => { throw Error("synthetic failure"); };
++  observer.observe(f.event, f.context);
++  assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_recorder_read_failed");
++});
++
++test("one run cannot switch recorders or native admissions; restoring old metadata cannot revive it", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit(); observer.observe(f.event, f.context);
++  assert.equal(observer.observe(f.event, f.context), "dispatch_observed");
++  assert.equal(observer.inspect(f.event.runId, identity).status, "observed");
++  f.receipt.entryId = "entry-2";
++  assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_changed");
++  f.receipt.entryId = "entry-1";
++  assert.equal(observer.inspect(f.event.runId, identity).code, "native_input_ambiguous");
++  const other = createCurrentInputMetadata("main"), a = fixture(), b = fixture();
++  other.observe(a.event, a.context);
++  assert.equal(other.observe(b.event, b.context), "dispatch_ambiguous");
++  assert.equal(other.inspect(a.event.runId, identity).code, "native_input_ambiguous");
++});
++
++test("blocked/vanished admission never becomes observed; independent new requests read their own receipt", () => {
++  const observer = createCurrentInputMetadata("main"), a = fixture("run-a"), b = fixture("run-b");
++  a.commit(); b.commit(); b.receipt.entryId = "entry-b"; b.receipt.idempotencyKey = "native-key-b";
++  observer.observe(a.event, a.context); observer.observe(b.event, b.context);
++  const first = hash(observer.inspect(a.event.runId, identity));
++  assert.notEqual(hash(observer.inspect(b.event.runId, identity)), first);
++  assert.equal(hash(observer.inspect(a.event.runId, identity)), first);
++  a.uncommit(); assert.equal(observer.inspect(a.event.runId, identity).code, "native_input_changed");
++  const c = fixture("run-c"); c.commit(); c.block(); observer.observe(c.event, c.context);
++  assert.equal(observer.inspect(c.event.runId, identity).code, "admission_uncommitted");
++});
++
++test("original read methods are captured; cancellation and exact agent-end release bounded references", () => {
++  const observer = createCurrentInputMetadata("main"), f = fixture(); observer.observe(f.event, f.context);
++  f.methods.hasPersisted = () => true; // Cannot replace the captured original method.
++  assert.equal(observer.inspect(f.event.runId, identity).code, "admission_uncommitted");
++  f.commit(); assert.equal(observer.inspect(f.event.runId, identity).status, "observed");
++  observer.end({ runId: f.event.runId } as any, { ...identity, runId: "different" });
++  assert.equal(observer.inspect(f.event.runId, identity).status, "observed");
++  observer.end({ runId: f.event.runId } as any, { ...identity, runId: f.event.runId });
++  assert.equal(observer.inspect(f.event.runId, identity).status, "unavailable");
++  const a = fixture("aborted"); observer.observe(a.event, a.context); a.abort.abort();
++  assert.equal(observer.inspect(a.event.runId, identity).status, "unavailable");
++  assert.equal(observer.observe(a.event, a.context), "dispatch_identity_or_lifetime_unavailable");
++  const live = Array.from({ length: 32 }, (_, i) => fixture(`bounded-${i}`));
++  for (const entry of live) assert.equal(observer.observe(entry.event, entry.context), "dispatch_observed");
++  const overflow = fixture("overflow"); assert.equal(observer.observe(overflow.event, overflow.context), "dispatch_capacity");
++  live[0].abort.abort(); assert.equal(observer.observe(overflow.event, overflow.context), "dispatch_observed");
++  for (const entry of [...live, overflow]) entry.abort.abort();
++});
++
++test("cancellation or agent-end during a recorder read cannot return an observation", () => {
++  for (const finish of ["abort", "end"]) {
++    const observer = createCurrentInputMetadata("main"), f = fixture(); f.commit();
++    f.methods.getAdmissionReceipt = () => {
++      if (finish === "abort") f.abort.abort();
++      else observer.end({ runId: f.event.runId }, { ...identity, runId: f.event.runId });
++      return f.receipt;
++    };
++    observer.observe(f.event, f.context);
++    assert.equal(observer.inspect(f.event.runId, identity).code, "reply_dispatch_not_observed");
++  }
++});
++
++test("ordinary plugin callbacks carry native metadata to only the exact candidate; candidate and publisher limits stay intact", async () => {
++  let factory: any; const hooks = new Map<string, Function>();
++  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
++    on(name: string, handler: Function) { hooks.set(name, handler); }, registerTool(value: unknown) { factory = value; },
++    registerCommand() {} } as unknown as OpenClawPluginApi);
++  const f = fixture(); const context = { ...identity, assertInvocationCurrent() {} };
++  const tool = factory.create(context).find((t: any) => t.name === CANDIDATE_TOOL);
++  assert.equal(hooks.get("reply_dispatch")!(f.event, f.context), undefined); assert.equal(f.reads(), 0);
++  f.commit();
++  const event = { toolName: CANDIDATE_TOOL, toolCallId: "call-1", runId: f.event.runId };
++  assert.equal(hooks.get("before_tool_call")!(event, { ...identity, ...event }), undefined);
++  const result = await tool.execute("call-1", proposal);
++  assert.equal(result.details.currentInputObservation.status, "observed");
++  assert.equal(result.details.requestBinding.runId, f.event.runId);
++  assert.equal(result.details.code, "author_source_unavailable");
++  for (const key of ["publisher", "authorConfirmation", "saved"]) assert.equal(result.details[key], false);
++  assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
++  assert.deepEqual(result.details.proposal, proposal);
++  const direct = await tool.execute("without-hook", proposal);
++  assert.equal(direct.details.currentInputObservation.code, "host_run_not_provided");
++  assert.equal(direct.details.status, "candidate");
++  hooks.get("agent_end")!({ runId: f.event.runId }, { ...identity, runId: f.event.runId });
++  const late = { ...event, toolCallId: "late" }; hooks.get("before_tool_call")!(late, { ...identity, ...late });
++  assert.equal((await tool.execute("late", proposal)).details.currentInputObservation.code, "reply_dispatch_not_observed");
++});
+--- a/tests/ordinary-plugin.test.ts
++++ b/tests/ordinary-plugin.test.ts
+@@ -33,7 +33,7 @@
+   assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL].sort());
+ });
+ 
+-test("registration contributes guarded ordinary tools, a metadata-only hook and a no-model command", async () => {
++test("registration contributes guarded tools, passive metadata hooks and a no-model command", async () => {
+   const f = fixture();
+   assert.equal(f.factory.contextVersion, 2); assert.equal(f.factory.create({ agentId: "other" }), null);
+   assert.equal(f.command.requireAuth, true);
+@@ -41,7 +41,7 @@
+   assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
+   assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
+   assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
+-  assert.deepEqual([...f.hooks.keys()], ["before_tool_call"]);
++  assert.deepEqual([...f.hooks.keys()], ["reply_dispatch", "agent_end", "before_tool_call"]);
+ });
+ 
+ test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {
+@@ -50,7 +50,8 @@
+   assert.equal(result.details.status, "candidate"); assert.equal(result.details.saved, false);
+   assert.equal(result.details.authorConfirmation, false); assert.equal(result.details.publisher, false);
+   assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
+-  assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 2);
++  assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 3);
++  assert.equal(result.details.currentInputObservation.code, "host_run_not_provided");
+   assert.equal(result.details.requestBinding.status, "unavailable");
+   result.details.proposal.openQuestions.push("mutated"); assert.equal(proposal.openQuestions.length, 1);
+ });
+--- a/docs/CANDIDATE-WORK-BRIEF.md
++++ b/docs/CANDIDATE-WORK-BRIEF.md
+@@ -211,3 +211,57 @@
+ These are proposed limits, not new execution authorization. Neither prior paid
+ approval nor old exhausted isolated-Host batches are reused. No real personal
+ material or new source permission is required for this bounded synthetic case.
++
++## Passive current-input metadata (local candidate, 2026-11-02)
++
++The ordinary-plugin candidate now connects the public `reply_dispatch` callback
++to the exact `before_tool_call` / candidate execution using the Host run ID and
++factory session identity. Dispatch only retains the recorder reference and its
++original three read methods; it neither claims dispatch nor waits for or triggers
++persistence. At candidate execution it reads `hasPersisted`, `isBlocked` and
++`getAdmissionReceipt` synchronously. It never reads message text, prompt, history,
++sender/provenance, configuration, transcript files or credentials, and calls no
++recorder mutation/handler methods.
++
++The candidate's additive `currentInputObservation` field distinguishes missing
++dispatch/run/commit information, invalid or conflicting native metadata, and
++`observed / native_input_metadata_only`. An observation exposes only a receipt
++hash and explicit `authorQualification:false`, `sourceRepresentation:unverified`
++and `modelConsumption:unverified` labels. The hash identifies a selected native
++receipt snapshot; it is **not** a Source version, client idempotency key, author
++proof or evidence that the model received/understood the input. The existing
++`author_source_unavailable`, unverified proposal references, unsaved candidate
++and publisher-off contract are unchanged. A failed observation cannot authorize
++anything; an ordinary unconfirmed proposal may still be returned as such.
++
++The observer accepts only the configured agent's ordinary agent dispatch with
++matching explicit session keys, run ID, recorder and cancellation signal. It
++retains at most 32 live run references. Cancellation and an exactly matched
++`agent_end` release them. Repeated identical dispatch is passive; changing the
++recorder, lifetime, session or an already-observed native admission makes that
++run ambiguous. Restoring old metadata cannot revive it. Same-session concurrent
++runs are addressed by exact run ID, never by a latest-session lookup. Missing
++fields are reported unavailable; the code does not invent them from text or
++owner status. `agent exec` and direct tool RPC without this ingress still cannot
++provide current-input observation. No registry is persisted across requests or
++processes, and no new identity/permission service is introduced.
++
++This local implementation has **24/24 synthetic focused cases** (9 new metadata
++cases, 5 ordinary-plugin cases and 10 request-binding cases), plus successful
++TypeScript compilation. The callbacks were driven by fixtures through the real
++plugin registration/factory code, not by a live Host or model. During recovery,
++the local `node_modules/openclaw` symlink was found to resolve to global SDK
++**2026.10.9**, while the project manifest/lock retain **2026.10.8**. Those files
++and the global installation were preserved. The new compilation/test results
++belong to 10.9; they do not revalidate the historical 10.8 artifact or establish
++the running Gateway's version. Details, source hashes and the exact local delta
++are recorded in [the implementation receipt](../.task-control/reports/CORE-VAL-001/current-input-metadata-20261102.json).
++
++The candidate has **not been loaded into main**. The user's shared selfie debug
++instance, its configuration, processes and ports were untouched. Review this
++local package first. The next integration check must prove actual dispatch
++lifetime/receipt timing in a separately permitted synthetic run; no old exhausted
++Host or paid-model quota is reused. Trusted sender-to-author mapping, original
++text/normalization evidence, Source/version/purpose qualification and semantic
++adoption remain separate missing capabilities. Do not wire the offline author
++qualifier or enable publication merely because native metadata was observed.
+--- a/PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -731,3 +731,18 @@
+   failed_nodes: full prepare unit-test gate, probes skipped, verify missing prepared.json; experimental source-and-test gate; downstream formal consumer null
+   native_cleanup: actual childexit1 without signal/timeout/kill; groupGone true; stdio complete; ownedWork complete0pending; cleanup removed
+   scope_limits: only first blockers and oldCore local static imports; Host/externalSDK/product defects not excluded; full suite/formal acceptance not passed
++
++# 2026-11-02 local ordinary-plugin implementation candidate; not installed or model acceptance.
++current_input_metadata_candidate_20261102:
++  module: src/openclaw/current-input-metadata.ts
++  evidence: .task-control/reports/CORE-VAL-001/current-input-metadata-20261102.json
++  scope: passive public dispatch-to-candidate native receipt metadata only; no text/source/author qualification
++  focused_synthetic_tests: 24/24
++  sdk_tested: 2026.10.9
++  manifest_and_lock_retained: 2026.10.8
++  sdk_drift_scope: node_modules symlink resolves to global SDK10.9; not a running Gateway version observation
++  typecheck: passed
++  live_activation: false
++  author_confirmation: false
++  publisher: false
++  actual_host_or_model_consumption: not_tested

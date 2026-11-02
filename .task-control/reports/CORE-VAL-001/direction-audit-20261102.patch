@@ -1,0 +1,141 @@
+--- a/docs/09-REQUIREMENTS-ALIGNMENT.md
++++ b/docs/09-REQUIREMENTS-ALIGNMENT.md
+@@ -53,11 +53,28 @@
+ 
+ ### 1.4 本轮架构深化先检验纠正闭环（2026-09-07 已确认）
+ 
++当前开发顺序已由下文 [2026-11-02 的新决定](#forward-understanding-priority)替代；本节保留九月决定的历史原文，不据此继续把纠正闭环排在正向理解之前。
++
+ 本轮先推进“用户纠正一次，当前回答、持久理解、Host 摘要和下次会话都不再重复旧错误”的完整流程，再展开事项接续与长期整理。原因是后二者依赖可靠的来源关联、理解更新及代际一致性，否则可能恢复或强化旧错误。
+ 
+ 这是架构设计的推进顺序，不取消事项接续、长期整理或其他已确认能力，也不改变 Alpha 出口或授权启动实现。已确认的当轮应用和持久化要求继续有效。
+ 
+ 2026-09-07 本轮访谈已由用户最终确认结束，共识包括：纠正闭环优先、当前事项可继续而其他受影响事项后台重评、区分事实有效时间与实际判断回溯、保留重要判断及实质修订的踪迹。相关要求见 §5.3、§6.3，架构取舍见 D-055／D-056。时间字段、待重评状态格式、批次操作关系和投递协调仍属于后续工程设计，不表示完整实现方案或运行能力已交付。
++
++<a id="forward-understanding-priority"></a>
++### 1.5 当前开发顺序：先正向理解已有数据（2026-11-02 已确认）
++
++用户于 2026-11-02 03:10 UTC 明确调整当前排程：
++
++> Core 的纠正理解能力很重要，但在此之前更重要的是对已有数据的正确理解，这涉及到记忆召回、语义理解与路由等，先把正向的理解做好，再做反向的召回这条线，不要搞错顺序
++
++因此，当前优先打通已有资料的正向理解：理解输入问题的含义，按相关性与来源规划检索／召回，必要时回读原始材料并区分作者／角色、时间、事实与推断，再完成语义路由与有依据的回答或澄清。检索、路由和理解可以相互迭代，不据此设计只能前进一次的硬流水线。多变自然语言的选择与路由继续由 LLM 作结构化语义判断，确定性代码只做校验、边界和执行。
++
++原话中的“反向的召回”保留其原貌；当前排程以“先已有数据的正向理解，再推进纠正理解及后续传播”执行，不能机械解释成暂停前述记忆召回，也不据此新增另一类未经确认的召回产品能力。九月 §1.4 的顺序由本条替代，纠正闭环及完整产品目标并未取消。
++
++用户同日进一步明确数据层前置：“沧海项目中的新数据结构的设计完成了吗，实际装入当前 Stella Core 的开发环境了吗？对旧数据的转化完成了吗，数据层是 Stella Core 的基础，也是要先行完成的才对”。因此当前顺序是：**先确认并补齐所选资料范围的数据结构、必要旧数据转换与 Core 开发环境接入，再验证正向理解，之后推进纠正及传播。** 这是对既有数据接入／迁移要求的再次强调，不是今天才提出的新产品目标。须分别核实设计、实际转换覆盖、当前消费绑定，不能以目录存在、历史曾加载或合成草稿 CRUD 互相替代；也不要求全量私人资料大迁移完毕后才允许任何独立设计或合成工程。
++
++候选工作说明的 CRUD、手动 briefId、`stella-continue` 及入站元数据观察均是有限工程脚手架，不能冒充已经正确理解已有数据，亦不作为当前主里程碑。优先复用 OpenClaw 原生会话、模型、搜索／索引、文件读取及工具循环，再补 Core 的来源、语义和证据使用缺口。本条不新增私人资料、账号、模型费用、共享 Host 操作或生产部署授权；具体任务状态仍以唯一台账为准。
+ 
+ ## 2. OpenClaw、Stella Core 与沧海的边界
+ 
+--- a/docs/10-DESIGN-BASELINE.md
++++ b/docs/10-DESIGN-BASELINE.md
+@@ -1,4 +1,6 @@
+ # 现行设计基线与验收口径
++
++2026-11-02 当前优先级已按用户新决定调整：先确认并补齐所选范围的数据结构、必要旧数据转换及开发环境接入，再完成已有数据的正确召回、来源／语义理解、路由与回答，之后推进纠正理解及传播。唯一需求正文见 [需求 §1.5](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)，数据接入事实见 [两仓协调记录](CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102)；它替代九月“纠正优先”的当前排程，保留其历史和能力要求。下列带日期方案／旧计划不自动恢复该旧顺序，也不以候选 CRUD 或显式续谈替代正向理解。
+ 
+ 2026-10-30 经理研究取舍交接：[本期Core架构与工作包](design/2026-10-30-core-realignment/README.md)保留官方memory-core、原生context/Agent Loop，以普通插件补来源及单资产语义发布；ARCH-02/03/04仅有限研究已交付，运行门槛仍待证。此为文档候选，不是用户整体批准或已实现；任务状态以[唯一台账](../.task-control/state.json)为准。下文旧分层/旧工具先行排程及D063保留原时间身份，不作为本期先修旧runner的前置。
+ 
+--- a/docs/MAIN-DEBUG-INSTALL.md
++++ b/docs/MAIN-DEBUG-INSTALL.md
+@@ -101,9 +101,17 @@
+ 2026-11-02 补记既有用户要求与工程取舍，供后续开发和交接必读；不是新的架构决定。
+ 
+ - **核心目标**仍是私人 Agent 对用户的长期理解、纠正与接续，不能把插件壳、存储 API 或 CI 数量作为完成目标。完整产品要求见 [需求记录 §1](09-REQUIREMENTS-ALIGNMENT.md#1-产品目标与完整功能)。
+-- **工程路线**沿用本文件的官方普通插件接入，保留 OpenClaw 原生 memory-core、context 与 Agent loop；Core 补来源和工作说明的职责取舍，以 [重对齐方案](design/2026-10-30-core-realignment/proposal-reviewed-draft.md)为准，不另造一套宿主或重复记忆权威。
++- **工程路线**沿用本文件已获准实施的官方普通插件接入，保留 OpenClaw 原生 memory-core、context 与 Agent loop；[重对齐方案](design/2026-10-30-core-realignment/proposal-reviewed-draft.md)记录经理对来源和工作说明的工程取舍，不取代已确认产品需求，也不是用户对全部草案的批准。不另造一套宿主或重复记忆权威。
+ - **推进方式**按用户已明确的纠正：先做能安装的最小新架构版本，在既有实际 Host 中调试，围绕真实问题修复并逐步优化。先核查和复用已有能力，避免把外围合成验证链、旧私有桥或26项历史失败的修复当作普通插件开工前置。旧失败与未完成要求仍保留，不通过删测试、放宽门禁或复活旧桥来改绿；旧模块处置仍依 [方案 §6](design/2026-10-30-core-realignment/proposal-reviewed-draft.md#6-旧模块处置与阶段边界)。
+ - **证据分层**：安装／技能可见、真实工具读改、模型实际消费和语义效果分别出证。候选保存与恢复不等于长期理解，工具回执不等于模型已采用；可信原文／作者来源和完整记忆的未验范围，以 [工作说明接续](CANDIDATE-WORK-BRIEF.md#explicit-continuation)及具体报告为准。当前执行进度仅见 [唯一状态索引](../.task-control/state.json)，不从本文的历史代次恢复任务。
++
++### 当前主线与工程脚手架
++
++当前开发优先级由 [需求 §1.5 的2026-11-02决定](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)统一维护：数据结构／必要转换／开发接入先行，再做已有资料的正向理解、召回、语义路由和回答，之后推进纠正及传播。此前“先纠正”的开发排序不再调度；完整纠正目标和验收要求保留。具体执行状态和恢复条件只在唯一台账维护，不从本文历史安装记录恢复任务。当前数据源与已安装普通插件的接入区别见 [两仓数据基础核查](CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102)。
++
++工作说明仍可作为以后纠正闭环的单资产载体。候选 CRUD、手动 briefId 和 `stella-continue` 只是当前合成调试脚手架，不是 Stella 的完整产品形态，也不是用户被要求永久采用的交互方式。不能把合成回读、字段齐备或 hash 匹配升级为模型已经理解和采用；真实工具供给、模型消费与回答仍需各自证据，且不把检索和路由僵化成单向硬流水。
++
++当前 `publisher off` 是尚未闭合来源与语义验收时的运行边界，不是产品永久逐次审批规则。[主动交付资料的默认整理权](09-REQUIREMENTS-ALIGNMENT.md#41-用户主动交付资料的默认整理权已确认)仍有效。真实私人来源接入、付费模型调用及共享 Host 操作各按实际授权；局部缺授权不阻塞其他已授权工程，技术夹具也不代替真实消费者和作者效果验收。
+ 
+ ### 设备与跨项目依赖
+ 
+--- a/docs/CANDIDATE-WORK-BRIEF.md
++++ b/docs/CANDIDATE-WORK-BRIEF.md
+@@ -5,6 +5,17 @@
+ unresolved questions and opaque, unverified references. It does not confirm the
+ author, publish an author position or write Core's authoritative long-term
+ memory. The existing `stella_author_intent_candidate` remains unsaved.
++
++This is engineering scaffolding, not a replacement product goal. The owner's
++2026-11-02 priority is the necessary data structure, legacy conversion and actual
++development-source integration first, then correct understanding of existing data
++through semantic recall, source interpretation, routing and grounded answers,
++before expanding correction/propagation or continuation features; see the single current decision
++in [requirements §1.5](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority).
++`stella-continue` is the implementation's name for this explicit synthetic-debug
++entry, not a user-chosen name for Stella or a requirement to issue a command and
++manage brief IDs in everyday use. Its narrowness is intentional for the fixture;
++it cannot define the full product or justify postponing correction semantics.
+ 
+ This increment is restricted to a **synthetic debug** store.
+ It uses the existing author-intent v1 asset and Git transaction repository, not
+@@ -265,3 +276,21 @@
+ text/normalization evidence, Source/version/purpose qualification and semantic
+ adoption remain separate missing capabilities. Do not wire the offline author
+ qualifier or enable publication merely because native metadata was observed.
++
++### Independent review: metadata candidate not accepted
++
++The earlier 24/24 is the author's focused synthetic test result, not independent
++acceptance. The coordinator subsequently reported a P2 defect: receipt fields
++are read through getters repeatedly, allowing validation and the eventual hash
++to describe different scalar values; four independent counterexamples were
++unexpectedly accepted. Their result was relayed by the parent review and was not
++rerun in this documentation audit. Source/author qualification and publisher
++still remain off; this is not evidence of an accepted source binding.
++
++The candidate is paused and must not be loaded or pushed as accepted. The narrow
++required fix is to read each selected scalar once into a stable plain snapshot,
++then validate and hash only that snapshot, adding the independent counterexamples
++to the regression set. That is a prerequisite repair only where this observer is
++needed; it is not the next product milestone or a reason to block independent
++correction-loop engineering. The existing code and both passing/failing evidence
++retain their identities. No runtime fix was performed in this direction audit.
+--- a/docs/CORE-CANGHAI-COORDINATION.md
++++ b/docs/CORE-CANGHAI-COORDINATION.md
+@@ -124,3 +124,18 @@
+ 复制改变，没有同步／安装到旧消费者。它与领域投影候选、私密录入分别交付，不能互相
+ 冒用版本或授权。下一项只读 Understanding 供给沿用既有格式与权限，无需沧海改 schema；
+ 本轮三轮同包机制验收通过；真实语义质量、main 及完整能力不据此通过。
++
++<a id="data-foundation-snapshot-20261102"></a>
++## 2026-11-02 数据基础与当前消费绑定核查
++
++本次只读设计、Git 元数据、迁移清单／catalog 聚合统计与 Core 配置的指定结构字段；没有读取资料正文、金融持仓、凭据或原始会话，没有迁移、重建索引、改配置或运行 Host。当前排程的唯一需求正文见 [需求 §1.5](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)。
++
++| 层次 | 当前可证事实 | 不能据此推导 |
++| --- | --- | --- |
++| 设计 | CangHai `50_PersonalAgent/design/stella-redesign/02-Stella-数据架构规范.md` 标为架构基线 v0.21，2026-10-26；V1 完整方案及 DS-01～04A／RT 契约已固化，DS-04B 完整治理后置。迁移生产者独立分支 `codex/knowledge-migration-v1@2ea285d98d21c0882092582141aac92f93fa432a` 干净，含 `99_System/Scripts/knowledge-migration/` 的 plan/review/materialize 工具和具体转换文档。 | 设计已定不等于全部数据已转换，也不证明与当前普通插件已接通。CangHai 的独立访谈状态仍有自己的范围，不能覆盖 Core 唯一执行台账。 |
++| 实际转换 | 独立本机源 `stella-sources/migration-v1` 当前为 `local/knowledge-migration-v1@112be540a3988af53d1076a38f8f1c155da7a745`、工作区干净；有 `30_Knowledge/migration-v1/{converted,runtime}` 与 manifest/profile。物化 manifest 的 hash 与原报告一致，记录1167原始文件保留、98 Source v2、342新 Evidence、200原历史 Source；供给投影当前复核为97 current来源／362描述符。runtime catalog 另有98 current来源／347 current Evidence。 | 这是有限迁移集，不能说从未转换或已经全迁完。审计表374描述符；供给表排除3个能力门槛来源及1个 native 快照，保留历史。`understandings/works/changes/bundles/views` 仍为空；转换器对非空派生对象明确返回待重评，不是完整理解／持续工作迁移器。本轮仅复核清单和统计，未重新读取1167份原始正文逐字节验收。 |
++| 历史与现在的接入 | 父任务补充的已核历史记录表明：2026-10-27曾批准并切换上述97／362有限集，旧 checkpoint 路线曾完成真实问题读取。**当前普通插件**的配置却仅有 `agentId`、`publisher:false`、独立合成 `candidateDraftsRoot`；无 `canghaiRoot/manifestPath`。配置所指安装产物静态仍返回 `sourceAdapter:not_connected`、`currentInputAdmission:not_connected`。 | 不能把“过去旧 checkpoint 已加载”写成“本期普通插件仍在消费”，也不能反过来说从未接入。当前合成草稿演示不是已有资料召回。配置／产物静态核查不等于本轮已调用 Gateway 或验证实时索引。 |
++
++CangHai 主工作区仍为生产 `dev@c050a046f48837f755c9b3f10bba2910d5218083`，两个已有 tracked 差异未触碰；其根目录没有 `30_Knowledge`，不能据此否认上述独立副本。既有 `stella-sources/main@644eafa63db75231fabc376129d56c02835cef8f` 是另一个旧源，不能自动替换显式源。迁移副本旧 manifest 内的 `active`、8.2版本标记和 `full_memory` profile 是文件中的历史声明，不是当前 main 已启用证明。
++
++下一有限前置是对齐这份**已存在**的迁移集与新普通插件所需读取契约：固定源 revision、manifest/profile/catalog、语义描述符和用途边界，先用等价合成目录验证解析、来源版本／角色／时间、允许／拒绝及引用闭包，再提出精确的开发绑定方案。复用既有 CatalogReader、原件／策略校验和可用的原生搜索／文件读取；不重建迁移平台、不机械转换非空理解资产、不自动切 dev 或消费指针。真实资料读取／模型发送及实际 main 接入分别核其既有有效授权；本核查未执行这些步骤。聚合 hash、范围和版本见 [本轮审查证据](../.task-control/reports/CORE-VAL-001/direction-audit-20261102.json)。
+--- a/PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -746,3 +746,14 @@
+   author_confirmation: false
+   publisher: false
+   actual_host_or_model_consumption: not_tested
++
++# 2026-11-02 direction/data-foundation read-only audit; execution state remains JSON-only.
++direction_data_foundation_audit_20261102:
++  requirement: docs/09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority
++  technical_snapshot: docs/CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102
++  evidence: .task-control/reports/CORE-VAL-001/direction-audit-20261102.json
++  ordinary_source_binding: not_connected_in_observed_config_and_installed_artifact
++  historical_migration_subset: preserved_and_previously_used_by_checkpoint_route
++  nonempty_derived_object_conversion: not_complete
++  current_input_metadata_review: not_accepted_P2_repeated_getters_four_independent_counterexamples
++  host_model_migration_index_operations: none

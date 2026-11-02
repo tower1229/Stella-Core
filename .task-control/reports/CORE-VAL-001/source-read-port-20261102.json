@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "phase": "local_implementation_focused_tests_complete_pending_independent_review_no_live_activation",
+  "observedAt": "2026-11-02T04:11:34.021922+00:00",
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "baseRevision": 91,
+  "implementationOwnerRevision": 92,
+  "delivery": {
+    "module": "src/openclaw/ordinary-source-read.ts",
+    "ordinaryFactory": "createOrdinaryPlugin",
+    "tool": "stella_source_read",
+    "config": "optional sourceRead:{root,manifestPath,revision}",
+    "fixedRootAndManifestToOriginalRead": true,
+    "trustedIssuerDefault": "absent; config/root/owner/tool arguments cannot issue source access",
+    "issuerIsCodeIntegrationGapNotJustEnableFlag": true,
+    "existingKernels": [
+      "parseConsciousnessManifest",
+      "parseRuntimeProfile",
+      "parseCangHaiRef",
+      "CatalogReader",
+      "EpisodeEvidenceResolver",
+      "Source-base AND segment policy checks"
+    ],
+    "selection": "exact selected Git HEAD, clean checkout, manifest/profile/catalog and selected dependency/payload blobs pinned; no observed-HEAD adoption",
+    "lifetime": "fresh reader/admission per invocation; original Host and admission guards captured and checked around awaits; no cross-request reader/permission cache",
+    "readResults": [
+      "original text",
+      "Evidence ref/version",
+      "Source ref/version",
+      "payload hash and selector",
+      "recorded role/kind",
+      "occurredAt/authoredAt/capturedAt",
+      "coverageComplete",
+      "usage constraints",
+      "catalog generation/hash and Git revision"
+    ],
+    "list": "32 metadata rows per catalog-hash cursor; metadata admission before disclosure; no payload read/ranking; time exclusions explicit; question sufficiency not assessed",
+    "failure": "no root-manifest fallback, implicit latest version, empty-success fallback, truncation or write; UTF8 selected bytes round-trip checked; inherited BOM projection rejected explicitly",
+    "noNewStoreMigrationPlatformWriterOrAuthorQualification": true,
+    "noModelClientOrLexicalRouting": true
+  },
+  "actualContractMatch": {
+    "source": "prior authorized structure/manifest check of migration-v1; no private payload read for this implementation",
+    "sourceCommit": "112be540a3988af53d1076a38f8f1c155da7a745",
+    "manifest": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+    "manifestSha256ObservedInPriorAudit": "bd782c90acedc82a202e0e0d149fd4c44ef79718b6e7e30097de6da88babf7a8",
+    "manifestSchema": "stella.consciousness-manifest/v1",
+    "identityAndRuntimeStateProfileRefs": "both path:50_PersonalAgent/stella/knowledge-migration-v1/runtime-profile.json",
+    "runtimeProfileSchema": "stella.runtime-profile/v2",
+    "profileSha256ObservedInPriorAudit": "d89bccca812a0187f56c2a645b93204c8214917a93e9c235f4bff850cb21f243",
+    "memoryCatalogRef": "path:30_Knowledge/migration-v1/runtime/catalog.json",
+    "catalogSchema": "stella.memory-catalog/v1",
+    "sourceSchema": "stella.memory-source/v2",
+    "rootYaml": "different historical profile pointer; never substituted",
+    "fullMemoryLabel": "serialized declaration only, not activation/capability acceptance",
+    "fixture": "same selected manifest/profile/catalog paths and contracts; all source/identity/permission data synthetic; non-read bootstrap/identity references absent to verify narrow loading scope"
+  },
+  "verification": {
+    "nodeVersion": "v24.22.1",
+    "actualLocalSDK": "2026.10.9",
+    "projectManifestLockSDK": "2026.10.8 unchanged",
+    "typescript": {
+      "initialExit": 0,
+      "finalExit": 0,
+      "command": "node node_modules/typescript/bin/tsc -p tsconfig.test.json --outDir TASK_TMP/compiled --sourceMap false --declaration false"
+    },
+    "firstRun": {
+      "tests": 36,
+      "pass": 34,
+      "fail": 2,
+      "exitCode": 1,
+      "stdoutSha256": "ca475422326fc44de06bfa5dc579a64b72e42e35d71441068fad74e4bd57090a",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "details": [
+        "path traversal rejected through inherited raw path error instead of stable source_binding_invalid; rejection category normalized",
+        "forbidden scenario correctly rejected as source_scenario_forbidden; test incorrectly expected generic permission_denied"
+      ],
+      "initialSourceHashes": "not separately frozen; no immutable initial-code replay claim"
+    },
+    "finalRun": {
+      "tests": 37,
+      "pass": 37,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "exitCode": 0,
+      "newSourceGroups": 11,
+      "retainedOrdinaryGroups": 5,
+      "retainedBindingGroups": 10,
+      "retainedDraftContinuationGroups": 11,
+      "startedAt": "2026-11-02T03:56:47.692265+00:00",
+      "finishedAt": "2026-11-02T03:56:59.377296+00:00",
+      "stdoutSha256": "dfd0c11222d21fd86171e1f7f1a11c95bb5a92aefc1c1f99b7faba11cb320e78",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "coverage": [
+      "selected real-contract manifest/profile/catalog without bootstrap expansion",
+      "metadata roles/times with no original reads",
+      "exact source original/version/selector and dual policy",
+      "no config/owner/tool-param permission issuer",
+      "ordinary v2 factory with explicit synthetic issuer",
+      "sandbox/workspace/original guard",
+      "metadata/policy denies explicit",
+      "revision/dirty/evidence-version failures",
+      "profile conflict/wrong-agent/missing manifest no fallback",
+      "pagination/stale cursor",
+      "time/capacity no truncation",
+      "UTF8 byte identity and BOM limitation",
+      "cancellation and admission guard replacement"
+    ],
+    "semanticLimit": "fixed synthetic permission judgments; not real semantic selection/understanding or model consumption",
+    "liveHost": false,
+    "models": 0,
+    "fullSuite": "not_run",
+    "packOrInstall": "not_run",
+    "sourceHashesCapture": "after successful run/recovery; no pre-run source-freeze claim"
+  },
+  "metadataP2": {
+    "dependency": false,
+    "moduleAndTestsUnchangedFromTaskStart": true,
+    "status": "independently unaccepted, four abnormal accepts retained; not enabled on main",
+    "oldWiring": "pending observer remains imported/registered in mixed local ordinary entry; unchanged observer not invoked by source tool",
+    "combinedArtifactApproval": false,
+    "beforeAnyCombinedActivation": "exclude or separately repair/review P2 wiring; these37passes do not approve it"
+  },
+  "sourceFiles": {
+    "src/openclaw/ordinary-source-read.ts": "ffb6f038f684f0ebf144bc8d79dffbeb7f738800ce26b0637ddd39b4d34e21b8",
+    "src/ordinary-plugin.ts": "7a8c1a369a23d6347ce6bde422d3633d4986945608ce3aa8bc7209b4c22dedc0",
+    "tests/ordinary-source-read.test.ts": "d58c948b62a8f45990d74a32558db55e86bb4edcf863b5c02a9c7628b50d3442",
+    "tests/ordinary-plugin.test.ts": "ae284eb682e3fc4815b645f9b242c3f640a4e4058ee1d4509ad5ffe8348bf9c2",
+    "openclaw.plugin.json": "e2dd21013ae5cce8a1e85493c5d6cf64ae75951e13ee38cf79a3a3bc35d61960",
+    "package.json": "30b44c2addf9478afa4e23ae526cfa1c18666e3406b7ed2a0850ea61e19a2e05",
+    "docs/ORDINARY-SOURCE-READ.md": "1b1991314f8ab7b4a04f9f83550a5cd59dc365ad834702df5f072155dad4d446",
+    "docs/MAIN-DEBUG-INSTALL.md": "5c53110c5fc3bf65f43d2e0f73a5b613ba079821be1ab9ddbcf6ddc96ecc6745",
+    "docs/CORE-CANGHAI-COORDINATION.md": "6a89f5c768e08291fa9ecaf37bd2855c6a11af29fd2c208f26ba40b79cebacb8",
+    "PROJECT-STATE.yaml": "c1819d9eda5b14195458ef9fa78f540cf08cc261a30c66de68690e81e18b72e2"
+  },
+  "compiledArtifacts": {
+    "src/ordinary-plugin.js": "3a7671de1059d26c15c47a098a8d5bfe415560b66088d785f84bf1310f2c29e8",
+    "src/openclaw/ordinary-source-read.js": "5f8162344116d1bc1d55ad9c30a14f14e1d674cc28fec279cfac292698b49fa8"
+  },
+  "incrementPatch": {
+    "ref": ".task-control/reports/CORE-VAL-001/source-read-port-20261102.patch",
+    "sha256": "3a417b3d337ccb6dd875f931c7dd1c7bd1a4673b2a54fa792b458f82463bde71",
+    "baseline": "task-start dirty bytes; only this increment, not earlier unrelated/P2 scope"
+  },
+  "priorDirty": {
+    "otherFilesPreserved": 64,
+    "allOtherCapturedBytesMatch": true,
+    "indexEmpty": true
+  },
+  "recovery": {
+    "archiveAttempt": "exec-server CreateProcess transport disconnected/recovery timed out; no archive process created",
+    "laterPermissionState": "environment unavailable and repository writes withdrawn; stopped without alternate channel",
+    "restoration": "parent supplied restored Mac authorization plus runtime write roots; state92 and receipts read first",
+    "absenceConfirmedBeforeArchive": [
+      "source-read-port report",
+      "source-read-port patch",
+      "PROJECT source-read append"
+    ],
+    "testsRepeatedOnRecovery": false
+  },
+  "actualPrivateBindingStillMissing": [
+    "code adapter from supported public Host current request to existing source/processing-admission checks; default entry has no issuer",
+    "explicit selected private root/manifest/revision and exact currently valid reviewed scopes",
+    "independent package review and nonconflicting applicable activation/declared-surface review before main use"
+  ],
+  "minimumTrustedEvidenceNeeded": {
+    "request": [
+      "Host-resolved agent/session incarnation and actual tool call",
+      "original invocation guard and cancellation lifetime",
+      "actual current user request from supported producer, never prompt/history/model parameters guessed as authority"
+    ],
+    "source": [
+      "selected root/revision/manifest/profile/catalog tuple",
+      "existing metadata/body processing scopes, precise reviewed source/segment descriptors and base/leaf policies",
+      "model/purpose/audience compatibility under existing authority, not owner/root status"
+    ],
+    "reuseAuthorization": "first check exact existing authorizations, including historical97source/362descriptor selected scope; do not demand a new grant merely because of recovery",
+    "ifExistingScopeInsufficient": "report the exact additional root/source/segment, read vs model-processing purpose and requester/model/audience change; do not create new trust or grant automatically",
+    "noNewAuthorizationOrGrantPerformed": true
+  },
+  "nextForwardRequestPackage": {
+    "minimum": "wire the actual request to SourceReadAdmission; native Agent/public supported search or qualified descriptors choose refs -> exact source read -> follow material leads -> grounded answer or clarification",
+    "semanticOwnership": "native Agent or existing structured LLM ports; no private-local memory consumer import or duplicated router/index",
+    "currentPermittedEngineering": "local adapter code and synthetic allow/deny contracts; no paid model/private payload/shared Host use",
+    "laterModel": "google/gemini-3.8-flash low under separately valid call/material scope; previous quota not reused"
+  },
+  "noActions": [
+    "shared Host/config/process/port/reload/consent changes",
+    "private source payload/finance/credential reads or model transmission",
+    "CangHai/production dev changes or migration/index rebuild",
+    "model/network/service calls",
+    "new trust/account/grant",
+    "business-root staging/commit/push",
+    "old process/group/log probes"
+  ]
+}

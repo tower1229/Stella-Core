@@ -1,0 +1,670 @@
+{
+  "schemaVersion": 1,
+  "phase": "local_combined_request_source_adapter_candidate_pending_review_not_live",
+  "observedAt": "2026-11-02T04:51:47.199967+00:00",
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "baseRevision": 95,
+  "implementationRevision": 96,
+  "mainOutcome": "Current request can list only reviewed metadata and read exact authorized original through ordinary public hooks/factory in a synthetic equivalent selected repository; default entry now implements the thin issuer, no actual source binding or Host use",
+  "reviewBoundary": {
+    "frozenPreviousManifest": ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/MANIFEST.json",
+    "sha256": "27c6334769f08cf6247a0cce4ca12d9a664a0fbc41bde5240fbf8ab266255a04",
+    "files": 9,
+    "previousReportSha256": "735d1f3d5e7f8f842869347abc89c1dfe38ddb4ba0f7083a5cbd74c7d1ccf90f",
+    "previousIndependentResult": {
+      "sourceSummarySha256": "bfc3d5c8b678e92f7de7bc9d0ea998a28c9cda9e1a3e80a1a9b37968ebb5114f",
+      "baseline": {
+        "tests": 51,
+        "pass": 51
+      },
+      "extraProbes": {
+        "tests": 9,
+        "pass": 7,
+        "fail": 2
+      },
+      "metadataP2": "closed through actual hooks/factory/candidate; unchanged in this package",
+      "sourceReadTwoFailures": "retained historical synthetic defects; no real private leakage incident"
+    },
+    "newIncrementBaseline": "frozen state95 nine-file bytes, unchanged HEAD bytes for optional Evidence guard, state96 before-docs for three technical documents; no state rollback"
+  },
+  "implementation": {
+    "module": "src/openclaw/ordinary-source-admission.ts",
+    "request": "only configured sourceRead collects public normalized rawText in memory; actual dispatch/run/session + committed native metadata, exact tool hook/call/incarnation, original v2 guard/cancellation, Host requester/owner-private audience and model",
+    "noIdentityFabrication": "BoundTurnRequest is derived from matching public Host facts plus exact existing requester scope, not tool params/history/session-latest; receipt hash alone never grants rights or author confirmation",
+    "scope": "main only; one existing requester; existing personal_context/personal_understanding/owner-direct; exact reviewed Source-version, base/leaf policy and segment locators; missing or changed scopes deny",
+    "kernels": [
+      "loadPersonalContextAccess",
+      "createPersonalContextAccess",
+      "assertPersonalSourceMetadata",
+      "bindProcessingAuthority",
+      "snapshotTurnRequest",
+      "CatalogReader",
+      "EpisodeEvidenceResolver"
+    ],
+    "selection": "grant selected only through unique source_access_context capability of explicit manifest/profile; manifest/profile/grant bytes pinned to configured clean full Git revision; reader catalog must match selected profile",
+    "list": "explicit false is descriptor-scope exclusion; list gives no excluded row IDs/bodies and counts scope/time exclusions separately; arbitrary metadata errors still fail",
+    "read": "scope checked first, then existing structured semantic SourceAccessProvider and dual-policy kernel; no lexical routing or allow-all substitute",
+    "lifetime": "bounded32turn/128pending-call storage, cancellation/end release; no persistent/cross-request qualification; each new user input/selected scope requalifies",
+    "noAutomaticCapabilities": [
+      "learning",
+      "memory or source writing",
+      "publication",
+      "operator recovery/compaction/acceptance",
+      "new requester/model grant"
+    ],
+    "metadataPolicy": "Exact descriptor membership plus Source-base and Evidence-leaf owner/derive-purpose processing checks; reviewed metadata membership cannot override leaf restrictions"
+  },
+  "reviewRepairs": {
+    "lifetime": "captured request guard before and after sourceAccess await; optional readEvidence assertBeforePayload callback checks same guard immediately before first payload, including expiry during coverage await",
+    "projection": "fresh Source{id,version} and selector{kind,value} outputs; no arbitrary stored extra fields",
+    "newSourcePortRegressionGroups": 3
+  },
+  "modelPort": {
+    "providerModel": "google/gemini-3.8-flash",
+    "thinking": "low",
+    "samplingParameters": [],
+    "sourceAccessInput": "current normalized request plus one existing reviewed descriptor/policy; no original payload in source judgment",
+    "runtime": "public api.runtime.llm.complete, explicit main/model; rejects configured fallbacks and mismatched result/execution",
+    "hostCapabilityBoundary": "must already permit exact agent/model completion or reject; plugin LLM allowAgentIdOverride/allowModelOverride may be required if runtime is not already appropriately bound/authorized; no such permission/config was read or added here",
+    "actualCalls": 0,
+    "testSeam": "fixed synthetic JSON verdicts through internal code-only completion injection, not semantic evaluation or runtime dispatcher validation"
+  },
+  "verification": {
+    "nodeVersion": "v24.22.1",
+    "actualLocalSDK": "2026.10.9",
+    "projectManifestLockSDK": "2026.10.8 unchanged",
+    "compileExitCodes": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "initialFocused": {
+      "tests": 61,
+      "pass": 60,
+      "fail": 1,
+      "exitCode": 1,
+      "failure": "disabled source adapter unnecessarily read rawText in the existing narrow metadata fixture; fixed by collecting source request fields only when sourceRead configured, no test relaxation"
+    },
+    "finalFocused": {
+      "tests": 63,
+      "pass": 63,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "exitCode": 0,
+      "groups": {
+        "candidateBrief": 11,
+        "metadata": 14,
+        "ordinary": 5,
+        "toolBinding": 10,
+        "sourceRead": 14,
+        "sourceAdmission": 9
+      }
+    },
+    "probeReplay": {
+      "originalScriptSha256": "7395d0e29f49b5742ab3b4f943023c1cb84a8bcf7e6c3a2855a46856d1d3b1ae",
+      "rewrite": "imports redirected to immutable baseline or current compiled output; only result destination redirected, original evidence not overwritten",
+      "red": {
+        "tests": 9,
+        "pass": 7,
+        "fail": 2,
+        "results": [
+          {
+            "name": "request-expires-inside-source-access",
+            "pass": false,
+            "payloadReads": 1,
+            "responseCode": "request_expired",
+            "bodyReturned": false
+          },
+          {
+            "name": "dual-policy-denies-synthetic-base",
+            "pass": true,
+            "payloadReads": 0,
+            "responseCode": "source_scenario_forbidden",
+            "bodyReturned": false
+          },
+          {
+            "name": "dual-policy-denies-synthetic-leaf",
+            "pass": true,
+            "payloadReads": 0,
+            "responseCode": "source_scenario_forbidden",
+            "bodyReturned": false
+          },
+          {
+            "name": "cancel-during-source-judgment",
+            "pass": true,
+            "payloadReads": 0
+          },
+          {
+            "name": "extra-source-reference-content-not-released",
+            "pass": false,
+            "listStatus": "listed",
+            "readStatus": "read",
+            "listLeaks": true,
+            "readLeaks": true,
+            "sourceRefKeys": [
+              "extraPrivateBody",
+              "id",
+              "version"
+            ]
+          },
+          {
+            "name": "original-getter-agentId",
+            "pass": true,
+            "reads": 1
+          },
+          {
+            "name": "original-getter-sessionId",
+            "pass": true,
+            "reads": 1
+          },
+          {
+            "name": "original-getter-sessionKey",
+            "pass": true,
+            "reads": 1
+          },
+          {
+            "name": "original-getter-storePath",
+            "pass": true,
+            "reads": 1
+          }
+        ]
+      },
+      "green": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "results": [
+          {
+            "name": "request-expires-inside-source-access",
+            "pass": true,
+            "payloadReads": 0,
+            "responseCode": "request_expired",
+            "bodyReturned": false
+          },
+          {
+            "name": "dual-policy-denies-synthetic-base",
+            "pass": true,
+            "payloadReads": 0,
+            "responseCode": "source_scenario_forbidden",
+            "bodyReturned": false
+          },
+          {
+            "name": "dual-policy-denies-synthetic-leaf",
+            "pass": true,
+            "payloadReads": 0,
+            "responseCode": "source_scenario_forbidden",
+            "bodyReturned": false
+          },
+          {
+            "name": "cancel-during-source-judgment",
+            "pass": true,
+            "payloadReads": 0
+          },
+          {
+            "name": "extra-source-reference-content-not-released",
+            "pass": true,
+            "listStatus": "listed",
+            "readStatus": "read",
+            "listLeaks": false,
+            "readLeaks": false,
+            "sourceRefKeys": [
+              "id",
+              "version"
+            ]
+          },
+          {
+            "name": "original-getter-agentId",
+            "pass": true,
+            "reads": 1
+          },
+          {
+            "name": "original-getter-sessionId",
+            "pass": true,
+            "reads": 1
+          },
+          {
+            "name": "original-getter-sessionKey",
+            "pass": true,
+            "reads": 1
+          },
+          {
+            "name": "original-getter-storePath",
+            "pass": true,
+            "reads": 1
+          }
+        ]
+      }
+    },
+    "kernel": {
+      "initial": {
+        "tests": 28,
+        "pass": 24,
+        "fail": 4,
+        "exitCode": 1,
+        "cause": "temporary compiled tree missing existing schemas lookup path"
+      },
+      "harnessRepair": "symlink task tmp/schemas to unchanged repository schemas; no code/test assertion change",
+      "final": {
+        "tests": 28,
+        "pass": 28,
+        "fail": 0,
+        "exitCode": 0
+      }
+    },
+    "noCountsSummed": true,
+    "receipts": {
+      "focused-1": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-source-admission.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-source-read.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/current-input-metadata.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-plugin.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/tool-request-binding.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/candidate-work-brief.test.js"
+        ],
+        "exitCode": 1,
+        "startedAt": "2026-11-02T04:38:06.730056+00:00",
+        "finishedAt": "2026-11-02T04:38:20.641828+00:00"
+      },
+      "focused-2": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-source-admission.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-source-read.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/current-input-metadata.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-plugin.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/tool-request-binding.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/candidate-work-brief.test.js"
+        ],
+        "exitCode": 0,
+        "startedAt": "2026-11-02T04:40:04.963098+00:00",
+        "finishedAt": "2026-11-02T04:40:21.542450+00:00",
+        "codeHashes": {
+          "src/ordinary-plugin.ts": "053723da7bac21efad4afa1e60aacc8022b748127b5b1e46df5a613869abf03d",
+          "src/openclaw/ordinary-source-read.ts": "697e8279689f65983b61ce5feff1f1485e650ecd5fac728466d5529e093e45ab",
+          "src/openclaw/ordinary-source-admission.ts": "a508fad4449b4408a003a740242f64dc3302261c5225027bd4d0122029ff2289",
+          "src/praxis/episode-evidence.ts": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d"
+        }
+      },
+      "kernel": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/episode-evidence.test.js"
+        ],
+        "exitCode": 1,
+        "startedAt": "2026-11-02T04:40:17.644780+00:00",
+        "finishedAt": "2026-11-02T04:40:18.630378+00:00"
+      },
+      "kernel-2": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/episode-evidence.test.js"
+        ],
+        "exitCode": 0,
+        "startedAt": "2026-11-02T04:41:21.752593+00:00",
+        "finishedAt": "2026-11-02T04:41:28.344168+00:00",
+        "harnessRepair": "schema lookup root links unchanged repository schemas; no runtime code or tests altered"
+      },
+      "focused-3": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-source-admission.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-source-read.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/current-input-metadata.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/ordinary-plugin.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/tool-request-binding.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-admission-20261102-khrcl_6d/compiled/tests/candidate-work-brief.test.js"
+        ],
+        "exitCode": 0,
+        "startedAt": "2026-11-02T04:50:18.102705+00:00",
+        "finishedAt": "2026-11-02T04:50:33.764095+00:00",
+        "codeHashes": {
+          "src/ordinary-plugin.ts": "053723da7bac21efad4afa1e60aacc8022b748127b5b1e46df5a613869abf03d",
+          "src/openclaw/ordinary-source-read.ts": "697e8279689f65983b61ce5feff1f1485e650ecd5fac728466d5529e093e45ab",
+          "src/openclaw/ordinary-source-admission.ts": "9d3c60f7cfbaf0e279dc3d292ba354f5e04ec52a3e71da9a6a512d383c675d7e",
+          "src/praxis/episode-evidence.ts": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d"
+        }
+      }
+    },
+    "outputHashes": {
+      "focused-1.stdout": "6384fbf88c759716524db7e5f3d64a3c044e555ac50ebfb731af035a428b2c16",
+      "focused-1.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "focused-2.stdout": "3b8342a4ba8f9afa064dfd6a88061f9e53dd44a4cadceb4974005bcedbbe2d3d",
+      "focused-2.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review-red.stdout": "564b5ddad52a68914ce9d8718e349876a5ec16956da64d91a896dcf62b3aef02",
+      "review-green.stdout": "df7329e4e44ba2ba55975770aa65ed1f6ce8d6b1b74ebf30c8c3a836d789ccd0",
+      "kernel.stdout": "a983736d868dfb0f7d4c616b1d49e13451ad801ed8cf9eefdaa4efb374757817",
+      "kernel-2.stdout": "a2aaefc13321b27f338af1259d60bcd5ab8ad5ba075a035c1cff1c151b2d9650",
+      "focused-3.stdout": "65ac5ae0b9bcf31fc42cc538d83eb618d9452007cf17e18a66e618b1a78b46dc",
+      "focused-3.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "fullSuiteHostPrivateModels": "not_run",
+    "intermediateFocused": {
+      "tests": 62,
+      "pass": 62,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "exitCode": 0,
+      "groups": {
+        "candidateBrief": 11,
+        "metadata": 14,
+        "ordinary": 5,
+        "toolBinding": 10,
+        "sourceRead": 14,
+        "sourceAdmission": 8
+      }
+    }
+  },
+  "files": {
+    "src/openclaw/current-input-metadata.ts": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+    "src/openclaw/ordinary-source-read.ts": "697e8279689f65983b61ce5feff1f1485e650ecd5fac728466d5529e093e45ab",
+    "src/ordinary-plugin.ts": "053723da7bac21efad4afa1e60aacc8022b748127b5b1e46df5a613869abf03d",
+    "tests/current-input-metadata.test.ts": "533953dce4fcc46c64300576377ddba4d78d9e680e73e8a3e78f4f442eec63e1",
+    "tests/ordinary-source-read.test.ts": "808c9f66be0cf7d770b36c0e900aa2d775c94dd014de64510325be13991fb280",
+    "tests/ordinary-plugin.test.ts": "ae284eb682e3fc4815b645f9b242c3f640a4e4058ee1d4509ad5ffe8348bf9c2",
+    "openclaw.plugin.json": "e2dd21013ae5cce8a1e85493c5d6cf64ae75951e13ee38cf79a3a3bc35d61960",
+    "package.json": "30b44c2addf9478afa4e23ae526cfa1c18666e3406b7ed2a0850ea61e19a2e05",
+    "docs/ORDINARY-SOURCE-READ.md": "20650a2aca5d9aa251b48a28adddd35a61881c2d345736ac104794233146ec63",
+    "src/openclaw/ordinary-source-admission.ts": "9d3c60f7cfbaf0e279dc3d292ba354f5e04ec52a3e71da9a6a512d383c675d7e",
+    "tests/ordinary-source-admission.test.ts": "35c655365f48cd7fa530690b095a9da857dcaf210d21cac854d841d7e8b423f4",
+    "tests/fixtures/ordinary-source-read.ts": "21a39b490ab41286d7f844f6f0bea17c731d1dbe733699df3345be1a903b7a92",
+    "src/praxis/episode-evidence.ts": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d",
+    "docs/MAIN-DEBUG-INSTALL.md": "c9b368d4e013d9c9f6685481a25cb4e07e3fdee84d907e1142e960a7f2acad87",
+    "docs/CORE-CANGHAI-COORDINATION.md": "e397090f8042a51aca40175de843e556b17db46c42f37e9f9210e3e46c09663d",
+    "PROJECT-STATE.yaml": "d2d573c4ccb6861deff89f5cb331b1ce8b94bc63b4be486ffbec26c2bee11b33"
+  },
+  "runtimeStaticImportClosure": {
+    "count": 33,
+    "modules": [
+      {
+        "source": "src/canghai/author-intent-asset.ts",
+        "sha256": "15acc47b55a373be56b000efa1ab6a4fc67612f7fa89c2c43ef27aa5cd4b4bb5",
+        "compiledSha256": "d8224e03d68e0b9ec4d94c2d9bb785870a72beb64053879dff13363cc1ddc4a5",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/author-intent-repository.ts",
+        "sha256": "a0133a913a0e860095336d5abc12eb7c10c0d3330a0ac323e69e408acdb19d5e",
+        "compiledSha256": "96dbf100980651eddb7c48c7be9a2ae000094917a955fb131c7e9467464d2b51",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/catalog-reader.ts",
+        "sha256": "aca923ba8d14e671542ba874585e23c147e6416bbe65b3e14c99afb1d2e96ba9",
+        "compiledSha256": "b34f70308d4114bd8646659f79f9fd640a4e066f0616702095ad88a410da15b6",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/checkpoint-committed-document.ts",
+        "sha256": "2b11a70d3e72103cffde3bcc9bf6714d6e75937eb6a7cdc121c2058f23f7f4dd",
+        "compiledSha256": "ea289e7aeadd5ed007621070d546709abb3f7b2dea0c2358d686ef56666b840f",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/content-version.ts",
+        "sha256": "12830edf4006307e12a1819c49032b3199570038994729a4bacb2f02d6035f64",
+        "compiledSha256": "645d0a82e0faa41c3e307aff62ef14bba937f37acdfdf315d399cefc3c1876a5",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/exclusive-file-lock.ts",
+        "sha256": "0e0226e7e755398393ad5ade213f4fa14aa2e1fb2e5907a91ae0719314537b33",
+        "compiledSha256": "7aad4d02fb719aa910e886ec7e2c56941ec78f85d562ac36b79c42cb8213c5e4",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/manifest.ts",
+        "sha256": "cce428a78fc05c6a4a12132839bd0ab8e53b7fa83b7424a38421c12ea47194be",
+        "compiledSha256": "c0c50bf1b100270128c440fc55dbc7a89fec4e026a30a525028d8083e0addd0e",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/memory-transaction-journal.ts",
+        "sha256": "8e83f1cc9395d4e57877b4a9e17a5247047b9616a4306263f666b7e456a3dd9a",
+        "compiledSha256": "7e6f3d52dbb530f1e5cb8f16595f69406be14babf811e07acccb25d2ee19e0db",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/memory-transaction.ts",
+        "sha256": "dbe1fb87b7af2a3ef847bfdaf8eae37f80484d3073f265d3287ab7c933f6c345",
+        "compiledSha256": "63535981292706fc094944a314cf63397a456b9887684b09659db3aca7988c4b",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/personal-context-access.ts",
+        "sha256": "78d25d6b59da41c68bf56b4952ccf75b7cb48334614d7218c93a51c7619b5b87",
+        "compiledSha256": "c7a1a91a6f08e25f54fcfa2ec5c6ac4aee332890ffbd9fbbae62f8107fc685d2",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/ref.ts",
+        "sha256": "0f5a1020e41dc94c757d31be0737070e110fde8bf6f623b1cb2021e6bfca0b71",
+        "compiledSha256": "44bf378eb0550c487aa44f24bdd2428b2a8f7276e7bbb855799faecacc94ef8e",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/runtime-profile.ts",
+        "sha256": "bd3f2f60564066021d82cf761066fd894f6536bbfe830e098a25fc83fd6a4db3",
+        "compiledSha256": "7575cca328b70b3d30abe46367910a7434d19dcf8bb9b84d9350a2e01056cb7e",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/schema.ts",
+        "sha256": "9ab96dbc1ba0bea25066ead03f7451b3dbbd1cadba37aeff47ef25ea5e32f99d",
+        "compiledSha256": "19a1e451673a752c28fd8d69b6db695e94604df0d4f790a987c6eedc3d107be7",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/source-access.ts",
+        "sha256": "d00cb5c1d3ce2e0cdcdb7a480d72be93bf8f0323434876c9be499f6bb8c84c2d",
+        "compiledSha256": "a9c44b1ea6b231a7b1991ed8f2b1dbedb2f7800395481633cc3f325967bf238b",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/source-policy.ts",
+        "sha256": "83af5855513346406cd7741f66ba34474d4830ab4c0c3cc15ff3a552fd4a69ed",
+        "compiledSha256": "50dde58c650b4849999c3d56d423406b996048510df15a0f04c53357b8c2f7c5",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/source-segments.ts",
+        "sha256": "0b86731dc4539ee66fc563784e85de6586291dce0a396416370f362626406531",
+        "compiledSha256": "42fb33520d143055c5caa930d80f20a8a10a3acbe59049c088320a9a87331443",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/synchronization-state.ts",
+        "sha256": "e81656cbe27a47180775fef2fd4809ca91ec5606a35d21d2bbef49c2b3d677fe",
+        "compiledSha256": "03189dd6d47f5a93540345f6b09f99ffca50d377dabddf7820dea1df6f12f147",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/view-migration.ts",
+        "sha256": "2f4a4a3a0c17dbb4f3151a7ccb72b46b7f6c8983e7925934c606293dca52aeb3",
+        "compiledSha256": "926f2e67c18353cb789150b4beef963f63a3532eb8c87b500adc3ed1874eb6ee",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/view-recipe.ts",
+        "sha256": "768f3f6f0ddc46a6a2e56b6ece543dd69fe35511c9fdd2602dc9721a3e1761f8",
+        "compiledSha256": "ab7783e0453eed7a9ba1d47ce3abacb0ffe65980eea4f84b1032591e1b636fd4",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/candidate-work-brief.ts",
+        "sha256": "a74f581caf248ed908f5682a9f2dcacecf72a95f3ce82696e9640976638b6c83",
+        "compiledSha256": "b64e9fb29d9b1e685ebaf7e2b987a631a5aa3d1fee2f8621ca1b8b4bd776172b",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/current-input-metadata.ts",
+        "sha256": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+        "compiledSha256": "7aa509374db1084784ec167110dd16a0a79e8e06da15e3e266b53f6ede0d70b9",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/openclaw/ordinary-source-admission.ts",
+        "sha256": "9d3c60f7cfbaf0e279dc3d292ba354f5e04ec52a3e71da9a6a512d383c675d7e",
+        "compiledSha256": "ebc9bbd6f026f38f93edb69c37e11940ed620d00ad62e17d38a2f34b5c4afca1",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/openclaw/ordinary-source-read.ts",
+        "sha256": "697e8279689f65983b61ce5feff1f1485e650ecd5fac728466d5529e093e45ab",
+        "compiledSha256": "d76fefb9007fad758bb1957c6d7f089e8a592a99ba3aba53cc3713ebd87d853a",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/openclaw/processing-authority.ts",
+        "sha256": "7f920f027cbe9395c534a4aa7c66f8b3e8c9120a675338ba3d74b9f73db7983c",
+        "compiledSha256": "922f6d7e7f3907377ab713f84b732d2fdf23ce286cf332f3e118482b07163416",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/tool-request-binding.ts",
+        "sha256": "328fc4f52b887197006df00d8c4e5987b2018dd6b6c3466545dcecf30ea5dea2",
+        "compiledSha256": "7051050ea12177d660f13d4eb388444783a738547e989c9c53f08ba266bcf992",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/turn-audience.ts",
+        "sha256": "5b77305ce606ff7e232a034cbadb38d0b66835e8232db6d9fac87afe09904584",
+        "compiledSha256": "1dbff73667163d5298f500c21905685d6794bed1d37ed0396abd7fc710a5af1d",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/turn-request.ts",
+        "sha256": "b2fddd60b742b32ce4df26c18f488326729ed6db519c9df6b9de294072e33862",
+        "compiledSha256": "79ee05cb59ef709328d54c499a47285d35b331c6cfb1c317a69c5068e9101496",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/work-brief-proposal.ts",
+        "sha256": "0223ee14c0ee0ed55a0d17f1c49adcc030af98fc1330d057a6ad120afc711398",
+        "compiledSha256": "9a0bf970cf0369efca91a5a9e77e4186695ae2fe67548c9670351f6e909df4ed",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/ordinary-plugin.ts",
+        "sha256": "053723da7bac21efad4afa1e60aacc8022b748127b5b1e46df5a613869abf03d",
+        "compiledSha256": "cdd33f1693496af57f537f429da9b90e7398410018ce64dc5cc21306a6bf85b3",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/praxis/episode-evidence.ts",
+        "sha256": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d",
+        "compiledSha256": "d3ebcfba01d712a8e197ce5aad2e20839f5a073658f77cd1eaa07dbf85219a09",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/praxis/evidence-bundle.ts",
+        "sha256": "efca3d90b853ffb6f3212ba093c9b60e676280fe5e9191a7f53024a5854b438a",
+        "compiledSha256": "7e8063f7521d5f39e3c4636ef3dc8d897c9c6dd123d78951ea3ce1ac12549223",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/praxis/personal-views.ts",
+        "sha256": "4610b542fa4e723deb9b9119222238ec674f9a719046e01990af11b10ee223b8",
+        "compiledSha256": "b800680b10279c719d442bb3e0bc7c58d3e5a1e317fa9f126a0c97636a239ed8",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/shared/type-guards.ts",
+        "sha256": "4fdfaaed5a8eb10774cb2a7219c0b8c6b4cabe4df8bebf5d91c85ada82331628",
+        "compiledSha256": "312cc1989440878565e2b920d7f41519a39befd5bebc18daef1da1868904b2e6",
+        "vsHead": "unchanged"
+      }
+    ],
+    "external": [
+      "ajv/dist/2020.js",
+      "node:async_hooks",
+      "node:child_process",
+      "node:crypto",
+      "node:fs",
+      "node:fs/promises",
+      "node:path",
+      "node:url",
+      "node:util",
+      "openclaw/plugin-sdk/file-lock",
+      "openclaw/plugin-sdk/plugin-entry",
+      "openclaw/plugin-sdk/routing",
+      "semver",
+      "typebox",
+      "yaml"
+    ],
+    "meaning": "compiled static imports pinned, not full branch/Host/runtime/model acceptance"
+  },
+  "patches": {
+    "increment": {
+      "ref": ".task-control/reports/CORE-VAL-001/source-admission-20261102.patch",
+      "sha256": "50e49ccaf3462619a79abc765fd857785de153157d77ee32dcf61487b5035581"
+    },
+    "combined": {
+      "ref": ".task-control/reports/CORE-VAL-001/source-admission-combined-20261102.patch",
+      "sha256": "bf15b8b84bc5d8ca7d821802739a6edfad19f666d2d32004cd035e07f47bb1f3",
+      "files": 13,
+      "baseline": "actual HEAD2fdf; complete changed executable/test/config/package/source-contract scope including original P2 repair; technical docs deltas separately in increment"
+    }
+  },
+  "priorDirty": {
+    "otherCapturedFilesUnchanged": 62,
+    "indexEmpty": true,
+    "headUnchanged": true
+  },
+  "realBindingStillAbsent": {
+    "selectedPrivateRootNotLoadedByThisImplementation": true,
+    "hostProducerAvailabilityAndLifecycle": "not_verified; rawText/run/receipt/hook requester/audience/model are optional public fields and missing fields fail closed",
+    "existingReadOnlyScopeFact": "prior authorized structural check found committed migration grant362descriptors/one requester/googleGemini3.8/purpose owner-direct; not new grant or automatic actual runtime eligibility",
+    "nextPermissionDecision": "reuse exact existing scope first; mismatch/new requester/data/model/audience/learning or missing Host capability must be named specifically; no broad new authorization request made"
+  },
+  "nextNoModelHostSteps": [
+    "independent review current package against fixed snapshot and this exact increment",
+    "wait for shared selfie Host window; rollbackable candidate with dedicated synthetic root/grant/explicit revision only",
+    "real Gateway direct tools.invoke without ingress should deny; no private data or model needed",
+    "positive case requires supported actual Host producer with native admitted user turn + matching source tool context, not fabricated callback/session values",
+    "no positive no-model producer established here; if a bounded loopback-protocol Agent run is necessary assign it explicitly, never reuse exhausted old attempt batch or call paid model merely to create receipts"
+  ],
+  "noActions": [
+    "shared Host/config/process/port/install/consent change",
+    "private source payload, credential or main session read",
+    "model/provider/network call",
+    "new account/trust/grant or policy change",
+    "CangHai production/source mutation or migration/index rebuild",
+    "Core staging/commit/push"
+  ],
+  "existingScopeReadOnlyFact": {
+    "observedInPriorReadOnlyPlanning": "before implementation; no actual private-root load by this package",
+    "selectedSourceCommit": "112be540a3988af53d1076a38f8f1c155da7a745",
+    "grantPath": "50_PersonalAgent/stella/knowledge-migration-v1/capabilities/source_access_context.json",
+    "committedAndWorkingSha256": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+    "requesterCount": 1,
+    "descriptors": 362,
+    "models": [
+      "google/gemini-3.8-flash"
+    ],
+    "purpose": {
+      "readPurpose": "personal_context",
+      "derivePurpose": "personal_understanding",
+      "deliveryScope": "owner-direct"
+    },
+    "operatorFlagsPresent": [],
+    "realRequesterValueOrDescriptorBodiesCopied": false,
+    "actualHostRequesterMatch": "not_verified"
+  },
+  "publicSDKReferences": {
+    "package.json": "0027ed3db83ae083c60cff564e63a0e6a867327485a6d257129b75882e10b7fd",
+    "dist/config-contracts-DzLaG7FV.d.ts": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17",
+    "dist/runtime-llm.runtime-BKhiUWXy.mjs": "614e55064e7fa322738be94470d42ba0bb0c624a3157ac57ca9cc67e9839523a"
+  }
+}

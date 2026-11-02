@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "phase": "combined_entry_candidate_pending_independent_review_not_installed",
+  "observedAt": "2026-11-02T04:19:26.275919+00:00",
+  "baseCommit": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+  "baseRevision": 93,
+  "implementationRevision": 94,
+  "mainDelivery": "selected-manifest deterministic source-read port; scalar snapshot repair only closes existing ordinary-entry metadata dependency",
+  "priorEvidence": {
+    "sourceReadReport": ".task-control/reports/CORE-VAL-001/source-read-port-20261102.json",
+    "sha256": "adce10c9fd494b67b8babcfacf7f96016ad1340ad1d65a8ea428c87977c0b111",
+    "author37of37": "preserved under original SDK/code identity; not rerun or summed with19",
+    "originalMetadataReport": ".task-control/reports/CORE-VAL-001/current-input-metadata-20261102.json",
+    "originalIndependentP2": "four abnormal accepts retained; repaired candidate is not independent acceptance",
+    "originalReadPortSourceAndEntryBytesUnchanged": [
+      "src/openclaw/ordinary-source-read.ts",
+      "src/ordinary-plugin.ts",
+      "tests/ordinary-source-read.test.ts",
+      "tests/ordinary-plugin.test.ts",
+      "openclaw.plugin.json",
+      "package.json",
+      "docs/MAIN-DEBUG-INSTALL.md",
+      "docs/CORE-CANGHAI-COORDINATION.md"
+    ],
+    "twoPriorDocumentHashesSupersededOnlyByThisExplicitR1Increment": [
+      "docs/ORDINARY-SOURCE-READ.md",
+      "PROJECT-STATE.yaml"
+    ]
+  },
+  "repair": {
+    "module": "src/openclaw/current-input-metadata.ts",
+    "change": "one read per selected receipt property -> frozen plain snapshot -> validate, identity-bind and canonical hash only that snapshot",
+    "selectedFields": [
+      "agentId",
+      "sessionId",
+      "sessionKey",
+      "storePath",
+      "entryId",
+      "logicalTurnId",
+      "generation",
+      "idempotencyKey",
+      "role",
+      "rawSeq",
+      "effectiveParentId",
+      "activeMessagePosition"
+    ],
+    "scopeUnchanged": [
+      "passive dispatch",
+      "captured original recorder methods",
+      "no recorder mutation or persistence wait",
+      "no text/history/provenance/identity-source reads",
+      "no source or author qualification",
+      "publisher off"
+    ],
+    "ordinaryEntry": "same existing callback wiring, now includes corrected metadata module; no entry code changes in R1"
+  },
+  "verification": {
+    "actualSDK": "2026.10.9",
+    "sdkPackageSha256": "0027ed3db83ae083c60cff564e63a0e6a867327485a6d257129b75882e10b7fd",
+    "manifestLockSDK": "2026.10.8 unchanged",
+    "node": "v24.22.1",
+    "compileRedExit": 0,
+    "compileGreenExit": 0,
+    "red": {
+      "tests": 5,
+      "pass": 0,
+      "fail": 5,
+      "exitCode": 1,
+      "negativeCases": [
+        {
+          "property": "rawSeq",
+          "firstValue": 0,
+          "laterValue": 1,
+          "oldResult": "observed/native_input_metadata_only",
+          "fixedExpected": "native_input_receipt_invalid"
+        },
+        {
+          "property": "activeMessagePosition",
+          "firstValue": -1,
+          "laterValue": 0,
+          "oldResult": "observed/native_input_metadata_only",
+          "fixedExpected": "native_input_receipt_invalid"
+        },
+        {
+          "property": "effectiveParentId",
+          "firstValue": 7,
+          "laterValue": "parent-1",
+          "oldResult": "observed/native_input_metadata_only",
+          "fixedExpected": "native_input_receipt_invalid"
+        },
+        {
+          "property": "sessionId",
+          "firstValue": "different-session",
+          "laterValue": "synthetic-session",
+          "oldResult": "observed/native_input_metadata_only",
+          "fixedExpected": "native_input_binding_mismatch"
+        }
+      ],
+      "positiveControl": "old repeated reads rejected a valid first-value snapshot; fixed snapshot preserves stable expected hash",
+      "probeIdentity": "four deterministic local reproductions of the relayed getter finding; no claim that independent original probe bytes were retrieved"
+    },
+    "green": {
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "exitCode": 0,
+      "metadataCases": 14,
+      "ordinaryEntryCases": 5,
+      "extraCases": 5,
+      "testFiles": [
+        "tests/current-input-metadata.test.ts",
+        "tests/ordinary-plugin.test.ts"
+      ]
+    },
+    "receiptSummaries": {
+      "red-compile": {
+        "argv": [
+          "node",
+          "node_modules/typescript/bin/tsc",
+          "-p",
+          "tsconfig.test.json",
+          "--outDir",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-read-metadata-r1-20261102-2fuk0syc/compiled",
+          "--sourceMap",
+          "false",
+          "--declaration",
+          "false"
+        ],
+        "exitCode": 0,
+        "startedAt": "2026-11-02T04:16:37.086869+00:00",
+        "finishedAt": "2026-11-02T04:16:45.158323+00:00"
+      },
+      "red": {
+        "argv": [
+          "node",
+          "--test",
+          "--test-name-pattern=receipt getter snapshot|receipt scalar snapshot",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-read-metadata-r1-20261102-2fuk0syc/compiled/tests/current-input-metadata.test.js"
+        ],
+        "exitCode": 1,
+        "startedAt": "2026-11-02T04:16:45.159156+00:00",
+        "finishedAt": "2026-11-02T04:16:45.743189+00:00"
+      },
+      "green-compile": {
+        "argv": [
+          "node",
+          "node_modules/typescript/bin/tsc",
+          "-p",
+          "tsconfig.test.json",
+          "--outDir",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-read-metadata-r1-20261102-2fuk0syc/compiled",
+          "--sourceMap",
+          "false",
+          "--declaration",
+          "false"
+        ],
+        "exitCode": 0,
+        "startedAt": "2026-11-02T04:17:18.161519+00:00",
+        "finishedAt": "2026-11-02T04:17:26.617591+00:00",
+        "sourceHashes": {
+          "src/openclaw/current-input-metadata.ts": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+          "tests/current-input-metadata.test.ts": "533953dce4fcc46c64300576377ddba4d78d9e680e73e8a3e78f4f442eec63e1",
+          "src/ordinary-plugin.ts": "7a8c1a369a23d6347ce6bde422d3633d4986945608ce3aa8bc7209b4c22dedc0"
+        }
+      },
+      "green": {
+        "argv": [
+          "node",
+          "--test",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-read-metadata-r1-20261102-2fuk0syc/compiled/tests/current-input-metadata.test.js",
+          "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-read-metadata-r1-20261102-2fuk0syc/compiled/tests/ordinary-plugin.test.js"
+        ],
+        "exitCode": 0,
+        "startedAt": "2026-11-02T04:17:26.618642+00:00",
+        "finishedAt": "2026-11-02T04:17:27.045397+00:00",
+        "sourceHashes": {
+          "src/openclaw/current-input-metadata.ts": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+          "tests/current-input-metadata.test.ts": "533953dce4fcc46c64300576377ddba4d78d9e680e73e8a3e78f4f442eec63e1",
+          "src/ordinary-plugin.ts": "7a8c1a369a23d6347ce6bde422d3633d4986945608ce3aa8bc7209b4c22dedc0"
+        }
+      }
+    },
+    "rawOutputHashes": {
+      "red.stdout": "4049315adf09896427eee6fd1b0e5ec755e24a9015163928e03a10c86c420942",
+      "red.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "green.stdout": "020d085b9e6f9f0fd610d8cc14030c00b7d0bad0f8c8a8fd55858753178d03d2",
+      "green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "noFullSuiteOrSource37Rerun": true,
+    "realHostModelPrivateData": false
+  },
+  "deliveryFiles": {
+    "src/openclaw/current-input-metadata.ts": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+    "src/openclaw/ordinary-source-read.ts": "ffb6f038f684f0ebf144bc8d79dffbeb7f738800ce26b0637ddd39b4d34e21b8",
+    "src/ordinary-plugin.ts": "7a8c1a369a23d6347ce6bde422d3633d4986945608ce3aa8bc7209b4c22dedc0",
+    "tests/current-input-metadata.test.ts": "533953dce4fcc46c64300576377ddba4d78d9e680e73e8a3e78f4f442eec63e1",
+    "tests/ordinary-source-read.test.ts": "d58c948b62a8f45990d74a32558db55e86bb4edcf863b5c02a9c7628b50d3442",
+    "tests/ordinary-plugin.test.ts": "ae284eb682e3fc4815b645f9b242c3f640a4e4058ee1d4509ad5ffe8348bf9c2",
+    "openclaw.plugin.json": "e2dd21013ae5cce8a1e85493c5d6cf64ae75951e13ee38cf79a3a3bc35d61960",
+    "package.json": "30b44c2addf9478afa4e23ae526cfa1c18666e3406b7ed2a0850ea61e19a2e05",
+    "docs/ORDINARY-SOURCE-READ.md": "3845078beed3feff49a8c0976dc3b5a19ddd4c5811470e99198d6b3070d52e7a"
+  },
+  "patches": {
+    "r1Increment": {
+      "ref": ".task-control/reports/CORE-VAL-001/source-read-port-r1-20261102.patch",
+      "sha256": "3b573cd189c2cfec033bc69f7ca13516711e16d959cf3b6f6dd1d171f1f964a1",
+      "baseline": "state93 exact before bytes; four files only"
+    },
+    "combinedEntry": {
+      "ref": ".task-control/reports/CORE-VAL-001/source-read-port-combined-20261102.patch",
+      "sha256": "cc795bf5995de929bb847c8705a5a0e8eae8f69e920d4d6d43235abb77fa9652",
+      "baseline": "actual HEAD2fdf47a6; complete changed runtime code/test/config/package and source contract; excludes unrelated prior docs/dirty/state"
+    }
+  },
+  "entryDependencyAudit": {
+    "kind": "static import closure of actual green compiled entry; not all paths/branches or runtime acceptance",
+    "localRuntimeModules": 25,
+    "modules": [
+      {
+        "source": "src/canghai/author-intent-asset.ts",
+        "sha256": "15acc47b55a373be56b000efa1ab6a4fc67612f7fa89c2c43ef27aa5cd4b4bb5",
+        "compiledSha256": "d8224e03d68e0b9ec4d94c2d9bb785870a72beb64053879dff13363cc1ddc4a5",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/author-intent-repository.ts",
+        "sha256": "a0133a913a0e860095336d5abc12eb7c10c0d3330a0ac323e69e408acdb19d5e",
+        "compiledSha256": "96dbf100980651eddb7c48c7be9a2ae000094917a955fb131c7e9467464d2b51",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/catalog-reader.ts",
+        "sha256": "aca923ba8d14e671542ba874585e23c147e6416bbe65b3e14c99afb1d2e96ba9",
+        "compiledSha256": "b34f70308d4114bd8646659f79f9fd640a4e066f0616702095ad88a410da15b6",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/checkpoint-committed-document.ts",
+        "sha256": "2b11a70d3e72103cffde3bcc9bf6714d6e75937eb6a7cdc121c2058f23f7f4dd",
+        "compiledSha256": "ea289e7aeadd5ed007621070d546709abb3f7b2dea0c2358d686ef56666b840f",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/content-version.ts",
+        "sha256": "12830edf4006307e12a1819c49032b3199570038994729a4bacb2f02d6035f64",
+        "compiledSha256": "645d0a82e0faa41c3e307aff62ef14bba937f37acdfdf315d399cefc3c1876a5",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/exclusive-file-lock.ts",
+        "sha256": "0e0226e7e755398393ad5ade213f4fa14aa2e1fb2e5907a91ae0719314537b33",
+        "compiledSha256": "7aad4d02fb719aa910e886ec7e2c56941ec78f85d562ac36b79c42cb8213c5e4",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/manifest.ts",
+        "sha256": "cce428a78fc05c6a4a12132839bd0ab8e53b7fa83b7424a38421c12ea47194be",
+        "compiledSha256": "c0c50bf1b100270128c440fc55dbc7a89fec4e026a30a525028d8083e0addd0e",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/memory-transaction-journal.ts",
+        "sha256": "8e83f1cc9395d4e57877b4a9e17a5247047b9616a4306263f666b7e456a3dd9a",
+        "compiledSha256": "7e6f3d52dbb530f1e5cb8f16595f69406be14babf811e07acccb25d2ee19e0db",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/memory-transaction.ts",
+        "sha256": "dbe1fb87b7af2a3ef847bfdaf8eae37f80484d3073f265d3287ab7c933f6c345",
+        "compiledSha256": "63535981292706fc094944a314cf63397a456b9887684b09659db3aca7988c4b",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/ref.ts",
+        "sha256": "0f5a1020e41dc94c757d31be0737070e110fde8bf6f623b1cb2021e6bfca0b71",
+        "compiledSha256": "44bf378eb0550c487aa44f24bdd2428b2a8f7276e7bbb855799faecacc94ef8e",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/runtime-profile.ts",
+        "sha256": "bd3f2f60564066021d82cf761066fd894f6536bbfe830e098a25fc83fd6a4db3",
+        "compiledSha256": "7575cca328b70b3d30abe46367910a7434d19dcf8bb9b84d9350a2e01056cb7e",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/schema.ts",
+        "sha256": "9ab96dbc1ba0bea25066ead03f7451b3dbbd1cadba37aeff47ef25ea5e32f99d",
+        "compiledSha256": "19a1e451673a752c28fd8d69b6db695e94604df0d4f790a987c6eedc3d107be7",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/source-policy.ts",
+        "sha256": "83af5855513346406cd7741f66ba34474d4830ab4c0c3cc15ff3a552fd4a69ed",
+        "compiledSha256": "50dde58c650b4849999c3d56d423406b996048510df15a0f04c53357b8c2f7c5",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/source-segments.ts",
+        "sha256": "0b86731dc4539ee66fc563784e85de6586291dce0a396416370f362626406531",
+        "compiledSha256": "42fb33520d143055c5caa930d80f20a8a10a3acbe59049c088320a9a87331443",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/synchronization-state.ts",
+        "sha256": "e81656cbe27a47180775fef2fd4809ca91ec5606a35d21d2bbef49c2b3d677fe",
+        "compiledSha256": "03189dd6d47f5a93540345f6b09f99ffca50d377dabddf7820dea1df6f12f147",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/view-migration.ts",
+        "sha256": "2f4a4a3a0c17dbb4f3151a7ccb72b46b7f6c8983e7925934c606293dca52aeb3",
+        "compiledSha256": "926f2e67c18353cb789150b4beef963f63a3532eb8c87b500adc3ed1874eb6ee",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/canghai/view-recipe.ts",
+        "sha256": "768f3f6f0ddc46a6a2e56b6ece543dd69fe35511c9fdd2602dc9721a3e1761f8",
+        "compiledSha256": "ab7783e0453eed7a9ba1d47ce3abacb0ffe65980eea4f84b1032591e1b636fd4",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/candidate-work-brief.ts",
+        "sha256": "a74f581caf248ed908f5682a9f2dcacecf72a95f3ce82696e9640976638b6c83",
+        "compiledSha256": "b64e9fb29d9b1e685ebaf7e2b987a631a5aa3d1fee2f8621ca1b8b4bd776172b",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/current-input-metadata.ts",
+        "sha256": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145",
+        "compiledSha256": "7aa509374db1084784ec167110dd16a0a79e8e06da15e3e266b53f6ede0d70b9",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/openclaw/ordinary-source-read.ts",
+        "sha256": "ffb6f038f684f0ebf144bc8d79dffbeb7f738800ce26b0637ddd39b4d34e21b8",
+        "compiledSha256": "5f8162344116d1bc1d55ad9c30a14f14e1d674cc28fec279cfac292698b49fa8",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/openclaw/tool-request-binding.ts",
+        "sha256": "328fc4f52b887197006df00d8c4e5987b2018dd6b6c3466545dcecf30ea5dea2",
+        "compiledSha256": "7051050ea12177d660f13d4eb388444783a738547e989c9c53f08ba266bcf992",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/openclaw/work-brief-proposal.ts",
+        "sha256": "0223ee14c0ee0ed55a0d17f1c49adcc030af98fc1330d057a6ad120afc711398",
+        "compiledSha256": "9a0bf970cf0369efca91a5a9e77e4186695ae2fe67548c9670351f6e909df4ed",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/ordinary-plugin.ts",
+        "sha256": "7a8c1a369a23d6347ce6bde422d3633d4986945608ce3aa8bc7209b4c22dedc0",
+        "compiledSha256": "3a7671de1059d26c15c47a098a8d5bfe415560b66088d785f84bf1310f2c29e8",
+        "vsHead": "included_in_combined_patch"
+      },
+      {
+        "source": "src/praxis/episode-evidence.ts",
+        "sha256": "f4d9770d59992136efd81a30956c2c890e5e2a15576c72e23a1b140ed593d0cd",
+        "compiledSha256": "acf0759b62f5c6036be2cd461d53c85f4a1cf94c3fadd265c454c042388c09ea",
+        "vsHead": "unchanged"
+      },
+      {
+        "source": "src/shared/type-guards.ts",
+        "sha256": "4fdfaaed5a8eb10774cb2a7219c0b8c6b4cabe4df8bebf5d91c85ada82331628",
+        "compiledSha256": "312cc1989440878565e2b920d7f41519a39befd5bebc18daef1da1868904b2e6",
+        "vsHead": "unchanged"
+      }
+    ],
+    "externalSpecifiers": [
+      "ajv/dist/2020.js",
+      "node:async_hooks",
+      "node:child_process",
+      "node:crypto",
+      "node:fs",
+      "node:fs/promises",
+      "node:path",
+      "node:url",
+      "node:util",
+      "openclaw/plugin-sdk/file-lock",
+      "openclaw/plugin-sdk/plugin-entry",
+      "semver",
+      "typebox",
+      "yaml"
+    ],
+    "notSeparatelyRetested": "unchanged repository/transaction/brief/binding kernels retain their existing evidence; source37 retained as prior run, not new claims",
+    "newUnacceptedRuntimeCode": [
+      "selected-manifest source-read module and wiring",
+      "metadata module original integration plus R1 snapshot fix"
+    ],
+    "independentReview": "pending for whole combined entry, not just safe leaf"
+  },
+  "remainingBlockers": {
+    "implementation": "real public Host current-request -> existing qualified source/processing-admission issuer is absent; default entry rejects before FS",
+    "explicitBinding": "selected root/revision/manifest/profile/catalog and exact currently valid reviewed scopes still need reconciliation; root/config alone never access authority",
+    "requestEvidence": {
+      "request": [
+        "Host-resolved agent/session incarnation and actual tool call",
+        "original invocation guard and cancellation lifetime",
+        "actual current user request from supported producer, never prompt/history/model parameters guessed as authority"
+      ],
+      "source": [
+        "selected root/revision/manifest/profile/catalog tuple",
+        "existing metadata/body processing scopes, precise reviewed source/segment descriptors and base/leaf policies",
+        "model/purpose/audience compatibility under existing authority, not owner/root status"
+      ],
+      "reuseAuthorization": "first check exact existing authorizations, including historical97source/362descriptor selected scope; do not demand a new grant merely because of recovery",
+      "ifExistingScopeInsufficient": "report the exact additional root/source/segment, read vs model-processing purpose and requester/model/audience change; do not create new trust or grant automatically",
+      "noNewAuthorizationOrGrantPerformed": true
+    },
+    "activation": "not assigned; no shared Host/config/consent/port/process touched",
+    "semantics": "native Agent/qualified LLM source selection, grounded answer and actual consumption not accepted; no paid quota reused"
+  },
+  "noActions": [
+    "model/network/Host/install/config/port/permission operations",
+    "private source bodies or credential reads",
+    "CangHai or production mutation",
+    "staging/commit/push"
+  ]
+}

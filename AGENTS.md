@@ -35,6 +35,8 @@
 
 Read `docs/09-REQUIREMENTS-ALIGNMENT.md` for confirmed product requirements and `docs/10-DESIGN-BASELINE.md` for current contracts, state machines, acceptance and known implementation gaps. Use the domain terms in `CONTEXT.md`. Keep product requirements distinct from Alpha implementation limits and automated diagnostic scores. Closed Issues and historical handoffs cannot override the current baseline or supply authorization for a new task.
 
+长期开发方式与设备／跨项目交接，同时必读 [Main 调试文档的长期约定](docs/MAIN-DEBUG-INSTALL.md#长期开发约定与设备交接)。文档、唯一进度索引的同步与回读职责，按 [任务控制台账的更新和交接](.task-control/README.md#更新和交接)执行。
+
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `tower1229/Stella-Core`. See `docs/agents/issue-tracker.md`.
