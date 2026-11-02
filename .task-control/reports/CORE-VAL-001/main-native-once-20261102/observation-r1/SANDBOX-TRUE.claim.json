@@ -1,0 +1,11 @@
+{
+  "startedAt": "2026-11-02T13:15:25.776696+00:00",
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw/restriction.sb",
+    "/usr/bin/true"
+  ],
+  "profileSha256": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+  "scope": "one normal-channel byte-identical-profile true capability probe only"
+}

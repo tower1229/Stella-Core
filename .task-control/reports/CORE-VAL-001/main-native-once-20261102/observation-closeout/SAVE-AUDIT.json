@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-02T15:02:25.115316+00:00",
+  "scope": "Reviewed uninstalled observation candidate, required historical red/green evidence, canonical documentation and sole state update only",
+  "baselineHead": "73eb1768d86a79777899e4121baf63935326d13b",
+  "lastObservedRemote": "6bc71077e041676468c3b7d4690fef09640cbb6e",
+  "baseRevision": 145,
+  "savedRevision": 146,
+  "review": {
+    "summary": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/R2-INDEPENDENT-REVIEW-SUMMARY.json",
+    "sha256": "cf1b6a2642fa0f0da5e46cb52f2ae6ed1382c0128ba98b5ab489e33543a559c2",
+    "verdict": "accepted_uninstalled_partial_only"
+  },
+  "historicalManifestsVerified": [
+    {
+      "manifest": "WAIT-OBSERVATION-MANIFEST.json",
+      "count": 16,
+      "mismatches": []
+    },
+    {
+      "manifest": "observation-r1/MANIFEST.json",
+      "count": 23,
+      "mismatches": []
+    },
+    {
+      "manifest": "observation-r2/MANIFEST.json",
+      "count": 17,
+      "mismatches": []
+    }
+  ],
+  "priorUnpushedCommits": [
+    "117c5229161f1b1a198b800117e1b428d4b6339e",
+    "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+    "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+    "73eb1768d86a79777899e4121baf63935326d13b"
+  ],
+  "reviewProvenance": {
+    "117c5229": "non-sensitive remote receipt and bounded plan; downstream normal-main scope reviewed",
+    "8cdf0ebc": "independently accepted17member fixture,25boundary and4official-context checks; installed execution later failed and was recovered",
+    "fca2f2ce": "reviewed causal limits/failure-recovery metadata; no private log/body/config copied",
+    "73eb1768": "independent causal-boundary review cbebc545c085f9a58a08753a1d53a245a4d8504392746c82ad06bef5ab666a83; original owner unknown"
+  },
+  "audit": {
+    "commitBlobs": [
+      {
+        "commit": "117c5229161f1b1a198b800117e1b428d4b6339e",
+        "path": ".task-control/reports/CORE-VAL-001/fixed90f-push-native-plan-20261102.json",
+        "sha256": "f73e8e88e03fe27716f116d5e5c1cc4d45fbf5823aa0f2e71c7f0eced989da02",
+        "bytes": 9852
+      },
+      {
+        "commit": "117c5229161f1b1a198b800117e1b428d4b6339e",
+        "path": ".task-control/state.json",
+        "sha256": "6c0880c3e44b0364a46e7ccf13cc238587c946b47f123d825380fe1827701619",
+        "bytes": 225359
+      },
+      {
+        "commit": "117c5229161f1b1a198b800117e1b428d4b6339e",
+        "path": "docs/ORDINARY-SOURCE-READ.md",
+        "sha256": "ef039a1ec932bd62ad050f6c32ae7176eb7c477db6f115a6c5c0332c1ee40b65",
+        "bytes": 22916
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/MANIFEST.json",
+        "sha256": "f97ce395ffd1d020fbce5abde940f466f37d7483c9a1f76d5bce14b2b1f728c1",
+        "bytes": 4288
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/PLAN.json",
+        "sha256": "bbfce25b04ae8de7c7966305eda47a8efc55faefadcbcd380e2967d757f5f685",
+        "bytes": 4294
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REPORT.json",
+        "sha256": "f26d2cd412ada3784b2db97468f730340311f8160b247d2541d8e0b76b52ad67",
+        "bytes": 7799
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REVIEW-REQUEST.md",
+        "sha256": "cc2ee261076b42921683cd8deac11196ea8038a08ea39944ffc2d49fec93a522",
+        "bytes": 6773
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/boundary-tests.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/boundary-tests.stdout.txt",
+        "sha256": "4291ec687d260d3e1dccdb4e294cf98fc75eb2b71cf22a515e625e0336d8af38",
+        "bytes": 4590
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/changes.patch",
+        "sha256": "90ebc364bac2cc5dcb5bcb0152c519dae2be4c3a2e6d234365a6fbe504888e45",
+        "bytes": 34252
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REVIEW-REQUEST.md",
+        "sha256": "cc2ee261076b42921683cd8deac11196ea8038a08ea39944ffc2d49fec93a522",
+        "bytes": 6773
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.mjs",
+        "sha256": "72e711ea8787552c475449b8892c111f11194ac79008281240208d2c85549ee0",
+        "bytes": 4088
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/docs/ORDINARY-SOURCE-READ.md",
+        "sha256": "0e5d298ebf00606f2851f42feac0d52ad20cc518b35e0eaca702f39b13e2dd58",
+        "bytes": 24898
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/scripts/fixtures/single-source-native-entry.mjs",
+        "sha256": "731bde23f2fa56eb177ac45b30b42043314913fa67ebec503bc395fc06572dae",
+        "bytes": 1988
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/scripts/lib/single-source-test-boundary.mjs",
+        "sha256": "6a616e33961ed24a6f5c6306577469e52103c1e0349775ee56efa479003f0710",
+        "bytes": 7075
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/scripts/lib/single-source-test-boundary.test.mjs",
+        "sha256": "2e7c19cb567415d51ae7401c7ce7ba9a18e4c81e68a6a0fb8c3d530d01bc7d66",
+        "bytes": 10278
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay-r0-path-error.stderr.txt",
+        "sha256": "a96d2d8f6312c9c0c5424c48403301ab4a801bfda26844ede0331575bc312f0d",
+        "bytes": 732
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay-r0-path-error.stdout.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.mjs",
+        "sha256": "72e711ea8787552c475449b8892c111f11194ac79008281240208d2c85549ee0",
+        "bytes": 4088
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.stdout.json",
+        "sha256": "fffd4caf0f3a11364261ba2c39211e400c678e84384827fb4350d2a4941ea0b5",
+        "bytes": 1151
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": ".task-control/state.json",
+        "sha256": "5d46c6d3364ed6cb8b926e96b06d52257c819cac39b6dcd5a85766e3089abfc0",
+        "bytes": 227421
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": "docs/ORDINARY-SOURCE-READ.md",
+        "sha256": "0e5d298ebf00606f2851f42feac0d52ad20cc518b35e0eaca702f39b13e2dd58",
+        "bytes": 24898
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": "scripts/fixtures/single-source-native-entry.mjs",
+        "sha256": "731bde23f2fa56eb177ac45b30b42043314913fa67ebec503bc395fc06572dae",
+        "bytes": 1988
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": "scripts/lib/single-source-test-boundary.mjs",
+        "sha256": "6a616e33961ed24a6f5c6306577469e52103c1e0349775ee56efa479003f0710",
+        "bytes": 7075
+      },
+      {
+        "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+        "path": "scripts/lib/single-source-test-boundary.test.mjs",
+        "sha256": "2e7c19cb567415d51ae7401c7ce7ba9a18e4c81e68a6a0fb8c3d530d01bc7d66",
+        "bytes": 10278
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/CANCELLATION-PROBE-RESULT.json",
+        "sha256": "18dcab961ee402085149ba6b487d16cdcbbebc4d91e71345464a52f9e2daeee2",
+        "bytes": 1916
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/CANCELLATION-PROBE.mjs",
+        "sha256": "4c1b303c41ac7984ac7c239c227ad1d4be7830096c01d72d0e557375e5a1ff9a",
+        "bytes": 4965
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/DIAGNOSIS.json",
+        "sha256": "0fbd9c8239b9adfd9a6f7cf345cf7f59591d25b16807105ab6a9248d3c91429b",
+        "bytes": 8731
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/PHASE-EVIDENCE.json",
+        "sha256": "587b3d5613e4037a8ab9b8732d8366b1e675d0c7fb093a480327e59768d3e5c5",
+        "bytes": 5312
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md",
+        "sha256": "30a4946e4bf59517c8f1d8938bf01488914fe9563f65e5ae9772c9e354da9821",
+        "bytes": 5955
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/RECOVERY-COMPLETE.json",
+        "sha256": "45575328d2e71d11ce74b676e959295aeac8bfbc99357c2b26a51b48d6999e5d",
+        "bytes": 6465
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/RECOVERY-REPORT.json",
+        "sha256": "bd7e7ea02fe437850131f64bb383838140fa78e4853655c0a2cb16a8e1d99417",
+        "bytes": 6293
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/REPORT.json",
+        "sha256": "3e28337318022e5730895c7b544936027e57f4cbe717f275bf916d35c43e1b64",
+        "bytes": 6760
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/TECHNICAL-TIMELINE.json",
+        "sha256": "fbc65b6f003567a73b83a8bf08c06cda32663df3a9626310d29639a0ad7fdce0",
+        "bytes": 7058
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/reports/CORE-VAL-001/main-normal-context-plan-20261102.json",
+        "sha256": "f4ed5c27249517028c91b9ce576dd3543b40e68572d40dd0830bff23e4d4cc4f",
+        "bytes": 14960
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": ".task-control/state.json",
+        "sha256": "e748bcb6b43e42a34bafd6339c22475c9ab23ba5c1c12b1d33b0fbe7c2f9b849",
+        "bytes": 235458
+      },
+      {
+        "commit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+        "path": "docs/ORDINARY-SOURCE-READ.md",
+        "sha256": "1e0cd20bc7c26f61516be3bdd27dd54777d8fd3e8c9201fa5e21004e1415cf18",
+        "bytes": 30550
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md",
+        "sha256": "bc79da44adcf5621beb5bb93e28d550fd08689b2aba79a0f310ade97df771145",
+        "bytes": 7692
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/UPSTREAM-PREABORT-CANDIDATE.patch",
+        "sha256": "8678f43835fc66e954782833cb27437091c83387f1d84d83da5bab429aa36f79",
+        "bytes": 410
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-BOUNDARY-DIAGNOSIS.json",
+        "sha256": "1a6d499973d1066c544b693dcc8bff52455e7024c0834aa92cff4ac154099d4d",
+        "bytes": 9084
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-BOUNDARY-PROBE.mjs",
+        "sha256": "71592905356768a8be7c1a700617fd393ae03fd63274f72cd6ab181193cefbfb",
+        "bytes": 13700
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-BOUNDARY-RESULT.json",
+        "sha256": "145e5adccb8e54c4e1bdd9f275eeb9e4014789a600eb00af6a686e240098c106",
+        "bytes": 9648
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-PROBE-SETUP-FAILURE.json",
+        "sha256": "c25006be3ccbba2684a29fd0bc30db11f0f69454cb56f7600f45f47d289add22",
+        "bytes": 476
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": ".task-control/state.json",
+        "sha256": "f34bd2e08621ee3c74fde5351d789a27017d31d55ffed469007fb3ccab2aac23",
+        "bytes": 238922
+      },
+      {
+        "commit": "73eb1768d86a79777899e4121baf63935326d13b",
+        "path": "docs/ORDINARY-SOURCE-READ.md",
+        "sha256": "86c244f6c24b76e47ef32d67cbbeaa2dff959f07bfd8c2cf02f4e65f7d9986f5",
+        "bytes": 31240
+      }
+    ],
+    "credentialSignatureMatches": [],
+    "scopeReview": "All pending paths belong to Core engineering docs/ledger or synthetic fixture/diagnostic code. Stored stdout/stderr are synthetic TAP/path-error receipts, not real main logs. No private seeds/configuration/databases/source bodies included. Existing local account paths are engineering provenance. Signature scan supplements scope/content review; not a universal secrecy proof.",
+    "unrelatedProjectStateSha256": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47"
+  },
+  "files": [
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/BUILD-WAIT-OBSERVATION.py",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/EXISTING-WAIT-METADATA.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/EXISTING-WAIT-METADATA.py",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/OBSERVATION-CAPABILITY-CHECK.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/OBSERVATION-CHECK-SETUP-FAILURE.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/OBSERVATION-STATIC-CHECK.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/UPSTREAM-WAIT-OBSERVATION.patch",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-CHECK-RESULT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-CHECK.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-COLLECTOR.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-CONTRACT.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-MANIFEST.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-REPORT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/R2-INDEPENDENT-REVIEW-SUMMARY.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/R2-PRESERVED-MEMBERS.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/SAVE-AUDIT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/ORDINARY-SOURCE-READ.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/README.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/state145.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/MANIFEST.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-CHECK.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT-first.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT-pre-terminal.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/OBSERVER-R0-R1.diff",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/PATCH-IDENTITY.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/R0-INDEPENDENT-REVIEW-SUMMARY.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/R0-PRESERVED-MEMBERS.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/README.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/REPORT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/SANDBOX-TRUE-RESULT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/SANDBOX-TRUE.claim.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/UPSTREAM-WAIT-OBSERVATION-R1.patch",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/core-wait-observation-collector.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/core-wait-observation.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/original-red-probes/collector-async-stderr-error.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/original-red-probes/real-channel-subscriber-throws.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/ORDINARY-SOURCE-READ.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/README.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/state143.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/COLLECTOR-R1-R2.diff",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/INDEPENDENT-COUNTEREXAMPLE.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/MANIFEST.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/R1-INDEPENDENT-REVIEW-SUMMARY.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/R1-PRESERVED-MEMBERS.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/README.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/REPORT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/TERMINAL-REENTRY-CHECK.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/TERMINAL-REENTRY-RESULT.json",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/UPSTREAM-WAIT-OBSERVATION-R2.patch",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/core-wait-observation-collector.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/core-wait-observation.mjs",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/ORDINARY-SOURCE-READ.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/README.md",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/state144.json",
+    ".task-control/state.json",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ],
+  "memberSha256ExcludingSelf": {
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/BUILD-WAIT-OBSERVATION.py": "9990204249ee673469eccc6f4cc7adca0499b1ec4bb3bcaac013ac6848a8d41e",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/EXISTING-WAIT-METADATA.json": "792afa6a170649f56946f36570c7d0e73e505825e1cd848f038a8ba8c85cae65",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/EXISTING-WAIT-METADATA.py": "7c345102a84aac357a6b5d2e6d3549da4dc9a7411b2971c6f286413cd444ae95",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/OBSERVATION-CAPABILITY-CHECK.json": "1516df27b82058408d2c5e41506056374db943f4d862eb60de5ff4ce5443c612",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/OBSERVATION-CHECK-SETUP-FAILURE.json": "2526f653e9204dabd563e6c51995492d65b87b01ad99ed5b9aaef166ef317464",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/OBSERVATION-STATIC-CHECK.json": "d7d3a1273d64b3817bd0e1798fe0b0e3758d08402e7a17325a2ea5d3392acd89",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md": "bcfb611aa6f1ad6bfe560a624b3e0d2a039afa3f3c9e07ba0b9399862098b2b9",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/UPSTREAM-WAIT-OBSERVATION.patch": "1dabf8096e7240b6786db2991168fdae53e376b2c5e07ea0817741ed7d64fc86",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-CHECK-RESULT.json": "17e0827f730f90455e2c9558a8cdc60a35f14cfc2f00e05df1ff6f79bbed579e",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-CHECK.mjs": "929b9160c31bb0b8d1e66312522f7b73d6053388bc47f3fd6164063835eb7576",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-COLLECTOR.mjs": "fe4c4edfe15e7b5fee87094fa3e6e39e71b5a7f91ef9961ac3e07068e8e019b6",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-CONTRACT.md": "edeafc72c99947c28cf9a4c335f09f3220ac5047797bca69173087efb1800beb",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-MANIFEST.json": "c63f9068ac26f350b3f06607e696a3cfa081690c0dfaeb91aa2ba86a39ff63f7",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-REPORT.json": "c90eaf2c2daaa5784b2762e504a6e6c4058a8eddec21e5fb752501f0947b52aa",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION.mjs": "e165cb5c55fae594b2f565914155f341819b3ac547ae629cd7a28c5706b0d0f1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/R2-INDEPENDENT-REVIEW-SUMMARY.json": "cf1b6a2642fa0f0da5e46cb52f2ae6ed1382c0128ba98b5ab489e33543a559c2",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/R2-PRESERVED-MEMBERS.json": "f68b6c630443ccdbd01759fb08491532ce5116a9c29f254819022e90d0159cf5",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/ORDINARY-SOURCE-READ.md": "f21e7859680c70ce8b5e40b61a31f5cbd1349b4ae90be6b18512af9b9f8ce793",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/README.md": "45e5ff56094a46557be76619b1c83b710d393408214b24a4fc12a68fed4c233f",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/state145.json": "507009868b6dede2462da1e7f1e779b995879caed82cb905fbb843536ce6d018",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/MANIFEST.json": "cb6b2c981eec4325c7057c59eb3786a532fbedefe43f87449df150e72bf5b54e",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-CHECK.mjs": "0c5cefc3ea1a745ecffc0296958a1d46d3300ce69129f50fc72c7eafc2818427",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT-first.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT-pre-terminal.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/OBSERVER-R0-R1.diff": "205e3e37d78799b1f7f6d63c7ed7336facc202da635fb7ddbbe3d9a422e6887f",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/PATCH-IDENTITY.json": "84153b415cb209a4af38af0d7d15e39c4b4024dc0e7dc46f54bb2b1b1d3c5de4",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/R0-INDEPENDENT-REVIEW-SUMMARY.json": "56d3532e673e28c262c8c8024610a59050c682f53b33d6dd96debe657e44ea49",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/R0-PRESERVED-MEMBERS.json": "7845b52f38d6e0379593d1e037f048da2b71a8fadfac6b085a3edffed74fc11f",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/README.md": "06b0634b5ecd4259f7fb1bbf4252b3eb9eaf3877f812aeaebb3f93a905bd3122",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/REPORT.json": "5d019ecb24dd5b8af7a15f7519475a33ec43be829f4b78c6631b2b905a2f02fe",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/SANDBOX-TRUE-RESULT.json": "b251a005e8254e5fbff8f6e77a087fcc306e4e40798c0c99b191dcce4d1882f1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/SANDBOX-TRUE.claim.json": "96a6a58fcf537cbedbf8621fabc1762cdf2e7d0458cc8dc7b04aeee1836f1800",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/UPSTREAM-WAIT-OBSERVATION-R1.patch": "634833f222e2030a31bc210a8b6003f42cc6cd5c497d0efbe7e725d3a81330a6",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/core-wait-observation-collector.mjs": "4777cb59d9f0e88ff0c2898096745f5b743edd0967b9bc6bc11eb10c9aa46672",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/core-wait-observation.mjs": "ade171a12250174cd5ee415466162a3ebd54c42e5167483d1ac7101a63217c9a",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/original-red-probes/collector-async-stderr-error.mjs": "ad29c5afee7f62ba8b62be7edfcd871a474405bae5076f535bbff9a846422c95",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/original-red-probes/real-channel-subscriber-throws.mjs": "d5c2befbfceea62432651c1a089c979390ccb0b817213317dba93b68610ef4fa",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/ORDINARY-SOURCE-READ.md": "d3e07e008bef257c143df309bf84c1029f43b8cc2382ea5a58946c737a032468",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/README.md": "048a802ec63c7aa78f95cd2a2568b1a3090e88ebdd7c54c90d74b87bf8d3f1c8",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/state143.json": "4ea345b5803a1b0759ed39da2a6ea81da1a84a1d6164396f5b67b2b02f2c8aae",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/COLLECTOR-R1-R2.diff": "08db84f9fa5bc03f90b4d144da592d1c7b9ffc2fde10f3afb4a76bf9c736e531",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/INDEPENDENT-COUNTEREXAMPLE.mjs": "2649953632ec50abc920e1103ea9ec2a35e41d78c02bb6f51e768e42c46b6294",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/MANIFEST.json": "652352fc75316861890eece4642cfe620064e17320b6a121ca020483d241445a",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/R1-INDEPENDENT-REVIEW-SUMMARY.json": "dcf34d72819726a1072462d02eb1ad8f201a196d31de79db20936edda4fd2dc2",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/R1-PRESERVED-MEMBERS.json": "9efab6db9141b07d4c196ba132e995adaa20a16ad9a3ce45d5284b667b8fc9de",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/README.md": "0fe2eed240c62dd62e69536feb1d91821802d607ad58617dd4f2827f755e9dc5",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/REPORT.json": "197f9c919b72288d4f297d3808cfceb1bebfea6814439fefe66868ed9bbe9d33",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/TERMINAL-REENTRY-CHECK.mjs": "d5174eff3e2dcf56bfff1f934fcc2134e9561ca583cbe3df82583827edb38218",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/TERMINAL-REENTRY-RESULT.json": "eb779b20f01779c8c0445ca27a18bbd7ca0a17d9c548476430111e70ca9030bf",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/UPSTREAM-WAIT-OBSERVATION-R2.patch": "2a096929362131bb6d4e5eb6686ba805cfb6abe61b05a285fbc934f81abc39d8",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/core-wait-observation-collector.mjs": "0135509f6f23c5dffb182a149a7fc5792873945b2dbf643c61b5ea302d9530df",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/core-wait-observation.mjs": "ade171a12250174cd5ee415466162a3ebd54c42e5167483d1ac7101a63217c9a",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/ORDINARY-SOURCE-READ.md": "fd5116c080e84f1ed7554e5ce787aab0dcc32a7209d1de04f9aec20f5f2d78f7",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/README.md": "cc8b7654b30d58184ffb1bebfcf379d9cb556515e3bdbc5559962fad73eb584a",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/state144.json": "185b268185063a4d91b3d4ec762e4c4b73e9078c86822cff1aef022985c03079",
+    ".task-control/state.json": "185c63393569080fb6e0ffc5c0071a08c3b3340229afe4cbc8a98fc5c40a439b",
+    "docs/ORDINARY-SOURCE-READ.md": "cde2dcc49d284055c75e7f68cf3bb8c7c1947f15d60769f3202badc42bdae5ef"
+  },
+  "operations": {
+    "testsRerun": 0,
+    "installedWrites": 0,
+    "sandbox": 0,
+    "service": 0,
+    "model": 0,
+    "permissionChanges": 0,
+    "push": "not_yet_attempted"
+  },
+  "remaining": {
+    "OSsandbox": "EPERM_exit71",
+    "actualPendingOwner": "unknown",
+    "main": "ordinary restored healthy by earlier dated receipt; not rechecked now",
+    "paidQuota": 0,
+    "allCapture": "partial only"
+  }
+}

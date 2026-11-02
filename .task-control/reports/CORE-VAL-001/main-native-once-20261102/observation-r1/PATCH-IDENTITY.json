@@ -1,0 +1,13 @@
+{
+  "fiveAwaitHunksByteIdentical": true,
+  "awaitHunksSha256": "cbe5922b1205c82d57e884113e184c240553b98f69d71a16051f4b6978290d4d",
+  "originalPatchSha256": "1dabf8096e7240b6786db2991168fdae53e376b2c5e07ea0817741ed7d64fc86",
+  "candidatePatchSha256": "634833f222e2030a31bc210a8b6003f42cc6cd5c497d0efbe7e725d3a81330a6",
+  "nodeCases": 2,
+  "firstRunReceiptRetained": "NATIVE-FAULT-RESULT-first.json",
+  "onlyRerunReason": "test driver uses archived exact original probes instead of ephemeral review directory",
+  "verificationReruns": [
+    "same two cases after making red probes self-contained",
+    "same two cases after adding required capture terminal receipt"
+  ]
+}

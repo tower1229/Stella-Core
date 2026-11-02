@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "originalPid": 14106,
+    "from": "2026-11-02T11:20:29.893+00:00",
+    "through": "2026-11-02T11:25:23+00:00",
+    "readPasses": 1,
+    "runIdentityFrom": "REPORT.json",
+    "bodyAndSecretOutput": false,
+    "excluded": "No session store, SQLite database, source body, system log query, live status, service or model operation."
+  },
+  "log": {
+    "basename": "openclaw-2026-11-02.log",
+    "prefixBytes": 1861704,
+    "prefixSha256": "38011e5b39e57327c34898177ee607d42e827091f2dd3dffd16419c1ba839cd3",
+    "windowRecords": 21,
+    "knownTraceCount": 2,
+    "otherPidCandidatesExcluded": 0,
+    "records": []
+  },
+  "snapshot": {
+    "basename": "openclaw-stability-2026-11-02T11-46-18-861Z-14106-gateway.restart_shutdown_timeout.json",
+    "sha256": "21ff2656b9e5f2efd7d8a2caf2eeb28d723f89b48f09aaac45336b8a36309e2a",
+    "windowTypeCounts": {
+      "message.received": 1,
+      "message.queued": 1,
+      "session.state": 3,
+      "message.dispatch.started": 1,
+      "session.turn.created": 1,
+      "queue.lane.enqueue": 2,
+      "queue.lane.dequeue": 2,
+      "run.execution_phase": 8,
+      "diagnostic.memory.sample": 8,
+      "diagnostic.heartbeat": 8
+    },
+    "matchingRecords": []
+  },
+  "limitations": "Only the fixed daily structured log and the known original-PID stability snapshot. No matching record is not proof no write/queue existed: diagnostics may be disabled, sampled, omitted, or emitted only at completion. Time-only records cannot establish request identity."
+}

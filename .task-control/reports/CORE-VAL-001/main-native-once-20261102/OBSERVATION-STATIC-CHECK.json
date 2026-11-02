@@ -1,0 +1,25 @@
+{
+  "checks": [
+    {
+      "file": "user-turn-transcript-DuAfBkUt.mjs",
+      "syntaxExit": 0,
+      "originalInstalledHash": "ec4a2477247f78ec8f46fcd13a8639e06c1135fbb5518baba226a708ba9d6edc"
+    },
+    {
+      "file": "attempt-system-prompt-prepare-ChKsbjSh.mjs",
+      "syntaxExit": 0,
+      "originalInstalledHash": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c"
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "syntaxExit": 0,
+      "originalInstalledHash": "0afdbce66e3a83f49e99c3035223cd3d83dea54f1ae1023e03165733f27878d1"
+    },
+    {
+      "observerCollectorAndTestSyntax": "passed"
+    }
+  ],
+  "sourceModulesUnchanged": true,
+  "hostImports": 0,
+  "staticOnly": true
+}

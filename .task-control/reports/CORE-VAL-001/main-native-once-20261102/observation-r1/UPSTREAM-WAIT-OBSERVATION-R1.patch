@@ -1,0 +1,224 @@
+--- a/node_modules/openclaw/dist/user-turn-transcript-DuAfBkUt.mjs
++++ b/node_modules/openclaw/dist/user-turn-transcript-DuAfBkUt.mjs
+@@ -1,3 +1,4 @@
++import { enterWait, exitWait } from "./core-wait-observation.mjs";
+ import { t as runInDetachedAsyncContext } from "./detached-async-context-D4YGqfxh.mjs";
+ import { a as composeSessionSourceAssertion, o as createDynamicSessionSourceAssertion } from "./session-source-authority-h1UO3u0I.mjs";
+ import { r as captureOwnedTranscriptWriteAssertion } from "./transcript-write-context-DwwjCPCE.mjs";
+@@ -389,12 +390,22 @@
+ 		};
+ 	};
+ 	const waitForRuntimePersistence = async () => {
+-		if (runtimePersistencePromise) try {
+-			await runtimePersistencePromise;
+-		} catch (error) {
+-			handlePersistenceError(error);
+-		}
+-		await admissionWrite;
++		if (runtimePersistencePromise) {
++			const observation = enterWait("recorder.runtime");
++			try {
++				await runtimePersistencePromise;
++			} catch (error) {
++				handlePersistenceError(error);
++			} finally {
++				exitWait(observation);
++			}
++		}
++		const observation = enterWait("recorder.admission");
++		try {
++			await admissionWrite;
++		} finally {
++			exitWait(observation);
++		}
+ 	};
+ 	const persistPrepared = async (options) => {
+ 		if (options.skipWhenBlocked && blocked) return;
+--- a/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs
++++ b/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs
+@@ -1,3 +1,4 @@
++import { enterWait, exitWait } from "./core-wait-observation.mjs";
+ import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "./string-coerce-1VuiLaaR.mjs";
+ import { s as asFiniteNumber, v as parseDateFirstTimestampMs, w as parseStrictPositiveInteger } from "./number-coercion-CkhMiRw8.mjs";
+ import { t as pruneMapToMaxSize } from "./map-size-BlrH_CnE.mjs";
+@@ -3160,7 +3161,12 @@
+ 			params.assertCurrent?.();
+ 		};
+ 		if (params.shouldCapturePrompt()) {
+-			await params.recorder?.waitForRuntimePersistence();
++			const observation = enterWait("projection.recorder");
++			try {
++				await params.recorder?.waitForRuntimePersistence();
++			} finally {
++				exitWait(observation);
++			}
+ 			assertCurrent();
+ 			const recorded = params.recorder?.getPersistedMessage?.();
+ 			if (!targetPrompt) {
+@@ -3187,7 +3193,13 @@
+ 					if (frozen === void 0 && captureProjection) {
+ 						const pendingText = text;
+ 						const capture = () => captureProjection(pendingText, assertCurrent);
+-						const captured = await (params.withTranscriptWrite ? params.withTranscriptWrite(capture) : capture());
++						const writeObservation = enterWait("projection.write");
++						let captured;
++						try {
++							captured = await (params.withTranscriptWrite ? params.withTranscriptWrite(capture) : capture());
++						} finally {
++							exitWait(writeObservation);
++						}
+ 						assertCurrent();
+ 						text = readModelPromptProjection(captured);
+ 						if (text === void 0) throw new Error("Transcript recorder did not capture the model prompt projection");
+--- a/node_modules/openclaw/dist/agent-core-D7okjbP7.mjs
++++ b/node_modules/openclaw/dist/agent-core-D7okjbP7.mjs
+@@ -1,3 +1,4 @@
++import { enterWait, exitWait } from "./core-wait-observation.mjs";
+ import { C as parseStrictNonNegativeInteger, P as resolvePositiveTimerTimeoutMs } from "./number-coercion-CkhMiRw8.mjs";
+ import { f as toStringifiedError, n as coerceErrorMessage } from "./error-coercion-W9BtigRm.mjs";
+ import { n as estimateStringChars } from "./cjk-chars-6ld30jSx.mjs";
+@@ -2011,12 +2012,16 @@
+ 		}
+ 		const signal = this.activeRun?.abortController.signal;
+ 		if (!signal) throw new Error("Agent listener invoked outside active run");
+-		for (const listener of this.listeners) try {
+-			await listener(event, signal);
+-		} finally {
+-			if (publishedToolResult && event.type === "message_end" && event.message.role === "toolResult" && event.message !== publishedToolResult && this.mutableState.messages[messageIndex] === publishedToolResult) {
+-				publishedToolResult = event.message;
+-				this.mutableState.messages[messageIndex] = publishedToolResult;
++		for (const listener of this.listeners) {
++			const observation = enterWait("agent.listener");
++			try {
++				await listener(event, signal);
++			} finally {
++				exitWait(observation);
++				if (publishedToolResult && event.type === "message_end" && event.message.role === "toolResult" && event.message !== publishedToolResult && this.mutableState.messages[messageIndex] === publishedToolResult) {
++					publishedToolResult = event.message;
++					this.mutableState.messages[messageIndex] = publishedToolResult;
++				}
+ 			}
+ 		}
+ 	}
+--- /dev/null
++++ b/node_modules/openclaw/dist/core-wait-observation.mjs
+@@ -0,0 +1,69 @@
++// R1 disposable SDK-copy observer only. Never loaded by installed Core/Host.
++const enabled = process.env.OPENCLAW_TRACE_PREMODEL_WAIT === '1';
++const points = new Set(['agent.listener', 'recorder.runtime', 'recorder.admission', 'projection.recorder', 'projection.write']);
++let sink;
++let incomplete = false;
++let nextId = 0;
++let emitted = 0;
++const limit = 128;
++export function markObservationIncomplete() {
++  incomplete = true;
++  sink = undefined;
++}
++// One private synchronous collector, not a public diagnostics_channel/event bus.
++export function installObservationSink(collector) {
++  if (!enabled || incomplete || sink || typeof collector !== 'function') return false;
++  sink = collector;
++  return true;
++}
++export function observationState() {
++  return Object.freeze({ enabled, incomplete, emitted });
++}
++function emit(record) {
++  if (!sink || incomplete || emitted >= limit) return;
++  try {
++    emitted++;
++    const result = sink(Object.freeze({ ...record, sequence: emitted }));
++    if (result && typeof result.then === 'function') {
++      // A collector must be synchronous. Contain only its own returned rejection.
++      markObservationIncomplete();
++      Promise.resolve(result).catch(() => {});
++    }
++  } catch {
++    markObservationIncomplete();
++  }
++}
++export function enterWait(point) {
++  if (!enabled) return;
++  try {
++    if (!sink || incomplete || !points.has(point)) return;
++    if (emitted === limit - 1) {
++      emit({ phase: 'limit', incomplete: true });
++      markObservationIncomplete();
++      return;
++    }
++    if (emitted >= limit) return;
++    const token = { id: ++nextId, point, startedAt: performance.now(), exited: false };
++    emit({ phase: 'enter', id: token.id, point, monotonicMs: token.startedAt });
++    return token;
++  } catch {
++    markObservationIncomplete();
++    return;
++  }
++}
++export function exitWait(token) {
++  if (!enabled || !token || token.exited || incomplete) return;
++  try {
++    token.exited = true;
++    const now = performance.now();
++    if (emitted === limit - 1) {
++      emit({ phase: 'limit', incomplete: true });
++      markObservationIncomplete();
++      return;
++    }
++    emit({ phase: 'exit', id: token.id, point: token.point, monotonicMs: now,
++      elapsedMs: Math.max(0, now - token.startedAt) });
++  } catch {
++    markObservationIncomplete();
++  }
++}
+--- /dev/null
++++ b/node_modules/openclaw/dist/core-wait-observation-collector.mjs
+@@ -0,0 +1,47 @@
++// Proposed preload for the disposable child. fd3 must be a dedicated capture pipe.
++import { createWriteStream } from 'node:fs';
++import { installObservationSink, markObservationIncomplete, observationState } from './core-wait-observation.mjs';
++if (process.env.OPENCLAW_TRACE_PREMODEL_WAIT === '1') {
++  const points = new Set(['agent.listener', 'recorder.runtime', 'recorder.admission', 'projection.recorder', 'projection.write']);
++  let count = 0;
++  try {
++    // Never attach error handlers to shared stderr or process exception events.
++    const output = createWriteStream('', { fd: 3, autoClose: false });
++    output.on('error', markObservationIncomplete);
++    // One terminal receipt; missing receipt/pipe error is incomplete, never success.
++    process.once('beforeExit', () => {
++      try {
++        if (output.destroyed) { markObservationIncomplete(); return; }
++        const { incomplete, emitted } = observationState();
++        output.end(JSON.stringify({ phase: 'capture_terminal', incomplete, emitted }) + '\n',
++          error => { if (error) markObservationIncomplete(); });
++      } catch {
++        markObservationIncomplete();
++      }
++    });
++    installObservationSink(record => {
++      if (count++ >= 128) return;
++      try {
++        const { phase, sequence, id, point, monotonicMs, elapsedMs, incomplete } = record;
++        if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence > 128) { markObservationIncomplete(); return; }
++        const out = { phase, sequence };
++        if (phase === 'limit' && incomplete === true) out.incomplete = true;
++        else {
++          if ((phase !== 'enter' && phase !== 'exit') || !points.has(point)) { markObservationIncomplete(); return; }
++          if (!Number.isSafeInteger(id) || id < 1 || id > 128 || !Number.isFinite(monotonicMs) || monotonicMs < 0) { markObservationIncomplete(); return; }
++          Object.assign(out, { id, point, monotonicMs });
++          if (phase === 'exit') {
++            if (!Number.isFinite(elapsedMs) || elapsedMs < 0) { markObservationIncomplete(); return; }
++            out.elapsedMs = elapsedMs;
++          }
++        }
++        // The callback and owned-stream listener cover asynchronous write failure.
++        output.write(JSON.stringify(out) + '\n', error => { if (error) markObservationIncomplete(); });
++      } catch {
++        markObservationIncomplete();
++      }
++    });
++  } catch {
++    markObservationIncomplete();
++  }
++}

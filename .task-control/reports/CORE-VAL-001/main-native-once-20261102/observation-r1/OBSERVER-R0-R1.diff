@@ -1,0 +1,155 @@
+--- R0/WAIT-OBSERVATION.mjs
++++ R1/core-wait-observation.mjs
+@@ -1,27 +1,45 @@
+-// Candidate for an isolated, single-request SDK copy only. Not loaded by Core.
+-import { channel } from 'node:diagnostics_channel';
++// R1 disposable SDK-copy observer only. Never loaded by installed Core/Host.
+ const enabled = process.env.OPENCLAW_TRACE_PREMODEL_WAIT === '1';
+-const output = channel('openclaw.debug.pre-model-wait.v1');
+ const points = new Set(['agent.listener', 'recorder.runtime', 'recorder.admission', 'projection.recorder', 'projection.write']);
++let sink;
++let incomplete = false;
+ let nextId = 0;
+ let emitted = 0;
+ const limit = 128;
++export function markObservationIncomplete() {
++  incomplete = true;
++  sink = undefined;
++}
++// One private synchronous collector, not a public diagnostics_channel/event bus.
++export function installObservationSink(collector) {
++  if (!enabled || incomplete || sink || typeof collector !== 'function') return false;
++  sink = collector;
++  return true;
++}
++export function observationState() {
++  return Object.freeze({ enabled, incomplete, emitted });
++}
+ function emit(record) {
+-  // No promise, error text, input, IDs, paths, SQL or credentials cross this channel.
++  if (!sink || incomplete || emitted >= limit) return;
+   try {
+-    if (emitted >= limit) return;
+     emitted++;
+-    output.publish(Object.freeze({ ...record, sequence: emitted }));
++    const result = sink(Object.freeze({ ...record, sequence: emitted }));
++    if (result && typeof result.then === 'function') {
++      // A collector must be synchronous. Contain only its own returned rejection.
++      markObservationIncomplete();
++      Promise.resolve(result).catch(() => {});
++    }
+   } catch {
+-    // Observability failure must not change the original operation's outcome.
++    markObservationIncomplete();
+   }
+ }
+ export function enterWait(point) {
+   if (!enabled) return;
+   try {
+-    if (!output.hasSubscribers || !points.has(point)) return;
++    if (!sink || incomplete || !points.has(point)) return;
+     if (emitted === limit - 1) {
+       emit({ phase: 'limit', incomplete: true });
++      markObservationIncomplete();
+       return;
+     }
+     if (emitted >= limit) return;
+@@ -29,21 +47,23 @@
+     emit({ phase: 'enter', id: token.id, point, monotonicMs: token.startedAt });
+     return token;
+   } catch {
++    markObservationIncomplete();
+     return;
+   }
+ }
+ export function exitWait(token) {
+-  if (!enabled || !token || token.exited) return;
++  if (!enabled || !token || token.exited || incomplete) return;
+   try {
+     token.exited = true;
+     const now = performance.now();
+     if (emitted === limit - 1) {
+       emit({ phase: 'limit', incomplete: true });
++      markObservationIncomplete();
+       return;
+     }
+     emit({ phase: 'exit', id: token.id, point: token.point, monotonicMs: now,
+       elapsedMs: Math.max(0, now - token.startedAt) });
+   } catch {
+-    // No change to await, cancellation, settlement or custody.
++    markObservationIncomplete();
+   }
+ }
+--- R0/WAIT-OBSERVATION-COLLECTOR.mjs
++++ R1/core-wait-observation-collector.mjs
+@@ -1,28 +1,47 @@
+-// Proposed --import preload for the isolated synthetic process. Not executed here.
+-import { channel } from 'node:diagnostics_channel';
++// Proposed preload for the disposable child. fd3 must be a dedicated capture pipe.
++import { createWriteStream } from 'node:fs';
++import { installObservationSink, markObservationIncomplete, observationState } from './core-wait-observation.mjs';
+ if (process.env.OPENCLAW_TRACE_PREMODEL_WAIT === '1') {
++  const points = new Set(['agent.listener', 'recorder.runtime', 'recorder.admission', 'projection.recorder', 'projection.write']);
+   let count = 0;
+-  const points = new Set(['agent.listener', 'recorder.runtime', 'recorder.admission', 'projection.recorder', 'projection.write']);
+-  channel('openclaw.debug.pre-model-wait.v1').subscribe(record => {
+-    if (count++ >= 128) return;
+-    try {
+-      // Fixed scalar projection; never serialize arbitrary event objects.
+-      const { phase, sequence, id, point, monotonicMs, elapsedMs, incomplete } = record;
+-      if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence > 128) return;
+-      const out = { phase, sequence };
+-      if (phase === 'limit' && incomplete === true) out.incomplete = true;
+-      else {
+-        if ((phase !== 'enter' && phase !== 'exit') || !points.has(point)) return;
+-        if (!Number.isSafeInteger(id) || id < 1 || id > 128 || !Number.isFinite(monotonicMs) || monotonicMs < 0) return;
+-        Object.assign(out, { id, point, monotonicMs });
+-        if (phase === 'exit') {
+-          if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return;
+-          out.elapsedMs = elapsedMs;
++  try {
++    // Never attach error handlers to shared stderr or process exception events.
++    const output = createWriteStream('', { fd: 3, autoClose: false });
++    output.on('error', markObservationIncomplete);
++    // One terminal receipt; missing receipt/pipe error is incomplete, never success.
++    process.once('beforeExit', () => {
++      try {
++        if (output.destroyed) { markObservationIncomplete(); return; }
++        const { incomplete, emitted } = observationState();
++        output.end(JSON.stringify({ phase: 'capture_terminal', incomplete, emitted }) + '\n',
++          error => { if (error) markObservationIncomplete(); });
++      } catch {
++        markObservationIncomplete();
++      }
++    });
++    installObservationSink(record => {
++      if (count++ >= 128) return;
++      try {
++        const { phase, sequence, id, point, monotonicMs, elapsedMs, incomplete } = record;
++        if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence > 128) { markObservationIncomplete(); return; }
++        const out = { phase, sequence };
++        if (phase === 'limit' && incomplete === true) out.incomplete = true;
++        else {
++          if ((phase !== 'enter' && phase !== 'exit') || !points.has(point)) { markObservationIncomplete(); return; }
++          if (!Number.isSafeInteger(id) || id < 1 || id > 128 || !Number.isFinite(monotonicMs) || monotonicMs < 0) { markObservationIncomplete(); return; }
++          Object.assign(out, { id, point, monotonicMs });
++          if (phase === 'exit') {
++            if (!Number.isFinite(elapsedMs) || elapsedMs < 0) { markObservationIncomplete(); return; }
++            out.elapsedMs = elapsedMs;
++          }
+         }
++        // The callback and owned-stream listener cover asynchronous write failure.
++        output.write(JSON.stringify(out) + '\n', error => { if (error) markObservationIncomplete(); });
++      } catch {
++        markObservationIncomplete();
+       }
+-      process.stderr.write('CORE_WAIT_SPAN ' + JSON.stringify(out) + '\n');
+-    } catch {
+-      // Missing or incomplete diagnostics are unknown, never successful cleanup.
+-    }
+-  });
++    });
++  } catch {
++    markObservationIncomplete();
++  }
+ }

@@ -1,0 +1,7 @@
+{
+  "scope": "pure instrumentation regression harness setup failure; no Host/request",
+  "exitCode": 1,
+  "scriptSha256": "47f943c8bf36a0afa08f41cf3c3a5eef6af463a48291cb1dff48b5260fe06c06",
+  "failure": "original official processEvents required steeringQueue/followUpQueue.commit in synthetic receiver; omitted fixture fields caused TypeError before listener barrier",
+  "productionCandidateChanged": false
+}

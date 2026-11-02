@@ -47,3 +47,19 @@
 [一行上游候选](UPSTREAM-PREABORT-CANDIDATE.patch)仅在投影等待前调用已有 `assertCurrent()`。修前预取消仍进入一次等待；候选不再进入。正常投影不变，进入等待后的取消仍保留物理收尾语义。因此该候选**不解决已知的90秒后挂起**，未应用于已安装Host，不能宣布实际问题已修。它供上游审查，不建立长期 fork。
 
 探针首轮因隔离VM遗漏依赖桩而触发自身4秒 watchdog，原失败单独保留；补齐后6条路径和6项对照完成，provider边界触达0。它们不是新真实请求、真实存储或端到端时间限验证。公开插件合同没有已核实的安全手段替换 Host 的物理 session wait；禁止篡改 recorder、抢占 admission handler 或伪造完成来规避。完整边界见 [WAIT-BOUNDARY-DIAGNOSIS.json](WAIT-BOUNDARY-DIAGNOSIS.json)。
+
+## 一次旧证据提取与默认关闭观测候选
+
+原 PID／时间窗内的既存结构化日志和已知快照没有提供可区分等待点的 lifecycle 队列持有者或 SQLite 写入元数据；[有界提取回执](EXISTING-WAIT-METADATA.json)保留范围与“未发现不等于不存在”的限制。本轮不再扩大旧日志搜索或根因合成矩阵。
+
+已准备[观测补丁与采集合同](WAIT-OBSERVATION-CONTRACT.md)，只给五个原 await 边界加 enter/exit，不包含修复、不改变取消与物理收尾。默认关闭，10项本地观测检查通过，首次合成依赖遗漏单独留证。现有执行通道可用，但历史 `sandbox_apply` EPERM 未解除，故 `executionReady=false`，没有启动合成 Gateway 或再次付费。候选待独审，不改已安装 main，也未把无复现写为修复。
+
+R0随后独审拒绝：真实 Node 订阅者异常和异步输出错误均能在业务返回后导致进程exit1，原10项VM结果不能覆盖此缺陷。[R1窄修与两例真实Node红绿回归](observation-r1/README.md)改用私有回调和独立诊断管道，五处await字节不变；R1仍未安装、待复核。本轮获准唯一一次原策略`true`能力检查仍exit71／sandbox_apply EPERM，已停，不继续启动服务或重试。
+
+R1故障隔离P1已独审关闭，但`beforeExit`完整收据被新的确定性反例否定。[R2](observation-r2/README.md)仅删除提前终态声明，保持五处await与私有故障隔离不变，只提供partial观测；单一反例修前／修后对照已完成，不能据此宣称完整采集或真实挂起修复。准备包交审后收口，等待合法沙箱能力恢复；未重试sandbox、服务或模型。
+
+## R2 独审接受与准备收口
+
+R2已独审接受为**未安装的partial观测候选**，17成员一致，五处await及R1故障隔离helper字节未变。独立单一反例确认提前完整声明已删除；exit0、fd3关闭、成对spans或内部incomplete:false都不能证明完整采集、实际清理或根因。见[独审摘要](observation-closeout/R2-INDEPENDENT-REVIEW-SUMMARY.json)。R0/R1失败及原审查字节保留，导航与state145原字节见[映射](observation-closeout/R2-PRESERVED-MEMBERS.json)。
+
+本准备包到此收口：OS sandbox activation仍为EPERM/exit71；真实pending owner仍未知。main健康及普通产物恢复依据11:47–11:48 UTC既有回执，本轮未重新查询或改动。真实付费请求额度已耗尽，原费用仍未知。本轮只归档/提交，不安装候选、不重试sandbox、不启动服务或模型。恢复执行须先合法解决沙箱能力，再单独确认具体采集方案；连接恢复和旧nextAction不自动授权运行。

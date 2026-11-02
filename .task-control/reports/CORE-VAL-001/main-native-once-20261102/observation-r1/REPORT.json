@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T13:29:49.520201+00:00",
+  "baseCommit": "73eb1768d86a79777899e4121baf63935326d13b",
+  "phase": "r1_candidate_pending_independent_review_sandbox_activation_still_denied",
+  "supersedesObservationImplementationOnly": "../WAIT-OBSERVATION-REPORT.json",
+  "priorIndependentReview": {
+    "verdict": "changes_required_OBS-P1",
+    "summary": "R0-INDEPENDENT-REVIEW-SUMMARY.json",
+    "sha256": "56d3532e673e28c262c8c8024610a59050c682f53b33d6dd96debe657e44ea49",
+    "authorR0TenChecksNotNativeFaultProof": true
+  },
+  "changes": {
+    "privateSynchronousSink": true,
+    "publicDiagnosticsChannelRemoved": true,
+    "dedicatedDiagnosticFd": 3,
+    "asyncWriteCallbackAndOwnedErrorHandler": true,
+    "globalExceptionHandlerAdded": false,
+    "sharedStderrErrorHandlerAdded": false,
+    "captureFailure": "incomplete and observation disabled; missing terminal is incomplete",
+    "maxSpanRecords": 128,
+    "maxTerminalRecords": 1,
+    "fiveAwaitPatchHunksByteIdentical": true,
+    "awaitHunksSha256": "cbe5922b1205c82d57e884113e184c240553b98f69d71a16051f4b6978290d4d",
+    "installedSDKOrMainChanged": false
+  },
+  "verification": {
+    "nativeCases": 2,
+    "originalExpectedExit1": 2,
+    "r1Exit0CaptureIncomplete": 2,
+    "countsNotAddedToR0Ten": true,
+    "sameCaseReruns": [
+      "same two cases after making red probes self-contained",
+      "same two cases after adding required capture terminal receipt"
+    ],
+    "sourcePatchSyntaxChecksHistoricalPreserved": true,
+    "r1HelpersAndDriverSyntaxPassed": 3,
+    "originalInstalledModuleHashesUnchanged": true,
+    "actualRootCauseProved": false,
+    "realGatewayOrSourceAcceptance": false
+  },
+  "sandbox": {
+    "singleProbeExecuted": true,
+    "normalChannel": true,
+    "requireEscalated": false,
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw/restriction.sb",
+      "/usr/bin/true"
+    ],
+    "actualExit": 71,
+    "signal": null,
+    "stderr": "sandbox-exec: sandbox_apply: Operation not permitted\n",
+    "profileBefore": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "profileAfter": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "result": "OS sandbox activation still rejected before true target",
+    "approvalRejection": false,
+    "retryAfterThisResult": false,
+    "gatewayReadinessProved": false
+  },
+  "execution": {
+    "ready": false,
+    "hostStarts": 0,
+    "networkListeners": 0,
+    "modelRequests": 0,
+    "privateBodyReads": 0,
+    "configurationOrPermissionChanges": false,
+    "paidMainQuotaRemaining": 0,
+    "nextDependency": "independent R1 review plus legitimate sandbox capability resolution; later fd3/argv/env/respawn/supervisor wiring freeze before any service release"
+  },
+  "artifactHashes": {
+    "NATIVE-FAULT-CHECK.mjs": "0c5cefc3ea1a745ecffc0296958a1d46d3300ce69129f50fc72c7eafc2818427",
+    "NATIVE-FAULT-RESULT-first.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    "NATIVE-FAULT-RESULT-pre-terminal.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    "NATIVE-FAULT-RESULT.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    "OBSERVER-R0-R1.diff": "205e3e37d78799b1f7f6d63c7ed7336facc202da635fb7ddbbe3d9a422e6887f",
+    "PATCH-IDENTITY.json": "84153b415cb209a4af38af0d7d15e39c4b4024dc0e7dc46f54bb2b1b1d3c5de4",
+    "R0-INDEPENDENT-REVIEW-SUMMARY.json": "56d3532e673e28c262c8c8024610a59050c682f53b33d6dd96debe657e44ea49",
+    "R0-PRESERVED-MEMBERS.json": "7845b52f38d6e0379593d1e037f048da2b71a8fadfac6b085a3edffed74fc11f",
+    "README.md": "06b0634b5ecd4259f7fb1bbf4252b3eb9eaf3877f812aeaebb3f93a905bd3122",
+    "SANDBOX-TRUE-RESULT.json": "b251a005e8254e5fbff8f6e77a087fcc306e4e40798c0c99b191dcce4d1882f1",
+    "SANDBOX-TRUE.claim.json": "96a6a58fcf537cbedbf8621fabc1762cdf2e7d0458cc8dc7b04aeee1836f1800",
+    "UPSTREAM-WAIT-OBSERVATION-R1.patch": "634833f222e2030a31bc210a8b6003f42cc6cd5c497d0efbe7e725d3a81330a6",
+    "core-wait-observation-collector.mjs": "4777cb59d9f0e88ff0c2898096745f5b743edd0967b9bc6bc11eb10c9aa46672",
+    "core-wait-observation.mjs": "ade171a12250174cd5ee415466162a3ebd54c42e5167483d1ac7101a63217c9a",
+    "original-red-probes/collector-async-stderr-error.mjs": "ad29c5afee7f62ba8b62be7edfcd871a474405bae5076f535bbff9a846422c95",
+    "original-red-probes/real-channel-subscriber-throws.mjs": "d5c2befbfceea62432651c1a089c979390ccb0b817213317dba93b68610ef4fa",
+    "r0-mutated-members/ORDINARY-SOURCE-READ.md": "d3e07e008bef257c143df309bf84c1029f43b8cc2382ea5a58946c737a032468",
+    "r0-mutated-members/README.md": "048a802ec63c7aa78f95cd2a2568b1a3090e88ebdd7c54c90d74b87bf8d3f1c8",
+    "r0-mutated-members/state143.json": "4ea345b5803a1b0759ed39da2a6ea81da1a84a1d6164396f5b67b2b02f2c8aae"
+  }
+}

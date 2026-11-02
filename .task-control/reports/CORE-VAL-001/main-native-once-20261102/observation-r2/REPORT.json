@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T14:12:30.667770+00:00",
+  "baseCommit": "73eb1768d86a79777899e4121baf63935326d13b",
+  "phase": "finite_preparation_closed_r2_pending_review_execution_blocked",
+  "scope": "OBS-R1-P2 terminal-publication removal only",
+  "priorIndependentReview": {
+    "summarySha256": "dcf34d72819726a1072462d02eb1ad8f201a196d31de79db20936edda4fd2dc2",
+    "originalP1Closed": true,
+    "newP2": "beforeExit terminal receipt can precede later asynchronous work",
+    "R1FullCaptureAccepted": false
+  },
+  "change": {
+    "collectorOnlyBehaviorChange": "remove beforeExit listener, output.end and capture_terminal assertion",
+    "helperByteIdenticalToR1": true,
+    "fiveAwaitHunksByteIdenticalToR1": true,
+    "awaitHunksSha256": "cbe5922b1205c82d57e884113e184c240553b98f69d71a16051f4b6978290d4d",
+    "captureCompleteness": "not_attested_partial_only",
+    "maxSpanRecords": 128,
+    "newTerminalPublicationMechanism": false,
+    "newFramework": false,
+    "installed": false
+  },
+  "verification": {
+    "deterministicCounterexamples": 1,
+    "R1FalseCompletenessReproduced": true,
+    "R2PrematureAssertionRemoved": true,
+    "bothProcessesExit": 0,
+    "newPureNodeChildren": 2,
+    "originalIndependentProbeLogicRetained": true,
+    "onlyImportPathsRebound": true,
+    "oldTwoFaultCasesNotRerunOrAdded": true,
+    "oldTenVmCasesNotRerunOrAdded": true,
+    "actualRootCauseProved": false
+  },
+  "environment": {
+    "readAndWriteChannelRecovered": true,
+    "priorTransportFailuresWereBeforeProcessCreation": true,
+    "R2WasAbsentAtRecovery": true,
+    "lastSandboxProbeStillExit71": true,
+    "sandboxCallsThisTask": 0,
+    "lastSandboxReceipt": "../observation-r1/SANDBOX-TRUE-RESULT.json",
+    "lastSandboxReceiptSha256": "b251a005e8254e5fbff8f6e77a087fcc306e4e40798c0c99b191dcce4d1882f1",
+    "executionReady": false,
+    "noMoreProbeAssigned": true,
+    "blocker": "OS sandbox activation EPERM requires legitimate environment capability resolution, not a code workaround",
+    "paidMainQuotaRemaining": 0
+  },
+  "operations": {
+    "hostStarts": 0,
+    "networkListeners": 0,
+    "networkRequests": 0,
+    "modelRequests": 0,
+    "permissionChanges": false,
+    "installedSdkChanged": false,
+    "mainSelfieChanged": false
+  },
+  "next": "Independent review only, then hold finite preparation package. No further observation expansion, sandbox/service attempt or main paid request.",
+  "artifactHashes": {
+    "COLLECTOR-R1-R2.diff": "08db84f9fa5bc03f90b4d144da592d1c7b9ffc2fde10f3afb4a76bf9c736e531",
+    "INDEPENDENT-COUNTEREXAMPLE.mjs": "2649953632ec50abc920e1103ea9ec2a35e41d78c02bb6f51e768e42c46b6294",
+    "R1-INDEPENDENT-REVIEW-SUMMARY.json": "dcf34d72819726a1072462d02eb1ad8f201a196d31de79db20936edda4fd2dc2",
+    "R1-PRESERVED-MEMBERS.json": "9efab6db9141b07d4c196ba132e995adaa20a16ad9a3ce45d5284b667b8fc9de",
+    "README.md": "0fe2eed240c62dd62e69536feb1d91821802d607ad58617dd4f2827f755e9dc5",
+    "TERMINAL-REENTRY-CHECK.mjs": "d5174eff3e2dcf56bfff1f934fcc2134e9561ca583cbe3df82583827edb38218",
+    "TERMINAL-REENTRY-RESULT.json": "eb779b20f01779c8c0445ca27a18bbd7ca0a17d9c548476430111e70ca9030bf",
+    "UPSTREAM-WAIT-OBSERVATION-R2.patch": "2a096929362131bb6d4e5eb6686ba805cfb6abe61b05a285fbc934f81abc39d8",
+    "core-wait-observation-collector.mjs": "0135509f6f23c5dffb182a149a7fc5792873945b2dbf643c61b5ea302d9530df",
+    "core-wait-observation.mjs": "ade171a12250174cd5ee415466162a3ebd54c42e5167483d1ac7101a63217c9a",
+    "r1-mutated-members/ORDINARY-SOURCE-READ.md": "fd5116c080e84f1ed7554e5ce787aab0dcc32a7209d1de04f9aec20f5f2d78f7",
+    "r1-mutated-members/README.md": "cc8b7654b30d58184ffb1bebfcf379d9cb556515e3bdbc5559962fad73eb584a",
+    "r1-mutated-members/state144.json": "185b268185063a4d91b3d4ec762e4c4b73e9078c86822cff1aef022985c03079"
+  }
+}

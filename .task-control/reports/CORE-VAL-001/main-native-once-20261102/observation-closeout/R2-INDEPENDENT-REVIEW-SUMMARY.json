@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-02T14:15:05.458Z",
+  "verdict": "accepted_uninstalled_partial_observation_candidate_only",
+  "stateRevisionObserved": 145,
+  "manifestSha256": "652352fc75316861890eece4642cfe620064e17320b6a121ca020483d241445a",
+  "members": 17,
+  "allMatch": true,
+  "fiveAwaitSectionsByteIdentical": true,
+  "R1HelperByteIdentical": true,
+  "originalP1StillClosedByUnchangedPrivateSinkAndOwnedFd3ErrorHandling": true,
+  "R1P2ClosedByRemovingPrematureAssertion": true,
+  "independentReplay": {
+    "cases": 1,
+    "redFalseTerminalReproduced": true,
+    "greenNoTerminalClaim": true,
+    "redExit": 0,
+    "greenExit": 0,
+    "greenPhases": [
+      "enter",
+      "exit"
+    ]
+  },
+  "acceptanceBoundary": "Every capture remains partial. Exit0, pipe closure, paired spans and internal incomplete:false do not attest completeness. No new whole-capture acceptance API.",
+  "environment": {
+    "sandboxApply": "still EPERM/exit71; no retry by reviewer",
+    "serviceValidation": "not performed",
+    "actualMainWaitOwner": "unknown",
+    "mainPaidQuota": "exhausted"
+  },
+  "operations": {
+    "pureCounterexampleReplay": 1,
+    "Gateway": 0,
+    "sandboxApply": 0,
+    "network": 0,
+    "model": 0,
+    "repositoryOrInstalledWrites": 0
+  },
+  "evidenceDirectory": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-wait-observation-r2-independent-20261102-ormqt2"
+}

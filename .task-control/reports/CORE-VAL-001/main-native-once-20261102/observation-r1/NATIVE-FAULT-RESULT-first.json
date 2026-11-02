@@ -1,0 +1,65 @@
+{
+  "scope": "two native observation-fault regressions only; not Host/root-cause acceptance",
+  "node": "v24.22.1",
+  "tests": 2,
+  "redExpectedFailures": 2,
+  "greenPass": 2,
+  "results": [
+    {
+      "name": "real-channel-subscriber-throws",
+      "red": {
+        "sourceSha256": "d5c2befbfceea62432651c1a089c979390ccb0b817213317dba93b68610ef4fa",
+        "actualExitCode": 1,
+        "signal": null,
+        "stdout": "{\"businessCallReturned\":true}\n",
+        "stderrSha256": "38e25588baffcba7bfad4fa484100143dd9c56395771a286f9641030d6b71e74",
+        "errorObserved": true
+      },
+      "green": {
+        "sourceSha256": "6966b0af61656975a6ee1032a5f111491602355bc93ba56cd92e4203fc848209",
+        "actualExitCode": 0,
+        "signal": null,
+        "stdout": "{\"businessCallReturned\":true,\"captureIncomplete\":true,\"globalExceptionHandlersAdded\":false}\n",
+        "stderr": "",
+        "business": {
+          "businessCallReturned": true,
+          "captureIncomplete": true,
+          "globalExceptionHandlersAdded": false
+        }
+      },
+      "adaptation": "Legacy real diagnostics channel no longer receives events; a throwing private sink is independently exercised in the same process."
+    },
+    {
+      "name": "collector-async-stderr-error",
+      "red": {
+        "sourceSha256": "ad29c5afee7f62ba8b62be7edfcd871a474405bae5076f535bbff9a846422c95",
+        "actualExitCode": 1,
+        "signal": null,
+        "stdout": "{\"businessCallReturned\":true}\n",
+        "stderrSha256": "d4950209f8d1d8e58c79ec76dca3cfe0f5e874bbb67cc2eb143a8227c8a73757",
+        "errorObserved": true
+      },
+      "green": {
+        "sourceSha256": "f225e1c60bac649a6a79480279d3d859d57d75fecdae689b32f493b0f301fd83",
+        "actualExitCode": 0,
+        "signal": null,
+        "stdout": "{\"businessCallReturned\":true,\"captureIncomplete\":true,\"outputErrorEvents\":1,\"writeCallbacks\":1,\"globalExceptionHandlersAdded\":false,\"sharedStderrHandlerAdded\":false}\n",
+        "stderr": "",
+        "business": {
+          "businessCallReturned": true,
+          "captureIncomplete": true,
+          "outputErrorEvents": 1,
+          "writeCallbacks": 1,
+          "globalExceptionHandlersAdded": false,
+          "sharedStderrHandlerAdded": false
+        }
+      },
+      "adaptation": "Same real Node Writable asynchronous callback/error fault, now injected into the dedicated diagnostic output instead of shared stderr."
+    }
+  ],
+  "hostStarts": 0,
+  "listeners": 0,
+  "networkRequests": 0,
+  "modelRequests": 0,
+  "privatePayloads": 0
+}

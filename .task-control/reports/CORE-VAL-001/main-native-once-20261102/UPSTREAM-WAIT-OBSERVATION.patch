@@ -1,0 +1,154 @@
+--- a/node_modules/openclaw/dist/user-turn-transcript-DuAfBkUt.mjs
++++ b/node_modules/openclaw/dist/user-turn-transcript-DuAfBkUt.mjs
+@@ -1,3 +1,4 @@
++import { enterWait, exitWait } from "./core-wait-observation.mjs";
+ import { t as runInDetachedAsyncContext } from "./detached-async-context-D4YGqfxh.mjs";
+ import { a as composeSessionSourceAssertion, o as createDynamicSessionSourceAssertion } from "./session-source-authority-h1UO3u0I.mjs";
+ import { r as captureOwnedTranscriptWriteAssertion } from "./transcript-write-context-DwwjCPCE.mjs";
+@@ -389,12 +390,22 @@
+ 		};
+ 	};
+ 	const waitForRuntimePersistence = async () => {
+-		if (runtimePersistencePromise) try {
+-			await runtimePersistencePromise;
+-		} catch (error) {
+-			handlePersistenceError(error);
+-		}
+-		await admissionWrite;
++		if (runtimePersistencePromise) {
++			const observation = enterWait("recorder.runtime");
++			try {
++				await runtimePersistencePromise;
++			} catch (error) {
++				handlePersistenceError(error);
++			} finally {
++				exitWait(observation);
++			}
++		}
++		const observation = enterWait("recorder.admission");
++		try {
++			await admissionWrite;
++		} finally {
++			exitWait(observation);
++		}
+ 	};
+ 	const persistPrepared = async (options) => {
+ 		if (options.skipWhenBlocked && blocked) return;
+--- a/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs
++++ b/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs
+@@ -1,3 +1,4 @@
++import { enterWait, exitWait } from "./core-wait-observation.mjs";
+ import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "./string-coerce-1VuiLaaR.mjs";
+ import { s as asFiniteNumber, v as parseDateFirstTimestampMs, w as parseStrictPositiveInteger } from "./number-coercion-CkhMiRw8.mjs";
+ import { t as pruneMapToMaxSize } from "./map-size-BlrH_CnE.mjs";
+@@ -3160,7 +3161,12 @@
+ 			params.assertCurrent?.();
+ 		};
+ 		if (params.shouldCapturePrompt()) {
+-			await params.recorder?.waitForRuntimePersistence();
++			const observation = enterWait("projection.recorder");
++			try {
++				await params.recorder?.waitForRuntimePersistence();
++			} finally {
++				exitWait(observation);
++			}
+ 			assertCurrent();
+ 			const recorded = params.recorder?.getPersistedMessage?.();
+ 			if (!targetPrompt) {
+@@ -3187,7 +3193,13 @@
+ 					if (frozen === void 0 && captureProjection) {
+ 						const pendingText = text;
+ 						const capture = () => captureProjection(pendingText, assertCurrent);
+-						const captured = await (params.withTranscriptWrite ? params.withTranscriptWrite(capture) : capture());
++						const writeObservation = enterWait("projection.write");
++						let captured;
++						try {
++							captured = await (params.withTranscriptWrite ? params.withTranscriptWrite(capture) : capture());
++						} finally {
++							exitWait(writeObservation);
++						}
+ 						assertCurrent();
+ 						text = readModelPromptProjection(captured);
+ 						if (text === void 0) throw new Error("Transcript recorder did not capture the model prompt projection");
+--- a/node_modules/openclaw/dist/agent-core-D7okjbP7.mjs
++++ b/node_modules/openclaw/dist/agent-core-D7okjbP7.mjs
+@@ -1,3 +1,4 @@
++import { enterWait, exitWait } from "./core-wait-observation.mjs";
+ import { C as parseStrictNonNegativeInteger, P as resolvePositiveTimerTimeoutMs } from "./number-coercion-CkhMiRw8.mjs";
+ import { f as toStringifiedError, n as coerceErrorMessage } from "./error-coercion-W9BtigRm.mjs";
+ import { n as estimateStringChars } from "./cjk-chars-6ld30jSx.mjs";
+@@ -2011,12 +2012,16 @@
+ 		}
+ 		const signal = this.activeRun?.abortController.signal;
+ 		if (!signal) throw new Error("Agent listener invoked outside active run");
+-		for (const listener of this.listeners) try {
+-			await listener(event, signal);
+-		} finally {
+-			if (publishedToolResult && event.type === "message_end" && event.message.role === "toolResult" && event.message !== publishedToolResult && this.mutableState.messages[messageIndex] === publishedToolResult) {
+-				publishedToolResult = event.message;
+-				this.mutableState.messages[messageIndex] = publishedToolResult;
++		for (const listener of this.listeners) {
++			const observation = enterWait("agent.listener");
++			try {
++				await listener(event, signal);
++			} finally {
++				exitWait(observation);
++				if (publishedToolResult && event.type === "message_end" && event.message.role === "toolResult" && event.message !== publishedToolResult && this.mutableState.messages[messageIndex] === publishedToolResult) {
++					publishedToolResult = event.message;
++					this.mutableState.messages[messageIndex] = publishedToolResult;
++				}
+ 			}
+ 		}
+ 	}
+--- /dev/null
++++ b/node_modules/openclaw/dist/core-wait-observation.mjs
+@@ -0,0 +1,49 @@
++// Candidate for an isolated, single-request SDK copy only. Not loaded by Core.
++import { channel } from 'node:diagnostics_channel';
++const enabled = process.env.OPENCLAW_TRACE_PREMODEL_WAIT === '1';
++const output = channel('openclaw.debug.pre-model-wait.v1');
++const points = new Set(['agent.listener', 'recorder.runtime', 'recorder.admission', 'projection.recorder', 'projection.write']);
++let nextId = 0;
++let emitted = 0;
++const limit = 128;
++function emit(record) {
++  // No promise, error text, input, IDs, paths, SQL or credentials cross this channel.
++  try {
++    if (emitted >= limit) return;
++    emitted++;
++    output.publish(Object.freeze({ ...record, sequence: emitted }));
++  } catch {
++    // Observability failure must not change the original operation's outcome.
++  }
++}
++export function enterWait(point) {
++  if (!enabled) return;
++  try {
++    if (!output.hasSubscribers || !points.has(point)) return;
++    if (emitted === limit - 1) {
++      emit({ phase: 'limit', incomplete: true });
++      return;
++    }
++    if (emitted >= limit) return;
++    const token = { id: ++nextId, point, startedAt: performance.now(), exited: false };
++    emit({ phase: 'enter', id: token.id, point, monotonicMs: token.startedAt });
++    return token;
++  } catch {
++    return;
++  }
++}
++export function exitWait(token) {
++  if (!enabled || !token || token.exited) return;
++  try {
++    token.exited = true;
++    const now = performance.now();
++    if (emitted === limit - 1) {
++      emit({ phase: 'limit', incomplete: true });
++      return;
++    }
++    emit({ phase: 'exit', id: token.id, point: token.point, monotonicMs: now,
++      elapsedMs: Math.max(0, now - token.startedAt) });
++  } catch {
++    // No change to await, cancellation, settlement or custody.
++  }
++}

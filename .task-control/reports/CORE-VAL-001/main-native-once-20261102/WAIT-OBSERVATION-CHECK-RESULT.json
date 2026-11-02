@@ -1,0 +1,52 @@
+{
+  "scope": "local observation-only regression, not a real-run reproduction or fix",
+  "tests": 10,
+  "passed": 10,
+  "results": [
+    {
+      "name": "default_off_no_emission",
+      "pass": true
+    },
+    {
+      "name": "fixed_scalar_projection_and_paired_exit",
+      "pass": true
+    },
+    {
+      "name": "bounded_128_with_incomplete_marker",
+      "pass": true
+    },
+    {
+      "name": "observer_failure_does_not_escape",
+      "pass": true
+    },
+    {
+      "name": "recorder_original_order_and_physical_settlement_retained",
+      "pass": true
+    },
+    {
+      "name": "recorder_error_identity_and_existing_handler_retained",
+      "pass": true
+    },
+    {
+      "name": "observation_does_not_add_abort_race_or_release_pending_wait",
+      "pass": true
+    },
+    {
+      "name": "projection_output_and_single_write_unchanged",
+      "pass": true
+    },
+    {
+      "name": "listener_error_finally_mutation_and_pending_ownership_unchanged",
+      "pass": true
+    },
+    {
+      "name": "collector_does_not_serialize_extra_fields_or_unrecognized_labels",
+      "pass": true
+    }
+  ],
+  "hostImports": 0,
+  "hostStarts": 0,
+  "networkRequests": 0,
+  "modelRequests": 0,
+  "privateBodies": 0
+}

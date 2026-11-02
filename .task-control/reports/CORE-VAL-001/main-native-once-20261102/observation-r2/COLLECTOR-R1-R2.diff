@@ -1,0 +1,29 @@
+--- R1/core-wait-observation-collector.mjs
++++ R2/core-wait-observation-collector.mjs
+@@ -1,6 +1,6 @@
+ // Proposed preload for the disposable child. fd3 must be a dedicated capture pipe.
+ import { createWriteStream } from 'node:fs';
+-import { installObservationSink, markObservationIncomplete, observationState } from './core-wait-observation.mjs';
++import { installObservationSink, markObservationIncomplete } from './core-wait-observation.mjs';
+ if (process.env.OPENCLAW_TRACE_PREMODEL_WAIT === '1') {
+   const points = new Set(['agent.listener', 'recorder.runtime', 'recorder.admission', 'projection.recorder', 'projection.write']);
+   let count = 0;
+@@ -8,17 +8,7 @@
+     // Never attach error handlers to shared stderr or process exception events.
+     const output = createWriteStream('', { fd: 3, autoClose: false });
+     output.on('error', markObservationIncomplete);
+-    // One terminal receipt; missing receipt/pipe error is incomplete, never success.
+-    process.once('beforeExit', () => {
+-      try {
+-        if (output.destroyed) { markObservationIncomplete(); return; }
+-        const { incomplete, emitted } = observationState();
+-        output.end(JSON.stringify({ phase: 'capture_terminal', incomplete, emitted }) + '\n',
+-          error => { if (error) markObservationIncomplete(); });
+-      } catch {
+-        markObservationIncomplete();
+-      }
+-    });
++    // Partial observations only: no lifecycle event attests complete capture.
+     installObservationSink(record => {
+       if (count++ >= 128) return;
+       try {

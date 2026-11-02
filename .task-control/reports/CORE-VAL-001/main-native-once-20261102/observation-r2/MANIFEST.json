@@ -1,0 +1,24 @@
+{
+  "baseCommit": "73eb1768d86a79777899e4121baf63935326d13b",
+  "stateRevision": 145,
+  "scope": "R2 terminal-assertion removal and one deterministic counterexample; finite preparation only",
+  "files": {
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/COLLECTOR-R1-R2.diff": "08db84f9fa5bc03f90b4d144da592d1c7b9ffc2fde10f3afb4a76bf9c736e531",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/INDEPENDENT-COUNTEREXAMPLE.mjs": "2649953632ec50abc920e1103ea9ec2a35e41d78c02bb6f51e768e42c46b6294",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/R1-INDEPENDENT-REVIEW-SUMMARY.json": "dcf34d72819726a1072462d02eb1ad8f201a196d31de79db20936edda4fd2dc2",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/R1-PRESERVED-MEMBERS.json": "9efab6db9141b07d4c196ba132e995adaa20a16ad9a3ce45d5284b667b8fc9de",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/README.md": "0fe2eed240c62dd62e69536feb1d91821802d607ad58617dd4f2827f755e9dc5",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/REPORT.json": "197f9c919b72288d4f297d3808cfceb1bebfea6814439fefe66868ed9bbe9d33",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/TERMINAL-REENTRY-CHECK.mjs": "d5174eff3e2dcf56bfff1f934fcc2134e9561ca583cbe3df82583827edb38218",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/TERMINAL-REENTRY-RESULT.json": "eb779b20f01779c8c0445ca27a18bbd7ca0a17d9c548476430111e70ca9030bf",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/UPSTREAM-WAIT-OBSERVATION-R2.patch": "2a096929362131bb6d4e5eb6686ba805cfb6abe61b05a285fbc934f81abc39d8",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/core-wait-observation-collector.mjs": "0135509f6f23c5dffb182a149a7fc5792873945b2dbf643c61b5ea302d9530df",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/core-wait-observation.mjs": "ade171a12250174cd5ee415466162a3ebd54c42e5167483d1ac7101a63217c9a",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/ORDINARY-SOURCE-READ.md": "fd5116c080e84f1ed7554e5ce787aab0dcc32a7209d1de04f9aec20f5f2d78f7",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/README.md": "cc8b7654b30d58184ffb1bebfcf379d9cb556515e3bdbc5559962fad73eb584a",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/r1-mutated-members/state144.json": "185b268185063a4d91b3d4ec762e4c4b73e9078c86822cff1aef022985c03079",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md": "45e5ff56094a46557be76619b1c83b710d393408214b24a4fc12a68fed4c233f",
+    "docs/ORDINARY-SOURCE-READ.md": "f21e7859680c70ce8b5e40b61a31f5cbd1349b4ae90be6b18512af9b9f8ce793",
+    ".task-control/state.json": "507009868b6dede2462da1e7f1e779b995879caed82cb905fbb843536ce6d018"
+  }
+}

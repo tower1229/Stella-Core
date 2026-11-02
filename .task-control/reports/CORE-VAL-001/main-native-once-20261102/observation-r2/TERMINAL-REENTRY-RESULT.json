@@ -1,0 +1,66 @@
+{
+  "scope": "one deterministic late-beforeExit-work regression; no real Host/root-cause test",
+  "node": "v24.22.1",
+  "counterexampleSha256": "2649953632ec50abc920e1103ea9ec2a35e41d78c02bb6f51e768e42c46b6294",
+  "importPathsOnlyRebound": true,
+  "cases": 1,
+  "originalFalseCompletenessReproduced": true,
+  "r2PrematureCompletenessRemoved": true,
+  "red": {
+    "codeSha256": "f0ceb9c6497b338eea1ef9de8c5adc274840427853324a799a94511402619214",
+    "actualExit": 0,
+    "signal": null,
+    "stdout": "{\"stateAfterLateWork\":{\"enabled\":true,\"incomplete\":true,\"emitted\":2}}\n",
+    "stderr": "",
+    "fd3": "{\"phase\":\"capture_terminal\",\"incomplete\":false,\"emitted\":0}\n",
+    "finalInternalState": {
+      "enabled": true,
+      "incomplete": true,
+      "emitted": 2
+    },
+    "records": [
+      {
+        "phase": "capture_terminal",
+        "incomplete": false,
+        "emitted": 0
+      }
+    ]
+  },
+  "green": {
+    "codeSha256": "d676ad9db8272c5116fb0c5a24a6f3f43c2ec2c4c527e46e3a14a368bf55c7f2",
+    "actualExit": 0,
+    "signal": null,
+    "stdout": "{\"stateAfterLateWork\":{\"enabled\":true,\"incomplete\":false,\"emitted\":2}}\n",
+    "stderr": "",
+    "fd3": "{\"phase\":\"enter\",\"sequence\":1,\"id\":1,\"point\":\"recorder.runtime\",\"monotonicMs\":21.854667}\n{\"phase\":\"exit\",\"sequence\":2,\"id\":1,\"point\":\"recorder.runtime\",\"monotonicMs\":22.18475,\"elapsedMs\":0.3300830000000019}\n",
+    "finalInternalState": {
+      "enabled": true,
+      "incomplete": false,
+      "emitted": 2
+    },
+    "records": [
+      {
+        "phase": "enter",
+        "sequence": 1,
+        "id": 1,
+        "point": "recorder.runtime",
+        "monotonicMs": 21.854667
+      },
+      {
+        "phase": "exit",
+        "sequence": 2,
+        "id": 1,
+        "point": "recorder.runtime",
+        "monotonicMs": 22.18475,
+        "elapsedMs": 0.3300830000000019
+      }
+    ]
+  },
+  "captureCompleteness": "not_attested_even_with_exit0_closed_pipe_and_paired_spans",
+  "internalIncompleteFalseMeans": "no observer fault recorded; not proof of complete capture",
+  "hostStarts": 0,
+  "sandboxCalls": 0,
+  "networkRequests": 0,
+  "modelRequests": 0,
+  "privatePayloads": 0
+}

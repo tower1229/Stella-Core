@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-02T13:11:51.420Z",
+  "verdict": "changes_required_observer_failure_can_terminate_process",
+  "stateRevisionObserved": 143,
+  "manifestSha256": "c63f9068ac26f350b3f06607e696a3cfa081690c0dfaeb91aa2ba86a39ff63f7",
+  "manifestMembers": 16,
+  "manifestAllMatched": true,
+  "findings": [
+    {
+      "id": "OBS-P1",
+      "title": "Observer fault containment is not true under actual Node diagnostics/stream semantics",
+      "locations": {
+        "WAIT-OBSERVATION.mjs": 14,
+        "WAIT-OBSERVATION-COLLECTOR.mjs": 23
+      },
+      "proof": [
+        {
+          "name": "real-channel-subscriber-throws",
+          "status": 1,
+          "signal": null,
+          "stdout": "{\"businessCallReturned\":true}\n"
+        },
+        {
+          "name": "collector-async-stderr-error",
+          "status": 1,
+          "signal": null,
+          "stdout": "{\"businessCallReturned\":true}\n"
+        }
+      ],
+      "cause": [
+        "Node diagnostics_channel reports subscriber exceptions asynchronously; try/catch around publish cannot contain them. The author mock instead throws directly from publish.",
+        "stderr.write can return normally and later emit an unhandled error; the synchronous catch does not contain that failure."
+      ],
+      "impact": "A supposedly observational fault can kill the actual child while business/physical ownership is unsettled, violating the non-interference contract.",
+      "minimalFix": "Use a bounded private fault-contained sink or another mechanism that contains actual subscriber and asynchronous output errors; mark capture incomplete/disable observation without throwing into or globally swallowing business errors. Preserve the five await edits, all await operands, existing catch/finally and cancellation/ownership behavior. Add these two actual Node regressions; do not build a new tracing framework."
+    }
+  ],
+  "otherwiseAccepted": [
+    "Original await operands/order/error handling and listener final mutation are retained by the textual five-boundary patch.",
+    "No new wait/race/timer/abort listener/admission change is introduced.",
+    "Controlled collector projection contains fixed scalar metadata only, and normal records are capped128 with an incomplete marker.",
+    "Default-off candidate is not installed; synthetic-only use is a launch contract that still needs real argv/env/path/hash freeze, not enforced merely by the flag."
+  ],
+  "authorChecks": {
+    "instrumentation": 10,
+    "claimedPassed": 10,
+    "notIndependentlyRerun": true,
+    "notCombinedWithNewCounterexamples": true
+  },
+  "sandboxAssessment": {
+    "recordedExitCode": 71,
+    "error": "sandbox-exec: sandbox_apply: Operation not permitted",
+    "classification": "sandbox-exec was started; macOS refused sandbox activation. No evidence of an automatic tool-approval rejection. The precise outer-policy/environment cause is unknown.",
+    "profileHashMatched": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "notInferred": [
+      "profile syntax bug",
+      "target Git denial after exec",
+      "restored sandbox capability",
+      "a grant to run outside the restriction"
+    ],
+    "minimalLawfulCheck": "Parent may separately assign exactly one side-effect-free /usr/bin/true launch through the same normal execution channel and byte-identical profile. This checks existing capability without changing policy or retrying Git/Host; current review does not execute it. No escalation, alternative API, changed profile or outside-controller route. A fresh explicit approval denial stops; repeated EPERM goes to environment capability resolution, not looped probes.",
+    "laterExecutionGates": [
+      "Fix observer fault containment and freeze reviewed bytes.",
+      "Explicitly release only the same-policy empty capability probe; record exact argv/profile hash/exit/stdout/stderr.",
+      "If successful, final synthetic launch argv/cwd/env/copy paths/claim/deadline/group wiring require the already planned mechanical review.",
+      "No automatic Gateway launch from an empty-command success. No paid main retry under exhausted authorization."
+    ]
+  },
+  "operations": {
+    "pureNodeFaultProbes": 2,
+    "sandboxApply": 0,
+    "Gateway": 0,
+    "model": 0,
+    "network": 0,
+    "mainOrInstalledWrites": 0,
+    "repositoryWrites": 0
+  },
+  "evidenceDirectory": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-wait-observation-independent-20261102-HSaz0W"
+}

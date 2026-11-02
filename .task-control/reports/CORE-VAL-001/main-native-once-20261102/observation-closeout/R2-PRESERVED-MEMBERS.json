@@ -1,0 +1,14 @@
+{
+  ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md": {
+    "preservedAt": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/README.md",
+    "sha256": "45e5ff56094a46557be76619b1c83b710d393408214b24a4fc12a68fed4c233f"
+  },
+  "docs/ORDINARY-SOURCE-READ.md": {
+    "preservedAt": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/ORDINARY-SOURCE-READ.md",
+    "sha256": "f21e7859680c70ce8b5e40b61a31f5cbd1349b4ae90be6b18512af9b9f8ce793"
+  },
+  ".task-control/state.json": {
+    "preservedAt": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/r2-reviewed-members/state145.json",
+    "sha256": "507009868b6dede2462da1e7f1e779b995879caed82cb905fbb843536ce6d018"
+  }
+}

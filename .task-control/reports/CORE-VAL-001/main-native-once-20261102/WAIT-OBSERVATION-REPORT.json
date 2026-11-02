@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T13:02:23.588556+00:00",
+  "baseCommit": "73eb1768d86a79777899e4121baf63935326d13b",
+  "sdkVersion": "2026.10.9",
+  "phase": "observation_candidate_frozen_pending_independent_review_not_executable",
+  "previousIndependentReview": {
+    "summarySha256": "cbebc545c085f9a58a08753a1d53a245a4d8504392746c82ad06bef5ab666a83",
+    "reportSha256": "fa4cbd66c1249d209536d597e63a68a80464c838ce94b2843170147c8d3add08",
+    "verdict": "causal_limits_accepted_original_owner_unknown_no_production_fix_validated",
+    "scope": "Prior wait-path diagnosis only; not acceptance of this new instrumentation."
+  },
+  "oldEvidence": {
+    "passes": 1,
+    "scope": {
+      "originalPid": 14106,
+      "from": "2026-11-02T11:20:29.893+00:00",
+      "through": "2026-11-02T11:25:23+00:00",
+      "readPasses": 1,
+      "runIdentityFrom": "REPORT.json",
+      "bodyAndSecretOutput": false,
+      "excluded": "No session store, SQLite database, source body, system log query, live status, service or model operation."
+    },
+    "structuredLogWindowRecords": 21,
+    "knownTraceCount": 2,
+    "matchingQueueOrSqliteRecords": 0,
+    "snapshotMatchingRecords": 0,
+    "rootCauseSelected": false,
+    "searchStopped": true,
+    "absenceDoesNotProveNoOperation": true
+  },
+  "candidate": {
+    "kind": "default_off_enter_exit_observation_only",
+    "installed": false,
+    "sourceModules": 3,
+    "points": [
+      "agent.listener",
+      "recorder.runtime",
+      "recorder.admission",
+      "projection.recorder",
+      "projection.write"
+    ],
+    "enabledOnlyBy": "OPENCLAW_TRACE_PREMODEL_WAIT=1",
+    "maxRecords": 128,
+    "originalAwaitOperandsRetained": true,
+    "abortRaceOrCancellationChange": false,
+    "writeOrAdmissionOrOwnershipMutation": false,
+    "earlierPreAbortRepairIncluded": false,
+    "collectionContract": "WAIT-OBSERVATION-CONTRACT.md",
+    "noIdentityOrContentFields": true,
+    "observerOverheadAcknowledged": true,
+    "captureIncompletenessIsUnknown": true
+  },
+  "verification": {
+    "instrumentationTests": 10,
+    "passed": 10,
+    "rootCauseSyntheticMatrixExpanded": false,
+    "priorCountsNotAdded": true,
+    "initialSetupFailurePreserved": true,
+    "installedSourcesUnchanged": true,
+    "changedSourceSyntaxChecked": 3,
+    "hostImports": 0,
+    "hostStarts": 0,
+    "listeners": 0,
+    "networkRequests": 0,
+    "modelRequests": 0,
+    "privateBodyReads": 0
+  },
+  "executionReadiness": {
+    "ready": false,
+    "executorWorkingForReadAndPureChecks": true,
+    "priorSandboxDenialStillUnresolved": true,
+    "sandboxRetryPerformed": false,
+    "knownPriorExitCode": 71,
+    "knownPriorError": "sandbox-exec: sandbox_apply: Operation not permitted",
+    "profileMatchesPreviouslyApprovedBytes": true,
+    "profileSha256": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "proposedPorts": [
+      55787,
+      55788
+    ],
+    "original55788ApprovalIsNotDenialOverride": true,
+    "maxProposedChatSend": 1,
+    "maxProposedProtocolHttp": 4,
+    "maxTotalMs": 90000,
+    "noNewMainPaidQuota": true,
+    "actualLaunchClaimCreated": false,
+    "wiringStillRequiresFreezeAndReview": true
+  },
+  "remainingBlocker": "Actual pending owner remains unknown. Old evidence cannot distinguish it. Instrumentation is unreviewed/uninstalled; synthetic execution also lacks resolved sandbox application capability. No service is started to work around that denial.",
+  "artifactHashes": {
+    "EXISTING-WAIT-METADATA.py": "7c345102a84aac357a6b5d2e6d3549da4dc9a7411b2971c6f286413cd444ae95",
+    "EXISTING-WAIT-METADATA.json": "792afa6a170649f56946f36570c7d0e73e505825e1cd848f038a8ba8c85cae65",
+    "WAIT-OBSERVATION.mjs": "e165cb5c55fae594b2f565914155f341819b3ac547ae629cd7a28c5706b0d0f1",
+    "WAIT-OBSERVATION-COLLECTOR.mjs": "fe4c4edfe15e7b5fee87094fa3e6e39e71b5a7f91ef9961ac3e07068e8e019b6",
+    "BUILD-WAIT-OBSERVATION.py": "9990204249ee673469eccc6f4cc7adca0499b1ec4bb3bcaac013ac6848a8d41e",
+    "UPSTREAM-WAIT-OBSERVATION.patch": "1dabf8096e7240b6786db2991168fdae53e376b2c5e07ea0817741ed7d64fc86",
+    "WAIT-OBSERVATION-CHECK.mjs": "929b9160c31bb0b8d1e66312522f7b73d6053388bc47f3fd6164063835eb7576",
+    "WAIT-OBSERVATION-CHECK-RESULT.json": "17e0827f730f90455e2c9558a8cdc60a35f14cfc2f00e05df1ff6f79bbed579e",
+    "OBSERVATION-CHECK-SETUP-FAILURE.json": "2526f653e9204dabd563e6c51995492d65b87b01ad99ed5b9aaef166ef317464",
+    "OBSERVATION-CAPABILITY-CHECK.json": "1516df27b82058408d2c5e41506056374db943f4d862eb60de5ff4ce5443c612",
+    "OBSERVATION-STATIC-CHECK.json": "d7d3a1273d64b3817bd0e1798fe0b0e3758d08402e7a17325a2ea5d3392acd89",
+    "WAIT-OBSERVATION-CONTRACT.md": "edeafc72c99947c28cf9a4c335f09f3220ac5047797bca69173087efb1800beb"
+  }
+}

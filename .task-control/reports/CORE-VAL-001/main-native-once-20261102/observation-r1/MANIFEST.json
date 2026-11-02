@@ -1,0 +1,30 @@
+{
+  "baseCommit": "73eb1768d86a79777899e4121baf63935326d13b",
+  "stateRevision": 144,
+  "scope": "R1 observation delivery/output fix and one same-policy capability receipt; no deployed runtime changes",
+  "files": {
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-CHECK.mjs": "0c5cefc3ea1a745ecffc0296958a1d46d3300ce69129f50fc72c7eafc2818427",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT-first.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT-pre-terminal.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/NATIVE-FAULT-RESULT.json": "e75160ae5a5e9d1afd2614774c08eac0fdfe726f11bc39711552ea6e91fa68c1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/OBSERVER-R0-R1.diff": "205e3e37d78799b1f7f6d63c7ed7336facc202da635fb7ddbbe3d9a422e6887f",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/PATCH-IDENTITY.json": "84153b415cb209a4af38af0d7d15e39c4b4024dc0e7dc46f54bb2b1b1d3c5de4",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/R0-INDEPENDENT-REVIEW-SUMMARY.json": "56d3532e673e28c262c8c8024610a59050c682f53b33d6dd96debe657e44ea49",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/R0-PRESERVED-MEMBERS.json": "7845b52f38d6e0379593d1e037f048da2b71a8fadfac6b085a3edffed74fc11f",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/README.md": "06b0634b5ecd4259f7fb1bbf4252b3eb9eaf3877f812aeaebb3f93a905bd3122",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/REPORT.json": "5d019ecb24dd5b8af7a15f7519475a33ec43be829f4b78c6631b2b905a2f02fe",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/SANDBOX-TRUE-RESULT.json": "b251a005e8254e5fbff8f6e77a087fcc306e4e40798c0c99b191dcce4d1882f1",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/SANDBOX-TRUE.claim.json": "96a6a58fcf537cbedbf8621fabc1762cdf2e7d0458cc8dc7b04aeee1836f1800",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/UPSTREAM-WAIT-OBSERVATION-R1.patch": "634833f222e2030a31bc210a8b6003f42cc6cd5c497d0efbe7e725d3a81330a6",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/core-wait-observation-collector.mjs": "4777cb59d9f0e88ff0c2898096745f5b743edd0967b9bc6bc11eb10c9aa46672",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/core-wait-observation.mjs": "ade171a12250174cd5ee415466162a3ebd54c42e5167483d1ac7101a63217c9a",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/original-red-probes/collector-async-stderr-error.mjs": "ad29c5afee7f62ba8b62be7edfcd871a474405bae5076f535bbff9a846422c95",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/original-red-probes/real-channel-subscriber-throws.mjs": "d5c2befbfceea62432651c1a089c979390ccb0b817213317dba93b68610ef4fa",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/ORDINARY-SOURCE-READ.md": "d3e07e008bef257c143df309bf84c1029f43b8cc2382ea5a58946c737a032468",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/README.md": "048a802ec63c7aa78f95cd2a2568b1a3090e88ebdd7c54c90d74b87bf8d3f1c8",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/r0-mutated-members/state143.json": "4ea345b5803a1b0759ed39da2a6ea81da1a84a1d6164396f5b67b2b02f2c8aae",
+    ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md": "cc8b7654b30d58184ffb1bebfcf379d9cb556515e3bdbc5559962fad73eb584a",
+    "docs/ORDINARY-SOURCE-READ.md": "fd5116c080e84f1ed7554e5ce787aab0dcc32a7209d1de04f9aec20f5f2d78f7",
+    ".task-control/state.json": "185b268185063a4d91b3d4ec762e4c4b73e9078c86822cff1aef022985c03079"
+  }
+}

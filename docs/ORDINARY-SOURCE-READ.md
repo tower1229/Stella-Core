@@ -434,3 +434,36 @@ preserves this remaining ambiguity. A one-line, uninstalled upstream candidate
 checks cancellation before entering a new projection wait; it leaves in-flight
 write settlement intact and is explicitly not a repair proven for this real run.
 No safe public-plugin replacement for the Host-owned wait has been established.
+
+A single bounded extraction of existing original-run queue/SQLite metadata found
+no distinguishing operation record. The [default-off observation candidate](../.task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-OBSERVATION-CONTRACT.md)
+preserves original await/cancellation/settlement semantics and is not installed.
+Its10 local instrumentation checks are not a reproduction or repair of the real
+hang. A proposed synthetic collection remains execution-not-ready because the
+previous sandbox-application denial has not been resolved; no service/model retry
+or permission change followed from this investigation.
+
+The observation candidate's R0 fault-containment claim was subsequently rejected
+by two actual Node counterexamples. [R1](../.task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/README.md)
+uses private delivery and a dedicated diagnostic pipe; the same two faults now
+leave the business process running and mark capture incomplete. Original awaits
+remain unchanged and the candidate is still uninstalled/pending review. A single
+authorized same-profile `/usr/bin/true` capability probe again returned sandbox
+activation EPERM/exit71. No service or model retry followed.
+
+R1 fault containment was accepted, but its `beforeExit` completeness receipt was
+not. [R2](../.task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r2/README.md)
+removes that receipt and offers partial observations only. One deterministic
+late-work counterexample verifies removal of the premature assertion; exit0,
+closed output, paired spans and no recorded observer fault still do not attest
+complete capture. Await edits and installed runtime remain unchanged. Preparation
+ends at review; no further sandbox/service/model attempt is assigned.
+
+The R2 [independent review](../.task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/R2-INDEPENDENT-REVIEW-SUMMARY.json)
+accepted only the uninstalled partial-observation candidate:17 frozen members
+match, and the five awaits and R1 helper are unchanged. No completeness, real
+cleanup or root-cause claim follows from exit0, pipe closure, paired spans or
+internal incomplete:false. Preparation is closed. OS sandbox EPERM/exit71 and
+the unknown real pending owner remain blockers; ordinary main recovery is the
+dated earlier observation, not a new health probe. Paid quota is exhausted. No
+installation, sandbox retry, service or model request is assigned by this save.

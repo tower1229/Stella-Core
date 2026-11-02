@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-11-02T12:56:16.367171+00:00",
+  "executionChannel": "local read/code/check commands working",
+  "installedSDK": "2026.10.9",
+  "sandboxExecutablePresent": true,
+  "sandboxApplyRetried": false,
+  "lastSandboxApply": {
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw/restriction.sb",
+      "/usr/bin/git",
+      "--no-optional-locks",
+      "-c",
+      "core.fsmonitor=false",
+      "-C",
+      "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw/workspace/synthetic-source",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exitCode": 71,
+    "stdout": "",
+    "stderr": "sandbox-exec: sandbox_apply: Operation not permitted\n",
+    "expectedSyntheticRevision": "2fb247001f5718b0f27d72743acdfcdde95e1a56",
+    "matched": false,
+    "HostStarts": 0,
+    "listeners": 0,
+    "time": "2026-11-02T06:36:57.205905+00:00"
+  },
+  "priorDenialStillUnresolved": true,
+  "profile": {
+    "present": true,
+    "sha256": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "matchesPrior": true,
+    "networkRules": [
+      "(deny network-outbound)",
+      "(allow network-outbound (remote tcp \"localhost:55787\"))",
+      "(allow network-outbound (remote tcp \"localhost:55788\"))"
+    ]
+  },
+  "newServicesStarted": 0,
+  "portsProbed": 0,
+  "safeExecutionReady": false
+}

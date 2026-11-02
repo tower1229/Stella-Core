@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-02T13:35:38.070Z",
+  "stateRevisionObserved": 144,
+  "manifestSha256": "cb6b2c981eec4325c7057c59eb3786a532fbedefe43f87449df150e72bf5b54e",
+  "members": 23,
+  "allMatched": true,
+  "verdict": "original_P1_closed_new_terminal_receipt_P2_requires_narrow_fix",
+  "originalP1": {
+    "closed": true,
+    "independentCases": 2,
+    "eachOriginalExit": 1,
+    "eachR1Exit": 0,
+    "captureIncomplete": true,
+    "globalExceptionOrSharedStderrHandlersAdded": false
+  },
+  "fiveAwaitPatchSectionsByteIdentical": true,
+  "findings": [
+    {
+      "id": "OBS-R1-P2",
+      "file": "core-wait-observation-collector.mjs",
+      "location": "process.once(beforeExit)",
+      "title": "beforeExit is not final capture closure",
+      "proof": {
+        "status": 0,
+        "signal": null,
+        "error": null,
+        "stdout": "{\"stateAfterLateWork\":{\"enabled\":true,\"incomplete\":true,\"emitted\":2}}\n",
+        "stderr": "",
+        "fd3": "{\"phase\":\"capture_terminal\",\"incomplete\":false,\"emitted\":0}\n"
+      },
+      "explanation": "A legal later beforeExit listener schedules asynchronous business work. The collector already ended fd3 with incomplete:false/emitted0. Later waits increment emitted to2 and output-after-end marks incomplete:true, but the final state cannot reach fd3. Child still exits0 with clean stderr. A supervisor checking only terminal receipt/exit/stdio could falsely accept completeness.",
+      "minimalNext": "Only fix terminal receipt lifecycle: commit final receipt at a truly final, bounded publication boundary after pending observer writes are settled, or classify this beforeExit record as nonterminal and refuse completeness based on it. Add this one deterministic re-entry regression. Do not change the five await edits, cancellation, business errors, environment or tracing scope."
+    }
+  ],
+  "acceptedScope": "R1 private callback/fd3 fault-containment implementation and its two green regressions may be preserved as uninstalled evidence. Do not accept the new beforeExit receipt as proof of complete capture or release service execution.",
+  "environment": {
+    "sandboxActivationStillDenied": true,
+    "knownTrueExit": 71,
+    "profileHash": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "nativeCapabilityReceiptSha256": "b251a005e8254e5fbff8f6e77a087fcc306e4e40798c0c99b191dcce4d1882f1",
+    "noFurtherRetry": true,
+    "blocker": "macOS refuses sandbox_apply before true starts. Legitimate executor/environment capability resolution is required; no alternate path, relaxation or escalation is assigned. Even repaired receipt does not unblock Host."
+  },
+  "coverage": {
+    "authorOriginalVmChecks": 10,
+    "notRerunOrAdded": true,
+    "independentOriginalFaultCases": 2,
+    "newPureReceiptCounterexample": 1,
+    "Host": 0,
+    "model": 0,
+    "network": 0,
+    "sandboxApply": 0,
+    "repositoryOrMainWrites": 0
+  },
+  "sourceHashes": {
+    "r1Helper": "ade171a12250174cd5ee415466162a3ebd54c42e5167483d1ac7101a63217c9a",
+    "r1Collector": "4777cb59d9f0e88ff0c2898096745f5b743edd0967b9bc6bc11eb10c9aa46672"
+  },
+  "evidenceDirectory": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-wait-observation-r1-independent-20261102-uB7lmx"
+}
