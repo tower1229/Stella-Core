@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 115,
-  "updatedAt": "2026-11-02T07:24:34.129136+00:00",
+  "revision": 117,
+  "updatedAt": "2026-11-02T07:46:45.518064+00:00",
   "writer": {
     "agent": "Core actual main source activation and forward-data handoff single writer",
     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
@@ -1493,11 +1493,36 @@
               "PROJECT-STATE.yaml": "8e686cdb87225bb7f300963fa42a8650ecd99a2c3d6a6ebecec79a2069d652c3"
             }
           }
+        },
+        {
+          "id": "C-VAL-DATA-HANDOFF-METADATA-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
+          "claim": "Read-only actual112root clean and4handoffhashes match;prior exactprocessinggrant unchanged362descriptors/97sources;review explicitly nongrant.90f5metadata blobs match;registeredmain remainsold644clean0755. No privatepayload/Host/model/write. Ninefile local documentation commit6d4b6b4 savedstate115;notpushed. Actualbinding/identity/semanticconsumption unverified.",
+          "observedAt": "2026-11-02T07:36:43.790613+00:00",
+          "subject": {
+            "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1",
+            "stateUpdateBaseRevision": 115,
+            "stateUpdateBaseSha256": "e6698b8389a152289ff53ff010852cfd059a5fa84706b0949914ced339d4a7af",
+            "localSaveCommit": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e"
+          }
+        },
+        {
+          "id": "C-VAL-OLD-MAIN-CONSUMER-SCOPED-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json",
+          "claim": "Official readonly plugins.list0 generation5;config bytes unchanged, no oldroot literal references, ordinaryCore no source/legacy config, timeline relative memory resolves outside oldworktree. No checkpoint-named registry item; no scoped symlink/LaunchAgent match. Does not prove absence of arbitrary external/manual/remote consumers. No Host/CangHai/model mutation.",
+          "observedAt": "2026-11-02T07:46:45.518064+00:00",
+          "subject": {
+            "sha256": "45bc5455473e5d96a68917e645e41e2d9dfbaad982ee91e0253803a925d92b5b",
+            "stateUpdateBaseRevision": 116,
+            "stateUpdateBaseSha256": "55bd30b1409cdfb4ea10553e4d189f08e6136dc167be8ea95710da4a47095ee6"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Recovered original successfulreload without reinstallation/restart. Actualmain10.9 generation5 active andhealthy;2752frozenfiles match. Two real no-model tools:status not_configured,publisherfalse;source_read list explicit unavailable/isError. Only Core loadpath changed;oldartifact/privatebackup retained, broker/duplicatepath/transport failures preserved. CI df5both1834/1808/26old,8newregressionsfixed. PrivateSource/nativeadmission/semanticconsumption remain unverified.",
-        "nextAction": "Receive coordinated CangHai runtime directory,fullSHA,manifest/profile/catalog and original allowed descriptor/requester scope; verify metadata/clean fixedversion without reading private bodies or changing refs. Current sourceRead remains absent. Then review exact binding and real public native admission; original-body reads require structured Gemini policy, so plan bounded newly-authorized model/data-flow acceptance rather than reuse exhausted paid permission or fake callbacks. No more install/restart/test repeats for this completed milestone; preserve review-deliveries.",
+        "checkpoint": "Saved9file activation package locally6d4b6b4;fixed112metadata and original97/362grant verified;90f selected metadata identical. CurrentHost generation5 read-only registry/config/path checks find no active/configured oldmain dependency;not whole-machine absence. CangHai writer owns fixedworktree/private-mode decision. No model/privatebody/CangHai or Host mutation.",
+        "nextAction": "Directory writer completes its external-consumer/write-dependency and private checkout mode checks, then returns fixed90f worktree receipts; scoped current Host/oldCore consumer check is completed, not a pending blocker. Core prepares exact binding under unchanged362grant and genuine request admission. No new paid request authorized; retain accurate conditional call/output/cost limits. Save current metadata/consumer documentation package locally without push; preserve olddirty and original checkpoints.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2749,7 +2774,7 @@
           "docPatch": ".task-control/reports/CORE-VAL-001/main-source-activation-docs-20261102.patch",
           "docPatchSha256": "5507455634548f4c94d57f117fab286804d89c61da4d4889fb422d1508b0e9dc",
           "documentationSave": {
-            "status": "prepared_exact_nine_file_local_commit",
+            "status": "committed_locally_exact_nine_files",
             "files": [
               ".task-control/state.json",
               "PROJECT-STATE.yaml",
@@ -2771,22 +2796,59 @@
             "push": "not assigned this documentation-only round",
             "baselineHead": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
             "stateBaseRevision": 114,
-            "stateBaseSha256": "8f0c2f7a4729b7767991af134f4ba6b6baeb1e2c1a1eb26cac5d286093c7515d"
+            "stateBaseSha256": "8f0c2f7a4729b7767991af134f4ba6b6baeb1e2c1a1eb26cac5d286093c7515d",
+            "commit": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
+            "savedStateRevision": 115,
+            "pushed": false,
+            "ciTriggeredByLocalCommit": false,
+            "indexEmptyAfterCommit": true,
+            "oldProjectWorkingBytesPreserved": true
           }
         },
         "dataCoordinationHandoff": {
-          "phase": "await_explicit_runtime_directory_full_SHA_and_manifest_scope",
-          "parentReportedPreservedRefs": [
-            "local/preserved-finance-writer-20261024",
-            "codex/knowledge-migration-v1"
-          ],
-          "workerVerification": "not independently re-read CangHai; separate writer owns refs and directory consolidation",
-          "runtimeMigrationV1": "retained untouched; branch preservation not current source binding",
+          "phase": "metadata_verified_wait_directory_writer_fixed_worktree_and_privacy_mode_handoff",
+          "report": ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
+          "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1",
+          "selectedRuntimeRevision": "112be540a3988af53d1076a38f8f1c155da7a745",
+          "selectedRuntimeClean": true,
+          "fourHandoffHashesMatched": true,
+          "existingGrantHashUnchanged": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+          "permittedSources": 97,
+          "permittedDescriptors": 362,
+          "formalCandidateRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+          "candidateFiveMetadataHashesMatched": true,
+          "registeredMainWorktreeCurrentRevision": "644eafa63db75231fabc376129d56c02835cef8f",
+          "registeredMainWorktreeCurrentDirectoryMode": "0755",
+          "canghaiWriter": "separate consolidation writer; Core is read-only",
+          "runtimeBinding": "not_configured",
+          "nativeAdmission": "not_verified",
           "financialScope": "not added",
-          "reviewDeliveries": "preserve historical evidence and raw hashes; relocation not assigned; no move/delete performed"
+          "reviewDeliveries": "preserve original evidence; no relocation or deletion assigned",
+          "newPaidRun": "not authorized/not executed; precise bounds and unbounded provider retry/tool continuation limitations in report",
+          "currentHostConsumerCheck": {
+            "report": ".task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json",
+            "sha256": "45bc5455473e5d96a68917e645e41e2d9dfbaad982ee91e0253803a925d92b5b",
+            "generation": 5,
+            "oldRootConfiguredConsumer": "none found in current Host/config/ordinary entry and timeline path resolution",
+            "wholeMachineOrRemoteExcluded": false,
+            "hostMutations": 0
+          },
+          "documentationSave": {
+            "status": "prepared_exact_five_file_local_commit",
+            "baselineHead": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
+            "files": [
+              ".task-control/state.json",
+              "PROJECT-STATE.yaml",
+              "docs/CORE-CANGHAI-COORDINATION.md",
+              ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
+              ".task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json"
+            ],
+            "projectState": "only this new data metadata/consumer appendix; old paused/user differences left unstaged",
+            "push": false
+          }
         }
       },
-      "updatedAt": "2026-11-02T07:24:34.129136+00:00",
+      "updatedAt": "2026-11-02T07:46:45.518064+00:00",
       "delivery": {
         "local": {
           "status": "committed",

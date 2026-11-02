@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T07:36:43.790613+00:00",
+  "kind": "read_only_data_handoff_metadata_and_next_execution_boundary",
+  "coreHead": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
+  "runtimeCodeCommit": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+  "localDocumentationSave": {
+    "commit": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
+    "files": [
+      ".task-control/reports/CORE-VAL-001/main-source-activation-20261102.json",
+      ".task-control/reports/CORE-VAL-001/main-source-activation-docs-20261102.patch",
+      ".task-control/reports/CORE-VAL-001/native-source-producer-20261102.json",
+      ".task-control/reports/CORE-VAL-001/source-package-ci-df5bc467-20261102.json",
+      ".task-control/reports/CORE-VAL-001/source-package-push-recovery-20261102.json",
+      ".task-control/state.json",
+      "PROJECT-STATE.yaml",
+      "docs/MAIN-DEBUG-INSTALL.md",
+      "docs/ORDINARY-SOURCE-READ.md"
+    ],
+    "fileCount": 9,
+    "savedStateRevision": 115,
+    "indexEmpty": true,
+    "oldProjectWorkingBytesPreserved": true,
+    "pushed": false,
+    "ciTriggeredByThisLocalCommit": false,
+    "whitespaceCheck": "all nonpatch files passed; embedded patch has 9 empty context lines kept byte-for-byte"
+  },
+  "selectedRuntime": {
+    "root": "/Users/zangtao/.openclaw/stella-sources/migration-v1",
+    "rootExists": true,
+    "head": "112be540a3988af53d1076a38f8f1c155da7a745",
+    "expectedHead": "112be540a3988af53d1076a38f8f1c155da7a745",
+    "headMatches": true,
+    "clean": true,
+    "dirtyEntryCount": 0,
+    "files": {
+      "profile": {
+        "path": "50_PersonalAgent/stella/knowledge-migration-v1/runtime-profile.json",
+        "sha256": "d89bccca812a0187f56c2a645b93204c8214917a93e9c235f4bff850cb21f243",
+        "expectedSha256": "d89bccca812a0187f56c2a645b93204c8214917a93e9c235f4bff850cb21f243",
+        "matches": true,
+        "mode": "0o600",
+        "bytes": 5093,
+        "jsonType": "dict",
+        "topLevelShape": {
+          "agent_id": "str",
+          "autonomy": "object:4",
+          "capabilities": "array:12",
+          "contract_profile": "str",
+          "host_materialization_ref": "str",
+          "language": "str",
+          "memory": "object:4",
+          "models": "object:4",
+          "schema_version": "str",
+          "source_policies_ref": "str",
+          "timezone": "str"
+        }
+      },
+      "instanceManifest": {
+        "path": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+        "sha256": "bd782c90acedc82a202e0e0d149fd4c44ef79718b6e7e30097de6da88babf7a8",
+        "expectedSha256": "bd782c90acedc82a202e0e0d149fd4c44ef79718b6e7e30097de6da88babf7a8",
+        "matches": true,
+        "mode": "0o600",
+        "bytes": 3201,
+        "jsonType": "dict",
+        "topLevelShape": {
+          "authority": "object:3",
+          "compatibility": "object:3",
+          "derived": "object:1",
+          "durability": "object:3",
+          "evaluation": "object:2",
+          "experience": "object:1",
+          "extensions": "object:1",
+          "frameworks": "object:2",
+          "identity": "object:5",
+          "instance": "object:3",
+          "notes": "array:6",
+          "praxis": "object:2",
+          "runtimeState": "object:5",
+          "schemaVersion": "str",
+          "sourceBaseline": "object:5",
+          "twin": "object:2"
+        }
+      },
+      "runtimeCatalog": {
+        "path": "30_Knowledge/migration-v1/runtime/catalog.json",
+        "sha256": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+        "expectedSha256": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+        "matches": true,
+        "mode": "0o600",
+        "bytes": 961103,
+        "jsonType": "dict",
+        "topLevelShape": {
+          "bundles": "array:0",
+          "changes": "array:0",
+          "coverage": "array:102",
+          "evidence": "array:672",
+          "generationId": "str",
+          "parentGenerationId": "str",
+          "policies": "array:333",
+          "schemaVersion": "str",
+          "sources": "array:400",
+          "understandings": "array:0",
+          "views": "array:0",
+          "works": "array:0"
+        }
+      },
+      "descriptorSet": {
+        "path": "30_Knowledge/migration-v1/converted/descriptors.supply.review.json",
+        "sha256": "38f5732508a687faaa7bd5c349c33c215f5e73c8ac5e51f60aedd536f55bb7da",
+        "expectedSha256": "38f5732508a687faaa7bd5c349c33c215f5e73c8ac5e51f60aedd536f55bb7da",
+        "matches": true,
+        "mode": "0o600",
+        "bytes": 245710,
+        "jsonType": "dict",
+        "topLevelShape": {
+          "activeGrant": "bool",
+          "actualApproval": "bool",
+          "descriptors": "array:362",
+          "generationId": "str",
+          "schemaVersion": "str"
+        }
+      }
+    }
+  },
+  "existingProcessingGrant": {
+    "grantPath": "50_PersonalAgent/stella/knowledge-migration-v1/capabilities/source_access_context.json",
+    "grantSha256": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+    "grantMode": "0o600",
+    "schemaVersion": "stella.personal-context-access/v1",
+    "requesterCount": 1,
+    "modelRefs": [
+      "google/gemini-3.8-flash"
+    ],
+    "purpose": {
+      "deliveryScope": "owner-direct",
+      "derivePurpose": "personal_understanding",
+      "readPurpose": "personal_context"
+    },
+    "descriptorCount": 362,
+    "uniqueDescriptorCount": 362,
+    "uniqueSourceCount": 97,
+    "reviewDescriptorCount": 362,
+    "exactDescriptorBindingsMatchReview": true,
+    "fullDescriptorsEqualReview": true,
+    "reviewActiveGrant": false,
+    "reviewActualApproval": false,
+    "profileManifestPathMatches": true,
+    "catalogRefMatches": true,
+    "profileModelRefs": {
+      "framework_compiler": "google/gemini-3.8-flash",
+      "learning": "google/gemini-3.8-flash",
+      "main": "google/gemini-3.8-flash",
+      "router": "google/gemini-3.8-flash"
+    },
+    "reviewIsGrant": false,
+    "privateBodyRead": false,
+    "runtimeAdmissionVerified": false,
+    "matchesPreviouslyRecordedAuthorityBytes": true,
+    "priorEvidence": ".task-control/reports/CORE-VAL-001/source-admission-20261102.json",
+    "metadataObservationNotNewGrant": true
+  },
+  "formalRepositoryReadOnlyObservation": {
+    "formalHead": "d423d9e85ae3b2a9a120b7cdc52b3746b592b189",
+    "formalDirtyCount": 0,
+    "targetWorktree": "/Users/zangtao/.openclaw/stella-sources/main",
+    "registeredRecords": [
+      {
+        "worktree": "/Users/zangtao/.openclaw/stella-sources/main",
+        "HEAD": "644eafa63db75231fabc376129d56c02835cef8f",
+        "branch": "refs/heads/local/stella-owner-chat-v3-20261023"
+      }
+    ],
+    "targetExists": true,
+    "proposedRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "checkoutOrRefMutation": false,
+    "targetHead": "644eafa63db75231fabc376129d56c02835cef8f",
+    "targetDirtyCount": 0,
+    "targetDirectoryMode": "0o755",
+    "sharesFormalCommonDir": true,
+    "proposedRevisionMetadata": {
+      "50_PersonalAgent/stella/knowledge-migration-v1/runtime-profile.json": {
+        "sha256": "d89bccca812a0187f56c2a645b93204c8214917a93e9c235f4bff850cb21f243",
+        "matchesExisting112Root": true
+      },
+      "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json": {
+        "sha256": "bd782c90acedc82a202e0e0d149fd4c44ef79718b6e7e30097de6da88babf7a8",
+        "matchesExisting112Root": true
+      },
+      "30_Knowledge/migration-v1/runtime/catalog.json": {
+        "sha256": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+        "matchesExisting112Root": true
+      },
+      "30_Knowledge/migration-v1/converted/descriptors.supply.review.json": {
+        "sha256": "38f5732508a687faaa7bd5c349c33c215f5e73c8ac5e51f60aedd536f55bb7da",
+        "matchesExisting112Root": true
+      },
+      "50_PersonalAgent/stella/knowledge-migration-v1/capabilities/source_access_context.json": {
+        "sha256": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+        "matchesExisting112Root": true
+      }
+    }
+  },
+  "nextFiniteHandoff": {
+    "canghaiWriter": "separate directory-consolidation writer; Core performs no CangHai mutations",
+    "steps": [
+      "Directory writer preserves the old registered main worktree HEAD/branch and verifies no current consumer writes it; Core current sourceRead is unconfigured, which does not establish other-consumer absence.",
+      "Directory writer decides and explicitly confirms private checkout permission treatment before materializing90f. Existing target directory is0755; Git mode100644 does not preserve original0600. No chmod or umask/checkout operation was performed by Core.",
+      "After owner assignment and permission decision, directory writer alone moves the registered clean worktree to detached90f61d9c9ef019c5a06a419dbcb630fe598cb996, preserving the old branch. Formal production dev and runtime112 stay untouched.",
+      "Writer returns exact root/revision/clean result and selected manifest/profile/catalog/grant hashes plus actual privacy modes. Core rechecks these metadata only, then prepares a narrow sourceRead binding without extending finance or whole-repository scope.",
+      "Actual Host binding and native producer validation remain separate: prove authenticated request/run/call/session incarnation/owner-private audience match the unchanged single-requester grant before any metadata or original-body supply. No fabricated SenderId or synthetic authority."
+    ],
+    "proposedBindingOnly": {
+      "root": "/Users/zangtao/.openclaw/stella-sources/main",
+      "manifestPath": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+      "revision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996"
+    },
+    "configured": false,
+    "financialScopeAdded": false,
+    "fallbackAvailableForMetadataOnly": "Existing112 clean runtime remains available; no need to wait for broader directory cleanup to verify its metadata."
+  },
+  "modelDataFlow": {
+    "model": "google/gemini-3.8-flash",
+    "reasoning": "low",
+    "unsupportedSamplingParameters": false,
+    "metadataList": "No original payload and no semantic ranking; authenticated admission/processing metadata scope still required. A direct tools.invoke without native admission cannot be treated as a successful positive case.",
+    "policyInput": [
+      "current normalized request text and requestHash",
+      "one exact Source/policy/segment reference and reviewed description",
+      "personal_context/personal_understanding/owner-direct purpose",
+      "source restrictions and applicable access rules"
+    ],
+    "policyOriginalPayloadIncluded": false,
+    "onAllowedRead": "The local reader reads the complete retained payload for integrity/selector handling; only the selected UTF8 fragment plus role/time/source/selector/usage constraints is returned to the Agent. Local whole-payload integrity access is not whole-payload model disclosure.",
+    "mainModelInput": "Any returned selected fragment is then part of the Agent tool-result context sent to the configured main model. A private-data run therefore is not metadata-only, even though policy inference initially receives descriptions only.",
+    "policyMaxOutputTokensPerCall": 8192,
+    "singleExactEvidencePolicyCalls": "At most two distinct base/leaf policy judgments on the single successful first read; same policy ref is one, same-request cache can reuse already-completed judgments. Do not generalize to arbitrary extra tool choices.",
+    "proposedPaidScenario": {
+      "authorizedOrRun": false,
+      "newAgentRequests": 1,
+      "automaticResends": 0,
+      "input": "one <=500-character synthetic question referring to one specifically selected already-permitted Evidence; no unrelated history/bootstrap/private material",
+      "purpose": "native admission + exact source read and model consumption; not broad semantic recall acceptance",
+      "expectedLogicalCallsIfDirectRead": "two main-model turns plus up to two policy calls; expected4 total is conditional, not a provider-request hard limit",
+      "timeoutMsProposed": 90000,
+      "mainOutputInstruction": "request a short answer, but this is not an enforced token cap",
+      "hardUsdCap": false,
+      "physicalProviderRetriesAndToolRoundsBounded": false,
+      "whyNotHardBounded": "Installed10.9 closed chat.send schema exposes timeoutMs/thinking/idempotencyKey but no maxTokens or max tool-round field. Current source policy code caps each output8192 and per-request judgments128, not this proposed small test total. Actual main output/provider retries require a supported separately verified limit before claiming one.",
+      "approvalBoundary": "Any new paid run requires fresh specific authorization; previous real-model test allocation is exhausted. A synthetic-only run cannot be reported as private migration consumption. Existing data grant remains original362; no expansion from review catalog or finance."
+    }
+  },
+  "officialChatSendSchema": {
+    "sdkVersion": "2026.10.9",
+    "path": "node_modules/openclaw/dist/sessions-CLLc4meF.mjs",
+    "resolvedPath": "/Users/zangtao/.nvm/versions/node/v24.22.1/lib/node_modules/openclaw/dist/sessions-CLLc4meF.mjs",
+    "sha256": "7eeb8e72c6e72fbc400b1296db090eeeea5361b7e3a0ec09dacb10ec7d864a8b",
+    "sourceInspectedOnly": true
+  },
+  "coreSourceSha256": {
+    "src/ordinary-plugin.ts": "d1b9f34d16e1d3e07698cc50161e8942fc497ecbf2f03ccf9871fb3b9333d0d7",
+    "src/openclaw/ordinary-source-read.ts": "697e8279689f65983b61ce5feff1f1485e650ecd5fac728466d5529e093e45ab",
+    "src/openclaw/ordinary-source-admission.ts": "cd0241fd02605b5f88a478eeba7d500545d89ac9543e94a6c350fc89fce85d96",
+    "src/canghai/source-access.ts": "d00cb5c1d3ce2e0cdcdb7a480d72be93bf8f0323434876c9be499f6bb8c84c2d",
+    "src/canghai/personal-context-access.ts": "78d25d6b59da41c68bf56b4952ccf75b7cb48334614d7218c93a51c7619b5b87",
+    "src/praxis/episode-evidence.ts": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d"
+  },
+  "operations": {
+    "canghaiWrites": 0,
+    "modeChanges": 0,
+    "hostCallsThisMetadataPhase": 0,
+    "modelCalls": 0,
+    "privatePayloadReads": 0,
+    "privateDescriptionOrRequesterValuesLogged": false,
+    "newTestsRun": 0,
+    "newAccessOrTrustGrants": 0,
+    "pushes": 0
+  },
+  "unverified": [
+    "actual WebChat/operator identity matches existing requester",
+    "current admission and call lifecycle fields under genuine Host producer",
+    "private-source Host binding",
+    "semantic selection and understanding",
+    "full_memory"
+  ],
+  "stateUpdateBase": {
+    "revision": 115,
+    "sha256": "e6698b8389a152289ff53ff010852cfd059a5fa84706b0949914ced339d4a7af"
+  }
+}

@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T07:46:45.518064+00:00",
+  "coreHead": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
+  "scope": "current local main Host configuration/runtime, ordinary Core entry, installed timeline path resolver and narrowly named LaunchAgent metadata; read-only",
+  "config": {
+    "configPath": "/Users/zangtao/.openclaw/openclaw.json",
+    "sha256": "84a8a1952bc19a3e52d3ca23cdf14b4d8f907283d6529cb68f66341535e10fc9",
+    "rootReferenceHits": [],
+    "pluginLoadPaths": [
+      "/Users/zangtao/Workspace/tower1229/Stella-Core/.artifacts/source-read-20261102-df5bc467/package"
+    ],
+    "pluginSlots": {},
+    "relevantEntries": {
+      "stella-timeline-plugin": {
+        "enabled": true,
+        "configKeys": [
+          "proactiveGreeting",
+          "canonicalMemoryRoot",
+          "legacyLogTimezone"
+        ],
+        "publisher": null,
+        "sourceReadPresent": false,
+        "sourcePathKeys": {}
+      },
+      "memory-core": {
+        "enabled": true,
+        "configKeys": [
+          "dreaming"
+        ],
+        "publisher": null,
+        "sourceReadPresent": false,
+        "sourcePathKeys": {}
+      },
+      "stella-fitness": {
+        "enabled": false,
+        "configKeys": [
+          "extraction",
+          "dedicatedAgentId"
+        ],
+        "publisher": null,
+        "sourceReadPresent": false,
+        "sourcePathKeys": {}
+      },
+      "stella-core": {
+        "enabled": true,
+        "configKeys": [
+          "agentId",
+          "publisher",
+          "candidateDraftsRoot"
+        ],
+        "publisher": false,
+        "sourceReadPresent": false,
+        "sourcePathKeys": {}
+      }
+    },
+    "ragExtraPaths": {
+      "defaults.memorySearch.extraPaths": null
+    }
+  },
+  "pathAndLaunchMetadata": {
+    "pathConfigProjection": [
+      {
+        "keyPath": "agents.defaults.workspace",
+        "path": "/Users/zangtao/.openclaw/workspace",
+        "resolved": "/Users/zangtao/.openclaw/workspace",
+        "exists": true,
+        "pointsInsideOldMain": false
+      },
+      {
+        "keyPath": "agents.entries.main.workspace",
+        "path": "/Users/zangtao/.openclaw/workspace",
+        "resolved": "/Users/zangtao/.openclaw/workspace",
+        "exists": true,
+        "pointsInsideOldMain": false
+      },
+      {
+        "keyPath": "plugins.load.paths",
+        "path": "/Users/zangtao/Workspace/tower1229/Stella-Core/.artifacts/source-read-20261102-df5bc467/package",
+        "resolved": "/Users/zangtao/Workspace/tower1229/Stella-Core/.artifacts/source-read-20261102-df5bc467/package",
+        "exists": true,
+        "pointsInsideOldMain": false
+      }
+    ],
+    "launchAgentMetadata": [
+      {
+        "plistPath": "/Users/zangtao/Library/LaunchAgents/ai.openclaw.gateway.plist",
+        "label": "ai.openclaw.gateway",
+        "program": null,
+        "argvExecutable": "/bin/sh",
+        "scriptPaths": [
+          "/Users/zangtao/.nvm/versions/node/v24.22.1/lib/node_modules/openclaw/dist/index.js"
+        ],
+        "configStatePathEnv": {},
+        "runAtLoad": true,
+        "keepAlive": true
+      }
+    ],
+    "notRead": [
+      "private source bodies",
+      "checkpoint journals",
+      "session history",
+      "credential values"
+    ]
+  },
+  "runtime": {
+    "method": "official gateway plugins.list",
+    "exitCode": 0,
+    "generation": 5,
+    "stdoutSha256": "790a5bfac2995f881a0828609a4478eec63ed571a901ba3aaadeb70a17fd4782",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sameResponseBytesAsPriorKnownGeneration5": true,
+    "plugins": [
+      {
+        "id": "memory-core",
+        "enabled": true,
+        "state": "active"
+      },
+      {
+        "id": "stella-core",
+        "enabled": true,
+        "state": "active"
+      },
+      {
+        "id": "stella-fitness",
+        "enabled": false,
+        "state": "unloaded"
+      },
+      {
+        "id": "stella-timeline-plugin",
+        "enabled": true,
+        "state": "active"
+      }
+    ],
+    "checkpointNamedPluginIds": []
+  },
+  "ordinaryCore": {
+    "entry": ".artifacts/source-read-20261102-df5bc467/package/dist/src/ordinary-plugin.js",
+    "entrySha256": "e0f939faaf96bc3378c74c37a67b6dbbe8f89935567e4f883be8eb3f589b1459",
+    "packageEntry": "./dist/src/ordinary-plugin.js",
+    "directCheckpointOrLegacyImports": 0,
+    "sourceReadConfigured": false,
+    "legacyRuntimeStatus": "inactive",
+    "oldArtifacts": "retained rollback material, not selected load path"
+  },
+  "timeline": {
+    "configCanonicalMemoryRoot": "memory",
+    "configuredWorkspace": "/Users/zangtao/.openclaw/workspace",
+    "resolvedMemoryRoot": "/Users/zangtao/.openclaw/workspace/memory",
+    "resolvedPathInsideOldMain": false,
+    "installedResolverPath": "/Users/zangtao/.openclaw/extensions/stella-timeline-plugin/dist/src/runtime/openclaw_timeline_runtime.js",
+    "installedResolverSha256": "9a33583f4cf10ae1d603e0eab46960467808f24ba3f35e3daf549c50989a802c",
+    "resolverLines": [
+      118,
+      120,
+      647,
+      650
+    ],
+    "meaning": "Installed matching global plugin resolver joins a relative canonicalMemoryRoot to resolved workspace. No claim of a dynamic file-open trace."
+  },
+  "narrowWorkspaceSymlinks": {
+    "scope": "direct symlinks under workspace, memory and skills only",
+    "oldMainMatches": []
+  },
+  "otherNarrowLaunchAgentFiles": {
+    "patterns": [
+      "*stella*core*.plist",
+      "*checkpoint*.plist"
+    ],
+    "matches": []
+  },
+  "conclusion": {
+    "currentHostConfiguredOldMainConsumerFound": false,
+    "oldCheckpointEnabledInCurrentCoreEntry": false,
+    "observedLiveOldMainConsumer": false,
+    "entireMachineNoConsumersProven": false,
+    "notAWorktreeSwitchAuthorization": true,
+    "remainingDirectoryWriterCheck": "Resolve any external/manual/remote consumer or write dependency within its own scope before switching. The current main Host/old Core path examined here does not supply an active old-root dependency.",
+    "notInspected": [
+      "private bootstrap/skills/session bodies",
+      "checkpoint journals or private database contents",
+      "unrelated process args/env",
+      "arbitrary external scripts",
+      "remote services",
+      "whole-machine open-file/process inventory"
+    ]
+  },
+  "operations": {
+    "officialReadOnlyGatewayCalls": 1,
+    "hostConfigChanges": 0,
+    "reloadRestartInstall": 0,
+    "canghaiChanges": 0,
+    "modelCalls": 0,
+    "privatePayloadOrSecretValuesReadOrLogged": false
+  },
+  "localSavePlan": {
+    "baselineHead": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
+    "separateDocPackage": "data handoff + scoped consumer evidence only",
+    "push": false,
+    "largeTestsRerun": false
+  },
+  "stateBase": {
+    "revision": 116,
+    "sha256": "55bd30b1409cdfb4ea10553e4d189f08e6136dc167be8ea95710da4a47095ee6"
+  }
+}

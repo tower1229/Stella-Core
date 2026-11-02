@@ -145,3 +145,16 @@ CangHai 主工作区仍为生产 `dev@c050a046f48837f755c9b3f10bba2910d5218083`�
 2026-11-02 后续请求薄适配候选沿用 `source_access_context` 的原有单请求者、`google/gemini-3.8-flash`、`personal_context / personal_understanding / owner-direct` 合同，不追加授权。普通入口仅在配置来源端口时被动保存当前规范化请求表示；首次工具调用须匹配真实 Host 入场、run/call/session、请求者／受众及提交回执，列表按精确 Source／分段描述符过滤，原文仍经双策略判定。63项合成定向用例通过；上表真实未绑定状态不变，Host 字段与生命周期、真实资料供给／模型消费均未验证。固定 state95 独审包与本增量的代码／证据边界见 [读取契约](ORDINARY-SOURCE-READ.md#next-thin-binding-candidate-and-host-validation)，不把历史97／362许可扩大到整个 runtime catalog。
 
 2026-11-02 固定 state97 的13文件离线候选已独审接受：63/63定向、28/28内核、9/9原反例及4/4默认入口／并发对照分别记录，不累加计分。当前真实来源／Host生产者仍未验，冻结代码未因结论保存而改变。默认模型可否合法复用及精确后续运行条件，见 [最小独审摘要](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)；Host显式model-override许可与CangHai逐来源处理许可是不同边界，不能混称缺资料授权。
+
+
+<a id="data-handoff-metadata-20261102"></a>
+## 2026-11-02 稳定数据交接复核（后续现场）
+
+本次更新此前现场快照：正式 CangHai `dev` 已为 `d423d9e85ae3b2a9a120b7cdc52b3746b592b189`、干净；Core 未修改其文件或 refs。原 `stella-sources/migration-v1@112be540a3988af53d1076a38f8f1c155da7a745` 仍干净，交接的 profile、instance manifest、catalog、供给描述符四个 SHA-256 全匹配。profile 指向的真实 `source_access_context` 许可 hash 与原记录相同：单请求者、97 来源／362 描述符、`google/gemini-3.8-flash`、`personal_context / personal_understanding / owner-direct`。供给 review 明确 `activeGrant=false`、`actualApproval=false`，不能代替该既有许可。本次只核结构／引用／hash／范围，没有读取原始正文或发送模型。
+
+正式仓库候选 `90f61d9c9ef019c5a06a419dbcb630fe598cb996` 中上述四文件及真实处理许可的字节均与112根相同。已登记的 `stella-sources/main` 确实共享正式仓库对象，但仍在旧 `644eafa63db75231fabc376129d56c02835cef8f`、干净，**尚未切换**。最短方案是由 CangHai 唯一目录写者保留旧分支／检查消费依赖，明确私密检出权限后固定该工作树到90f，再交给 Core 核对和准备精确 manifest 绑定；Core 不自行 switch、chmod 或改生产 dev。现目标目录为0755，Git不保存原0600，检出权限不能凭Git hash通过而忽略。金融内容未加入允许范围。
+
+当前 main 来源代码已加载，但 `sourceRead` 仍未配置；真实入场身份与原请求者许可的匹配仍须验证。无模型元数据核查已经完成，不等于真实资料供给。原文读取先把当前问题、单片段描述符及用途限制送入结构化策略判断，允许后才将选中原文片段供给 Agent；两步数据流和新的付费调用必须分别清楚界定。完整非敏感检查、精确切换提案及输出／费用边界见 [交接证据](../.task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json)。执行排程仍只维护在唯一台账。
+
+
+后续当前 Host 消费依赖复核：官方只读 `plugins.list` 仍为 generation5，普通 Core／memory-core／timeline 为 active，fitness 为 unloaded；未注册 checkpoint 命名插件。配置 hash 与加载收尾时相同，没有旧 `stella-sources/main` 引用或显式 native RAG extraPaths；Core 没有来源绑定或旧 checkpoint 配置。已安装普通入口不直接导入旧 checkpoint，timeline 的 `memory` 按其路径解析器落在当前 workspace/memory，不指向旧工作树；限定目录的直接 symlink 也无旧根命中。没有读取正文、私密 bootstrap／会话、checkpoint 数据库，不能据此宣称全机或远端所有消费者均不存在。对本机当前 Host 范围已未发现旧根消费依赖，目录写者再处理其范围内外部消费者与写入依赖，无需继续把 Core 当前入口作为未核阻塞。见 [限定消费者检查](../.task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json)。本次没有 reload、重启、模型或配置修改。

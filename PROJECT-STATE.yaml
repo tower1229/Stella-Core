@@ -719,3 +719,27 @@ ordinary_source_main_activation_20261102:
   ci_each: 1834_total_1808_pass_26_old_failures_no_new_failure_names
   eight_new_delivery_pin_failures: resolved_existing_negative_assertions_retained
   full_memory_or_all_CI_green: false
+
+# 2026-11-02 coordinated source metadata recheck; no live source activation.
+ordinary_source_data_handoff_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json
+  selected_runtime_revision: 112be540a3988af53d1076a38f8f1c155da7a745
+  selected_runtime_clean: true
+  supplied_metadata_hashes_matched: 4
+  existing_processing_grant_hash_unchanged: true
+  permitted_sources_and_descriptors: 97_sources_362_descriptors
+  formal_candidate_revision: 90f61d9c9ef019c5a06a419dbcb630fe598cb996
+  formal_candidate_five_selected_metadata_files_identical: true
+  registered_main_worktree_still_at_old_revision: 644eafa63db75231fabc376129d56c02835cef8f
+  source_binding_native_admission_and_model_consumption: not_verified
+  canghai_writes_host_calls_models_private_payload_reads: zero
+
+# 2026-11-02 scoped old main worktree consumer check; no configuration changes.
+ordinary_source_old_main_consumer_check_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json
+  actual_gateway_generation: 5
+  current_host_old_root_configured_or_observed_consumer: not_found_in_scoped_check
+  ordinary_core_legacy_checkpoint_enabled: false
+  timeline_canonical_memory_root: current_workspace_memory_not_old_worktree
+  entire_machine_or_remote_consumers_excluded: false
+  host_mutations_models_and_canghai_changes: zero
