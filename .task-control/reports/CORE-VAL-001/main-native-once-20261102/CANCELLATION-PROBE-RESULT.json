@@ -1,0 +1,66 @@
+{
+  "scope": "synthetic exact-function mechanism reproduction, not actual-run root cause or Host integration",
+  "sourceHashes": {
+    "abortable-Cd6QbDOo.mjs": "bdb7cb1aab96c26d35872f2dc974bbe07845d3c57a2a49ddbb335cf9bac98866",
+    "builtin-openclaw-BxzDR6yL.mjs": "220ce2f67e0ec0b96b63fe474dbefd628a6429cf2b58b87f78a78324ee92ca1c",
+    "attempt-system-prompt-prepare-ChKsbjSh.mjs": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c",
+    "runtime-plugins-B5lnDthu.mjs": "63a7c16135d382dc09ea0f17bbb4d871531d0c5eaf10ccb512879d6554b54d29"
+  },
+  "cases": [
+    {
+      "preAborted": false,
+      "cooperative": false,
+      "beforeUnblock": {
+        "reads": 1,
+        "physicalSettled": false,
+        "custodyReleased": 0,
+        "resumedAfterWait": 0
+      },
+      "afterUnblock": {
+        "physicalSettled": true,
+        "custodyReleased": 1,
+        "resumedAfterWait": 0
+      },
+      "pass": true
+    },
+    {
+      "preAborted": true,
+      "cooperative": false,
+      "beforeUnblock": {
+        "reads": 1,
+        "physicalSettled": false,
+        "custodyReleased": 0,
+        "resumedAfterWait": 0
+      },
+      "afterUnblock": {
+        "physicalSettled": true,
+        "custodyReleased": 1,
+        "resumedAfterWait": 0
+      },
+      "pass": true
+    },
+    {
+      "preAborted": false,
+      "cooperative": true,
+      "beforeUnblock": {
+        "reads": 1,
+        "physicalSettled": true,
+        "custodyReleased": 1,
+        "resumedAfterWait": 0
+      },
+      "afterUnblock": {
+        "physicalSettled": true,
+        "custodyReleased": 1,
+        "resumedAfterWait": 0
+      },
+      "pass": true
+    }
+  ],
+  "total": 3,
+  "pass": 3,
+  "hostModulesImported": 0,
+  "hostRequests": 0,
+  "providerRequests": 0,
+  "privatePayloads": 0,
+  "limitation": "Does not identify which actual await hung; cooperative contrast does not cancel or certify any real storage work."
+}

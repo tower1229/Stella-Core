@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T11:33:48.324906+00:00",
+  "baseHead": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+  "result": "failed_no_reply_runtime_restore_blocked",
+  "approvedScope": {
+    "approvalAt": "2026-11-02T10:59:44Z",
+    "planSha256": "f4ed5c27249517028c91b9ce576dd3543b40e68572d40dd0830bff23e4d4cc4f",
+    "normalMainPrivateContextDisclosed": true,
+    "provider": "google",
+    "model": "gemini-3.8-flash",
+    "thinking": "low",
+    "agentRequests": 1,
+    "sourceReadAttemptsLimit": 1,
+    "sourcePolicyLogicalLimit": 1,
+    "requestedTimeoutMs": 90000,
+    "automaticResend": false,
+    "dollarHardCap": false
+  },
+  "preflight": {
+    "realWebUi": true,
+    "newNativeIncognitoSession": true,
+    "historyMessages": 0,
+    "pendingInputs": 0,
+    "activeRunBefore": false,
+    "exactRequestSha256": "85847ee1c50468bb877e8c1e3d55242c455c1ff1838ac5ea4581ac03878aa305",
+    "originalArtifactFilesMatched": 2751,
+    "temporaryEntrySha256": "541d8138f388617e5669cc2f4c38290fa4d1f4c8ee2c32e309c8befeb1723774",
+    "loadGeneration": 12,
+    "loadAppliedLogAt": "2026-11-02T11:13:05.836Z"
+  },
+  "execution": {
+    "submittedAgentRequests": 1,
+    "runId": "82aa30b2-0e5f-44f8-aa0e-f59b8a7333d4",
+    "ack": "started",
+    "ackAt": "2026-11-02T11:20:29.922Z",
+    "observedPhase": "preparing_context",
+    "embeddedTimeoutAt": "2026-11-02T11:22:00.994Z",
+    "embeddedTimeoutMs": 90000,
+    "abortStillStreamingAt": "2026-11-02T11:22:10.996Z",
+    "agentWait": {
+      "status": "error",
+      "startedAt": 1793618431037,
+      "endedAt": 1793618551034,
+      "errorCategory": "CommandLaneTaskTimeoutError",
+      "ownerDeadlineMs": 120200
+    },
+    "mainLaneAbortGraceError": {
+      "elapsedMs": 150214,
+      "taskBudgetMs": 120000,
+      "abortGraceMs": 30001
+    },
+    "assistantReplies": 0,
+    "observedToolExecutions": 0,
+    "observedSourcePolicyCompletions": 0,
+    "fixtureCounterCaveat": "Receipt remained initialization snapshot; blocked hooks and hung context mean these are observed counters only, not proof of physical provider calls or total background work.",
+    "physicalProviderCalls": null,
+    "tokens": null,
+    "costUsd": null,
+    "sourcePayloadSuccessfullySupplied": false,
+    "sourceLocationVerified": false,
+    "semanticObservationVsInference": "not_run_no_answer",
+    "resubmitted": false
+  },
+  "newFindings": {
+    "hookPermission": "Existing Host policy blocked non-bundled agent_end and before_prompt_build without allowConversationAccess; permission was not enabled.",
+    "restrictionIntegration": "Synthetic25/25 does not establish all restriction hooks active on actual main. Preflight missed these diagnostics before submission.",
+    "deadline": "90s abort fired, but did not provide hard end-to-end stop; retained work survived120/150s lane errors.",
+    "failureCause": "Context-preparation timeout and retained plugin work observed; underlying unresolved await not identified; no unsupported claim that hook rejection caused timeout."
+  },
+  "cleanup": {
+    "chatAbort": {
+      "ok": true,
+      "aborted": false,
+      "runIds": []
+    },
+    "sessionsAbort": {
+      "ok": true,
+      "status": "aborted",
+      "abortedRunId": null
+    },
+    "actualHistoryAfter": {
+      "hasActiveRun": false,
+      "inFlight": false,
+      "pendingInputs": 0,
+      "totalMessages": 1,
+      "assistantOrToolMessages": 0
+    },
+    "configOriginalBytesRestored": true,
+    "configSha256": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f",
+    "otherMainSelfieConfigPreserved": true,
+    "runtimeFixtureUnloaded": false,
+    "lastGatewayGeneration": 12,
+    "lastCoreRuntime": "active",
+    "retainedWorkItemsAtDrain": 3,
+    "officialReload": {
+      "committed": false,
+      "phase": "drain",
+      "error": "retained plugin work did not settle; previous generation stays active"
+    },
+    "ordinaryArtifactRetained": true,
+    "gatewayRestarted": false,
+    "permissionsExpanded": false,
+    "actualRuntimeStillTemporary": true
+  },
+  "nextAction": {
+    "priority": "Resolve remaining own plugin work and restore normal artifact before another validation. Do not resend the consumed request.",
+    "scope": "Use supported lifecycle/retained-work evidence; if a coordinated restart is necessary, first establish no unrelated active or auto-resumable paid work. No arbitrary signals or forced plugin cleanup.",
+    "requiresSeparateDecision": "Hook conversation-access permission cannot be silently enabled; either eliminate the dependency with an independently reviewed equivalent restriction or request the exact additional access."
+  },
+  "quota": {
+    "authorized": 1,
+    "submitted": 1,
+    "remaining": 0
+  },
+  "temporaryReceipts": [
+    {
+      "name": "ASSEMBLY.json",
+      "sha256": "8f97b322f077222c914757b13c3f60f3285f7c2a1c9ed784bfccb4477564ab5d"
+    },
+    {
+      "name": "LOAD-RESULT.json",
+      "sha256": "cf244414d56c9fdea49fc166b0da2f608acac004ee023887b5c23dddce69a0cc"
+    },
+    {
+      "name": "LOAD-FINAL.json",
+      "sha256": "a8f39fb2be89e69949027eb997d3fea5048c4e2ff7d543be2c99f40d84897aee"
+    },
+    {
+      "name": "CHAT-ACK.json",
+      "sha256": "c6a66d4075efcc765041c6d44abe6f82ef47210313a56df582ae8d90955c467c"
+    },
+    {
+      "name": "RUN-TERMINAL.json",
+      "sha256": "9bb1b5f9a9af4f07d51af2fa3443c2260f2d342c12a54d067583b4ef72e17331"
+    },
+    {
+      "name": "CHAT-ABORT.json",
+      "sha256": "4da11c93c873fe4976d09ec8b6f2b68f3e2a3102b6304554ed8a52be4b0c4573"
+    },
+    {
+      "name": "SESSION-ABORT.json",
+      "sha256": "58a233ee677c625d87f85cfb445be27574ae830936e49c687631a6ab0a3709d8"
+    },
+    {
+      "name": "RESTORE-CONFIG.json",
+      "sha256": "7c9ea10c376d5dc38e049eb2b5858d361449252d18752aa5772b6e471112e72a"
+    },
+    {
+      "name": "RESTORE-RELOAD.json",
+      "sha256": "21e7b2f840fcb286a7d326f877ffeae8ef61415690e6d551d462d19bdd77c757"
+    },
+    {
+      "name": "RESTORE-AFTER-SESSION-ABORT.json",
+      "sha256": "661fcfedbc8e68cde8c2501fc4b72bcae4689a763926ae1814a770e051ed5157"
+    },
+    {
+      "name": "FINAL-RUNTIME.json",
+      "sha256": "869db80c94456e99e58d4375e8d2817a6d725f03e91aba13b1be917ab3c5719c"
+    },
+    {
+      "name": "BOUNDARY-RECEIPT.json",
+      "sha256": "05ba3c965ecdac77c5898f81cb95d03e70d16f2cd354e024a57e71bf67ee1c09"
+    }
+  ],
+  "durableTimeline": {
+    "ref": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/TECHNICAL-TIMELINE.json",
+    "sha256": "fbc65b6f003567a73b83a8bf08c06cda32663df3a9626310d29639a0ad7fdce0"
+  },
+  "privateFilesExcluded": [
+    "seed",
+    "original and temporary config",
+    "source identifiers and body",
+    "session raw transcript",
+    "full runtime logs"
+  ],
+  "publisher": false,
+  "fullMemoryAccepted": false
+}

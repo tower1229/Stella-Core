@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T11:42:54.489291+00:00",
+  "priorResultSha256": "3e28337318022e5730895c7b544936027e57f4cbe717f275bf916d35c43e1b64",
+  "scope": "only official recovery readiness and static cause distinction; no new model request",
+  "idleCheck": {
+    "at": "2026-11-02T11:37:34.615798+00:00",
+    "method": "sessions.list activeOnly compact without titles/lastMessage/activitySummary",
+    "topKeys": [
+      "ts",
+      "path",
+      "count",
+      "totalCount",
+      "limitApplied",
+      "nextOffset",
+      "hasMore",
+      "owners",
+      "defaults",
+      "sessions"
+    ],
+    "counts": {
+      "count": 0,
+      "total": null,
+      "hasMore": false,
+      "nextOffset": null
+    },
+    "rows": []
+  },
+  "retainedOwnership": {
+    "at": "2026-11-02T11:38:31.577265+00:00",
+    "generation12ObservedRunIds": 1,
+    "ownTestPresent": true,
+    "otherRunIdsObserved": 0,
+    "runLogMetadata": [
+      {
+        "at": "2026-11-02T11:20:29.922000+00:00",
+        "own": true,
+        "count": 1,
+        "lineSha256": "10851294111e2baa7dc9a914360413732fc9d61b8dc79ed4a85e1157626cfeae"
+      },
+      {
+        "at": "2026-11-02T11:22:00.994000+00:00",
+        "own": true,
+        "count": 1,
+        "lineSha256": "758f8e10b3bb080682031c05775771ce2b582fb42e63b6726c0415f4c137badb"
+      },
+      {
+        "at": "2026-11-02T11:22:10.996000+00:00",
+        "own": true,
+        "count": 1,
+        "lineSha256": "1d5d6f1d2e02d52ddb4a6fa8fa122612ed7b4f16923c41649022c1fb8d63a21a"
+      },
+      {
+        "at": "2026-11-02T11:22:30.995000+00:00",
+        "own": true,
+        "count": 1,
+        "lineSha256": "ce59978962ea2bcccd89b76a08f11f902655786b838499eb7c29392e507437ce"
+      },
+      {
+        "at": "2026-11-02T11:22:42.274000+00:00",
+        "own": true,
+        "count": 1,
+        "lineSha256": "683eda8dffae7095ddb577e2b9c30ab19334d070de8f01278b49160ccc9ca966"
+      },
+      {
+        "at": "2026-11-02T11:23:01.008000+00:00",
+        "own": true,
+        "count": 1,
+        "lineSha256": "95a95b2cb78f8208e55c9db510328316f9f344089452a5faf29d5b034bdae9b8"
+      },
+      {
+        "at": "2026-11-02T11:28:26.245000+00:00",
+        "own": true,
+        "count": 1,
+        "lineSha256": "8d4393f227969a0b134dd1666c026a67672ebe136f82e040cc2c5fc181399592"
+      }
+    ],
+    "retainedCounts": [
+      {
+        "at": "2026-11-02T11:24:22.424000+00:00",
+        "count": 3
+      }
+    ],
+    "perTokenOwnership": "Host retains opaque tokens and does not expose a public per-token run map; association is based on sole logged run after generation12 plus live no-active/no-queued RPC, not invented token IDs",
+    "configRestored": true
+  },
+  "restart": {
+    "at": "2026-11-02T11:40:42.316671+00:00",
+    "action": "official gateway restart --preserve-definition --wait 0 --json",
+    "target": "existing Mac OpenClaw Gateway18789",
+    "status": "auto_review_denied_before_process_creation",
+    "reason": "Restarting the shared Gateway is a consequential service mutation with disruption risk; reviewer did not find direct user authorization for this restart and rejected conditional delegation evidence.",
+    "restartClaimExists": false,
+    "restartResultExists": false,
+    "processCreated": false,
+    "restartExecuted": false,
+    "sameActionRetried": false,
+    "alternativeControlUsed": false,
+    "diskConfigOriginalHashMatches": true
+  },
+  "staticFindings": {
+    "hookRejectionConfirmed": "registerTypedHook logs warning and synchronously returns before adding hook; no throwing or waiting in that branch. before_prompt_build and agent_end are conversation hooks; reply_dispatch and before_tool_call are not in this set.",
+    "notProved": "No causal evidence that denied hooks produced the hung context preparation. They reduce fixture integration/observability, but blocked registration itself does not await.",
+    "phaseCoarseness": "preparing_context projects before_agent_reply, model_resolution, auth, context_engine, attempt_dispatch and context_assembled; the last UI phase cannot locate the hanging await.",
+    "receiptCaveat": "Generated receipt writes at registration and observer callbacks; agent_end observer was blocked. Initialization counters are not continuous telemetry or proof of zero provider calls.",
+    "retainedImplementation": "Host records opaque finite-work tokens and consumers, releases only after physical cleanup; no public per-token run identity established. Zero active/queued sessions plus only own logged run are the available association evidence.",
+    "noFixApplied": true
+  },
+  "sourceEvidence": [
+    {
+      "file": "node_modules/openclaw/dist/registry-CTP8XMYJ.mjs",
+      "sha256": "3edab64b6e829364d4c95e025a67b1393b6bba57671c32ab5a6f077a6f66cdd7",
+      "lines": [
+        2597,
+        2818,
+        2828,
+        2845
+      ]
+    },
+    {
+      "file": "node_modules/openclaw/dist/plugin-setup-module-inWd3Rne.mjs",
+      "sha256": "9196065cbe781656c693657f2d1b41707363eb61a89e19f5ecae7a1f30313ccc",
+      "lines": [
+        1848,
+        1856,
+        1863
+      ]
+    },
+    {
+      "file": "node_modules/openclaw/dist/runtime-plugins-B5lnDthu.mjs",
+      "sha256": "63a7c16135d382dc09ea0f17bbb4d871531d0c5eaf10ccb512879d6554b54d29",
+      "lines": [
+        24,
+        40
+      ]
+    },
+    {
+      "file": "node_modules/openclaw/dist/agent-runner-run-DEfqFyz9.mjs",
+      "sha256": "c8e82781967a3f0043511a51ebc89346a2f671ded666b61c70ab96c03c08c44b",
+      "lines": [
+        3129,
+        3139
+      ]
+    },
+    {
+      "file": "node_modules/openclaw/dist/server-reload-contracts-jOjmiM-H.mjs",
+      "sha256": "bd79841c18c3be1b9b949d1ed6c6b5e312e735943320833fc71b2e18bd7e8cc2",
+      "lines": [
+        169,
+        176
+      ]
+    }
+  ],
+  "currentRecovery": {
+    "diskConfig": "exact ordinary baseline restored",
+    "runtime": "last observed temporary generation12 active; no restart process executed",
+    "sourceGrantChanged": false,
+    "conversationAccessEnabled": false,
+    "paidRetry": false,
+    "selfieConfigModified": false,
+    "approvalBlocker": "Direct human authorization for this shared-service restart was not accepted by automatic review; materially relevant user evidence or explicit action confirmation is needed for one same-channel retry."
+  }
+}

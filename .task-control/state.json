@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 130,
-  "updatedAt": "2026-11-02T10:39:58.889644+00:00",
+  "revision": 139,
+  "updatedAt": "2026-11-02T12:13:29.424932+00:00",
   "writer": {
     "agent": "Core actual main source activation and forward-data handoff single writer",
     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
@@ -450,7 +450,7 @@
       "id": "CORE-VAL-001",
       "workstream": "CORE",
       "title": "数据层开发接入与正向理解最小闭环",
-      "scope": "Data-first ordinary plugin/native memory/context/Agent loop. Fixed90f original97source362descriptor grant binding is active on actual main; real WebUI direct source list denied without native user-request admission. Body supply and semantic understanding remain unverified; no new model/material test authorization. Preserve historical and paused candidates.",
+      "scope": "Data-first ordinary plugin. One approved normal-main model/source request failed; no source/semantic acceptance. Ordinary runtime restored via one official restart after direct-user evidence; no new model/permissions. Next finite engineering investigation remains local/read-only until assigned.",
       "inputs": [
         "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
         "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md",
@@ -523,7 +523,11 @@
         ".task-control/reports/CORE-VAL-001/source-admission-review-20261102.patch",
         ".task-control/reports/CORE-VAL-001/webchat-principal-plan-20261102.json",
         ".task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json",
-        ".task-control/reports/CORE-VAL-001/fixed90f-push-native-plan-20261102.json"
+        ".task-control/reports/CORE-VAL-001/fixed90f-push-native-plan-20261102.json",
+        ".task-control/reports/CORE-VAL-001/main-native-once-20261102/REPORT.json",
+        ".task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md",
+        ".task-control/reports/CORE-VAL-001/main-native-once-20261102/RECOVERY-REPORT.json",
+        ".task-control/reports/CORE-VAL-001/main-native-once-20261102/RECOVERY-COMPLETE.json"
       ],
       "acceptance": [
         {
@@ -1633,11 +1637,66 @@
             "sha256": "f26d2cd412ada3784b2db97468f730340311f8160b247d2541d8e0b76b52ad67",
             "baseCommit": "117c5229161f1b1a198b800117e1b428d4b6339e"
           }
+        },
+        {
+          "id": "C-VAL-MAIN-NORMAL-CONTEXT-SCOPE",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-normal-context-plan-20261102.json",
+          "claim": "Metadata confirms leaf=parentpolicy:1logicaljudgment. Existing normalmain input categories identified without body reads; exact dynamic personal content unknown. Acceptedfixture local8cdf0ebc, no Host/model/config/push. Later scheduling keeps normalmain and supersedes isolation changes.",
+          "observedAt": "2026-11-02T10:55:57.879272+00:00",
+          "subject": {
+            "sha256": "f4ed5c27249517028c91b9ce576dd3543b40e68572d40dd0830bff23e4d4cc4f",
+            "baseCommit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41"
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-NATIVE-ONCE-FAIL-RESTORE-PENDING",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/REPORT.json",
+          "claim": "Exactly1 approved realWebUI request failed in context preparation;90sabort/120/150serrors,no answer. Hookpermissionblocks not changed. Session stopped/config exact restored; runtime12 retainedwork drain blocks ordinary rollback. Usage/cost unknown, no semantic/source acceptance.",
+          "observedAt": "2026-11-02T11:33:48.324906+00:00",
+          "subject": {
+            "sha256": "3e28337318022e5730895c7b544936027e57f4cbe717f275bf916d35c43e1b64",
+            "baseCommit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41"
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-NATIVE-RECOVERY-APPROVAL-DENIED",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/RECOVERY-REPORT.json",
+          "claim": "Official active-session count0, only test run logged after generation12; opaque token ownership not individually exposed. One normal no-force restart approval rejected before execution; no bypass/retry. Static hook reject is sync skip, timeout causality unproven.",
+          "observedAt": "2026-11-02T11:42:54.489291+00:00",
+          "subject": {
+            "sha256": "bd7e7ea02fe437850131f64bb383838140fa78e4853655c0a2cb16a8e1d99417",
+            "baseCommit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41"
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-NATIVE-RECOVERY-COMPLETE",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/RECOVERY-COMPLETE.json",
+          "claim": "Direct user evidence enabled one normal approval retry/official restart exit0. Ordinary source loaded in newPID31634 generation2/RPChealthy/active0/config exact; fixture unloaded. Old retained work abandoned at shutdown deadline, not clean drain. No model replay observed; original failure/cost unknown retained.",
+          "observedAt": "2026-11-02T11:51:28.910736+00:00",
+          "subject": {
+            "sha256": "45575328d2e71d11ce74b676e959295aeac8bfbc99357c2b26a51b48d6999e5d",
+            "baseCommit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41"
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-NATIVE-WAIT-DIAGNOSIS",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/DIAGNOSIS.json",
+          "claim": "Actual context_assembled11:20:31.026, no model-start event in bounded snapshot; bills unknown. Exact10.9 synthetic3/3 reproduces caller abort with physical wait retained, not actual hang root cause. Hook rejection synchronous. No Host/model/permissions/runtime-code changes.",
+          "observedAt": "2026-11-02T12:13:29.424932+00:00",
+          "subject": {
+            "sha256": "0fbd9c8239b9adfd9a6f7cf345cf7f59591d25b16807105ab6a9248d3c91429b",
+            "baseCommit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Fixed90f ordinary main binding retained; no Host/model/private-body action this packet. Exact one-ref/one-read test fixture passes25/25 synthetic; official10.9 replay4/4 disproves empty-worktree context isolation. Package frozen for independent review; executionReady=false. Remote6bc CI independently26 old failures unchanged.",
-        "nextAction": "Review frozen single-source test limiter. Prepare narrow reversible main contextInjection/prompt-injection exclusions and prove fresh empty session context with no model; then request one precise Gemini/private-fragment approval. No paid request, private-body read or automatic Host load from this checkpoint.",
+        "checkpoint": "Ordinary runtime recovery remains complete per dated receipt. Read-only snapshot narrows failed run to after context_assembled11:20:31.026 and before any recorded model call. Synthetic exact10.9 cancellation mechanism3/3 reproduced; actual pending await not identified and billing unknown. No new Host/model/permission change.",
+        "nextAction": "Review the bounded diagnosis and identify the pending recorder/session-owner await with synthetic inputs and a provider tripwire before choosing a repair. Required hook compatibility is a separate fixture gap. Do not replay the consumed paid request, enable conversation access, release retained work without physical settlement or repeat Host recovery.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -3136,16 +3195,16 @@
           "pushAndPlanReport": ".task-control/reports/CORE-VAL-001/fixed90f-push-native-plan-20261102.json"
         },
         "nativeForwardReadPlan": {
-          "report": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REPORT.json",
-          "sha256": "f26d2cd412ada3784b2db97468f730340311f8160b247d2541d8e0b76b52ad67",
-          "phase": "single_read_candidate_frozen_context_isolation_not_established",
+          "report": ".task-control/reports/CORE-VAL-001/main-normal-context-plan-20261102.json",
+          "sha256": "f4ed5c27249517028c91b9ce576dd3543b40e68572d40dd0830bff23e4d4cc4f",
+          "phase": "approved_once_failed_recovery_complete",
           "executionReady": false,
-          "modelApproval": "not_requested_not_granted",
+          "modelApproval": "explicitly_granted_and_consumed_one_request",
           "selectedFragmentBytes": 1002,
-          "actualPayloadRead": false,
+          "actualPayloadRead": "not_observed_not_accepted",
           "publicProducerExists": true,
           "nativeLiveMetadataStillUnverified": true,
-          "paidCalls": 0,
+          "paidCalls": null,
           "publishedHead": "6bc71077e041676468c3b7d4690fef09640cbb6e",
           "ci": {
             "source": "parent independent read-only evidence received this turn; not rerun by author",
@@ -3194,10 +3253,87 @@
             "total": 4,
             "pass": 4,
             "scope": "3 runtime synthetic assertions plus1 static10.9callsite; separate count"
+          },
+          "acceptedFixtureLocalCommit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+          "independentFixtureReview": "accepted17members25of25and4of4",
+          "requiredSourcePolicyCalls": 1,
+          "contextExclusion": "not claimed; normal main categories disclosed",
+          "mainContextMutations": "not planned per later parent direction",
+          "currentExecution": {
+            "idempotencyKey": "82aa30b2-0e5f-44f8-aa0e-f59b8a7333d4",
+            "status": "failed_no_reply_ordinary_runtime_restored",
+            "authorizedAgentRequests": 1,
+            "submitted": 1,
+            "remainingUnreserved": 0,
+            "approvalAt": "2026-11-02T10:59:44Z",
+            "planSha256": "f4ed5c27249517028c91b9ce576dd3543b40e68572d40dd0830bff23e4d4cc4f",
+            "runtimeGeneration": 12,
+            "emptyHistory": true,
+            "sourceReadLimit": 1,
+            "sourcePolicyLimit": 1,
+            "timeoutMs": 90000,
+            "automaticResend": false,
+            "hardDollarCap": false,
+            "runId": "82aa30b2-0e5f-44f8-aa0e-f59b8a7333d4",
+            "report": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/REPORT.json",
+            "reportSha256": "3e28337318022e5730895c7b544936027e57f4cbe717f275bf916d35c43e1b64",
+            "physicalProviderCalls": null,
+            "tokens": null,
+            "costUsd": null,
+            "sessionInactive": true,
+            "diskConfigRestored": true,
+            "runtimeRestored": true,
+            "generation": 2,
+            "recovery": {
+              "status": "completed_official_restart_after_new_user_evidence",
+              "activeSessions": 0,
+              "loggedOtherRuns": 0,
+              "modelRequestsAssigned": 0,
+              "restartAttempts": 1,
+              "preserveServiceDefinition": true,
+              "force": false,
+              "waitActiveWork": "indefinite",
+              "approvalSubmissions": 2,
+              "denied": false,
+              "processCreated": true,
+              "restartClaimExists": true,
+              "report": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/RECOVERY-COMPLETE.json",
+              "sha256": "45575328d2e71d11ce74b676e959295aeac8bfbc99357c2b26a51b48d6999e5d",
+              "newEvidence": "direct user AGENTS original explicitly covers existing development-service restart; no broader permission granted",
+              "sameChannelRetryAssigned": 1,
+              "sameChannelRetryUsed": 1,
+              "priorDenialPreserved": true,
+              "rpcHealthy": true,
+              "activeQueued": 0,
+              "ordinaryRuntimeGeneration": 2,
+              "configExactOriginal": true,
+              "shutdownClean": false
+            },
+            "diagnosis": {
+              "report": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/DIAGNOSIS.json",
+              "sha256": "0fbd9c8239b9adfd9a6f7cf345cf7f59591d25b16807105ab6a9248d3c91429b",
+              "scope": "read_only_actual_snapshot_and_synthetic_exact_functions",
+              "syntheticCases": 3,
+              "passed": 3,
+              "actualRootCauseProved": false,
+              "contextAssembledAt": "2026-11-02T11:20:31.026Z",
+              "modelCallStartedObserved": false,
+              "physicalCalls": null,
+              "costUsd": null,
+              "newHostRequests": 0,
+              "newModelRequests": 0,
+              "codeRepairApplied": false
+            }
+          },
+          "diagnosisSave": {
+            "phase": "prepared_for_exact_local_commit",
+            "baseHead": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+            "scope": "normal-main scope plan, failure/recovery reports, diagnostic probe and existing source-read documentation; no runtime edits or old PROJECT-STATE diff",
+            "pushAssigned": false
           }
         }
       },
-      "updatedAt": "2026-11-02T10:39:58.889644+00:00",
+      "updatedAt": "2026-11-02T12:13:29.424932+00:00",
       "delivery": {
         "local": {
           "status": "committed",

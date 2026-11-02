@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T12:11:44.411418+00:00",
+  "baseCommit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+  "sdkVersion": "2026.10.9",
+  "result": "actual_wait_interval_narrowed_cancellation_mechanism_reproduced_exact_actual_wait_unknown",
+  "actualEvidence": {
+    "phaseEvidence": "PHASE-EVIDENCE.json",
+    "phaseEvidenceSha256": "587b3d5613e4037a8ab9b8732d8366b1e675d0c7fb093a480327e59768d3e5c5",
+    "contextAssembledUtc": "2026-11-02T11:20:31.026+00:00",
+    "modelCallStartedObserved": false,
+    "physicalProviderCalls": null,
+    "tokens": null,
+    "costUsd": null
+  },
+  "confirmed": [
+    "The actual run reached workspace, runtime_plugins, model_resolution, auth, context_engine, attempt_dispatch and context_assembled. It subsequently timed out without an answer or accepted source read.",
+    "Before_prompt_build and agent_end were skipped synchronously by conversation-access policy during registration. Their rejection is a fixture compatibility/observation gap, not an established waiting cause.",
+    "The source-read observer and request capture are synchronous; actual source payload/policy awaits occur later in tool execution. No trace establishes that the actual run reached these awaits.",
+    "Official abortable() ends a caller wait on abort without settling its underlying promise. The attempt tracker joins the physical prompt promise. Retained runtime work is held until cleanup releases it.",
+    "The existing shutdown timeout snapshot has no model.call.started event in the selected current-run time window, but neither it nor stale initialization counters proves zero billable calls."
+  ],
+  "narrowedInterval": {
+    "after": "observeEmbeddedAttemptPrompt emitted context_assembled",
+    "before": "first recorded model_call_started/model.call.started; no such record observed",
+    "candidateWaits": [
+      "activeSession.prompt and pre-turn preparation",
+      "model prompt projection: recorder runtime/admission persistence, then transcript projection write",
+      "pre-stream persistence/tool-result projection",
+      "preparePrimaryModelRequest tool/prompt refresh"
+    ],
+    "notLocalized": "No recorded per-await enter/leave or stack identifies which of these actually hung. The normal phase trace cannot distinguish them.",
+    "counterEvidence": "An earlier recorder persistence wait completed before context_assembled. Therefore initial persistence cannot simply be assumed stuck; a later waiter or later pending persistence would need evidence."
+  },
+  "mechanismProbe": {
+    "script": "CANCELLATION-PROBE.mjs",
+    "scriptSha256": "4c1b303c41ac7984ac7c239c227ad1d4be7830096c01d72d0e557375e5a1ff9a",
+    "result": "CANCELLATION-PROBE-RESULT.json",
+    "resultSha256": "18dcab961ee402085149ba6b487d16cdcbbebc4d91e71345464a52f9e2daeee2",
+    "actualExitCode": 0,
+    "cases": 3,
+    "passed": 3,
+    "meaning": "Two non-cooperative synthetic waits reproduce outer AbortError with physical wait and custody pending, including an already-aborted signal. Releasing the synthetic gate allows cleanup; no late metadata read occurs. Third contrast races only the wait against cancellation.",
+    "limits": "Exact functions, synthetic dependencies. The third contrast does not cancel a storage operation or prove a deployable repair. This is not actual Host integration or reproduction of the real request root cause."
+  },
+  "safeRepairCandidate": {
+    "notApplied": true,
+    "hostBoundary": "Check cancellation before new pre-provider work; identify the pending owner and pass cancellation to a genuinely cancellable wait/worker. Preserve physical write settlement and retained ownership until confirmed. Do not release tokens or pretend cleanup succeeded merely because an outer race timed out.",
+    "coreFixture": "Treat required-hook registration as an explicit preflight requirement, or remove reliance on conversation hooks while retaining the existing before_tool_call guard and request abort lifecycle. Neither path has been implemented or revalidated here.",
+    "minimumNextEvidence": "A no-provider synthetic reproduction at the actual recorder/session-owner boundary with enter/leave markers for persistence, transcript projection and tool-prompt refresh. It must identify the specific pending owner before choosing a production repair. No new real request is assigned.",
+    "sessionPermission": "No new session access is justified by this diagnosis. Enabling allowConversationAccess would permit conversation-bearing before_prompt_build input and agent_end data for this plugin; it is broader than a single selected source and is not a timeout fix proven here."
+  },
+  "recovery": "Prior RECOVERY-COMPLETE.json remains the authoritative dated recovery observation; this investigation made zero Host requests, reloads or configuration changes.",
+  "transportHistory": {
+    "previousProbeAttempt": "transport disconnected; outcome initially unknown",
+    "recoveryRead": "both script and result absent; HEAD/index/state/project bytes matched prior checkpoint",
+    "execution": "script subsequently created and run once successfully; no Host/model replay"
+  },
+  "sourceEvidence": {
+    "registry-CTP8XMYJ.mjs": {
+      "lines": [
+        2597,
+        2818,
+        2828
+      ],
+      "role": "conversation hook rejection returns synchronously before registration",
+      "sha256": "3edab64b6e829364d4c95e025a67b1393b6bba57671c32ab5a6f077a6f66cdd7"
+    },
+    "agent-runner-run-DEfqFyz9.mjs": {
+      "lines": [
+        3129,
+        3139
+      ],
+      "role": "many internal phases map to preparing_context",
+      "sha256": "c8e82781967a3f0043511a51ebc89346a2f671ded666b61c70ab96c03c08c44b"
+    },
+    "attempt-system-prompt-prepare-ChKsbjSh.mjs": {
+      "lines": [
+        3150,
+        3163,
+        3190,
+        3325,
+        3404,
+        3448,
+        3560,
+        3794
+      ],
+      "role": "phase emitter; projection and pre-stream persistence waits; bounded abort settlement helper",
+      "sha256": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c"
+    },
+    "builtin-openclaw-BxzDR6yL.mjs": {
+      "lines": [
+        2567,
+        2871,
+        2932,
+        2950,
+        2965,
+        11588,
+        14447,
+        14495,
+        14767
+      ],
+      "role": "phase call sequence, prompt wrapper, physical settle tracker and cleanup ordering",
+      "sha256": "220ce2f67e0ec0b96b63fe474dbefd628a6429cf2b58b87f78a78324ee92ca1c"
+    },
+    "abortable-Cd6QbDOo.mjs": {
+      "lines": [
+        66,
+        74
+      ],
+      "role": "caller abort race does not settle underlying promise",
+      "sha256": "bdb7cb1aab96c26d35872f2dc974bbe07845d3c57a2a49ddbb335cf9bac98866"
+    },
+    "user-turn-transcript-DuAfBkUt.mjs": {
+      "lines": [
+        369,
+        391,
+        576,
+        581,
+        607
+      ],
+      "role": "recorder runtime/admission wait has no signal; persistApproved deliberately does not wait for runtime",
+      "sha256": "ec4a2477247f78ec8f46fcd13a8639e06c1135fbb5518baba226a708ba9d6edc"
+    },
+    "embedded-agent-DoEPu8ye.mjs": {
+      "lines": [
+        6530,
+        6551
+      ],
+      "role": "runtime persistence callback records another pending promise",
+      "sha256": "21a06d87da38b464c600a7447fd79d03be1f376e9e275cf1f1ece297a029cdbb"
+    },
+    "runtime-plugins-B5lnDthu.mjs": {
+      "lines": [
+        24,
+        40
+      ],
+      "role": "retained work releases only after physical cleanup; retained-close errors preserve custody",
+      "sha256": "63a7c16135d382dc09ea0f17bbb4d871531d0c5eaf10ccb512879d6554b54d29"
+    },
+    "plugin-setup-module-inWd3Rne.mjs": {
+      "lines": [
+        1848,
+        1856,
+        1863
+      ],
+      "role": "opaque retained-work tokens; no public per-token run mapping",
+      "sha256": "9196065cbe781656c693657f2d1b41707363eb61a89e19f5ecae7a1f30313ccc"
+    },
+    "run-cleanup-timeout-CHdeH1f3.mjs": {
+      "lines": [
+        73,
+        95,
+        98
+      ],
+      "role": "cleanup timeout bounds observation, tracks unfinished cleanup rather than proving it completed",
+      "sha256": "8fd924669b3bc90797546c961de2e53b1d38b73d21fe40cafadb64e29376bdb6"
+    },
+    "transcript-write-context-DwwjCPCE.mjs": {
+      "lines": [
+        194
+      ],
+      "role": "outer owned transcript wrapper is AsyncLocalStorage scope, not itself a mutex wait",
+      "sha256": "a825b5bb8a4e41fd73d40bee96fe731705f34e843324418c5021f4645cd958e8"
+    }
+  },
+  "boundaries": {
+    "newHostRequests": 0,
+    "modelCallsByProbe": 0,
+    "privateBodiesRead": 0,
+    "permissionsChanged": false,
+    "hostSourceChanged": false,
+    "coreRuntimeCodeChanged": false,
+    "fullMemoryAccepted": false,
+    "actualRunRootCauseProved": false
+  }
+}

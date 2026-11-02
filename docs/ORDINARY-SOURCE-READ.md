@@ -337,3 +337,91 @@ hard pre-provider stop. The packet remains `executionReady: false`: first review
 the fixture and a narrow reversible context-injection configuration for a
 coordinated idle main window, then verify that scope without model calls before
 requesting the one paid/private-fragment test. No such configuration was applied.
+
+### Normal-main validation scope (subsequent scheduling correction)
+
+The parent accepted the frozen fixture (17 members,25/25 boundary tests and4/4
+fixed-SDK assertions) but superseded the proposed configuration-isolation work:
+do not change main bootstrap or other plugins for this test, and do not build
+another isolation framework. The accepted packet is saved locally in
+`8cdf0ebcc081c83c58d78307fbd0e06df2455a41`; it remains unloaded. The earlier
+configuration proposal above is historical, not a next action.
+
+The selected Evidence's leaf and parent policy refs were rechecked against the
+fixed catalog metadata. Both id and version are identical, and the existing
+resolver de-duplicates them: **one** source-policy judgment is required. The
+private selection's two policy records are duplicate refs, not two distinct
+judgments. The original single-completion test limit therefore remains correct
+for this exact fragment; no limit or production code changed.
+
+The [normal-main request scope](../.task-control/reports/CORE-VAL-001/main-normal-context-plan-20261102.json)
+now describes a fresh session with normal main context. Five default bootstrap
+files exist: AGENTS, SOUL, IDENTITY, USER and MEMORY; only file metadata was read.
+Standing intents can add matching text, and the enabled timeline2.9.0 hook can
+derive current activity/location/style context from the configured memory daily
+logs, with a seven-day lookback. Skill catalog names/descriptions/locations and
+other Host prompt contributions are conditional runtime inputs. A new session
+does not exclude those sources or facts derived from old conversations.
+
+The exact runtime prompt cannot be enumerated from metadata alone. In particular,
+excluding finance from Core's source tool does not prove finance or other private
+facts absent from ambient USER/MEMORY or timeline text. No unrelated body was
+opened to classify it. The next approval must cover this normal-main context
+plus the selected semi-private writing fragment and its policy metadata, rather
+than describing an isolated1002-byte payload. No approval or model run is implied
+by this plan; publisher stays off and the existing data grant is unchanged.
+
+### Approved normal-main attempt: initial failure and subsequent recovery
+
+The following paragraphs preserve the initial failure/recovery sequence. The
+latest observation is ordinary-runtime recovery complete; it does not accept
+the failed source/model test.
+
+The later explicit approval was consumed by exactly one real WebUI request on
+2026-11-02. The [actual result](../.task-control/reports/CORE-VAL-001/main-native-once-20261102/README.md)
+records context-preparation timeout, no reply, existing conversation-hook
+permission blocks and unverified provider usage. The90-second abort fired, but
+was not a hard end-to-end bound. No source or semantic acceptance was achieved.
+
+The exact pre-test configuration bytes are restored and the test session is no
+longer active. Runtime rollback is **not complete**: retained plugin work blocked
+the official drain, so temporary generation12 remains active. Do not send another
+model request, silently enable conversation access, or declare the fixture
+unloaded. Resolve this recovery item first; original limits/grant/publisher remain
+unchanged. Earlier unloaded/no-approval statements retain their preparation-time
+identity and are superseded by this dated outcome.
+
+Recovery follow-up: official active-only session enumeration returned zero; the
+one proposed supported restart was rejected by automatic approval **before
+process creation**. It has not run or been retried. See the recovery section of
+the actual-result packet. Runtime restoration remains pending; blocked hook
+registration and context timeout are observed together, not a proven causal chain.
+
+Subsequent recovery completed after direct user authorization evidence and one
+same-channel official restart. New process31634 loaded the ordinary artifact
+(generation2), RPC is healthy, active/queued sessions are0, and full configuration
+bytes—including selfie settings—match the pre-test baseline. The temporary
+fixture is unloaded. Shutdown exhausted its retained-work budget, so this is
+process recovery, not clean drain. See `RECOVERY-COMPLETE.json` in the result
+packet; the failed model/source acceptance and unknown billing remain unchanged.
+
+### Post-recovery diagnosis: actual wait still not identified
+
+The existing official stability snapshot records `context_assembled` at
+2026-11-02 11:20:31.026 UTC and no `model.call.started` in the current-request
+time window. The aggregate `preparing_context` label therefore does not mean
+initial context assembly failed. Phase events lack a run identifier; association
+uses the sole logged test in that window, and billing remains unknown.
+
+A pure synthetic reproduction using exact10.9 functions demonstrates that an
+outer abort can finish while a pre-provider persistence wait and physical work
+remain pending, even with an already-aborted signal. Three contrasts passed;
+none identifies the actual blocked await or proves a deployable repair. Hook
+permission rejection is synchronous registration skip, not a demonstrated
+timeout cause. See the [diagnosis packet](../.task-control/reports/CORE-VAL-001/main-native-once-20261102/DIAGNOSIS.json).
+
+Next evidence must locate the specific pending owner without a provider request,
+then preserve actual write settlement while fixing cancellation. Do not clear
+retained custody or enable conversation access merely to make the test finish.
+No additional Host/model request, configuration change or permission expansion
+was performed in this diagnosis.

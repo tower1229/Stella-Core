@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "sourceKind": "existing official restart-time stability snapshot; metadata projection only",
+  "sourceBasename": "openclaw-stability-2026-11-02T11-46-18-861Z-14106-gateway.restart_shutdown_timeout.json",
+  "sourceSha256": "21ff2656b9e5f2efd7d8a2caf2eeb28d723f89b48f09aaac45336b8a36309e2a",
+  "sourceBytes": 272014,
+  "snapshot": {
+    "capacity": 1000,
+    "count": 229,
+    "dropped": 0,
+    "firstSeq": 45,
+    "lastSeq": 393
+  },
+  "filter": {
+    "fromEpochMs": 1793618429893,
+    "windowEventCount": 35
+  },
+  "typeCounts": {
+    "message.received": 1,
+    "message.queued": 1,
+    "session.state": 3,
+    "message.dispatch.started": 1,
+    "session.turn.created": 1,
+    "queue.lane.enqueue": 2,
+    "queue.lane.dequeue": 2,
+    "run.execution_phase": 8,
+    "diagnostic.memory.sample": 8,
+    "diagnostic.heartbeat": 8
+  },
+  "association": "Phase records omit run/session identity; correlated by timestamp with the sole logged test run in this generation, not an independent per-event identity proof.",
+  "events": [
+    {
+      "seq": 357,
+      "ts": 1793618430068,
+      "type": "session.state",
+      "outcome": "processing",
+      "reason": "message_start",
+      "queueDepth": 1,
+      "utc": "2026-11-02T11:20:30.068+00:00"
+    },
+    {
+      "seq": 364,
+      "ts": 1793618430816,
+      "type": "run.execution_phase",
+      "phase": "runner_entered",
+      "utc": "2026-11-02T11:20:30.816+00:00"
+    },
+    {
+      "seq": 365,
+      "ts": 1793618430816,
+      "type": "run.execution_phase",
+      "phase": "workspace",
+      "utc": "2026-11-02T11:20:30.816+00:00"
+    },
+    {
+      "seq": 366,
+      "ts": 1793618430816,
+      "type": "run.execution_phase",
+      "phase": "runtime_plugins",
+      "utc": "2026-11-02T11:20:30.816+00:00"
+    },
+    {
+      "seq": 367,
+      "ts": 1793618430819,
+      "type": "run.execution_phase",
+      "phase": "model_resolution",
+      "provider": "google",
+      "model": "gemini-3.8-flash",
+      "utc": "2026-11-02T11:20:30.819+00:00"
+    },
+    {
+      "seq": 368,
+      "ts": 1793618430827,
+      "type": "run.execution_phase",
+      "phase": "auth",
+      "provider": "google",
+      "model": "gemini-3.8-flash",
+      "utc": "2026-11-02T11:20:30.827+00:00"
+    },
+    {
+      "seq": 369,
+      "ts": 1793618430830,
+      "type": "run.execution_phase",
+      "phase": "context_engine",
+      "provider": "google",
+      "model": "gemini-3.8-flash",
+      "utc": "2026-11-02T11:20:30.830+00:00"
+    },
+    {
+      "seq": 370,
+      "ts": 1793618430832,
+      "type": "run.execution_phase",
+      "phase": "attempt_dispatch",
+      "provider": "google",
+      "model": "gemini-3.8-flash",
+      "utc": "2026-11-02T11:20:30.832+00:00"
+    },
+    {
+      "seq": 373,
+      "ts": 1793618430989,
+      "type": "session.state",
+      "outcome": "processing",
+      "reason": "run_started",
+      "queueDepth": 1,
+      "utc": "2026-11-02T11:20:30.989+00:00"
+    },
+    {
+      "seq": 375,
+      "ts": 1793618431026,
+      "type": "run.execution_phase",
+      "phase": "context_assembled",
+      "provider": "google",
+      "model": "gemini-3.8-flash",
+      "utc": "2026-11-02T11:20:31.026+00:00"
+    },
+    {
+      "seq": 378,
+      "ts": 1793618444023,
+      "type": "diagnostic.heartbeat",
+      "active": 1,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:20:44.023+00:00"
+    },
+    {
+      "seq": 380,
+      "ts": 1793618474031,
+      "type": "diagnostic.heartbeat",
+      "active": 1,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:21:14.031+00:00"
+    },
+    {
+      "seq": 382,
+      "ts": 1793618504033,
+      "type": "diagnostic.heartbeat",
+      "active": 1,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:21:44.033+00:00"
+    },
+    {
+      "seq": 384,
+      "ts": 1793618534036,
+      "type": "diagnostic.heartbeat",
+      "active": 1,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:22:14.036+00:00"
+    },
+    {
+      "seq": 385,
+      "ts": 1793618551041,
+      "type": "session.state",
+      "outcome": "idle",
+      "reason": "run_completed",
+      "queueDepth": 0,
+      "utc": "2026-11-02T11:22:31.041+00:00"
+    },
+    {
+      "seq": 387,
+      "ts": 1793618564037,
+      "type": "diagnostic.heartbeat",
+      "active": 0,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:22:44.037+00:00"
+    },
+    {
+      "seq": 389,
+      "ts": 1793618594038,
+      "type": "diagnostic.heartbeat",
+      "active": 0,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:23:14.038+00:00"
+    },
+    {
+      "seq": 391,
+      "ts": 1793618624040,
+      "type": "diagnostic.heartbeat",
+      "active": 0,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:23:44.040+00:00"
+    },
+    {
+      "seq": 393,
+      "ts": 1793618654042,
+      "type": "diagnostic.heartbeat",
+      "active": 0,
+      "waiting": 0,
+      "queued": 0,
+      "utc": "2026-11-02T11:24:14.042+00:00"
+    }
+  ],
+  "modelCallStartedObserved": false,
+  "billing": "No model.call.started in this snapshot window is not proof of zero provider calls, tokens, retries or charge. All remain unknown.",
+  "excluded": "Full snapshot, memory worker inventories, earlier unrelated runs, host/user identity and all content are not copied."
+}

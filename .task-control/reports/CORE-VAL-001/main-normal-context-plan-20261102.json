@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T10:55:57.879272+00:00",
+  "baseHead": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+  "acceptedFixture": {
+    "commit": "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+    "files": 23,
+    "manifestSha256": "f97ce395ffd1d020fbce5abde940f466f37d7483c9a1f76d5bce14b2b1f728c1",
+    "independentReview": "accepted according to parent delegation this turn",
+    "membersMatched": 17,
+    "boundaryTests": {
+      "pass": 25,
+      "total": 25
+    },
+    "officialContextReplay": {
+      "pass": 4,
+      "total": 4
+    },
+    "countsSeparate": true,
+    "loaded": false,
+    "pushed": false,
+    "commitPrecheckNote": "First staged whitespace check stopped only on unchanged blank-context line inside frozen literal patch; source/docs checks passed, patch bytes preserved, normal commit then succeeded. Not an approval denial."
+  },
+  "decision": {
+    "normalMainContext": true,
+    "newSession": true,
+    "changeMainContextOrOtherPlugins": false,
+    "buildNewIsolationFramework": false,
+    "supersedes": "state130 proposed main contextInjection/prompt-hook exclusions",
+    "executionReady": false,
+    "approval": "not requested by worker; paid/private-context scope not granted"
+  },
+  "policyCount": {
+    "sourceRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "selectionSha256": "2fd69671d53857eba255c6702cfe16da5dd2d7b70f0790d8d2256d38d91d8e93",
+    "catalogSha256": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+    "grantSha256": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+    "sameLeafAndParentPolicyIdAndVersion": true,
+    "privateSelectionPolicyRows": 2,
+    "distinctPolicyRefs": 1,
+    "grantDescriptorMatches": 1,
+    "requiredLogicalSourcePolicyJudgments": 1,
+    "limiterChangeRequired": false,
+    "metadataReceipts": [
+      {
+        "bucket": "evidence",
+        "sha256": "261057161d20440fd498fd0be1ed299bb3b6b680106dd0fc8e90401e974af393",
+        "bytes": 823
+      },
+      {
+        "bucket": "sources",
+        "sha256": "b85e58dab19c7435bf0990f2201459f663ca8d6e7446f7ce329fc73a2a258d52",
+        "bytes": 1694
+      },
+      {
+        "bucket": "policies",
+        "sha256": "8c75db5874530556ccc3993284919683605dc94106380cf2f007b6fd973fab24",
+        "bytes": 1473
+      },
+      {
+        "bucket": "policies",
+        "sha256": "8c75db5874530556ccc3993284919683605dc94106380cf2f007b6fd973fab24",
+        "bytes": 1473
+      }
+    ],
+    "sourcePayloadRead": false
+  },
+  "normalContextInventory": {
+    "basis": "configuration, file metadata and installed source only; no final prompt captured",
+    "configSha256": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f",
+    "effectiveContextInjection": "always",
+    "bootstrapMaxChars": 20000,
+    "bootstrapTotalMaxChars": 150000,
+    "statSizesAreBytesNotTokensOrSentLengths": true,
+    "defaultBootstrapFiles": [
+      {
+        "name": "AGENTS.md",
+        "exists": true,
+        "bytes": 6290,
+        "regularFile": true,
+        "symlink": false
+      },
+      {
+        "name": "SOUL.md",
+        "exists": true,
+        "bytes": 4195,
+        "regularFile": true,
+        "symlink": false
+      },
+      {
+        "name": "IDENTITY.md",
+        "exists": true,
+        "bytes": 330,
+        "regularFile": true,
+        "symlink": false
+      },
+      {
+        "name": "USER.md",
+        "exists": true,
+        "bytes": 58961,
+        "regularFile": true,
+        "symlink": false
+      },
+      {
+        "name": "BOOTSTRAP.md",
+        "exists": false
+      },
+      {
+        "name": "MEMORY.md",
+        "exists": true,
+        "bytes": 58965,
+        "regularFile": true,
+        "symlink": false
+      }
+    ],
+    "defaultBootstrapMeaning": "Existing AGENTS/SOUL/IDENTITY/user and memory content is a normal input candidate, subject to host provenance/audience filters and character/context truncation. BOOTSTRAP absent now. Content was not inspected.",
+    "notDefaultBootstrap": [
+      {
+        "name": "TOOLS.md",
+        "exists": true,
+        "bytes": 876,
+        "regularFile": true,
+        "symlink": false
+      },
+      {
+        "name": "HEARTBEAT.md",
+        "exists": true,
+        "bytes": 920,
+        "regularFile": true,
+        "symlink": false
+      }
+    ],
+    "notDefaultCaveat": "TOOLS/HEARTBEAT are not auto-loaded by the fixed default list; this does not prove no independent plugin adds related material.",
+    "personalOverlay": "Conditional users/<selected-profile>/USER.md when multiple session-sharing identities exist; current file/content not inspected.",
+    "standingIntents": {
+      "pluginEnabled": true,
+      "promptHookAllowedByCurrentPolicy": true,
+      "selection": "runtime matched armed intentions; actual matches unknown without accessing store",
+      "maxItems": 3,
+      "renderedCharLimit": 1200,
+      "mayUpdateFireMetadata": true,
+      "contentsRead": false
+    },
+    "timeline": {
+      "enablePromptTimelineContext": true,
+      "lookbackDays": 7,
+      "canonicalRootWithinWorkspace": true,
+      "canonicalRootRelative": "memory",
+      "rootExists": true,
+      "contentsRead": false,
+      "pluginVersion": "2.9.0",
+      "allowPromptInjection": true,
+      "possibleOutput": [
+        "current date/time/timezone",
+        "activity/location/environment mood/time-of-day",
+        "macro activity/location/progress",
+        "tone/pacing/question-density/initiative guidance"
+      ],
+      "notAutomaticallyFullDailyLog": true,
+      "actualMatches": "unknown; no diary content read",
+      "promptFastPathUsesModel": false
+    },
+    "skills": {
+      "mainAllowlistCount": 70,
+      "allowlistNamesSha256": "e36542ae3fa84dd62ecf418573dda318f1a0e0263a110982ac7ee27742aa39fb",
+      "inputKind": [
+        "eligible skill names",
+        "descriptions (possibly compacted)",
+        "file locations",
+        "skill use instructions"
+      ],
+      "all70GuaranteedInPrompt": false,
+      "completeSkillBodiesAutomaticallySent": false,
+      "eligibleSetAndPromptContribution": "runtime-filtered; no actual new-session prompt captured",
+      "examples": [
+        "memory-handling",
+        "memory-routing",
+        "canghai-operations",
+        "stella-selfie",
+        "stella-continue"
+      ]
+    },
+    "otherConditionalHostInputs": [
+      "system instructions and active tool schemas",
+      "memory runtime prompt supplements",
+      "watched-session metadata or project memory when applicable",
+      "registered prompt contributions/internal steering if present"
+    ],
+    "currentNoExplicitContextEngineOverride": true,
+    "currentNoTopLevelInternalHookEntries": true,
+    "completeRuntimeInjectionInventoryProven": false
+  },
+  "selectedSourceDataToGoogle": {
+    "originalScope": "97sources/362descriptors unchanged; finance not added",
+    "fragmentCount": 1,
+    "fragmentUtf8Bytes": 1002,
+    "sensitivity": "semi-private",
+    "authorAndRole": "unknown",
+    "firstAgentInput": [
+      "test question",
+      "exact private Evidence ref/version",
+      "normal main context described above"
+    ],
+    "sourcePolicyInput": [
+      "same question",
+      "one selected source description",
+      "source/policy version refs",
+      "exact segment locator",
+      "allowed/forbidden scenarios and source use-purpose metadata"
+    ],
+    "sourcePolicyHasOriginalPayload": false,
+    "answerAgentInput": [
+      "one authorized selected fragment",
+      "role/time/version/location/usage metadata",
+      "normal main context and this new request conversation"
+    ],
+    "payloadAlreadyReadOrSent": false
+  },
+  "exclusionsAndLimits": {
+    "oldSessionTranscript": "Planned exclusion through genuinely new session, no parent/fork/import; must confirm new identity and empty history before send. Not yet created.",
+    "oldFactsInMemory": "NOT excluded; USER/MEMORY/timeline/standing intents may derive from earlier conversations.",
+    "attachments": "None supplied in planned request.",
+    "extraCoreSourceReads": "Fixture limits one exact Evidence execution attempt; other refs/list/second attempt rejected. Native fixture integration still unverified.",
+    "finance": "Excluded from Core selected-source supply, but cannot assert absent from uninspected ambient main memory.",
+    "credentials": "No credentials or secret files read/copied as test prompt inputs. Uninspected existing workspace text is not a certified secret-free corpus.",
+    "unrelatedPrivateRecords": "Not opened in this preparation; main normal context may contain personal information beyond selected fragment.",
+    "exactDataScope": "Input categories and paths are identified; actual dynamic matches, per-record content, final truncation and total prompt size cannot be fully determined from metadata alone."
+  },
+  "requestPlan": {
+    "model": "google/gemini-3.8-flash",
+    "thinking": "low",
+    "modelOverride": false,
+    "fallbacks": [],
+    "newMainSession": true,
+    "emptyWorktreeRequired": false,
+    "sessionTaskOrMessageAtCreation": false,
+    "parentForkAttachmentsProjectMention": false,
+    "agentRequests": 1,
+    "chatSendTimeoutMs": 90000,
+    "retryOnFailureOrUnknown": false,
+    "sourceExecutionAttempts": 1,
+    "sourcePolicyLogicalCalls": 1,
+    "sourcePolicyRequestedMaxTokens": 8192,
+    "answerRequestedCharacters": 300,
+    "expectedLogicalCalls": {
+      "agent": 2,
+      "sourcePolicy": 1,
+      "total": 3,
+      "guaranteed": false
+    },
+    "notHardCapped": [
+      "Agent tool continuation count",
+      "physical provider retries",
+      "total input/output/reasoning tokens",
+      "dollar amount",
+      "other normal Host background effects"
+    ],
+    "publisher": false,
+    "existingGrantChanged": false,
+    "mainOrSelfieConfigChanged": false,
+    "paidExecutionThisTurn": false
+  },
+  "proposedApprovalText": "是否允许在当前 main 的正常上下文、一个全新会话中，用 Google Gemini 3.8 Flash（low）做一次真实验证？输入范围包括 main 平时的系统／用户／记忆内容、可能匹配的 standing intents、timeline 最近7日范围内的状态摘要和可见技能目录；另使用原授权中的一个1002字节、标为semi-private的写作片段及其来源策略元数据。正常记忆的实际内容未重新审阅，不能保证仅包含该片段或完全不含金融等私人事实。仅提交一次Agent请求、90秒超时，限制一次指定来源读取及一次来源策略逻辑调用，失败不重发；Agent续轮和供应商重试使总调用数与费用无法硬封顶。不改selfie配置、不扩大沧海grant、不发布或保存正式记忆。",
+  "actualOperations": {
+    "metadataOnly": true,
+    "bootstrapBodyReads": 0,
+    "diaryOrIntentStoreReads": 0,
+    "privateSourcePayloadReads": 0,
+    "sessionsCreated": 0,
+    "modelCalls": 0,
+    "hostReloads": 0,
+    "configMutations": 0,
+    "testReruns": 0,
+    "pushes": 0
+  },
+  "sourceEvidence": [
+    {
+      "path": "src/praxis/episode-evidence.ts",
+      "sha256": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d",
+      "lines": [
+        193,
+        196
+      ],
+      "finding": "authorize leaf once; parent only if id/version differs"
+    },
+    {
+      "path": "src/canghai/source-access.ts",
+      "sha256": "d00cb5c1d3ce2e0cdcdb7a480d72be93bf8f0323434876c9be499f6bb8c84c2d",
+      "lines": [
+        74
+      ],
+      "finding": "source-policy request and descriptor only, requested maxTokens8192"
+    },
+    {
+      "path": "node_modules/openclaw/dist/workspace-bootstrap-policy-CL8uSPRO.mjs",
+      "sha256": "a9336788c0cfbcb12158ea61909fde4aeadcfa3f61f2053cc0b86e079fd765fd",
+      "lines": [
+        27
+      ],
+      "finding": "six default bootstrap filenames; TOOLS/HEARTBEAT not in this default list"
+    },
+    {
+      "path": "node_modules/openclaw/dist/workspace-C4gwB73P.mjs",
+      "sha256": "7069dafa9dbc73cc9f03cc6f6222c49d8af1f8e91fb5f42e22ae5fb30f046955",
+      "lines": [
+        653,
+        721
+      ],
+      "finding": "file load and session privacy filter"
+    },
+    {
+      "path": "node_modules/openclaw/dist/bootstrap-files-BVIOGOj-.mjs",
+      "sha256": "0611bf253242fa3cb29acf472d8976c1e1d6d941d3ae8902f37c913db7c850f7",
+      "lines": [
+        40,
+        175,
+        218
+      ],
+      "finding": "optional personal overlay and automatic-memory origin filtering"
+    },
+    {
+      "path": "node_modules/openclaw/dist/extensions/memory-core/index.js",
+      "sha256": "e7c8f538275bc8df8272337f3c95d2e38dd23e9e8a1fdb96422c17f19200a8aa",
+      "lines": [
+        1000
+      ],
+      "finding": "standing intents for user prompt"
+    },
+    {
+      "path": "node_modules/openclaw/dist/standing-intents-model-CN2LEs96.mjs",
+      "sha256": "61b0caec6eac605f8d838daa888346df870486dd48ed9d0bdb772df722e24195",
+      "lines": [
+        127,
+        130
+      ],
+      "finding": "at most3 intents /1200rendered chars; selected at runtime"
+    },
+    {
+      "path": "node_modules/openclaw/dist/standing-intents.worker-DmGG7G9f.mjs",
+      "sha256": "a0ce4c3a516aae793b01616b642447ce5e212ee0cd31b84e2732f7d6d87d6882",
+      "lines": [
+        55
+      ],
+      "finding": "matching may update intent firing metadata"
+    },
+    {
+      "path": "node_modules/openclaw/dist/skill-contract-CjUSek63.mjs",
+      "sha256": "4fa5029fbedecac01539a99518d7b60f485f97fb406a323a4436a3922c87061d",
+      "lines": [
+        51,
+        53,
+        54
+      ],
+      "finding": "skill names, descriptions, locations in catalog"
+    },
+    {
+      "path": "node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs",
+      "sha256": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c",
+      "lines": [
+        3875,
+        3918,
+        4295,
+        4330,
+        4352
+      ],
+      "finding": "prompt contributions and tool restriction; selection remains runtime-dependent"
+    },
+    {
+      "path": "/Users/zangtao/.openclaw/extensions/stella-timeline-plugin/dist/src/runtime/openclaw_timeline_runtime.js",
+      "sha256": "9a33583f4cf10ae1d603e0eab46960467808f24ba3f35e3daf549c50989a802c",
+      "lines": [
+        67,
+        728,
+        758
+      ],
+      "finding": "enabled prompt fast snapshot reads configured daily logs; default7 days"
+    },
+    {
+      "path": "/Users/zangtao/.openclaw/extensions/stella-timeline-plugin/dist/src/tools/timeline_resolve.js",
+      "sha256": "99523ec1dd4519bad87211e3fe508c482e5e82664a19737c28262c38079725d7",
+      "lines": [
+        194,
+        228
+      ],
+      "finding": "today then prior active fact within configured lookback"
+    },
+    {
+      "path": "/Users/zangtao/.openclaw/extensions/stella-timeline-plugin/dist/src/runtime/timeline_prompt_context.js",
+      "sha256": "b9aea2c226a0b1a2067e0edcd1744c94097297bead8781048882902520d36665",
+      "lines": [
+        189
+      ],
+      "finding": "activity/location/mood/time/progress/style are rendered, not full daily log"
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T11:51:28.910736+00:00",
+  "outcome": "ordinary_runtime_restored_after_one_authorized_official_restart",
+  "priorFailedAttemptReportSha256": "3e28337318022e5730895c7b544936027e57f4cbe717f275bf916d35c43e1b64",
+  "priorApprovalDenialReportSha256": "bd7e7ea02fe437850131f64bb383838140fa78e4853655c0a2cb16a8e1d99417",
+  "authorizationResolution": {
+    "source": "Parent supplied direct user AGENTS original explicitly covering existing development-service restart as materially new evidence",
+    "sameChannelRetries": 1,
+    "priorRejectedProcessCreated": false,
+    "actualRestarts": 1,
+    "force": false,
+    "skipDeferral": false,
+    "preserveDefinitionFlag": true,
+    "waitOption": "0"
+  },
+  "preRestart": {
+    "officialActiveSessionCount": 0,
+    "officialTotalCount": 0,
+    "hasMore": false,
+    "logOtherRunsSinceTemporaryGeneration": 0,
+    "perTokenOwnershipLimitation": "opaque Host work tokens lack public run identity; association based on sole logged test run and idle RPC, not a token-level proof"
+  },
+  "restart": {
+    "actualExitCode": 0,
+    "response": {
+      "action": "restart",
+      "ok": true,
+      "result": "restarted",
+      "service": {
+        "label": "LaunchAgent",
+        "loaded": true,
+        "loadedText": "loaded",
+        "notLoadedText": "not loaded"
+      }
+    },
+    "stderrEmpty": true,
+    "shutdownClean": false,
+    "shutdownEvidence": [
+      {
+        "utc": "2026-11-02T11:45:23.876000+00:00",
+        "technicalMessage": "{\"subsystem\":\"gateway\"} received SIGTERM; restarting",
+        "originalLineSha256": "b877c3b1ba800edd768f3d43be5978ce1945602acb32069e07ccabf58bb0b767"
+      },
+      {
+        "utc": "2026-11-02T11:45:23.893000+00:00",
+        "technicalMessage": "{\"subsystem\":\"gateway\"} draining active work before external-restart with timeout 44961ms: pendingReplies=1 agentRuns=1 sessionAdmissions=1 rootRequests=2",
+        "originalLineSha256": "8804c61068307c7751e041093ec48ff500b710a00c92dbbce7e96cda33adb0d1"
+      },
+      {
+        "utc": "2026-11-02T11:45:54.081000+00:00",
+        "technicalMessage": "{\"subsystem\":\"gateway\"} still draining active work before external-restart: pendingReplies=1 agentRuns=1 sessionAdmissions=1 rootRequests=2",
+        "originalLineSha256": "2b08b0c4c4e6d4dd4a6b9ba940e52c0b9f0231e1fce6c02def5993ec1db697e1"
+      },
+      {
+        "utc": "2026-11-02T11:46:08.855000+00:00",
+        "technicalMessage": "{\"subsystem\":\"gateway\"} restart drain budget 44961ms exhausted; cutting short pendingReplies=1 agentRuns=1 sessionAdmissions=1 rootRequests=2",
+        "originalLineSha256": "951b351487a01bb0090d243805cbb56897556116da6de0e3b723b0aa55c70f8e"
+      },
+      {
+        "utc": "2026-11-02T11:46:18.855000+00:00",
+        "technicalMessage": "{\"subsystem\":\"gateway\"} shutdown deadline reached; abandoning unfinished cleanup and active work before external-restart; last observed: pendingReplies=1 agentRuns=1 sessionAdmissions=1 rootRequests=2; pending owners: 1 pending reply delivery operation(s); 1 admitted agent run(s); 2 active gateway request(s): chat-send:background, ws:chat.send; 1 admitted session turn(s); pending close steps: restart.close.reply-drain=9961ms; cleanup incomplete; exitCode=0",
+        "originalLineSha256": "4f5156320f1e5dcd352a369c60cd4bbb43a3731cfabe92b911a6934e82b7a6fa"
+      }
+    ],
+    "scopeCaveat": "Official restart received retained pending reply/run/admission work even though public activeOnly sessions was0. It exhausted its shutdown budget and abandoned unfinished cleanup; do not claim clean drain. No additional manual signal or forced CLI flag was used."
+  },
+  "postRestart": {
+    "gatewayPid": 31634,
+    "previousGatewayPid": 14106,
+    "rpcHealthy": true,
+    "loopbackPort": 18789,
+    "coreGeneration": 2,
+    "coreRuntime": {
+      "state": "active"
+    },
+    "selectedEntry": ".artifacts/device-source-20261102-00dab376/ordinary/dist/src/ordinary-plugin.js",
+    "selectedEntrySha256": "e0f939faaf96bc3378c74c37a67b6dbbe8f89935567e4f883be8eb3f589b1459",
+    "packageSha256": "2bc388b56677f8f89974c643cf563879ec91c01ee99ec0c4c98752ad101c5099",
+    "normalEntryInActualStartupLog": true,
+    "temporaryEntryInActualStartupLog": false,
+    "temporaryFixtureUnloaded": true,
+    "activeSessions": 0,
+    "queuedOrActiveTotal": 0,
+    "ownTestAutoReplayObserved": false,
+    "anyRunIdAfterRestartObserved": false,
+    "observationThrough": "2026-11-02T11:48:09.608931+00:00",
+    "configSha256": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f",
+    "configExactPreTestBytes": true,
+    "selfieConfigUnchanged": true,
+    "selfieBusinessBehaviorTested": false
+  },
+  "causeAnalysis": {
+    "hookPolicy": "Existing non-bundled conversation-access policy rejects before_prompt_build/agent_end registration synchronously. Original ordinary plugin still has agent_end rejection; no permission changes.",
+    "timeoutCause": "Not established. preparing_context represents multiple phases; retained token and cancellation gaps are observed symptoms, not a proven causal link to hook rejection.",
+    "newStartupWarning": "Custom model catalog cost schema lacked cacheRead/cacheWrite fields. No config was changed, no connection to this timeout established, and default Gemini3.8Flash stayed unchanged.",
+    "currentNoNewModelCall": true
+  },
+  "semanticAcceptance": {
+    "originalAgentRequests": 1,
+    "newAgentRequests": 0,
+    "additionalAuthorizationRemaining": 0,
+    "sourceReadSuccess": false,
+    "answerGenerated": false,
+    "physicalProviderCalls": null,
+    "usageTokens": null,
+    "costUsd": null,
+    "fullMemoryAccepted": false
+  },
+  "evidenceHashes": [
+    {
+      "file": "gateway-restart.claim.json",
+      "sha256": "e16f9d10c2a6be4cb6bd0523047985edc6cb45ba8ffc4a78d497a9de47b4a380"
+    },
+    {
+      "file": "GATEWAY-RESTART.json",
+      "sha256": "0d7e6e056b69ce20f871a8eee8c953053b23f9141d3a7a148de36439b8bc826f"
+    },
+    {
+      "file": "RECOVERY-POST-RESTART.json",
+      "sha256": "756cbcce73a6a38b9d9c5191eb2ea134df2bd56a8a691ffed8c4bb274046a161"
+    },
+    {
+      "file": "RECOVERY-STARTUP-EVIDENCE.json",
+      "sha256": "408b669a551743ca1d46b2c0a26a0be60a5bfe6642eee2e00e1ffd1abff78bf0"
+    }
+  ],
+  "preserved": {
+    "originalFailure": true,
+    "initialApprovalDenial": true,
+    "privateSeedAndLogsExcludedFromGit": true,
+    "publisher": false,
+    "existingGrant": true
+  }
+}

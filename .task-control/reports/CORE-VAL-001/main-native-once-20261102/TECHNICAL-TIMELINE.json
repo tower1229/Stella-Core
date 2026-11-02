@@ -1,0 +1,90 @@
+{
+  "scope": "only relevant technical messages; no prompt, payload, identity token, device id or credentials",
+  "records": [
+    {
+      "utc": "2026-11-02T11:13:01.285000+00:00",
+      "originalLineSha256": "05d0d7da8b5219947be6e5b526d37b26988611aa9a226ab3ad0ad62496b6b144",
+      "technicalMessage": "{\"subsystem\":\"gateway/reload\"} config change detected; evaluating reload (plugins.load.paths)"
+    },
+    {
+      "utc": "2026-11-02T11:13:05.815000+00:00",
+      "originalLineSha256": "8a3323a278f5dbb8e356a710d23dc4afa3b4380562daf03ce91c9cd0c0f2753d",
+      "technicalMessage": "{\"subsystem\":\"gateway\"} [plugins] typed hook \"agent_end\" blocked because non-bundled plugins must set plugins.entries.stella-core.hooks.allowConversationAccess=true (plugin=stella-core, source=<home>/Workspace/tower1229/Stella-Core/.artifacts/main-native-once-20261102-82aa30b2/ordinary/single-source-test-entry.mjs)"
+    },
+    {
+      "utc": "2026-11-02T11:13:05.815000+00:00",
+      "originalLineSha256": "a58dec2ccd612a238c24bb30d47339952e81d8570c7deb3064c79b1c5ed9bd2e",
+      "technicalMessage": "{\"subsystem\":\"gateway\"} [plugins] typed hook \"before_prompt_build\" blocked because non-bundled plugins must set plugins.entries.stella-core.hooks.allowConversationAccess=true (plugin=stella-core, source=<home>/Workspace/tower1229/Stella-Core/.artifacts/main-native-once-20261102-82aa30b2/ordinary/single-source-test-entry.mjs)"
+    },
+    {
+      "utc": "2026-11-02T11:13:05.816000+00:00",
+      "originalLineSha256": "464afe5cfe112b51d605ee271de3f6ede1c4c71b11fcf7fae131983becab8091",
+      "technicalMessage": "{\"subsystem\":\"gateway\"} [plugins] typed hook \"agent_end\" blocked because non-bundled plugins must set plugins.entries.stella-core.hooks.allowConversationAccess=true (plugin=stella-core, source=<home>/Workspace/tower1229/Stella-Core/.artifacts/main-native-once-20261102-82aa30b2/ordinary/single-source-test-entry.mjs)"
+    },
+    {
+      "utc": "2026-11-02T11:13:05.817000+00:00",
+      "originalLineSha256": "c20aae01319b8c5be6a2cdb9d567f6f941c9acffcc447a643eb64e9cf768e56b",
+      "technicalMessage": "{\"subsystem\":\"gateway\"} [plugins] typed hook \"agent_end\" blocked because non-bundled plugins must set plugins.entries.stella-core.hooks.allowConversationAccess=true (plugin=stella-core, source=<home>/Workspace/tower1229/Stella-Core/.artifacts/main-native-once-20261102-82aa30b2/ordinary/single-source-test-entry.mjs)"
+    },
+    {
+      "utc": "2026-11-02T11:13:05.836000+00:00",
+      "originalLineSha256": "7ca8957f2ef134f3303eacaf83464c7d175701d8a2201e975340a6851d04b88a",
+      "technicalMessage": "{\"subsystem\":\"gateway\"} Plugin replacement applied: stella-core"
+    },
+    {
+      "utc": "2026-11-02T11:13:06.188000+00:00",
+      "originalLineSha256": "b6e87c0ed5159e6044f8fde096210b26092363ecd2486e39baaf56a898801a25",
+      "technicalMessage": "{\"subsystem\":\"gateway/reload\"} config hot reload applied (plugins.load.paths)"
+    },
+    {
+      "utc": "2026-11-02T11:13:06.205000+00:00",
+      "originalLineSha256": "436a5b630f878118a0abc97be16eb2e284e066b2e178cd3ed1f9900329a5a5ae",
+      "technicalMessage": "{\"subsystem\":\"gateway/reload\"} config source revision 16 accepted (file)"
+    },
+    {
+      "utc": "2026-11-02T11:22:00.994000+00:00",
+      "originalLineSha256": "758f8e10b3bb080682031c05775771ce2b582fb42e63b6726c0415f4c137badb",
+      "technicalMessage": "{\"subsystem\":\"agent/embedded\"} embedded run timeout: runId=<test-run> sessionId=<test-session-id> timeoutMs=90000"
+    },
+    {
+      "utc": "2026-11-02T11:22:10.996000+00:00",
+      "originalLineSha256": "1d5d6f1d2e02d52ddb4a6fa8fa122612ed7b4f16923c41649022c1fb8d63a21a",
+      "technicalMessage": "{\"subsystem\":\"agent/embedded\"} embedded run abort still streaming: runId=<test-run> sessionId=<test-session-id>"
+    },
+    {
+      "utc": "2026-11-02T11:22:30.995000+00:00",
+      "originalLineSha256": "ce59978962ea2bcccd89b76a08f11f902655786b838499eb7c29392e507437ce",
+      "technicalMessage": "{\"subsystem\":\"diagnostic\"} {'errorName': 'CommandLaneTaskTimeoutError', 'taskKind': 'turn', 'sessionKey': '<test-session>', 'runId': '<test-run>'} lane task error: lane=session:<test-session> durationMs=120201 error=\"Command lane \\\"session:<test-session>\\\" task timed out: owner deadline reached after 120200ms\""
+    },
+    {
+      "utc": "2026-11-02T11:23:01.014000+00:00",
+      "originalLineSha256": "ee998e5c0bf50565b5bdb1b5edd0258e356f2c57a8b4f2684c7255206502afdc",
+      "technicalMessage": "{\"subsystem\":\"diagnostic\"} lane task rejected after timeout: lane=session:<test-session> timeoutMs=120000 error=\"CommandLaneTaskTimeoutError: Command lane \"main\" task timed out: abort grace 30001ms elapsed (task budget 120000ms, elapsed 150214ms)\""
+    },
+    {
+      "utc": "2026-11-02T11:24:21.671000+00:00",
+      "originalLineSha256": "051345d734b8fa8580c2a09b0d82c4591bb0b4b64a50030e594fabb7cafccfde",
+      "technicalMessage": "{\"subsystem\":\"gateway/reload\"} config change detected; evaluating reload (plugins.load.paths)"
+    },
+    {
+      "utc": "2026-11-02T11:24:22.424000+00:00",
+      "originalLineSha256": "7cbcbb72725a943dcb3c89db0224ab6ce57fba8eaec267657abd7160bf7daaa1",
+      "technicalMessage": "{\"subsystem\":\"gateway\"} Plugin replacement queued behind 3 retained work item(s) for plugin stella-core; applies when they finish within the 60s drain budget."
+    },
+    {
+      "utc": "2026-11-02T11:25:22.592000+00:00",
+      "originalLineSha256": "7df70c04cbb442e49f09729df935c8ce41ef65d3b7319dda2a64a160fe9ed40e",
+      "technicalMessage": "{\"subsystem\":\"gateway/reload\"} config reload failed: PluginRuntimeApplicationError: Plugin operation failed during drain: plugin stella-core admitted work did not settle within 60s; the previous plugin generation stays active. Use `openclaw plugins reload stella-core --wait` to wait until it finishes. If an agent turn holds this plugin, end that turn first or use the plugins tool with action reloadAndResume; waiting inside the same turn cannot make progress. | plugin host cleanup timed out: retained plugin work\nGateway generation 12: replacement not applied."
+    },
+    {
+      "utc": "2026-11-02T11:29:12.603000+00:00",
+      "originalLineSha256": "904ae8688b01d23af7a398bdeaca61c60c3543283e85cfc081c24cedcc2b42a0",
+      "technicalMessage": "{\"subsystem\":\"gateway/reload\"} config change detected; evaluating reload (plugins.load.paths)"
+    },
+    {
+      "utc": "2026-11-02T11:29:12.608000+00:00",
+      "originalLineSha256": "ce2103c878127986309a495351aafb328bf670a8d35307a3ae2323158422fde5",
+      "technicalMessage": "{\"subsystem\":\"gateway/ws\"} ⇄ res ✗ plugins.reload 632ms errorCode=UNAVAILABLE errorMessage=Plugin operation failed during drain: plugin stella-core admitted work did not settle within 60s; the previous plugin generation stays active. Use `openclaw plugins reload stella-core --wait` to wait until it finishes. If an agent turn hold... bytes=751 conn=46bffc67…b249 id=2:0e3ed02f-5…dc26"
+    }
+  ]
+}
