@@ -156,11 +156,22 @@ Returned agent, provider/model and direct-provider execution must still match.
 Unknown owner, ambiguous fleet, different model or fallback fails before calling
 completion. No override capability, identity grant or configuration is changed.
 
-This is code and synthetic callback coverage on SDK10.9, **not** evidence that
+This checkpoint is code and synthetic callback coverage on SDK10.9, **not** evidence that
 the actual browser callbacks carry the public scope, or that a real human profile
 matches the existing selected grant. The approved independent CLI/local-protocol
 producer test remains unused; it can prove native technical plumbing, not browser
-human identity or semantic understanding. Shared main/selfie remains untouched.
+human identity or semantic understanding. Shared main/selfie was untouched at
+that offline checkpoint.
+
+The later reviewed package was loaded through the official local Host lifecycle
+on 2026-11-02. Actual main generation5 status and tool invocation now establish
+that the new tool is registered and explicitly rejects an unconfigured source.
+They do not establish source admission or reading: `sourceRead` remains absent,
+`publisher` remains false, and no source-policy/model call was made. See the
+[main installation evidence](../.task-control/reports/CORE-VAL-001/main-source-activation-20261102.json).
+The next binding needs the coordinated stable data root, full Git SHA, manifest
+and existing descriptor/requester scope. Preserving a CangHai branch does not
+activate it or expand the permitted audience or financial-data scope.
 
 ## Historical verification before state97
 

@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T07:00:26.019128+00:00",
+  "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+  "phase": "both_CI_terminal_failure_only_26_retained_failures",
+  "runs": [
+    {
+      "workflow": "CI",
+      "id": 41401454977,
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454977",
+      "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+      "status": "completed",
+      "conclusion": "failure",
+      "counts": {
+        "tests": 1834,
+        "pass": 1808,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failureNames": [
+        "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+        "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+        "isolated installer supports every acceptance runner but rejects unrelated consumers",
+        "native memory uses the pinned codec and rejects serialized producer/output credentials",
+        "native summary must descend from its exact provider output receipt",
+        "real provider and tool results extend context and inherit source revocation",
+        "fixed Google projection changes only the known declaration from original bound input",
+        "Google codec cannot be selected by observed schema or for another Host/model",
+        "Google original schema rejects unbound required",
+        "Google original schema rejects unbound enum",
+        "Google original schema rejects unbound extra property",
+        "Google original schema rejects unbound description",
+        "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+        "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+        "native index bytes are consumed only after exact authorized hit and range validation",
+        "native index authorization preserves indexed provenance and rejects concurrent changes",
+        "native index cannot certify an unrelated indexed body for an authorized locator",
+        "verified native read digests bind index identity and never observe rejected bytes",
+        "native vector-backed reads bind the actual vector and embedding cache without search",
+        "a complete vector marker cannot certify missing or changed selected vector bytes",
+        "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+        "concurrent vector invalidation wins before native file read",
+        "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+        "native exact reads without query embeddings revalidate the original index generation",
+        "native exact reads revalidate source authority before another model call",
+        "a second native read cannot replace the first consumed index identity"
+      ],
+      "old26NamesEqual": true,
+      "old26Missing": [],
+      "newFailures": [],
+      "eightLedgerParentsNowPass": [
+        "a missing memory catalog is unavailable rather than a valid empty collection",
+        "acceptance locators identify all 49 rows in their pinned contract documents",
+        "contract edits cannot be silently reported as the pinned specification",
+        "delivery report expands every work item and acceptance without claiming missing evidence passed",
+        "only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate",
+        "partial, expired, superseded, dirty and different-version evidence cannot complete delivery",
+        "preflight separates unavailable acceptance, missing configuration and valid empty memory without exposing private fields",
+        "public blockers retain actionable categories and work ownership while unknown private text stays private"
+      ],
+      "allEightLedgerParentsPass": true,
+      "stdoutSha256": "7d48c20240c6307d2979401074310072d512b83f32bfbe515baeb483fa9cd313",
+      "rawRelativePath": "ci-full/test.stdout",
+      "oldNormalizedBlocksCompared": false
+    },
+    {
+      "workflow": "Experimental owner chat",
+      "id": 41401454871,
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454871",
+      "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+      "status": "completed",
+      "conclusion": "failure",
+      "counts": {
+        "tests": 1834,
+        "pass": 1808,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "failureNames": [
+        "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+        "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+        "isolated installer supports every acceptance runner but rejects unrelated consumers",
+        "native memory uses the pinned codec and rejects serialized producer/output credentials",
+        "native summary must descend from its exact provider output receipt",
+        "real provider and tool results extend context and inherit source revocation",
+        "fixed Google projection changes only the known declaration from original bound input",
+        "Google codec cannot be selected by observed schema or for another Host/model",
+        "Google original schema rejects unbound required",
+        "Google original schema rejects unbound enum",
+        "Google original schema rejects unbound extra property",
+        "Google original schema rejects unbound description",
+        "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+        "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+        "native index bytes are consumed only after exact authorized hit and range validation",
+        "native index authorization preserves indexed provenance and rejects concurrent changes",
+        "native index cannot certify an unrelated indexed body for an authorized locator",
+        "verified native read digests bind index identity and never observe rejected bytes",
+        "native vector-backed reads bind the actual vector and embedding cache without search",
+        "a complete vector marker cannot certify missing or changed selected vector bytes",
+        "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+        "concurrent vector invalidation wins before native file read",
+        "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+        "native exact reads without query embeddings revalidate the original index generation",
+        "native exact reads revalidate source authority before another model call",
+        "a second native read cannot replace the first consumed index identity"
+      ],
+      "old26NamesEqual": true,
+      "old26Missing": [],
+      "newFailures": [],
+      "eightLedgerParentsNowPass": [
+        "a missing memory catalog is unavailable rather than a valid empty collection",
+        "acceptance locators identify all 49 rows in their pinned contract documents",
+        "contract edits cannot be silently reported as the pinned specification",
+        "delivery report expands every work item and acceptance without claiming missing evidence passed",
+        "only complete current evidence can satisfy the ledger; feedback and historical replacements remain separate",
+        "partial, expired, superseded, dirty and different-version evidence cannot complete delivery",
+        "preflight separates unavailable acceptance, missing configuration and valid empty memory without exposing private fields",
+        "public blockers retain actionable categories and work ownership while unknown private text stays private"
+      ],
+      "allEightLedgerParentsPass": true,
+      "stdoutSha256": "d617d87a6116c4234a8474af2b84be19d9dbcc005c8b34c983b8cee946724702",
+      "rawRelativePath": "ci-exp/1793601681860-2469/test.stdout",
+      "oldNormalizedBlocksCompared": false
+    }
+  ],
+  "priorHeadSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+  "priorCountsEach": {
+    "tests": 1820,
+    "pass": 1786,
+    "fail": 34
+  },
+  "result": "all8 newly introduced delivery-ledger parent failures now pass; same26 prior failure names remain; no new failures observed",
+  "oldNormalizedBlocksCompared": false,
+  "ciVersion": {
+    "node": "24.22.1",
+    "openclaw": "2026.10.8",
+    "localSDK": "2026.10.9"
+  },
+  "gateResults": {
+    "check": true,
+    "checkSchemas": true,
+    "workspace": false,
+    "fullPrepare": "failure",
+    "fullVerify": "failure_due_prepare_incomplete",
+    "fullProbes": "skipped",
+    "experimentalStockHost": "not_run_after_workspace_gate",
+    "fullMemory": false
+  },
+  "artifacts": [
+    {
+      "id": 13121782577,
+      "sha256": "4d6df14b83b6b62c93f6d2bb1ebcd05787a0d64fea96964c14e0d66f802f5471"
+    },
+    {
+      "id": 13122446120,
+      "sha256": "47fa28170fcc1ec4ab6683c987dcda5f0cadbefde0d3e054ccc5baa9cfdb7765"
+    }
+  ],
+  "rawArtifactsRetainedOutsideRepository": true,
+  "noWorkflowRerunCancelOrTestChange": true,
+  "stateUpdate": {
+    "baseRevision": 112,
+    "baseSha256": "01d02f90f784f877f1cc989f76c6af65798e942240603cb7cbd508c4f118b04d"
+  }
+}

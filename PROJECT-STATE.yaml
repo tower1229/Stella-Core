@@ -699,3 +699,23 @@ delivery_catalog_pin_repair_20261102:
   delta: G01-G10 document hash and line locators only; all49 acceptance data unchanged
   local_red_green: 8fail_before_and_11pass_after_including3_unchanged_tamper_rejection_children
   full_ci_host_and_semantic_acceptance: not_implied
+
+# 2026-11-02 exact committed-package CI and actual main activation; technical facts only.
+ordinary_source_main_activation_20261102:
+  code_commit: df5bc467621fd741bb582c07e8f22c31ce6d01b1
+  evidence: .task-control/reports/CORE-VAL-001/main-source-activation-20261102.json
+  ci_evidence: .task-control/reports/CORE-VAL-001/source-package-ci-df5bc467-20261102.json
+  host_version: '2026.10.9'
+  current_gateway_generation: 5
+  generation_scope: current_Gateway_lifetime_not_historical_generation12
+  selected_entry: .artifacts/source-read-20261102-df5bc467/package/dist/src/ordinary-plugin.js
+  frozen_installation_files_matched: 2752
+  official_reload_exit: 0
+  gateway_health: true
+  actual_no_model_status: sourceReadPort_not_configured_publisher_false
+  actual_source_list: transport_success_tool_error_source_read_not_configured
+  private_source_binding_native_admission_model_consumption: not_verified
+  config_structural_delta: plugins.load.paths_only_old_package_retained
+  ci_each: 1834_total_1808_pass_26_old_failures_no_new_failure_names
+  eight_new_delivery_pin_failures: resolved_existing_negative_assertions_retained
+  full_memory_or_all_CI_green: false

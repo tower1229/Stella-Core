@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T07:14:32.131397+00:00",
+  "phase": "actual_main_loaded_and_no_model_unconfigured_boundary_verified",
+  "codeCommit": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+  "hostVersion": "2026.10.9",
+  "packageBuildMetadata": "2026.10.8 unchanged; actual local SDK10.9 recorded separately",
+  "reviewedCode": {
+    "admission": ".task-control/reports/CORE-VAL-001/source-admission-review-20261102.json",
+    "compatibility": ".task-control/reports/CORE-VAL-001/source-compat-review-20261102.json"
+  },
+  "artifact": {
+    "root": ".artifacts/source-read-20261102-df5bc467/package",
+    "fileCount": 2752,
+    "frozenFilesMatchedAfterLoad": 2752,
+    "frozenFilesMismatched": 0,
+    "manifestSha256": "65265ed9682c107c7a02b769d7147f3a3ce9f3bcd7947c3a06eb263a110eec5f",
+    "ordinaryEntrySha256": "e0f939faaf96bc3378c74c37a67b6dbbe8f89935567e4f883be8eb3f589b1459",
+    "dependencies": "existing installed runtime dependency closure copied within package; no new downloads",
+    "compileExit": 0
+  },
+  "installation": {
+    "officialReloadExit": 0,
+    "generation": 5,
+    "restartRequired": false,
+    "operationId": "5e32e27f-75a8-401b-9fda-2723e239eab2",
+    "sourceDigest": "009e4843fc08a857007d19d0d3551c1f79ca717d2ab501947eb4a60277602ea5",
+    "selectedEntry": ".artifacts/source-read-20261102-df5bc467/package/dist/src/ordinary-plugin.js",
+    "waitedForRetainedWork": true,
+    "generationScope": "current Gateway lifetime; not comparable to historical main generation12"
+  },
+  "retainedFailures": [
+    {
+      "action": "default-executor local Gateway health",
+      "outcome": "connect EPERM loopback18789; no Gateway request",
+      "resolution": "same official passive health command through normal approval after code/scope verification succeeded; no persistent permission change"
+    },
+    {
+      "action": "official local link install",
+      "outcome": "exit1 SQLite snapshot staging and cleanup ENOENT for missing broker resource.sock; config unchanged"
+    },
+    {
+      "action": "same public Gateway plugins.install method",
+      "outcome": "UNAVAILABLE, retryablefalse, same missing socket; config unchanged; no automatic retry"
+    },
+    {
+      "action": "official link install after verified broker recovery",
+      "outcome": "installation saved, runtime application partially occurred; old and new Core paths made package ownership ambiguous; no repeated install",
+      "resolution": "compare config bytes, retain backup/old artifact, remove exact old Core load path only, config validation0, official reload with wait succeeded"
+    }
+  ],
+  "recovery": {
+    "officialGatewayRestarts": 1,
+    "restartExit": 0,
+    "restartPrecondition": {
+      "rootRequests": 0,
+      "cronRuns": 0,
+      "sessionMutations": 0,
+      "terminalPersistence": 0,
+      "lifecycleWrites": 0,
+      "writeCustody": []
+    },
+    "postRestartHealth": true,
+    "postRestartManagedInspection": true,
+    "missingSocketFailureDisappearedAfterRestart": true,
+    "whySocketWasLost": "not established; no Host source or security settings changed",
+    "disconnectAfterSuccessfulReload": {
+      "noMutationResent": true,
+      "firstReadOnlyCommandNotCreated": true,
+      "oneRecoveryHealthCheckFailedBeforeProcess": "exec-server transport disconnected; recovery timed out",
+      "resumeReadOriginalReceipts": true
+    }
+  },
+  "configuration": {
+    "beforeSha256": "cd7ddf1c111aed99fb7e3ddb586b3ea2b1fb30d8d1d34095c42b7d0a29f1d59d",
+    "afterSha256": "84a8a1952bc19a3e52d3ca23cdf14b4d8f907283d6529cb68f66341535e10fc9",
+    "onlyChangedPath": "plugins.load.paths",
+    "unrelatedConfigStructurallyEqual": true,
+    "sourceReadConfigured": false,
+    "publisher": false,
+    "oldArtifactRetained": true,
+    "privateRollbackBackupMode": "0600; excluded from repository",
+    "actualRollbackPerformed": false
+  },
+  "actualChecks": {
+    "health": {
+      "exitCode": 0,
+      "ok": true,
+      "pluginErrors": []
+    },
+    "pluginRuntime": {
+      "exitCode": 0,
+      "generation": 5,
+      "state": "active"
+    },
+    "status": {
+      "exitCode": 0,
+      "rpcOk": true,
+      "details": {
+        "architecture": "ordinary-plugin",
+        "stage": "candidate-only",
+        "agentId": "main",
+        "publisher": false,
+        "sourceAdapter": "not_connected",
+        "authorConfirmation": false,
+        "sourceReadPort": "not_configured",
+        "persistence": "candidate_drafts_only",
+        "candidateDraftsConfigured": true,
+        "draftScope": "synthetic_debug",
+        "modelCalls": false,
+        "legacyRuntime": "inactive",
+        "requestBinding": "public-tool-hook-metadata",
+        "currentInputAdmission": "not_connected",
+        "currentInputObservation": "passive-native-admission-metadata-only",
+        "memory": "host-owned",
+        "context": "host-owned",
+        "agentLoop": "host-owned"
+      }
+    },
+    "sourceListUnconfigured": {
+      "exitCode": 0,
+      "rpcOk": true,
+      "toolIsError": true,
+      "details": {
+        "status": "unavailable",
+        "code": "source_read_not_configured"
+      },
+      "interpretation": "transport success, explicit unavailable tool result; not empty-success or source permission acceptance"
+    },
+    "noModelToolCalls": 2,
+    "configUnchangedDuringChecks": true
+  },
+  "limits": {
+    "actualPaidRequests": 0,
+    "privateSourcePayloadsReadByCore": 0,
+    "sourcePolicyModelCalled": false,
+    "realNativeAdmissionToSourceBindingVerified": false,
+    "browserHumanProfileVerified": false,
+    "semanticUnderstandingVerified": false,
+    "fullMemory": false,
+    "isolatedSandboxApplyDenialRetained": true,
+    "isolatedNativeQuotaConsumed": 0,
+    "isolatedNativeQuotaRemaining": 1,
+    "noCangHaiFilesOrRefsChanged": true
+  },
+  "nextMinimum": {
+    "dataHandoff": "Receive explicit stable runtime root, full commit SHA, manifest path/hash and allowed descriptor/profile scope from CangHai coordination; preserved branch names alone are not a runtime binding. No finance scope inherited.",
+    "withoutModel": "Read-only validate binding identity/clean state and selected manifest/profile/catalog metadata, then official configuration review; native-memory RAG and Core read-port bindings must have separately explicit directories.",
+    "realIngress": "Actual public native admission/run/call and existing owner/profile mapping remain to verify; direct tools.invoke does not supply that evidence.",
+    "semanticRead": "Reading original bodies invokes existing structured Gemini3.8Flash/low per-source policy; a real-model/real-private-data test requires an exact new approved data-flow and call budget, not old exhausted authorization.",
+    "noNewInfrastructure": "Reuse existing main and source adapter; no parallel sandbox instance, identity service or memory database."
+  },
+  "persistentEvidence": "This non-sensitive summary plus exact result/hash metadata; raw output/config/state databases excluded",
+  "rawReceiptSha256": {
+    "health.receipt.json": "b8e31a70e877be2f98b5c87d6ebe418210574fd332ca39b4a3948fc83b82d4cb",
+    "health-approved.receipt.json": "960cf5105c8af8dda7750dcc50f176789662c1a8fb3405466aff37d5f4499509",
+    "build.json": "76f64f614c91809a4f1c67047ce1a125e3522eb64206c35460e83e334d4aca7c",
+    "install.receipt.json": "bad5f18a7eab8f01b9c02b0581f3f3e85310e6f749da0dd6dc299e323b0ca5ec",
+    "gateway-install.receipt.json": "0f3d0115c5af4871d14546806a4fc146a4b1dacdc474ef5c1968a61113809b0e",
+    "gateway-restart.receipt.json": "16c6ab8d2e7559578e5f4bc859fcdff543dc748adbe756e80f92184c2f28b47e",
+    "post-restart-health.json": "16407e8243ac2d9eb79156eab2843dfa6eb0768a268199121affb6a621e18d3e",
+    "post-restart-inspect.json": "dc97b97bca863bd2da0dd533c7a792ea1e12acfaf256301507de0c839bbec42b",
+    "install-after-recovery.receipt.json": "8079abdbb3b99f2da63d10c069d457c7df4e6e31bb8e534fb9c9f05ad0dc9a54",
+    "load-path-repair.json": "359638ac0d11da650cbfa16770afa05e9d5f51b7426afd84c5b579e78c3c38a4",
+    "reload.receipt.json": "7a78a9a30498a1d1323d44e567c9635ad432a711f70bd420674e2688683c0f88",
+    "final-health.receipt.json": "874b019b87bc3f73afe203a096118475914287f3d1e24473f6cc6c85aa39f5b5",
+    "final-plugins.receipt.json": "3f019eef35411fdb3f44188cba757d869fb6756d1dfad2a354e196dd7337aeb1",
+    "final-status.receipt.json": "44fe7226ab0d99013ebc6ca6679bdb30842505176fecb02f11ba08f778fb6356",
+    "final-source-denial.receipt.json": "18e3c31906aed4e5ad6eaee0e36c2fec03c811e339a49158119cc54ee89bae50"
+  },
+  "localRecoveryPointer": "/tmp/core-main-source-current.json",
+  "stateUpdateBase": {
+    "revision": 113,
+    "sha256": "c35be050dc60c48f680fce307f3c3f104b41d23715513ac7395f8a311c170806"
+  }
+}

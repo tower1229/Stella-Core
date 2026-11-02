@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "phase": "prepared_but_sandbox_apply_denied_no_native_Host_started",
+  "observedAt": "2026-11-02T06:38:59.281473+00:00",
+  "codeCommit": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+  "sourcePinCommit": "1749b1c09c8dddc7a627f6ba50867a2439c06e1c",
+  "artifact": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-native-producer-20261102-7fr9l99h",
+  "ownedSyntheticRoot": "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw",
+  "approvedScope": {
+    "message": "Sentinel_91bd6b82d66c8191ab3cde93710b106e",
+    "onlyAdditionalRule": "(allow network-outbound (remote tcp \"localhost:55788\"))",
+    "originalProfileSha256": "a0f72c0b41775512d0d4cf98630b0492eac29baadfd22c95873bab1e4a2fccc4",
+    "candidateProfileSha256": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "maxChatSend": 1,
+    "maxModelProtocolHttp": 4,
+    "totalMs": 90000
+  },
+  "prepared": {
+    "actualSDK": "2026.10.9",
+    "source": "one equivalent migration-v1 synthetic Git source in workspace,2 descriptors,existing synthetic requester cli",
+    "auth": "official current AuthStorage.forAgent/set, canonical invalid test key, no runtime override/fallback; no doctor",
+    "configuration": "official schema passed, native default main/Gemini3.8/low/no fallback, memory search/background/browser/mdns disabled, loopback55788; no shared config",
+    "thinHarness": "unchanged accepted owned-probe/outer-supervisor/deadline/inner-controller/shared/env; existing bounded inline fixture only close threshold3->4 and fixed source4-stage protocol; native gateway run + exactly one chat.send + one agent.wait, no inner detached groups",
+    "dryCheck": {
+      "exitCode": 0,
+      "HostStarts": 0,
+      "listeners": 0
+    },
+    "frozenInputs": 2461,
+    "frozenInputsSha256": "3f6c1ac3a844a55bfa07c0d689dfff877a39adb2ea5e5a9dc02ee5b700ff4b40",
+    "exactExecutionSha256": "6e60fbc27de977c92b47c746a30b9f5cf5f47bb810704e077d8d420913b0e3e4",
+    "fixtureReady": "yes; actual callback/runtime chain not run"
+  },
+  "blockedAction": {
+    "argv": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw/restriction.sb",
+      "/usr/bin/git",
+      "--no-optional-locks",
+      "-c",
+      "core.fsmonitor=false",
+      "-C",
+      "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw/workspace/synthetic-source",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exitCode": 71,
+    "stdout": "",
+    "stderr": "sandbox-exec: sandbox_apply: Operation not permitted\n",
+    "expectedSyntheticRevision": "2fb247001f5718b0f27d72743acdfcdde95e1a56",
+    "matched": false,
+    "HostStarts": 0,
+    "listeners": 0,
+    "time": "2026-11-02T06:36:57.205905+00:00"
+  },
+  "denialClassification": "OS sandbox_apply EPERM under current execution channel, not Git/Xcode/content failure and not tool approval rejection. No evidence that adding any SBPL data rule would fix it.",
+  "afterDenial": "Stopped dependent sandbox/Host steps; no retry, signal, ps, port probe, alternate launch channel or sandbox disablement.",
+  "counts": {
+    "nativeChatSend": 0,
+    "HostStarts": 0,
+    "listenerStarts": 0,
+    "protocolHttp": 0,
+    "realProvider": 0,
+    "privatePayloadReads": 0,
+    "ownedSupervisorGroupCreated": false,
+    "claimCreated": false,
+    "remainingApprovedChatSend": 1
+  },
+  "cleanup": "No listeners/Host/supervisor group were started; owned prepared synthetic directory retained for diagnostics. No old group/resource touched; no groupGone claim manufactured.",
+  "initialPreparationFailure": {
+    "officialSchema": "unrecognized canvasHost key before config/auth/Host",
+    "fixed": "removed unsupported top-level key; observed10.9 has no canvasHost facility. Current schema then passed. Original failed receipt retained local.",
+    "notAHostAttempt": true
+  },
+  "invariants": {
+    "profileOriginalUnchanged": true,
+    "sharedMainUnchangedByThisTask": true,
+    "noRealCredentialOrIdentityGrant": true,
+    "publisher": false,
+    "CLIIsNotBrowserHumanAcceptance": true,
+    "realModelSemantics": false,
+    "fullMemory": false
+  },
+  "resumeRequirements": "Restore a legitimately authorized execution entry capable of applying the target sandbox; preserve same profile/limits. This report does not authorize changing OS sandbox controls or switching channels after EPERM. First inspect exact claims/results and frozen hashes before any future explicitly released run. No old quota reuse.",
+  "minimalHarnessDelta": {
+    "ref": ".task-control/reports/CORE-VAL-001/native-source-producer-harness-20261102.patch",
+    "sha256": "1fc31a6d45b4d1d7a48893537059a83fb0e43b346d884225d1a46d0bc5b4e969",
+    "notReviewedOrRun": true
+  }
+}

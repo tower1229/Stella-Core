@@ -96,6 +96,16 @@ owner SDK entry described in the draft guide. Initial failures and main8 rollbac
 remain historical. That checkpoint retained native memory/context/Agent loop;
 the later continuation increment and its evidence are recorded in the draft guide.
 
+## 2026-11-02 来源入口实际加载
+
+已审提交 `df5bc467621fd741bb582c07e8f22c31ce6d01b1` 的来源读取与公开请求适配代码已加载到本机 OpenClaw `2026.10.9`。官方 reload 回执选中 `.artifacts/source-read-20261102-df5bc467/package/dist/src/ordinary-plugin.js`，当前 Gateway generation 5，`restartRequired=false`；2752 个安装文件与冻结清单一致。代次仅属于这次 Gateway 生命周期，不能与旧记录中的 generation 12 直接比较。
+
+实际无模型检查已完成：健康返回 `ok=true`；`stella_status` 返回 `sourceReadPort=not_configured`、`publisher=false`；`stella_source_read` 的 `list` 返回 `source_read_not_configured` 且工具 `isError=true`。RPC 成功只表示调用完成，不能当作来源读取成功。当前没有配置私人来源，未验证真实入场资格、模型消费或语义理解。
+
+本次先遇到宿主 SQLite 资源 broker socket 丢失，在官方状态确认在途工作和写入计数均为零后重启现有 Gateway 一次恢复。随后官方链接安装保留了新旧两条 Core 路径，造成包归属歧义；只移除旧 Core 加载路径并执行官方等待排空 reload 后成功。配置的唯一结构差异是 `plugins.load.paths`，其余模型、资料、selfie 相关设置和插件配置均保留。旧包及 `0600` 私有配置备份仍可回滚；失败回执和断连经过没有覆盖。
+
+非敏感结果、精确哈希和未覆盖范围见 [实际加载证据](../.task-control/reports/CORE-VAL-001/main-source-activation-20261102.json)。下一次资料接入须等待 CangHai 明确的稳定目录、完整提交 SHA、manifest 和原获准描述符范围交接，不能把分支保全等同于运行绑定，也不能自动加入金融资料。执行安排只读唯一台账。
+
 ## 长期开发约定与设备交接
 
 2026-11-02 补记既有用户要求与工程取舍，供后续开发和交接必读；不是新的架构决定。
@@ -109,7 +119,7 @@ the later continuation increment and its evidence are recorded in the draft guid
 
 当前开发优先级由 [需求 §1.5 的2026-11-02决定](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)统一维护：数据结构／必要转换／开发接入先行，再做已有资料的正向理解、召回、语义路由和回答，之后推进纠正及传播。此前“先纠正”的开发排序不再调度；完整纠正目标和验收要求保留。具体执行状态和恢复条件只在唯一台账维护，不从本文历史安装记录恢复任务。当前数据源与已安装普通插件的接入区别见 [两仓数据基础核查](CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102)。
 
-2026-11-02 本地 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)已继续接入公开当前请求／工具调用与既有处理配置的薄适配器，并按原获准描述符过滤；仅合成验证63/63及独审反例修后重放通过，离线候选已独审通过、尚未安装。原元数据 P2 已独审关闭；固定旧包的两项来源读取缺陷保留并在本增量修复。当前 main／私人根仍未绑定，公开生产者字段及真实语义消费仍待实际验证；不能据配置、hash或合成回执称已读沧海。 最小独审摘要与默认模型／实际入口的后续边界见 [验收证据](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)，不由离线通过推导新的执行授权。
+2026-11-02 本地 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)接入公开当前请求／工具调用与既有处理配置的薄适配器，并按原获准描述符过滤；离线时点的合成63/63及独审反例证据保留。原元数据 P2 和固定旧包的两项来源读取缺陷已独审关闭。后续代码实际加载结果见上文，当前 main 仍未绑定私人资料根，公开生产者字段及真实语义消费仍待验证；不能据安装、hash或合成回执称已读沧海。最小独审摘要与默认模型／实际入口边界见 [验收证据](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)。
 
 工作说明仍可作为以后纠正闭环的单资产载体。候选 CRUD、手动 briefId 和 `stella-continue` 只是当前合成调试脚手架，不是 Stella 的完整产品形态，也不是用户被要求永久采用的交互方式。不能把合成回读、字段齐备或 hash 匹配升级为模型已经理解和采用；真实工具供给、模型消费与回答仍需各自证据，且不把检索和路由僵化成单向硬流水。
 

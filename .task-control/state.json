@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 110,
-  "updatedAt": "2026-11-02T06:21:37.112321+00:00",
+  "revision": 115,
+  "updatedAt": "2026-11-02T07:24:34.129136+00:00",
   "writer": {
-    "agent": "Core reviewed package save and approved synthetic Host writer",
-    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:save-host-20261102"
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
   },
   "workstreams": [
     {
@@ -564,8 +564,8 @@
       ],
       "status": "running",
       "owner": {
-        "agent": "Core minimal public WebChat principal/default-model compatibility implementation single writer",
-        "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:source-compat-20261102"
+        "agent": "Core actual main source activation and forward-data handoff single writer",
+        "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
       },
       "evidence": [
         {
@@ -1444,11 +1444,60 @@
             "patchSha256": "374be40c3eb4cd8f9bace6b5a20fb2c662726120e0ead33dd6a19e7e0fe7c74f",
             "sourceSha256": "88cd63d24e448b4731ebaf9d3cd76f447c4228a48476083bd007866ae0759539"
           }
+        },
+        {
+          "id": "C-VAL-REVIEWED-PACKAGES-PUSHED-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/source-package-push-recovery-20261102.json",
+          "claim": "Reviewed pin and compatibility commits pushed once after supplemental original authorization; recovered existing session exit0 and remote exactSHA confirmed; new CI pending. Prior denial and native EPERM retained; no new Host or model.",
+          "observedAt": "2026-11-02T06:44:37.593213+00:00",
+          "subject": {
+            "sha256": "5dae594eb15eb3d585c14b72e12ca7d33ce76e9c357c5c272d5e64b516e40f58",
+            "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+            "stateUpdateBaseRevision": 111,
+            "stateUpdateBaseSha256": "4b60428842a6444486f2fc9038a3d1ae33e98efe9a34b3cf1895d0ebf1425acf"
+          }
+        },
+        {
+          "id": "C-VAL-DF5-CI-TERMINAL-26OLD-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/source-package-ci-df5bc467-20261102.json",
+          "claim": "Both exactSHA CI1834/1808/26; old26failure names equal;8deliveryledgerparents nowpass; no newfailure observed. LaterHost/probes skipped, no overallgreen.",
+          "observedAt": "2026-11-02T07:00:26.019128+00:00",
+          "subject": {
+            "sha256": "84f9e145b40dd71ff1d47b4f9d0b255e03cdb2c1ace68fea6ea9eae54aea481b",
+            "stateUpdateBaseRevision": 112,
+            "stateUpdateBaseSha256": "01d02f90f784f877f1cc989f76c6af65798e942240603cb7cbd508c4f118b04d"
+          }
+        },
+        {
+          "id": "C-VAL-MAIN-SOURCE-LOADED-NO-MODEL-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/main-source-activation-20261102.json",
+          "claim": "Officialreload0 generation5 andactualhealthy main;2752file hashes match;two realtools prove status andunconfigured-source explicit rejection. One prior authorizedGatewayrestart afteractivework0 recovered missingbroker. Onlyloadpath differs,oldpackage/privatebackup retained. No sourcebinding/privatepayload/paidmodel/nativeadmission/semantics/fullmemory acceptance.",
+          "observedAt": "2026-11-02T07:17:05.176357+00:00",
+          "subject": {
+            "sha256": "cae8e27a604d55debde5f6f2a1caa6d387eb6868143f7fd3b8aa720a887e1044",
+            "codeCommit": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+            "stateUpdateBaseRevision": 113,
+            "stateUpdateBaseSha256": "c35be050dc60c48f680fce307f3c3f104b41d23715513ac7395f8a311c170806",
+            "docPatchSha256": "5507455634548f4c94d57f117fab286804d89c61da4d4889fb422d1508b0e9dc",
+            "documentationBefore": {
+              "docs/MAIN-DEBUG-INSTALL.md": "f8af7d9a58ddbfeb1a8b44c8892ed8aaa49dc40d10f122b95642a353033492d9",
+              "docs/ORDINARY-SOURCE-READ.md": "fad5e7b9cbda4c94716326300099b7d89e1e61e43c4a76fdd7e08cb3f2bb9bb7",
+              "PROJECT-STATE.yaml": "c04d090e024056718aa92438d9fb874f8e11900ef641d3ea4fc101b58d2e51e9"
+            },
+            "documentationAfter": {
+              "docs/MAIN-DEBUG-INSTALL.md": "f8f207119acd20f50b552aa181ffcd6ade0f7464d1b66ac2f496686339586093",
+              "docs/ORDINARY-SOURCE-READ.md": "c26c0ffec2230616eec217b1f57424e275d0e73bef3453e6c888112c201c102b",
+              "PROJECT-STATE.yaml": "8e686cdb87225bb7f300963fa42a8650ecd99a2c3d6a6ebecec79a2069d652c3"
+            }
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Pushed4498a46 dualCI1820/1786/34 retained; exact new8 reproduced locally. Minimal single-file catalog10G pin/+4line refresh now compile0 and delivery tests11/11 including3 unchanged document-tamper negative children; all49 locators/hashes and unchanged row payloads audited. Frozen compatibility5 unchanged, unreviewed/uncommitted; old dirty preserved. No Host/model/private action.",
-        "nextAction": "Parent independently review one-file delivery pin repair + report/patch, then immediately commit/push exact accepted package and follow exact newSHA CI. Do not stage compatibility5 or old PROJECT/history. Compatibility5 separate review remains pending; approved fresh native producer scope still unused.",
+        "checkpoint": "Recovered original successfulreload without reinstallation/restart. Actualmain10.9 generation5 active andhealthy;2752frozenfiles match. Two real no-model tools:status not_configured,publisherfalse;source_read list explicit unavailable/isError. Only Core loadpath changed;oldartifact/privatebackup retained, broker/duplicatepath/transport failures preserved. CI df5both1834/1808/26old,8newregressionsfixed. PrivateSource/nativeadmission/semanticconsumption remain unverified.",
+        "nextAction": "Receive coordinated CangHai runtime directory,fullSHA,manifest/profile/catalog and original allowed descriptor/requester scope; verify metadata/clean fixedversion without reading private bodies or changing refs. Current sourceRead remains absent. Then review exact binding and real public native admission; original-body reads require structured Gemini policy, so plan bounded newly-authorized model/data-flow acceptance rather than reuse exhausted paid permission or fake callbacks. No more install/restart/test repeats for this completed milestone; preserve review-deliveries.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2211,7 +2260,7 @@
           "identityOrSourceGrantChanged": false
         },
         "sourceCompatibility": {
-          "phase": "independently_accepted_committing",
+          "phase": "committed_pushed_CI_26_old_no_new_failures",
           "baseRevision": 101,
           "accepted13Snapshot": ".task-control/reports/CORE-VAL-001/source-admission-state97-frozen-20261102/MANIFEST.json",
           "sha256": "eaca37f7977aea4d23bace5adc988988d785977640d521f9b1dadcd7d5f1cf3a",
@@ -2240,14 +2289,68 @@
           "paidRequests": 0,
           "sharedHostActions": 0,
           "executionReady": false,
-          "committed": false,
-          "pushed": false,
+          "committed": true,
+          "pushed": true,
           "patchReplayExact": true,
           "review": ".task-control/reports/CORE-VAL-001/source-compat-review-20261102.json",
           "independentTests": {
             "total": 39,
             "pass": 39
-          }
+          },
+          "commit": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+          "remoteObservedSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+          "pushRecoveryReport": ".task-control/reports/CORE-VAL-001/source-package-push-recovery-20261102.json",
+          "pushRecoverySha256": "5dae594eb15eb3d585c14b72e12ca7d33ce76e9c357c5c272d5e64b516e40f58",
+          "ciRuns": [
+            {
+              "workflow": "CI",
+              "id": 41401454977,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454977",
+              "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1834,
+                "pass": 1808,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "old26NamesEqual": true,
+              "newFailures": [],
+              "allEightLedgerParentsPass": true
+            },
+            {
+              "workflow": "Experimental owner chat",
+              "id": 41401454871,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454871",
+              "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1834,
+                "pass": 1808,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "old26NamesEqual": true,
+              "newFailures": [],
+              "allEightLedgerParentsPass": true
+            }
+          ],
+          "ciReport": ".task-control/reports/CORE-VAL-001/source-package-ci-df5bc467-20261102.json",
+          "ciReportSha256": "84f9e145b40dd71ff1d47b4f9d0b255e03cdb2c1ace68fea6ea9eae54aea481b",
+          "mainInstallation": {
+            "generation": 5,
+            "hostVersion": "2026.10.9",
+            "report": ".task-control/reports/CORE-VAL-001/main-source-activation-20261102.json",
+            "unconfiguredBoundaryVerified": true,
+            "actualAdmissionOrPrivateSourceVerified": false
+          },
+          "sharedHostActionsScope": "zero during original offline compatibility validation; subsequent actual main activation is recorded separately"
         },
         "sourceSave": {
           "phase": "pushed_dual_ci_terminal_document_pin_regression",
@@ -2417,12 +2520,12 @@
           "newRegression": "8 delivery-ledger tests fail first on unchanged catalog pin after docs10 +4 lines; repair suggestion recorded, not implemented"
         },
         "deliveryPinRepair": {
-          "phase": "committed_push_rejected_before_process",
+          "phase": "committed_pushed_CI_26_old_no_new_failures",
           "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
           "baseRevision": 106,
           "baseSha256": "c8d57bc1ca7ae4d49d223f74c22631443ba3eca2e40ef62f7eb5d8351e74166b",
           "scope": "only exact10G-row document pin and line refresh; guard/acceptance content unchanged; compatibility5 stays frozen; no Host/model",
-          "push": "not assigned before independent review",
+          "push": "succeeded_after_one_original_channel_retry_with_new_trusted_authorization",
           "report": ".task-control/reports/CORE-VAL-001/delivery-pin-fix-20261102.json",
           "reportSha256": "1e0779ee21e6b40ebb92d5a26e6551da641783dd955101f1980d94f1e7b71a3b",
           "patch": ".task-control/reports/CORE-VAL-001/delivery-pin-fix-20261102.patch",
@@ -2458,30 +2561,232 @@
           "guardAndTestsUnchanged": true,
           "compatibilityFiveUnchanged": true,
           "committed": true,
-          "pushed": false,
+          "pushed": true,
           "review": ".task-control/reports/CORE-VAL-001/delivery-pin-review-20261102.json",
           "commit": "1749b1c09c8dddc7a627f6ba50867a2439c06e1c",
-          "pushBlocker": ".task-control/reports/CORE-VAL-001/source-package-save-20261102.json"
+          "pushBlocker": ".task-control/reports/CORE-VAL-001/source-package-save-20261102.json",
+          "remoteObservedSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+          "pushRecoveryReport": ".task-control/reports/CORE-VAL-001/source-package-push-recovery-20261102.json",
+          "pushRecoverySha256": "5dae594eb15eb3d585c14b72e12ca7d33ce76e9c357c5c272d5e64b516e40f58",
+          "ciRuns": [
+            {
+              "workflow": "CI",
+              "id": 41401454977,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454977",
+              "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1834,
+                "pass": 1808,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "old26NamesEqual": true,
+              "newFailures": [],
+              "allEightLedgerParentsPass": true
+            },
+            {
+              "workflow": "Experimental owner chat",
+              "id": 41401454871,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454871",
+              "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1834,
+                "pass": 1808,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "old26NamesEqual": true,
+              "newFailures": [],
+              "allEightLedgerParentsPass": true
+            }
+          ],
+          "ciReport": ".task-control/reports/CORE-VAL-001/source-package-ci-df5bc467-20261102.json",
+          "ciReportSha256": "84f9e145b40dd71ff1d47b4f9d0b255e03cdb2c1ace68fea6ea9eae54aea481b"
         },
         "sourcePackageSave": {
           "report": ".task-control/reports/CORE-VAL-001/source-package-save-20261102.json",
           "sha256": "e1d23ae1568fd5a006cbba0245da62b05e8f88f1c22e7fcf8c51b16f65a19156",
           "pinCommit": "1749b1c09c8dddc7a627f6ba50867a2439c06e1c",
-          "push": "auto_review_denied_process_not_created",
-          "newCITriggered": false
+          "push": "succeeded_once_after_new_trusted_authorization",
+          "newCITriggered": true,
+          "compatibilityCommit": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+          "compatibilityFiles": 14,
+          "pendingCIForNewCommits": "none_both_terminal_failure_26_old",
+          "pushRecoveryReport": ".task-control/reports/CORE-VAL-001/source-package-push-recovery-20261102.json",
+          "pushRecoverySha256": "5dae594eb15eb3d585c14b72e12ca7d33ce76e9c357c5c272d5e64b516e40f58",
+          "pushed": true,
+          "remoteObservedSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+          "ciRuns": [
+            {
+              "workflow": "CI",
+              "id": 41401454977,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454977",
+              "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1834,
+                "pass": 1808,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "old26NamesEqual": true,
+              "newFailures": [],
+              "allEightLedgerParentsPass": true
+            },
+            {
+              "workflow": "Experimental owner chat",
+              "id": 41401454871,
+              "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454871",
+              "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+              "status": "completed",
+              "conclusion": "failure",
+              "counts": {
+                "tests": 1834,
+                "pass": 1808,
+                "fail": 26,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              },
+              "old26NamesEqual": true,
+              "newFailures": [],
+              "allEightLedgerParentsPass": true
+            }
+          ],
+          "ciReport": ".task-control/reports/CORE-VAL-001/source-package-ci-df5bc467-20261102.json",
+          "ciReportSha256": "84f9e145b40dd71ff1d47b4f9d0b255e03cdb2c1ace68fea6ea9eae54aea481b",
+          "ci": "both_failed_26old_no_new",
+          "countsEach": {
+            "tests": 1834,
+            "pass": 1808,
+            "fail": 26
+          },
+          "priorPushFailure": {
+            "status": "auto_review_denied_before_process",
+            "retryResolvedBy": ".task-control/reports/CORE-VAL-001/source-package-push-recovery-20261102.json"
+          }
         },
         "sourceNativeProducer": {
-          "phase": "assigned_not_started",
+          "phase": "retained_not_retried_after_sandbox_apply_EPERM",
           "scope": "current10.9 isolated syntheticGateway + fixedlocal protocol; one nativeCLI chat.send/max4protocolHTTP/90stotal; only additional localhost55788 in profile copy",
           "approvalMessage": "Sentinel_91bd6b82d66c8191ab3cde93710b106e",
           "consumed": 0,
           "remaining": 1,
           "privateDataOrRealProvider": false,
           "sharedMainChanges": false,
-          "oldQuotaReused": false
+          "oldQuotaReused": false,
+          "report": ".task-control/reports/CORE-VAL-001/native-source-producer-20261102.json",
+          "sha256": "35b0f9bba922dd50348b20c16b80ba8acf1a0c13a36cd576452abc51306bd0d0",
+          "artifact": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-native-producer-20261102-7fr9l99h",
+          "runtime": "/private/tmp/core-v2-tool-host-20261030-1v9l42z5/runtime-6ApFah/native-source-20261102-nu_gg5pw",
+          "profileRuleAppliedInCopyOnly": true,
+          "actualHostStarts": 0,
+          "claimCreated": false,
+          "currentMainRoute": "separately user-authorized actual existingHost debug; no reuse of isolated quota or permission bypass",
+          "unreviewedHarnessStorage": "retained local only; not included in this documentation save, not executable authorization"
+        },
+        "mainSourceActivation": {
+          "phase": "loaded_actual_main_generation5_no_model_boundary_verified",
+          "userAuthorizationMessage": "Sentinel_d93bf4e560008191bbb9cada35504b92",
+          "artifact": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-main-source-20261102-58vqbwjv",
+          "packageRoot": ".artifacts/source-read-20261102-df5bc467/package",
+          "packageManifestSha256": "65265ed9682c107c7a02b769d7147f3a3ce9f3bcd7947c3a06eb263a110eec5f",
+          "packageFileCount": 2752,
+          "hostVersion": "2026.10.9",
+          "beforeGeneration": 3,
+          "beforeConfigSha256": "cd7ddf1c111aed99fb7e3ddb586b3ea2b1fb30d8d1d34095c42b7d0a29f1d59d",
+          "priorInstallOutcomes": [
+            "CLI exit1 SQLite snapshot allocation/cleanup ENOENT",
+            "same official Gateway install exit1 UNAVAILABLE retryablefalse same missing broker socket"
+          ],
+          "configUnchangedAfterBoth": true,
+          "postCliGeneration": 3,
+          "currentOperation": {
+            "status": "completed",
+            "officialRestartExitCode": 0,
+            "officialReloadExitCode": 0,
+            "restartCount": 1,
+            "reloadGeneration": 5,
+            "noResendAfterDisconnect": true
+          },
+          "activeWorkBeforeRestart": {
+            "rootRequests": 0,
+            "cronRuns": 0,
+            "sessionMutations": 0,
+            "terminalPersistence": 0,
+            "lifecycleWrites": 0
+          },
+          "writeCustodyBeforeRestart": [],
+          "modelsCalled": 0,
+          "privateSourceConfigured": false,
+          "publisher": false,
+          "oldAndNewArtifactsRetained": true,
+          "report": ".task-control/reports/CORE-VAL-001/main-source-activation-20261102.json",
+          "reportSha256": "cae8e27a604d55debde5f6f2a1caa6d387eb6868143f7fd3b8aa720a887e1044",
+          "sourceDigest": "009e4843fc08a857007d19d0d3551c1f79ca717d2ab501947eb4a60277602ea5",
+          "selectedEntry": ".artifacts/source-read-20261102-df5bc467/package/dist/src/ordinary-plugin.js",
+          "afterConfigSha256": "84a8a1952bc19a3e52d3ca23cdf14b4d8f907283d6529cb68f66341535e10fc9",
+          "onlyStructuralConfigChange": "plugins.load.paths",
+          "finalHealth": true,
+          "actualStatus": "sourceReadPort_not_configured_publisher_false",
+          "actualSourceList": "tool_isError_source_read_not_configured",
+          "noModelToolInvocations": 2,
+          "frozenFilesMatched": 2752,
+          "nativeAdmissionAndSourcePolicyConsumptionVerified": false,
+          "sourcePayloadReads": 0,
+          "rollbackRetained": true,
+          "docPatch": ".task-control/reports/CORE-VAL-001/main-source-activation-docs-20261102.patch",
+          "docPatchSha256": "5507455634548f4c94d57f117fab286804d89c61da4d4889fb422d1508b0e9dc",
+          "documentationSave": {
+            "status": "prepared_exact_nine_file_local_commit",
+            "files": [
+              ".task-control/state.json",
+              "PROJECT-STATE.yaml",
+              "docs/MAIN-DEBUG-INSTALL.md",
+              "docs/ORDINARY-SOURCE-READ.md",
+              ".task-control/reports/CORE-VAL-001/main-source-activation-20261102.json",
+              ".task-control/reports/CORE-VAL-001/main-source-activation-docs-20261102.patch",
+              ".task-control/reports/CORE-VAL-001/source-package-push-recovery-20261102.json",
+              ".task-control/reports/CORE-VAL-001/source-package-ci-df5bc467-20261102.json",
+              ".task-control/reports/CORE-VAL-001/native-source-producer-20261102.json"
+            ],
+            "projectState": "only current20line technical appendix; all older worktree changes retained unstaged",
+            "excludes": [
+              "raw config/DB/logs",
+              "installed .artifacts",
+              "unreviewed native harness patch",
+              "old paused candidates and user files"
+            ],
+            "push": "not assigned this documentation-only round",
+            "baselineHead": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+            "stateBaseRevision": 114,
+            "stateBaseSha256": "8f0c2f7a4729b7767991af134f4ba6b6baeb1e2c1a1eb26cac5d286093c7515d"
+          }
+        },
+        "dataCoordinationHandoff": {
+          "phase": "await_explicit_runtime_directory_full_SHA_and_manifest_scope",
+          "parentReportedPreservedRefs": [
+            "local/preserved-finance-writer-20261024",
+            "codex/knowledge-migration-v1"
+          ],
+          "workerVerification": "not independently re-read CangHai; separate writer owns refs and directory consolidation",
+          "runtimeMigrationV1": "retained untouched; branch preservation not current source binding",
+          "financialScope": "not added",
+          "reviewDeliveries": "preserve historical evidence and raw hashes; relocation not assigned; no move/delete performed"
         }
       },
-      "updatedAt": "2026-11-02T06:21:37.112321+00:00",
+      "updatedAt": "2026-11-02T07:24:34.129136+00:00",
       "delivery": {
         "local": {
           "status": "committed",

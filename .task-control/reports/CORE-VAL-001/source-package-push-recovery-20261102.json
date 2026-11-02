@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T06:44:37.593213+00:00",
+  "repo": "tower1229/Stella-Core",
+  "branch": "codex/issue23-integrated-regression",
+  "commits": [
+    {
+      "sha": "1749b1c09c8dddc7a627f6ba50867a2439c06e1c",
+      "files": 4,
+      "scope": "reviewed delivery document pin/locator repair and minimal evidence"
+    },
+    {
+      "sha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+      "files": 14,
+      "scope": "reviewed public WebChat/default-model compatibility and minimal non-sensitive evidence/state"
+    }
+  ],
+  "history": [
+    {
+      "outcome": "auto_review_denied_before_process",
+      "operation": "normal push to same branch",
+      "reason": "Pushing commits to the remote repository is an external commitment; the trusted user text authorizes timely commits but does not explicitly authorize this remote push or destination.",
+      "retainedEvidence": ".task-control/reports/CORE-VAL-001/source-package-save-20261102.json"
+    },
+    {
+      "outcome": "supplemental_original_user_authorization",
+      "scope": "same reviewed nonsensitive packages and exact existing repository/development branch; no force/history/trust/access changes"
+    },
+    {
+      "outcome": "single_same_channel_retry_succeeded",
+      "toolSession": 3617,
+      "actualExitCode": 0,
+      "oldRemoteSha": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+      "newRemoteSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+      "resumedByPollingExistingSession": true,
+      "newPushIssuedDuringRecovery": false
+    }
+  ],
+  "remoteVerification": {
+    "operation": "git ls-remote --heads origin refs/heads/codex/issue23-integrated-regression",
+    "actualExitCode": 0,
+    "sha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1"
+  },
+  "preRetryReview": {
+    "indexEmpty": true,
+    "exactCommitScopesRechecked": true,
+    "secretPatternMatches": 0,
+    "rawLogsConfigsDatabasesExcluded": true
+  },
+  "ciRuns": [
+    {
+      "id": 41401454977,
+      "workflow": "CI",
+      "status": "in_progress",
+      "conclusion": null,
+      "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454977"
+    },
+    {
+      "id": 41401454871,
+      "workflow": "Experimental owner chat",
+      "status": "in_progress",
+      "conclusion": null,
+      "headSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+      "url": "https://github.com/tower1229/Stella-Core/actions/runs/41401454871"
+    }
+  ],
+  "ciConclusion": "pending_not_passed",
+  "stateUpdate": {
+    "baseRevision": 111,
+    "baseSha256": "4b60428842a6444486f2fc9038a3d1ae33e98efe9a34b3cf1895d0ebf1425acf",
+    "newRevision": 112
+  },
+  "host": {
+    "newLaunches": 0,
+    "newSignalsOrPortChecks": 0,
+    "sandboxDenialRetained": true,
+    "freshQuotaUsed": 0,
+    "freshQuotaRemaining": 1
+  },
+  "localOnlyReceipt": true
+}
