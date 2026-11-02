@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 75,
-  "updatedAt": "2026-11-02T01:00:55.060177+00:00",
+  "revision": 80,
+  "updatedAt": "2026-11-02T01:36:35.198601+00:00",
   "writer": {
-    "agent": "Core continuation recovery single writer (authorized Mac, synthetic/no-paid)",
-    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:core-recovery-20261102"
+    "agent": "Core reviewed legacy26 documentation save/CI single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:legacy26-save-20261102"
   },
   "workstreams": [
     {
@@ -487,7 +487,10 @@
         ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.json",
         ".task-control/reports/CORE-VAL-001/brief-continuation-review-20261031.json",
         ".task-control/reports/CORE-VAL-001/brief-continuation-main-20261031.json",
-        ".task-control/reports/CORE-VAL-001/continuation-recovery-20261102.json"
+        ".task-control/reports/CORE-VAL-001/continuation-recovery-20261102.json",
+        ".task-control/reports/CORE-VAL-001/legacy26-triage-20261102.json",
+        ".task-control/reports/CORE-VAL-001/legacy26-triage-20261102.md",
+        ".task-control/reports/CORE-VAL-001/legacy26-triage-20261102.patch"
       ],
       "acceptance": [
         {
@@ -525,8 +528,8 @@
       ],
       "status": "running",
       "owner": {
-        "agent": "Core continuation recovery single writer (authorized Mac, synthetic/no-paid)",
-        "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:core-recovery-20261102"
+        "agent": "Core reviewed legacy26 documentation save/CI single writer",
+        "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:legacy26-save-20261102"
       },
       "evidence": [
         {
@@ -1238,11 +1241,23 @@
             "sha256": "78fccc21cf80e8d3870175a906fa173478f0ddf649fbcc70dcc36b344485340e",
             "baseCommit": "f5be7098f3775442914d78a8c2fce5a6955a2a35"
           }
+        },
+        {
+          "id": "C-VAL-LEGACY26-RELEVANCE-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/legacy26-triage-20261102.json",
+          "claim": "26 oldCore routes mapped outside17module local static-import graph; does not exclude Host/externalSDK/product defects. Records first failure/prerequisite only; later assertions unverified. Original legacy red and SQL mismatch diagnostic retained,16ordinary cases pass. Independent review accepted narrowed documentation; no code/test/workflow/skip change or formal consumer acceptance.",
+          "observedAt": "2026-11-02T01:26:49.058552+00:00",
+          "subject": {
+            "sha256": "8ab348c33940dc296c8e99e8da1270359300f86395809c565ffd8221067de78d",
+            "baseCommit": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
+            "originalCandidateSha256": "951b75910a4259a96cb22903d71855687d576edb9fde82ba59930153bdf61dca"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Mac recovery complete: same f5be/Host10.8/reviewed2742 package; exact stella-continue selection repaired by official config API (110 to111, all other settings unchanged). Authoritative main commandVisible true. Four real no-model synthetic Gateway save/read/CASrevise/newread passed; original8 files intact. Prior f5be CI terminal1786/1760pass/26old each, new2 pass and normalized26 unchanged. No Agent/model/source/identity expansion; preparing bounded documentation/evidence save.",
-        "nextAction": "Save only recovery docs/report/minimal ledger/technical appendix; then hand back with actual visible entry and no-paid Host closure. New skill-driven model/semantic test is unassigned and needs new paid-call scope; no old quota reuse or legacy rerun.",
+        "checkpoint": "Independent legacy26 relevance review accepted17module/source,26signatures and16of16. MD/JSON/patch now explicitly bound to oldCore local static imports and first observed failure/prerequisite; no exclusion of Host/externalSDK/product defects or later assertion proof. Five-file report/ledger save ready; all26 remain failures, no runtime/test/workflow/config/Host changes.",
+        "nextAction": "Whitelist ordinary commit/push only three legacy26 reports plus minimal state and PROJECT triage appendix; then read-only follow triggered CI to terminal. No local fullsuite, private bridge rebuild, weakened tests, Host/model/permission actions.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -1386,7 +1401,7 @@
           "ciReportSha256": "d7ae1e0aefaa315d331752a44ad75aa059131e9ce1b32970d84cb73a686e5b85"
         },
         "briefContinuation": {
-          "phase": "main_visible_and_no_paid_host_closure_passed",
+          "phase": "delivered_visible_and_actual_no_paid_closure",
           "report": ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.json",
           "reportSha256": "fcb3537ea9bf100bd59c1aaba932c8c75514f61ffc118f626ee9bf4c1713b2fa",
           "patch": ".task-control/reports/CORE-VAL-001/brief-continuation-20261031.patch",
@@ -1437,7 +1452,7 @@
             41200125146
           ],
           "recovery": {
-            "phase": "actual_no_paid_closure_passed",
+            "phase": "delivered_saved_pushed",
             "baseCommit": "f5be7098f3775442914d78a8c2fce5a6955a2a35",
             "authorization": "2026-11-02 parent confirms Mac authorized; low-risk rollbackable config repair assigned; no paid Agent/real-source/credential expansion",
             "paidRequests": 0,
@@ -1448,7 +1463,46 @@
             "agentRequests": 0,
             "sourceAndPublisher": "off",
             "briefId": "recovery_walk_20261102",
-            "configAfterSha256": "e503fa40f2f1e32776ca47819cda904f992feb619abab1aa67eb24f0b337b575"
+            "configAfterSha256": "e503fa40f2f1e32776ca47819cda904f992feb619abab1aa67eb24f0b337b575",
+            "documentationCommit": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
+            "remoteSha": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
+            "savedFiles": 5,
+            "codeUnchangedFrom": "f5be7098f3775442914d78a8c2fce5a6955a2a35",
+            "documentationCI": [
+              {
+                "conclusion": "failure",
+                "databaseId": 41370313898,
+                "headSha": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
+                "status": "completed",
+                "url": "https://github.com/tower1229/Stella-Core/actions/runs/41370313898",
+                "workflowName": "Experimental owner chat",
+                "counts": {
+                  "tests": 1786,
+                  "pass": 1760,
+                  "oldFail": 26
+                },
+                "normalizedOld26Unchanged": true,
+                "observationSource": "parent independent terminal review, supplied with this assignment"
+              },
+              {
+                "conclusion": "failure",
+                "databaseId": 41370313708,
+                "headSha": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
+                "status": "completed",
+                "url": "https://github.com/tower1229/Stella-Core/actions/runs/41370313708",
+                "workflowName": "CI",
+                "counts": {
+                  "tests": 1786,
+                  "pass": 1760,
+                  "oldFail": 26
+                },
+                "normalizedOld26Unchanged": true,
+                "observationSource": "parent independent terminal review, supplied with this assignment"
+              }
+            ],
+            "documentationCINotClaimedPassed": true,
+            "configStillExactRepairedSha256": true,
+            "writerReturned": true
           },
           "ciCountsEach": {
             "tests": 1786,
@@ -1457,9 +1511,37 @@
             "newContinuationPass": 2
           },
           "newObservedUnitRegression": false
+        },
+        "legacy26Triage": {
+          "phase": "reviewed_narrowed_five_file_save_ready",
+          "baseCommit": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
+          "noAutomaticFullSuiteOrConsumer": true,
+          "pushAssigned": true,
+          "report": ".task-control/reports/CORE-VAL-001/legacy26-triage-20261102.json",
+          "reportSha256": "8ab348c33940dc296c8e99e8da1270359300f86395809c565ffd8221067de78d",
+          "readableReport": ".task-control/reports/CORE-VAL-001/legacy26-triage-20261102.md",
+          "patch": ".task-control/reports/CORE-VAL-001/legacy26-triage-20261102.patch",
+          "patchSha256": "2468facef97a2d87494ee4958b9146dba065311af7abe32519490d19d2737990",
+          "classifiedFailures": 26,
+          "runtimeClosureModules": 17,
+          "unresolvedRuntimeImports": 0,
+          "targetedExistingTests": {
+            "total": 16,
+            "pass": 16,
+            "fail": 0
+          },
+          "legacyRedReproductions": 1,
+          "productionOrTestEdits": 0,
+          "workflowOrSkipEdits": 0,
+          "committed": false,
+          "pushed": false,
+          "nextModelOrConsumerAssigned": false,
+          "independentReview": "accepted17module/source26signature16of16; wording corrections applied; prior raw failures unchanged",
+          "identifiedLocalStaticCoreRouteBlockers": 0,
+          "scopeLimitation": "Local static-import closure of oldCore routes only; Host/externalSDK/overall product defects not excluded; first blockers only, subsequent assertions unverified."
         }
       },
-      "updatedAt": "2026-11-02T01:00:55.060177+00:00",
+      "updatedAt": "2026-11-02T01:36:35.198601+00:00",
       "delivery": {
         "local": {
           "status": "committed",

@@ -624,3 +624,18 @@ continuation_recovery_20261102:
   historical_ci_f5be7098: runs41200125141/41200125146 both terminal failure; each1786/1760pass/26oldfail;2newcontinuation pass;all26 normalized blocks unchanged from0980775
   ci_cleanup: each actual childexit1/groupGone/stdioComplete/ownedWork complete0pending/cleanup removed; downstream formal consumers not reached
   boundaries: native memory/context/Agent loop retained; no new real source, author, credential or identity access; old paused/unknown evidence and quotas preserved
+
+
+legacy26_relevance_triage_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/legacy26-triage-20261102.json
+  base_commit: 3a0c547c66cf2d5b773f5895a36155cce4a84981
+  classification: 1 old8.2 SDK audit, 2 old byte-pinned Host patch fixtures, 10 old replay-codec consumers, 1 old empty-payload policy, 12 old native SQL/SDK fixture mismatches
+  ordinary_dependency_evidence: TypeScript AST local static-import closure17 modules, no unresolved imports; implicated oldCore routes absent; Host/externalSDK/overall product defects not excluded
+  codec_reproduction: one unchanged legacy provider-summary case still fails; spec reporter confirms ERR_MODULE_NOT_FOUND for old tool-call-id-bBWjBMFi.js hidden under completion_failed
+  sql_reproduction: actual10.8 public storage facade lacks exported MEMORY_INDEX_SOURCES_TABLE; pure synthetic in-memory SQL reproduces no such table undefined; actual Host database not read
+  targeted_checks: official test compile exit0; existing ordinary/candidate/continuation16of16 pass; legacy red and pure SQL diagnostic separately retained
+  decision: no production, test, skip, workflow, config, Host or permission changes; no shared local-static-Core repair justified; first blockers only, later assertions unverified
+  formal_ci: retains26 failures; full legacy-inclusive gate and downstream consumer acceptance not passed; no blanket success
+  retirement_boundary: runtime old path excluded by ordinary entry; old source/tests/evidence remain and legacy task paused; this is not new deprecation or scope approval
+  unverified: actual skill model consumption, real source/author admission and full_memory remain open; no paid or formal consumer run
+  independent_review: accepted17module/source and26signatures16of16; wording narrowed to local static imports and first observed blockers before save

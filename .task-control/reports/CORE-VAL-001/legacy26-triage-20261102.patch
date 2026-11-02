@@ -1,0 +1,765 @@
+diff --git a/.task-control/reports/CORE-VAL-001/legacy26-triage-20261102.md b/.task-control/reports/CORE-VAL-001/legacy26-triage-20261102.md
+new file mode 100644
+index 00000000..8a16dc3d
+--- /dev/null
++++ b/.task-control/reports/CORE-VAL-001/legacy26-triage-20261102.md
+@@ -0,0 +1,51 @@
++# 26 项历史失败与当前普通插件的对应
++
++基线：Core `3a0c547c66cf2d5b773f5895a36155cce4a84981`，OpenClaw 2026.10.8。
++原始失败取自 `f5be7098` 的两份 CI 回执；父协调者独立复核确认，
++`3a0c547c` 的 CI 41370313708 / 41370313898 仍是 1786/1760/26，
++26 个归一化失败块相同。逐项身份、签名、来源 hash 见同名 JSON。
++
++**本包建议不修改运行代码或测试。** 26 项涉及的旧 Core 路由不在当前
++ordinary plugin 的本地静态导入闭包内；本包未据此识别出应优先移植到当前
++Core 入口的共同修复。这不能排除 Host、外部 SDK 或整体产品仍有缺陷。
++它们确实阻断现有全量 CI，因此流水线仍失败，不能标为整体通过。
++
++| 数量 | 失败组 | 已核失败点／前置阻塞 | 对当前本地 Core 路由的关系 |
++| --- | --- | --- | --- |
++| 1 | Dreaming SDK 审计 | 明确断言 2026.8.2，且后续类型/私有调用点同样固定旧版 | 旧审计不在普通插件运行路径 |
++| 2 | 私有 Host 补丁/安装器 | 读取旧 `embedded-agent-DGMNaRB-.js` 及其精确 hash；10.8 没有此文件 | 普通插件不修改 Host，也不调用旧安装器 |
++| 10 | 原生上下文及 Google replay codec | 旧桥只接受 8.2，再从当前 SDK 目录导入已不存在的私有文件 | 普通入口不注册旧 provider/context engine，不执行这份 codec |
++| 1 | 空输出策略 | 断言 8.2 并读取旧私有 builtin 导出 | 普通路径使用 Host 自有 Agent loop |
++| 12 | 原生 SQLite 精确读取 | 旧 fixture/ambient 类型声称 8.2，却加载实际 10.8 SDK；公开 facade 不再导出 `MEMORY_INDEX_SOURCES_TABLE`，插值形成 `JOIN undefined` | 旧 SQL 桥未接入普通入口；不是 SQLite 缺失、vector 扩展或 OS 权限问题 |
++
++表内记录已观察到的首个失败点或前置阻塞；其后的断言未验证。修复这些阻塞
++也可能暴露后续问题。SQL 结论是旧桥与公共导出不匹配，不是表已被删除。
++
++证据与定向验证：
++
++- TypeScript AST 遍历当前入口的本地运行时 import/export/literal import()：
++  17 个模块，未解析边为 0；旧 plugin、provider、context engine、native reader、
++  codec、completion、Host 补丁模块均不在闭包内。外部 SDK 内部未递归遍历，
++  此结论只描述本地 Core 的静态导入，不排除 Host、外部 SDK 或整体产品缺陷。
++- 对原先只显示 `completion_failed` 的一例，保持测试原样单独重放，仍失败；
++  spec reporter 暴露其 cause 同样是旧 `tool-call-id-bBWjBMFi.js` 缺失。
++- 独立合成 `:memory:` SQLite 探针确认：10.8 的公共 sources 常量缺失，
++  旧查询报 `no such table: undefined`。Host 内部仍有该表名常量；这里没有
++  声称表已被删除，也没有读取实际 Host 数据库。
++- 官方测试编译成功；现有 ordinary/candidate/continuation 定向测试 16/16。
++  这次没有增加、删除、skip 或放宽测试，没有运行全量套件或正式 consumer。
++  上述旧例失败、SQL 诊断和 16 项通过分别记录，不合计为全部通过。
++
++处置边界沿用已接受的 CORE-D1 和 2026-10-30 重对齐方案 §6：原生
++memory/context/loop 继续由 Host 承担；旧 SQL、私有桥与全部 slot 替换退出主线。
++这不是新的架构调整或仓库退役决定：旧源码、测试、26 个失败和暂停任务全部保留。
++不能简单换版本字符串、改私有文件名、补造 SDK 导出或硬编码表名来恢复旧桥。
++
++请求身份/取消、精确版本和写事务等产品保证仍有效；当前合成工具测试与已完成的
++四次真实 Gateway 工具调用只证明其声明范围，不替代原生向量授权、Dreaming、
++真实来源或完整记忆验收。现有正式 runner 仍包含旧原生产物与消费要求；
++即便抹掉这些单元失败，也不会由此证明新的普通插件 consumer 已通过。
++
++最小下一步仍是已安装、已可见的续谈流程的实际模型消费验证：同一份虚构 brief
++的修订与新会话接续，单列两次新 Agent 请求范围，限定 Gemini 3.8 Flash / low。
++本包不执行或授权付费调用。不为 CI 数量移植旧桥，也不修改现有正式门禁。
+diff --git a/.task-control/reports/CORE-VAL-001/legacy26-triage-20261102.json b/.task-control/reports/CORE-VAL-001/legacy26-triage-20261102.json
+new file mode 100644
+index 00000000..f80c9b61
+--- /dev/null
++++ b/.task-control/reports/CORE-VAL-001/legacy26-triage-20261102.json
+@@ -0,0 +1,702 @@
++{
++  "schemaVersion": 1,
++  "phase": "triage_complete_no_current_runtime_repair_justified",
++  "observedAt": "2026-11-02T01:24:34.245651+00:00",
++  "baseCommit": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
++  "decision": "Use the independently accepted no-code branch: old Core routes implicated by these26 failures are outside the current local static-import closure. This does not exclude Host, external SDK or overall product defects. Preserve failures/tests; no oldHost patch/codec/SQL port or gate weakening merely to reduce count.",
++  "scope": "Local static-import reachability for the ordinary Core entry; observed first failure/prerequisite only. Assertions after each first blocker are unverified. Host/external SDK internals and overall product correctness are not excluded by this analysis.",
++  "rawEvidence": {
++    "commit": "f5be7098f3775442914d78a8c2fce5a6955a2a35",
++    "CI": 41200125141,
++    "experimental": 41200125146,
++    "tapStdoutSha256": "08477f33641ba732fd5febdcac4558b6d5d680b8cfdb20a8d2e874dc01c4db07",
++    "counts": {
++      "tests": 1786,
++      "pass": 1760,
++      "fail": 26,
++      "cancelled": 0,
++      "skipped": 0,
++      "todo": 0
++    },
++    "latestDocumentationCI": {
++      "commit": "3a0c547c66cf2d5b773f5895a36155cce4a84981",
++      "runs": [
++        41370313708,
++        41370313898
++      ],
++      "status": "failure",
++      "counts": {
++        "tests": 1786,
++        "pass": 1760,
++        "fail": 26
++      },
++      "same26NormalizedBlocks": true,
++      "source": "parent independent recheck, accepted for this assignment; no new raw-digest supplied or invented; new workflow not run"
++    },
++    "parsedTapEvidenceSha256": "11acd13cea42a7bdd0e8cb3f86cf5d31b54d0032f4a55abcfa8a8053b68d3dd4"
++  },
++  "groups": [
++    {
++      "id": "sdk_audit_8_2_pin",
++      "count": 1,
++      "failureNumbers": [
++        1
++      ],
++      "classification": "old_route_version_specific_assertion",
++      "handling": "Do not replace version string: native call-site filenames and field contracts are pinned to8.2 too.",
++      "observedFailurePointOrPrerequisite": "scripts/audit-dreaming-public-seams.mjs:61 asserts installed2026.8.2; current workspace10.8",
++      "oldCoreRouteInLocalStaticImportClosure": false,
++      "subsequentAssertionsVerified": false
++    },
++    {
++      "id": "private_host_patch_8_2_pin",
++      "count": 2,
++      "failureNumbers": [
++        2,
++        3
++      ],
++      "classification": "old_route_byte_pinned_patch_fixture",
++      "handling": "No Host patch migration or looser hash/filename matching; ordinary plugin keeps Host execution.",
++      "observedFailurePointOrPrerequisite": "HOST_COMPATIBILITY names embedded-agent-DGMNaRB-.js and exact8.2 hashes; installed10.8 lacks it",
++      "oldCoreRouteInLocalStaticImportClosure": false,
++      "subsequentAssertionsVerified": false
++    },
++    {
++      "id": "replay_codec_8_2_pin",
++      "count": 10,
++      "failureNumbers": [
++        4,
++        5,
++        6,
++        7,
++        8,
++        9,
++        10,
++        11,
++        12,
++        13
++      ],
++      "classification": "old_route_runtime_abi_incompatibility",
++      "handling": "Ten include native-summary wrapper failure; focused replay reveals same ERR_MODULE_NOT_FOUND cause. Do not select another private export or widen supported versions.",
++      "observedFailurePointOrPrerequisite": "loadHostReplayProjection accepts only8.2 then imports tool-call-id-bBWjBMFi.js and model-context-message-Dmngk3hL.js from currentSDK dist; files absent in10.8",
++      "oldCoreRouteInLocalStaticImportClosure": false,
++      "subsequentAssertionsVerified": false
++    },
++    {
++      "id": "empty_payload_policy_8_2_pin",
++      "count": 1,
++      "failureNumbers": [
++        14
++      ],
++      "classification": "old_route_version_specific_assertion",
++      "handling": "Retain historical policy evidence; current ordinary loop delegates provider formatting to Host.",
++      "observedFailurePointOrPrerequisite": "host-silent-draft test requires8.2 and old builtin-openclaw private exports; current10.8 rejected",
++      "oldCoreRouteInLocalStaticImportClosure": false,
++      "subsequentAssertionsVerified": false
++    },
++    {
++      "id": "native_sql_sdk_fixture_skew",
++      "count": 12,
++      "failureNumbers": [
++        15,
++        16,
++        17,
++        18,
++        19,
++        20,
++        21,
++        22,
++        23,
++        24,
++        25,
++        26
++      ],
++      "classification": "legacy_bridge_and_fixture_sdk_contract_skew",
++      "handling": "Not missing SQLite/vector extension or OS sandbox access. Do not hardcode a fallback table name, fabricate an export, or enable the8.2 bridge on10.8.",
++      "observedFailurePointOrPrerequisite": "8.2 fixture/runtime claim and ambient storage declarations are mixed with actual10.8 SDK. MEMORY_INDEX_SOURCES_TABLE is internal but not publicly exported, so SQL JOIN undefined raises before selected invariants",
++      "oldCoreRouteInLocalStaticImportClosure": false,
++      "subsequentAssertionsVerified": false
++    }
++  ],
++  "failures": [
++    {
++      "number": 1,
++      "test": "exact SDK audit exposes the actual contracts without granting Dreaming publication",
++      "testFile": "tests/dreaming-public-seams.test.ts",
++      "group": "sdk_audit_8_2_pin",
++      "originalFailureSignatureSha256": "273d305c75d927ebf8614a70fc4dd6682c2b86da92c2d47096781813466b56e9",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 2,
++      "test": "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
++      "testFile": "tests/host-compatibility.test.ts",
++      "group": "private_host_patch_8_2_pin",
++      "originalFailureSignatureSha256": "7f8b709d7da2d6e713c69abce37ac4e0e911cd4cce0124ede1475078fd1eca19",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 3,
++      "test": "isolated installer supports every acceptance runner but rejects unrelated consumers",
++      "testFile": "tests/host-compatibility.test.ts",
++      "group": "private_host_patch_8_2_pin",
++      "originalFailureSignatureSha256": "dade5550cf4b4678564cd5dbdd26c735e022edce36b5fddcda4d8bcaf88ac43e",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 4,
++      "test": "native memory uses the pinned codec and rejects serialized producer/output credentials",
++      "testFile": "tests/host-context-authority.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "875795e0c9fe1e62b12c6b0054a693a5418380877cd966f15461aa77f3ec8290",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 5,
++      "test": "native summary must descend from its exact provider output receipt",
++      "testFile": "tests/host-context-authority.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "9f3fd533849db9c4e831671d7b70ed861a208b120af7e8db5fca90b88b835b7c",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 6,
++      "test": "real provider and tool results extend context and inherit source revocation",
++      "testFile": "tests/host-context-authority.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "d432022c3eef47302d26294ac2084e117abf4c155f94e3b8344feb0a5e4cbccc",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 7,
++      "test": "fixed Google projection changes only the known declaration from original bound input",
++      "testFile": "tests/host-context-replay.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "881785896e08cd5aa8a74bbdc5566b9c6100881a35ed1b889a78a2aeeb44463d",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 8,
++      "test": "Google codec cannot be selected by observed schema or for another Host/model",
++      "testFile": "tests/host-context-replay.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "cb09fffe7df3e18bb8a78f03aefd5814f128118320610adde8d5ded381a9c7d6",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 9,
++      "test": "Google original schema rejects unbound required",
++      "testFile": "tests/host-context-replay.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "80f9bd4bc0e9fc1a31f3257157467d713d5ecb92466fd5050eaed669e1dea0d5",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 10,
++      "test": "Google original schema rejects unbound enum",
++      "testFile": "tests/host-context-replay.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "8285e915b85963a0c1ca675512fa5eeeae8160da6142306477a868d49d82b11b",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 11,
++      "test": "Google original schema rejects unbound extra property",
++      "testFile": "tests/host-context-replay.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "0fe9594fcbcb594e510685cf45b4faeebf357a547b90b43ba7e70143bd9bec48",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 12,
++      "test": "Google original schema rejects unbound description",
++      "testFile": "tests/host-context-replay.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "ab4fb064954eb3fdc84252ab71e95e106e8855e5df874e848a924e871727c0c3",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 13,
++      "test": "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
++      "testFile": "tests/host-context-replay.test.ts",
++      "group": "replay_codec_8_2_pin",
++      "originalFailureSignatureSha256": "0cdbee40df463a4cf426235d995ef11156353a9c555a7fdbce369aa4bd2997ce",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 14,
++      "test": "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
++      "testFile": "tests/host-silent-draft.test.ts",
++      "group": "empty_payload_policy_8_2_pin",
++      "originalFailureSignatureSha256": "00c6b3b2043025247c4bb3aa45d8811e8b8d198e5428d0f0158654044e72c814",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 15,
++      "test": "native index bytes are consumed only after exact authorized hit and range validation",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "cc9efeea235a0db36fd1d26fd1f74242feb94b49912fe13333e6a1faea525396",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 16,
++      "test": "native index authorization preserves indexed provenance and rejects concurrent changes",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "1e100e102a07272a22a7c6b5c3163ae8a49d35511bf3d16f5663bce18e81602f",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 17,
++      "test": "native index cannot certify an unrelated indexed body for an authorized locator",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "d1982462eac1afad208b295363a864037abdc0f972a94266407288df558ebccb",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 18,
++      "test": "verified native read digests bind index identity and never observe rejected bytes",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "efaa3d0f00eb5aad4fb62f5063deef01b58f72a55f1aff43f92ad61aa481f8ae",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 19,
++      "test": "native vector-backed reads bind the actual vector and embedding cache without search",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "ac4b2ebae69a9ce9d471c9e09e6523130030b423dcec5e584f2f6b66a52afbbd",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 20,
++      "test": "a complete vector marker cannot certify missing or changed selected vector bytes",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "8a867326dcc4b7c38328d02e79f6e8d20185ffd554486f6100d8dc88025da525",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 21,
++      "test": "vector consumption rejects absent or mismatched cache and explicit rebuild state",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "fc3399a3958bca0f26d4f95435cdf05f4f45cdc77a00c505b366a518d0e14d21",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 22,
++      "test": "concurrent vector invalidation wins before native file read",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "fea05bb5e8262f774ed85a6dded47e716fb962e1fcb5f6dcb9deb26d83d59d6d",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 23,
++      "test": "original query transport binds actual native KNN and rejects changed candidates before later consumption",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "4cc0598e2258019a173aec2a5157cdb70617c824884c80093a3515103f019795",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 24,
++      "test": "native exact reads without query embeddings revalidate the original index generation",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "54cb8bc600622923b3154ad7c4ae524a7c7680dcd17b2df01a97bae673902e1d",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 25,
++      "test": "native exact reads revalidate source authority before another model call",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "8b38aaef448df8a4ed4cb6d325ffa2e410d6be5b90a6189ee34bc44911d43959",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    },
++    {
++      "number": 26,
++      "test": "a second native read cannot replace the first consumed index identity",
++      "testFile": "tests/native-memory-reader.test.ts",
++      "group": "native_sql_sdk_fixture_skew",
++      "originalFailureSignatureSha256": "44b309b0d863e511789c311c4d01d0d35ff40a2ad630f988ecf112bb4c25347a",
++      "status": "historical_failure_retained_not_fixed_not_skipped",
++      "oldCoreRouteInLocalStaticImportClosure": false
++    }
++  ],
++  "ordinaryDependencyEvidence": {
++    "entry": "src/ordinary-plugin.ts",
++    "modules": {
++      "src/ordinary-plugin.ts": "a1c0d4bdecf483fbe531aa69ca7e37ff3182097cd700289d3c125b3a5a45145d",
++      "src/shared/type-guards.ts": "4fdfaaed5a8eb10774cb2a7219c0b8c6b4cabe4df8bebf5d91c85ada82331628",
++      "src/openclaw/tool-request-binding.ts": "328fc4f52b887197006df00d8c4e5987b2018dd6b6c3466545dcecf30ea5dea2",
++      "src/openclaw/work-brief-proposal.ts": "0223ee14c0ee0ed55a0d17f1c49adcc030af98fc1330d057a6ad120afc711398",
++      "src/openclaw/candidate-work-brief.ts": "a74f581caf248ed908f5682a9f2dcacecf72a95f3ce82696e9640976638b6c83",
++      "src/canghai/author-intent-asset.ts": "15acc47b55a373be56b000efa1ab6a4fc67612f7fa89c2c43ef27aa5cd4b4bb5",
++      "src/canghai/author-intent-repository.ts": "a0133a913a0e860095336d5abc12eb7c10c0d3330a0ac323e69e408acdb19d5e",
++      "src/canghai/catalog-reader.ts": "aca923ba8d14e671542ba874585e23c147e6416bbe65b3e14c99afb1d2e96ba9",
++      "src/canghai/content-version.ts": "12830edf4006307e12a1819c49032b3199570038994729a4bacb2f02d6035f64",
++      "src/canghai/checkpoint-committed-document.ts": "2b11a70d3e72103cffde3bcc9bf6714d6e75937eb6a7cdc121c2058f23f7f4dd",
++      "src/canghai/memory-transaction.ts": "dbe1fb87b7af2a3ef847bfdaf8eae37f80484d3073f265d3287ab7c933f6c345",
++      "src/canghai/memory-transaction-journal.ts": "8e83f1cc9395d4e57877b4a9e17a5247047b9616a4306263f666b7e456a3dd9a",
++      "src/canghai/view-recipe.ts": "768f3f6f0ddc46a6a2e56b6ece543dd69fe35511c9fdd2602dc9721a3e1761f8",
++      "src/canghai/view-migration.ts": "2f4a4a3a0c17dbb4f3151a7ccb72b46b7f6c8983e7925934c606293dca52aeb3",
++      "src/canghai/synchronization-state.ts": "e81656cbe27a47180775fef2fd4809ca91ec5606a35d21d2bbef49c2b3d677fe",
++      "src/canghai/exclusive-file-lock.ts": "0e0226e7e755398393ad5ade213f4fa14aa2e1fb2e5907a91ae0719314537b33",
++      "src/canghai/schema.ts": "9ab96dbc1ba0bea25066ead03f7451b3dbbd1cadba37aeff47ef25ea5e32f99d"
++    },
++    "edges": [
++      {
++        "from": "src/ordinary-plugin.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/ordinary-plugin.ts",
++        "to": "src/openclaw/tool-request-binding.ts"
++      },
++      {
++        "from": "src/ordinary-plugin.ts",
++        "to": "src/openclaw/work-brief-proposal.ts"
++      },
++      {
++        "from": "src/ordinary-plugin.ts",
++        "to": "src/openclaw/candidate-work-brief.ts"
++      },
++      {
++        "from": "src/ordinary-plugin.ts",
++        "to": "src/openclaw/candidate-work-brief.ts"
++      },
++      {
++        "from": "src/ordinary-plugin.ts",
++        "to": "src/openclaw/work-brief-proposal.ts"
++      },
++      {
++        "from": "src/openclaw/work-brief-proposal.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/openclaw/candidate-work-brief.ts",
++        "to": "src/canghai/author-intent-asset.ts"
++      },
++      {
++        "from": "src/openclaw/candidate-work-brief.ts",
++        "to": "src/canghai/author-intent-repository.ts"
++      },
++      {
++        "from": "src/openclaw/candidate-work-brief.ts",
++        "to": "src/canghai/catalog-reader.ts"
++      },
++      {
++        "from": "src/openclaw/candidate-work-brief.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/openclaw/candidate-work-brief.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/openclaw/candidate-work-brief.ts",
++        "to": "src/openclaw/work-brief-proposal.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-asset.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-asset.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-repository.ts",
++        "to": "src/canghai/author-intent-asset.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-repository.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-repository.ts",
++        "to": "src/canghai/catalog-reader.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-repository.ts",
++        "to": "src/canghai/checkpoint-committed-document.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-repository.ts",
++        "to": "src/canghai/memory-transaction.ts"
++      },
++      {
++        "from": "src/canghai/author-intent-repository.ts",
++        "to": "src/canghai/memory-transaction-journal.ts"
++      },
++      {
++        "from": "src/canghai/catalog-reader.ts",
++        "to": "src/canghai/view-recipe.ts"
++      },
++      {
++        "from": "src/canghai/catalog-reader.ts",
++        "to": "src/canghai/view-migration.ts"
++      },
++      {
++        "from": "src/canghai/catalog-reader.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/canghai/catalog-reader.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/canghai/catalog-reader.ts",
++        "to": "src/canghai/memory-transaction.ts"
++      },
++      {
++        "from": "src/canghai/catalog-reader.ts",
++        "to": "src/canghai/synchronization-state.ts"
++      },
++      {
++        "from": "src/canghai/content-version.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/canghai/checkpoint-committed-document.ts",
++        "to": "src/canghai/catalog-reader.ts"
++      },
++      {
++        "from": "src/canghai/memory-transaction.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/canghai/memory-transaction.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/canghai/memory-transaction.ts",
++        "to": "src/canghai/synchronization-state.ts"
++      },
++      {
++        "from": "src/canghai/memory-transaction.ts",
++        "to": "src/canghai/exclusive-file-lock.ts"
++      },
++      {
++        "from": "src/canghai/memory-transaction.ts",
++        "to": "src/canghai/memory-transaction-journal.ts"
++      },
++      {
++        "from": "src/canghai/memory-transaction-journal.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/canghai/memory-transaction-journal.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/canghai/view-recipe.ts",
++        "to": "src/canghai/catalog-reader.ts"
++      },
++      {
++        "from": "src/canghai/view-recipe.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/canghai/view-recipe.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/canghai/view-migration.ts",
++        "to": "src/canghai/catalog-reader.ts"
++      },
++      {
++        "from": "src/canghai/view-migration.ts",
++        "to": "src/canghai/content-version.ts"
++      },
++      {
++        "from": "src/canghai/view-migration.ts",
++        "to": "src/shared/type-guards.ts"
++      },
++      {
++        "from": "src/canghai/view-migration.ts",
++        "to": "src/canghai/view-recipe.ts"
++      },
++      {
++        "from": "src/canghai/synchronization-state.ts",
++        "to": "src/canghai/schema.ts"
++      }
++    ],
++    "external": [
++      "ajv/dist/2020.js",
++      "node:async_hooks",
++      "node:child_process",
++      "node:crypto",
++      "node:fs",
++      "node:fs/promises",
++      "node:path",
++      "node:url",
++      "node:util",
++      "openclaw/plugin-sdk/file-lock",
++      "openclaw/plugin-sdk/plugin-entry",
++      "typebox",
++      "yaml"
++    ],
++    "unresolved": [],
++    "legacyExclusions": {
++      "src/plugin.ts": true,
++      "src/openclaw/host-context-replay.ts": true,
++      "src/openclaw/native-active-memory.ts": true,
++      "src/openclaw/native-memory-reader.ts": true,
++      "src/openclaw/host-context-authority.ts": true,
++      "src/openclaw/host-context-engine.ts": true,
++      "src/openclaw/host-memory-provider.ts": true,
++      "src/openclaw/completion.ts": true,
++      "src/acceptance/host-compatibility.ts": true
++    },
++    "method": "TypeScript AST runtime imports/exports and literal import()/require(); type-only edges excluded; external package internals not traversed",
++    "sourceExecuted": false
++  },
++  "sourceSha256": {
++    "src/ordinary-plugin.ts": "a1c0d4bdecf483fbe531aa69ca7e37ff3182097cd700289d3c125b3a5a45145d",
++    "package.json": "fc867384f95d182adac0febb8ad93da30941034c3800aa9b86e442a6d7b6b217",
++    "openclaw.plugin.json": "6fde6e0ac31fd932c87ab3b18ffb1f16bf3d55d23a939a6267e5f3aaa76ab2a8",
++    "src/openclaw/host-context-replay.ts": "1898a120491ff7c1647d64d5519e924ff2c17eb7d446f32a78ed2b7d2bca1fba",
++    "src/openclaw/native-active-memory.ts": "b9f0e040e14959e38c915c9f71a3403f9f929f1a0c7945c8cd3197b8d0ee1699",
++    "src/openclaw/native-memory-reader.ts": "96c0e500501ac7dfba010cd6199723fe99e3ab851bc7f2ef695ef3099b901275",
++    "src/openclaw/memory-corpus-sdk.d.ts": "b30ea7f73230ed4340fbee0cea5eb7ab1d038937318eda0a8cbc26c3c17a285f",
++    "src/openclaw/completion.ts": "1a89a758640c92891ef1a04277940e644cd0a1742618dccffdbc0985866b6d00",
++    "src/acceptance/host-compatibility.ts": "ef9bafda1b9a8c8cf23c2f4d6b5ba785ac108555c975722a10d3459bd215e6f2",
++    "scripts/audit-dreaming-public-seams.mjs": "44c13e5c674928db23c8bf54244dc460b1d13747574d7cf9d4a12a1bfeeeb437",
++    "scripts/package-smoke.mjs": "a2f42db52c4cdd981b14a683d8cc401b44285c582a29330119dac21c2a1fa2ca",
++    "scripts/probe-main-plugin.mjs": "d72c5ad2602c916701130cc14b33f9a4c87d02bcb67889595b0ddb0b692c6502",
++    "tests/host-context-authority.test.ts": "ad9ca064e152e14db52dc2b256bdaac0b2249c7426514a8f56cce9b5b37b99b1",
++    "tests/host-context-replay.test.ts": "1910fa0693950f5000f95f95edf5cedf38455c00529cd46210a7a5629dbb0e79",
++    "tests/native-memory-reader.test.ts": "ed204ad9ecca113316e4a601d67aa0be107b4552f2485d8c48743bd51085bf36",
++    "tests/host-compatibility.test.ts": "ca46d1770e5202f1479a7406a4ddf93c0377e32a8ec12b02160a5735013f9005",
++    "tests/host-silent-draft.test.ts": "e16b7169ef2ecb6989cdbe7d5a4a1fa12b32bdfbe3c2e53e9e340ce6c85c184e",
++    "tests/dreaming-public-seams.test.ts": "4f1fec24b52442c39781cd09b2e0beb01495e0a6d6fe858c2afdfb70fc2a9e60",
++    "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md": "38282fb0985caff7dc650a0a155e9518806d273eed4d268d8f3d937995231d5c"
++  },
++  "fixedSDK": {
++    "version": "2026.10.8",
++    "storageFacadeSha256": "15883d714029e6ebde3c83910f6e7359c06ca36db14d3fc8787451b33fdcaff5",
++    "memorySchemaModuleSha256": "c2994e287cce2d41a7c3054cbfc0cfce6f8acb0ba8cb74b459825c36dafcbc00"
++  },
++  "diagnostics": {
++    "compileTest": {
++      "exitCode": 0,
++      "rawReceiptSha256": "982b9e9bfb10ffe83cad665807abcfd3fa97b37822db5ab7831157a499548a9e"
++    },
++    "oneLegacyProviderCase": {
++      "exitCode": 1,
++      "expected": "original failure retained, not green",
++      "underlyingCause": "ERR_MODULE_NOT_FOUND for tool-call-id-bBWjBMFi.js through host-context-replay.js, exposed by spec reporter",
++      "stdoutSha256": "27af7a89e9a006347c9a1d8fd9c8239239a24e8bca5286d746cb86dd0e31df23",
++      "resultSha256": "5b0f43e9b607053aa04bac5b17911fb3753d0b104092e904737f14be796c6c7d"
++    },
++    "sqliteContractProbe": {
++      "exitCode": 0,
++      "tables": {
++        "fts": "memory_index_chunks_fts",
++        "chunks": "memory_index_chunks",
++        "provenance": "memory_index_chunk_provenance",
++        "sourcesPresent": false
++      },
++      "sqlError": "no such table: undefined",
++      "sqliteDatabase": ":memory:",
++      "hostConsumerInvoked": false,
++      "modelRequests": 0,
++      "stdoutSha256": "085213b991902bbb2e616d4186faf514542366218f3f2007d289ef2aa0d6ba03",
++      "scriptSha256": "8ec1cd263141a6ec95561de148a6d9c0cbd560db1bdcbdf99195371024ddff3b"
++    },
++    "ordinaryFocused": {
++      "tests": 16,
++      "pass": 16,
++      "fail": 0,
++      "exitCode": 0,
++      "newTestsAdded": 0,
++      "scope": "existing ordinary/candidate/continuation tests only; not formal consumer or full suite",
++      "stdoutSha256": "9e1b90f9b8f2f9bae737750237dd73284737656fc0d0d8c4ecadfaf75833c382",
++      "resultSha256": "165b70d39abfd68e20fb18add352382cda81499425350edf5bc01bd249e26f66"
++    }
++  },
++  "effectOnCurrentUse": {
++    "actualCurrentPathPreviouslyVerified": "20261102 authoritative commandVisible true and4real no-model Gateway candidate save/read/CAS/newread; report continuation-recovery-20261102.json",
++    "formalCIGateStillBlocked": true,
++    "formalGateCause": "run-workspace-tests remains full legacy-inclusive gate; package-smoke still includes native-artifact/old bridge acceptance. Removing unit failures alone would not prove ordinary consumer or full_memory.",
++    "pipelineChanged": false,
++    "failureCountChanged": false,
++    "identifiedLocalStaticCoreRouteBlockersAmong26": 0,
++    "scopeLimitation": "No conclusion excluding defects in Host, external SDK, dynamic behavior or overall product; later assertions remain unverified."
++  },
++  "requirementsAndRetirement": {
++    "basis": "2026-10-30 realignment proposal section6 and accepted CORE-D1: ordinary plugin retains native memory/context/loop; oldSQL/all-slot/private bridge not mainline",
++    "runtimeExit": "Default entry local static-import graph excludes oldCore plugin/provider/context engine/nativeSQL/codec/Hostpatch routes; no proof about all external/dynamic behavior.",
++    "repositoryRetirement": "not done by this package; old source/tests/evidence kept; CORE-LEGACY-001 remains paused",
++    "validGuaranteesRetained": [
++      "entry identity/guard and cancellation",
++      "exact version CAS and transaction integrity",
++      "next request current read",
++      "author/source qualification remains an open requirement"
++    ],
++    "noClaimOfEquivalentNewNativeGuarantees": "Current synthetic draft tool tests do not certify native vector authorization, Dreaming output, real-user source reading or all historical invariants."
++  },
++  "implementationDelta": {
++    "productionCode": 0,
++    "tests": 0,
++    "testSelectionOrSkip": 0,
++    "workflowOrRunner": 0,
++    "configuration": 0,
++    "HostSource": 0
++  },
++  "nextMinimumAction": "Return to the already-installed visible ordinary continuation: obtain a new narrowly bounded two-request synthetic google/gemini-3.8-flash/low semantic-consumption scope, then verify actual read/revision/next-session use. No such paid call assigned here. If formal CI scope must be realigned, make that explicit acceptance-target decision separately, retaining the26 failed legacy identities; do not retrofit obsolete bridges as a prerequisite.",
++  "notExecuted": [
++    "full test suite",
++    "formal or stock Host consumer",
++    "paid model",
++    "main config/Host reload",
++    "Windows action",
++    "new access/identity/credential permission",
++    "git commit/push"
++  ],
++  "independentReview": {
++    "source": "parent independent review accepted no-runtime-code triage branch,17module/source match,26signatures and16of16; required wording narrowed before save",
++    "reviewerArtifactHash": "not supplied; none invented",
++    "originalCandidateSha256": {
++      "md": "3735a8c0551a3dbdd299cc299ca876e5ef1f357904a7e7a154e28f09921f727b",
++      "json": "951b75910a4259a96cb22903d71855687d576edb9fde82ba59930153bdf61dca",
++      "patch": "e1cf0434a73a32291c49abe7403a3462b518ca890ce917af28ef480dc895bf77"
++    },
++    "wordingCorrections": [
++      "local static-import closure only; Host/external SDK/product defects not excluded",
++      "observed first failure or prerequisite; later assertions unverified; SQL mismatch is public export, not table deletion"
++    ]
++  }
++}
