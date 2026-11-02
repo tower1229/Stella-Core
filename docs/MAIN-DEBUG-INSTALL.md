@@ -119,7 +119,7 @@ the later continuation increment and its evidence are recorded in the draft guid
 
 当前开发优先级由 [需求 §1.5 的2026-11-02决定](09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority)统一维护：数据结构／必要转换／开发接入先行，再做已有资料的正向理解、召回、语义路由和回答，之后推进纠正及传播。此前“先纠正”的开发排序不再调度；完整纠正目标和验收要求保留。具体执行状态和恢复条件只在唯一台账维护，不从本文历史安装记录恢复任务。当前数据源与已安装普通插件的接入区别见 [两仓数据基础核查](CORE-CANGHAI-COORDINATION.md#data-foundation-snapshot-20261102)。
 
-2026-11-02 本地 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)接入公开当前请求／工具调用与既有处理配置的薄适配器，并按原获准描述符过滤；离线时点的合成63/63及独审反例证据保留。原元数据 P2 和固定旧包的两项来源读取缺陷已独审关闭。后续代码实际加载结果见上文，当前 main 仍未绑定私人资料根，公开生产者字段及真实语义消费仍待验证；不能据安装、hash或合成回执称已读沧海。最小独审摘要与默认模型／实际入口边界见 [验收证据](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)。
+2026-11-02 本地 [显式 manifest 的只读来源端口候选](ORDINARY-SOURCE-READ.md)接入公开当前请求／工具调用与既有处理配置的薄适配器，并按原获准描述符过滤；离线时点的合成63/63及独审反例证据保留。原元数据 P2 和固定旧包的两项来源读取缺陷已独审关闭。后续代码实际加载结果见上文；该离线时点尚未绑定私人资料根。2026-11-02 的固定90f绑定结果见本文件末段，原生请求下的实际来源供给及真实语义消费仍待验证；不能据安装、hash或合成回执称已读沧海。最小独审摘要与默认模型／实际入口边界见 [验收证据](../.task-control/reports/CORE-VAL-001/source-admission-review-20261102.json)。
 
 工作说明仍可作为以后纠正闭环的单资产载体。候选 CRUD、手动 briefId 和 `stella-continue` 只是当前合成调试脚手架，不是 Stella 的完整产品形态，也不是用户被要求永久采用的交互方式。不能把合成回读、字段齐备或 hash 匹配升级为模型已经理解和采用；真实工具供给、模型消费与回答仍需各自证据，且不把检索和路由僵化成单向硬流水。
 
@@ -142,3 +142,11 @@ TTS／视频的唯一详细正文位于同一工作区的 [Bili `docs/ARCHITECTU
 随后官方恢复普通产物；真实状态工具确认临时字段消失，2752 文件匹配，sourceRead 仍未配置，publisher 关闭，无模型调用。临时诊断产物和私有比较种子已清理；旧产物及私有配置回滚点保留，selfie/其他用户配置语义未改。完整脱敏回执见 [浏览器诊断收尾](../.task-control/reports/CORE-VAL-001/device-source-browser-closeout-20261102.json)。
 
 下一阶段是固定90f/原97来源362描述符的受控绑定及真实原生入场链，不能把这次身份观察当作资料供给或语义理解通过。真实 Gemini 调用及私人内容发送仍需各自明确范围。
+
+## 2026-11-02 固定90f来源绑定与真实 WebUI 拒绝边界
+
+现有普通 R1 产物仅新增 `sourceRead` 配置，指向正式沧海共享对象库的固定 worktree `stella-sources/main@90f61d9c9ef019c5a06a419dbcb630fe598cb996` 及原 migration-v1 manifest。官方 reload 成功，Gateway generation 11，无需重启；配置对照确认 selfie 及其余用户设置未变。原97来源／362描述符、设备和用途 grant 未扩大，金融资料未加入，publisher 仍关闭。精确 hash、回滚点与原始回执 hash 见 [本次绑定记录](../.task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json)。
+
+真实 Chrome WebUI 各执行一次状态工具和来源 `list`：状态返回 `public_request_adapter_requires_admission`；来源调用明确返回 `forbidden / source_request_admission_unavailable`。直接 `tools.invoke` 没有原生 Agent 请求的 run/入场 recorder，认证设备匹配不能替代这些事实。自建 Debug 页已关闭，未触碰用户聊天页。
+
+本次没有来源正文成功读回，也没有模型调用。原362描述符全部为分段范围，现行读取契约在首次原文读取前需要 Gemini 的结构化来源适用性判断；不能为完成无模型演示伪造 verdict 或绕过原生准入。下一步是另行明确模型和资料发送范围后的一个真实用户请求，观察原生请求关联、获准来源原文与位置版本。已配置不等于已供给，更不等于已理解。

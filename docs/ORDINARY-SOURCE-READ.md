@@ -296,3 +296,9 @@ grant after review; the candidate contains no real seed and is not loadable yet.
 Use the actual WebUI Debug connection, never a CLI stand-in, and remove the debug
 artifact after its single observation. Native ingress/source consumption and
 Gemini semantics remain separate, unverified steps.
+
+## 2026-11-02 fixed90f bound; native source consumption still unverified
+
+The ordinary R1 entry now has the explicit fixed90f sourceRead binding in actual main (Gateway generation11). The original97-source/362-descriptor device/purpose grant and finance exclusion remain unchanged. See the [binding receipt](../.task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json) for metadata hashes and reversible config delta. Earlier unconfigured observations above retain their historical scope.
+
+A real authenticated Chrome WebUI tools.invoke returned the configured status, then source list was rejected as source_request_admission_unavailable. Official direct tool invocation does not produce native Agent run/admission facts. All362 allowed descriptors are segmented; the accepted read path also requires real source-policy semantic completion before payload. This no-model phase therefore does not establish a successful body read, model consumption or understanding. Do not manufacture a run, recorder, policy verdict or identity fallback to bypass either boundary.

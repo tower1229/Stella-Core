@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T09:53:59.744436+00:00",
+  "scope": "fixed existing grant binding and no-model real WebUI boundary verification, not source body or semantic acceptance",
+  "base": {
+    "baseRevision": 127,
+    "baseStateSha256": "510ed12228d2d828cbd7f6769c3b150e2acab693aafb7f3675800c3b400c2b8c",
+    "head": "be69cf1495eef93b1590c6204222486cd4601be0"
+  },
+  "binding": {
+    "sourceRead": {
+      "root": "/Users/zangtao/.openclaw/stella-sources/main",
+      "manifestPath": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+      "revision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996"
+    },
+    "fixedMetadataHashes": {
+      "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json": "bd782c90acedc82a202e0e0d149fd4c44ef79718b6e7e30097de6da88babf7a8",
+      "50_PersonalAgent/stella/knowledge-migration-v1/runtime-profile.json": "d89bccca812a0187f56c2a645b93204c8214917a93e9c235f4bff850cb21f243",
+      "30_Knowledge/migration-v1/runtime/catalog.json": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+      "30_Knowledge/migration-v1/converted/descriptors.supply.review.json": "38f5732508a687faaa7bd5c349c33c215f5e73c8ac5e51f60aedd536f55bb7da",
+      "50_PersonalAgent/stella/knowledge-migration-v1/capabilities/source_access_context.json": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26"
+    },
+    "requesterCount": 1,
+    "sourceCount": 97,
+    "descriptorCount": 362,
+    "purpose": {
+      "deliveryScope": "owner-direct",
+      "derivePurpose": "personal_understanding",
+      "readPurpose": "personal_context"
+    },
+    "modelRefs": [
+      "google/gemini-3.8-flash"
+    ],
+    "sourceReadPreviouslyConfigured": false,
+    "configBeforeSha256": "d137118742efad3330d9062bf64aed40cb3dc5cbf232a2126764889ab788b87e",
+    "onlySelectedScope": true,
+    "financeAllowed": false,
+    "actualBodyReadingPlan": "not_run: native run/call required; restricted/segmented policies invoke a model, prohibited in this phase"
+  },
+  "reload": {
+    "exitCode": 0,
+    "at": "2026-11-02T09:42:49.497270+00:00",
+    "response": {
+      "ok": true,
+      "restartRequired": false,
+      "runtime": {
+        "operationId": "6c2c2d08-de6e-400b-b1e6-75d002792df9",
+        "generation": 11,
+        "pluginIds": [
+          "stella-core"
+        ],
+        "sourceDigests": {
+          "stella-core": "6e141fca31164d74cddad56a7ff682343adaaeca7b2c7dbfa2cd822553375e69"
+        },
+        "selectedEntries": {
+          "stella-core": "/Users/zangtao/Workspace/tower1229/Stella-Core/.artifacts/device-source-20261102-00dab376/ordinary/dist/src/ordinary-plugin.js"
+        }
+      },
+      "pluginIds": [
+        "stella-core"
+      ]
+    },
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "configAfterSha256": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f"
+  },
+  "configPostcheck": {
+    "at": "2026-11-02T09:50:47.754290+00:00",
+    "configSha256": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f",
+    "onlySourceReadAdded": true,
+    "otherUserSelfieConfigurationUnchanged": true,
+    "binding": {
+      "root": "/Users/zangtao/.openclaw/stella-sources/main",
+      "manifestPath": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+      "revision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996"
+    },
+    "backupMode": "0o600"
+  },
+  "webui": {
+    "at": "2026-11-02T09:50:47.753628+00:00",
+    "entry": "existing authenticated Chrome profile, separate official WebUI Debug tab",
+    "status": {
+      "ok": true,
+      "details": {
+        "architecture": "ordinary-plugin",
+        "stage": "candidate-only",
+        "agentId": "main",
+        "publisher": false,
+        "sourceAdapter": "not_connected",
+        "authorConfirmation": false,
+        "sourceReadPort": "public_request_adapter_requires_admission",
+        "persistence": "candidate_drafts_only",
+        "candidateDraftsConfigured": true,
+        "draftScope": "synthetic_debug",
+        "modelCalls": "on_demand_source_policy",
+        "legacyRuntime": "inactive",
+        "requestBinding": "public-tool-hook-metadata",
+        "currentInputAdmission": "not_connected",
+        "currentInputObservation": "passive-native-admission-metadata-only",
+        "memory": "host-owned",
+        "context": "host-owned",
+        "agentLoop": "host-owned"
+      }
+    },
+    "source": {
+      "ok": false,
+      "toolName": "stella_source_read",
+      "error": {
+        "code": "forbidden",
+        "message": "source_request_admission_unavailable"
+      }
+    },
+    "statusInvocations": 1,
+    "sourceInvocations": 1,
+    "sourceAction": "list",
+    "ownedTabClosed": true,
+    "originalUserTabUntouched": true,
+    "chatSendInvocations": 0,
+    "sourceBodySuccess": false,
+    "modelInvocationsByThisProbe": 0,
+    "modelCountBasis": "no chat.send; observed before_tool_call admission denial occurs before tool executor and policy completion, not global billing telemetry"
+  },
+  "grant": {
+    "sources": 97,
+    "descriptors": 362,
+    "descriptorsWithSegment": 362,
+    "requesters": 1,
+    "originalGrantUnchanged": true,
+    "financeAdded": false,
+    "newIdentityMapping": false,
+    "newDataGrant": false
+  },
+  "staticEvidence": [
+    {
+      "path": "src/openclaw/ordinary-source-admission.ts",
+      "line": 162,
+      "sha256": "f07ec7f56e7725b3bf99a47c9617132a3c395afa7c6440cb159d22d00f3f9a59",
+      "finding": "direct tools.invoke lacks native run/call admission"
+    },
+    {
+      "path": "src/ordinary-plugin.ts",
+      "line": 38,
+      "sha256": "d1b9f34d16e1d3e07698cc50161e8942fc497ecbf2f03ccf9871fb3b9333d0d7",
+      "finding": "source policy uses actual native Gemini completion"
+    },
+    {
+      "path": "src/praxis/episode-evidence.ts",
+      "line": 140,
+      "sha256": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d",
+      "finding": "segmented source requires sourceAccess judgment before payload"
+    },
+    {
+      "path": "src/canghai/source-access.ts",
+      "line": 74,
+      "sha256": "d00cb5c1d3ce2e0cdcdb7a480d72be93bf8f0323434876c9be499f6bb8c84c2d",
+      "finding": "semantic verdict, maxTokens8192; request + descriptor/rules, no source payload in this prompt"
+    },
+    {
+      "path": "node_modules/openclaw/dist/tools-invoke-shared-B7g8Eo-H.mjs",
+      "line": 243,
+      "sha256": "1126ba933bb5464fdb7020b9fd9564caea717ca1befa2f8d42636241bf37a5b1",
+      "finding": "official direct tool hook omits native runId"
+    },
+    {
+      "path": "node_modules/openclaw/dist/dispatch-from-config-D0ByBFxM.mjs",
+      "line": 399,
+      "sha256": "5b42abe88035db530bd69bf397ecc614e129e84e2e7cd8886662c9ac2b983986",
+      "finding": "official agent dispatch supplies native runId and userTurnTranscriptRecorder"
+    }
+  ],
+  "actualRead": {
+    "status": "not_completed",
+    "bodyReturned": false,
+    "nativeRequestAccepted": "not_verified",
+    "understanding": "not_verified",
+    "blockingFacts": [
+      "Actual direct WebUI tools.invoke returns source_request_admission_unavailable before executor; real browser authentication alone is not native request admission.",
+      "All362 existing descriptors are segmented. Current accepted resolver requires real structured semantic source-policy completion before original payload. This phase explicitly excludes model calls."
+    ],
+    "nextMinimalStep": "Use same real authenticated browser native user request and unchanged scope after separately authorized Gemini/model+material test; observe native run/call/admission and one eligible original read. Do not fabricate callbacks, source-policy verdicts or expand grant.",
+    "expectedModel": "google/gemini-3.8-flash",
+    "thinking": "low",
+    "paymentOrExternalTransmissionAttempted": false,
+    "budgetLimits": "One Agent request is not one physical model call. Policy output maxTokens8192 is advisory; current Agent/tool continuations and provider retries are not a verified dollar hard cap.",
+    "policyDataFlow": "request + one exact in-scope descriptor and policy metadata go to Gemini for source-policy judgment; actual source text would enter Agent context only after successful admission/policy checks. No such send occurred in this phase."
+  },
+  "rollback": {
+    "privateExactConfigBackup": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-data-bind-20261102-f24j3zj1/openclaw.before.private.json",
+    "backupMode": "0600",
+    "configBeforeSha256": "d137118742efad3330d9062bf64aed40cb3dc5cbf232a2126764889ab788b87e",
+    "restoreOnlyIfCurrentConfigHashStillMatches": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f",
+    "otherwiseMergeOnlyThisSourceReadField": "preserve later user/selfie changes; official plugin reload, no restart required by observed binding"
+  },
+  "push": {
+    "target": "tower1229/Stella-Core codex/issue23-integrated-regression",
+    "localHead": "be69cf1495eef93b1590c6204222486cd4601be0",
+    "reviewedLocalCommits": 6,
+    "status": "denied_before_process_creation",
+    "pushExecuted": false,
+    "remoteQueryExecuted": false,
+    "reason": "Auto-review: external GitHub push may disclose nonpublic project evidence; trusted user authorization specifying destination and payload was deemed absent.",
+    "noRetryOrAlternateChannel": true
+  },
+  "privateDataHandling": {
+    "persistedOriginalBody": false,
+    "persistedRequesterIdOrSeed": false,
+    "rawConfigIncludedInRepository": false,
+    "privateProbeSelection": "aborted metadata-only helper assertion before selected-ref receipt or source tool read; not used as evidence of a source read"
+  },
+  "receipts": [
+    {
+      "name": "BINDING-PLAN.json",
+      "sha256": "79a45135088cc7283b3942b3a1de9b3c502e189a082c99d15a68a8a0f0663261"
+    },
+    {
+      "name": "RELOAD-RESULT.json",
+      "sha256": "404ff5a3d42f9f1057272d3395c684cdd5d32673ef5c0701edf683ca510ed588"
+    },
+    {
+      "name": "WEBUI-CHECK.json",
+      "sha256": "43a8a15b1baae2087291600ea2460a703390c4d914ad52fe0ab1b7c45ae61641"
+    },
+    {
+      "name": "CONFIG-POSTCHECK.json",
+      "sha256": "e442417905ad4cdc0c1c9f1fc77d272b662b67610a580ea904b084f93a31d839"
+    },
+    {
+      "name": "PUSH-BLOCKED.json",
+      "sha256": "c9062e5f96d7beae9f1c760c5c36821a65f8526b6cd8369f45ecc431c8914c48"
+    }
+  ],
+  "paidCallsThisPhase": 0,
+  "ci": "not triggered; prior df5bc467 both failure1834/1808/26old preserved"
+}

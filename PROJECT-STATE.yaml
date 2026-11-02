@@ -779,3 +779,18 @@ ordinary_source_browser_identity_20261102:
   publisher: false
   private_body_and_model_calls: zero
   native_source_admission_and_semantic_consumption: not_verified
+
+# 2026-11-02 fixed90f main binding; no-model real entry boundary only.
+ordinary_source_fixed90f_main_binding_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json
+  gateway_generation: 11
+  source_revision: 90f61d9c9ef019c5a06a419dbcb630fe598cb996
+  sourceRead: configured_original_grant_scope
+  grant_sources_descriptors: 97_sources_362_segment_descriptors
+  finance_or_identity_scope_expanded: false
+  other_user_selfie_config_changed: false
+  real_webui_status: public_request_adapter_requires_admission
+  real_webui_source_list: forbidden_source_request_admission_unavailable
+  source_body_success_and_semantic_acceptance: not_verified
+  chat_send_and_models_this_phase: zero
+  publisher: false

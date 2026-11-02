@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 127,
-  "updatedAt": "2026-11-02T09:33:59.107983+00:00",
+  "revision": 128,
+  "updatedAt": "2026-11-02T09:53:59.744436+00:00",
   "writer": {
     "agent": "Core actual main source activation and forward-data handoff single writer",
     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
@@ -450,7 +450,7 @@
       "id": "CORE-VAL-001",
       "workstream": "CORE",
       "title": "数据层开发接入与正向理解最小闭环",
-      "scope": "Data-first current path: selected CangHai data design/conversion/development integration, then correct recall/source interpretation/semantic routing/grounded answer; correction follows. Current local package implements public current-request to existing source-admission kernels and exact descriptor-scoped read-through, with only synthetic allow/deny tests. Preserve native memory/context/Agent loop and existing data. Pending independent package review and actual supported Host producer, no real source binding/model/permission/shared Host operation.",
+      "scope": "Data-first ordinary plugin/native memory/context/Agent loop. Fixed90f original97source362descriptor grant binding is active on actual main; real WebUI direct source list denied without native user-request admission. Body supply and semantic understanding remain unverified; no new model/material test authorization. Preserve historical and paused candidates.",
       "inputs": [
         "docs/design/2026-10-30-core-realignment/proposal-reviewed-draft.md",
         "docs/design/2026-10-30-core-realignment/work-packages-reviewed-draft.md",
@@ -521,7 +521,8 @@
         ".task-control/reports/CORE-VAL-001/source-read-port-r1-frozen-20261102/MANIFEST.json",
         ".task-control/reports/CORE-VAL-001/source-admission-review-20261102.json",
         ".task-control/reports/CORE-VAL-001/source-admission-review-20261102.patch",
-        ".task-control/reports/CORE-VAL-001/webchat-principal-plan-20261102.json"
+        ".task-control/reports/CORE-VAL-001/webchat-principal-plan-20261102.json",
+        ".task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json"
       ],
       "acceptance": [
         {
@@ -1594,11 +1595,24 @@
             "stateUpdateBaseRevision": 126,
             "stateUpdateBaseSha256": "204d21897d6dd358b3b946bb7993f46893b4657cce266a5e3ee3cdb5fdca9277"
           }
+        },
+        {
+          "id": "C-VAL-FIXED90F-MAIN-BINDING-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json",
+          "claim": "Actual main sourceRead fixed90f original97/362grant bound generation11 with exactconfigdelta; WebUI status succeeds/listdenied missingnativeadmission. No body/model proof. Sixlocalcommit push denied before process creation.",
+          "observedAt": "2026-11-02T09:53:59.744436+00:00",
+          "subject": {
+            "sha256": "5e8f13cc4860317c026d524ee0a3c141638a0164ab8ba754e5a4967f9a5da522",
+            "baseCommit": "be69cf1495eef93b1590c6204222486cd4601be0",
+            "stateUpdateBaseRevision": 127,
+            "stateUpdateBaseSha256": "510ed12228d2d828cbd7f6769c3b150e2acab693aafb7f3675800c3b400c2b8c"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "R1 accepted/saved00dab376/installed ordinarygeneration9. Actual realChrome WebUI diagnostic once:5true/exact original device grant match. Temporary diagnostic+private seed removed; live ordinary tool fieldabsent, sourceReadnotconfigured, publisheroff; otheruser/selfie config preserved. Native request/source supply and Gemini understanding remain unverified.",
-        "nextAction": "Continue next allocated fixed90f/original97source362descriptor minimal binding phase with safe rollback and no-model status/unsupported-context denial. Do not repeat browser identity test, replace grant, expand finance/catalog scope or call Gemini without separate valid model/material authorization. Status identity proof is not native admission or source consumption.",
+        "checkpoint": "Fixed90f original-grant sourceRead bound via official reload generation11, onlysourceRead configdelta; same ordinaryR1, selfie preserved. RealWebUI status configured; list denied source_request_admission_unavailable. No payload/model/chat.send. Six reviewed local commits throughbe69cf14 push denied before process creation; no retry.",
+        "nextAction": "Do not rebind/reload/repeat identity or denied direct source probe. Parent to resolve narrow native user-request + Gemini/material test boundary (all362descriptors segmented, real policy required) and supply materially relevant trusted push evidence if retry is authorized. No fabricated run/call/policy, finance, newgrant or model call in current phase.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2912,10 +2926,12 @@
             "ciTriggeredByLocalCommit": false,
             "indexEmptyAfterCommit": true,
             "oldProjectWorkingBytesPreserved": true
-          }
+          },
+          "historical": true,
+          "supersededCurrentObservation": ".task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json"
         },
         "dataCoordinationHandoff": {
-          "phase": "device_compatibility_candidate_implemented_pending_independent_review",
+          "phase": "fixed90f_bound_generation11_native_source_consumption_unverified",
           "report": ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
           "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1",
           "selectedRuntimeRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
@@ -2929,7 +2945,7 @@
           "registeredMainWorktreeCurrentRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
           "registeredMainWorktreeCurrentDirectoryMode": "0755",
           "canghaiWriter": "separate consolidation writer; Core is read-only",
-          "runtimeBinding": "not_configured",
+          "runtimeBinding": "configured_original_device_grant_scope",
           "nativeAdmission": "not_verified",
           "financialScope": "not added",
           "reviewDeliveries": "preserve original evidence; no relocation or deletion assigned",
@@ -3069,15 +3085,32 @@
               "pass": 18,
               "fail": 4
             },
-            "independentReview": "pending",
+            "independentReview": "R0_rejected_P1_superseded_by_accepted_R1",
             "candidateLoaded": false,
             "realDeviceEquality": "not_verified",
             "grantOrPermissionChanged": false,
-            "commitPush": "not_run_unreviewed"
-          }
+            "commitPush": "not_run_unreviewed",
+            "historical": true
+          },
+          "currentBindingEvidence": ".task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json"
+        },
+        "sourceReadBinding": {
+          "phase": "bound_native_source_read_blocked_by_missing_native_request_and_no_model_scope",
+          "report": ".task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json",
+          "sha256": "5e8f13cc4860317c026d524ee0a3c141638a0164ab8ba754e5a4967f9a5da522",
+          "generation": 11,
+          "sourceRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+          "sourceReadConfigured": true,
+          "sourceBodySuccess": false,
+          "modelsThisPhase": 0,
+          "publisher": false,
+          "configSha256": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f",
+          "remotePush": "denied_before_process_creation",
+          "lastObservedRemoteSha": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+          "localReviewedHead": "be69cf1495eef93b1590c6204222486cd4601be0"
         }
       },
-      "updatedAt": "2026-11-02T09:33:59.107983+00:00",
+      "updatedAt": "2026-11-02T09:53:59.744436+00:00",
       "delivery": {
         "local": {
           "status": "committed",
