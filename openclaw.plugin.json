@@ -9,7 +9,8 @@
     "tools": [
       "stella_status",
       "stella_author_intent_candidate",
-      "stella_work_brief"
+      "stella_work_brief",
+      "stella_source_read"
     ]
   },
   "toolMetadata": {
@@ -27,6 +28,9 @@
       "profiles": [
         "coding"
       ]
+    },
+    "stella_source_read": {
+      "profiles": ["coding"]
     }
   },
   "activation": {
@@ -54,6 +58,17 @@
         "minLength": 1,
         "maxLength": 4096,
         "description": "Optional dedicated synthetic-debug Git repository; explicit initialization marker required. No legacy or private source repository."
+      },
+      "sourceRead": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["root", "manifestPath", "revision"],
+        "properties": {
+          "root": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "manifestPath": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+        },
+        "description": "Explicit selected clean Git source and manifest; this selects data only, never grants source/processing access. Default entry has no admission issuer and fails closed."
       }
     }
   }

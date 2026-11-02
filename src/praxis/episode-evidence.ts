@@ -171,7 +171,7 @@ export class EpisodeEvidenceResolver {
     await this.reader.assertCurrent();
   }
 
-  async readEvidence(ref: VersionedRef): Promise<OriginalEvidence> {
+  async readEvidence(ref: VersionedRef, assertBeforePayload?: () => void | Promise<void>): Promise<OriginalEvidence> {
     ref = { id: ref.id, version: ref.version };
     const evidence = await this.reader.read(ref, "evidence");
     check(evidence.schemaVersion === "stella.memory-evidence/v1" && validMemoryRef(evidence.source) && validMemoryRef(evidence.policyRef) &&
@@ -220,6 +220,7 @@ export class EpisodeEvidenceResolver {
       check(Date.parse(evidence.occurredAt) <= Date.parse(this.purpose.eventWindow.to), "evidence_outside_event_window");
     }
     this.purpose.signal?.throwIfAborted();
+    await assertBeforePayload?.();
     const payload = await this.reader.readPayload(evidence.source, evidence.payloadSha256);
     await this.reader.read(evidence.policyRef, "policies");
     if (!includesRef([evidence.policyRef], source.policyRef)) await this.reader.read(source.policyRef, "policies");

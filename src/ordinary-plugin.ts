@@ -3,6 +3,12 @@ import { Type } from "typebox";
 import path from "node:path";
 import { isRecord } from "./shared/type-guards.js";
 import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
+import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
+import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion } from "./openclaw/ordinary-source-admission.js";
+import { CatalogError } from "./canghai/catalog-reader.js";
+import { SOURCE_READ_TOOL, SOURCE_READ_PARAMETERS, parseSourceReadBinding, executeOrdinarySourceRead, sourceReadFailure,
+  type SourceReadAdmission, type SourceReadBinding } from "./openclaw/ordinary-source-read.js";
+export { SOURCE_READ_TOOL } from "./openclaw/ordinary-source-read.js";
 import { CANDIDATE_PARAMETERS, parseProposal, type Proposal } from "./openclaw/work-brief-proposal.js";
 import { WORK_BRIEF_TOOL, WORK_BRIEF_PARAMETERS, executeWorkBrief, validDraftsRoot, workBriefFailure } from "./openclaw/candidate-work-brief.js";
 export { WORK_BRIEF_TOOL } from "./openclaw/candidate-work-brief.js";
@@ -11,15 +17,16 @@ export const CANDIDATE_TOOL = "stella_author_intent_candidate";
 export const STATUS_TOOL = "stella_status";
 export { CANDIDATE_PARAMETERS, parseProposal } from "./openclaw/work-brief-proposal.js";
 
-export function parseOrdinaryConfig(value: unknown): { agentId: string; publisher: false; candidateDraftsRoot?: string } {
+export function parseOrdinaryConfig(value: unknown): { agentId: string; publisher: false; candidateDraftsRoot?: string; sourceRead?: SourceReadBinding } {
   const config = value ?? {};
-  if (!isRecord(config) || Object.keys(config).some(key => key !== "agentId" && key !== "publisher" && key !== "candidateDraftsRoot") ||
+  if (!isRecord(config) || Object.keys(config).some(key => !["agentId", "publisher", "candidateDraftsRoot", "sourceRead"].includes(key)) ||
       (config.publisher !== undefined && config.publisher !== false) ||
       (config.candidateDraftsRoot !== undefined && !validDraftsRoot(config.candidateDraftsRoot)) ||
       (config.agentId !== undefined && (typeof config.agentId !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(config.agentId)))) {
     throw new Error("stella_ordinary_configuration_invalid: use agentId, publisher:false and optional dedicated candidateDraftsRoot; legacy configuration is not migrated implicitly");
   }
-  return { agentId: typeof config.agentId === "string" ? config.agentId : "main", publisher: false,
+  const sourceRead = config.sourceRead === undefined ? undefined : parseSourceReadBinding(config.sourceRead);
+  return { agentId: typeof config.agentId === "string" ? config.agentId : "main", publisher: false, ...(sourceRead ? { sourceRead } : {}),
     ...(typeof config.candidateDraftsRoot === "string" ? { candidateDraftsRoot: config.candidateDraftsRoot } : {}) };
 }
 
@@ -27,28 +34,54 @@ function result(details: Record<string, unknown>, isError = false) {
   return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details, ...(isError ? { isError: true } : {}) };
 }
 
-/** Ordinary entry. No legacy loader, provider, context engine, model client or
- * automatic background task is bound. Draft storage is explicit and synthetic-only.
+/** Ordinary entry. No legacy loader, provider, context engine or automatic
+ * background task is bound. Source-policy inference is explicit and on demand.
+ * Draft storage is explicit and synthetic-only.
  * The Host's model supplies semantics; this tool only validates and labels its
  * proposal. References remain unverified and cannot become author admission. */
-export default definePluginEntry({
+/** Request/source admission uses public Host facts plus the selected existing
+ * grant. Internal test ports never become configuration or model arguments. */
+export function createOrdinaryPlugin(options: { admitSourceRead?: (input: {
+  binding: SourceReadBinding; context: OpenClawPluginToolContext<2>; callId: string; signal?: AbortSignal;
+}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion } = {}) {
+const admitSourceRead = options.admitSourceRead;
+return definePluginEntry({
   id: "stella-core",
   name: "Stella Core",
   description: "Source-aware work-brief candidates alongside native OpenClaw memory and context",
   register(api) {
     const config = parseOrdinaryConfig(api.pluginConfig);
     const requestBinding = createToolRequestBinding(config.agentId, CANDIDATE_TOOL);
+    const currentInput = createCurrentInputMetadata(config.agentId);
+    const sourceInput = createOrdinarySourceAdmission({ agentId: config.agentId, metadata: currentInput,
+      complete: options.completeSourceAccess ?? (async params => {
+        const cfg = api.runtime.config.current();
+        for (const model of [cfg.agents?.defaults?.model, cfg.agents?.entries?.[config.agentId]?.model]) {
+          if (typeof model === "object" && model !== null && model.fallbacks?.length) throw new CatalogError("source_model_fallback_forbidden");
+        }
+        const value = await api.runtime.llm.complete({ agentId: config.agentId, model: SOURCE_POLICY_MODEL,
+          purpose: "stella-source-access", reasoning: "low", maxTokens: params.maxTokens, signal: params.signal,
+          messages: [{ role: "user", content: params.prompt }] });
+        if (value.agentId !== config.agentId || `${value.provider}/${value.model}` !== SOURCE_POLICY_MODEL || value.execution.mode !== "direct-provider") {
+          throw new CatalogError("personal_context_model_mismatch");
+        }
+        return { text: value.text };
+      }) });
+    api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
+    api.on("agent_end", (event, context) => { currentInput.end(event, context); if (config.sourceRead) sourceInput.end(event, context); });
     api.on("before_tool_call", (event, context) => {
-      const error = requestBinding.observe(event, context);
+      const error = requestBinding.observe(event, context) ?? (config.sourceRead ? sourceInput.observeTool(event, context) : undefined);
       if (error) return { block: true, blockReason: error };
     });
     const status = () => ({
       architecture: "ordinary-plugin", stage: "candidate-only", agentId: config.agentId,
       publisher: false, sourceAdapter: "not_connected", authorConfirmation: false,
+      sourceReadPort: !config.sourceRead ? "not_configured" : admitSourceRead ? "registered_requires_current_admission" : "public_request_adapter_requires_admission",
       persistence: config.candidateDraftsRoot ? "candidate_drafts_only" : "none",
       candidateDraftsConfigured: Boolean(config.candidateDraftsRoot), draftScope: "synthetic_debug",
-      modelCalls: false, legacyRuntime: "inactive",
+      modelCalls: config.sourceRead ? "on_demand_source_policy" : false, legacyRuntime: "inactive",
       requestBinding: "public-tool-hook-metadata", currentInputAdmission: "not_connected",
+      currentInputObservation: "passive-native-admission-metadata-only",
       memory: "host-owned", context: "host-owned", agentLoop: "host-owned",
     });
     api.registerTool({ contextVersion: 2, create(context: OpenClawPluginToolContext<2>) {
@@ -59,6 +92,7 @@ export default definePluginEntry({
       const owner = context.senderIsOwner;
       const fsPolicy = context.fsPolicy ? { workspaceOnly: context.fsPolicy.workspaceOnly, root: context.fsPolicy.root } : undefined;
       const sandboxed = context.sandboxed;
+      const admitCurrentSource = sourceInput.forFactory(context);
       const check = (signal?: AbortSignal) => {
         invocationGuard(); signal?.throwIfAborted();
         if (context.agentId !== identity.agentId || context.sessionKey !== identity.sessionKey || context.sessionId !== identity.sessionId) {
@@ -84,9 +118,11 @@ export default definePluginEntry({
             try { proposal = parseProposal(parameters); }
             catch { return result({ status: "rejected", code: "stella_candidate_arguments_invalid" }, true); }
             check(signal);
+            const inputObservation = currentInput.inspect(binding.status === "bound" ? binding.runId : null, identity);
+            check(signal);
             return result({ status: "candidate", code: "author_source_unavailable", toolCallId: callId,
               proposal, evidenceStatus: "model_supplied_unverified", authorConfirmation: false,
-              publisher: false, saved: false, requestBinding: binding });
+              publisher: false, saved: false, requestBinding: binding, currentInputObservation: inputObservation });
           } },
         { name: WORK_BRIEF_TOOL, label: "Unconfirmed work brief",
           description: "Explicitly save or read a synthetic, unconfirmed work brief in the configured debug draft store. Read by briefId in each new request. Save requires a new operationId and the exact last-read expectedVersion (null only to create); stale versions fail. No author confirmation, source-file access, formal publication or long-term memory. Evidence references stay unverified. This debug store is owner-only.",
@@ -113,9 +149,30 @@ export default definePluginEntry({
               return result({ status: "failed", code: workBriefFailure(error), publisher: false, authorConfirmation: false }, true);
             }
           } },
+        { name: SOURCE_READ_TOOL, label: "Versioned source evidence",
+          description: "List a page of current evidence metadata or read one exact Evidence id/version from the explicitly configured manifest/catalog. Requires existing trusted request/source admission; root selection or owner status alone grants nothing. Results preserve roles, timestamps, original selectors and usage constraints. Listing performs no semantic ranking or payload reads. This tool does not infer meaning, write memory or publish.",
+          parameters: SOURCE_READ_PARAMETERS,
+          async execute(callId, parameters, signal) {
+            check(signal);
+            if (!config.sourceRead) return result({ status: "unavailable", code: "source_read_not_configured" }, true);
+            if (sandboxed === true) return result({ status: "rejected", code: "source_read_sandbox_unsupported" }, true);
+            if (fsPolicy?.workspaceOnly) {
+              const relative = fsPolicy.root ? path.relative(fsPolicy.root, config.sourceRead.root) : "..";
+              if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) return result({ status: "rejected", code: "source_read_workspace_denied" }, true);
+            }
+            try {
+              const admission = admitSourceRead ? await admitSourceRead({ binding: config.sourceRead, context, callId, signal }) :
+                await admitCurrentSource(config.sourceRead, callId, signal); check(signal);
+              const value = await executeOrdinarySourceRead({ binding: config.sourceRead, agentId: config.agentId,
+                hostVersion: api.runtime.version, parameters, admission, signal }); check(signal);
+              return result(value);
+            } catch (error) { check(signal); return result({ status: "failed", code: sourceReadFailure(error), publisher: false }, true); }
+          } },
       ];
-    } }, { names: [STATUS_TOOL, CANDIDATE_TOOL, WORK_BRIEF_TOOL] });
+    } }, { names: [STATUS_TOOL, CANDIDATE_TOOL, WORK_BRIEF_TOOL, SOURCE_READ_TOOL] });
     api.registerCommand({ name: "stella-status", description: "Show Stella architecture and candidate-only limits without a model call", requireAuth: true,
       handler: () => ({ text: JSON.stringify(status(), null, 2) }) });
   },
 });
+}
+export default createOrdinaryPlugin();

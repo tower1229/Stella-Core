@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { Ajv } from "ajv";
-import plugin, { CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
+import plugin, { CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, SOURCE_READ_TOOL, parseOrdinaryConfig } from "../src/ordinary-plugin.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 
 const proposal = { topic: "Synthetic writing task", interpretation: "A proposed argument, not a confirmed conclusion",
@@ -30,10 +30,10 @@ test("default package is ordinary and historical config is rejected without impo
     assert.equal(validate(config), false); assert.throws(() => parseOrdinaryConfig(config));
   }
   assert.deepEqual(parseOrdinaryConfig({}), { agentId: "main", publisher: false });
-  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL].sort());
+  assert.deepEqual(Object.keys(manifest.toolMetadata).sort(), [CANDIDATE_TOOL, STATUS_TOOL, WORK_BRIEF_TOOL, SOURCE_READ_TOOL].sort());
 });
 
-test("registration contributes guarded ordinary tools, a metadata-only hook and a no-model command", async () => {
+test("registration contributes guarded tools, passive metadata hooks and a no-model command", async () => {
   const f = fixture();
   assert.equal(f.factory.contextVersion, 2); assert.equal(f.factory.create({ agentId: "other" }), null);
   assert.equal(f.command.requireAuth, true);
@@ -41,7 +41,7 @@ test("registration contributes guarded ordinary tools, a metadata-only hook and 
   assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
   assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
   assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
-  assert.deepEqual([...f.hooks.keys()], ["before_tool_call"]);
+  assert.deepEqual([...f.hooks.keys()], ["reply_dispatch", "agent_end", "before_tool_call"]);
 });
 
 test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {
@@ -50,7 +50,8 @@ test("real tool contract returns an unsaved candidate, retaining open questions 
   assert.equal(result.details.status, "candidate"); assert.equal(result.details.saved, false);
   assert.equal(result.details.authorConfirmation, false); assert.equal(result.details.publisher, false);
   assert.equal(result.details.evidenceStatus, "model_supplied_unverified");
-  assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 2);
+  assert.deepEqual(result.details.proposal, proposal); assert.equal(f.guards(), 3);
+  assert.equal(result.details.currentInputObservation.code, "host_run_not_provided");
   assert.equal(result.details.requestBinding.status, "unavailable");
   result.details.proposal.openQuestions.push("mutated"); assert.equal(proposal.openQuestions.length, 1);
 });
