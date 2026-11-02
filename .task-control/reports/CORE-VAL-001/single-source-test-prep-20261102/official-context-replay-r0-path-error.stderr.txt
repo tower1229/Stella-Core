@@ -1,0 +1,15 @@
+node:internal/fs/promises:1345
+  return new FileHandle(await PromisePrototypeThen(
+                        ^
+
+Error: ENOENT: no such file or directory, open '/Users/zangtao/Workspace/tower1229/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs'
+    at async open (node:internal/fs/promises:1345:25)
+    at async readFile (node:internal/fs/promises:2003:14)
+    at async file:///Users/zangtao/Workspace/tower1229/Stella-Core/.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.mjs:15:17 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/zangtao/Workspace/tower1229/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs'
+}
+
+Node.js v24.22.1

@@ -1,0 +1,160 @@
+TAP version 13
+# Subtest: one admitted exact read and one original policy completion; no identity/grant manufactured
+ok 1 - one admitted exact read and one original policy completion; no identity/grant manufactured
+  ---
+  duration_ms: 1.59
+  type: 'test'
+  ...
+# Subtest: wrong evidence denied before execution
+ok 2 - wrong evidence denied before execution
+  ---
+  duration_ms: 0.303584
+  type: 'test'
+  ...
+# Subtest: wrong version denied before execution
+ok 3 - wrong version denied before execution
+  ---
+  duration_ms: 0.1405
+  type: 'test'
+  ...
+# Subtest: list denied before execution
+ok 4 - list denied before execution
+  ---
+  duration_ms: 0.113875
+  type: 'test'
+  ...
+# Subtest: extra outer field denied before execution
+ok 5 - extra outer field denied before execution
+  ---
+  duration_ms: 0.116292
+  type: 'test'
+  ...
+# Subtest: extra ref field denied before execution
+ok 6 - extra ref field denied before execution
+  ---
+  duration_ms: 0.102208
+  type: 'test'
+  ...
+# Subtest: accessor arguments denied before execution
+ok 7 - accessor arguments denied before execution
+  ---
+  duration_ms: 0.103375
+  type: 'test'
+  ...
+# Subtest: other tools blocked and prompt tools narrowed only for target
+ok 8 - other tools blocked and prompt tools narrowed only for target
+  ---
+  duration_ms: 0.114041
+  type: 'test'
+  ...
+# Subtest: direct execute cannot bypass before-tool admission; guard remains original
+ok 9 - direct execute cannot bypass before-tool admission; guard remains original
+  ---
+  duration_ms: 0.271834
+  type: 'test'
+  ...
+# Subtest: concurrent execute and second hook consume no second read
+ok 10 - concurrent execute and second hook consume no second read
+  ---
+  duration_ms: 0.201542
+  type: 'test'
+  ...
+# Subtest: failed original permission check consumes attempt; no fallback or retry
+ok 11 - failed original permission check consumes attempt; no fallback or retry
+  ---
+  duration_ms: 0.145791
+  type: 'test'
+  ...
+# Subtest: conflicting runId rejected
+ok 12 - conflicting runId rejected
+  ---
+  duration_ms: 0.067208
+  type: 'test'
+  ...
+# Subtest: conflicting sessionId rejected
+ok 13 - conflicting sessionId rejected
+  ---
+  duration_ms: 0.054125
+  type: 'test'
+  ...
+# Subtest: conflicting sessionKey rejected
+ok 14 - conflicting sessionKey rejected
+  ---
+  duration_ms: 0.052042
+  type: 'test'
+  ...
+# Subtest: conflicting agentId rejected
+ok 15 - conflicting agentId rejected
+  ---
+  duration_ms: 0.049541
+  type: 'test'
+  ...
+# Subtest: conflicting toolCallId rejected
+ok 16 - conflicting toolCallId rejected
+  ---
+  duration_ms: 0.049125
+  type: 'test'
+  ...
+# Subtest: absent native dispatch and changed request do not acquire admission
+ok 17 - absent native dispatch and changed request do not acquire admission
+  ---
+  duration_ms: 0.069125
+  type: 'test'
+  ...
+# Subtest: same session new request cannot reuse old qualification
+ok 18 - same session new request cannot reuse old qualification
+  ---
+  duration_ms: 0.0585
+  type: 'test'
+  ...
+# Subtest: cancel, end and delayed timer deadline deny further execution
+ok 19 - cancel, end and delayed timer deadline deny further execution
+  ---
+  duration_ms: 0.19
+  type: 'test'
+  ...
+# Subtest: factory mutation and execute-time argument mutation rejected
+ok 20 - factory mutation and execute-time argument mutation rejected
+  ---
+  duration_ms: 0.089
+  type: 'test'
+  ...
+# Subtest: second policy completion rejected; other async request retains original behavior
+ok 21 - second policy completion rejected; other async request retains original behavior
+  ---
+  duration_ms: 0.104833
+  type: 'test'
+  ...
+# Subtest: other sessions, unbound status and end events unaffected
+ok 22 - other sessions, unbound status and end events unaffected
+  ---
+  duration_ms: 0.054834
+  type: 'test'
+  ...
+# Subtest: return-boundary cancellation and identity mutation cannot pass as success
+ok 23 - return-boundary cancellation and identity mutation cannot pass as success
+  ---
+  duration_ms: 0.158583
+  type: 'test'
+  ...
+# Subtest: invalid policy token limits and delayed out-of-scope completion never call model port
+ok 24 - invalid policy token limits and delayed out-of-scope completion never call model port
+  ---
+  duration_ms: 4.553792
+  type: 'test'
+  ...
+# Subtest: thin entry retains native completion and original registration; no admission injection
+ok 25 - thin entry retains native completion and original registration; no admission injection
+  ---
+  duration_ms: 0.365292
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 64.41125

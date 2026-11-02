@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "executionReady": false,
+  "modelApproval": "not_requested_not_granted",
+  "blockingPrerequisite": "Exclude canonical bootstrap and standing/other prompt injections using reviewed reversible config; verify new session has no old transcript. No claim of exclusion yet.",
+  "scope": {
+    "sourceRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "grant": "unchanged original device/purpose and 97 sources / 362 descriptors",
+    "fragmentCount": 1,
+    "fragmentBytes": 1002,
+    "declaredSensitivity": "semi-private",
+    "author": "unknown",
+    "payloadRead": false,
+    "finance": false,
+    "publisher": false
+  },
+  "sessionCreateDraft": {
+    "method": "sessions.create",
+    "params": {
+      "key": "agent:main:stella-source-c00ffb3d-f48c-43d2-a84f-d860e7d2ab1e",
+      "idempotencyKey": "47158ea4-2e87-4b00-be93-2a91438a8b45",
+      "agentId": "main",
+      "displayName": "Stella single-source test",
+      "thinkingLevel": "low",
+      "incognito": true,
+      "worktree": true,
+      "worktreeSource": "empty",
+      "toolOverrides": {
+        "webSearch": false
+      }
+    },
+    "omitted": [
+      "model",
+      "parentSessionKey",
+      "fork",
+      "task",
+      "message",
+      "attachments",
+      "projectId",
+      "catalogId"
+    ],
+    "dynamicAfterNoModelReview": [
+      "explicit false map for actual active skills; do not use an array for toolOverrides.skills",
+      "actual returned sessionId and exact empty-history result",
+      "current config snapshot plus reviewed context exclusions"
+    ]
+  },
+  "privateSeedAssembly": {
+    "fields": [
+      "agentId=main",
+      "exact returned sessionKey",
+      "exact returned sessionId",
+      "SHA256 of exact raw test request",
+      "previously selected Evidence id/version"
+    ],
+    "selectionSha256": "2fd69671d53857eba255c6702cfe16da5dd2d7b70f0790d8d2256d38d91d8e93",
+    "copyToGit": false,
+    "readPayloadToBuildSeed": false
+  },
+  "chatSendDraft": {
+    "method": "chat.send",
+    "params": {
+      "agentId": "main",
+      "sessionKey": "from newly created session",
+      "sessionId": "from newly created session",
+      "message": "Read the exact selected Evidence id/version once; analyze diction, imagery and narrative perspective in at most 300 Chinese characters. State unknown author/role, cite version/location, do not infer relationship facts. Exact private ref is filled only after review.",
+      "thinking": "low",
+      "timeoutMs": 90000,
+      "idempotencyKey": "0c2255ef-5517-4a35-bbc1-805dceb6b2b0"
+    },
+    "exactMessageFrozenPrivatelyBeforeSend": true,
+    "maximumSubmissions": 1,
+    "retryOnFailureOrUnknown": false,
+    "model": "google/gemini-3.8-flash via proved existing default, no override/fallback"
+  },
+  "enforcedInCandidateOnly": {
+    "sourceToolExecutionAttempts": 1,
+    "exactEvidenceRefVersion": true,
+    "logicalSourcePolicyCalls": 1,
+    "sourcePolicyRequestedMaxTokens": 8192,
+    "otherToolsBlockedForTarget": true,
+    "currentNativeAdmissionAndGrant": "unchanged"
+  },
+  "notHardLimited": [
+    "Agent completion count",
+    "provider physical retries",
+    "aggregate input/output/reasoning tokens",
+    "dollar cost",
+    "network-provider completion at timeout"
+  ],
+  "expectedLogicalCompletions": {
+    "agent": 2,
+    "sourcePolicy": 1,
+    "guaranteedTotal": false
+  },
+  "successEvidence": [
+    "real native reply_dispatch plus committed recorder and real run/call/incarnation",
+    "one exact tool execution and at most one policy completion",
+    "source result version/position and bounded fragment reached final model",
+    "model answer separates supplied facts from inference and unknown author",
+    "actual usage/cost fields (unknown is not zero)",
+    "normal artifact/config restored; no publisher writes"
+  ],
+  "stopConditions": [
+    "context exclusions or new-session identity unproven before send",
+    "new permission, source, model or identity requested",
+    "first failure or unknown receipt: no reissue",
+    "native admission missing or source policy denied: no body fallback",
+    "any ref mismatch, repeated tool attempt or cancellation"
+  ],
+  "notExecuted": [
+    "sessions.create",
+    "chat.send",
+    "private source read",
+    "model completion",
+    "Host load/config change"
+  ]
+}

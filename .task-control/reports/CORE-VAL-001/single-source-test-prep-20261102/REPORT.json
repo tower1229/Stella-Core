@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T10:39:58.889644+00:00",
+  "baseHead": "117c5229161f1b1a198b800117e1b428d4b6339e",
+  "baseStateRevision": 129,
+  "baseStateSha256": "6c0880c3e44b0364a46e7ccf13cc238587c946b47f123d825380fe1827701619",
+  "stateTargetRevision": 130,
+  "outcome": "single-read candidate ready for review; context isolation disproved for current plan; execution not ready",
+  "executionReady": false,
+  "independentReview": "pending",
+  "productionCodeChanged": false,
+  "codeFiles": [
+    "scripts/lib/single-source-test-boundary.mjs",
+    "scripts/lib/single-source-test-boundary.test.mjs",
+    "scripts/fixtures/single-source-native-entry.mjs"
+  ],
+  "tests": {
+    "boundary": {
+      "total": 25,
+      "pass": 25,
+      "fail": 0,
+      "command": "node --test --test-reporter=tap scripts/lib/single-source-test-boundary.test.mjs",
+      "stdoutSha256": "4291ec687d260d3e1dccdb4e294cf98fc75eb2b71cf22a515e625e0336d8af38"
+    },
+    "officialContextReplay": {
+      "total": 4,
+      "pass": 4,
+      "fail": 0,
+      "runtimeAssertions": 3,
+      "staticAssertion": 1,
+      "sdk": "2026.10.9",
+      "stdoutSha256": "fffd4caf0f3a11364261ba2c39211e400c678e84384827fb4350d2a4941ea0b5"
+    },
+    "initialReplayAttempt": {
+      "exit": 1,
+      "reason": "author script used parent repository directory; ENOENT before replay; corrected without permission change",
+      "stderrSha256": "a96d2d8f6312c9c0c5424c48403301ab4a801bfda26844ede0331575bc312f0d"
+    },
+    "countsNotCombined": true
+  },
+  "contextExclusion": {
+    "status": "not_established",
+    "counterexamples": [
+      "empty worktree retains canonical bootstrap under current always mode",
+      "fresh empty-history WebChat can trigger existing standing-intent prompt hook"
+    ],
+    "actualPrivateContextRead": false,
+    "actualPromptCaptured": false,
+    "extraPotentialCategories": [
+      "USER/MEMORY and other canonical bootstrap",
+      "personal USER overlay when applicable",
+      "active skill instructions",
+      "standing intents",
+      "other prompt contributions; inventory not established"
+    ],
+    "oldChatExcluded": "not tested; no new session created",
+    "minimalNextCandidate": [
+      "main contextInjection never",
+      "official prompt-injection policy reviewed for applicable active plugins during idle window",
+      "fresh incognito/empty workspace session; actual empty-history and effective context check"
+    ],
+    "candidateApplied": false
+  },
+  "currentHostConfigReadOnly": {
+    "sha256": "dd0ecf17a18bc6a0e7c672e0670351ee792832ecca24ebe9fae28d19b285843f",
+    "sameAsLastBinding": true,
+    "sourceReadStillConfigured": true,
+    "publisherOff": true,
+    "effectiveContextInjection": "always"
+  },
+  "privatePayloadRead": false,
+  "privateSelectionCopied": false,
+  "modelCalls": 0,
+  "sessionsCreated": 0,
+  "hostLoadsOrReloads": 0,
+  "newNetworkOrGrantPermissions": false,
+  "newDenials": [],
+  "ci": {
+    "source": "parent independent read-only evidence received this turn; not rerun by author",
+    "headSha": "6bc71077e041676468c3b7d4690fef09640cbb6e",
+    "runs": [
+      {
+        "id": 41425072886,
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/tower1229/Stella-Core/actions/runs/41425072886"
+      },
+      {
+        "id": 41425072861,
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/tower1229/Stella-Core/actions/runs/41425072861"
+      }
+    ],
+    "testsEach": {
+      "total": 1842,
+      "pass": 1816,
+      "fail": 26,
+      "skipped": 0
+    },
+    "normalizedOld26Unchanged": true,
+    "oldPassToFail": 0,
+    "oldTestsDeleted": 0,
+    "newDeviceGrantPass": 8,
+    "check": "pass",
+    "schema": "pass",
+    "sdk": "2026.10.8",
+    "installedOrFreshHost": "not_tested_after_prepare_failure",
+    "probes": "skipped",
+    "verify": "failed_missing_prepared.json",
+    "allGreen": false
+  },
+  "sources": [
+    {
+      "path": "node_modules/openclaw/dist/src-D6kL8tMP.mjs",
+      "sha256": "b855a4f3dd3cdccf9abff60bc7811ef786d17722b2a8c148980bd6dff6d3384c",
+      "lines": [
+        1503
+      ],
+      "finding": "sessions.create public fields; empty workspace does not start a turn when message/task omitted"
+    },
+    {
+      "path": "node_modules/openclaw/dist/sessions-row-NKWz9YsI.mjs",
+      "sha256": "d22495632c41b359c711c46fa3d95778d63df814044e3627aeb7ef8fb3d88ef0",
+      "lines": [
+        108
+      ],
+      "finding": "skills override is a boolean record, not an array"
+    },
+    {
+      "path": "node_modules/openclaw/dist/sessions-CLLc4meF.mjs",
+      "sha256": "7eeb8e72c6e72fbc400b1296db090eeeea5361b7e3a0ec09dacb10ec7d864a8b",
+      "lines": [
+        2426
+      ],
+      "finding": "chat.send fields, no maxTokens/toolAllow"
+    },
+    {
+      "path": "node_modules/openclaw/dist/embedded-agent-DoEPu8ye.mjs",
+      "sha256": "21a06d87da38b464c600a7447fd79d03be1f376e9e275cf1f1ece297a029cdbb",
+      "lines": [
+        8923,
+        9032
+      ],
+      "finding": "canonical bootstrap workspace survives empty execution worktree"
+    },
+    {
+      "path": "node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs",
+      "sha256": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c",
+      "lines": [
+        171,
+        1710,
+        1742,
+        3918,
+        4295
+      ],
+      "finding": "bootstrap never branch and separate hook context assembly"
+    },
+    {
+      "path": "node_modules/openclaw/dist/extensions/memory-core/index.js",
+      "sha256": "e7c8f538275bc8df8272337f3c95d2e38dd23e9e8a1fdb96422c17f19200a8aa",
+      "lines": [
+        1000
+      ],
+      "finding": "standing intent prompt hook"
+    },
+    {
+      "path": "node_modules/openclaw/dist/standing-intents.worker-DmGG7G9f.mjs",
+      "sha256": "a0ce4c3a516aae793b01616b642447ce5e212ee0cd31b84e2732f7d6d87d6882",
+      "lines": [
+        55
+      ],
+      "finding": "existing intent DB can be read and updated; not invoked here"
+    },
+    {
+      "path": "node_modules/openclaw/dist/config-contracts-DzLaG7FV.d.ts",
+      "sha256": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17",
+      "lines": [
+        8799,
+        8868,
+        8898,
+        9835
+      ],
+      "finding": "public hooks support tool narrowing/blocking, not a guaranteed pre-provider context stop"
+    },
+    {
+      "path": "node_modules/openclaw/dist/hook-policy-decisions-DL3kOjGW.mjs",
+      "sha256": "07bf813a956ac542f444ecd77bafe5f05683d4295701e1f6965090bdb4be8333",
+      "lines": [
+        3
+      ],
+      "finding": "official allowPromptInjection policy, not applied"
+    },
+    {
+      "path": "src/ordinary-plugin.ts",
+      "sha256": "d1b9f34d16e1d3e07698cc50161e8942fc497ecbf2f03ccf9871fb3b9333d0d7",
+      "lines": [
+        38,
+        81,
+        170
+      ],
+      "finding": "original policy completion and native admission preserved"
+    },
+    {
+      "path": "src/openclaw/ordinary-source-admission.ts",
+      "sha256": "f07ec7f56e7725b3bf99a47c9617132a3c395afa7c6440cb159d22d00f3f9a59",
+      "lines": [
+        140,
+        185,
+        223
+      ],
+      "finding": "native request / device grant original checks"
+    },
+    {
+      "path": "src/canghai/source-access.ts",
+      "sha256": "d00cb5c1d3ce2e0cdcdb7a480d72be93bf8f0323434876c9be499f6bb8c84c2d",
+      "lines": [
+        74
+      ],
+      "finding": "existing policy completion token request"
+    }
+  ],
+  "patchSha256": "90ebc364bac2cc5dcb5bcb0152c519dae2be4c3a2e6d234365a6fbe504888e45",
+  "planSha256": "bbfce25b04ae8de7c7966305eda47a8efc55faefadcbcd380e2967d757f5f685",
+  "previousDirtyPreserved": {
+    "path": "PROJECT-STATE.yaml",
+    "sha256": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47"
+  }
+}

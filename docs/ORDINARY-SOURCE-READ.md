@@ -308,3 +308,32 @@ A real authenticated Chrome WebUI tools.invoke returned the configured status, t
 The fixed10.9 native chat.send producer supplies the existing run/recorder/tool facts; no new metadata protocol is currently identified. A single1,002-byte writing fragment from the original grant is selected by metadata, with semi-private policy and unknown role/author. It has not been read or sent. The [scoped plan](../.task-control/reports/CORE-VAL-001/fixed90f-push-native-plan-20261102.json) separates expected three logical completions from unbounded provider retries/billing.
 
 The model test is not execution-ready: ordinary main bootstrap context still needs a synthetic-only projection check, and the existing362-descriptor tool lacks a temporary exact-ref/one-read restriction. A prompt request alone cannot prove either boundary. Preparation must only narrow this test, preserve native identity/admission/policy checks and leave the standing grant unchanged; no model or private payload was used to prepare this plan.
+
+### Single-request boundary candidate and context counterexample
+
+The subsequent [preparation packet](../.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REVIEW-REQUEST.md)
+adds an **unloaded test fixture**, not another production permission or memory
+system. It narrows one native request to one exact Evidence id/version and one
+attempt, including failed attempts, and at most one logical source-policy
+completion through the unchanged official completion method. The ordinary
+device/grant, native admission and source checks remain in place. Synthetic
+boundary tests pass25/25; actual Host integration of this fixture is unverified.
+
+Context exclusion did **not** pass. Fixed10.9 source and synthetic replay show
+that an empty execution worktree still receives the canonical main bootstrap
+workspace. Current `contextInjection: always` can therefore inject USER/MEMORY;
+`never` suppresses that bootstrap resolver but does not suppress memory-core's
+independent standing-intent prompt hook. The latter can consult and update its
+existing intent store even for a new empty-history WebChat request. Plugin
+manifest hook lists are not a complete runtime hook inventory. We did not read
+that store or any bootstrap contents, create a new session, or call a model.
+
+Accordingly, the prior plan's excluded-context list is an unfulfilled test
+requirement, not an observed guarantee. One fresh session would exclude its old
+transcript only after an actual empty-history check; it does not by itself
+exclude canonical USER/MEMORY, personal overlays, active skills, standing
+intents or other prompt contributions. No prompt hook here is advertised as a
+hard pre-provider stop. The packet remains `executionReady: false`: first review
+the fixture and a narrow reversible context-injection configuration for a
+coordinated idle main window, then verify that scope without model calls before
+requesting the one paid/private-fragment test. No such configuration was applied.

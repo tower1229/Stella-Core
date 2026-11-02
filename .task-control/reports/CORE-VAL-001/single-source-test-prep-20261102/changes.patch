@@ -1,0 +1,553 @@
+--- /dev/null
++++ b/scripts/lib/single-source-test-boundary.mjs
+@@ -0,0 +1,118 @@
++import { AsyncLocalStorage } from "node:async_hooks";
++import { createHash } from "node:crypto";
++import { performance } from "node:perf_hooks";
++
++const TOOL = "stella_source_read";
++const text = value => typeof value === "string" && value.length > 0;
++const hash = value => createHash("sha256").update(value).digest("hex");
++function requireValue(value, code) { if (!value) throw new Error(code); }
++function data(value, keys) {
++  requireValue(value && typeof value === "object" && !Array.isArray(value), "test_arguments_invalid");
++  const props = Object.getOwnPropertyDescriptors(value);
++  requireValue(Reflect.ownKeys(props).length === keys.length && keys.every(key =>
++    Object.hasOwn(props, key) && Object.hasOwn(props[key], "value")), "test_arguments_invalid");
++  return Object.fromEntries(keys.map(key => [key, props[key].value]));
++}
++
++/** Additional restriction for ONE native test request; never a grant or source
++ * admission. All original Core/Host checks still execute inside the callback.
++ * No source I/O, persistence, model client or session creation lives here. */
++export function createSingleSourceTestBoundary(seed, { now = () => performance.now() } = {}) {
++  const s = data(seed, ["agentId", "sessionKey", "sessionId", "requestSha256", "ref"]);
++  const ref = data(s.ref, ["id", "version"]);
++  requireValue(s.agentId === "main" && text(s.sessionKey) && text(s.sessionId) &&
++    /^[a-f0-9]{64}$/.test(s.requestSha256) && text(ref.id) &&
++    /^sha256:[a-f0-9]{64}$/.test(ref.version), "test_seed_invalid");
++  const identity = Object.freeze({ agentId: s.agentId, sessionKey: s.sessionKey, sessionId: s.sessionId });
++  const chosen = Object.freeze({ id: ref.id, version: ref.version });
++  const policyScope = new AsyncLocalStorage();
++  let turn, ticket, closed = false, executions = 0, policies = 0, denials = 0;
++  const matches = ctx => ctx?.agentId === identity.agentId && ctx?.sessionKey === identity.sessionKey && ctx?.sessionId === identity.sessionId;
++  // Either stable session coordinate marks the target, so mismatches cannot
++  // turn a target invocation into an unrestricted ordinary invocation.
++  const target = ctx => ctx?.sessionKey === identity.sessionKey || ctx?.sessionId === identity.sessionId;
++  const close = () => { closed = true; turn?.signal.removeEventListener("abort", close); };
++  const current = () => {
++    requireValue(!closed && turn && !turn.signal.aborted && now() < turn.deadline, "test_request_inactive");
++  };
++  const argumentsForRead = params => {
++    const p = data(params, ["action", "ref"]), r = data(p.ref, ["id", "version"]);
++    requireValue(p.action === "read" && r.id === chosen.id && r.version === chosen.version, "test_exact_fragment_required");
++    return { action: "read", ref: { ...chosen } };
++  };
++  const reject = error => { denials++; return { block: true, blockReason: error.message }; };
++  return {
++    observeDispatch(event, ctx) {
++      if (event.sessionKey !== identity.sessionKey && event.ctx?.SessionKey !== identity.sessionKey) return;
++      try {
++        const raw = event.ctx?.rawText, runId = event.runId, signal = ctx.abortSignal;
++        requireValue(!closed && !turn && event.sessionKey === identity.sessionKey &&
++          event.ctx?.SessionKey === identity.sessionKey && event.ctx?.AgentId === identity.agentId &&
++          ctx.dispatchKind === "agent" && event.ctx?.ChatType === "direct" && event.ctx?.InternalTurnSource === undefined &&
++          text(runId) && typeof raw === "string" && hash(raw) === s.requestSha256 &&
++          signal && !signal.aborted, "test_native_request_mismatch");
++        turn = { runId, signal, deadline: now() + 90_000 };
++        signal.addEventListener("abort", close, { once: true });
++      } catch { close(); }
++    },
++    beforePrompt(_event, ctx) {
++      if (!target(ctx)) return;
++      // This is only tool narrowing. It does NOT claim to remove history,
++      // bootstrap, other prompt hooks, or prevent an initial paid model call.
++      try { current(); requireValue(matches(ctx) && ctx.runId === turn.runId, "test_prompt_identity_mismatch"); }
++      catch { close(); return { toolsAllow: [] }; }
++      return { toolsAllow: [TOOL] };
++    },
++    beforeTool(event, ctx) {
++      if (!target(ctx) && !(turn && ctx?.runId === turn.runId)) return;
++      try {
++        current();
++        requireValue(matches(ctx) && ctx.runId === turn.runId && event.runId === turn.runId &&
++          text(ctx.toolCallId) && event.toolCallId === ctx.toolCallId && !ctx.abortSignal?.aborted,
++        "test_tool_identity_mismatch");
++        requireValue(event.toolName === TOOL && ctx.toolName === TOOL, "test_other_tool_forbidden");
++        const params = argumentsForRead(event.params);
++        requireValue(!ticket && executions === 0, "test_read_limit");
++        ticket = { callId: ctx.toolCallId, signal: ctx.abortSignal };
++        return { params };
++      } catch (error) { return reject(error); }
++    },
++    wrapTool(tool, ctx) {
++      if (!target(ctx)) return tool;
++      const original = tool.execute.bind(tool);
++      const guard = typeof ctx.assertInvocationCurrent === "function" ? ctx.assertInvocationCurrent.bind(ctx) : null;
++      const snapshot = { agentId: ctx.agentId, sessionKey: ctx.sessionKey, sessionId: ctx.sessionId };
++      return { ...tool, async execute(callId, params, signal, ...rest) {
++        current();
++        requireValue(matches(snapshot) && matches(ctx) && guard, "test_factory_identity_mismatch");
++        guard(); signal?.throwIfAborted(); ticket?.signal?.throwIfAborted();
++        requireValue(tool.name === TOOL && ticket?.callId === callId && executions === 0, "test_unadmitted_or_repeated_execute");
++        const exact = argumentsForRead(params);
++        executions++; // Consume synchronously, including failed/cancelled attempts.
++        const scope = { active: true, check: () => {
++          current(); requireValue(matches(ctx), "test_factory_identity_mismatch");
++          guard(); signal?.throwIfAborted(); ticket.signal?.throwIfAborted();
++        } };
++        try {
++          const value = await policyScope.run(scope, () => original(callId, exact, signal, ...rest));
++          scope.check(); return value;
++        }
++        finally { scope.active = false; }
++      } };
++    },
++    async complete(params, originalComplete) {
++      const scope = policyScope.getStore();
++      // Other ordinary requests keep their original behavior; never borrow
++      // this test's quota or qualification across an async continuation.
++      if (!scope) return originalComplete(params);
++      requireValue(scope.active, "test_policy_outside_execution"); scope.check();
++      requireValue(policies === 0 && Number.isSafeInteger(params.maxTokens) && params.maxTokens > 0 && params.maxTokens <= 8192, "test_policy_limit");
++      policies++;
++      const result = await originalComplete(params); scope.check(); return result;
++    },
++    end(event, ctx) {
++      if (target(ctx) || turn && event.runId === turn.runId) close();
++    },
++    summary() { return { requestObserved: Boolean(turn), closed, executions, policyCompletions: policies, denials }; },
++  };
++}
+--- /dev/null
++++ b/scripts/lib/single-source-test-boundary.test.mjs
+@@ -0,0 +1,177 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { createHash } from "node:crypto";
++import { createSingleSourceTestBoundary } from "./single-source-test-boundary.mjs";
++import { createSingleSourceNativeEntry } from "../fixtures/single-source-native-entry.mjs";
++
++const request = "Read the fictional city's walking note. Do not infer a real person's history.";
++const seed = () => ({ agentId: "main", sessionKey: "agent:main:test-only", sessionId: "synthetic-session",
++  requestSha256: createHash("sha256").update(request).digest("hex"), ref: { id: "synthetic-evidence", version: `sha256:${"a".repeat(64)}` } });
++const params = () => ({ action: "read", ref: { ...seed().ref } });
++function fixture(options) {
++  const abort = new AbortController(), gate = createSingleSourceTestBoundary(seed(), options);
++  const ctx = { agentId: "main", sessionKey: seed().sessionKey, sessionId: seed().sessionId,
++    runId: "synthetic-run", toolName: "stella_source_read", toolCallId: "synthetic-call", abortSignal: abort.signal,
++    assertInvocationCurrent() { abort.signal.throwIfAborted(); } };
++  const event = { toolName: ctx.toolName, toolCallId: ctx.toolCallId, runId: ctx.runId, params: params() };
++  const dispatch = { runId: ctx.runId, sessionKey: ctx.sessionKey, ctx: {
++    AgentId: "main", SessionKey: ctx.sessionKey, ChatType: "direct", rawText: request } };
++  const dispatchContext = { dispatchKind: "agent", abortSignal: abort.signal };
++  return { gate, ctx, event, dispatch, dispatchContext, abort,
++    start() { gate.observeDispatch(dispatch, dispatchContext); },
++    tool(execute) { return gate.wrapTool({ name: ctx.toolName, execute }, ctx); } };
++}
++const allowed = f => assert.deepEqual(f.gate.beforeTool(f.event, f.ctx), { params: params() });
++
++test("one admitted exact read and one original policy completion; no identity/grant manufactured", async () => {
++  const f = fixture(); f.start(); allowed(f);
++  let reads = 0, policies = 0;
++  const result = await f.tool(async () => {
++    const verdict = await f.gate.complete({ maxTokens: 8192 }, async () => { policies++; return { text: "synthetic-policy" }; });
++    reads++; return verdict;
++  }).execute(f.ctx.toolCallId, params());
++  assert.deepEqual(result, { text: "synthetic-policy" });
++  assert.equal(reads, 1); assert.equal(policies, 1);
++  assert.deepEqual(f.gate.summary(), { requestObserved: true, closed: false, executions: 1, policyCompletions: 1, denials: 0 });
++});
++
++for (const [name, change] of [
++  ["wrong evidence", p => { p.ref.id = "other"; }],
++  ["wrong version", p => { p.ref.version = `sha256:${"b".repeat(64)}`; }],
++  ["list", p => { p.action = "list"; }],
++  ["extra outer field", p => { p.root = "/private"; }],
++  ["extra ref field", p => { p.ref.body = "synthetic"; }],
++  ["accessor arguments", p => Object.defineProperty(p.ref, "id", { get: () => seed().ref.id })],
++]) test(name + " denied before execution", async () => {
++  const f = fixture(); f.start(); change(f.event.params);
++  assert.equal(f.gate.beforeTool(f.event, f.ctx).block, true);
++  let reads = 0;
++  await assert.rejects(f.tool(async () => ++reads).execute(f.ctx.toolCallId, f.event.params));
++  assert.equal(reads, 0);
++});
++
++test("other tools blocked and prompt tools narrowed only for target", () => {
++  const f = fixture(); f.start();
++  assert.deepEqual(f.gate.beforePrompt({}, f.ctx), { toolsAllow: ["stella_source_read"] });
++  assert.equal(f.gate.beforeTool({ ...f.event, toolName: "read" }, { ...f.ctx, toolName: "read" }).block, true);
++  assert.equal(f.gate.beforePrompt({}, { sessionKey: "other" }), undefined);
++});
++
++test("direct execute cannot bypass before-tool admission; guard remains original", async () => {
++  const f = fixture(); f.start(); let calls = 0;
++  const wrapped = f.tool(async () => ++calls);
++  await assert.rejects(wrapped.execute(f.ctx.toolCallId, params()), /unadmitted/);
++  allowed(f); f.abort.abort(); f.ctx.assertInvocationCurrent = () => {};
++  await assert.rejects(wrapped.execute(f.ctx.toolCallId, params())); assert.equal(calls, 0);
++});
++
++test("concurrent execute and second hook consume no second read", async () => {
++  const f = fixture(); f.start(); allowed(f); let release, reads = 0;
++  const barrier = new Promise(resolve => { release = resolve; });
++  const tool = f.tool(async () => { reads++; await barrier; return "first"; });
++  const first = tool.execute(f.ctx.toolCallId, params());
++  await assert.rejects(tool.execute(f.ctx.toolCallId, params()), /repeated/);
++  assert.equal(f.gate.beforeTool({ ...f.event, toolCallId: "second" }, { ...f.ctx, toolCallId: "second" }).block, true);
++  release(); assert.equal(await first, "first"); assert.equal(reads, 1);
++});
++
++test("failed original permission check consumes attempt; no fallback or retry", async () => {
++  const f = fixture(); f.start(); allowed(f); let calls = 0;
++  const tool = f.tool(async () => { calls++; throw new Error("original_grant_denied"); });
++  await assert.rejects(tool.execute(f.ctx.toolCallId, params()), /original_grant_denied/);
++  await assert.rejects(tool.execute(f.ctx.toolCallId, params()), /repeated/); assert.equal(calls, 1);
++});
++
++for (const field of ["runId", "sessionId", "sessionKey", "agentId", "toolCallId"]) test(`conflicting ${field} rejected`, () => {
++  const f = fixture(); f.start();
++  assert.equal(f.gate.beforeTool(f.event, { ...f.ctx, [field]: "conflict" }).block, true);
++});
++
++test("absent native dispatch and changed request do not acquire admission", () => {
++  const f = fixture(); assert.equal(f.gate.beforeTool(f.event, f.ctx).block, true);
++  f.dispatch.ctx.rawText += " different"; f.start();
++  assert.equal(f.gate.beforeTool(f.event, f.ctx).block, true); assert.equal(f.gate.summary().requestObserved, false);
++});
++
++test("same session new request cannot reuse old qualification", () => {
++  const f = fixture(); f.start();
++  f.gate.observeDispatch({ ...f.dispatch, runId: "next-run" }, f.dispatchContext);
++  assert.equal(f.gate.beforeTool(f.event, f.ctx).block, true);
++});
++
++test("cancel, end and delayed timer deadline deny further execution", async () => {
++  for (const mode of ["cancel", "end", "deadline"]) {
++    let clock = 0; const f = fixture({ now: () => clock }); f.start(); allowed(f); let calls = 0;
++    if (mode === "cancel") f.abort.abort();
++    if (mode === "end") f.gate.end({ runId: f.ctx.runId }, f.ctx);
++    if (mode === "deadline") clock = 90_000;
++    await assert.rejects(f.tool(async () => ++calls).execute(f.ctx.toolCallId, params())); assert.equal(calls, 0);
++  }
++});
++
++test("factory mutation and execute-time argument mutation rejected", async () => {
++  const f = fixture(); f.start(); allowed(f); let calls = 0; const tool = f.tool(async () => ++calls);
++  const wrong = params(); wrong.ref.id = "other";
++  await assert.rejects(tool.execute(f.ctx.toolCallId, wrong));
++  f.ctx.sessionId = "changed"; await assert.rejects(tool.execute(f.ctx.toolCallId, params())); assert.equal(calls, 0);
++});
++
++test("second policy completion rejected; other async request retains original behavior", async () => {
++  const f = fixture(); f.start(); allowed(f); let calls = 0;
++  const original = async () => { calls++; return "verdict"; };
++  await f.tool(async () => {
++    await f.gate.complete({ maxTokens: 8192 }, original);
++    await assert.rejects(f.gate.complete({ maxTokens: 8192 }, original), /policy_limit/);
++  }).execute(f.ctx.toolCallId, params());
++  assert.equal(calls, 1);
++  await f.gate.complete({ maxTokens: 8192 }, original); assert.equal(calls, 2);
++});
++
++test("other sessions, unbound status and end events unaffected", async () => {
++  const f = fixture();
++  assert.equal(f.gate.beforeTool({ toolName: "stella_status" }, { toolName: "stella_status" }), undefined);
++  f.gate.end({}, {}); assert.equal(f.gate.summary().closed, false);
++  const tool = { name: "stella_source_read", execute: async () => "other" };
++  assert.equal(f.gate.wrapTool(tool, { sessionKey: "other", sessionId: "other" }), tool);
++});
++
++test("return-boundary cancellation and identity mutation cannot pass as success", async () => {
++  for (const change of [f => f.abort.abort(), f => { f.ctx.sessionId = "changed"; }]) {
++    const f = fixture(); f.start(); allowed(f);
++    await assert.rejects(f.tool(async () => { change(f); return "not-deliverable"; }).execute(f.ctx.toolCallId, params()));
++  }
++});
++
++test("invalid policy token limits and delayed out-of-scope completion never call model port", async () => {
++  const f = fixture(); f.start(); allowed(f); let calls = 0, late;
++  await f.tool(async () => {
++    for (const maxTokens of [0, -1, 8193, NaN, "8192"]) {
++      await assert.rejects(f.gate.complete({ maxTokens }, async () => ++calls), /policy_limit/);
++    }
++    late = new Promise(resolve => setImmediate(() => resolve(assert.rejects(
++      f.gate.complete({ maxTokens: 8192 }, async () => ++calls), /outside_execution/))));
++  }).execute(f.ctx.toolCallId, params());
++  await late; assert.equal(calls, 0);
++});
++
++test("thin entry retains native completion and original registration; no admission injection", async () => {
++  const handlers = new Map(); let factory, observedOptions, originalCalls = 0, reads = 0;
++  const f = fixture();
++  const ordinary = {
++    createSourcePolicyCompletion(api, agent) { assert.equal(api.tag, "original-api"); assert.equal(agent, "main"); return async () => { originalCalls++; return "verdict"; }; },
++    createOrdinaryPlugin(options) {
++      observedOptions = options;
++      return { register(api) { api.registerTool({ contextVersion: 2, create() { return [{ name: "stella_source_read", async execute() {
++        await options.completeSourceAccess({ maxTokens: 8192 }); reads++; return "synthetic-read";
++      } }]; } }, { names: ["stella_source_read"] }); } };
++    },
++  };
++  createSingleSourceNativeEntry(ordinary, seed()).register({ tag: "original-api", registerTool(value) { factory = value; },
++    on(name, handler) { handlers.set(name, handler); } });
++  assert.deepEqual(Object.keys(observedOptions), ["completeSourceAccess"]);
++  handlers.get("reply_dispatch")(f.dispatch, f.dispatchContext);
++  assert.equal(handlers.get("before_tool_call")(f.event, f.ctx).block, undefined);
++  const [tool] = factory.create(f.ctx);
++  assert.equal(await tool.execute(f.ctx.toolCallId, params()), "synthetic-read");
++  assert.equal(originalCalls, 1); assert.equal(reads, 1);
++});
+--- /dev/null
++++ b/scripts/fixtures/single-source-native-entry.mjs
+@@ -0,0 +1,36 @@
++import { createSingleSourceTestBoundary } from "../lib/single-source-test-boundary.mjs";
++
++/** Unloaded test entry factory. The caller must provide the unchanged reviewed
++ * ordinary module and a private seed, after context isolation and independent
++ * review. No defaults, private-file loader, Gateway call, or model invocation.
++ * The seed is a restriction, never authorization or a substitute for native
++ * reply_dispatch / v2 invocation / authenticated Gateway facts. */
++export function createSingleSourceNativeEntry(ordinary, seed, onBoundary = () => {}) {
++  const boundary = createSingleSourceTestBoundary(seed);
++  return {
++    id: "stella-core",
++    name: "Stella Core",
++    register(api) {
++      const complete = ordinary.createSourcePolicyCompletion(api, "main");
++      const entry = ordinary.createOrdinaryPlugin({
++        completeSourceAccess: params => boundary.complete(params, complete),
++      });
++      const wrappedApi = Object.create(api);
++      Object.defineProperty(wrappedApi, "registerTool", { value(factory, options) {
++        if (factory.contextVersion !== 2 || typeof factory.create !== "function") throw new Error("test_tool_factory_changed");
++        return api.registerTool({ ...factory, create(ctx) {
++          const tools = factory.create(ctx);
++          if (tools === null || tools === undefined) return tools;
++          if (!Array.isArray(tools)) throw new Error("test_tool_factory_shape_changed");
++          return tools.map(tool => boundary.wrapTool(tool, ctx));
++        } }, options);
++      } });
++      entry.register(wrappedApi);
++      api.on("reply_dispatch", (event, ctx) => boundary.observeDispatch(event, ctx));
++      api.on("before_prompt_build", (event, ctx) => boundary.beforePrompt(event, ctx));
++      api.on("before_tool_call", (event, ctx) => boundary.beforeTool(event, ctx));
++      api.on("agent_end", (event, ctx) => boundary.end(event, ctx));
++      onBoundary(() => boundary.summary()); // Counters only; no body/ref/identity.
++    },
++  };
++}
+--- a/docs/ORDINARY-SOURCE-READ.md
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -308,3 +308,32 @@
+ The fixed10.9 native chat.send producer supplies the existing run/recorder/tool facts; no new metadata protocol is currently identified. A single1,002-byte writing fragment from the original grant is selected by metadata, with semi-private policy and unknown role/author. It has not been read or sent. The [scoped plan](../.task-control/reports/CORE-VAL-001/fixed90f-push-native-plan-20261102.json) separates expected three logical completions from unbounded provider retries/billing.
+ 
+ The model test is not execution-ready: ordinary main bootstrap context still needs a synthetic-only projection check, and the existing362-descriptor tool lacks a temporary exact-ref/one-read restriction. A prompt request alone cannot prove either boundary. Preparation must only narrow this test, preserve native identity/admission/policy checks and leave the standing grant unchanged; no model or private payload was used to prepare this plan.
++
++### Single-request boundary candidate and context counterexample
++
++The subsequent [preparation packet](../.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REVIEW-REQUEST.md)
++adds an **unloaded test fixture**, not another production permission or memory
++system. It narrows one native request to one exact Evidence id/version and one
++attempt, including failed attempts, and at most one logical source-policy
++completion through the unchanged official completion method. The ordinary
++device/grant, native admission and source checks remain in place. Synthetic
++boundary tests pass25/25; actual Host integration of this fixture is unverified.
++
++Context exclusion did **not** pass. Fixed10.9 source and synthetic replay show
++that an empty execution worktree still receives the canonical main bootstrap
++workspace. Current `contextInjection: always` can therefore inject USER/MEMORY;
++`never` suppresses that bootstrap resolver but does not suppress memory-core's
++independent standing-intent prompt hook. The latter can consult and update its
++existing intent store even for a new empty-history WebChat request. Plugin
++manifest hook lists are not a complete runtime hook inventory. We did not read
++that store or any bootstrap contents, create a new session, or call a model.
++
++Accordingly, the prior plan's excluded-context list is an unfulfilled test
++requirement, not an observed guarantee. One fresh session would exclude its old
++transcript only after an actual empty-history check; it does not by itself
++exclude canonical USER/MEMORY, personal overlays, active skills, standing
++intents or other prompt contributions. No prompt hook here is advertised as a
++hard pre-provider stop. The packet remains `executionReady: false`: first review
++the fixture and a narrow reversible context-injection configuration for a
++coordinated idle main window, then verify that scope without model calls before
++requesting the one paid/private-fragment test. No such configuration was applied.
+--- /dev/null
++++ b/.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.mjs
+@@ -0,0 +1,64 @@
++// Fixed local OpenClaw 2026.10.9 source replay. Synthetic collaborators only;
++// never import the Host runtime, read a user workspace/database, or send a call.
++import { readFile } from "node:fs/promises";
++import { createHash } from "node:crypto";
++import vm from "node:vm";
++import assert from "node:assert/strict";
++const root = new URL("../../../../", import.meta.url);
++const pins = {
++  "attempt-system-prompt-prepare-ChKsbjSh.mjs": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c",
++  "embedded-agent-DoEPu8ye.mjs": "21a06d87da38b464c600a7447fd79d03be1f376e9e275cf1f1ece297a029cdbb",
++  "extensions/memory-core/index.js": "e7c8f538275bc8df8272337f3c95d2e38dd23e9e8a1fdb96422c17f19200a8aa",
++};
++const sources = {};
++for (const [file, pin] of Object.entries(pins)) {
++  const bytes = await readFile(new URL(`node_modules/openclaw/dist/${file}`, root));
++  assert.equal(createHash("sha256").update(bytes).digest("hex"), pin);
++  sources[file] = bytes.toString("utf8");
++}
++const bootstrapSource = sources[Object.keys(pins)[0]];
++const a = bootstrapSource.indexOf("async function resolveAttemptBootstrapContext(params) {");
++const b = bootstrapSource.indexOf("\n/**", a);
++assert.ok(a > 0 && b > a);
++const resolve = vm.runInNewContext(`(${bootstrapSource.slice(a, b).trim()})`, {
++  isHeartbeatLifecycleRunKind: () => false,
++  isUnreadableWorkspaceBootstrapFile: () => false,
++}, { timeout: 1000 });
++const outcomes = [];
++for (const mode of ["always", "never"]) {
++  let reads = 0;
++  const value = await resolve({ contextInjectionMode: mode, bootstrapMode: "full", bootstrapContextRunKind: "default",
++    deliversCompleteWorkspaceContext: true, hasCompletedBootstrapTurn: async () => false,
++    resolveBootstrapContextForRun: async () => { reads++; return {
++      bootstrapFiles: [{ name: "USER.md", content: "SYNTHETIC USER" }, { name: "MEMORY.md", content: "SYNTHETIC MEMORY" }],
++      contextFiles: [{ path: "synthetic-canonical-workspace" }],
++    }; } });
++  assert.equal(reads, mode === "always" ? 1 : 0);
++  assert.equal(value.bootstrapFiles.length, mode === "always" ? 2 : 0);
++  outcomes.push({ case: `official bootstrap ${mode}`, pass: true, resolverCalls: reads, files: value.bootstrapFiles.length });
++}
++assert.ok(sources["embedded-agent-DoEPu8ye.mjs"].includes("bootstrapWorkspaceDir: canonicalWorkspace"));
++assert.ok(bootstrapSource.includes("const bootstrapWorkspaceDir = attempt.bootstrapWorkspaceDir ?? params.setup.resolvedWorkspace;"));
++outcomes.push({ case: "empty execution workspace does not replace canonical bootstrap workspace", pass: true, kind: "static callsite" });
++const memory = sources["extensions/memory-core/index.js"];
++const start = memory.indexOf('api.on("before_prompt_build", ');
++const end = memory.indexOf('\n\t\tapi.on("before_agent_reply"', start);
++assert.ok(start > 0 && end > start);
++let handler, matched = 0;
++vm.runInNewContext(memory.slice(start, end), {
++  api: { on(name, fn) { assert.equal(name, "before_prompt_build"); handler = fn; }, runtime: { config: { current: () => ({}) } }, logger: {} },
++  resolveSessionAgentIdStrict: () => "main",
++  loadStandingIntentsModule: async () => ({
++    isEligibleStandingIntentTurn: () => true,
++    matchStandingIntents: async () => { matched++; return [{ text: "SYNTHETIC STANDING INTENT" }]; },
++    buildStandingIntentContext: () => "SYNTHETIC STANDING INTENT",
++  }),
++}, { timeout: 1000 });
++const hookResult = await handler({ prompt: "synthetic question", messages: [] }, {
++  trigger: "user", sessionKey: "agent:main:brand-new-synthetic", hookInvocation: { assertActive() {} },
++});
++assert.equal(matched, 1); assert.equal(hookResult.prependContext, "SYNTHETIC STANDING INTENT");
++outcomes.push({ case: "new empty-history user turn still invokes standing-intent prompt hook", pass: true, matcherCalls: matched });
++process.stdout.write(JSON.stringify({ sdk: "2026.10.9", pins, outcomes, total: 4, pass: 4,
++  liveHostExecuted: false, realWorkspaceOrDatabaseRead: false, providerCalls: 0,
++  conclusion: "Current empty-worktree proposal does not prove USER/MEMORY or standing-intent exclusion." }, null, 2) + "\n");
+--- /dev/null
++++ b/.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REVIEW-REQUEST.md
+@@ -0,0 +1,108 @@
++# Single-request source test preparation — not execution-ready
++
++This packet prepares the existing fixed90f/97-source/362-descriptor ordinary
++plugin for one native request. It does not run it. Parent-requested no-model
++preparation is the only scope; no new grant, source body, account, listener,
++session, Host load, config change, model call or push occurred.
++
++## Reviewable change
++
++- `scripts/lib/single-source-test-boundary.mjs`: exact session incarnation and
++  native run/call/request-hash restriction; exact Evidence id/version; one
++  source-tool execution attempt including failures; one logical source-policy
++  completion with requested maxTokens at most8192. Synchronous consumption
++  closes concurrent/repeated-call gaps. Original factory guard is captured;
++  cancellation and return-boundary identity checks remain. The ninety-second
++  check rejects further test actions; it is **not** a provider hard-kill or cost
++  ceiling.
++- `scripts/fixtures/single-source-native-entry.mjs`: unloaded thin entry over
++  the unchanged ordinary module. It passes through the original factory and
++  official `createSourcePolicyCompletion`; it supplies no admission, identity
++  or policy verdict. No private seed or automatic file loader is included.
++- `scripts/lib/single-source-test-boundary.test.mjs`:25/25 synthetic cases.
++  Original Core and actual Host checks remain separately accepted/unverified
++  according to their existing evidence; mocks do not prove real grant access.
++- `official-context-replay.mjs`: fixed local10.9 source replay, with synthetic
++  functions replacing workspace and intent storage. Three runtime assertions
++  plus one static callsite assertion pass4/4, separately from25/25. Its first run
++  had an incorrect relative repository path (ENOENT, before replay); preserved
++  as `official-context-replay-r0-path-error.*`, then corrected. No permissions
++  denial or source failure is attributed to that script error.
++
++## Context result and exact unresolved action
++
++**Blocked action:** submit the proposed native `chat.send` with the claim that
++only selected test data reaches Gemini. **Reason:** that claim is false for the
++current config; no model approval has been requested or granted for extra data.
++No action was denied by a tool in this packet. The paid action is not attempted.
++
++Official `embedded-agent-DoEPu8ye.mjs:8923/9032` passes the canonical main
++workspace separately from the empty execution worktree.
++`attempt-system-prompt-prepare-ChKsbjSh.mjs:171/1710/1742` uses it for bootstrap.
++The actual effective context setting observed read-only is `always`. The
++synthetic replay proves the resolver runs; `never` skips it. It does not prove
++which real files exist or their contents; those were not read.
++
++Separately `extensions/memory-core/index.js:1000` registers a user-turn
++`before_prompt_build` standing-intent hook. A fresh empty-history turn invokes
++it in replay. The official worker at
++`standing-intents.worker-DmGG7G9f.mjs:55` can query and update existing intent
++records. Context injection and empty history do not turn this hook off.
++Public plugin inspect declared/component hook arrays were empty for memory-core
++and timeline, yet the memory-core source registers this hook; those arrays
++cannot certify absence of runtime injections. Other prompt contributors are
++not proven absent. No actual intent database or private bootstrap was inspected.
++
++If run unchanged, potential additional input categories are canonical
++USER/MEMORY/other bootstrap files, a personal USER overlay when applicable,
++active skill instructions, standing-intent text and other registered prompt
++contributions. An existing session could also contribute history. This is a
++source-based possible input inventory, **not an actual captured prompt**.
++
++The minimal next configuration candidate is main-specific
++`contextInjection: never` plus explicitly suppressing applicable prompt
++injections for the short test window using the official plugin
++`hooks.allowPromptInjection` policy. That policy affects a plugin's registered
++prompt hooks across sessions, so it must be reviewed against the current plugin
++inventory and applied only in a coordinated idle window with exact rollback.
++Fresh incognito/empty-worktree session and explicit disabled skill overrides
++then require an actual no-model empty-history/context check. This packet does
++not apply these changes or assume suppressing memory-core alone is sufficient.
++Do not use a prompt instruction, thrown hook error, late llm_input observation,
++modelRun flag or fabricated run/recorder as a substitute.
++
++## Next native test, once these prerequisites and approval are real
++
++`PLAN.json` records the official RPC fields and bindings. One fresh main session,
++no parent/fork/task/message/attachments/project, low thinking, no model override;
++exact returned session incarnation goes into a private seed with the previously
++selected Evidence ref and exact request hash. The factory stays unloaded until
++review. The existing real browser/operator/device must still satisfy the
++original grant. Only then one `chat.send`, no retry on failure/unknown,90-second
++request timeout, publisher off; preserve actual result and restore the normal
++artifact/config. Do not read private source bytes to prepare that seed.
++
++Expected flow is first Agent completion, one source applicability completion,
++then an answer completion. Only the local source-policy port has a one-logical-
++call limit. Agent turns, provider physical retries, total tokens/reasoning and
++dollars have no established hard cap. The source-policy request asks maxTokens
++8192; requested answer length300 Chinese characters is not a token hard cap.
++The proposed material is one1002-byte **semi-private** writing fragment, unknown
++author/role. No body sensitivity review has happened. It is not finance or a
++public/synthetic fragment. Additional context must be excluded before presenting
++this as the narrow approval request.
++
++## Evidence and unchanged state
++
++Use `REPORT.json`, `PLAN.json`, `MANIFEST.json` and `changes.patch`. The manifest
++binds all review members; the state file is a separate revision130 coordination
++update, not a source input or a self-hashing acceptance record. Current normal
++main binding and prior generation11 observation are retained; this packet does
++not perform another health probe or claim a new generation. Private selected
++ref/seed and rollback configurations are excluded.
++
++Parent's independent remote6bc CI result is preserved accurately: both runs
++41425072886/41425072861 fail,1842/1816/26, normalized old26 unchanged, eight new
++device/grant cases pass. Check/schema pass. CI SDK10.8 does not verify installed
++Mac10.9; prepare blocked installed/fresh-install and probes; verify lacks
++prepared.json. No full-memory or overall-green claim.

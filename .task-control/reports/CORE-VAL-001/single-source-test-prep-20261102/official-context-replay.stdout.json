@@ -1,0 +1,38 @@
+{
+  "sdk": "2026.10.9",
+  "pins": {
+    "attempt-system-prompt-prepare-ChKsbjSh.mjs": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c",
+    "embedded-agent-DoEPu8ye.mjs": "21a06d87da38b464c600a7447fd79d03be1f376e9e275cf1f1ece297a029cdbb",
+    "extensions/memory-core/index.js": "e7c8f538275bc8df8272337f3c95d2e38dd23e9e8a1fdb96422c17f19200a8aa"
+  },
+  "outcomes": [
+    {
+      "case": "official bootstrap always",
+      "pass": true,
+      "resolverCalls": 1,
+      "files": 2
+    },
+    {
+      "case": "official bootstrap never",
+      "pass": true,
+      "resolverCalls": 0,
+      "files": 0
+    },
+    {
+      "case": "empty execution workspace does not replace canonical bootstrap workspace",
+      "pass": true,
+      "kind": "static callsite"
+    },
+    {
+      "case": "new empty-history user turn still invokes standing-intent prompt hook",
+      "pass": true,
+      "matcherCalls": 1
+    }
+  ],
+  "total": 4,
+  "pass": 4,
+  "liveHostExecuted": false,
+  "realWorkspaceOrDatabaseRead": false,
+  "providerCalls": 0,
+  "conclusion": "Current empty-worktree proposal does not prove USER/MEMORY or standing-intent exclusion."
+}

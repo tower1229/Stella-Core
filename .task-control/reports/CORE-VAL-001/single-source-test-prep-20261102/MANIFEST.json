@@ -1,0 +1,91 @@
+{
+  "baseHead": "117c5229161f1b1a198b800117e1b428d4b6339e",
+  "stateExcluded": "state revision130 tracked separately to avoid circular hashes",
+  "members": [
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/PLAN.json",
+      "sha256": "bbfce25b04ae8de7c7966305eda47a8efc55faefadcbcd380e2967d757f5f685",
+      "bytes": 4294
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REPORT.json",
+      "sha256": "f26d2cd412ada3784b2db97468f730340311f8160b247d2541d8e0b76b52ad67",
+      "bytes": 7799
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REVIEW-REQUEST.md",
+      "sha256": "cc2ee261076b42921683cd8deac11196ea8038a08ea39944ffc2d49fec93a522",
+      "bytes": 6773
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/boundary-tests.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/boundary-tests.stdout.txt",
+      "sha256": "4291ec687d260d3e1dccdb4e294cf98fc75eb2b71cf22a515e625e0336d8af38",
+      "bytes": 4590
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/changes.patch",
+      "sha256": "90ebc364bac2cc5dcb5bcb0152c519dae2be4c3a2e6d234365a6fbe504888e45",
+      "bytes": 34252
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/REVIEW-REQUEST.md",
+      "sha256": "cc2ee261076b42921683cd8deac11196ea8038a08ea39944ffc2d49fec93a522",
+      "bytes": 6773
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/.task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.mjs",
+      "sha256": "72e711ea8787552c475449b8892c111f11194ac79008281240208d2c85549ee0",
+      "bytes": 4088
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/docs/ORDINARY-SOURCE-READ.md",
+      "sha256": "0e5d298ebf00606f2851f42feac0d52ad20cc518b35e0eaca702f39b13e2dd58",
+      "bytes": 24898
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/scripts/fixtures/single-source-native-entry.mjs",
+      "sha256": "731bde23f2fa56eb177ac45b30b42043314913fa67ebec503bc395fc06572dae",
+      "bytes": 1988
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/scripts/lib/single-source-test-boundary.mjs",
+      "sha256": "6a616e33961ed24a6f5c6306577469e52103c1e0349775ee56efa479003f0710",
+      "bytes": 7075
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/frozen/scripts/lib/single-source-test-boundary.test.mjs",
+      "sha256": "2e7c19cb567415d51ae7401c7ce7ba9a18e4c81e68a6a0fb8c3d530d01bc7d66",
+      "bytes": 10278
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay-r0-path-error.stderr.txt",
+      "sha256": "a96d2d8f6312c9c0c5424c48403301ab4a801bfda26844ede0331575bc312f0d",
+      "bytes": 732
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay-r0-path-error.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.mjs",
+      "sha256": "72e711ea8787552c475449b8892c111f11194ac79008281240208d2c85549ee0",
+      "bytes": 4088
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".task-control/reports/CORE-VAL-001/single-source-test-prep-20261102/official-context-replay.stdout.json",
+      "sha256": "fffd4caf0f3a11364261ba2c39211e400c678e84384827fb4350d2a4941ea0b5",
+      "bytes": 1151
+    }
+  ]
+}
