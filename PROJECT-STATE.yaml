@@ -743,3 +743,12 @@ ordinary_source_old_main_consumer_check_20261102:
   timeline_canonical_memory_root: current_workspace_memory_not_old_worktree
   entire_machine_or_remote_consumers_excluded: false
   host_mutations_models_and_canghai_changes: zero
+
+# 2026-11-02 persistent checkpoints retained; current consumer scope accepted.
+ordinary_source_checkpoint_window_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/old-main-checkpoint-window-20261102.json
+  old_main_checkpoint_revision: 644eafa63db75231fabc376129d56c02835cef8f
+  migration_checkpoint_revision: 112be540a3988af53d1076a38f8f1c155da7a745
+  checkpoint_files_changed: false
+  current_scoped_host_consumer_check: accepted_by_parent
+  gateway_stop_or_restart_for_window: not_performed_or_required_by_verified_dependency

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 117,
-  "updatedAt": "2026-11-02T07:46:45.518064+00:00",
+  "revision": 119,
+  "updatedAt": "2026-11-02T07:52:27.510995+00:00",
   "writer": {
     "agent": "Core actual main source activation and forward-data handoff single writer",
     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
@@ -1518,11 +1518,23 @@
             "stateUpdateBaseRevision": 116,
             "stateUpdateBaseSha256": "55bd30b1409cdfb4ea10553e4d189f08e6136dc167be8ea95710da4a47095ee6"
           }
+        },
+        {
+          "id": "C-VAL-CHECKPOINT-WINDOW-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/old-main-checkpoint-window-20261102.json",
+          "claim": "Parent accepts currentHost consumer scope; metadata verifies retainedoldmain644 andmigration112 checkpoints without tokens/body. No furtherHostqueries or arbitrary consumer scan. Core holds Host/config/package/source operations during directory writer window; noGatewaystop needed for scoped currentdependency. Exactpermission decision anddirectoryreceipt remain pending, no application byCore.",
+          "observedAt": "2026-11-02T07:52:27.510995+00:00",
+          "subject": {
+            "sha256": "ce0fd08dab6b50b0c194cc1d3bdf6cd17c898e92ed1beb8f3add786350a71688",
+            "stateUpdateBaseRevision": 118,
+            "stateUpdateBaseSha256": "1cb2d669c00f4cf9c905e8fb6e0f1aee7e7b562cc542b34be77913d6d65ded9b"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Saved9file activation package locally6d4b6b4;fixed112metadata and original97/362grant verified;90f selected metadata identical. CurrentHost generation5 read-only registry/config/path checks find no active/configured oldmain dependency;not whole-machine absence. CangHai writer owns fixedworktree/private-mode decision. No model/privatebody/CangHai or Host mutation.",
-        "nextAction": "Directory writer completes its external-consumer/write-dependency and private checkout mode checks, then returns fixed90f worktree receipts; scoped current Host/oldCore consumer check is completed, not a pending blocker. Core prepares exact binding under unchanged362grant and genuine request admission. No new paid request authorized; retain accurate conditional call/output/cost limits. Save current metadata/consumer documentation package locally without push; preserve olddirty and original checkpoints.",
+        "checkpoint": "Parent accepted current scoped Host/oldCore consumer result. Both retained checkpoint bindings independently read as metadata:oldmain644 andmigration112, unchanged. No additionalHostquery/expandedscan after acceptance. Minimalwindow keeps Core Host/config/package/source bindings unchanged; no need to stopGateway for current verified dependency.94cff8fa savedstate117; oldcheckpoints/runtime retained.",
+        "nextAction": "Await parent exact permission decision and CangHai directory writer fixed90f/clean/hash/mode handoff. CurrentHost consumer scope is accepted and must not trigger another generic dependency investigation. Core keeps Host/config/package/source bindings unchanged during directory window. After handoff, recheck metadata and prepare exact binding under original362grant; no paidmodel or source binding now.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2806,7 +2818,7 @@
           }
         },
         "dataCoordinationHandoff": {
-          "phase": "metadata_verified_wait_directory_writer_fixed_worktree_and_privacy_mode_handoff",
+          "phase": "current_host_scope_accepted_wait_exact_permission_and_directory_writer_receipt",
           "report": ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
           "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1",
           "selectedRuntimeRevision": "112be540a3988af53d1076a38f8f1c155da7a745",
@@ -2831,10 +2843,12 @@
             "generation": 5,
             "oldRootConfiguredConsumer": "none found in current Host/config/ordinary entry and timeline path resolution",
             "wholeMachineOrRemoteExcluded": false,
-            "hostMutations": 0
+            "hostMutations": 0,
+            "parentAccepted": true,
+            "notPendingGenericConsumerInvestigation": true
           },
           "documentationSave": {
-            "status": "prepared_exact_five_file_local_commit",
+            "status": "committed_locally_exact_five_files",
             "baselineHead": "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
             "files": [
               ".task-control/state.json",
@@ -2844,11 +2858,41 @@
               ".task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json"
             ],
             "projectState": "only this new data metadata/consumer appendix; old paused/user differences left unstaged",
-            "push": false
+            "push": false,
+            "commit": "94cff8fa0358468a99e611f977832dcad3b08e1e",
+            "savedStateRevision": 117,
+            "pushed": false,
+            "ciTriggered": false,
+            "indexEmptyAfterCommit": true,
+            "oldProjectWorkingBytesPreserved": true,
+            "updateBaseRevision": 117,
+            "updateBaseSha256": "d442c25818a9dd097fd06ef49e61fd1ee80004376bff04155f39a54e31558264"
+          },
+          "checkpointWindow": {
+            "report": ".task-control/reports/CORE-VAL-001/old-main-checkpoint-window-20261102.json",
+            "sha256": "ce0fd08dab6b50b0c194cc1d3bdf6cd17c898e92ed1beb8f3add786350a71688",
+            "checkpointsRetained": true,
+            "currentScopeAccepted": true,
+            "coreHostMutationFreezeForDirectoryWindow": true,
+            "gatewayPaused": false,
+            "pendingPermissionChanges": "parent obtaining exact decision for1162files0644to0600 andformal.git0755to0700; Core performs neither",
+            "directoryWriterExecutionReceipt": "pending"
+          },
+          "windowDocumentationSave": {
+            "status": "prepared_exact_four_file_local_commit",
+            "baselineHead": "94cff8fa0358468a99e611f977832dcad3b08e1e",
+            "files": [
+              ".task-control/state.json",
+              "PROJECT-STATE.yaml",
+              "docs/CORE-CANGHAI-COORDINATION.md",
+              ".task-control/reports/CORE-VAL-001/old-main-checkpoint-window-20261102.json"
+            ],
+            "push": false,
+            "projectState": "only new9line checkpoint/window technical appendix; older differences retained"
           }
         }
       },
-      "updatedAt": "2026-11-02T07:46:45.518064+00:00",
+      "updatedAt": "2026-11-02T07:52:27.510995+00:00",
       "delivery": {
         "local": {
           "status": "committed",

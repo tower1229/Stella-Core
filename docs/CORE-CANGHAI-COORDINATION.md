@@ -158,3 +158,6 @@ CangHai 主工作区仍为生产 `dev@c050a046f48837f755c9b3f10bba2910d5218083`�
 
 
 后续当前 Host 消费依赖复核：官方只读 `plugins.list` 仍为 generation5，普通 Core／memory-core／timeline 为 active，fitness 为 unloaded；未注册 checkpoint 命名插件。配置 hash 与加载收尾时相同，没有旧 `stella-sources/main` 引用或显式 native RAG extraPaths；Core 没有来源绑定或旧 checkpoint 配置。已安装普通入口不直接导入旧 checkpoint，timeline 的 `memory` 按其路径解析器落在当前 workspace/memory，不指向旧工作树；限定目录的直接 symlink 也无旧根命中。没有读取正文、私密 bootstrap／会话、checkpoint 数据库，不能据此宣称全机或远端所有消费者均不存在。对本机当前 Host 范围已未发现旧根消费依赖，目录写者再处理其范围内外部消费者与写入依赖，无需继续把 Core 当前入口作为未核阻塞。见 [限定消费者检查](../.task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json)。本次没有 reload、重启、模型或配置修改。
+
+
+限定窗口补记：持久 `checkpoints/main/checkpoint.json` 仍绑定旧 `stella-sources/main@644eafa…`；独立 `main-knowledge-migration-v1` checkpoint 仍绑定112。这些文件保留不改，存在不等于旧消费者正在运行。父任务已接受当前 Host 依赖检查，后续不再把它列为未核阻塞。CangHai 写者切换期间，Core 写者不改 Host 配置／加载包／启用旧入口／绑定来源；当前已核依赖不要求额外停止 Gateway。配置或入口若变化则先停止依赖切换并重新协调。权限两项的明确决定与目录写者回执仍须完成；父报告 `.openclaw` 祖先目录为0700且无ACL，所以子目录0755本身不能证明他人可读。精确 checkpoint hash、保留及回滚边界见 [窗口说明](../.task-control/reports/CORE-VAL-001/old-main-checkpoint-window-20261102.json)。

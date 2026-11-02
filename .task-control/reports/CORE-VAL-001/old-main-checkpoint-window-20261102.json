@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T07:52:27.510995+00:00",
+  "coreHead": "94cff8fa0358468a99e611f977832dcad3b08e1e",
+  "scope": "Retained checkpoint binding metadata and a coordination window only; parent accepted prior scoped Host consumer conclusion. No further Host query or expanded scan performed.",
+  "priorAcceptedEvidence": {
+    "ref": ".task-control/reports/CORE-VAL-001/old-main-consumer-check-20261102.json",
+    "sha256": "45bc5455473e5d96a68917e645e41e2d9dfbaad982ee91e0253803a925d92b5b",
+    "commit": "94cff8fa0358468a99e611f977832dcad3b08e1e"
+  },
+  "persistentCheckpoints": [
+    {
+      "path": "/Users/zangtao/.openclaw/stella-core/checkpoints/main/checkpoint.json",
+      "sha256": "d810390779c55bf791503c2c1dd3c51ba50d80734f10dd8b8b2faf97c716dff3",
+      "keys": [
+        "binding",
+        "lastOperationDigest",
+        "lastOperationId",
+        "revision",
+        "schemaVersion",
+        "token"
+      ],
+      "bindingMetadata": {
+        ".binding.agentId": "main",
+        ".binding.manifestPath": "50_PersonalAgent/stella/experimental-owner-chat-v3/manifest.json",
+        ".binding.repositoryRoot": "/Users/zangtao/.openclaw/stella-sources/main",
+        ".revision": "644eafa63db75231fabc376129d56c02835cef8f",
+        ".schemaVersion": "stella.recovery-checkpoint/v1"
+      }
+    },
+    {
+      "path": "/Users/zangtao/.openclaw/stella-core/checkpoints/main-knowledge-migration-v1/checkpoint.json",
+      "sha256": "d67607190a4bf1dba9ddf51ad94f7fb3a10c0df1b1d2b52ea09038673c4bc2e8",
+      "keys": [
+        "binding",
+        "lastOperationDigest",
+        "lastOperationId",
+        "revision",
+        "schemaVersion",
+        "token"
+      ],
+      "bindingMetadata": {
+        ".binding.agentId": "main",
+        ".binding.manifestPath": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+        ".binding.repositoryRoot": "/Users/zangtao/.openclaw/stella-sources/migration-v1",
+        ".revision": "112be540a3988af53d1076a38f8f1c155da7a745",
+        ".schemaVersion": "stella.recovery-checkpoint/v1"
+      }
+    }
+  ],
+  "checkpointInterpretation": "Persistent checkpoint authority files remain historical and unchanged. Their existence does not establish a registered/running consumer. Current ordinary package entry/config and generation5 registry exclude the old checkpoint path within the inspected Host scope. Do not delete or update either checkpoint to make a checkout look consistent.",
+  "window": {
+    "owner": "CangHai sole directory writer owns worktree/ref/permission changes; Core remains sole Host writer",
+    "coreCommitment": "During this coordinated window, this Core worker performs no Host config changes, package loads, legacy reactivation, sourceRead binding or model request. No Core operation is in flight.",
+    "gatewayPauseRequiredForVerifiedCurrentDependency": false,
+    "gatewayActuallyPaused": false,
+    "gatewayStopOrRestartPerformed": false,
+    "why": "Current scoped Host consumer check is accepted and the ordinary entry has no configured old checkpoint consumer. Avoid an unnecessary service disruption merely because a persistent checkpoint file exists.",
+    "entryCheck": "Directory writer uses the accepted scope and existing clean/version evidence. If the known Host configuration/package selection changes or a legacy consumer is explicitly reactivated before switching, stop the dependent switch and coordinate again; do not assume the old conclusion survives a changed configuration.",
+    "rollbackPreservation": "Keep old worktree branch644eafa63db75231fabc376129d56c02835cef8f and both checkpoint files unchanged; existing112runtime remains untouched. Any checkout rollback belongs to the CangHai directory writer. No restoration of a legacy Host package is part of this window.",
+    "exitHandoff": "Fixed90f root/fullSHA/clean/selected hashes and actual permission receipt from directory writer; Core then rechecks metadata and separately prepares precise binding under original97/362 scope."
+  },
+  "permissionStatus": {
+    "source": "parent CangHai writer report; not independently rescanned by this Core step",
+    "pendingUserDecision": [
+      "1162 retained files mode0644 to0600",
+      "formal CangHai .git directory0755 to0700"
+    ],
+    "parentReportedAncestor": ".openclaw mode0700 with no ACL; child0755 alone does not prove other-user readability",
+    "coreChangedModes": false,
+    "coreSwitchedWorktree": false,
+    "coreModifiedCheckpoint": false,
+    "remainingGate": "exact permission decision and directory writer execution receipt, not another generic consumer investigation"
+  },
+  "stateBase": {
+    "revision": 118,
+    "sha256": "1cb2d669c00f4cf9c905e8fb6e0f1aee7e7b562cc542b34be77913d6d65ded9b"
+  },
+  "operations": {
+    "newHostQueries": 0,
+    "modelCalls": 0,
+    "configOrServiceMutations": 0,
+    "canghaiMutations": 0,
+    "privateSourceBodyReads": 0,
+    "checkpointTokenOrOperationFieldsCopied": false,
+    "rawPrivateCheckpointFilesCopied": false
+  }
+}
