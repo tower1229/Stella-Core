@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T08:12:05.133862+00:00",
+  "coreHead": "21685194659e602b7f4f479a8354342a3e127fa1",
+  "phase": "fixed_data_ready_binding_stopped_before_config_write_on_requester_mismatch",
+  "directoryHandoff": {
+    "path": "/tmp/canghai-fixed90f-ready-20261102.json",
+    "sha256": "41fce3abf56d89199eb761af3dbb8c5e4fe7d89f49a47e0641a30fafff85d83f",
+    "parentReported": {
+      "manifest1713HashSizeMode0600": true,
+      "permissions1162FilesAndGitAppliedByDirectoryWriter": true,
+      "financeOutsideAllowlist": true,
+      "oldCheckpointsAndRuntime112Retained": true
+    },
+    "independentCoreScope": "full fixedHEAD/clean/detached +five selected metadata working/blob hashes and0600 modes only; no full1713payload re-read"
+  },
+  "metadata": {
+    "at": "2026-11-02T08:03:10.780228+00:00",
+    "root": "/Users/zangtao/.openclaw/stella-sources/main",
+    "canonicalRoot": "/Users/zangtao/.openclaw/stella-sources/main",
+    "head": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "clean": true,
+    "detached": true,
+    "metadata": {
+      "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json": {
+        "sha256": "bd782c90acedc82a202e0e0d149fd4c44ef79718b6e7e30097de6da88babf7a8",
+        "mode": "0o600",
+        "pinnedBlobMatches": true
+      },
+      "50_PersonalAgent/stella/knowledge-migration-v1/runtime-profile.json": {
+        "sha256": "d89bccca812a0187f56c2a645b93204c8214917a93e9c235f4bff850cb21f243",
+        "mode": "0o600",
+        "pinnedBlobMatches": true
+      },
+      "30_Knowledge/migration-v1/runtime/catalog.json": {
+        "sha256": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+        "mode": "0o600",
+        "pinnedBlobMatches": true
+      },
+      "30_Knowledge/migration-v1/converted/descriptors.supply.review.json": {
+        "sha256": "38f5732508a687faaa7bd5c349c33c215f5e73c8ac5e51f60aedd536f55bb7da",
+        "mode": "0o600",
+        "pinnedBlobMatches": true
+      },
+      "50_PersonalAgent/stella/knowledge-migration-v1/capabilities/source_access_context.json": {
+        "sha256": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+        "mode": "0o600",
+        "pinnedBlobMatches": true
+      }
+    },
+    "grant": {
+      "requesterCount": 1,
+      "requesterIdentityKind": "prefixed_transport_identifier",
+      "descriptors": 362,
+      "sources": 97,
+      "modelRefs": [
+        "google/gemini-3.8-flash"
+      ],
+      "purpose": {
+        "deliveryScope": "owner-direct",
+        "derivePurpose": "personal_understanding",
+        "readPurpose": "personal_context"
+      }
+    },
+    "hostConfig": {
+      "sha256": "84a8a1952bc19a3e52d3ca23cdf14b4d8f907283d6529cb68f66341535e10fc9",
+      "unchangedFromHandoff": true,
+      "sourceReadPresent": false,
+      "coreConfigKeys": [
+        "agentId",
+        "publisher",
+        "candidateDraftsRoot"
+      ]
+    }
+  },
+  "installedParserReadiness": {
+    "at": "2026-11-02T08:08:55.256Z",
+    "installedPackage": "source-read-20261102-df5bc467",
+    "binding": {
+      "root": "/Users/zangtao/.openclaw/stella-sources/main",
+      "manifestPath": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+      "revision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996"
+    },
+    "manifestParsed": true,
+    "profileParsed": true,
+    "processingGrantParsed": true,
+    "profileReferenceMatches": true,
+    "catalogPath": "30_Knowledge/migration-v1/runtime/catalog.json",
+    "descriptorCount": 362,
+    "requesterCount": 1,
+    "modelRefs": [
+      "google/gemini-3.8-flash"
+    ],
+    "permissionOrAdmissionIssued": false,
+    "configured": false,
+    "hostOrModelCalls": 0,
+    "privatePayloadReads": 0
+  },
+  "officialIdentityCheck": {
+    "at": "2026-11-02T08:04:37.828633+00:00",
+    "exitCode": 0,
+    "stdoutSha256": "87098b954a4d898e4bf172a33e626adeac1cbe31bef4b81e7d9a10b11662377a",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawResponsePersisted": false,
+    "privateIdentityValuesLogged": false,
+    "profileCount": 1,
+    "exactRequesterMatches": 0,
+    "canonicalExactRequesterMatches": 0,
+    "idFieldPresentForAll": true,
+    "mergedProfileCount": 0,
+    "grantRequesterNamespace": "openclaw-device",
+    "profileNamespaces": [
+      "<unprefixed>"
+    ],
+    "actualActiveWebchatConnectionOrUserIdentityProven": false
+  },
+  "bindingCandidate": {
+    "applied": false,
+    "blockedOn": "existing_device_requester_vs_canonical_profile_identity",
+    "configPath": "plugins.entries.stella-core.config.sourceRead",
+    "value": {
+      "root": "/Users/zangtao/.openclaw/stella-sources/main",
+      "manifestPath": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+      "revision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996"
+    }
+  },
+  "identityFinding": {
+    "existingGrantRequesterNamespace": "openclaw-device",
+    "existingGrantRequesterCount": 1,
+    "canonicalHostProfilesObserved": 1,
+    "exactMatches": 0,
+    "installedWebchatAdapter": "captures authenticatedUserProfile.profileId and requires exact equality to grant requester; no alias or device-to-profile resolution",
+    "consequence": "Current installed WebChat path cannot satisfy this unchanged device-based grant with the observed canonical profile. Do not append/replace requesterIds or identify every device of the profile as the previously allowed device.",
+    "notClaimed": [
+      "current active browser connection has been inspected",
+      "legacy approved device belongs to the observed profile",
+      "the actual Host source tool callback was executed",
+      "all other channel ingress is impossible"
+    ],
+    "officialPossibleNarrowSeam": {
+      "type": "GatewayWsClient.internal.operatorDeviceTokenIdentity",
+      "shape": "server-attested PairedDeviceTokenIdentity contains deviceId and key; only deviceId comparison is relevant, key must not be logged or used to create a credential",
+      "availability": "optional/null for some tokenless ingress, actual accepted browser availability and equality not yet verified",
+      "notImplemented": true,
+      "requiredProof": "genuine currently admitted ControlUI scope, exact server-attested deviceId matches old openclaw-device requester, current run/call/native guard and owner-private audience remain valid; client-supplied device field or owner boolean alone is insufficient"
+    },
+    "usersSelfSkipped": "official handler may synchronize GitHub identity and prepare profile; used read-only users.list instead, no alias/profile creation or identity synchronization requested"
+  },
+  "nextMinimum": {
+    "first": "Implement/review or diagnose only the existing-device identity compatibility if genuine Host attestation can prove exact previously permitted device. Preserve canonical profile correlation without broadening to all its devices. Missing or conflicting evidence fails closed. If no such fact exists, report the exact identity grant decision rather than silently remap.",
+    "then": "With identity prerequisite satisfied, save private rollback config; check current configuration/activework/recovery queue; apply only sourceRead root/manifest/revision through supported Host path and reload without restart; run status and non-admitted-context denial without model.",
+    "paidSemantic": "Not yet runnable. After real binding/admission proof, request one fresh bounded Gemini3.8Flash low scenario with data scope and actual token/tool/retry limits stated; prior paid authorization exhausted. Existing detailed conditional budget remains in data-handoff-metadata report."
+  },
+  "actualExecutionMatrix": {
+    "fixedVersionAndMetadata": "pass",
+    "installedBindingManifestProfileGrantParsers": "pass",
+    "existingCanonicalProfileExactRequesterMatch": "fail",
+    "hostConfigBinding": "not_run_due_to_identity_mismatch",
+    "privateRollbackConfig": "not_needed_no_config_mutation",
+    "inflightAndRecoveryQueuePreMutationCheck": "not_run_no_mutation_attempt",
+    "postBindingStatus": "not_run",
+    "postBindingUnauthorizedContextDenial": "not_run",
+    "privateSourceBodyRead": "not_run",
+    "modelCall": "not_run"
+  },
+  "configAfterSha256": "84a8a1952bc19a3e52d3ca23cdf14b4d8f907283d6529cb68f66341535e10fc9",
+  "sourceSha256": {
+    "src/openclaw/ordinary-source-admission.ts": "cd0241fd02605b5f88a478eeba7d500545d89ac9543e94a6c350fc89fce85d96",
+    "src/ordinary-plugin.ts": "d1b9f34d16e1d3e07698cc50161e8942fc497ecbf2f03ccf9871fb3b9333d0d7",
+    "node_modules/openclaw/dist/users-DNupoHbe.mjs": "d4bc157e31c265ade3f8dbfcaa3a6ee217a9373db060dc06a43b338d37cffa64",
+    "node_modules/openclaw/dist/config-contracts-DzLaG7FV.d.ts": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17"
+  },
+  "transportIncident": {
+    "staticReadProcessesNotCreated": 2,
+    "reason": "exec-server transport disconnected",
+    "permissionDenial": false,
+    "singleReadOnlyHealthCheckRecovered": true,
+    "noUncertainConfigOrModelOperation": true
+  },
+  "operations": {
+    "hostReadOnlyUsersList": 1,
+    "identityOrGrantChanges": 0,
+    "hostConfigChanges": 0,
+    "reloadsRestartsInstalls": 0,
+    "canghaiChanges": 0,
+    "permissionChangesByCore": 0,
+    "modelCalls": 0,
+    "privatePayloadReads": 0,
+    "rawProfileResponseStored": false,
+    "identityValuesLogged": false
+  },
+  "stateBase": {
+    "revision": 120,
+    "sha256": "2495a30388d22ea8881ae2bb24a73db5d1499a587632a7d3bbc015d13d459b89"
+  }
+}

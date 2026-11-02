@@ -239,3 +239,10 @@ distinctions. Real semantic acceptance uses `google/gemini-3.8-flash`, `low`,
 under its own valid call/material scope. Synthetic API tests supply neither that
 authorization nor acceptance. No shared Host configuration, private binding,
 source file, permission or publication setting changed here.
+
+
+## Fixed90f readiness and existing-device identity gap (2026-11-02)
+
+The coordinated fixed worktree and the installed package's manifest/profile/grant parsers now pass the no-model readiness checks. Configuration remains unapplied: the existing grant has one `openclaw-device` requester, while the official Host profile directory contains one canonical profile and zero exact requester matches. The current WebChat adapter compares that profile ID exactly, so this is a concrete compatibility gap before live binding, not a data-root failure. Neither the grant nor requester mapping was changed.
+
+The public SDK exposes an optional server-attested `operatorDeviceTokenIdentity`; its actual device must match the already permitted device before it could support a narrow compatibility change. A raw client device field, an owner flag, or mere profile membership is insufficient. The seam is not implemented or verified for the active browser, and token key values must not be copied. See the [readiness matrix and precise next step](../.task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json). No post-binding tool success, original-payload consumption or semantic acceptance is claimed.

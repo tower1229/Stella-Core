@@ -161,3 +161,6 @@ CangHai 主工作区仍为生产 `dev@c050a046f48837f755c9b3f10bba2910d5218083`�
 
 
 限定窗口补记：持久 `checkpoints/main/checkpoint.json` 仍绑定旧 `stella-sources/main@644eafa…`；独立 `main-knowledge-migration-v1` checkpoint 仍绑定112。这些文件保留不改，存在不等于旧消费者正在运行。父任务已接受当前 Host 依赖检查，后续不再把它列为未核阻塞。CangHai 写者切换期间，Core 写者不改 Host 配置／加载包／启用旧入口／绑定来源；当前已核依赖不要求额外停止 Gateway。配置或入口若变化则先停止依赖切换并重新协调。权限两项的明确决定与目录写者回执仍须完成；父报告 `.openclaw` 祖先目录为0700且无ACL，所以子目录0755本身不能证明他人可读。精确 checkpoint hash、保留及回滚边界见 [窗口说明](../.task-control/reports/CORE-VAL-001/old-main-checkpoint-window-20261102.json)。
+
+
+2026-11-02 后续目录交接已完成：登记的 `stella-sources/main` 实核为 detached、干净的 `90f61d9c9ef019c5a06a419dbcb630fe598cb996`，五项选定元数据／许可的工作文件与提交 blob 完全一致且均0600。目录侧批准的权限收紧已由独立写者执行，金融资料未扩入362描述符范围；旧checkpoint和112副本保留。**不再有目录交接阻塞**。Core 已安装解析器通过真实 manifest/profile/grant 的无模型检查，但在配置写入前发现原 `openclaw-device` 请求者与 Host 唯一 canonical profile 不相等；现有 WebChat 适配器要求精确相等，因此未绑定、未改身份或调用模型。该问题是具体入场身份兼容缺口，不应继续写成目录未准备好。证据与不扩权的设备认证接缝候选见 [90f绑定就绪检查](../.task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json)。

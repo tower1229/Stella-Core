@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 119,
-  "updatedAt": "2026-11-02T07:52:27.510995+00:00",
+  "revision": 122,
+  "updatedAt": "2026-11-02T08:13:10.710856+00:00",
   "writer": {
     "agent": "Core actual main source activation and forward-data handoff single writer",
     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
@@ -1530,11 +1530,23 @@
             "stateUpdateBaseRevision": 118,
             "stateUpdateBaseSha256": "1cb2d669c00f4cf9c905e8fb6e0f1aee7e7b562cc542b34be77913d6d65ded9b"
           }
+        },
+        {
+          "id": "C-VAL-FIXED90F-BINDING-READINESS-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json",
+          "claim": "Actual90fclean/detached5metadata/blob/modechecks pass;installed manifest/profile/grant/binding parserpass. Officialusers.list1canonical profile0matches originaldevice requester; noactive-browser orsame-device proof. Configbinding stopped beforemutation perassignedscope. Noidentity/scopechanges,model/privatebodyorCangHaiwrites. Directoryhandoff complete,preciseidentitycompatibility remains.",
+          "observedAt": "2026-11-02T08:12:05.133862+00:00",
+          "subject": {
+            "sha256": "452b09e7784bacba2fb0ed602adbdd8a9294932250e393d67603c9b964191bb8",
+            "stateUpdateBaseRevision": 120,
+            "stateUpdateBaseSha256": "2495a30388d22ea8881ae2bb24a73db5d1499a587632a7d3bbc015d13d459b89"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Parent accepted current scoped Host/oldCore consumer result. Both retained checkpoint bindings independently read as metadata:oldmain644 andmigration112, unchanged. No additionalHostquery/expandedscan after acceptance. Minimalwindow keeps Core Host/config/package/source bindings unchanged; no need to stopGateway for current verified dependency.94cff8fa savedstate117; oldcheckpoints/runtime retained.",
-        "nextAction": "Await parent exact permission decision and CangHai directory writer fixed90f/clean/hash/mode handoff. CurrentHost consumer scope is accepted and must not trigger another generic dependency investigation. Core keeps Host/config/package/source bindings unchanged during directory window. After handoff, recheck metadata and prepare exact binding under original362grant; no paidmodel or source binding now.",
+        "checkpoint": "Directory handoff complete:actualmain90f clean/detached,5metadata working/blob hashes/0600 match,original97/362grant unchanged;installed parsers pass. Officialreadonly users.list reports1canonical profile and0exact matches to originalopenclaw-device requester. Stopped beforeconfigmutation, no binding/reload/model. Public server-attested device seam exists but actual accepted-device match notproved. Directory is not blocked.",
+        "nextAction": "Resolve the precise existing-device identity compatibility under original single-device grant: prove genuine Host-attested same device +current run/call/native guard, never replace grant with all-profile access or client-supplied IDs. This code/attestation gap needs a finite next package, not more directory work. Once satisfied, execute authorized minimal rollbackable sourceRead binding after current-config/inflight/recovery precheck and no-model status/denial validation. No privatebody or fresh paidmodel run until separately authorized.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2818,10 +2830,10 @@
           }
         },
         "dataCoordinationHandoff": {
-          "phase": "current_host_scope_accepted_wait_exact_permission_and_directory_writer_receipt",
+          "phase": "fixed90f_verified_identity_compatibility_blocks_binding_not_directory",
           "report": ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
           "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1",
-          "selectedRuntimeRevision": "112be540a3988af53d1076a38f8f1c155da7a745",
+          "selectedRuntimeRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
           "selectedRuntimeClean": true,
           "fourHandoffHashesMatched": true,
           "existingGrantHashUnchanged": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
@@ -2829,7 +2841,7 @@
           "permittedDescriptors": 362,
           "formalCandidateRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
           "candidateFiveMetadataHashesMatched": true,
-          "registeredMainWorktreeCurrentRevision": "644eafa63db75231fabc376129d56c02835cef8f",
+          "registeredMainWorktreeCurrentRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
           "registeredMainWorktreeCurrentDirectoryMode": "0755",
           "canghaiWriter": "separate consolidation writer; Core is read-only",
           "runtimeBinding": "not_configured",
@@ -2873,13 +2885,16 @@
             "sha256": "ce0fd08dab6b50b0c194cc1d3bdf6cd17c898e92ed1beb8f3add786350a71688",
             "checkpointsRetained": true,
             "currentScopeAccepted": true,
-            "coreHostMutationFreezeForDirectoryWindow": true,
+            "coreHostMutationFreezeForDirectoryWindow": false,
             "gatewayPaused": false,
-            "pendingPermissionChanges": "parent obtaining exact decision for1162files0644to0600 andformal.git0755to0700; Core performs neither",
-            "directoryWriterExecutionReceipt": "pending"
+            "directoryWriterExecutionReceipt": "received_and_core_metadata_rechecked",
+            "directoryWindowCompleted": true,
+            "historicalPendingPermissionChanges": "parent obtaining exact decision for1162files0644to0600 andformal.git0755to0700; Core performs neither",
+            "permissionChangesStatus": "approved_and_applied_by_CangHai_writer; receiptreceived; Corechangednone",
+            "currentDirectoryBlockers": []
           },
           "windowDocumentationSave": {
-            "status": "prepared_exact_four_file_local_commit",
+            "status": "committed_locally_exact_four_files",
             "baselineHead": "94cff8fa0358468a99e611f977832dcad3b08e1e",
             "files": [
               ".task-control/state.json",
@@ -2888,11 +2903,59 @@
               ".task-control/reports/CORE-VAL-001/old-main-checkpoint-window-20261102.json"
             ],
             "push": false,
-            "projectState": "only new9line checkpoint/window technical appendix; older differences retained"
-          }
+            "projectState": "only new9line checkpoint/window technical appendix; older differences retained",
+            "commit": "21685194659e602b7f4f479a8354342a3e127fa1",
+            "savedStateRevision": 119,
+            "pushed": false,
+            "ciTriggered": false,
+            "indexEmptyAfterCommit": true,
+            "oldProjectWorkingBytesPreserved": true,
+            "updateBaseRevision": 119,
+            "updateBaseSha256": "4296173851f1d95a5918445979808c2fdf889e086694d4b023c546536f911f2c"
+          },
+          "directoryWriterExecutionReceipt": {
+            "path": "/tmp/canghai-fixed90f-ready-20261102.json",
+            "sha256": "41fce3abf56d89199eb761af3dbb8c5e4fe7d89f49a47e0641a30fafff85d83f",
+            "received": true
+          },
+          "fixedBindingReadiness": {
+            "report": ".task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json",
+            "sha256": "452b09e7784bacba2fb0ed602adbdd8a9294932250e393d67603c9b964191bb8",
+            "root": "/Users/zangtao/.openclaw/stella-sources/main",
+            "revision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+            "dataMetadata": "pass",
+            "installedParsers": "pass",
+            "requesterExactMatch": "fail_1canonicalProfile_0matches_to_originalDeviceRequester",
+            "bound": false,
+            "hostConfigUnchangedSha256": "84a8a1952bc19a3e52d3ca23cdf14b4d8f907283d6529cb68f66341535e10fc9",
+            "newIdentityOrScope": false,
+            "models": 0
+          },
+          "bindingReadinessDocumentationSave": {
+            "status": "prepared_exact_five_file_local_commit",
+            "baselineHead": "21685194659e602b7f4f479a8354342a3e127fa1",
+            "files": [
+              ".task-control/state.json",
+              "PROJECT-STATE.yaml",
+              "docs/CORE-CANGHAI-COORDINATION.md",
+              "docs/ORDINARY-SOURCE-READ.md",
+              ".task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json"
+            ],
+            "push": false,
+            "oldProjectDiffExcluded": true,
+            "stateRevision": 122
+          },
+          "previousMetadataObservation": {
+            "selectedRuntimeRevision": "112be540a3988af53d1076a38f8f1c155da7a745",
+            "registeredMainWorktreeRevision": "644eafa63db75231fabc376129d56c02835cef8f",
+            "report": ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
+            "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1"
+          },
+          "selectedRuntimeRoot": "/Users/zangtao/.openclaw/stella-sources/main",
+          "registeredMainWorktreeDetached": true
         }
       },
-      "updatedAt": "2026-11-02T07:52:27.510995+00:00",
+      "updatedAt": "2026-11-02T08:13:10.710856+00:00",
       "delivery": {
         "local": {
           "status": "committed",

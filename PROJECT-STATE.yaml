@@ -752,3 +752,15 @@ ordinary_source_checkpoint_window_20261102:
   checkpoint_files_changed: false
   current_scoped_host_consumer_check: accepted_by_parent
   gateway_stop_or_restart_for_window: not_performed_or_required_by_verified_dependency
+
+# 2026-11-02 fixed90f actual metadata/parser readiness; source binding not applied.
+ordinary_source_fixed90f_readiness_20261102:
+  evidence: .task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json
+  fixed_worktree_revision: 90f61d9c9ef019c5a06a419dbcb630fe598cb996
+  clean_detached_five_metadata_blob_hashes_and_mode0600: verified
+  installed_manifest_profile_processing_grant_parsers: passed_no_model
+  allowed_sources_descriptors: 97_sources_362_descriptors_unchanged
+  canonical_host_profiles: 1
+  exact_existing_device_requester_matches: 0
+  host_source_binding: not_applied_requester_mismatch
+  identity_changes_private_payload_reads_model_calls: zero
