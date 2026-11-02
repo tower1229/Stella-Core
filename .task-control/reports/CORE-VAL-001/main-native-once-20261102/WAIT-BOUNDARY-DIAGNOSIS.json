@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T12:29:08.290580+00:00",
+  "baseCommit": "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+  "sdk": "2026.10.9",
+  "result": "bounded_paths_distinguished_pre_aborted_wait_candidate_only_actual_cause_not_uniquely_identified",
+  "actualConstraints": {
+    "contextAssembledAt": "2026-11-02T11:20:31.026Z",
+    "embeddedTimeoutAt": "2026-11-02T11:22:00.994Z",
+    "stillStreamingAt": "2026-11-02T11:22:10.996Z",
+    "modelStartRecorded": false,
+    "retainedPluginWorkObserved": 3,
+    "physicalCalls": null,
+    "tokens": null,
+    "costUsd": null,
+    "originalEvidenceUnchanged": true
+  },
+  "newInference": {
+    "fact": "The actual warning predicate reads activeSession.isStreaming, whose getter returns agent.state.isStreaming. Agent.runWithLifecycle sets it true and finishRun clears it after awaited event handlers.",
+    "conclusion": "The actual run entered Agent loop. A pending preflight before the first loop alone cannot explain still-streaming. Streaming here is not proof of provider connection or token emission.",
+    "limitation": "This does not identify the in-loop pending owner; the public owner deadline/session idle status can precede physical completion."
+  },
+  "controlledPaths": [
+    {
+      "path": "session preflight / before_agent_start",
+      "matchesStillStreaming": false,
+      "retainsPromptPossible": true,
+      "interpretation": "not a sufficient explanation alone"
+    },
+    {
+      "path": "Agent event listener user-message persistence",
+      "matchesStillStreaming": true,
+      "holdsSessionAbortAndPhysicalJoin": true,
+      "actualOccurrence": "unknown; canonical user may already have been persisted/replayed, so do not assume an extra user append"
+    },
+    {
+      "path": "recorder runtimePersistencePromise",
+      "matchesStillStreaming": true,
+      "holdsSessionAbortAndPhysicalJoin": true,
+      "actualOccurrence": "unknown; earlier wait completed, later pending callback would need evidence"
+    },
+    {
+      "path": "recorder admissionWrite",
+      "matchesStillStreaming": true,
+      "holdsSessionAbortAndPhysicalJoin": true,
+      "actualOccurrence": "unknown"
+    },
+    {
+      "path": "captureModelPromptProjection / transcript write",
+      "matchesStillStreaming": true,
+      "holdsSessionAbortAndPhysicalJoin": true,
+      "actualOccurrence": "unknown"
+    },
+    {
+      "path": "agent_end event listener after cancellation",
+      "matchesStillStreaming": true,
+      "holdsSessionAbortAndPhysicalJoin": true,
+      "actualOccurrence": "unknown; can extend cleanup but is not the initial stall in this synthetic case"
+    }
+  ],
+  "tests": {
+    "paths": {
+      "total": 6,
+      "completed": 6,
+      "source": "WAIT-BOUNDARY-RESULT.json"
+    },
+    "repairContrasts": {
+      "total": 6,
+      "completed": 6,
+      "originalPreAbortWaits": 1,
+      "candidatePreAbortWaits": 0,
+      "inFlightCancellationSemanticsUnchanged": true,
+      "uncancelledProjectionSame": true
+    },
+    "countsSeparate": true,
+    "providerBoundaryReached": 0,
+    "providerRequests": 0,
+    "hostRequests": 0,
+    "filesWrittenByEvaluatedFunctions": 0,
+    "timeModel": "controlled promises and event-loop ticks; did not replay 90/120/150-second wall-clock timers",
+    "scope": "Exact extracted official functions with explicitly synthetic dependency stubs; no real transcript store/worker/host module imported"
+  },
+  "repairCandidate": {
+    "patch": "UPSTREAM-PREABORT-CANDIDATE.patch",
+    "target": "src/agents/embedded-agent-runner/run/attempt-llm-boundary.ts function installModelPromptProjection (verified bundled region name)",
+    "change": "Add assertCurrent() before the first recorder wait; keep the existing post-wait assertion.",
+    "proved": "An already-cancelled request stops before starting a new potentially unresolved recorder wait. Normal projection and physical settlement of already-started work are unchanged.",
+    "notProved": "Does not resolve the original run: its abort was observed 90 seconds after entry. It does not cancel an in-flight storage write or release retained tokens. No guarantee of overall deadline or cleanup.",
+    "appliedToInstalledHost": false,
+    "productionCoreChanged": false,
+    "readyForReview": true,
+    "upstreamIssueFiled": false
+  },
+  "pluginLayerAssessment": {
+    "publicWorkaroundConfirmed": false,
+    "why": "Ordinary hooks do not own AgentSession physical completion or its model prompt transform. The examined recorder wait contract accepts no signal. Replacing recorder methods/handlers, claiming dispatch, forcing completion, or clearing retention would violate ownership rather than repair it.",
+    "existingSafeBehavior": "Core passive observer only captures read methods and listens to request abort. Keep source admission and original grant unchanged.",
+    "separateFixtureGap": "before_prompt_build/agent_end registration was denied synchronously. Fix the fixture dependency explicitly, but do not label permission expansion a timeout repair."
+  },
+  "minimumMissingEvidence": "Actual enter/leave identity for the pending session listener, runtime persistence/admission promise, or projection write. Current phase/timing evidence cannot select among these. Any next real-run observation requires separately bounded execution; none is assigned or performed here.",
+  "sourceEvidence": {
+    "agent-core-D7okjbP7.mjs": {
+      "lines": [
+        334,
+        712,
+        819,
+        1807,
+        1916,
+        1938,
+        1963,
+        1979
+      ],
+      "finding": "loop enters streaming before awaited event handlers; projection before provider; waitForIdle only resolves after finishRun",
+      "sha256": "0afdbce66e3a83f49e99c3035223cd3d83dea54f1ae1023e03165733f27878d1"
+    },
+    "settings-manager-2KjnbEXR.mjs": {
+      "lines": [
+        1325,
+        1460,
+        1488,
+        1642,
+        1972,
+        2000,
+        2075,
+        2387
+      ],
+      "finding": "session getter returns underlying Agent streaming flag; abort signals then awaits Agent idle; preflight precedes loop; message persistence and terminal listeners are awaited",
+      "sha256": "e54ca1f01ef0c13a5f8bf1d0adcfcf202dec6e28ce4034a6169ffd4578d6cb77"
+    },
+    "user-turn-transcript-DuAfBkUt.mjs": {
+      "lines": [
+        369,
+        391,
+        581
+      ],
+      "finding": "runtime persistence and admissionWrite are separate sequential waits",
+      "sha256": "ec4a2477247f78ec8f46fcd13a8639e06c1135fbb5518baba226a708ba9d6edc"
+    },
+    "attempt-system-prompt-prepare-ChKsbjSh.mjs": {
+      "lines": [
+        3150,
+        3163,
+        3190,
+        3448,
+        3794
+      ],
+      "finding": "model prompt projection enters recorder wait before checking cancellation; candidate adds one pre-wait assertion",
+      "sha256": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c"
+    },
+    "builtin-openclaw-BxzDR6yL.mjs": {
+      "lines": [
+        1751,
+        1758,
+        11479,
+        11588,
+        13417,
+        14447,
+        14767
+      ],
+      "finding": "actual still-streaming warning reads activeSession.isStreaming; outer prompt abort and physical settlement are distinct",
+      "sha256": "220ce2f67e0ec0b96b63fe474dbefd628a6429cf2b58b87f78a78324ee92ca1c"
+    },
+    "session-boundary-prompt-cache-key-SDHAWKdr.mjs": {
+      "lines": [
+        321,
+        338,
+        340,
+        755
+      ],
+      "finding": "model lifecycle start event emitted synchronously on entering diagnostic stream wrapper, before underlying stream call",
+      "sha256": "a41f6ba32ef126b79315ff2b9b30414710d251b05e5f66eb9f5e30698743c925"
+    },
+    "config-contracts-DzLaG7FV.d.ts": {
+      "lines": [
+        1905,
+        1908,
+        1918
+      ],
+      "finding": "recorder wait public type has no AbortSignal parameter; mutation methods are not cancellation or physical settlement proof",
+      "sha256": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17"
+    },
+    "plugin-sdk/core.d.ts": {
+      "finding": "public ordinary plugin API entry; no direct attempt projection installer or AgentSession ownership override found in examined contract",
+      "sha256": "5e229422da52095966cd16f87d2f7df0c23ddd285fbd76914aabea4e9b5868e6"
+    }
+  },
+  "artifactHashes": {
+    "WAIT-BOUNDARY-PROBE.mjs": "71592905356768a8be7c1a700617fd393ae03fd63274f72cd6ab181193cefbfb",
+    "WAIT-BOUNDARY-RESULT.json": "145e5adccb8e54c4e1bdd9f275eeb9e4014789a600eb00af6a686e240098c106",
+    "WAIT-PROBE-SETUP-FAILURE.json": "c25006be3ccbba2684a29fd0bc30db11f0f69454cb56f7600f45f47d289add22",
+    "UPSTREAM-PREABORT-CANDIDATE.patch": "8678f43835fc66e954782833cb27437091c83387f1d84d83da5bab429aa36f79"
+  },
+  "preserved": {
+    "initialSyntheticSetupFailure": "WAIT-PROBE-SETUP-FAILURE.json; isolated VM missing dependency stub, corrected before successful cases",
+    "originalRealFailureAndRestartEvidence": true,
+    "installedHostFilesMatchRecordedHashes": true,
+    "modelQuotaConsumedStillTrue": true,
+    "publisherOffUnchanged": true,
+    "selfieAndConfigUntouched": true
+  }
+}

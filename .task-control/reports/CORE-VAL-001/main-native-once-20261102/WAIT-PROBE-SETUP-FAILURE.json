@@ -1,0 +1,9 @@
+{
+  "scope": "first synthetic diagnostic harness setup, not Host execution",
+  "scriptSha256": "b63c2b2a95930f31154cdcff56f205c057f618784e9ec3a9a398b367fcf1f1fa",
+  "exitCode": 1,
+  "result": "4s synthetic watchdog before first controlled barrier",
+  "cause": "Missing takePromptCompactionRequestBudget dependency stub in isolated exact-method VM; session prompt rejected before entered barrier. Not the actual-run failure.",
+  "newHostRequests": 0,
+  "newModelRequests": 0
+}

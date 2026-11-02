@@ -1,0 +1,10 @@
+--- a/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs
++++ b/node_modules/openclaw/dist/attempt-system-prompt-prepare-ChKsbjSh.mjs
+@@ -3160,6 +3160,7 @@
+ 			params.assertCurrent?.();
+ 		};
+ 		if (params.shouldCapturePrompt()) {
++			assertCurrent();
+ 			await params.recorder?.waitForRuntimePersistence();
+ 			assertCurrent();
+ 			const recorded = params.recorder?.getPersistedMessage?.();

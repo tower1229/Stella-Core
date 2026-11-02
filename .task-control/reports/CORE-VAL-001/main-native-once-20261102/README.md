@@ -37,3 +37,13 @@
 [纯合成探针](CANCELLATION-PROBE.mjs)直接提取固定10.9的投影等待、abortable、settle tracker 和 retained-work release 函数，不导入 Host 模块。三项对照均完成：普通取消及预先取消时，外层 AbortError 可先返回，底层等待与 custody 继续保留；解开人工 gate 后才结束。第三项仅演示可取消等待的差异，不证明真实存储工作已取消，也不是可直接部署的修复。结果见 [CANCELLATION-PROBE-RESULT.json](CANCELLATION-PROBE-RESULT.json)。
 
 最小修复方向是先定位真实 pending owner，再让底层等待正确响应取消，同时保留写入完成和资源所有权证据；不能通过清空 retained tokens、延长超时或扩大会话权限来掩盖失败。Core 夹具还需显式处理必要 hook 注册未生效的问题，但该问题与本次挂起尚无因果证明。具体源码 hash、未排除项及下一无模型诊断边界见 [DIAGNOSIS.json](DIAGNOSIS.json)。本轮没有修改运行代码、Host、配置或权限，没有新模型请求。
+
+## 后续窄范围对照：会话与持久化等待
+
+固定10.9的 `AgentSession.isStreaming` 直接读取 Agent 状态；实际“abort still streaming”日志因此说明请求已进入 Agent loop，不能仅用 loop 之前的 `before_agent_start` 等待解释。它仍不表示模型网络连接或 token 流已经开始。
+
+[第二组对照](WAIT-BOUNDARY-RESULT.json)分开记录6条路径和6项修复对照。会话预检可以保留 prompt，但没有 streaming；loop 内用户消息持久化、recorder 的 runtime/admission 等待、投影写入均能同时保留 streaming、session abort 等待和物理工作。终态监听器也能在取消后延迟收尾，但不是该合成场景的初始卡点。真实日志没有足够的逐 await 证据在这些路径间唯一选择；尤其不能假定已持久化的用户消息一定再次追加。
+
+[一行上游候选](UPSTREAM-PREABORT-CANDIDATE.patch)仅在投影等待前调用已有 `assertCurrent()`。修前预取消仍进入一次等待；候选不再进入。正常投影不变，进入等待后的取消仍保留物理收尾语义。因此该候选**不解决已知的90秒后挂起**，未应用于已安装Host，不能宣布实际问题已修。它供上游审查，不建立长期 fork。
+
+探针首轮因隔离VM遗漏依赖桩而触发自身4秒 watchdog，原失败单独保留；补齐后6条路径和6项对照完成，provider边界触达0。它们不是新真实请求、真实存储或端到端时间限验证。公开插件合同没有已核实的安全手段替换 Host 的物理 session wait；禁止篡改 recorder、抢占 admission handler 或伪造完成来规避。完整边界见 [WAIT-BOUNDARY-DIAGNOSIS.json](WAIT-BOUNDARY-DIAGNOSIS.json)。

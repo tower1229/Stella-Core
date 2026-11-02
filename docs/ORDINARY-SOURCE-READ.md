@@ -425,3 +425,12 @@ then preserve actual write settlement while fixing cancellation. Do not clear
 retained custody or enable conversation access merely to make the test finish.
 No additional Host/model request, configuration change or permission expansion
 was performed in this diagnosis.
+
+Further exact-function contrasts narrow the actual run to an entered Agent loop:
+the timeout warning reads real `isStreaming` state. Preflight alone cannot explain
+that state, while in-loop persistence/projection waits and terminal event barriers
+can. The [bounded follow-up](../.task-control/reports/CORE-VAL-001/main-native-once-20261102/WAIT-BOUNDARY-DIAGNOSIS.json)
+preserves this remaining ambiguity. A one-line, uninstalled upstream candidate
+checks cancellation before entering a new projection wait; it leaves in-flight
+write settlement intact and is explicitly not a repair proven for this real run.
+No safe public-plugin replacement for the Host-owned wait has been established.

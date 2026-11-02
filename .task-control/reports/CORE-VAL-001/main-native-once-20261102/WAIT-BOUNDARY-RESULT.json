@@ -1,0 +1,372 @@
+{
+  "scope": "exact official functions, controlled synthetic dependencies; no actual-run root-cause proof",
+  "sourceHashes": {
+    "attempt-system-prompt-prepare-ChKsbjSh.mjs": "99bb65a40f568e2953aac51a599bc76d8e9fcb9fd02e5daa76f082a9340b439c",
+    "user-turn-transcript-DuAfBkUt.mjs": "ec4a2477247f78ec8f46fcd13a8639e06c1135fbb5518baba226a708ba9d6edc",
+    "abortable-Cd6QbDOo.mjs": "bdb7cb1aab96c26d35872f2dc974bbe07845d3c57a2a49ddbb335cf9bac98866",
+    "builtin-openclaw-BxzDR6yL.mjs": "220ce2f67e0ec0b96b63fe474dbefd628a6429cf2b58b87f78a78324ee92ca1c",
+    "runtime-plugins-B5lnDthu.mjs": "63a7c16135d382dc09ea0f17bbb4d871531d0c5eaf10ccb512879d6554b54d29",
+    "agent-core-D7okjbP7.mjs": "0afdbce66e3a83f49e99c3035223cd3d83dea54f1ae1023e03165733f27878d1",
+    "settings-manager-2KjnbEXR.mjs": "e54ca1f01ef0c13a5f8bf1d0adcfcf202dec6e28ce4034a6169ffd4578d6cb77"
+  },
+  "extractedSpans": [
+    {
+      "file": "attempt-system-prompt-prepare-ChKsbjSh.mjs",
+      "marker": "function installModelPromptProjection(",
+      "line": 3150
+    },
+    {
+      "file": "user-turn-transcript-DuAfBkUt.mjs",
+      "marker": "\tconst waitForRuntimePersistence = async () => {",
+      "line": 391
+    },
+    {
+      "file": "abortable-Cd6QbDOo.mjs",
+      "marker": "function createAbortableError(",
+      "line": 9
+    },
+    {
+      "file": "abortable-Cd6QbDOo.mjs",
+      "marker": "function withAbortListener(",
+      "line": 64
+    },
+    {
+      "file": "abortable-Cd6QbDOo.mjs",
+      "marker": "function abortable(",
+      "line": 56
+    },
+    {
+      "file": "builtin-openclaw-BxzDR6yL.mjs",
+      "marker": "function createEmbeddedAttemptSessionSettleTracker(",
+      "line": 14447
+    },
+    {
+      "file": "runtime-plugins-B5lnDthu.mjs",
+      "marker": "async function releaseRuntimePluginWork(",
+      "line": 41
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "function getSteeringAtCheckpoint(",
+      "line": 49
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "function createStreamedSteeringConfig(",
+      "line": 54
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "function createFailureMessage(",
+      "line": 178
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "function isTurnHandoffAbort(",
+      "line": 216
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "function normalizeCoreContextMessages(",
+      "line": 239
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "async function appendInterruptedTurnMessage(",
+      "line": 221
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "async function runAgentLoop(",
+      "line": 701
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "async function runLoop(",
+      "line": 738
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "async function streamAgentResponse(",
+      "line": 334
+    },
+    {
+      "file": "attempt-system-prompt-prepare-ChKsbjSh.mjs",
+      "marker": "function resolveModelPromptText(",
+      "line": 3141
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\tasync runWithLifecycle(executor)",
+      "line": 1917
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\tasync processEvents(event)",
+      "line": 1979
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\tasync handleRunFailure(error, aborted)",
+      "line": 1941
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\tfinishRun()",
+      "line": 1963
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\tabort(reason)",
+      "line": 1799
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\twaitForIdle()",
+      "line": 1807
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\tasync runPromptMessages(messages, options = {})",
+      "line": 1860
+    },
+    {
+      "file": "agent-core-D7okjbP7.mjs",
+      "marker": "\tcreateContextSnapshot()",
+      "line": 1865
+    },
+    {
+      "file": "settings-manager-2KjnbEXR.mjs",
+      "marker": "\tasync abort(reason)",
+      "line": 2387
+    },
+    {
+      "file": "settings-manager-2KjnbEXR.mjs",
+      "marker": "\tasync prompt(text, options)",
+      "line": 2075
+    }
+  ],
+  "paths": [
+    {
+      "kind": "before_agent_start_preflight",
+      "observation": {
+        "isStreaming": false,
+        "physicalSettled": false,
+        "sessionAbortReturned": true
+      },
+      "pass": true,
+      "interpretation": "Can retain a prompt but alone cannot explain the actual still-streaming flag."
+    },
+    {
+      "kind": "user_persistence",
+      "observation": {
+        "isStreaming": true,
+        "physicalSettled": false,
+        "abortSettled": false
+      },
+      "final": {
+        "physicalSettled": true,
+        "abortSettled": true,
+        "released": 1,
+        "isStreaming": false
+      },
+      "events": [
+        "agent_start",
+        "turn_start",
+        "message_start:user",
+        "message_end:user",
+        "message_start:assistant",
+        "message_end:assistant",
+        "turn_end:assistant",
+        "message_start:custom",
+        "message_end:custom",
+        "agent_end"
+      ],
+      "writes": 1,
+      "pass": true
+    },
+    {
+      "kind": "runtime_persistence",
+      "observation": {
+        "isStreaming": true,
+        "physicalSettled": false,
+        "abortSettled": false
+      },
+      "final": {
+        "physicalSettled": true,
+        "abortSettled": true,
+        "released": 1,
+        "isStreaming": false
+      },
+      "events": [
+        "agent_start",
+        "turn_start",
+        "message_start:user",
+        "message_end:user",
+        "message_start:assistant",
+        "message_end:assistant",
+        "turn_end:assistant",
+        "message_start:custom",
+        "message_end:custom",
+        "agent_end"
+      ],
+      "writes": 0,
+      "pass": true
+    },
+    {
+      "kind": "admission_write",
+      "observation": {
+        "isStreaming": true,
+        "physicalSettled": false,
+        "abortSettled": false
+      },
+      "final": {
+        "physicalSettled": true,
+        "abortSettled": true,
+        "released": 1,
+        "isStreaming": false
+      },
+      "events": [
+        "agent_start",
+        "turn_start",
+        "message_start:user",
+        "message_end:user",
+        "message_start:assistant",
+        "message_end:assistant",
+        "turn_end:assistant",
+        "message_start:custom",
+        "message_end:custom",
+        "agent_end"
+      ],
+      "writes": 0,
+      "pass": true
+    },
+    {
+      "kind": "projection_write",
+      "observation": {
+        "isStreaming": true,
+        "physicalSettled": false,
+        "abortSettled": false
+      },
+      "final": {
+        "physicalSettled": true,
+        "abortSettled": true,
+        "released": 1,
+        "isStreaming": false
+      },
+      "events": [
+        "agent_start",
+        "turn_start",
+        "message_start:user",
+        "message_end:user",
+        "message_start:assistant",
+        "message_end:assistant",
+        "turn_end:assistant",
+        "message_start:custom",
+        "message_end:custom",
+        "agent_end"
+      ],
+      "writes": 1,
+      "pass": true
+    },
+    {
+      "kind": "terminal_after_cancel",
+      "observation": {
+        "isStreaming": true,
+        "physicalSettled": false,
+        "abortSettled": false
+      },
+      "terminalObservation": {
+        "isStreaming": true,
+        "physicalSettled": false,
+        "abortSettled": false,
+        "released": 0
+      },
+      "final": {
+        "physicalSettled": true,
+        "abortSettled": true,
+        "released": 1,
+        "isStreaming": false
+      },
+      "events": [
+        "agent_start",
+        "turn_start",
+        "message_start:user",
+        "message_end:user",
+        "message_start:assistant",
+        "message_end:assistant",
+        "turn_end:assistant",
+        "message_start:custom",
+        "message_end:custom",
+        "agent_end"
+      ],
+      "writes": 1,
+      "pass": true
+    }
+  ],
+  "repair": [
+    {
+      "patched": false,
+      "during": false,
+      "before": {
+        "waits": 1,
+        "settled": false,
+        "reads": 0
+      },
+      "pass": true,
+      "meetsPreAbortedNoNewWait": false
+    },
+    {
+      "patched": true,
+      "during": false,
+      "before": {
+        "waits": 0,
+        "settled": true,
+        "reads": 0
+      },
+      "pass": true,
+      "meetsPreAbortedNoNewWait": true
+    },
+    {
+      "patched": false,
+      "during": true,
+      "before": {
+        "waits": 1,
+        "settled": false,
+        "reads": 0
+      },
+      "pass": true,
+      "meetsPreAbortedNoNewWait": false
+    },
+    {
+      "patched": true,
+      "during": true,
+      "before": {
+        "waits": 1,
+        "settled": false,
+        "reads": 0
+      },
+      "pass": true,
+      "meetsPreAbortedNoNewWait": false
+    },
+    {
+      "patched": false,
+      "uncancelled": true,
+      "waits": 1,
+      "captures": 1,
+      "pass": true
+    },
+    {
+      "patched": true,
+      "uncancelled": true,
+      "waits": 1,
+      "captures": 1,
+      "pass": true
+    }
+  ],
+  "providerBoundaryReached": 0,
+  "hostModuleImports": 0,
+  "networkRequests": 0,
+  "privatePayloads": 0,
+  "limits": "No real worker, transcript store, provider, 90-second timer or Host generation. Terminal-listener pending is injected after cancellation and is not itself an explanation for the initial stall. Candidate only prevents new wait when cancellation precedes entry; in-flight physical settlement intentionally unchanged."
+}
