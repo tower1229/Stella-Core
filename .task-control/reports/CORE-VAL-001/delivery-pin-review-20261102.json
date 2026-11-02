@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T06:19:49.467594+00:00",
+  "decision": "accepted_finite_offline_scope",
+  "reviewPath": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-source-compat-independent-20261102-qmR6y3/REVIEW.md",
+  "actualReviewSha256": "850f24f6c3393ca6ed927949d71265b392308a931c8fb46e9eb3154e5812cba6",
+  "parentReportedReviewSha256": "98db7e82dece7b82a6b30a8973cd1be9a7c44ce65273af812a82ba8a60a1f242",
+  "hashDifferenceNote": "Actual read file includes an appended separate catalog repair review. Both hashes recorded without claiming equality; parent explicitly accepted exact source/report identities, current bytes match those identities.",
+  "hostPrivateModelAcceptance": false,
+  "new55788RunConsumed": false,
+  "scope": "delivery-catalog one-file exact10 G hash/line refresh only",
+  "sourceSha256": "88cd63d24e448b4731ebaf9d3cd76f447c4228a48476083bd007866ae0759539",
+  "authorTests": {
+    "pass": 11,
+    "total": 11,
+    "independentlyRerun": false
+  },
+  "all40WorkAnd49AcceptanceIdentityContentUnchanged": true,
+  "protectedGuardTestAnd3DocsUnchanged": true
+}

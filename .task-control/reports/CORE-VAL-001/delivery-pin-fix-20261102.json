@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "phase": "minimal_document_pin_repair_tested_pending_independent_review",
+  "observedAt": "2026-11-02T06:11:03.130107+00:00",
+  "baseCommit": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+  "baseRevision": 106,
+  "writer": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:delivery-pin-20261102",
+  "runtimeDeltaFiles": [
+    "src/acceptance/delivery-catalog.ts"
+  ],
+  "sourceBeforeSha256": "53c74f3c5b6ed5df229e66e1705a1630fd8f848259949367e1a00860669b660c",
+  "sourceAfterSha256": "88cd63d24e448b4731ebaf9d3cd76f447c4228a48476083bd007866ae0759539",
+  "frozenSource": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-delivery-pin-20261102-q9zeocpo/delivery-catalog-fixed.ts",
+  "patch": ".task-control/reports/CORE-VAL-001/delivery-pin-fix-20261102.patch",
+  "patchSha256": "374be40c3eb4cd8f9bace6b5a20fb2c662726120e0ead33dd6a19e7e0fe7c74f",
+  "cause": "4498a46 documentation adds4 lines before G acceptance rows. Catalog retained old full-doc hash and old line locators. All8 delivery-ledger parents stop at delivery_contract_version_mismatch before later assertions. SDK mismatch is not this proven cause.",
+  "change": "Only10 G01-G10 contract hashes and line locators68..77 ->72..81, plus dated comment; no acceptance wording/IDs/issue mapping/work dependencies/test/guard change.",
+  "documentDiffReviewed": {
+    "from": "2fdf47a660df50202e66d5567349ad2e5efdd3dc",
+    "to": "4498a46c7cd0d1ac8981ca68cd12a93c5af2f937",
+    "file": "docs/10-DESIGN-BASELINE.md",
+    "delta": "two dated priority/navigation paragraphs plus blank lines; all10 G table rows byte-identical",
+    "oldPin": "511c8424881bd3af0978d5e499a17b79fd9f9623b35d19b3ee81bae9670eae1d",
+    "newPin": "350a3766d4219db0ca78ba4b7a7696834f4df741e5ea9e45de804bb545dfaac2"
+  },
+  "checks": {
+    "red": {
+      "tests": 8,
+      "pass": 0,
+      "fail": 8,
+      "exitCode": 1,
+      "stdoutSha256": "c1af421e02c21a3971f488c68141cfa07b5489f66ed522df08907a7142391c2a",
+      "argv": [
+        "node",
+        "--test",
+        "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-delivery-pin-20261102-q9zeocpo/compiled/tests/delivery-ledger.test.js"
+      ],
+      "time": "2026-11-02T06:08:08.659026+00:00"
+    },
+    "green": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "exitCode": 0,
+      "stdoutSha256": "1551373bd65580bb3c347e6fb33ed7593eaf86ba37ab135a41d47f6100b9b5ba",
+      "argv": [
+        "node",
+        "--test",
+        "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-delivery-pin-20261102-q9zeocpo/compiled/tests/delivery-ledger.test.js"
+      ],
+      "time": "2026-11-02T06:08:57.928027+00:00"
+    }
+  },
+  "greenCountExplanation": "8 parent tests plus3 nested contract-tampering rejection cases; the failed baseline stopped before those3 children. No tests added/deleted/skipped, no false8-to11 accounting.",
+  "compileBefore": {
+    "argv": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-p",
+      "tsconfig.test.json",
+      "--outDir",
+      "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-delivery-pin-20261102-q9zeocpo/compiled",
+      "--declaration",
+      "false",
+      "--sourceMap",
+      "false"
+    ],
+    "exitCode": 0,
+    "time": "2026-11-02T06:08:08.563066+00:00"
+  },
+  "compileAfter": {
+    "argv": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-p",
+      "tsconfig.test.json",
+      "--outDir",
+      "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-delivery-pin-20261102-q9zeocpo/compiled",
+      "--declaration",
+      "false",
+      "--sourceMap",
+      "false"
+    ],
+    "exitCode": 0,
+    "time": "2026-11-02T06:08:57.767915+00:00"
+  },
+  "audit": {
+    "rows": 49,
+    "allContractHashesAndLocatorsMatch": true,
+    "changedRows": [
+      "G-01",
+      "G-02",
+      "G-03",
+      "G-04",
+      "G-05",
+      "G-06",
+      "G-07",
+      "G-08",
+      "G-09",
+      "G-10"
+    ],
+    "allOtherAcceptanceDataIdentical": true,
+    "documentHashes": {
+      "docs/10-DESIGN-BASELINE.md": "350a3766d4219db0ca78ba4b7a7696834f4df741e5ea9e45de804bb545dfaac2",
+      "docs/04-OPENCLAW-INTEGRATION.md": "dad6276553ee3eb8721584b32b382d42d6c0883ad7676e068956831c933fdb75",
+      "docs/contracts/MEMORY-LIFECYCLE.md": "bfd3c62c6526581e39feab7702e746279a9b11b4918cfe9add56d30ed439e2c3"
+    },
+    "guardsTestsAndDocumentsUnchanged": {
+      "src/acceptance/delivery-ledger.ts": "371e2d3b3f780cf1ee461a13cbfbfbbeb54a82e91fbdee2fb6b9a6f78c323c40",
+      "tests/delivery-ledger.test.ts": "750eb0e1da2771742876ec3e50ed7693d84167dbbde4725ede941c8609334519",
+      "docs/10-DESIGN-BASELINE.md": "350a3766d4219db0ca78ba4b7a7696834f4df741e5ea9e45de804bb545dfaac2",
+      "docs/04-OPENCLAW-INTEGRATION.md": "dad6276553ee3eb8721584b32b382d42d6c0883ad7676e068956831c933fdb75",
+      "docs/contracts/MEMORY-LIFECYCLE.md": "bfd3c62c6526581e39feab7702e746279a9b11b4918cfe9add56d30ed439e2c3"
+    },
+    "compatibilityFiveHashesUnchanged": true
+  },
+  "impactAudit": "Tracked active src/tests/scripts old hash existed only in10 delivery-catalog rows. All49 catalog path/hash/line/ID references audited; other2 contract hashes match. Historical archived old pins intentionally remain historical.",
+  "testedSDK": "2026.10.9 local; project/lock10.8 untouched; CI source10.8 check/schema previously pass, nextCI not run yet",
+  "priorCI": {
+    "runs": [
+      41395963656,
+      41395963672
+    ],
+    "countsEach": {
+      "tests": 1820,
+      "pass": 1786,
+      "fail": 34
+    },
+    "oldFailureNames": 26,
+    "newDeliveryParents": 8,
+    "evidence": ".task-control/reports/CORE-VAL-001/source-save-push-ci-20261102.json",
+    "evidenceSha256": "f552970f467c5bee1dd24643351a99a3162a56fdf120edbc22ef5e02a784bd3d",
+    "historicalFailureNotRelabeled": true
+  },
+  "notClaimed": [
+    "No newCI/full local suite result",
+    "No fix or deletion of26 historical failures",
+    "No Host/private source/model/semantic/full_memory acceptance"
+  ],
+  "safety": {
+    "compatibilityFiveUnchanged": true,
+    "sharedMainChanged": false,
+    "realModelCalls": 0,
+    "privateDataOrCredentialsUsed": false,
+    "newPermissions": false,
+    "indexEmpty": true
+  },
+  "nextStep": "Independent review this one-file change + evidence; after acceptance normal commit/push exact reviewed whitelist on existing branch, then inspect both new SHA CI. Do not include frozen unreviewed WebChat/default-model code or old dirty.",
+  "committed": false,
+  "pushed": false
+}
