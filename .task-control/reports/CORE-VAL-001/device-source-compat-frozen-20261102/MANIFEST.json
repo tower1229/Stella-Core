@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "baselineHead": "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+  "sdkVersion": "2026.10.9",
+  "members": [
+    {
+      "original": "src/openclaw/ordinary-source-admission.ts",
+      "snapshot": "src/openclaw/ordinary-source-admission.ts",
+      "sha256": "068687a22375a3881c45308fafe1ca2bb3314df4d2f38241ab45946cf1da174a",
+      "bytes": 19754
+    },
+    {
+      "original": "tests/ordinary-source-admission.test.ts",
+      "snapshot": "tests/ordinary-source-admission.test.ts",
+      "sha256": "b1d5148397b41954f05e978265e90146da5eec28eacece8b006221758c016cb9",
+      "bytes": 29390
+    },
+    {
+      "original": "docs/ORDINARY-SOURCE-READ.md",
+      "snapshot": "docs/ORDINARY-SOURCE-READ.md",
+      "sha256": "58b8fd551d55888e9243f43eac6dcb45b839de8b2020706432dcc8b266cc95e7",
+      "bytes": 19326
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.json",
+      "sha256": "f48a7a6fd7a3bdf7e6a865835705dbe388817606a6274d65eb61d9ed5b31a845",
+      "bytes": 12286
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.patch",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.patch",
+      "sha256": "b55d1c1b04f473214f63f538983efc23e5953f07748555db82470372ae835d00",
+      "bytes": 20028
+    }
+  ],
+  "reviewScope": "3implementation/contract files plusreport+patch; state/PROJECTtaskfacts not runtime dependencies"
+}

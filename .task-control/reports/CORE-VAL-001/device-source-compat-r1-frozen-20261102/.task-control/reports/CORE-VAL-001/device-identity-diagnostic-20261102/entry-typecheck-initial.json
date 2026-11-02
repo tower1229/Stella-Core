@@ -1,0 +1,7 @@
+{
+  "exitCode": 1,
+  "code": "TS7016",
+  "target": "openclaw/plugin-sdk/file-lock",
+  "cause": "virtual single-entry checker omitted existing project ambient declaration roots; normal full project compile already passed",
+  "fix": "include existing parsed .d.ts roots, no declaration or type-check relaxation"
+}

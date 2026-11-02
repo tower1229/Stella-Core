@@ -22,7 +22,7 @@ import { SOURCE_READ_TOOL, type SourceReadAdmission, type SourceReadBinding } fr
 export const SOURCE_POLICY_MODEL = "google/gemini-3.8-flash";
 export type SourcePolicyCompletion = (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
 export type GatewayRequestScopeReader = typeof getPluginRuntimeGatewayRequestScope;
-type GatewayPrincipal = { id: string; connection: string; assertIdentity(): void };
+type GatewayPrincipal = { id: string; deviceRequesterId: string | undefined; connection: string; assertIdentity(): void };
 type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
 type Call = Identity & { runId: string; senderId: string; signal?: AbortSignal; conflict: boolean; release(): void };
 type Turn = { sessionKey: string; rawText: string; senderId: string; gateway?: GatewayPrincipal; cutoff: string; conflict: boolean; calls: Set<string>; release(): void };
@@ -31,6 +31,18 @@ type ToolContext = Identity & ToolEvent & { abortSignal?: AbortSignal; requester
 const run = promisify(execFile);
 const text = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 4096;
 function check(ok: unknown, code: string): asserts ok { if (!ok) throw new CatalogError(code); }
+
+/** This field is produced by the Host's authenticated pairing/token check, not
+ * connect.device or tool parameters. Never read or retain its token identity key. */
+function attestedDeviceRequester(flags: { authenticatedOperator?: boolean;
+  operatorDeviceTokenIdentity?: { deviceId: string } | null } | undefined): string | undefined {
+  const attested = flags?.operatorDeviceTokenIdentity;
+  if (attested == null) return;
+  const deviceId = attested.deviceId;
+  check(flags?.authenticatedOperator === true && typeof deviceId === "string" && /^[a-f0-9]{64}$/.test(deviceId),
+    "source_gateway_device_unavailable");
+  return `openclaw-device:${deviceId}`;
+}
 
 /** Identity from the genuine public Gateway scope, not client-supplied fields.
  * Only the initial capture uses live transport admission. An admitted run keeps
@@ -49,18 +61,21 @@ function gatewayPrincipal(read: GatewayRequestScopeReader): GatewayPrincipal | u
     text(profileId) && text(connection) && typeof live === "function" && live.call(scope) === true &&
     !scope?.signal?.aborted && !client.connectionSignal?.aborted && !client.invalidated,
   "source_gateway_principal_unavailable");
+  const deviceRequesterId = attestedDeviceRequester(internal);
   const assertIdentity = () => {
     const flags = client.internal;
     check(client.connId === connection && client.authenticatedUserProfile?.profileId === profileId &&
       flags?.authenticatedControlUi === true && !flags.syntheticClient && !flags.agentToolCaller &&
-      !flags.agentRuntimeIdentity && !flags.pluginSubagentRequester, "source_gateway_principal_changed");
+      !flags.agentRuntimeIdentity && !flags.pluginSubagentRequester && attestedDeviceRequester(flags) === deviceRequesterId,
+    "source_gateway_principal_changed");
     const current = read()?.client, currentFlags = current?.internal;
     check(current?.connId === connection && current.authenticatedUserProfile?.profileId === profileId &&
       currentFlags?.authenticatedControlUi === true && !currentFlags.syntheticClient && !currentFlags.agentToolCaller &&
-      !currentFlags.agentRuntimeIdentity && !currentFlags.pluginSubagentRequester, "source_gateway_scope_mismatch");
+      !currentFlags.agentRuntimeIdentity && !currentFlags.pluginSubagentRequester && attestedDeviceRequester(currentFlags) === deviceRequesterId,
+    "source_gateway_scope_mismatch");
   };
   assertIdentity();
-  return { id: profileId, connection, assertIdentity };
+  return { id: profileId, deviceRequesterId, connection, assertIdentity };
 }
 function relativeRef(value: string) {
   const ref = parseCangHaiRef(value);
@@ -135,7 +150,7 @@ export function createOrdinarySourceAdmission(input: {
       const previous = turns.get(runId);
       if (previous) {
         if (previous.sessionKey !== sessionKey || previous.rawText !== rawText || previous.senderId !== senderId ||
-            previous.gateway?.connection !== gateway?.connection) previous.conflict = true;
+            previous.gateway?.connection !== gateway?.connection || previous.gateway?.deviceRequesterId !== gateway?.deviceRequesterId) previous.conflict = true;
         return;
       }
       if (turns.size >= 32) return;
@@ -201,9 +216,15 @@ export function createOrdinarySourceAdmission(input: {
         guard();
         const processing = await processingBinding(binding, guard); guard();
         const config = processing.loaded.config;
-        check(config.requesterIds[0] === turn.senderId, "personal_context_requester_forbidden");
+        // The grant selects the identity kind. A device grant cannot be satisfied
+        // by a matching profile string or by any other device of that profile.
+        // Keep the Host profile/connection checks above; only the existing grant's
+        // request snapshot uses the exact separately attested device principal.
+        const requesterId = config.requesterIds[0]!.startsWith("openclaw-device:")
+          ? turn.gateway?.deviceRequesterId : turn.senderId;
+        check(typeof requesterId === "string" && config.requesterIds[0] === requesterId, "personal_context_requester_forbidden");
         const request = snapshotTurnRequest({ agentId: identity.agentId!, sessionId: identity.sessionId!, sessionKey: identity.sessionKey!,
-          prompt: turn.rawText, senderId: turn.senderId, senderIsOwner: true, chatType: "direct" }, call.runId);
+          prompt: turn.rawText, senderId: requesterId, senderIsOwner: true, chatType: "direct" }, call.runId);
         const authority = bindProcessingAuthority({ request, ownerId: config.ownerId, modelRef: SOURCE_POLICY_MODEL,
           purpose: config.purpose, deployment: bytesVersion(canonicalJson(binding)), generationId: binding.revision });
         const sourceAccess = createPersonalContextAccess({ request, modelRef: SOURCE_POLICY_MODEL, binding: processing.loaded,

@@ -245,4 +245,54 @@ source file, permission or publication setting changed here.
 
 The coordinated fixed worktree and the installed package's manifest/profile/grant parsers now pass the no-model readiness checks. Configuration remains unapplied: the existing grant has one `openclaw-device` requester, while the official Host profile directory contains one canonical profile and zero exact requester matches. The current WebChat adapter compares that profile ID exactly, so this is a concrete compatibility gap before live binding, not a data-root failure. Neither the grant nor requester mapping was changed.
 
-The public SDK exposes an optional server-attested `operatorDeviceTokenIdentity`; its actual device must match the already permitted device before it could support a narrow compatibility change. A raw client device field, an owner flag, or mere profile membership is insufficient. The seam is not implemented or verified for the active browser, and token key values must not be copied. See the [readiness matrix and precise next step](../.task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json). No post-binding tool success, original-payload consumption or semantic acceptance is claimed.
+The public SDK exposes an optional server-attested `operatorDeviceTokenIdentity`; its actual device must match the already permitted device before it could support a narrow compatibility change. A raw client device field, an owner flag, or mere profile membership is insufficient. The seam was not implemented at this readiness checkpoint and remains unverified for the active browser; token key values must not be copied. See the [readiness matrix and precise next step](../.task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json). No post-binding tool success, original-payload consumption or semantic acceptance is claimed.
+
+## Existing-device compatibility candidate (2026-11-02)
+
+The later local candidate implements that narrow seam; the installed package
+still has the preceding identity gap. OpenClaw10.9 creates the public internal
+device identity only after matching the paired record's public key, operator
+token and current scopes. Core snapshots only its lowercase64-hex `deviceId`,
+requires authenticated Control UI/operator admission, and retains the original
+profile, connection, native run/call, incarnation and owner-private checks. It
+never reads the token-generation key or uses `connect.device` as proof.
+
+The existing grant explicitly selects the principal kind. An `openclaw-device:`
+grant requires exact equality to the Host-attested device; a matching profile
+string or another device under the same profile cannot satisfy it. An explicit
+profile grant keeps its prior exact-profile semantics. The permission request
+snapshot uses the selected existing principal without rewriting any Host sender
+field, adding a requester, issuing an alias or broadening the descriptor scope.
+Identity conflicts invalidate that run, each new user request needs fresh
+admission, and admitted tool continuation keeps the native request lifetime.
+
+The initial author suite passed27/27 (22 admission cases and5 ordinary-plugin
+cases), including unchanged-grant read/list, forged/profile-only/unknown-device
+denials, delegation, cross-connection/cross-request reuse and cancellation.
+These are synthetic tests with a local completion fixture, not a real device
+observation or Gemini acceptance. Review evidence and the frozen candidate are
+in [the compatibility packet](../.task-control/reports/CORE-VAL-001/device-source-compat-20261102.json).
+No live binding, installed-package change or private source access occurred.
+
+Independent review rejected that initial candidate: when the Gateway principal
+was absent, a device-form grant could incorrectly match a normal transport's
+SenderId. Two synthetic registered-tool counterexamples returned payloads; this
+was not a deployed private-data exposure. The original frozen packet and failures
+remain unchanged.
+
+The R1 candidate now selects solely from the grant kind: every device-form grant
+requires `turn.gateway?.deviceRequesterId`, so unsupported normal-channel/CLI
+paths fail before model or payload access. Explicit profile grants and the
+authenticated-device positive path retain their prior behavior. The exact three
+independent probes changed from1pass/2fail to3pass/0fail; the expanded admission
+and ordinary-plugin suite passes29/29. These counts are separate. See the
+[R1 repair packet](../.task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.json).
+
+A separate temporary status diagnostic is prepared for review only. It exposes
+five booleans through the existing status tool, requires an eligible authenticated
+Control UI caller for a device comparison, and creates no admission or source
+permission. Its fixed expected digest is assembled privately from the original
+grant after review; the candidate contains no real seed and is not loadable yet.
+Use the actual WebUI Debug connection, never a CLI stand-in, and remove the debug
+artifact after its single observation. Native ingress/source consumption and
+Gemini semantics remain separate, unverified steps.

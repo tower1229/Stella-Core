@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-02T09:15:29.035Z",
+  "verdict": "accepted_with_bounded_temporary_diagnostic",
+  "baselineHead": "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+  "stateRevisionObserved": 125,
+  "sdkActuallyTested": "2026.10.9",
+  "projectDeclaredSdk": "2026.10.8",
+  "notTenPointEightAcceptance": true,
+  "freeze": {
+    "manifestSha256": "55fd3d5fa6dd5e63e9895164f1e74b38654d9148d9c54fbcd57837ab0f3f6178",
+    "members": 21,
+    "allCurrentAndSnapshotMatch": true
+  },
+  "independentResults": {
+    "compile": {
+      "exitCode": 0,
+      "source": "Prior completed tool result; empty compiler log is supporting output, not sole exit proof."
+    },
+    "focused": {
+      "tests": 29,
+      "pass": 29,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "originalP1Replay": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0
+    },
+    "diagnostic": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "virtualEntryTypecheck": {
+      "pass": true,
+      "physicalSourceEdits": 0,
+      "emittedFiles": 0,
+      "seed": "synthetic compile-only"
+    },
+    "countsNotAdded": true
+  },
+  "p1": {
+    "closed": true,
+    "deviceGrantRequiresTrustedGatewayAttestation": true,
+    "transportSenderFallbackRemoved": true,
+    "deniedProtectedPayloadReads": 0,
+    "deniedSyntheticModelCalls": 0,
+    "profilePositivePreserved": true
+  },
+  "diagnostic": {
+    "newTools": 0,
+    "newPermissions": 0,
+    "sourceReadActivated": false,
+    "attestedDeviceScalarReadOnce": true,
+    "tokenKeyRead": false,
+    "outputs": [
+      "authenticatedControlUi",
+      "authenticatedOperator",
+      "currentAuthority",
+      "deviceFactPresent",
+      "matchesOriginalGrant"
+    ],
+    "eligibleCaller": "Owner plus genuine authenticated ControlUI/operator and current request; synthetic/delegated scopes rejected.",
+    "realSeedPrepared": false,
+    "loaded": false,
+    "identityOrAuthorityIssued": false
+  },
+  "saveWhitelist": {
+    "implementation": [
+      "src/openclaw/ordinary-source-admission.ts",
+      "tests/ordinary-source-admission.test.ts",
+      "docs/ORDINARY-SOURCE-READ.md"
+    ],
+    "evidence": "Exact frozen R1 replay packet and separate uninstalled diagnostic packet; coordinator-only minimal state update.",
+    "excluded": [
+      "private seed or real identity",
+      "compiled/debug artifact",
+      "main config or grant changes",
+      "unrelated dirty files"
+    ]
+  },
+  "laterParentAllocatedWebUiBoundary": {
+    "method": "tools.invoke",
+    "params": {
+      "name": "stella_status",
+      "agentId": "main",
+      "args": {}
+    },
+    "maximumObservations": 1,
+    "preconditions": [
+      "Verify SEED-CONTRACT exact existing grant-file hash and single device requester; derive only fixed comparison digest privately.",
+      "Protect private debug artifact/seed; retain ordinary artifact/config rollback identity.",
+      "Use official existing plugin reload path and a safe shared-Host window.",
+      "Keep sourceRead/model/selfie/identity/grant unchanged; no chat.send/model or protected body read."
+    ],
+    "retainedOutput": "Five booleans and artifact/generation/terminal status only.",
+    "restore": "Restore ordinary artifact and verify temporary field absent.",
+    "noSubstitution": "CLI or fabricated scope cannot prove browser match; false/missing/error does not create admission."
+  },
+  "remainingUnverified": [
+    "Actual browser device matches original grant.",
+    "Real source admission and protected-data consumption.",
+    "Real Gemini semantic consumption.",
+    "10.8 runtime acceptance of this candidate."
+  ],
+  "originalLogDirectory": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-device-r1-independent-20261102-X8ZkXc",
+  "logs": [
+    {
+      "path": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-device-r1-independent-20261102-X8ZkXc/HASH-CHECKS.json",
+      "sha256": "46e44ad90d46c1f04dd48ee29229aa1793819a6fb88d0c3db5d8d07bcba4276f"
+    },
+    {
+      "path": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-device-r1-independent-20261102-X8ZkXc/compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-device-r1-independent-20261102-X8ZkXc/focused.tap",
+      "sha256": "ec74b95a8462a034bc2a20709fd0f51ae87ed6198ddee2dcc41b599ee7f5f1e5"
+    },
+    {
+      "path": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-device-r1-independent-20261102-X8ZkXc/PROBES.json",
+      "sha256": "db1721b098b340e28db5cef3ca1fd8a7c3167269e65257dae92df65a4da81ab6"
+    },
+    {
+      "path": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-device-r1-independent-20261102-X8ZkXc/probe.log",
+      "sha256": "db1721b098b340e28db5cef3ca1fd8a7c3167269e65257dae92df65a4da81ab6"
+    },
+    {
+      "path": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-device-r1-independent-20261102-X8ZkXc/diagnostic.tap",
+      "sha256": "b246ca942b3566e4429447e5cf82005250cb331a5dae62fa91efbfd2e78d0952"
+    }
+  ],
+  "operationsThisRecovery": {
+    "tests": 0,
+    "Host": 0,
+    "model": 0,
+    "repositoryWrites": 0,
+    "grantChanges": 0,
+    "processQueries": 0,
+    "commit": 0,
+    "push": 0
+  },
+  "previousDisconnect": "Summary creation failed before process start; recovery read confirmed summaries absent. Existing successful test logs retained; no rerun.",
+  "blockingFindings": []
+}

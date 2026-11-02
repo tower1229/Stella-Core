@@ -8,16 +8,17 @@ import { canonicalJson } from "../src/canghai/content-version.js";
 import { segmentLocator } from "../src/canghai/source-segments.js";
 import { fixture, prefix, profilePath, hostVersion } from "./fixtures/ordinary-source-read.js";
 import type { GatewayRequestScopeReader } from "../src/openclaw/ordinary-source-admission.js";
+import { CatalogReader } from "../src/canghai/catalog-reader.js";
 
 const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
 const purpose = { readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" };
 const grantPath = `${prefix}/capabilities/source_access_context.json`;
-async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader) {
+async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader, requesterId = "synthetic-requester") {
   const f = await fixture(t, 2, 0, undefined, purpose, leafDerivePurposes);
   const source = JSON.parse(await readFile(path.join(f.root, f.catalog.sources[0]!.locator.path), "utf8"));
   const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
   const segment = source.accessSegments[0];
-  const grant = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic-owner", requesterIds: ["synthetic-requester"],
+  const grant = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic-owner", requesterIds: [requesterId],
     modelRefs: ["google/gemini-3.8-flash"], purpose, descriptors: [source.policyRef, segment.policyRef].map(policyRef =>
       ({ sourceRef, policyRef, segment: segmentLocator(segment), description: "A synthetic harbor-walk record; no real person or private history." })) };
   f.profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
@@ -285,3 +286,133 @@ test("each WebChat hook and protected read requires the same public scope; paral
   assert.equal(third.hook("restored-scope", { requester: undefined })?.block, true);
   assert.equal(f.modelCalls(), 0);
 });
+
+const permittedDeviceId = "a".repeat(64);
+const permittedDeviceRequester = `openclaw-device:${permittedDeviceId}`;
+function deviceBrowserScope(deviceId = permittedDeviceId) {
+  const browser = browserScope();
+  browser.client.internal.operatorDeviceTokenIdentity = { deviceId,
+    get key(): never { throw new Error("Core must not read or copy the token-generation key"); } };
+  return browser;
+}
+
+test("Host-attested same device satisfies the existing device grant without changing profile, grant or tool identity", async t => {
+  const browser = deviceBrowserScope(), f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester);
+  const grantBefore = await readFile(path.join(f.root, grantPath));
+  const turn = f.turn("device-reader", browserFields); turn.dispatch();
+  assert.equal(turn.hook("device-list", { requester: undefined }), undefined);
+  const listed = await turn.tool.execute("device-list", { action: "list" });
+  assert.equal(listed.details.status, "listed"); assert.equal(listed.details.items.length, 1);
+  assert.equal(f.modelCalls(), 0);
+  turn.hook("device-read", { requester: { senderIsOwner: true } });
+  const read = await turn.tool.execute("device-read", { action: "read", ref: f.refs[0] });
+  assert.equal(read.details.original.text, f.texts[0]); assert.equal(f.modelCalls(), 2);
+  assert.equal(read.details.publisher, false); assert.equal(read.details.authorConfirmation, false);
+  assert.equal(browser.client.authenticatedUserProfile.profileId, "synthetic-requester");
+  assert.equal(turn.event.ctx.SenderId, undefined); assert.equal(turn.context.requesterSenderId, undefined);
+  assert.equal(JSON.stringify(read).includes(permittedDeviceId), false);
+  assert.deepEqual(await readFile(path.join(f.root, grantPath)), grantBefore);
+  turn.end();
+  browser.client.internal.operatorDeviceTokenIdentity = { deviceId: "b".repeat(64) };
+  const next = f.turn("same-profile-new-device-request", browserFields); next.dispatch(); next.hook("new-device", { requester: undefined });
+  assert.equal((await next.tool.execute("new-device", { action: "list" })).details.code, "personal_context_requester_forbidden");
+  assert.equal(f.modelCalls(), 2);
+});
+
+test("profile-only, wire device IDs, unknown devices and malformed attestations cannot satisfy a device grant", async t => {
+  let scope: any;
+  const f = await setup(t, undefined, () => scope, permittedDeviceRequester);
+  const variants = [
+    (v: any) => { delete v.client.internal.operatorDeviceTokenIdentity; },
+    (v: any) => { v.client.internal.operatorDeviceTokenIdentity = null; },
+    (v: any) => { delete v.client.internal.operatorDeviceTokenIdentity; v.client.authenticatedUserProfile.profileId = permittedDeviceRequester; },
+    (v: any) => { delete v.client.internal.operatorDeviceTokenIdentity; v.client.connect = { device: { id: permittedDeviceId } }; },
+    (v: any) => { v.client.internal.operatorDeviceTokenIdentity = { deviceId: "b".repeat(64) }; v.client.authenticatedUserProfile.profileId = permittedDeviceRequester; },
+    (v: any) => { v.client.internal.operatorDeviceTokenIdentity = { deviceId: " " + permittedDeviceId }; },
+    (v: any) => { v.client.internal.authenticatedOperator = undefined; v.client.authenticatedUserId = "synthetic-authenticated-user"; },
+  ];
+  for (const [i, mutate] of variants.entries()) {
+    scope = deviceBrowserScope().scope; mutate(scope);
+    const turn = f.turn(`device-denied-${i}`, browserFields); turn.dispatch(); turn.hook(`device-denied-${i}`, { requester: undefined });
+    const result = await turn.tool.execute(`device-denied-${i}`, { action: "list" });
+    assert.equal(result.isError, true, `variant ${i}`); assert.notEqual(result.details.status, "listed");
+  }
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("device attestation never grants synthetic or delegated Gateway ingress", async t => {
+  let scope: any;
+  const f = await setup(t, undefined, () => scope, permittedDeviceRequester);
+  for (const [i, flag] of ["syntheticClient", "agentToolCaller", "agentRuntimeIdentity", "pluginSubagentRequester"].entries()) {
+    scope = deviceBrowserScope().scope; scope.client.internal[flag] = true;
+    const turn = f.turn(`device-delegate-${i}`, browserFields); turn.dispatch();
+    assert.equal(turn.hook(`device-delegate-${i}`, { requester: undefined })?.block, true);
+    assert.equal((await turn.tool.execute(`device-delegate-${i}`, { action: "list" })).isError, true);
+  }
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("device mutation or cross-connection reuse invalidates the original run even after restoration", async t => {
+  let scope: any = deviceBrowserScope().scope;
+  const f = await setup(t, undefined, () => scope, permittedDeviceRequester);
+  const changed = f.turn("device-changed", browserFields); changed.dispatch(); changed.hook("device-changed", { requester: undefined });
+  scope.client.internal.operatorDeviceTokenIdentity = { deviceId: "b".repeat(64) };
+  assert.equal((await changed.tool.execute("device-changed", { action: "list" })).isError, true);
+  scope.client.internal.operatorDeviceTokenIdentity = { deviceId: permittedDeviceId };
+  assert.equal(changed.hook("device-restored", { requester: undefined })?.block, true);
+  const original = scope = deviceBrowserScope().scope;
+  const crossed = f.turn("device-crossed", browserFields); crossed.dispatch(); crossed.hook("device-crossed", { requester: undefined });
+  scope = deviceBrowserScope().scope; scope.client.connId = "different-connection-same-profile-and-device";
+  assert.equal((await crossed.tool.execute("device-crossed", { action: "list" })).isError, true);
+  scope = original;
+  assert.equal(crossed.hook("connection-restored", { requester: undefined })?.block, true);
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("device grants retain native request lifetime but require new admission, exact incarnation and cancellation", async t => {
+  const browser = deviceBrowserScope(), f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester);
+  const first = f.turn("device-lifetime", browserFields); first.dispatch();
+  browser.rpc.abort(); browser.connection.abort(); browser.scope.hasCurrentClientAuthority = () => false;
+  first.hook("device-continuation", { requester: undefined });
+  assert.equal((await first.tool.execute("device-continuation", { action: "list" })).details.status, "listed");
+  const next = f.turn("device-new-request", browserFields); next.dispatch();
+  assert.equal(next.hook("device-new-request", { requester: undefined })?.block, true);
+  first.hook("device-wrong-incarnation", { requester: undefined, sessionId: "other-incarnation" });
+  assert.equal((await first.tool.execute("device-wrong-incarnation", { action: "list" })).isError, true);
+  first.hook("device-cancelled", { requester: undefined }); first.abort.abort();
+  assert.equal((await first.tool.execute("device-cancelled", { action: "read", ref: f.refs[0] })).isError, true);
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("an explicit profile grant keeps its original semantics when another valid device fact is present", async t => {
+  const browser = deviceBrowserScope("b".repeat(64)), f = await setup(t, undefined, () => browser.scope);
+  const turn = f.turn("explicit-profile-grant", browserFields); turn.dispatch(); turn.hook("explicit-profile-grant", { requester: undefined });
+  assert.equal((await turn.tool.execute("explicit-profile-grant", { action: "list" })).details.status, "listed");
+  assert.equal(f.modelCalls(), 0);
+});
+
+for (const kind of ["missing-gateway", "non-WebChat-gateway"] as const) {
+  test(`device grant rejects ${kind} transport SenderId before model or payload access`, async t => {
+    const scope: any = kind === "missing-gateway" ? undefined : {
+      client: { connId: "synthetic-normal-channel", internal: { authenticatedOperator: true } },
+      isWebchatConnect: () => false, hasCurrentClientAuthority: () => true,
+    };
+    const f = await setup(t, undefined, () => scope, permittedDeviceRequester);
+    let payloadReads = 0;
+    const original = CatalogReader.prototype.readPayload;
+    CatalogReader.prototype.readPayload = async function(...args) { payloadReads++; return original.apply(this, args); };
+    t.after(() => { CatalogReader.prototype.readPayload = original; });
+    const turn = f.turn(kind, { ctx: { SenderId: permittedDeviceRequester }, factory: { requesterSenderId: permittedDeviceRequester } });
+    turn.dispatch();
+    const requester = { senderId: permittedDeviceRequester, senderIsOwner: true };
+    for (const action of ["list", "read"] as const) {
+      const callId = `${kind}-${action}`;
+      assert.equal(turn.hook(callId, { requester }), undefined);
+      const result = await turn.tool.execute(callId, action === "list" ? { action } : { action, ref: f.refs[0] });
+      assert.equal(result.isError, true); assert.equal(result.details.code, "personal_context_requester_forbidden");
+      assert.equal(result.details.original, undefined);
+    }
+    assert.equal(payloadReads, 0); assert.equal(f.modelCalls(), 0);
+    turn.end();
+  });
+}

@@ -1,0 +1,105 @@
+{
+  "probeSha256": "42c216b144ad36ab0cb132fe56c818acc5f8ae2259d443237958d4887fbafc93",
+  "execution": "exact original bytes in new task-owned location; original evidence not overwritten",
+  "red": {
+    "sdk": "2026.10.9",
+    "scope": "actual registered plugin/hook/factory, synthetic grant/source/Host facts; no Host or real model",
+    "tests": 3,
+    "pass": 1,
+    "fail": 2,
+    "results": [
+      {
+        "name": "missing-gateway-device-looking-transport",
+        "grantPrincipalKind": "device",
+        "gatewayScopePresent": false,
+        "attestedDevicePresent": false,
+        "hookBlocked": false,
+        "listStatus": "listed",
+        "readStatus": "read",
+        "bodyReturned": true,
+        "payloadReads": 1,
+        "syntheticCompletions": 2,
+        "pass": false
+      },
+      {
+        "name": "normal-gateway-device-looking-transport",
+        "grantPrincipalKind": "device",
+        "gatewayScopePresent": true,
+        "attestedDevicePresent": false,
+        "hookBlocked": false,
+        "listStatus": "listed",
+        "readStatus": "read",
+        "bodyReturned": true,
+        "payloadReads": 1,
+        "syntheticCompletions": 2,
+        "pass": false
+      },
+      {
+        "name": "ordinary-explicit-profile-control",
+        "grantPrincipalKind": "profile",
+        "gatewayScopePresent": false,
+        "attestedDevicePresent": false,
+        "hookBlocked": false,
+        "listStatus": "listed",
+        "readStatus": "read",
+        "bodyReturned": true,
+        "payloadReads": 1,
+        "syntheticCompletions": 2,
+        "pass": true
+      }
+    ]
+  },
+  "green": {
+    "sdk": "2026.10.9",
+    "scope": "actual registered plugin/hook/factory, synthetic grant/source/Host facts; no Host or real model",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "results": [
+      {
+        "name": "missing-gateway-device-looking-transport",
+        "grantPrincipalKind": "device",
+        "gatewayScopePresent": false,
+        "attestedDevicePresent": false,
+        "hookBlocked": false,
+        "listStatus": "failed",
+        "listCode": "personal_context_requester_forbidden",
+        "readStatus": "failed",
+        "readCode": "personal_context_requester_forbidden",
+        "bodyReturned": false,
+        "payloadReads": 0,
+        "syntheticCompletions": 0,
+        "pass": true
+      },
+      {
+        "name": "normal-gateway-device-looking-transport",
+        "grantPrincipalKind": "device",
+        "gatewayScopePresent": true,
+        "attestedDevicePresent": false,
+        "hookBlocked": false,
+        "listStatus": "failed",
+        "listCode": "personal_context_requester_forbidden",
+        "readStatus": "failed",
+        "readCode": "personal_context_requester_forbidden",
+        "bodyReturned": false,
+        "payloadReads": 0,
+        "syntheticCompletions": 0,
+        "pass": true
+      },
+      {
+        "name": "ordinary-explicit-profile-control",
+        "grantPrincipalKind": "profile",
+        "gatewayScopePresent": false,
+        "attestedDevicePresent": false,
+        "hookBlocked": false,
+        "listStatus": "listed",
+        "readStatus": "read",
+        "bodyReturned": true,
+        "payloadReads": 1,
+        "syntheticCompletions": 2,
+        "pass": true
+      }
+    ]
+  },
+  "syntheticOnly": true
+}

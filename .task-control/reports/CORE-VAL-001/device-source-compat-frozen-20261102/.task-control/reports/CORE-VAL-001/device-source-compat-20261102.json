@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T08:30:36.908711+00:00",
+  "phase": "implemented_synthetic_verified_pending_independent_review_not_loaded",
+  "baselineHead": "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+  "branch": "codex/issue23-integrated-regression",
+  "files": {
+    "src/openclaw/ordinary-source-admission.ts": {
+      "sha256": "068687a22375a3881c45308fafe1ca2bb3314df4d2f38241ab45946cf1da174a",
+      "baselineSha256": "cd0241fd02605b5f88a478eeba7d500545d89ac9543e94a6c350fc89fce85d96"
+    },
+    "tests/ordinary-source-admission.test.ts": {
+      "sha256": "b1d5148397b41954f05e978265e90146da5eec28eacece8b006221758c016cb9",
+      "baselineSha256": "8ac9a5b8b1ce7fd7e1841573f99d9aeea76b5b16e6a465dab338fa2792134b36"
+    },
+    "docs/ORDINARY-SOURCE-READ.md": {
+      "sha256": "58b8fd551d55888e9243f43eac6dcb45b839de8b2020706432dcc8b266cc95e7",
+      "baselineSha256": "3972ac919ba9239fe4571ea33e44c313e37823ec3173220e4a8a884bebfad221"
+    }
+  },
+  "implementation": {
+    "productionFiles": 1,
+    "principals": "Keep authenticated canonical profile/connection bound to the native run and call. For an existing openclaw-device grant only, compare its exact ID to separately Host-attested deviceId and use that same device principal in the permission request snapshot. No profile alias or requester grant is created.",
+    "attestation": "Only internal.operatorDeviceTokenIdentity from public Gateway scope, requiring authenticatedControlUi+authenticatedOperator and initial hasCurrentClientAuthority true; accept64lowercasehex deviceId. Never read connect.device as evidence or token-generation key.",
+    "grantSelection": "The exact existing grant determines device vs explicit profile principal. A profile string equal to a device-form requester is insufficient without attestation. Existing explicit profile grants retain their semantics.",
+    "lifetime": "Capture scalar identity once; each protected hook/read rechecks same profile, connection and device fact. Conflict poisons that native run. Initial live admission per new request; native admitted continuation can survive completed RPC/transport retirement, with cancellation and native/v2 guards unchanged.",
+    "hostFieldsAndPermissions": "No Host SenderId/context/profile mutation, no grant edit or alias, no new trusted identity/audience/model/learning permission."
+  },
+  "officialProducerProof": {
+    "sdkVersion": "2026.10.9",
+    "sourceFiles": [
+      {
+        "path": "node_modules/openclaw/dist/message-handler-a7VR9SDC.mjs",
+        "resolvedPath": "/Users/zangtao/.nvm/versions/node/v24.22.1/lib/node_modules/openclaw/dist/message-handler-a7VR9SDC.mjs",
+        "sha256": "74748df53ce0e31b04ad8e0c9151cadbf409b0d9666585fca764792a40cf203c",
+        "symbols": [
+          {
+            "symbol": "async function prepareGatewayConnectOperatorDeviceSource",
+            "line": 2837
+          },
+          {
+            "symbol": "internal.operatorDeviceTokenIdentity = source",
+            "line": 3156
+          }
+        ]
+      },
+      {
+        "path": "node_modules/openclaw/dist/device-pairing-identity-D10qDl39.mjs",
+        "resolvedPath": "/Users/zangtao/.nvm/versions/node/v24.22.1/lib/node_modules/openclaw/dist/device-pairing-identity-D10qDl39.mjs",
+        "sha256": "2ec7c9abdb680229769d3f96769c247effbb2869088321ad29a671f186be92de",
+        "symbols": [
+          {
+            "symbol": "function resolveAuthenticatedDeviceTokenIdentity",
+            "line": 646
+          },
+          {
+            "symbol": "function resolvePairedDeviceTokenIdentity",
+            "line": 675
+          }
+        ]
+      },
+      {
+        "path": "node_modules/openclaw/dist/config-contracts-DzLaG7FV.d.ts",
+        "resolvedPath": "/Users/zangtao/.nvm/versions/node/v24.22.1/lib/node_modules/openclaw/dist/config-contracts-DzLaG7FV.d.ts",
+        "sha256": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17",
+        "symbols": [
+          {
+            "symbol": "type PairedDeviceTokenIdentity =",
+            "line": 16378
+          },
+          {
+            "symbol": "operatorDeviceTokenIdentity?: Readonly<PairedDeviceTokenIdentity> | null",
+            "line": 16618
+          },
+          {
+            "symbol": "declare function getPluginRuntimeGatewayRequestScope",
+            "line": 40750
+          }
+        ]
+      }
+    ],
+    "chain": [
+      "Gateway prepares operator device source from existing paired record using authenticated role/operator public key/token/scopes.",
+      "resolveAuthenticatedDeviceTokenIdentity requires matching public key and exact role token, then validates current approved role/scopes and returns a frozen identity.",
+      "Only authenticatedOperator connection preparation places that result into internal.operatorDeviceTokenIdentity; public Gateway scope exposes it to the plugin.",
+      "Core consumes onlydeviceId; optional/null/tokenless sources cannot satisfy device grants."
+    ],
+    "staticProofNotActualBrowserObservation": true,
+    "actualCurrentBrowserDeviceEquality": "not_verified",
+    "sdkLockVersion": "2026.10.8 unchanged; compile executed with installed10.9; no new SDK symbol import"
+  },
+  "verification": {
+    "receipts": {
+      "red-compile": {
+        "step": "red-compile",
+        "exitCode": 0,
+        "at": "2026-11-02T08:21:15.568548+00:00",
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "red-tests": {
+        "step": "red-tests",
+        "exitCode": 1,
+        "at": "2026-11-02T08:21:24.678410+00:00",
+        "stdoutSha256": "a54731e90bf77a80b6ebb4ccaf10ab703a85573847a2ef18201e994c16b59cb7",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "summary": {
+          "tests": 22,
+          "pass": 18,
+          "fail": 4,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failedTests": [
+          "not ok 17 - Host-attested same device satisfies the existing device grant without changing profile, grant or tool identity",
+          "not ok 18 - profile-only, wire device IDs, unknown devices and malformed attestations cannot satisfy a device grant",
+          "not ok 20 - device mutation or cross-connection reuse invalidates the original run even after restoration",
+          "not ok 21 - device grants retain native request lifetime but require new admission, exact incarnation and cancellation"
+        ]
+      },
+      "green-compile": {
+        "step": "green-compile",
+        "exitCode": 0,
+        "at": "2026-11-02T08:22:56.679740+00:00",
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "green-tests": {
+        "step": "green-tests",
+        "exitCode": 0,
+        "at": "2026-11-02T08:23:06.374093+00:00",
+        "stdoutSha256": "95ee943dc7a308ffaf0ea1d3f8aad9191995764188819fd04e8dcb37442598b0",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "summary": {
+          "tests": 27,
+          "pass": 27,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failedTests": []
+      },
+      "final-compile": {
+        "step": "final-compile",
+        "exitCode": 0,
+        "at": "2026-11-02T08:25:24.429480+00:00",
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "final-tests": {
+        "step": "final-tests",
+        "exitCode": 0,
+        "at": "2026-11-02T08:25:32.690084+00:00",
+        "stdoutSha256": "070343553658885f3e7286cb15eded0234fe1bbd026cc4a78d2c093286111915",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "summary": {
+          "tests": 27,
+          "pass": 27,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "failedTests": []
+      }
+    },
+    "redSuite": "22 admission tests:18pass4fail before production edit; failures include same-device rejection and improper profile/device identity or restored-run behavior.",
+    "finalSuite": "22 admission +5 ordinary-plugin tests,27pass0fail. Intermediate27pass retained. Counts across runs are not added.",
+    "finalAddedContrast": "after successful same-device read and end, same profile/new device/new user request is rejected; no previous qualification reuse",
+    "redTestSha256": "0a95d9aeb9a947e31751c30d6b5c5e40af5312317f3faca46ce426d3a1a00810",
+    "redToFinalTestDelta": "--- red/tests/ordinary-source-admission.test.ts\n+++ final/tests/ordinary-source-admission.test.ts\n@@ -311,6 +311,11 @@\n   assert.equal(turn.event.ctx.SenderId, undefined); assert.equal(turn.context.requesterSenderId, undefined);\n   assert.equal(JSON.stringify(read).includes(permittedDeviceId), false);\n   assert.deepEqual(await readFile(path.join(f.root, grantPath)), grantBefore);\n+  turn.end();\n+  browser.client.internal.operatorDeviceTokenIdentity = { deviceId: \"b\".repeat(64) };\n+  const next = f.turn(\"same-profile-new-device-request\", browserFields); next.dispatch(); next.hook(\"new-device\", { requester: undefined });\n+  assert.equal((await next.tool.execute(\"new-device\", { action: \"list\" })).details.code, \"personal_context_requester_forbidden\");\n+  assert.equal(f.modelCalls(), 2);\n });\n \n test(\"profile-only, wire device IDs, unknown devices and malformed attestations cannot satisfy a device grant\", async t => {\n",
+    "reproduction": [
+      "node scripts/compile.mjs test",
+      "node --test --test-reporter=tap .test-dist/tests/ordinary-source-admission.test.js .test-dist/tests/ordinary-plugin.test.js"
+    ],
+    "fakeCompletionOnly": true,
+    "actualExternalModelCalls": 0,
+    "coverage": [
+      "same attested device list/read with unchanged grant and Host fields",
+      "profile-only even matching device-looking string",
+      "null/missing/raw-wire/unknown/malformed device facts",
+      "unauthenticated operator and synthetic/delegated ingress",
+      "device mutation/restoration and cross-connection conflict",
+      "same session new request/new device",
+      "native continuation vs fresh admission",
+      "incarnation mismatch and cancellation",
+      "explicit profile grant compatibility"
+    ],
+    "notFullSuiteOrCI": true
+  },
+  "candidatePatch": {
+    "ref": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.patch",
+    "sha256": "b55d1c1b04f473214f63f538983efc23e5953f07748555db82470372ae835d00",
+    "scope": "exact three source/test/contract files only; no prior PROJECT/state dirt included"
+  },
+  "frozenCandidate": ".task-control/reports/CORE-VAL-001/device-source-compat-frozen-20261102",
+  "actualHost": {
+    "configurationSha256": "84a8a1952bc19a3e52d3ca23cdf14b4d8f907283d6529cb68f66341535e10fc9",
+    "matchesPreexistingUnboundConfig": true,
+    "installedEntrySha256": "e0f939faaf96bc3378c74c37a67b6dbbe8f89935567e4f883be8eb3f589b1459",
+    "candidateLoaded": false,
+    "sourceReadBindingApplied": false,
+    "modelCalls": 0,
+    "realNativeBrowserAttestationValidated": false
+  },
+  "unchangedBoundaries": [
+    "existing real grant and97source/362descriptor range",
+    "fixed90f data and directory permissions",
+    "publisher off",
+    "no CangHai writes or new provider/model call",
+    "no raw private data or identity/token values in evidence",
+    "all previous failed readiness/Host evidence retained"
+  ],
+  "next": "Independent review frozen three-file implementation/contract and targeted evidence; only after acceptance perform no-model real ingress attestation/precise source binding under original grant. If actual browser lacks exact attested device, stop that live step without replacing grant or using profile-wide fallback. Gemini semantics and private-body consumption remain unverified.",
+  "commitPush": "not performed for this unreviewed implementation",
+  "stateBase": {
+    "revision": 123,
+    "sha256": "e9cf818dbc07241d91af33fd074be0d2232d32d6799a0ea13da9ab7fa58f2525"
+  }
+}

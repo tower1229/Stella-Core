@@ -1,0 +1,17 @@
+{
+  "exitCode": 0,
+  "stdoutSha256": "f21f3cfcdc4524f5b44f7cd380e1717938dc824564e09761948b05181a8dd24f",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tapSummary": [
+    "1..6",
+    "# tests 6",
+    "# suites 0",
+    "# pass 6",
+    "# fail 0",
+    "# cancelled 0",
+    "# skipped 0",
+    "# todo 0",
+    "# duration_ms 53.259375"
+  ],
+  "syntheticOnly": true
+}

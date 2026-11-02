@@ -1,0 +1,14 @@
+{
+  "status": "not_prepared_not_loadable",
+  "expectedSource": "fixed90f original capability source_access_context.json requesterIds; metadata only",
+  "expectedGrantFileSha256": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+  "computation": "sha256(exact original single openclaw-device requesterId UTF8)",
+  "destination": "private debug artifact src/openclaw/temporary-device-diagnostic-seed.ts, mode0600; never Git/evidence",
+  "format": "export const EXPECTED_REQUESTER_SHA256 = <fixed exact digest>",
+  "constraints": [
+    "No tool parameter accepts a root, requester or digest",
+    "No seed read by status callers; module capture before requests",
+    "No grant edit or new mapping",
+    "Missing seed prevents artifact assembly; do not replace with a synthetic seed for live use"
+  ]
+}

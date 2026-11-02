@@ -1,0 +1,51 @@
+{
+  "accepted": false,
+  "blocker": "P1 device grant fallback to ordinary transport SenderId without Gateway attestation",
+  "reviewSha256": "68abce7429a03895c9fc009520f99b3cfaae7998edbabce141a0d162b7a1281e",
+  "reviewSummarySha256": "e35ed780504c80b2b92e6207bc5c6e67b2ade7bb951d3768ebfece57b846f5be",
+  "parentSuppliedHashIdentifies": "REVIEW-SUMMARY.json",
+  "reviewSummary": {
+    "accepted": false,
+    "blocker": {
+      "priority": "P1",
+      "file": "src/openclaw/ordinary-source-admission.ts",
+      "lines": [
+        223,
+        225
+      ],
+      "code": "device_grant_falls_back_to_unattested_transport_sender"
+    },
+    "compileExit": 0,
+    "focused": {
+      "tests": 27,
+      "pass": 27,
+      "fail": 0
+    },
+    "extra": {
+      "tests": 3,
+      "pass": 1,
+      "fail": 2
+    },
+    "counterexamples": {
+      "deviceAttestation": false,
+      "list": "listed",
+      "read": "read",
+      "payloadCallsEach": 1,
+      "bodyReturned": true
+    },
+    "officialDeviceSourceStaticallyVerified": true,
+    "actualBrowserDeviceMatch": "not_verified",
+    "sdkExecuted": "2026.10.9",
+    "repositoryModified": false,
+    "hostModelPrivateDataOperations": 0,
+    "hashes": {
+      "REVIEW.md": "68abce7429a03895c9fc009520f99b3cfaae7998edbabce141a0d162b7a1281e",
+      "FROZEN-CHECK.json": "ea8a5352b8cc5d9d1a54bf12e2c9d2e2d3e945f1dfd0606db15809637b56144a",
+      "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "focused.tap": "aac067dae854d25544b4625e91f792f92c00b94a9a075e1d43f5c065724e5f97",
+      "PROBES.json": "0850c03c70aa4e780989bec7f26640cae3bb4543025d2e5250b9eb3f453b4253",
+      "probes.mjs": "42c216b144ad36ab0cb132fe56c818acc5f8ae2259d443237958d4887fbafc93"
+    }
+  },
+  "scope": "synthetic only; not deployed, no observed private data exposure"
+}

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "repo": "tower1229/Stella-Core",
-  "revision": 122,
-  "updatedAt": "2026-11-02T08:13:10.710856+00:00",
+  "revision": 126,
+  "updatedAt": "2026-11-02T09:18:31.419817+00:00",
   "writer": {
     "agent": "Core actual main source activation and forward-data handoff single writer",
     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
@@ -1542,11 +1542,50 @@
             "stateUpdateBaseRevision": 120,
             "stateUpdateBaseSha256": "2495a30388d22ea8881ae2bb24a73db5d1499a587632a7d3bbc015d13d459b89"
           }
+        },
+        {
+          "id": "C-VAL-DEVICE-SOURCE-COMPAT-CANDIDATE-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.json",
+          "claim": "Public10.9 producerstaticproof plusoneproductionfile device-specific compatibility;unchangedgrant;redadmission22/18/4 andfinalauthor27/27 separatelyrecorded. Allsyntheticfakecompletion. Noactivebrowserattestation,privatebinding,Hostloadorpaidmodel;independentreviewpending.",
+          "observedAt": "2026-11-02T08:30:36.908711+00:00",
+          "subject": {
+            "sha256": "f48a7a6fd7a3bdf7e6a865835705dbe388817606a6274d65eb61d9ed5b31a845",
+            "patchSha256": "b55d1c1b04f473214f63f538983efc23e5953f07748555db82470372ae835d00",
+            "frozenManifestSha256": "4bd48c4b1f06b598126e882f1aba81136301a4285c01f249fc3b4ee3d871ee1e",
+            "stateUpdateBaseRevision": 123,
+            "stateUpdateBaseSha256": "e9cf818dbc07241d91af33fd074be0d2232d32d6799a0ea13da9ab7fa58f2525"
+          }
+        },
+        {
+          "id": "C-VAL-DEVICE-SOURCE-COMPAT-R1-DIAGNOSTIC-CANDIDATE-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.json",
+          "claim": "R0 independent P1 rejected: two synthetic normal-transport device-grant bypasses. R1 branches only on grant kind; exact original probes red1/3 -> green3/3, device negatives payload/model0. Focused29/29 and separate temporarydiagnostic6/6 plusvirtualentrytypecheck pass, not summed. No Host/private source/model; both candidates pending independent review.",
+          "observedAt": "2026-11-02T08:55:16.658552+00:00",
+          "subject": {
+            "sha256": "2acbd4599feda2486802344986b0c2ea48c014d4a3d51b0d2aee6dcfac04dd40",
+            "frozenManifestSha256": "55fd3d5fa6dd5e63e9895164f1e74b38654d9148d9c54fbcd57837ab0f3f6178",
+            "stateUpdateBaseRevision": 124,
+            "stateUpdateBaseSha256": "680ed1c36f1561794e89e9099ce798297ac25aa0d840ded1b4949c6762d49d91"
+          }
+        },
+        {
+          "id": "C-VAL-DEVICE-SOURCE-R1-INDEPENDENT-20261102",
+          "kind": "verification",
+          "ref": ".task-control/reports/CORE-VAL-001/device-source-r1-independent-20261102.json",
+          "claim": "Independent accepted R1 and bounded temporary diagnostic;29/29,exact3/3,diagnostic6/6 separately. P1closed withdevice negativepayload/model0;21frozenmembersmatch.SDK10.9 only. Realbrowser/private source/model unverified.",
+          "observedAt": "2026-11-02T09:18:31.419817+00:00",
+          "subject": {
+            "sha256": "fef93ee30834ced158885fcf81967ba58125252ce21965e9966f0b421f2a9f1b",
+            "stateUpdateBaseRevision": 125,
+            "stateUpdateBaseSha256": "fadaa0008ba32a6f4a89549157aa7a411522880cdf887fd4e3e9d72a900d5054"
+          }
         }
       ],
       "resume": {
-        "checkpoint": "Directory handoff complete:actualmain90f clean/detached,5metadata working/blob hashes/0600 match,original97/362grant unchanged;installed parsers pass. Officialreadonly users.list reports1canonical profile and0exact matches to originalopenclaw-device requester. Stopped beforeconfigmutation, no binding/reload/model. Public server-attested device seam exists but actual accepted-device match notproved. Directory is not blocked.",
-        "nextAction": "Resolve the precise existing-device identity compatibility under original single-device grant: prove genuine Host-attested same device +current run/call/native guard, never replace grant with all-profile access or client-supplied IDs. This code/attestation gap needs a finite next package, not more directory work. Once satisfied, execute authorized minimal rollbackable sourceRead binding after current-config/inflight/recovery precheck and no-model status/denial validation. No privatebody or fresh paidmodel run until separately authorized.",
+        "checkpoint": "R1 independently accepted; same-device grant cannot fall back to transport SenderId. Bounded temporary status diagnostic accepted. Preparing exact local save, then safe currentHost/window check and one real WebUI boolean-only diagnostic. No sourceRead enabled or paid model.",
+        "nextAction": "Save exact reviewed non-sensitive package; privately prepare fixed original-grant digest and temporary artifact, one genuine WebUI status invocation, restore ordinary artifact and verify diagnostic absent. Do not substitute CLI or issue identity/grant. Stop safely if browser/auth/currentwork unavailable.",
         "executionBatch": {
           "id": "core-host-additional-20261031-0510",
           "authorizedAdditionalAttempts": 3,
@@ -2399,7 +2438,35 @@
             "unconfiguredBoundaryVerified": true,
             "actualAdmissionOrPrivateSourceVerified": false
           },
-          "sharedHostActionsScope": "zero during original offline compatibility validation; subsequent actual main activation is recorded separately"
+          "sharedHostActionsScope": "zero during original offline compatibility validation; subsequent actual main activation is recorded separately",
+          "deviceIdentityR1": {
+            "phase": "accepted_pending_local_save_and_bounded_real_browser_diagnostic",
+            "rejectedR0": "C-VAL-DEVICE-SOURCE-COMPAT-CANDIDATE-20261102",
+            "report": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.json",
+            "reportSha256": "2acbd4599feda2486802344986b0c2ea48c014d4a3d51b0d2aee6dcfac04dd40",
+            "manifest": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-frozen-20261102/MANIFEST.json",
+            "manifestSha256": "55fd3d5fa6dd5e63e9895164f1e74b38654d9148d9c54fbcd57837ab0f3f6178",
+            "focusedTests": {
+              "tests": 29,
+              "pass": 29
+            },
+            "exactProbes": {
+              "redPass": 1,
+              "redFail": 2,
+              "greenPass": 3,
+              "greenFail": 0
+            },
+            "diagnosticTests": {
+              "tests": 6,
+              "pass": 6
+            },
+            "diagnosticPrivateSeedPrepared": false,
+            "actualBrowserDeviceMatch": "not_verified",
+            "sourceBindingApplied": false,
+            "commitPush": "not_performed_unreviewed",
+            "paidModelCalls": 0,
+            "review": ".task-control/reports/CORE-VAL-001/device-source-r1-independent-20261102.json"
+          }
         },
         "sourceSave": {
           "phase": "pushed_dual_ci_terminal_document_pin_regression",
@@ -2830,7 +2897,7 @@
           }
         },
         "dataCoordinationHandoff": {
-          "phase": "fixed90f_verified_identity_compatibility_blocks_binding_not_directory",
+          "phase": "device_compatibility_candidate_implemented_pending_independent_review",
           "report": ".task-control/reports/CORE-VAL-001/data-handoff-metadata-20261102.json",
           "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1",
           "selectedRuntimeRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
@@ -2932,7 +2999,7 @@
             "models": 0
           },
           "bindingReadinessDocumentationSave": {
-            "status": "prepared_exact_five_file_local_commit",
+            "status": "committed_locally_exact_five_files",
             "baselineHead": "21685194659e602b7f4f479a8354342a3e127fa1",
             "files": [
               ".task-control/state.json",
@@ -2943,7 +3010,15 @@
             ],
             "push": false,
             "oldProjectDiffExcluded": true,
-            "stateRevision": 122
+            "stateRevision": 122,
+            "commit": "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+            "savedStateRevision": 122,
+            "pushed": false,
+            "ciTriggered": false,
+            "indexEmptyAfterCommit": true,
+            "oldProjectWorkingBytesPreserved": true,
+            "updateBaseRevision": 122,
+            "updateBaseSha256": "14b8deee8a519e85555948ed265f9b2d8efa7de9f12b532e680b95f066a24cea"
           },
           "previousMetadataObservation": {
             "selectedRuntimeRevision": "112be540a3988af53d1076a38f8f1c155da7a745",
@@ -2952,10 +3027,39 @@
             "sha256": "b1c69363bfc178ae3f89b96ee43c6d34dfb59e144f5e6250731945130e4573e1"
           },
           "selectedRuntimeRoot": "/Users/zangtao/.openclaw/stella-sources/main",
-          "registeredMainWorktreeDetached": true
+          "registeredMainWorktreeDetached": true,
+          "deviceCompatibility": {
+            "report": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.json",
+            "sha256": "f48a7a6fd7a3bdf7e6a865835705dbe388817606a6274d65eb61d9ed5b31a845",
+            "patch": ".task-control/reports/CORE-VAL-001/device-source-compat-20261102.patch",
+            "patchSha256": "b55d1c1b04f473214f63f538983efc23e5953f07748555db82470372ae835d00",
+            "frozenManifest": ".task-control/reports/CORE-VAL-001/device-source-compat-frozen-20261102/MANIFEST.json",
+            "frozenManifestSha256": "4bd48c4b1f06b598126e882f1aba81136301a4285c01f249fc3b4ee3d871ee1e",
+            "baselineHead": "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+            "sourceFiles": [
+              "src/openclaw/ordinary-source-admission.ts",
+              "tests/ordinary-source-admission.test.ts",
+              "docs/ORDINARY-SOURCE-READ.md"
+            ],
+            "authorFinalTests": {
+              "total": 27,
+              "pass": 27,
+              "fail": 0
+            },
+            "redAdmissionTests": {
+              "total": 22,
+              "pass": 18,
+              "fail": 4
+            },
+            "independentReview": "pending",
+            "candidateLoaded": false,
+            "realDeviceEquality": "not_verified",
+            "grantOrPermissionChanged": false,
+            "commitPush": "not_run_unreviewed"
+          }
         }
       },
-      "updatedAt": "2026-11-02T08:13:10.710856+00:00",
+      "updatedAt": "2026-11-02T09:18:31.419817+00:00",
       "delivery": {
         "local": {
           "status": "committed",

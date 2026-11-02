@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "status": "temporary_uninstalled_without_private_seed",
+  "members": [
+    {
+      "path": "README.md",
+      "sha256": "138075a20ec4c39e1c3316420adbc9d113dae615f196ec5bcb2a00ac7e3e1e3e",
+      "bytes": 3303
+    },
+    {
+      "path": "SEED-CONTRACT.json",
+      "sha256": "9f4099c36f022f500febbf726da79069e8d35359f026b7c6909035c83c89a9c0",
+      "bytes": 818
+    },
+    {
+      "path": "author-tests.json",
+      "sha256": "9938ef63936893fcd32a783c51670b043c245a6a1b2e9d89012f380718b9fe2c",
+      "bytes": 405
+    },
+    {
+      "path": "candidate/package.json",
+      "sha256": "89c47db7851f89caec72da4f215ebc21cf1e294aeef3b45d2583562d846ab035",
+      "bytes": 33
+    },
+    {
+      "path": "candidate/temporary-device-diagnostic.test.ts",
+      "sha256": "1851d3983a117ffa2dcc8f0a5ebc04864f2a36637bdc656976aff0a10214b8aa",
+      "bytes": 3805
+    },
+    {
+      "path": "candidate/temporary-device-diagnostic.ts",
+      "sha256": "74670b235d9452d0e507cdb9c797933d6c4122804f0b981300e3839f7298e77d",
+      "bytes": 3022
+    },
+    {
+      "path": "candidate/tsconfig.json",
+      "sha256": "f27057401600c9f611ee62d2784eeab08dcf6a2bd94e9517a211ecb82575631e",
+      "bytes": 251
+    },
+    {
+      "path": "candidate/typecheck-entry.mjs",
+      "sha256": "bf8288b94229d18310e6e2c90fbad57552c90ad1b31b7c04bcfd6d0c1529cd18",
+      "bytes": 2672
+    },
+    {
+      "path": "entry-typecheck-initial.json",
+      "sha256": "b35e7ae526a5a9a32b516ab605dfa6b999612cbeeecb275f7c24b13d1f31121a",
+      "bytes": 312
+    },
+    {
+      "path": "entry-typecheck.json",
+      "sha256": "36bf55cd412b126138359bd895861288f339179ab2de4fdac13c8001873eb488",
+      "bytes": 263
+    },
+    {
+      "path": "ordinary-entry.patch",
+      "sha256": "cbd19a7cf1a38cffed8cdf081ee3d4736223b97bd3a3c9b827b1c08c2cc49ff3",
+      "bytes": 1585
+    }
+  ],
+  "frozenRuntimePackageModified": false
+}

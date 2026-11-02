@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T08:54:03.945532+00:00",
+  "phase": "R1_and_separate_temporary_diagnostic_ready_for_independent_review_not_loaded",
+  "baselineHead": "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+  "rejectedR0ManifestSha256": "4bd48c4b1f06b598126e882f1aba81136301a4285c01f249fc3b4ee3d871ee1e",
+  "independentRejection": {
+    "ref": ".task-control/reports/CORE-VAL-001/device-source-r0-review-20261102.json",
+    "sha256": "32956f192e87efa70e5075308b11fb5b66c89c774bb718b4b36acf77f9fc4dc8"
+  },
+  "fix": "Grant kind determines branch regardless of ingress. Every openclaw-device grant requires turn.gateway?.deviceRequesterId; absence cannot reuse ordinary SenderId. Explicit profile behavior unchanged.",
+  "runtimeDeltaFromR0": "two-line principal selection only",
+  "files": {
+    "src/openclaw/ordinary-source-admission.ts": "f07ec7f56e7725b3bf99a47c9617132a3c395afa7c6440cb159d22d00f3f9a59",
+    "tests/ordinary-source-admission.test.ts": "4df2bb35d9e016e5c3aee401e494bb7d17fd4b683d063c5d31a54caee387a461",
+    "docs/ORDINARY-SOURCE-READ.md": "b93c5809c874bb788e21ae17cf9781d3c5d9a7fd35f4052c280c008b82da3349"
+  },
+  "patches": {
+    ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.patch": "cbe0a527768d0d919380e66d85351d5d4778640436adc201a2195378ee029f44",
+    ".task-control/reports/CORE-VAL-001/device-source-compat-r1-combined-20261102.patch": "fe058c85b892de263fd56907c07341ff26a75fe5e68133f033c057c786083022"
+  },
+  "verification": {
+    "compile": {
+      "name": "compile",
+      "exitCode": 0,
+      "at": "2026-11-02T08:49:32.781612+00:00",
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "focused": {
+      "name": "focused",
+      "exitCode": 0,
+      "at": "2026-11-02T08:49:41.409646+00:00",
+      "stdoutSha256": "8fc72e23cdcaab6e1ad6817ea5ecd7cb7dfa6827a4edfc38ab22afedeb699c36",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tests": 29,
+      "pass": 29,
+      "fail": 0,
+      "scope": "24admission+5ordinary-plugin; installedSDK10.9"
+    },
+    "exactIndependentReplay": {
+      "ref": ".task-control/reports/CORE-VAL-001/device-source-r1-probe-results-20261102.json",
+      "sha256": "38c5dafbce76010742dcf68c29c576cdc7504c71184f8f4ba2a0b08ccd372a77",
+      "red": "1pass2fail; both device negatives returned synthetic body and payload1",
+      "green": "3pass0fail; both device negatives denied before synthetic completion/payload (0/0); profile control still reads",
+      "probeSha256": "42c216b144ad36ab0cb132fe56c818acc5f8ae2259d443237958d4887fbafc93"
+    },
+    "diagnostic": {
+      "manifest": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/MANIFEST.json",
+      "sha256": "021cc4baca541c27b86c2f6b7904c732cc5b4f1ea8a140921e8589d2a548b295",
+      "tests": 6,
+      "pass": 6,
+      "virtualEntryTypecheck": "pass",
+      "actualSeedPrepared": false,
+      "liveLoaded": false
+    },
+    "countsNotAdded": true
+  },
+  "unchanged": {
+    "sourceGrant": true,
+    "fixed90fData": true,
+    "HostConfiguration": true,
+    "installedArtifact": true,
+    "publisherOff": true,
+    "oldFrozenSnapshot": true
+  },
+  "actualOperations": {
+    "Host": 0,
+    "privatePayloadReads": 0,
+    "modelCalls": 0,
+    "grantOrIdentityChanges": 0,
+    "commitOrPush": 0
+  },
+  "next": "Independently review R1 and separate diagnostic together. Parent confirmation precedes temporary private-seed assembly/load and one real WebUI tools.invoke; restore ordinary artifact afterward. No chat.send/model/sourceRead activation in this diagnostic.",
+  "stateBase": {
+    "revision": 124,
+    "sha256": "680ed1c36f1561794e89e9099ce798297ac25aa0d840ded1b4949c6762d49d91"
+  }
+}

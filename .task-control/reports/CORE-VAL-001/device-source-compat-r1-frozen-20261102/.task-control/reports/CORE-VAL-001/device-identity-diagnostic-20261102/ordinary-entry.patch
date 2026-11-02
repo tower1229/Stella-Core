@@ -1,0 +1,19 @@
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -1,3 +1,7 @@
++import { getPluginRuntimeGatewayRequestScope } from "openclaw/plugin-sdk/plugin-runtime";
++import { createTemporaryDeviceDiagnostic } from "./openclaw/temporary-device-diagnostic.js";
++import { EXPECTED_REQUESTER_SHA256 } from "./openclaw/temporary-device-diagnostic-seed.js";
++const inspectTemporaryDevice = createTemporaryDeviceDiagnostic(EXPECTED_REQUESTER_SHA256, getPluginRuntimeGatewayRequestScope);
+ import { definePluginEntry, type OpenClawPluginApi, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+ import { listAgentIds, resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
+ import { Type } from "typebox";
+@@ -125,7 +129,7 @@
+           async execute(_callId, parameters, signal) {
+             check(signal);
+             if (!isRecord(parameters) || Object.keys(parameters).length) return result({ status: "rejected", code: "stella_status_arguments_invalid" }, true);
+-            return result(status());
++            return result({ ...status(), temporaryDeviceIdentity: inspectTemporaryDevice(owner, signal) });
+           } },
+         { name: CANDIDATE_TOOL, label: "Author intent candidate",
+           description: "Structure your proposed understanding of an author's work. Preserve unresolved questions and distinguish proposed premises from verified author intent. This returns an unconfirmed, unsaved candidate only. Evidence references are model-supplied and unverified. Never use this tool as confirmation, publication or memory saving.",

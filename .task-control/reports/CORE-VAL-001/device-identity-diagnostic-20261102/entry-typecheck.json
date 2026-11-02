@@ -1,0 +1,9 @@
+{
+  "exitCode": 0,
+  "typecheck": "pass",
+  "physicalSourceEdits": 0,
+  "emittedFiles": 0,
+  "seed": "synthetic compile-only",
+  "entrySha256": "d8677dbf6ebb86caf29c0a6d5660019359721c4de4f85e7b57e103add5d69784",
+  "usesExistingProjectAmbientDeclarations": true
+}

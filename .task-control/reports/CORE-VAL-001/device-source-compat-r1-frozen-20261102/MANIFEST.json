@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "baselineHead": "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+  "members": [
+    {
+      "original": "src/openclaw/ordinary-source-admission.ts",
+      "snapshot": "src/openclaw/ordinary-source-admission.ts",
+      "sha256": "f07ec7f56e7725b3bf99a47c9617132a3c395afa7c6440cb159d22d00f3f9a59",
+      "bytes": 19739
+    },
+    {
+      "original": "tests/ordinary-source-admission.test.ts",
+      "snapshot": "tests/ordinary-source-admission.test.ts",
+      "sha256": "4df2bb35d9e016e5c3aee401e494bb7d17fd4b683d063c5d31a54caee387a461",
+      "bytes": 31026
+    },
+    {
+      "original": "docs/ORDINARY-SOURCE-READ.md",
+      "snapshot": "docs/ORDINARY-SOURCE-READ.md",
+      "sha256": "b93c5809c874bb788e21ae17cf9781d3c5d9a7fd35f4052c280c008b82da3349",
+      "bytes": 20844
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.json",
+      "sha256": "2acbd4599feda2486802344986b0c2ea48c014d4a3d51b0d2aee6dcfac04dd40",
+      "bytes": 3854
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.patch",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-20261102.patch",
+      "sha256": "cbe0a527768d0d919380e66d85351d5d4778640436adc201a2195378ee029f44",
+      "bytes": 5948
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-combined-20261102.patch",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-compat-r1-combined-20261102.patch",
+      "sha256": "fe058c85b892de263fd56907c07341ff26a75fe5e68133f033c057c786083022",
+      "bytes": 23465
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-r0-review-20261102.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-r0-review-20261102.json",
+      "sha256": "32956f192e87efa70e5075308b11fb5b66c89c774bb718b4b36acf77f9fc4dc8",
+      "bytes": 1820
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-r1-original-probes-20261102.mjs",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-r1-original-probes-20261102.mjs",
+      "sha256": "42c216b144ad36ab0cb132fe56c818acc5f8ae2259d443237958d4887fbafc93",
+      "bytes": 2551
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-source-r1-probe-results-20261102.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-source-r1-probe-results-20261102.json",
+      "sha256": "38c5dafbce76010742dcf68c29c576cdc7504c71184f8f4ba2a0b08ccd372a77",
+      "bytes": 3288
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/MANIFEST.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/MANIFEST.json",
+      "sha256": "021cc4baca541c27b86c2f6b7904c732cc5b4f1ea8a140921e8589d2a548b295",
+      "bytes": 1892
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/ordinary-entry.patch",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/ordinary-entry.patch",
+      "sha256": "cbd19a7cf1a38cffed8cdf081ee3d4736223b97bd3a3c9b827b1c08c2cc49ff3",
+      "bytes": 1585
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/author-tests.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/author-tests.json",
+      "sha256": "9938ef63936893fcd32a783c51670b043c245a6a1b2e9d89012f380718b9fe2c",
+      "bytes": 405
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/SEED-CONTRACT.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/SEED-CONTRACT.json",
+      "sha256": "9f4099c36f022f500febbf726da79069e8d35359f026b7c6909035c83c89a9c0",
+      "bytes": 818
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/README.md",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/README.md",
+      "sha256": "138075a20ec4c39e1c3316420adbc9d113dae615f196ec5bcb2a00ac7e3e1e3e",
+      "bytes": 3303
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/entry-typecheck.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/entry-typecheck.json",
+      "sha256": "36bf55cd412b126138359bd895861288f339179ab2de4fdac13c8001873eb488",
+      "bytes": 263
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/entry-typecheck-initial.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/entry-typecheck-initial.json",
+      "sha256": "b35e7ae526a5a9a32b516ab605dfa6b999612cbeeecb275f7c24b13d1f31121a",
+      "bytes": 312
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/temporary-device-diagnostic.test.ts",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/temporary-device-diagnostic.test.ts",
+      "sha256": "1851d3983a117ffa2dcc8f0a5ebc04864f2a36637bdc656976aff0a10214b8aa",
+      "bytes": 3805
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/temporary-device-diagnostic.ts",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/temporary-device-diagnostic.ts",
+      "sha256": "74670b235d9452d0e507cdb9c797933d6c4122804f0b981300e3839f7298e77d",
+      "bytes": 3022
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/package.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/package.json",
+      "sha256": "89c47db7851f89caec72da4f215ebc21cf1e294aeef3b45d2583562d846ab035",
+      "bytes": 33
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/tsconfig.json",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/tsconfig.json",
+      "sha256": "f27057401600c9f611ee62d2784eeab08dcf6a2bd94e9517a211ecb82575631e",
+      "bytes": 251
+    },
+    {
+      "original": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/typecheck-entry.mjs",
+      "snapshot": ".task-control/reports/CORE-VAL-001/device-identity-diagnostic-20261102/candidate/typecheck-entry.mjs",
+      "sha256": "bf8288b94229d18310e6e2c90fbad57552c90ad1b31b7c04bcfd6d0c1529cd18",
+      "bytes": 2672
+    }
+  ],
+  "scope": "R1 three source/test/doc + minimal failure/replay evidence + separate uninstalled temporary diagnostic; excludes build outputs/private seed/state/old PROJECT dirt"
+}
