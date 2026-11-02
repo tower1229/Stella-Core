@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-02T10:13:44.874269+00:00",
+  "baseStateRevision": 128,
+  "baseStateSha256": "c010ae942fc7f7b90970562ef2659add9c9fa99d3fd867dba2ec5535b1fc0c00",
+  "push": {
+    "status": "succeeded_once_after_new_trusted_user_AGENTS_evidence",
+    "head": "6bc71077e041676468c3b7d4690fef09640cbb6e",
+    "remoteBefore": "df5bc467621fd741bb582c07e8f22c31ce6d01b1",
+    "remoteAfter": "6bc71077e041676468c3b7d4690fef09640cbb6e",
+    "exitCode": 0,
+    "normalPush": true,
+    "retryAttempts": 1,
+    "priorDenialRetained": ".task-control/reports/CORE-VAL-001/fixed90f-main-binding-20261102.json",
+    "auditedCommits": [
+      "6d4b6b490e57f834ccf5e724ccf3c03d4e65319e",
+      "94cff8fa0358468a99e611f977832dcad3b08e1e",
+      "21685194659e602b7f4f479a8354342a3e127fa1",
+      "12cbfddb29f7c61dcdbb974b7f63cfbc8909db2b",
+      "00dab376aea6f751e673c437226d6314fecb8861",
+      "be69cf1495eef93b1590c6204222486cd4601be0",
+      "6bc71077e041676468c3b7d4690fef09640cbb6e"
+    ],
+    "uniqueChangedPaths": 67,
+    "realRequesterAndCredentialPatternMatches": 0,
+    "auditSha256": "67bb6104634fd7283f853ab718c29be53bb3e0ce2f1b931fc24bb727ed005b47",
+    "receiptSha256": "b3938e76ab8b34221c951f91e95b702e935a55771f684bdb38021218380a1fc0"
+  },
+  "ci": {
+    "headSha": "6bc71077e041676468c3b7d4690fef09640cbb6e",
+    "runs": [
+      {
+        "id": 41425072861,
+        "name": "Experimental owner chat",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/tower1229/Stella-Core/actions/runs/41425072861"
+      },
+      {
+        "id": 41425072886,
+        "name": "Full capability assessment",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/tower1229/Stella-Core/actions/runs/41425072886"
+      }
+    ],
+    "failureAttribution": "not examined; neither assume old26 nor assert new regression",
+    "rerunOrCancellation": false
+  },
+  "sourceCandidate": {
+    "fixedRevision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "originalScope": "97sources/362descriptors",
+    "material": "one writing/style/aesthetic material fragment",
+    "declaredSensitivity": "semi-private",
+    "sensitivityBasis": "existing approved descriptor and policy; no new payload sensitivity review",
+    "utf8Bytes": 1002,
+    "descriptorCount": 1,
+    "distinctPolicies": 1,
+    "matchingEvidence": 1,
+    "role": "unknown",
+    "kind": "unknown",
+    "authorConfirmation": false,
+    "quotePolicy": "cite_with_time_and_source",
+    "payloadRead": false,
+    "privateSelectionFile": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-data-bind-20261102-f24j3zj1/SEMANTIC-SOURCE.private.json",
+    "privateSelectionSha256": "2fd69671d53857eba255c6702cfe16da5dd2d7b70f0790d8d2256d38d91d8e93",
+    "privateSelectionInGit": false
+  },
+  "proposedQuestion": "仅read指定Evidence一次，说明该写作片段的用词、意象和叙述视角，不超过300字；作者/角色不明须说明，不把文学类比当作真实关系或事实证据。附来源版本和位置。不list、不读其他片段、不写入或发布。",
+  "dataToGoogle": {
+    "firstAgentCall": [
+      "new test question",
+      "exact Evidence ref/version",
+      "Host system/tool definitions and verified synthetic-only test context"
+    ],
+    "sourcePolicyCall": [
+      "same request",
+      "one exact in-scope descriptor",
+      "source/policy refs and segment locator",
+      "existing policy rules; no original payload in this call"
+    ],
+    "answerAgentCall": [
+      "bounded test messages",
+      "one authorized1002byte fragment",
+      "role/time/version/location metadata"
+    ],
+    "excluded": [
+      "existing history",
+      "USER/MEMORY",
+      "other fragments",
+      "finance",
+      "credentials"
+    ],
+    "sent": false
+  },
+  "nativeProducer": {
+    "exists": true,
+    "path": "real browser chat.send -> native recorder/reply_dispatch -> model tool -> before_tool_call -> ordinary admission -> actual policy completion -> original -> Agent answer",
+    "newMetadataProtocol": "none identified in fixed10.9 public source",
+    "combinedRealPathVerified": false,
+    "evidence": [
+      {
+        "path": "node_modules/openclaw/dist/sessions-CLLc4meF.mjs",
+        "line": 2426,
+        "sha256": "7eeb8e72c6e72fbc400b1296db090eeeea5361b7e3a0ec09dacb10ec7d864a8b",
+        "finding": "chat.send native input, idempotency, thinking and timeout; no maxTokens or toolsAllow parameter"
+      },
+      {
+        "path": "node_modules/openclaw/dist/chat-send-handler-B0jivtwJ.mjs",
+        "line": 2827,
+        "sha256": "496e4dd3478b22cbd134839dc9861e0528d2ddacb1bc281423b673add9e2e1b5",
+        "finding": "timeout/thinking/real userTurnRecorder passed to native reply"
+      },
+      {
+        "path": "node_modules/openclaw/dist/dispatch-from-config-D0ByBFxM.mjs",
+        "line": 399,
+        "sha256": "5b42abe88035db530bd69bf397ecc614e129e84e2e7cd8886662c9ac2b983986",
+        "finding": "actual run/session/abort/recorder producer"
+      },
+      {
+        "path": "node_modules/openclaw/dist/agent-tools.before-tool-call-CQkX3nOj.mjs",
+        "line": 590,
+        "sha256": "e541d3d24b22b5e5a89d07d52191552d23967bfa5189d3ffd0f2c719ea8a35a3",
+        "finding": "native tool run/session/call facts"
+      },
+      {
+        "path": "node_modules/openclaw/dist/user-turn-transcript-DuAfBkUt.mjs",
+        "line": 365,
+        "sha256": "ec4a2477247f78ec8f46fcd13a8639e06c1135fbb5518baba226a708ba9d6edc",
+        "finding": "native persisted admission; read methods574/603/604"
+      },
+      {
+        "path": "node_modules/openclaw/dist/runtime-llm.runtime-BKhiUWXy.mjs",
+        "line": 165,
+        "sha256": "614e55064e7fa322738be94470d42ba0bb0c624a3157ac57ca9cc67e9839523a",
+        "finding": "real plugin completion retains operator/model checks"
+      },
+      {
+        "path": "node_modules/openclaw/dist/src-D6kL8tMP.mjs",
+        "line": 1503,
+        "sha256": "b855a4f3dd3cdccf9abff60bc7811ef786d17722b2a8c148980bd6dff6d3384c",
+        "finding": "empty-worktree fresh main session supported without initial task/message"
+      },
+      {
+        "path": "node_modules/openclaw/dist/bootstrap-files-BVIOGOj-.mjs",
+        "line": 218,
+        "sha256": "0611bf253242fa3cb29acf472d8976c1e1d6d941d3ae8902f37c913db7c850f7",
+        "finding": "selected workspace plus optional personal overlay; must verify complete projected context"
+      },
+      {
+        "path": "node_modules/openclaw/dist/sessions-row-NKWz9YsI.mjs",
+        "line": 108,
+        "sha256": "d22495632c41b359c711c46fa3d95778d63df814044e3627aeb7ef8fb3d88ef0",
+        "finding": "session toolOverrides do not constrain native plugin arguments or completion count"
+      }
+    ]
+  },
+  "limits": {
+    "chatSendSubmissions": 1,
+    "nativeRequestTimeoutMs": 90000,
+    "automaticResubmission": false,
+    "model": "google/gemini-3.8-flash",
+    "thinking": "low",
+    "modelSelection": "unchanged default exactmodel/no fallback; no unnecessary override",
+    "expectedLogicalCompletions": {
+      "agentSelectTool": 1,
+      "sourceApplicability": 1,
+      "agentAnswer": 1
+    },
+    "expectedConditions": "direct schema, one exactread, identical source/leaf policy; not an established hard completion maximum",
+    "currentPolicyMaxTokens": 8192,
+    "tokenScope": "passed to provider, not aggregate input/thinking/turn/retry/dollar limit",
+    "answerLength": "300Chinesecharacters requested; not hard token cap",
+    "physicalRetryHardCap": false,
+    "dollarHardCap": false,
+    "timeoutDoesNotProveProviderBillingStopped": true
+  },
+  "readiness": {
+    "executionReady": false,
+    "modelOrHostMutationThisPhase": 0,
+    "newIdentityGrantNeeded": false,
+    "remainingPreparation": [
+      "Current main contextInjection=always and real workspace remain. Official empty-worktree fresh session is available, but full bootstrap/hook/personal-memory projection must be verified synthetic-only before sending; apply only a minimal reversible test-context restriction if needed.",
+      "Current tool permits362descriptors and has no exactref/onecall cap. Prepare/review a temporary narrowing pre-tool guard for this native test request: reject list,otherref,secondread before payload; allow at most one real source-policy completion. Keep all native identity/admission and policy checks unchanged."
+    ],
+    "promptIsNotHardScope": true,
+    "approvalQuestionAfterPreparation": "允许在准备检查通过后，用现有Google Gemini 3.8 Flash（low）做一次新的原生会话测试吗？仅发送原获准沧海集中的一个1,002字节写作片段（策略标为semi-private）、其来源/策略元数据和本次测试问题；不带既有聊天、USER/MEMORY、全库或金融资料。一次chat.send，90秒请求超时，失败不重发，不保存正式记忆或发布。正常路径预计两次Agent模型完成加一次来源适用性判断；无法保证美元硬封顶或提供方物理重试次数。单来源单次读取与上下文检查未通过则零付费启动。"
+  },
+  "success": [
+    "real run/call/session/recorder/device facts correlate",
+    "one authorized original with fixed revision/catalog/ref/selector hashes",
+    "actual Agent consumes result and distinguishes unknown author from inference",
+    "no other source/formal memory write/publisher; record usage and terminal callbacks"
+  ],
+  "stop": [
+    "missing/conflicting native facts",
+    "unexpected prompt material/ref/tool",
+    "permission/model mismatch without expansion",
+    "second read/policy call",
+    "timeout/disconnect/unknown result without resubmission"
+  ],
+  "transport": {
+    "readOnlyProcessCreationFailure": "exec-server transport disconnected; no command executed",
+    "singlePwdRecovery": "succeeded"
+  },
+  "paidCallsThisPhase": 0
+}
