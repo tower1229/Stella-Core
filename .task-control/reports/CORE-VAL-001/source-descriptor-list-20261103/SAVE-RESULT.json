@@ -1,0 +1,37 @@
+{
+  "commit": "eb886f26d05cbcc4b620fe6c472ff4483c7dc614",
+  "branch": "codex/issue23-integrated-regression",
+  "files": [
+    ".task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/BASELINE.json",
+    ".task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/DOCUMENT.patch",
+    ".task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/IMPLEMENTATION.patch",
+    ".task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/LOCAL-REVIEW.json",
+    ".task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/REPORT.json",
+    ".task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/STATE-UPDATE.json",
+    ".task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/TEST-RESULT.json",
+    "docs/ORDINARY-SOURCE-READ.md",
+    "src/openclaw/ordinary-source-admission.ts",
+    "src/openclaw/ordinary-source-read.ts",
+    "src/ordinary-plugin.ts",
+    "tests/fixtures/ordinary-source-read.ts",
+    "tests/ordinary-source-admission.test.ts",
+    "tests/ordinary-source-read.test.ts"
+  ],
+  "indexEmpty": true,
+  "manifestMatchesCommit": true,
+  "sourceAndDocumentWhitespaceCheck": {
+    "exitCode": 0
+  },
+  "fullStagedWhitespaceCheck": {
+    "exitCode": 2,
+    "reason": "four context-only blank lines inside saved .patch evidence have required leading diff-space; no production/test/doc whitespace defect; left patch bytes valid"
+  },
+  "previousDocumentationDeltaPreserved": "30\t0\tdocs/ORDINARY-SOURCE-READ.md",
+  "projectStateUnchanged": true,
+  "push": "not_attempted_parent_hold",
+  "independentReview": "pending",
+  "installed": false,
+  "newModels": 0,
+  "stateCommit": "local state revision164 is not in this commit; previous uncommitted state history preserved",
+  "observedAt": "2026-11-03T05:20:35.062702+00:00"
+}

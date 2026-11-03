@@ -1,0 +1,16 @@
+{
+  "source": "Parent delegated independent review conclusion received2026-11-03; no report path/hash supplied, none inferred",
+  "commit": "eb886f26d05cbcc4b620fe6c472ff4483c7dc614",
+  "decision": "accepted",
+  "focused": {
+    "pass": 42,
+    "fail": 0,
+    "sdk": "2026.10.9"
+  },
+  "notVerified": [
+    "real semantic behavior",
+    "OpenClaw2026.10.8 compatibility"
+  ],
+  "hostInstalled": false,
+  "paidOrPushAuthorized": false
+}

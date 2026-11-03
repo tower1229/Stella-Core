@@ -69,6 +69,21 @@ function pathRef(raw: string) {
 }
 const timestamp = (v: unknown, nullable = false) => nullable && v === null || typeof v === "string" && /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(v) && Number.isFinite(Date.parse(v));
 
+/** These are stored labels on the selected Evidence/Source, not authenticated
+ * requester identities. Project explicitly; origin may contain other fields. */
+function recordedProvenance(evidence: Record<string, unknown>, source: Record<string, unknown>) {
+  const speakerId = evidence.speakerId, origin = source.origin;
+  check(speakerId === null || typeof speakerId === "string", "invalid_evidence");
+  check(isRecord(origin), "invalid_source");
+  const adapterId = origin.adapterId, collectionId = origin.collectionId, upstreamId = origin.upstreamId;
+  check(typeof adapterId === "string" && adapterId && typeof collectionId === "string" && collectionId &&
+    typeof upstreamId === "string" && upstreamId, "invalid_source");
+  const provenance = { speakerId, origin: { adapterId, collectionId, upstreamId },
+    interpretation: "recorded_identifiers_not_verified_identity" as const };
+  check(Buffer.byteLength(JSON.stringify(provenance), "utf8") <= 16 * 1024, "source_provenance_capacity");
+  return provenance;
+}
+
 /** One invocation, no retained reader/qualification across requests. This narrow
  * loader reads only the chosen manifest/profile/catalog, not all consciousness
  * references, bootstrap files or capability acceptance records. */
@@ -196,11 +211,12 @@ export async function executeOrdinarySourceRead(input: {
   const allowed = await metadata(reader, args.ref); await guard();
   check(allowed !== false, "source_descriptor_scope_denied");
   await pinRef(args.ref);
+  const e = await reader.read(args.ref, "evidence"); await guard();
+  check(validMemoryRef(e.source), "invalid_evidence");
+  const source = await reader.read(e.source, "sources"); await guard();
+  const provenance = recordedProvenance(e, source);
   const original = await resolver.readEvidence(args.ref, guard); await guard();
   check(Buffer.byteLength(original.text, "utf8") <= 128 * 1024, "source_output_capacity");
-  const e = await reader.read(args.ref, "evidence");
-  check(validMemoryRef(e.source), "invalid_evidence");
-  const source = await reader.read(e.source, "sources");
   check(Array.isArray(source.payloads), "invalid_source");
   const payload = source.payloads.find(p => isRecord(p) && p.sha256 === e.payloadSha256);
   check(isRecord(payload) && typeof payload.path === "string" && typeof payload.sha256 === "string", "invalid_payload");
@@ -212,7 +228,7 @@ export async function executeOrdinarySourceRead(input: {
   }
   await current();
   check(isRecord(e.selector) && typeof e.selector.kind === "string" && typeof e.selector.value === "string", "invalid_selector");
-  return { status: "read" as const, ...snapshot, original, sourceRef: { id: e.source.id, version: e.source.version },
+  return { status: "read" as const, ...snapshot, original, provenance, sourceRef: { id: e.source.id, version: e.source.version },
     locator: { payloadSha256: e.payloadSha256, selector: { kind: e.selector.kind, value: e.selector.value } }, authorConfirmation: false, publisher: false };
 }
 

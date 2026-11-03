@@ -72,6 +72,8 @@ test("actual ordinary hooks and factory read only reviewed descriptors, then exa
   assert.equal(turn.hook("read"), undefined);
   const read = await turn.tool.execute("read", { action: "read", ref: listed.details.items[0].ref });
   assert.equal(read.details.status, "read"); assert.equal(read.details.original.text, f.texts[0]); assert.equal(f.modelCalls(), 2);
+  assert.equal(read.details.provenance.speakerId, null);
+  assert.equal(read.details.provenance.origin.upstreamId, "source-0");
   assert.equal(read.details.publisher, false); assert.equal(read.details.authorConfirmation, false);
   turn.hook("out-of-scope"); const denied = await turn.tool.execute("out-of-scope", { action: "read", ref: f.refs[1] });
   assert.equal(denied.details.code, "source_descriptor_scope_denied"); assert.equal(f.modelCalls(), 2);
@@ -152,7 +154,9 @@ test("native admission conflict, cancellation and end do not revive an old bindi
 
 test("semantic policy denial remains an explicit read failure; metadata access does not grant body access", async t => {
   const f = await setup(t), turn = f.turn(); turn.dispatch(); turn.hook("denied"); f.deny();
-  assert.equal((await turn.tool.execute("denied", { action: "read", ref: f.refs[0] })).details.code, "source_scenario_forbidden");
+  const denied = await turn.tool.execute("denied", { action: "read", ref: f.refs[0] });
+  assert.equal(denied.details.code, "source_scenario_forbidden");
+  assert.equal(denied.details.provenance, undefined);
   assert.equal(f.modelCalls(), 1);
 });
 

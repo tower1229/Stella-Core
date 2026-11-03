@@ -1,0 +1,8 @@
+{
+  "authorReview": "complete",
+  "secrets": "added code, synthetic tests and minimal evidence checked; common token/private-key patterns absent; no claim of exhaustive automated proof",
+  "privateSourceRead": false,
+  "priorDirtyPreserved": true,
+  "indexInitiallyEmpty": true,
+  "scope": "four code/test files, package-only docs, reviewed prior descriptor receipt and current synthetic evidence"
+}

@@ -1,0 +1,51 @@
+--- a/docs/ORDINARY-SOURCE-READ.md
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -100,8 +100,10 @@
+   whole repository was searched or that the question has sufficient evidence.
+ - `{"action":"read","ref":{"id":"...","version":"sha256:..."}}`: one exact
+   original Evidence slice with Source/version, payload hash/selector, original
+-  role/kind/time, coverage and usage constraints. Both base and segment policy
+-  remain enforced. Request lifetime is checked around semantic policy awaits and
++  role/kind/time, coverage and usage constraints. `provenance` carries the recorded
++  speakerId (including null) and the selected Source origin's adapterId,
++  collectionId and upstreamId. These labels are not authenticated identity or
++  author confirmation. Both base and segment policy remain enforced. Request lifetime is checked around semantic policy awaits and
+   immediately before the first payload read. Returned Source references and
+   selectors are projected to documented fields. The result is neither author
+   confirmation nor publication.
+@@ -551,5 +553,33 @@
+ the actual ordinary hooks/factory through list then exact read, rejected metadata
+ and body access, and capacity-safe continuation. The production grant, data root,
+ Host and model configuration were not changed; no private payload or paid model
+-was used. This increment is a local implementation candidate, not installed or
+-independently accepted, and it does not complete forward-understanding acceptance.
++was used. The coordinator subsequently reported independent acceptance:
++42/42 on SDK2026.10.9; [review record](../.task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/INDEPENDENT-REVIEW.json).
++It remains uninstalled. Real semantic behavior and10.8 compatibility are unverified;
++this does not complete forward-understanding acceptance.
++
++
++## 2026-11-03: recorded provenance in original reads (unloaded candidate)
++
++The source contracts already contain a speaker label and originating collection /
++record identifiers. The ordinary read previously dropped those fields, leaving
++the native Agent unable to distinguish two speakers with the same role using the
++recorded metadata. The [provenance increment](../.task-control/reports/CORE-VAL-001/source-provenance-read-20261103/REPORT.json)
++projects these existing fields alongside the exact Source/version and payload
++selector. No identity mapping, origin inference or new source lookup is added.
++
++Provenance is returned only with a successful original read after its existing
++metadata admission and both source-policy gates. List output does not gain these
++attribution fields. Unknown speaker labels remain null; model, requester, owner
++flags and surrounding text are not used to fill them. Only speakerId and the
++three documented origin fields are projected; other origin properties are not
++released. A provenance object above16KiB UTF-8 fails before source-policy
++completion or payload access, without truncating identifiers. The separate128KiB
++original-text limit, freshness, cancellation and publisher-off boundaries remain.
++
++Synthetic tests exercise stored versions with two distinct speakers sharing a
++role, unknown identity, field projection, capacity and the actual ordinary
++factory's permitted/denied read output. These tests do not establish truthful
++source labels, real-person identity, model understanding or installed behavior.
++The change is not installed, and no private data, external model, permissions or
++Host configuration was used or changed during development.

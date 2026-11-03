@@ -101,6 +101,58 @@ test("exact Evidence read preserves original UTF-8, role/kind/time, selector, ve
   assert.deepEqual(f.sourcePolicies.sort(), ["synthetic-base", "synthetic-leaf"]);
   assert.equal(result.original.usageConstraints!.length, 2); assert.equal(result.original.usageConstraints![0].quotePolicy, "never_quote");
   assert.equal(result.revision, f.binding.revision); assert.match(result.catalogHash, /^sha256:/);
+  assert.deepEqual(result.provenance, { speakerId: null,
+    origin: { adapterId: "stella-repository-file/v1", collectionId: "synthetic-migration", upstreamId: "source-0" },
+    interpretation: "recorded_identifiers_not_verified_identity" });
+});
+
+test("two originals with the same role preserve different recorded speakers and source records without inferring identity", async t => {
+  const f = await fixture(t, 2);
+  for (const [index, entry] of f.catalog.evidence.entries()) {
+    const e = JSON.parse(await readFile(path.join(f.root, entry.locator.path), "utf8"));
+    e.role = "other"; e.speakerId = index === 0 ? "fictional-speaker-A" : "fictional-speaker-B";
+    const bytes = canonicalJson(e); entry.version = objectVersion(e); entry.locator.sha256 = bytesVersion(bytes);
+    f.refs[index] = { id: entry.id, version: entry.version }; await f.put(entry.locator.path, bytes);
+  }
+  await f.put(catalogPath, canonicalJson(f.catalog)); f.binding.revision = await f.commit();
+  for (const [index, ref] of f.refs.entries()) {
+    const result = await f.execute({ action: "read", ref }); if (result.status !== "read") assert.fail();
+    assert.equal(result.provenance.speakerId, index === 0 ? "fictional-speaker-A" : "fictional-speaker-B");
+    assert.equal(result.provenance.origin.upstreamId, `source-${index}`);
+    assert.equal(result.original.role, "other"); assert.equal(result.original.text, f.texts[index]);
+    assert.equal(result.authorConfirmation, false); assert.equal(result.publisher, false);
+  }
+});
+
+test("read provenance projects only selected recorded labels; list never releases the new attribution fields", async t => {
+  const f = await fixture(t, 1), originalRead = CatalogReader.prototype.read;
+  CatalogReader.prototype.read = async function (...args) {
+    const value = await originalRead.apply(this, args);
+    return args[1] === "sources" ? { ...value, origin: { ...(value.origin as Record<string, unknown>),
+      extraPrivateBody: "SYNTHETIC_UNAPPROVED_ORIGIN_BODY", requesterId: "synthetic-not-an-author" } } : value;
+  };
+  t.after(() => { CatalogReader.prototype.read = originalRead; });
+  const result = await f.execute({ action: "read", ref: f.refs[0] }); if (result.status !== "read") assert.fail();
+  assert.equal(result.provenance.speakerId, null);
+  assert.deepEqual(Object.keys(result.provenance.origin).sort(), ["adapterId", "collectionId", "upstreamId"]);
+  assert.equal(JSON.stringify(result).includes("SYNTHETIC_UNAPPROVED_ORIGIN_BODY"), false);
+  assert.equal(JSON.stringify(result).includes("synthetic-not-an-author"), false);
+  const listed = await f.execute({ action: "list" });
+  assert.equal(JSON.stringify(listed).includes('"speakerId"'), false);
+  assert.equal(JSON.stringify(listed).includes('"upstreamId"'), false);
+});
+
+test("oversized provenance fails before policy completion or payload reads without truncating identifiers", async t => {
+  const f = await fixture(t, 1), originalRead = CatalogReader.prototype.read, originalPayload = CatalogReader.prototype.readPayload;
+  let payloadReads = 0;
+  CatalogReader.prototype.read = async function (...args) {
+    const value = await originalRead.apply(this, args);
+    return args[1] === "sources" ? { ...value, origin: { ...(value.origin as Record<string, unknown>), upstreamId: "漢".repeat(6000) } } : value;
+  };
+  CatalogReader.prototype.readPayload = async function (...args) { payloadReads++; return originalPayload.apply(this, args); };
+  t.after(() => { CatalogReader.prototype.read = originalRead; CatalogReader.prototype.readPayload = originalPayload; });
+  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }), /source_provenance_capacity/);
+  assert.equal(payloadReads, 0); assert.equal(f.sourcePolicies.length, 0);
 });
 
 test("missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access", async () => {

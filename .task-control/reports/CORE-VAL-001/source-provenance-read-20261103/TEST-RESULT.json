@@ -1,0 +1,44 @@
+{
+  "red": {
+    "pass": 0,
+    "fail": 1,
+    "exitCode": 1,
+    "actual": "provenance undefined",
+    "note": "Initial expected adapter literal corrected to existing repository producer constant before green; missing output is the demonstrated baseline defect."
+  },
+  "compile": {
+    "command": "node scripts/compile.mjs test",
+    "exitCode": 0
+  },
+  "green": {
+    "command": "node --test .test-dist/tests/ordinary-source-read.test.js .test-dist/tests/ordinary-source-admission.test.js",
+    "exitCode": 0,
+    "tests": 45,
+    "pass": 45,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "newGroups": 3
+  },
+  "scope": "synthetic repositories and collaborators through ordinary tool; no Host/model requests",
+  "sdk": "2026.10.9",
+  "node": "24.22.1",
+  "logs": {
+    "green.tap": {
+      "sha256": "fca8c70cf8b58d4143f2493507a9153905d333a7a0e09743d49281f97d64c8e2",
+      "bytes": 5468
+    },
+    "red-compile.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "green-compile.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "red.tap": {
+      "sha256": "3f410c75817acac1a38541794496c6dc84001faf4c250e781af88374475e220a",
+      "bytes": 1546
+    }
+  }
+}

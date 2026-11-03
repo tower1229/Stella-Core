@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-03T05:34:34.608705+00:00",
+  "baseCommit": "eb886f26d05cbcc4b620fe6c472ff4483c7dc614",
+  "task": "CORE-VAL-001",
+  "goal": "Preserve already-recorded speaker/source identifiers for source attribution in native forward-understanding, without guessing identity.",
+  "requirements": [
+    "docs/09-REQUIREMENTS-ALIGNMENT.md:71",
+    "docs/09-REQUIREMENTS-ALIGNMENT.md:162"
+  ],
+  "existingContract": "Evidence.speakerId and Source.origin already validated by EpisodeEvidenceResolver; ordinary read previously dropped them.",
+  "files": [
+    "src/openclaw/ordinary-source-read.ts",
+    "src/ordinary-plugin.ts",
+    "tests/ordinary-source-read.test.ts",
+    "tests/ordinary-source-admission.test.ts",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ],
+  "implementation": {
+    "projection": [
+      "speakerId",
+      "origin.adapterId",
+      "origin.collectionId",
+      "origin.upstreamId"
+    ],
+    "meaning": "recorded identifiers only, never authentication or author confirmation",
+    "availability": "only successful authorized original read; list unchanged",
+    "capacity": "16KiB serialized provenance checked before policy completion/payload; explicit failure, no truncation",
+    "unchanged": [
+      "grant/root/model/identity semantics",
+      "base+leaf body policies",
+      "original source bytes,role,time,coverage",
+      "native Agent loop",
+      "publisher off"
+    ]
+  },
+  "validation": "TEST-RESULT.json",
+  "review": "author validated; independent review pending",
+  "installed": false,
+  "newPaidCalls": 0,
+  "realPayloadReads": 0,
+  "hostChanges": 0,
+  "grantChanges": 0,
+  "pushAssigned": false,
+  "localCommit": "pending; later SAVE-RESULT receipt records actual",
+  "priorPackageReview": "../source-descriptor-list-20261103/INDEPENDENT-REVIEW.json",
+  "notEstablished": [
+    "actual model attribution/semantic use",
+    "actual source labels truthfulness",
+    "OpenClaw10.8 compatibility",
+    "installed behavior"
+  ],
+  "manifest": {
+    "src/openclaw/ordinary-source-read.ts": {
+      "sha256": "d66f03d20afa49dcc6267fc37bd7034b04a70ff38cb3e543aaa7259632b7e409"
+    },
+    "src/ordinary-plugin.ts": {
+      "sha256": "5f266e7ca11d9c601428facef0266cd09ea40c0c389e812c61b031fc70e77d6b"
+    },
+    "tests/ordinary-source-read.test.ts": {
+      "sha256": "aeebd2965edfc2065751b97c30835c7c6bb1533e222f65ded9ce77b96110234d"
+    },
+    "tests/ordinary-source-admission.test.ts": {
+      "sha256": "003eaf1806f3adb4d236eb3a26714906f458241463935dbc744e720d15b2502c"
+    },
+    "docs/ORDINARY-SOURCE-READ.md": {
+      "stagedCandidateSha256": "7d7b0056ef244a1e17853914b46f8ca7deb350c9f0fc737a55cc1a3c3a55f2e0",
+      "workingCopySha256": "30e933ebf58601cf87b8310d5bf548e8afba522561f766037d2dfba6119dc17b",
+      "reason": "prior30 uncommitted investigative lines preserved outside staged candidate"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "baseRevision": 164,
+  "stateSha256": "d5bc56f623cfaafc28938299dcd6748d1077ca81517876b5343749558c5d6e19",
+  "head": "eb886f26d05cbcc4b620fe6c472ff4483c7dc614",
+  "indexEmpty": true,
+  "projectStateSha256": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47",
+  "docSha256": "292ee5f855d9c73b73f6e8bc8e0370ba36d843cf6eccf0da2368d4d19ede6c83",
+  "writerCheck": "same assigned Core writer; Core independent review idle, no competing Core implementation assigned",
+  "purpose": "Preserve existing recorded speaker/source origin in authorized original reads. No new retrieval loop, trust, scope, model, Host or environment."
+}
