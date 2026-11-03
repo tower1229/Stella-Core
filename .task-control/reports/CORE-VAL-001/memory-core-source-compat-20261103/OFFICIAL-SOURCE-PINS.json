@@ -1,0 +1,50 @@
+{
+  "sdk": "2026.10.9",
+  "files": [
+    {
+      "path": "node_modules/openclaw/dist/extensions/memory-core/index.js",
+      "sha256": "e7c8f538275bc8df8272337f3c95d2e38dd23e9e8a1fdb96422c17f19200a8aa"
+    },
+    {
+      "path": "node_modules/openclaw/dist/memory-state-YBTzZa6s.mjs",
+      "sha256": "537da1c55ffe94223ebad455f6cf7475ad7c078b3ba462eebb79bf2af4dfe3d5"
+    },
+    {
+      "path": "node_modules/openclaw/dist/embedded-agent-DoEPu8ye.mjs",
+      "sha256": "21a06d87da38b464c600a7447fd79d03be1f376e9e275cf1f1ece297a029cdbb"
+    },
+    {
+      "path": "node_modules/openclaw/dist/openclaw-tools-CSSYZDKR.mjs",
+      "sha256": "f7f6b3b4bcd0777f718b84605165210cd968d260794d3934e97cd63aec30ae79"
+    },
+    {
+      "path": "node_modules/openclaw/dist/agent-tools.before-tool-call-CQkX3nOj.mjs",
+      "sha256": "e541d3d24b22b5e5a89d07d52191552d23967bfa5189d3ffd0f2c719ea8a35a3"
+    },
+    {
+      "path": "node_modules/openclaw/dist/tool-search-BorBxVGT.mjs",
+      "sha256": "eab11697b7c1fe8a5226db5db0b5947793255b20b5cefc89b115a19f73f4d776"
+    },
+    {
+      "path": "node_modules/openclaw/dist/config-contracts-DzLaG7FV.d.ts",
+      "sha256": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17"
+    },
+    {
+      "path": "node_modules/openclaw/dist/plugin-sdk/memory-host-core.js",
+      "sha256": "d2edc0a3251577d8c149d96ac8e1eedd2b41c115231f7a932102bf78f24594f2"
+    },
+    {
+      "path": "node_modules/openclaw/dist/builtin-openclaw-BxzDR6yL.mjs",
+      "sha256": "220ce2f67e0ec0b96b63fe474dbefd628a6429cf2b58b87f78a78324ee92ca1c"
+    },
+    {
+      "path": "node_modules/openclaw/dist/agent-tools-Bpi7xWYy.mjs",
+      "sha256": "4b00450f20ea2bd26c95ce194de0efe4234081a381e700908b439b8ad6555e39"
+    },
+    {
+      "path": "node_modules/openclaw/dist/plugin-instance-scope-Cm6nCHVN.mjs",
+      "sha256": "8df48a968f4a274f97bfb193a301ba4db0ddb33a4bff9f01b1c783aa31cf1461"
+    }
+  ],
+  "scope": "Installed official source, not CI10.8 or live context capture"
+}

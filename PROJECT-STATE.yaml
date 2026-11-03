@@ -794,3 +794,17 @@ ordinary_source_fixed90f_main_binding_20261102:
   source_body_success_and_semantic_acceptance: not_verified
   chat_send_and_models_this_phase: zero
   publisher: false
+
+ordinary_memory_core_source_compatibility_20261103:
+  evidence: .task-control/reports/CORE-VAL-001/memory-core-source-compat-20261103/REPORT.md
+  official_sdk: 2026.10.9
+  deterministic_mismatch: ordinary_memory_core_does_not_produce_native_memoryAudience
+  prior_real_failures: five_Core_list_failures_shared_requester_or_audience_code
+  exact_real_context_snapshot: not_captured
+  candidate: unchanged_device_grant_and_direct_authenticated_request_without_fabricated_native_audience
+  focused_synthetic_tests: 80_of_80
+  official_source_probe: 6_of_6_separate
+  independent_review_and_installation: not_done
+  main_and_grants_changed: false
+  new_model_requests_and_private_payload_reads: zero
+  real_source_grounded_answer_and_sdk10_8: not_verified

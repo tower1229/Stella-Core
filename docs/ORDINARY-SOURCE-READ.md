@@ -627,3 +627,38 @@ from inference. Remaining dependencies cover the whole path:
 
 Execution ownership, current blockers and the next assigned action remain only in
 the [task index](../.task-control/state.json), rather than a second schedule here.
+
+## 2026-11-03: ordinary memory-core admission compatibility (unloaded candidate)
+
+The real source-only main test reached the original `stella_source_read` through
+Tool Search five times, but every `list` returned Core's
+`source_requester_or_audience_forbidden` failure. It read no original and produced
+no grounded answer. Main's normal configuration was restored; this diagnosis does
+not authorize another model request.
+
+Pinned official 2026.10.9 code identifies a contract mismatch: default memory-core
+registers `runtime`, not a native `providerRuntime`. The Host intentionally omits
+the optional `memoryAudience` on this ordinary-memory route. Core had required
+`owner-private` unconditionally. Tool Search dispatches the existing target tool;
+it does not mint an audience or replace the factory's captured identity. The
+[diagnosis packet](../.task-control/reports/CORE-VAL-001/memory-core-source-compat-20261103/REPORT.md)
+distinguishes this reproducible cause from the uncaptured individual fields of
+the real run's shared error condition. It does not establish this as the only
+remaining admission problem.
+
+The candidate retains the native-audience check when an audience is supplied.
+For an absent audience it instead requires the public selected-memory registration
+to be ordinary memory-core, with the same runtime and no native provider, plus the
+already checked direct authenticated WebUI request, owner, attested device, native
+input admission, run/call/session incarnation and v2 lifetime guard. Only that
+device's exact pre-existing `openclaw-device:` source-processing grant qualifies.
+A profile-only grant, other provider, missing device, supplied conflicting
+audience, delegated ingress or mismatched request still fails. Core does not
+construct a native audience or change any grant, identity or conversation access.
+The original source versions, descriptor scope, usage-policy checks and read
+guards remain in force; list permission still does not confer body access.
+
+Synthetic affected tests and a bounded official-source probe passed on 2026.10.9.
+This is an unreviewed, uninstalled candidate, with no new model request, private
+original read or main configuration change. Independent review, installed behavior,
+10.8 compatibility and a successful source-grounded answer remain unverified.

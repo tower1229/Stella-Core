@@ -5,7 +5,7 @@ import path from "node:path";
 import { isRecord } from "./shared/type-guards.js";
 import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
 import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
-import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion, type GatewayRequestScopeReader } from "./openclaw/ordinary-source-admission.js";
+import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion, type GatewayRequestScopeReader, type MemoryCapabilityReader } from "./openclaw/ordinary-source-admission.js";
 import { CatalogError } from "./canghai/catalog-reader.js";
 import { SOURCE_READ_TOOL, SOURCE_READ_PARAMETERS, parseSourceReadBinding, executeOrdinarySourceRead, sourceReadFailure,
   type SourceReadAdmission, type SourceReadBinding } from "./openclaw/ordinary-source-read.js";
@@ -74,7 +74,8 @@ export function createSourcePolicyCompletion(api: OpenClawPluginApi, agentId: st
  * grant. Internal test ports never become configuration or model arguments. */
 export function createOrdinaryPlugin(options: { admitSourceRead?: (input: {
   binding: SourceReadBinding; context: OpenClawPluginToolContext<2>; callId: string; signal?: AbortSignal;
-}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion; getGatewayRequestScope?: GatewayRequestScopeReader } = {}) {
+}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion; getGatewayRequestScope?: GatewayRequestScopeReader;
+  getMemoryCapabilityRegistration?: MemoryCapabilityReader } = {}) {
 const admitSourceRead = options.admitSourceRead;
 return definePluginEntry({
   id: "stella-core",
@@ -86,6 +87,7 @@ return definePluginEntry({
     const currentInput = createCurrentInputMetadata(config.agentId);
     const sourceInput = createOrdinarySourceAdmission({ agentId: config.agentId, metadata: currentInput,
       getGatewayRequestScope: options.getGatewayRequestScope,
+      getMemoryCapabilityRegistration: options.getMemoryCapabilityRegistration,
       complete: options.completeSourceAccess ?? createSourcePolicyCompletion(api, config.agentId) });
     api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
     // Host-owned metadata events do not request conversation contents. A tool

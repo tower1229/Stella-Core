@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "scope": "uninstalled candidate; exact patch and local evidence, not inherited dirty",
+  "members": [
+    {
+      "path": "CHANGE.patch",
+      "sha256": "c3b20c9fbbc9318356fbc0001568e8a2a8f582a461a9dfb4a02329b54e97a490",
+      "bytes": 24281
+    },
+    {
+      "path": "FROZEN-INPUTS.json",
+      "sha256": "7ceac10258b3e5526947fd27ba0d093a1a081dae2156f7fa1a616e7a76505086",
+      "bytes": 1832
+    },
+    {
+      "path": "OFFICIAL-PROBE-RESULT.json",
+      "sha256": "2e50ea82038af9b550755ac22c6b8a46254f13e0d3dde901842449d2d245835a",
+      "bytes": 1585
+    },
+    {
+      "path": "OFFICIAL-PROBE.mjs",
+      "sha256": "41416e5f4efdbfb3cf0d65f107527a47735a86b5f6e1bcd39110137562fd9a90",
+      "bytes": 6351
+    },
+    {
+      "path": "OFFICIAL-SOURCE-PINS.json",
+      "sha256": "86160cc1d7f6ff06e73115cfccd928e05ea2a9f099ad579bb42e102dbec6e6e4",
+      "bytes": 1991
+    },
+    {
+      "path": "REPORT.json",
+      "sha256": "cbde970706cd1a6434ab8b3b2663f04431ca3beef8167b7331b488bf74a269a3",
+      "bytes": 1793
+    },
+    {
+      "path": "REPORT.md",
+      "sha256": "465f3c8bcc287c34b8d96ff81479de2e7c918b1c5ea5775be4a652a7b729d80b",
+      "bytes": 5266
+    },
+    {
+      "path": "STATE-BASE.json",
+      "sha256": "a8eb090b6caf298fae12a63da699c4c836f20d292daac11d3caf467bf26d614c",
+      "bytes": 305
+    },
+    {
+      "path": "STATE-UPDATE.json",
+      "sha256": "d65d48fd1b29a427bd06d63b33f5a24dddc3a32a3fdc6fee3be3589140936b43",
+      "bytes": 299
+    },
+    {
+      "path": "STATE.patch",
+      "sha256": "051caa63241c36e41e9ba9e79a42752d6bfc51831bb189619ce23ac99c0d68fe",
+      "bytes": 6490
+    },
+    {
+      "path": "VALIDATION.json",
+      "sha256": "dd3dc39b2c93ae4faed8a998e2c989b833ca9fea1c7a1f7e4d6006547aac7685",
+      "bytes": 1032
+    }
+  ]
+}

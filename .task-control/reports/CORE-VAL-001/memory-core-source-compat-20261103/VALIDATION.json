@@ -1,0 +1,43 @@
+{
+  "compileRedExit": 0,
+  "red": {
+    "tests": 1,
+    "pass": 0,
+    "fail": 1,
+    "actual": "failed",
+    "expected": "listed",
+    "sourceVersion": "HEAD base with only new regression test",
+    "rawSha256": "40ec9af5e82b20865c44396e68ce8ae84d6226b6b48f35bf36346f346c5e3b81"
+  },
+  "compileCandidateExit": 0,
+  "affected": {
+    "tests": 80,
+    "pass": 80,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "rawSha256": "d62d2fe9db4a47c5f7e61c7fa61d3b416ba1e961e631c4c6584ddfae2aa7fe94",
+    "suites": [
+      "ordinary-source-admission",
+      "ordinary-plugin",
+      "ordinary-source-read",
+      "current-input-metadata",
+      "tool-request-binding"
+    ]
+  },
+  "officialProbe": {
+    "passed": 6,
+    "exit": 0,
+    "stderrBytes": 0
+  },
+  "notSummed": true,
+  "externalModelRequests": 0,
+  "testCompletion": "synthetic fixed responses only",
+  "liveHostActions": 0,
+  "privateOriginalReads": 0,
+  "grantChanges": 0,
+  "sdk": "2026.10.9",
+  "node": "v24.22.1",
+  "ci10_8": "not_run",
+  "realE2E": "not_passed"
+}

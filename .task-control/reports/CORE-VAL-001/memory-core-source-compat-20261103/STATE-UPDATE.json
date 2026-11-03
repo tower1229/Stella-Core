@@ -1,0 +1,7 @@
+{
+  "revision": 192,
+  "sha256": "f9faa6b9390a7f616e47fbd41efa19607cbf412ac4dd6b506a69772e62fc7ae1",
+  "baseRevision": 191,
+  "baseSha256": "f07cf9aef01452689e6442b950ae5e2a3d5efe83239f94a0a0acdf18089966c6",
+  "scope": "same unique writer; current candidate only; all historical results retained"
+}

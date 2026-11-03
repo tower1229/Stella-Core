@@ -1,0 +1,25 @@
+{
+  "sdk": "2026.10.9",
+  "checks": [
+    "memory-core registers runtime, not providerRuntime",
+    "public registration projection preserves runtime identity",
+    "ordinary memory omits audience; native provider positive control resolves it",
+    "official factory projection retains optional audience and trusted owner fields",
+    "before-tool-call denial is blocked, distinct from observed Core failed envelope",
+    "official dispatcher invokes original target closure and generates nested call identity"
+  ],
+  "passed": 6,
+  "pins": {
+    "extensions/memory-core/index.js": "e7c8f538275bc8df8272337f3c95d2e38dd23e9e8a1fdb96422c17f19200a8aa",
+    "memory-state-YBTzZa6s.mjs": "537da1c55ffe94223ebad455f6cf7475ad7c078b3ba462eebb79bf2af4dfe3d5",
+    "embedded-agent-DoEPu8ye.mjs": "21a06d87da38b464c600a7447fd79d03be1f376e9e275cf1f1ece297a029cdbb",
+    "openclaw-tools-CSSYZDKR.mjs": "f7f6b3b4bcd0777f718b84605165210cd968d260794d3934e97cd63aec30ae79",
+    "agent-tools.before-tool-call-CQkX3nOj.mjs": "e541d3d24b22b5e5a89d07d52191552d23967bfa5189d3ffd0f2c719ea8a35a3",
+    "tool-search-BorBxVGT.mjs": "eab11697b7c1fe8a5226db5db0b5947793255b20b5cefc89b115a19f73f4d776"
+  },
+  "limits": [
+    "Function extracts use synthetic dependencies; dispatcher test isolates executeEntry without live Host hooks.",
+    "No live request-context snapshot was captured in the prior run; this proves a deterministic contract mismatch, not every conjunct of its shared error.",
+    "No live Host, model, native session admission, device authentication or real source consumption is proven."
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "verdict": "accepted_for_controlled_loading_on_reviewed_2026.10.9",
+  "reviewedAt": "2026-11-03T10:04:08.631Z",
+  "sourceReviewSha256": "ea315bd542586c1e808c497ceefff916e0acff65a027fb4d0c94bce9d0f7bc23",
+  "sourceSummarySha256": "a4cf9a755185c89550e41823ede0b2026925adf40454c0a5af91616946904884",
+  "candidateFiles": [
+    {
+      "path": "src/openclaw/ordinary-source-admission.ts",
+      "sha256": "fd50d0f697508829eb8b0b59706b88d5967382197912c5cc9a389711fc89048d",
+      "match": true
+    },
+    {
+      "path": "src/ordinary-plugin.ts",
+      "sha256": "ef8c87835a4f05434b8128717e549ad9bd9e3deda534d3fec43bb4b2e6648946",
+      "match": true
+    },
+    {
+      "path": "tests/ordinary-source-admission.test.ts",
+      "sha256": "d7d9aa6b17493d4f902e0ba523b39134f7465db81eeaae61333ebab9d527dcd8",
+      "match": true
+    },
+    {
+      "path": "docs/ORDINARY-SOURCE-READ.md",
+      "sha256": "2ed6cc2cf92a12db7c728d16374074f8ae6bb2e0704cf1d837fa38d66a444ddc",
+      "match": true
+    },
+    {
+      "path": "PROJECT-STATE.yaml",
+      "sha256": "e91c7778b54391e32d260134d817a220ca3b2a9e1f0435838c9cca974168010a",
+      "match": true
+    }
+  ],
+  "patchSha256": "c3b20c9fbbc9318356fbc0001568e8a2a8f582a461a9dfb4a02329b54e97a490",
+  "packetManifestSha256": "6a175b7f9c8e5f3598b3f5cdf5dc1af9d92e1753a952e26561f3f30ca2a354f5",
+  "independentTests": {
+    "affectedSuites": {
+      "tests": 80,
+      "pass": 80,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "exitCode": 0,
+      "log": "targeted.tap",
+      "sha256": "1385881ceee00af52f5ad0b46ae6818d901d9a0779ed4f0ef86e79ad764dee17",
+      "compiledSourceMatch": true
+    },
+    "officialSourceProbe": {
+      "passed": 6,
+      "total": 6,
+      "exitCode": 0,
+      "report": "OFFICIAL-PROBE-RESULT.json",
+      "sha256": "2e50ea82038af9b550755ac22c6b8a46254f13e0d3dde901842449d2d245835a"
+    },
+    "extraActualRegisteredEntry": {
+      "passed": 10,
+      "total": 10,
+      "deniedActions": 18,
+      "protectedPayloadReads": 0,
+      "sourcePolicyCompletions": 0,
+      "report": "ADVERSARIAL-RESULT.json",
+      "sha256": "cb4216a0f39fab805a64165f8a84a4458e8672461b1be0dd8d20d536cd731d60"
+    }
+  },
+  "limits": [
+    "No live Host loading, configuration change, private original read, external model or network call by this review.",
+    "2026.10.8 compatibility and CI not verified by SDK 10.9 results.",
+    "Prior real run did not capture all owner/requester/audience conjuncts; this deterministic defect is not proven its sole cause.",
+    "Opaque session keys rely on authenticated Host chatType under the pre-existing contract; this review does not establish every possible future session-key format or durable-session state.",
+    "Actual registration lookup inside the deployed invocation, real device authentication/request propagation, successful grounded answer, semantic quality and physical SDK drain remain unverified.",
+    "No new request quota or model authorization is supplied."
+  ],
+  "scope": "accepted candidate only, not installation or an additional model request"
+}

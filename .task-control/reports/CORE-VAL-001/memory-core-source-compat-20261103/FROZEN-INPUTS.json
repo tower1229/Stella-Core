@@ -1,0 +1,53 @@
+{
+  "baseHead": "04dc946049491c8117e79ffacdde2510bdbeda3f",
+  "baseStateRevision": 191,
+  "codeBase": [
+    {
+      "path": "src/openclaw/ordinary-source-admission.ts",
+      "sha256": "2ebbf257feaf659a35aa9114ec5e2efd308387772d05b4e39762eb7e3bdbfaa7"
+    },
+    {
+      "path": "src/ordinary-plugin.ts",
+      "sha256": "4ae3fd567690e41e593abb454b0748fa94b9fcf245c1c368b7a06baffca407fb"
+    },
+    {
+      "path": "tests/ordinary-source-admission.test.ts",
+      "sha256": "b44572cff08d868cd326209fcc7d42e7ceeee63ec4cdbf068c3caf7c8045446d"
+    }
+  ],
+  "priorDirtyDocuments": [
+    {
+      "path": "docs/ORDINARY-SOURCE-READ.md",
+      "sha256": "737bdd0ce486e06d7cf4126576fc5fbd0de9026eb5b616e8209ba3f5ee26d612"
+    },
+    {
+      "path": "PROJECT-STATE.yaml",
+      "sha256": "10c79e5874514f153d67c45741df7fa2327cb43000fa80286ff1c44d9ec629c8"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/openclaw/ordinary-source-admission.ts",
+      "sha256": "fd50d0f697508829eb8b0b59706b88d5967382197912c5cc9a389711fc89048d"
+    },
+    {
+      "path": "src/ordinary-plugin.ts",
+      "sha256": "ef8c87835a4f05434b8128717e549ad9bd9e3deda534d3fec43bb4b2e6648946"
+    },
+    {
+      "path": "tests/ordinary-source-admission.test.ts",
+      "sha256": "d7d9aa6b17493d4f902e0ba523b39134f7465db81eeaae61333ebab9d527dcd8"
+    },
+    {
+      "path": "docs/ORDINARY-SOURCE-READ.md",
+      "sha256": "2ed6cc2cf92a12db7c728d16374074f8ae6bb2e0704cf1d837fa38d66a444ddc"
+    },
+    {
+      "path": "PROJECT-STATE.yaml",
+      "sha256": "e91c7778b54391e32d260134d817a220ca3b2a9e1f0435838c9cca974168010a"
+    }
+  ],
+  "patch": "CHANGE.patch",
+  "patchSha256": "c3b20c9fbbc9318356fbc0001568e8a2a8f582a461a9dfb4a02329b54e97a490",
+  "scope": "Only this patch is the candidate; prior dirty document/state increments excluded. No Host build or installation."
+}

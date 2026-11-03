@@ -1,0 +1,318 @@
+diff --git a/src/openclaw/ordinary-source-admission.ts b/src/openclaw/ordinary-source-admission.ts
+index cda3f563..ad5a290f 100644
+--- a/src/openclaw/ordinary-source-admission.ts
++++ b/src/openclaw/ordinary-source-admission.ts
+@@ -1,6 +1,7 @@
+ import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
+ import type { PluginHookReplyDispatchContext, PluginHookReplyDispatchEvent } from "openclaw/plugin-sdk/core";
+ import { getPluginRuntimeGatewayRequestScope } from "openclaw/plugin-sdk/plugin-runtime";
++import { getMemoryCapabilityRegistration } from "openclaw/plugin-sdk/memory-host-core";
+ import { execFile } from "node:child_process";
+ import { promisify } from "node:util";
+ import { realpath } from "node:fs/promises";
+@@ -22,6 +23,7 @@ import { SOURCE_READ_TOOL, type SourceReadAdmission, type SourceReadBinding } fr
+ export const SOURCE_POLICY_MODEL = "google/gemini-3.8-flash";
+ export type SourcePolicyCompletion = (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
+ export type GatewayRequestScopeReader = typeof getPluginRuntimeGatewayRequestScope;
++export type MemoryCapabilityReader = typeof getMemoryCapabilityRegistration;
+ type GatewayPrincipal = { id: string; deviceRequesterId: string | undefined; connection: string; assertIdentity(): void };
+ type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
+ type Call = Identity & { runId: string; senderId: string; signal?: AbortSignal; conflict: boolean; release(): void };
+@@ -127,6 +129,7 @@ async function processingBinding(binding: SourceReadBinding, guard: () => void)
+ export function createOrdinarySourceAdmission(input: {
+   agentId: string; metadata: ReturnType<typeof createCurrentInputMetadata>; complete: SourcePolicyCompletion;
+   getGatewayRequestScope?: GatewayRequestScopeReader;
++  getMemoryCapabilityRegistration?: MemoryCapabilityReader;
+ }) {
+   const turns = new Map<string, Turn>(), calls = new Map<string, Call>();
+   const discardCall = (id: string) => { const call = calls.get(id); if (call) { calls.delete(id); call.release(); } };
+@@ -190,6 +193,15 @@ export function createOrdinarySourceAdmission(input: {
+       const audienceSnapshot = audience ? structuredClone(audience) : undefined, modelRef = context.activeModel?.modelRef;
+       const originalGuard = context.assertInvocationCurrent.bind(context);
+       const audienceGuard = context.assertMemoryAudienceCurrent?.bind(context);
++      // memory-core registers the ordinary memory runtime, not a native provider.
++      // The Host intentionally supplies no MemoryAudience on that path. Do not
++      // fabricate one: only the authenticated direct WebUI device may instead
++      // use its exact existing source-processing grant below. A missing native
++      // audience, an unknown memory owner or a conflicting audience still denies.
++      const readMemory = input.getMemoryCapabilityRegistration ?? getMemoryCapabilityRegistration;
++      const memory = audience === undefined && audienceGuard === undefined ? readMemory() : undefined;
++      const ordinaryMemoryRuntime = memory?.pluginId === "memory-core" && memory.capability.providerRuntime === undefined
++        ? memory.capability.runtime : undefined;
+       return async (binding: SourceReadBinding, callId: string, signal?: AbortSignal): Promise<SourceReadAdmission> => {
+         const call = calls.get(callId); discardCall(callId);
+         check(call && !call.conflict && !call.signal?.aborted, "source_request_admission_unavailable");
+@@ -206,9 +218,17 @@ export function createOrdinarySourceAdmission(input: {
+           catch (error) { turn.conflict = true; throw error; }
+           const senderMatches = turn.gateway ? senderId === undefined || senderId === turn.senderId : text(senderId) && senderId === turn.senderId;
+           check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && senderMatches &&
+-            context.requesterSenderId === senderId && call.senderId === turn.senderId &&
+-            audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
+-            canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
++            context.requesterSenderId === senderId && call.senderId === turn.senderId, "source_requester_or_audience_forbidden");
++          if (audience !== undefined) {
++            check(audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
++              canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
++          } else {
++            const currentMemory = readMemory();
++            check(ordinaryMemoryRuntime && currentMemory?.pluginId === "memory-core" &&
++              currentMemory.capability.runtime === ordinaryMemoryRuntime && currentMemory.capability.providerRuntime === undefined &&
++              context.memoryAudience === undefined && context.assertMemoryAudienceCurrent === undefined &&
++              turn.gateway?.deviceRequesterId, "source_memory_context_unavailable");
++          }
+           check(modelRef === SOURCE_POLICY_MODEL && context.activeModel?.modelRef === modelRef, "personal_context_model_forbidden");
+           const native = input.metadata.inspect(call.runId, identity);
+           check(native.status === "observed", "source_native_admission_unavailable");
+@@ -216,6 +236,9 @@ export function createOrdinarySourceAdmission(input: {
+         guard();
+         const processing = await processingBinding(binding, guard); guard();
+         const config = processing.loaded.config;
++        // This route has no native memory partition authority. A profile-only
++        // grant cannot substitute for the already authorized, Host-attested device.
++        check(audience !== undefined || config.requesterIds[0]!.startsWith("openclaw-device:"), "source_device_grant_required");
+         // The grant selects the identity kind. A device grant cannot be satisfied
+         // by a matching profile string or by any other device of that profile.
+         // Keep the Host profile/connection checks above; only the existing grant's
+diff --git a/src/ordinary-plugin.ts b/src/ordinary-plugin.ts
+index 593c1860..b5dd270f 100644
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -5,7 +5,7 @@ import path from "node:path";
+ import { isRecord } from "./shared/type-guards.js";
+ import { createToolRequestBinding } from "./openclaw/tool-request-binding.js";
+ import { createCurrentInputMetadata } from "./openclaw/current-input-metadata.js";
+-import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion, type GatewayRequestScopeReader } from "./openclaw/ordinary-source-admission.js";
++import { createOrdinarySourceAdmission, SOURCE_POLICY_MODEL, type SourcePolicyCompletion, type GatewayRequestScopeReader, type MemoryCapabilityReader } from "./openclaw/ordinary-source-admission.js";
+ import { CatalogError } from "./canghai/catalog-reader.js";
+ import { SOURCE_READ_TOOL, SOURCE_READ_PARAMETERS, parseSourceReadBinding, executeOrdinarySourceRead, sourceReadFailure,
+   type SourceReadAdmission, type SourceReadBinding } from "./openclaw/ordinary-source-read.js";
+@@ -74,7 +74,8 @@ export function createSourcePolicyCompletion(api: OpenClawPluginApi, agentId: st
+  * grant. Internal test ports never become configuration or model arguments. */
+ export function createOrdinaryPlugin(options: { admitSourceRead?: (input: {
+   binding: SourceReadBinding; context: OpenClawPluginToolContext<2>; callId: string; signal?: AbortSignal;
+-}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion; getGatewayRequestScope?: GatewayRequestScopeReader } = {}) {
++}) => Promise<SourceReadAdmission>; completeSourceAccess?: SourcePolicyCompletion; getGatewayRequestScope?: GatewayRequestScopeReader;
++  getMemoryCapabilityRegistration?: MemoryCapabilityReader } = {}) {
+ const admitSourceRead = options.admitSourceRead;
+ return definePluginEntry({
+   id: "stella-core",
+@@ -86,6 +87,7 @@ return definePluginEntry({
+     const currentInput = createCurrentInputMetadata(config.agentId);
+     const sourceInput = createOrdinarySourceAdmission({ agentId: config.agentId, metadata: currentInput,
+       getGatewayRequestScope: options.getGatewayRequestScope,
++      getMemoryCapabilityRegistration: options.getMemoryCapabilityRegistration,
+       complete: options.completeSourceAccess ?? createSourcePolicyCompletion(api, config.agentId) });
+     api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
+     // Host-owned metadata events do not request conversation contents. A tool
+diff --git a/tests/ordinary-source-admission.test.ts b/tests/ordinary-source-admission.test.ts
+index f1786c38..cd3a4c2e 100644
+--- a/tests/ordinary-source-admission.test.ts
++++ b/tests/ordinary-source-admission.test.ts
+@@ -13,7 +13,7 @@ import { CatalogReader } from "../src/canghai/catalog-reader.js";
+ const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
+ const purpose = { readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" };
+ const grantPath = `${prefix}/capabilities/source_access_context.json`;
+-async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader, requesterId = "synthetic-requester") {
++async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader, requesterId = "synthetic-requester", getMemoryCapabilityRegistration?: () => any) {
+   const f = await fixture(t, 2, 0, undefined, purpose, leafDerivePurposes);
+   const source = JSON.parse(await readFile(path.join(f.root, f.catalog.sources[0]!.locator.path), "utf8"));
+   const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
+@@ -27,7 +27,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
+   await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
+   const hooks = new Map<string, Function>(); let factory: any, terminal: any, modelCalls = 0, active = true, denyScenario = false;
+   const modelRequestHashes = new Set<string>();
+-  const plugin = createOrdinaryPlugin({ getGatewayRequestScope, completeSourceAccess: async params => {
++  const plugin = createOrdinaryPlugin({ getMemoryCapabilityRegistration, getGatewayRequestScope, completeSourceAccess: async params => {
+     modelCalls++;
+     const value = JSON.parse(params.prompt.slice(params.prompt.lastIndexOf("\n") + 1));
+     modelRequestHashes.add(value.requestHash);
+@@ -327,6 +327,128 @@ function deviceBrowserScope(deviceId = permittedDeviceId) {
+   return browser;
+ }
+ 
++test("official memory-core without native audience can use only the same device's existing source grant", async t => {
++  const browser = deviceBrowserScope(), runtime = {};
++  const f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester,
++    () => ({ pluginId: "memory-core", capability: { runtime } }));
++  const before = await readFile(path.join(f.root, grantPath));
++  const turn = f.turn("memory-core-direct", { ctx: browserFields.ctx,
++    factory: { requesterSenderId: undefined, memoryAudience: undefined } });
++  turn.dispatch(); assert.equal(turn.hook("memory-core-list", { requester: { senderIsOwner: true } }), undefined);
++  const listed = await turn.tool.execute("memory-core-list", { action: "list" });
++  assert.equal(listed.details.status, "listed");
++  assert.equal(listed.details.items.length, 1);
++  assert.equal(f.modelCalls(), 0);
++  turn.hook("memory-core-read", { requester: { senderIsOwner: true } });
++  const read = await turn.tool.execute("memory-core-read", { action: "read", ref: listed.details.items[0].ref });
++  assert.equal(read.details.original.text, f.texts[0]);
++  assert.equal(f.modelCalls(), 2);
++  assert.equal(turn.context.memoryAudience, undefined);
++  assert.deepEqual(await readFile(path.join(f.root, grantPath)), before);
++});
++
++const ordinaryMemoryFields = { ctx: browserFields.ctx,
++  factory: { requesterSenderId: undefined, memoryAudience: undefined } };
++
++test("absent audience never admits unknown memory providers, native providers or a profile-only grant", async t => {
++  const browser = deviceBrowserScope();
++  let registration: any;
++  const f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester, () => registration);
++  for (const [i, value] of [undefined, { pluginId: "other", capability: { runtime: {} } },
++    { pluginId: "memory-core", capability: {} },
++    { pluginId: "memory-core", capability: { runtime: {}, providerRuntime: {} } }].entries()) {
++    registration = value;
++    const turn = f.turn(`memory-denied-${i}`, ordinaryMemoryFields); turn.dispatch();
++    turn.hook(`memory-denied-${i}`, { requester: undefined });
++    const result = await turn.tool.execute(`memory-denied-${i}`, { action: "read", ref: f.refs[0] });
++    assert.equal(result.details.code, "source_memory_context_unavailable");
++    assert.equal(result.details.original, undefined);
++  }
++  registration = { pluginId: "memory-core", capability: { runtime: {} } };
++  const profile = await setup(t, undefined, () => browser.scope, "synthetic-requester", () => registration);
++  const turn = profile.turn("memory-profile", ordinaryMemoryFields); turn.dispatch(); turn.hook("memory-profile", { requester: undefined });
++  assert.equal((await turn.tool.execute("memory-profile", { action: "read", ref: profile.refs[0] })).details.code, "source_device_grant_required");
++  assert.equal(f.modelCalls(), 0); assert.equal(profile.modelCalls(), 0);
++});
++
++test("ordinary memory retains direct owner, authenticated device, grant and non-delegation boundaries before payload access", async t => {
++  let scope: any = deviceBrowserScope().scope;
++  const runtime = {}, f = await setup(t, undefined, () => scope, permittedDeviceRequester,
++    () => ({ pluginId: "memory-core", capability: { runtime } }));
++  let payloadReads = 0;
++  const original = CatalogReader.prototype.readPayload;
++  CatalogReader.prototype.readPayload = async function(...args) { payloadReads++; return original.apply(this, args); };
++  t.after(() => { CatalogReader.prototype.readPayload = original; });
++  const cases = [
++    { mutate(v: any) { delete v.client.internal.operatorDeviceTokenIdentity; } },
++    { mutate(v: any) { v.client.internal.operatorDeviceTokenIdentity = { deviceId: "b".repeat(64) }; } },
++    { mutate(v: any) { v.client.internal.syntheticClient = true; } },
++    { mutate(v: any) { v.client.internal.agentToolCaller = {}; } },
++    { mutate(v: any) { v.client.internal.agentRuntimeIdentity = {}; } },
++    { mutate(v: any) { v.client.internal.pluginSubagentRequester = {}; } },
++    { factory: { senderIsOwner: false } }, { factory: { requesterSenderId: "other" } },
++    { ctx: { ChatType: "group" } }, { ctx: { InternalTurnSource: "cron" } },
++  ];
++  for (const [i, value] of cases.entries()) {
++    scope = deviceBrowserScope().scope; value.mutate?.(scope);
++    const turn = f.turn(`ordinary-boundary-${i}`, { ctx: { ...ordinaryMemoryFields.ctx, ...value.ctx },
++      factory: { ...ordinaryMemoryFields.factory, ...value.factory } });
++    turn.dispatch(); turn.hook(`ordinary-boundary-${i}`, { requester: { senderIsOwner: true } });
++    const result = await turn.tool.execute(`ordinary-boundary-${i}`, { action: "read", ref: f.refs[0] });
++    assert.equal(result.isError, true, `boundary ${i}`); assert.equal(result.details.original, undefined);
++  }
++  scope = undefined;
++  const forged = f.turn("ordinary-channel", { ctx: { SenderId: permittedDeviceRequester },
++    factory: { requesterSenderId: permittedDeviceRequester, memoryAudience: undefined } });
++  forged.dispatch(); forged.hook("ordinary-channel", { requester: { senderId: permittedDeviceRequester, senderIsOwner: true } });
++  assert.equal((await forged.tool.execute("ordinary-channel", { action: "read", ref: f.refs[0] })).details.code, "source_memory_context_unavailable");
++  assert.equal(payloadReads, 0); assert.equal(f.modelCalls(), 0);
++});
++
++test("ordinary memory does not replace a conflicting audience or accept a changed memory owner", async t => {
++  const browser = deviceBrowserScope(), runtime = {};
++  let registration: any = { pluginId: "memory-core", capability: { runtime } };
++  const f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester, () => registration);
++  for (const [i, factory] of [
++    { memoryAudience: { kind: "conversation", ...identity } }, { memoryAudience: null },
++    { assertMemoryAudienceCurrent() {} },
++  ].entries()) {
++    const turn = f.turn(`audience-${i}`, { ...ordinaryMemoryFields, factory: { ...ordinaryMemoryFields.factory, ...factory } });
++    turn.dispatch(); turn.hook(`audience-${i}`, { requester: undefined });
++    assert.equal((await turn.tool.execute(`audience-${i}`, { action: "read", ref: f.refs[0] })).isError, true);
++  }
++  const changed = f.turn("memory-owner-changed", ordinaryMemoryFields); changed.dispatch(); changed.hook("memory-owner-changed", { requester: undefined });
++  registration = { pluginId: "memory-core", capability: { runtime: {} } };
++  assert.equal((await changed.tool.execute("memory-owner-changed", { action: "read", ref: f.refs[0] })).details.code, "source_memory_context_unavailable");
++  registration = { pluginId: "memory-core", capability: { runtime } };
++  const injected = f.turn("memory-audience-injected", ordinaryMemoryFields); injected.dispatch(); injected.hook("memory-audience-injected", { requester: undefined });
++  injected.context.memoryAudience = { kind: "owner-private", agentId: "main" };
++  assert.equal((await injected.tool.execute("memory-audience-injected", { action: "read", ref: f.refs[0] })).details.code, "source_memory_context_unavailable");
++  assert.equal(f.modelCalls(), 0);
++});
++
++test("ordinary memory requires committed current input, call incarnation and fresh admission after terminal cleanup", async t => {
++  let scope: any = deviceBrowserScope().scope;
++  const runtime = {}, f = await setup(t, undefined, () => scope, permittedDeviceRequester,
++    () => ({ pluginId: "memory-core", capability: { runtime } }));
++  const first = f.turn("ordinary-first", ordinaryMemoryFields); first.pending(); first.dispatch(); first.hook("ordinary-pending", { requester: undefined });
++  assert.equal((await first.tool.execute("ordinary-pending", { action: "read", ref: f.refs[0] })).details.code, "source_native_admission_unavailable");
++  first.commit(); first.hook("ordinary-list", { requester: undefined });
++  assert.equal((await first.tool.execute("ordinary-list", { action: "list" })).details.status, "listed");
++  first.hook("ordinary-pending-end", { requester: undefined }); first.end();
++  assert.equal((await first.tool.execute("ordinary-pending-end", { action: "read", ref: f.refs[0] })).details.code, "source_request_admission_unavailable");
++  const second = f.turn("ordinary-second", ordinaryMemoryFields);
++  assert.equal(second.hook("ordinary-no-dispatch", { requester: undefined })?.block, true);
++  second.dispatch(); second.hook("ordinary-other-session", { requester: undefined, sessionId: "other" });
++  assert.equal((await second.tool.execute("ordinary-other-session", { action: "read", ref: f.refs[0] })).details.code, "source_request_binding_mismatch");
++  second.hook("ordinary-cancel", { requester: undefined }); second.abort.abort();
++  assert.equal((await second.tool.execute("ordinary-cancel", { action: "read", ref: f.refs[0] })).isError, true);
++  const third = f.turn("ordinary-third", ordinaryMemoryFields); third.dispatch(); third.hook("ordinary-cross-connection", { requester: undefined });
++  scope = deviceBrowserScope().scope; scope.client.connId = "other-connection";
++  assert.equal((await third.tool.execute("ordinary-cross-connection", { action: "read", ref: f.refs[0] })).details.code, "source_gateway_scope_mismatch");
++  assert.equal(f.modelCalls(), 0);
++});
++
+ test("Host-attested same device satisfies the existing device grant without changing profile, grant or tool identity", async t => {
+   const browser = deviceBrowserScope(), f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester);
+   const grantBefore = await readFile(path.join(f.root, grantPath));
+--- a/docs/ORDINARY-SOURCE-READ.md
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -670,3 +670,38 @@
+ 
+ Execution ownership, current blockers and the next assigned action remain only in
+ the [task index](../.task-control/state.json), rather than a second schedule here.
++
++## 2026-11-03: ordinary memory-core admission compatibility (unloaded candidate)
++
++The real source-only main test reached the original `stella_source_read` through
++Tool Search five times, but every `list` returned Core's
++`source_requester_or_audience_forbidden` failure. It read no original and produced
++no grounded answer. Main's normal configuration was restored; this diagnosis does
++not authorize another model request.
++
++Pinned official 2026.10.9 code identifies a contract mismatch: default memory-core
++registers `runtime`, not a native `providerRuntime`. The Host intentionally omits
++the optional `memoryAudience` on this ordinary-memory route. Core had required
++`owner-private` unconditionally. Tool Search dispatches the existing target tool;
++it does not mint an audience or replace the factory's captured identity. The
++[diagnosis packet](../.task-control/reports/CORE-VAL-001/memory-core-source-compat-20261103/REPORT.md)
++distinguishes this reproducible cause from the uncaptured individual fields of
++the real run's shared error condition. It does not establish this as the only
++remaining admission problem.
++
++The candidate retains the native-audience check when an audience is supplied.
++For an absent audience it instead requires the public selected-memory registration
++to be ordinary memory-core, with the same runtime and no native provider, plus the
++already checked direct authenticated WebUI request, owner, attested device, native
++input admission, run/call/session incarnation and v2 lifetime guard. Only that
++device's exact pre-existing `openclaw-device:` source-processing grant qualifies.
++A profile-only grant, other provider, missing device, supplied conflicting
++audience, delegated ingress or mismatched request still fails. Core does not
++construct a native audience or change any grant, identity or conversation access.
++The original source versions, descriptor scope, usage-policy checks and read
++guards remain in force; list permission still does not confer body access.
++
++Synthetic affected tests and a bounded official-source probe passed on 2026.10.9.
++This is an unreviewed, uninstalled candidate, with no new model request, private
++original read or main configuration change. Independent review, installed behavior,
++10.8 compatibility and a successful source-grounded answer remain unverified.
+--- a/PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -1004,3 +1004,17 @@
+   health_and_selfie_verified: true
+   actual_plugin_cache_retirement: unknown
+   scope: 技术事实，不调度重试，不扩大既有grant；任务状态只读JSON索引
++
++ordinary_memory_core_source_compatibility_20261103:
++  evidence: .task-control/reports/CORE-VAL-001/memory-core-source-compat-20261103/REPORT.md
++  official_sdk: 2026.10.9
++  deterministic_mismatch: ordinary_memory_core_does_not_produce_native_memoryAudience
++  prior_real_failures: five_Core_list_failures_shared_requester_or_audience_code
++  exact_real_context_snapshot: not_captured
++  candidate: unchanged_device_grant_and_direct_authenticated_request_without_fabricated_native_audience
++  focused_synthetic_tests: 80_of_80
++  official_source_probe: 6_of_6_separate
++  independent_review_and_installation: not_done
++  main_and_grants_changed: false
++  new_model_requests_and_private_payload_reads: zero
++  real_source_grounded_answer_and_sdk10_8: not_verified

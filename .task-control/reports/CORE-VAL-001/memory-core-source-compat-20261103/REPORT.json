@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T09:43:32.239154+00:00",
+  "phase": "offline_candidate_pending_independent_review",
+  "baseHead": "04dc946049491c8117e79ffacdde2510bdbeda3f",
+  "baseStateRevision": 191,
+  "files": [
+    "src/openclaw/ordinary-source-admission.ts",
+    "src/ordinary-plugin.ts",
+    "tests/ordinary-source-admission.test.ts",
+    "docs/ORDINARY-SOURCE-READ.md",
+    "PROJECT-STATE.yaml"
+  ],
+  "codeFiles": [
+    "src/openclaw/ordinary-source-admission.ts",
+    "src/ordinary-plugin.ts",
+    "tests/ordinary-source-admission.test.ts"
+  ],
+  "patch": "CHANGE.patch",
+  "diagnosis": "Core unconditionally requires native memoryAudience, while official ordinary memory-core intentionally omits it. Tool Search uses the original target closure.",
+  "realRun": "core-forward-real-3f248ed8-9347-4fb8-b172-fc7a1224b178",
+  "priorResult": "../forward-real-question-20261103/RESULT.json",
+  "priorResultSha256": "1e4418b351ee627a543cc130fab158e5d5c98801f71d625deffe828fb1b556cb",
+  "confidenceBoundary": "Deterministic production contract mismatch and synthetic counterfactual; no live per-conjunct context snapshot, so other owner/requester mismatches are not excluded.",
+  "reviewNeeded": "Confirm authenticated direct device plus exact original source grant is sufficient on this ordinary-memory route; no fabricated native audience or private-conversation authority.",
+  "validation": "VALIDATION.json",
+  "installed": false,
+  "committed": false,
+  "pushed": false,
+  "mainChanges": 0,
+  "grantChanges": 0,
+  "newPaidRequests": 0,
+  "privateOriginalReads": 0,
+  "pending": [
+    "independent review",
+    "installed ordinary-memory registration/context behavior",
+    "real source-policy/original-read/grounded-answer end-to-end",
+    "CI pinned10.8 compatibility"
+  ]
+}

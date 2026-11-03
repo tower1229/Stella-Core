@@ -13,7 +13,7 @@ import { CatalogReader } from "../src/canghai/catalog-reader.js";
 const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
 const purpose = { readPurpose: "personal_context", derivePurpose: "personal_understanding", deliveryScope: "owner-direct" };
 const grantPath = `${prefix}/capabilities/source_access_context.json`;
-async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader, requesterId = "synthetic-requester") {
+async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRequestScope?: GatewayRequestScopeReader, requesterId = "synthetic-requester", getMemoryCapabilityRegistration?: () => any) {
   const f = await fixture(t, 2, 0, undefined, purpose, leafDerivePurposes);
   const source = JSON.parse(await readFile(path.join(f.root, f.catalog.sources[0]!.locator.path), "utf8"));
   const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
@@ -27,7 +27,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
   await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
   const hooks = new Map<string, Function>(); let factory: any, terminal: any, modelCalls = 0, active = true, denyScenario = false;
   const modelRequestHashes = new Set<string>();
-  const plugin = createOrdinaryPlugin({ getGatewayRequestScope, completeSourceAccess: async params => {
+  const plugin = createOrdinaryPlugin({ getMemoryCapabilityRegistration, getGatewayRequestScope, completeSourceAccess: async params => {
     modelCalls++;
     const value = JSON.parse(params.prompt.slice(params.prompt.lastIndexOf("\n") + 1));
     modelRequestHashes.add(value.requestHash);
@@ -326,6 +326,128 @@ function deviceBrowserScope(deviceId = permittedDeviceId) {
     get key(): never { throw new Error("Core must not read or copy the token-generation key"); } };
   return browser;
 }
+
+test("official memory-core without native audience can use only the same device's existing source grant", async t => {
+  const browser = deviceBrowserScope(), runtime = {};
+  const f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester,
+    () => ({ pluginId: "memory-core", capability: { runtime } }));
+  const before = await readFile(path.join(f.root, grantPath));
+  const turn = f.turn("memory-core-direct", { ctx: browserFields.ctx,
+    factory: { requesterSenderId: undefined, memoryAudience: undefined } });
+  turn.dispatch(); assert.equal(turn.hook("memory-core-list", { requester: { senderIsOwner: true } }), undefined);
+  const listed = await turn.tool.execute("memory-core-list", { action: "list" });
+  assert.equal(listed.details.status, "listed");
+  assert.equal(listed.details.items.length, 1);
+  assert.equal(f.modelCalls(), 0);
+  turn.hook("memory-core-read", { requester: { senderIsOwner: true } });
+  const read = await turn.tool.execute("memory-core-read", { action: "read", ref: listed.details.items[0].ref });
+  assert.equal(read.details.original.text, f.texts[0]);
+  assert.equal(f.modelCalls(), 2);
+  assert.equal(turn.context.memoryAudience, undefined);
+  assert.deepEqual(await readFile(path.join(f.root, grantPath)), before);
+});
+
+const ordinaryMemoryFields = { ctx: browserFields.ctx,
+  factory: { requesterSenderId: undefined, memoryAudience: undefined } };
+
+test("absent audience never admits unknown memory providers, native providers or a profile-only grant", async t => {
+  const browser = deviceBrowserScope();
+  let registration: any;
+  const f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester, () => registration);
+  for (const [i, value] of [undefined, { pluginId: "other", capability: { runtime: {} } },
+    { pluginId: "memory-core", capability: {} },
+    { pluginId: "memory-core", capability: { runtime: {}, providerRuntime: {} } }].entries()) {
+    registration = value;
+    const turn = f.turn(`memory-denied-${i}`, ordinaryMemoryFields); turn.dispatch();
+    turn.hook(`memory-denied-${i}`, { requester: undefined });
+    const result = await turn.tool.execute(`memory-denied-${i}`, { action: "read", ref: f.refs[0] });
+    assert.equal(result.details.code, "source_memory_context_unavailable");
+    assert.equal(result.details.original, undefined);
+  }
+  registration = { pluginId: "memory-core", capability: { runtime: {} } };
+  const profile = await setup(t, undefined, () => browser.scope, "synthetic-requester", () => registration);
+  const turn = profile.turn("memory-profile", ordinaryMemoryFields); turn.dispatch(); turn.hook("memory-profile", { requester: undefined });
+  assert.equal((await turn.tool.execute("memory-profile", { action: "read", ref: profile.refs[0] })).details.code, "source_device_grant_required");
+  assert.equal(f.modelCalls(), 0); assert.equal(profile.modelCalls(), 0);
+});
+
+test("ordinary memory retains direct owner, authenticated device, grant and non-delegation boundaries before payload access", async t => {
+  let scope: any = deviceBrowserScope().scope;
+  const runtime = {}, f = await setup(t, undefined, () => scope, permittedDeviceRequester,
+    () => ({ pluginId: "memory-core", capability: { runtime } }));
+  let payloadReads = 0;
+  const original = CatalogReader.prototype.readPayload;
+  CatalogReader.prototype.readPayload = async function(...args) { payloadReads++; return original.apply(this, args); };
+  t.after(() => { CatalogReader.prototype.readPayload = original; });
+  const cases = [
+    { mutate(v: any) { delete v.client.internal.operatorDeviceTokenIdentity; } },
+    { mutate(v: any) { v.client.internal.operatorDeviceTokenIdentity = { deviceId: "b".repeat(64) }; } },
+    { mutate(v: any) { v.client.internal.syntheticClient = true; } },
+    { mutate(v: any) { v.client.internal.agentToolCaller = {}; } },
+    { mutate(v: any) { v.client.internal.agentRuntimeIdentity = {}; } },
+    { mutate(v: any) { v.client.internal.pluginSubagentRequester = {}; } },
+    { factory: { senderIsOwner: false } }, { factory: { requesterSenderId: "other" } },
+    { ctx: { ChatType: "group" } }, { ctx: { InternalTurnSource: "cron" } },
+  ];
+  for (const [i, value] of cases.entries()) {
+    scope = deviceBrowserScope().scope; value.mutate?.(scope);
+    const turn = f.turn(`ordinary-boundary-${i}`, { ctx: { ...ordinaryMemoryFields.ctx, ...value.ctx },
+      factory: { ...ordinaryMemoryFields.factory, ...value.factory } });
+    turn.dispatch(); turn.hook(`ordinary-boundary-${i}`, { requester: { senderIsOwner: true } });
+    const result = await turn.tool.execute(`ordinary-boundary-${i}`, { action: "read", ref: f.refs[0] });
+    assert.equal(result.isError, true, `boundary ${i}`); assert.equal(result.details.original, undefined);
+  }
+  scope = undefined;
+  const forged = f.turn("ordinary-channel", { ctx: { SenderId: permittedDeviceRequester },
+    factory: { requesterSenderId: permittedDeviceRequester, memoryAudience: undefined } });
+  forged.dispatch(); forged.hook("ordinary-channel", { requester: { senderId: permittedDeviceRequester, senderIsOwner: true } });
+  assert.equal((await forged.tool.execute("ordinary-channel", { action: "read", ref: f.refs[0] })).details.code, "source_memory_context_unavailable");
+  assert.equal(payloadReads, 0); assert.equal(f.modelCalls(), 0);
+});
+
+test("ordinary memory does not replace a conflicting audience or accept a changed memory owner", async t => {
+  const browser = deviceBrowserScope(), runtime = {};
+  let registration: any = { pluginId: "memory-core", capability: { runtime } };
+  const f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester, () => registration);
+  for (const [i, factory] of [
+    { memoryAudience: { kind: "conversation", ...identity } }, { memoryAudience: null },
+    { assertMemoryAudienceCurrent() {} },
+  ].entries()) {
+    const turn = f.turn(`audience-${i}`, { ...ordinaryMemoryFields, factory: { ...ordinaryMemoryFields.factory, ...factory } });
+    turn.dispatch(); turn.hook(`audience-${i}`, { requester: undefined });
+    assert.equal((await turn.tool.execute(`audience-${i}`, { action: "read", ref: f.refs[0] })).isError, true);
+  }
+  const changed = f.turn("memory-owner-changed", ordinaryMemoryFields); changed.dispatch(); changed.hook("memory-owner-changed", { requester: undefined });
+  registration = { pluginId: "memory-core", capability: { runtime: {} } };
+  assert.equal((await changed.tool.execute("memory-owner-changed", { action: "read", ref: f.refs[0] })).details.code, "source_memory_context_unavailable");
+  registration = { pluginId: "memory-core", capability: { runtime } };
+  const injected = f.turn("memory-audience-injected", ordinaryMemoryFields); injected.dispatch(); injected.hook("memory-audience-injected", { requester: undefined });
+  injected.context.memoryAudience = { kind: "owner-private", agentId: "main" };
+  assert.equal((await injected.tool.execute("memory-audience-injected", { action: "read", ref: f.refs[0] })).details.code, "source_memory_context_unavailable");
+  assert.equal(f.modelCalls(), 0);
+});
+
+test("ordinary memory requires committed current input, call incarnation and fresh admission after terminal cleanup", async t => {
+  let scope: any = deviceBrowserScope().scope;
+  const runtime = {}, f = await setup(t, undefined, () => scope, permittedDeviceRequester,
+    () => ({ pluginId: "memory-core", capability: { runtime } }));
+  const first = f.turn("ordinary-first", ordinaryMemoryFields); first.pending(); first.dispatch(); first.hook("ordinary-pending", { requester: undefined });
+  assert.equal((await first.tool.execute("ordinary-pending", { action: "read", ref: f.refs[0] })).details.code, "source_native_admission_unavailable");
+  first.commit(); first.hook("ordinary-list", { requester: undefined });
+  assert.equal((await first.tool.execute("ordinary-list", { action: "list" })).details.status, "listed");
+  first.hook("ordinary-pending-end", { requester: undefined }); first.end();
+  assert.equal((await first.tool.execute("ordinary-pending-end", { action: "read", ref: f.refs[0] })).details.code, "source_request_admission_unavailable");
+  const second = f.turn("ordinary-second", ordinaryMemoryFields);
+  assert.equal(second.hook("ordinary-no-dispatch", { requester: undefined })?.block, true);
+  second.dispatch(); second.hook("ordinary-other-session", { requester: undefined, sessionId: "other" });
+  assert.equal((await second.tool.execute("ordinary-other-session", { action: "read", ref: f.refs[0] })).details.code, "source_request_binding_mismatch");
+  second.hook("ordinary-cancel", { requester: undefined }); second.abort.abort();
+  assert.equal((await second.tool.execute("ordinary-cancel", { action: "read", ref: f.refs[0] })).isError, true);
+  const third = f.turn("ordinary-third", ordinaryMemoryFields); third.dispatch(); third.hook("ordinary-cross-connection", { requester: undefined });
+  scope = deviceBrowserScope().scope; scope.client.connId = "other-connection";
+  assert.equal((await third.tool.execute("ordinary-cross-connection", { action: "read", ref: f.refs[0] })).details.code, "source_gateway_scope_mismatch");
+  assert.equal(f.modelCalls(), 0);
+});
 
 test("Host-attested same device satisfies the existing device grant without changing profile, grant or tool identity", async t => {
   const browser = deviceBrowserScope(), f = await setup(t, undefined, () => browser.scope, permittedDeviceRequester);

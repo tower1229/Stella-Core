@@ -1,6 +1,7 @@
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import type { PluginHookReplyDispatchContext, PluginHookReplyDispatchEvent } from "openclaw/plugin-sdk/core";
 import { getPluginRuntimeGatewayRequestScope } from "openclaw/plugin-sdk/plugin-runtime";
+import { getMemoryCapabilityRegistration } from "openclaw/plugin-sdk/memory-host-core";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { realpath } from "node:fs/promises";
@@ -22,6 +23,7 @@ import { SOURCE_READ_TOOL, type SourceReadAdmission, type SourceReadBinding } fr
 export const SOURCE_POLICY_MODEL = "google/gemini-3.8-flash";
 export type SourcePolicyCompletion = (input: { prompt: string; maxTokens: number; signal?: AbortSignal }) => Promise<{ text: string }>;
 export type GatewayRequestScopeReader = typeof getPluginRuntimeGatewayRequestScope;
+export type MemoryCapabilityReader = typeof getMemoryCapabilityRegistration;
 type GatewayPrincipal = { id: string; deviceRequesterId: string | undefined; connection: string; assertIdentity(): void };
 type Identity = { agentId?: string; sessionKey?: string; sessionId?: string };
 type Call = Identity & { runId: string; senderId: string; signal?: AbortSignal; conflict: boolean; release(): void };
@@ -127,6 +129,7 @@ async function processingBinding(binding: SourceReadBinding, guard: () => void) 
 export function createOrdinarySourceAdmission(input: {
   agentId: string; metadata: ReturnType<typeof createCurrentInputMetadata>; complete: SourcePolicyCompletion;
   getGatewayRequestScope?: GatewayRequestScopeReader;
+  getMemoryCapabilityRegistration?: MemoryCapabilityReader;
 }) {
   const turns = new Map<string, Turn>(), calls = new Map<string, Call>();
   const discardCall = (id: string) => { const call = calls.get(id); if (call) { calls.delete(id); call.release(); } };
@@ -190,6 +193,15 @@ export function createOrdinarySourceAdmission(input: {
       const audienceSnapshot = audience ? structuredClone(audience) : undefined, modelRef = context.activeModel?.modelRef;
       const originalGuard = context.assertInvocationCurrent.bind(context);
       const audienceGuard = context.assertMemoryAudienceCurrent?.bind(context);
+      // memory-core registers the ordinary memory runtime, not a native provider.
+      // The Host intentionally supplies no MemoryAudience on that path. Do not
+      // fabricate one: only the authenticated direct WebUI device may instead
+      // use its exact existing source-processing grant below. A missing native
+      // audience, an unknown memory owner or a conflicting audience still denies.
+      const readMemory = input.getMemoryCapabilityRegistration ?? getMemoryCapabilityRegistration;
+      const memory = audience === undefined && audienceGuard === undefined ? readMemory() : undefined;
+      const ordinaryMemoryRuntime = memory?.pluginId === "memory-core" && memory.capability.providerRuntime === undefined
+        ? memory.capability.runtime : undefined;
       return async (binding: SourceReadBinding, callId: string, signal?: AbortSignal): Promise<SourceReadAdmission> => {
         const call = calls.get(callId); discardCall(callId);
         check(call && !call.conflict && !call.signal?.aborted, "source_request_admission_unavailable");
@@ -206,9 +218,17 @@ export function createOrdinarySourceAdmission(input: {
           catch (error) { turn.conflict = true; throw error; }
           const senderMatches = turn.gateway ? senderId === undefined || senderId === turn.senderId : text(senderId) && senderId === turn.senderId;
           check(input.agentId === "main" && owner === true && context.senderIsOwner === owner && senderMatches &&
-            context.requesterSenderId === senderId && call.senderId === turn.senderId &&
-            audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
-            canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
+            context.requesterSenderId === senderId && call.senderId === turn.senderId, "source_requester_or_audience_forbidden");
+          if (audience !== undefined) {
+            check(audienceSnapshot?.kind === "owner-private" && audienceSnapshot.agentId === input.agentId &&
+              canonicalJson(context.memoryAudience) === canonicalJson(audienceSnapshot), "source_requester_or_audience_forbidden");
+          } else {
+            const currentMemory = readMemory();
+            check(ordinaryMemoryRuntime && currentMemory?.pluginId === "memory-core" &&
+              currentMemory.capability.runtime === ordinaryMemoryRuntime && currentMemory.capability.providerRuntime === undefined &&
+              context.memoryAudience === undefined && context.assertMemoryAudienceCurrent === undefined &&
+              turn.gateway?.deviceRequesterId, "source_memory_context_unavailable");
+          }
           check(modelRef === SOURCE_POLICY_MODEL && context.activeModel?.modelRef === modelRef, "personal_context_model_forbidden");
           const native = input.metadata.inspect(call.runId, identity);
           check(native.status === "observed", "source_native_admission_unavailable");
@@ -216,6 +236,9 @@ export function createOrdinarySourceAdmission(input: {
         guard();
         const processing = await processingBinding(binding, guard); guard();
         const config = processing.loaded.config;
+        // This route has no native memory partition authority. A profile-only
+        // grant cannot substitute for the already authorized, Host-attested device.
+        check(audience !== undefined || config.requesterIds[0]!.startsWith("openclaw-device:"), "source_device_grant_required");
         // The grant selects the identity kind. A device grant cannot be satisfied
         // by a matching profile string or by any other device of that profile.
         // Keep the Host profile/connection checks above; only the existing grant's

@@ -1,0 +1,109 @@
+--- a/.task-control/state.json
++++ b/.task-control/state.json
+@@ -1,8 +1,8 @@
+ {
+   "schemaVersion": 1,
+   "repo": "tower1229/Stella-Core",
+-  "revision": 191,
+-  "updatedAt": "2026-11-03T09:21:54.025191+00:00",
++  "revision": 192,
++  "updatedAt": "2026-11-03T09:45:20.776227+00:00",
+   "writer": {
+     "agent": "Core actual main source activation and forward-data handoff single writer",
+     "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+@@ -2005,11 +2005,22 @@
+             "sha256": "4023bebc8a4b4a97e7e974fc90ee8455091abfdb3ff7ff0079a8e467e3c1c329",
+             "commit": "04dc946049491c8117e79ffacdde2510bdbeda3f"
+           }
++        },
++        {
++          "id": "C-VAL-MEMORY-CORE-SOURCE-COMPAT-20261103",
++          "kind": "verification",
++          "ref": ".task-control/reports/CORE-VAL-001/memory-core-source-compat-20261103/REPORT.json",
++          "claim": "确定普通memory-core与强制native audience契约错配；未加载兼容候选，合成80/80与官方探针6/6分别通过。无新grant/主Host/模型/私人正文操作；真实逐字段上下文与端到端仍未验。",
++          "observedAt": "2026-11-03T09:45:20.776227+00:00",
++          "subject": {
++            "sha256": "cbde970706cd1a6434ab8b3b2663f04431ca3beef8167b7331b488bf74a269a3",
++            "commit": "04dc946049491c8117e79ffacdde2510bdbeda3f"
++          }
+         }
+       ],
+       "resume": {
+-        "checkpoint": "main17已加载成果不变；只读核实际Google直连/当前上下文、官方请求与会话限制及价格，最小正向验收方案已落盘。无模型/正文/RPC/配置操作，未新建框架；正常full main不可当source-only。",
+-        "nextAction": "集中复核最小验收方案。当前“不改main配置”范围内没有已证source-only原生请求路径；主管决定是否安排仅工具收窄及code-mode关闭的短窗口，再核实际工具面并取得新材料/费用许可。不得自动发送模型/重启或启用旧迁移；已有安装和终态候选不用重做。",
++        "checkpoint": "真实source-only请求已终态失败并恢复普通main；本轮确认ordinary memory-core缺native memoryAudience的确定契约错配，兼容候选80/80及官方源码探针6/6通过，未独审/未安装。旧共享错误逐字段实际值未捕获，不能排除其他准入问题。",
++        "nextAction": "独审memory-core来源准入兼容包：只允许已有同设备grant与真实direct请求，不重建native audience。通过后再做可回滚安装/无模型核验；本轮不改main、不重发已终态模型请求，真实资料读取/语义和10.8仍未验。",
+         "executionBatch": {
+           "id": "core-host-additional-20261031-0510",
+           "authorizedAdditionalAttempts": 3,
+@@ -4025,7 +4036,7 @@
+           "activationReport": ".task-control/reports/CORE-VAL-001/main-forward-install-20261103/REPORT.json"
+         },
+         "forwardUnderstanding": {
+-          "phase": "real_question_terminal_source_admission_rejected_main_restored",
++          "phase": "real_question_failed_main_restored_memory_core_compatibility_pending_review",
+           "baseCommit": "57267dc7343dacd44fbe5a90cc655260bf4b7c0f",
+           "report": ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/REPORT.json",
+           "productMilestone": "natural_question_to_original_sources_to_grounded_answer",
+@@ -4162,7 +4173,42 @@
+             "result": ".task-control/reports/CORE-VAL-001/forward-real-question-20261103/RESULT.json",
+             "resultSha256": "1e4418b351ee627a543cc130fab158e5d5c98801f71d625deffe828fb1b556cb"
+           },
+-          "newPaidCallsMeaning": "eight logical model response records in one approved request; physical attempts/billing unknown"
++          "newPaidCallsMeaning": "eight logical model response records in one approved request; physical attempts/billing unknown",
++          "memoryCoreAdmissionCompatibility": {
++            "phase": "offline_candidate_pending_independent_review",
++            "baseCommit": "04dc946049491c8117e79ffacdde2510bdbeda3f",
++            "baseRevision": 191,
++            "report": ".task-control/reports/CORE-VAL-001/memory-core-source-compat-20261103/REPORT.json",
++            "reportSha256": "cbde970706cd1a6434ab8b3b2663f04431ca3beef8167b7331b488bf74a269a3",
++            "patch": ".task-control/reports/CORE-VAL-001/memory-core-source-compat-20261103/CHANGE.patch",
++            "patchSha256": "c3b20c9fbbc9318356fbc0001568e8a2a8f582a461a9dfb4a02329b54e97a490",
++            "files": [
++              "src/openclaw/ordinary-source-admission.ts",
++              "src/ordinary-plugin.ts",
++              "tests/ordinary-source-admission.test.ts",
++              "docs/ORDINARY-SOURCE-READ.md",
++              "PROJECT-STATE.yaml"
++            ],
++            "tests": {
++              "pass": 80,
++              "fail": 0
++            },
++            "officialProbe": {
++              "pass": 6,
++              "notSummedWithTests": true
++            },
++            "sdk": "2026.10.9",
++            "installed": false,
++            "committed": false,
++            "pushed": false,
++            "grantChanges": 0,
++            "newPaidRequests": 0,
++            "mainChanges": 0,
++            "privateOriginalReads": 0,
++            "realContextSnapshot": "not_captured",
++            "realSourceSemantics": "not_passed",
++            "ci10_8": "not_run"
++          }
+         },
+         "historicalRangePush": {
+           "phase": "success_remote_verified_ci_terminal_same26_failures",
+@@ -4287,7 +4333,7 @@
+           "fixedHistoricalFailures": 0
+         }
+       },
+-      "updatedAt": "2026-11-03T09:01:53.328486+00:00",
++      "updatedAt": "2026-11-03T09:45:20.776227+00:00",
+       "delivery": {
+         "local": {
+           "status": "committed",
+@@ -4730,7 +4776,7 @@
+           "quotaRemaining": 0
+         }
+       },
+-      "nextAction": "Isolate existing source requester/owner/audience mismatch using this run and fixed official producer contract; keep grant and normal main unchanged; no further model request."
++      "nextAction": "独审memory-core来源准入兼容包：只允许已有同设备grant与真实direct请求，不重建native audience。通过后再做可回滚安装/无模型核验；本轮不改main、不重发已终态模型请求，真实资料读取/语义和10.8仍未验。"
+     },
+     {
+       "id": "CORE-LEGACY-001",

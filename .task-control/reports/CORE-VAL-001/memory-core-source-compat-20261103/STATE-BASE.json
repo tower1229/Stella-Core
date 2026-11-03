@@ -1,0 +1,8 @@
+{
+  "revision": 191,
+  "sha256": "f07cf9aef01452689e6442b950ae5e2a3d5efe83239f94a0a0acdf18089966c6",
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  }
+}
