@@ -1,0 +1,6 @@
+{
+  "baseRevision": 175,
+  "baseSha256": "4dd9d331fc5ae881bf3d1a43c9011c025ff563c56b32af7625363759a306eeec",
+  "observedAt": "2026-11-03T06:39:01.571582+00:00",
+  "authorization": "User explicitly prioritizes cleaning old data files, logic and tests rather than historical compatibility. No unique private data deletion."
+}

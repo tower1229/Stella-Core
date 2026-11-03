@@ -1,3 +1,9 @@
+# 2026-11-03 简化旧兼容负担的边界
+
+用户将新架构的数据层与正向理解置于旧对象兼容迁移之前。旧派生对象迁移不再是当前来源问答的前置，不新增通用迁移框架；`raw_evidence` 仍不能自动解释为进行中的 Work。未完成的历史派生语义保留为未完成，不把原文保全说成理解迁移成功。
+
+清理按实际引用和可恢复性逐项进行。本次沧海协作核查确认，固定 `90f61d9c9ef019c5a06a419dbcb630fe598cb996` 的 97 来源范围内仍有 234 个 current 对象引用 initialization 目录，因此不能按目录名整删。原 Source、Evidence、策略、版本和仍被 checkpoint 使用的副本继续保留；Core 不在本轮修改沧海目录、生产数据或许可。具体任务与暂停状态仍只记在 `.task-control/state.json`。
+
 # Core 与沧海的并行开发约定
 
 2026-10-23。按用户确认的 [D-060](DECISIONS.md#d-060--coordinate-core-and-canghai-without-disrupting-legacy-production) 协调两个项目。本页记录 Core 已实现的消费边界和双方交接要求；不是沧海当前目录或领域接口已经兼容的证明，也不执行数据迁移。

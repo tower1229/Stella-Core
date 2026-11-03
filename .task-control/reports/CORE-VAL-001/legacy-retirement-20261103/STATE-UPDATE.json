@@ -1,0 +1,7 @@
+{
+  "baseRevision": 176,
+  "baseSha256": "6c0700cfff128f323a12160581a29c54fedc6a925c04d4c986e833404c69b35d",
+  "nextRevision": 177,
+  "observedAt": "2026-11-03T07:03:08.318159+00:00",
+  "note": "Supersedes broad uncommitted deletion inrev176; three suites restored before any commit/test. Report is only current bounded cleanup."
+}

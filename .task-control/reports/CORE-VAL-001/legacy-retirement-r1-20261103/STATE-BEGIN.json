@@ -1,0 +1,21 @@
+{
+  "baseRevision": 177,
+  "baseSha256": "d937a0c48faac59b018b30ddef29435fcf8c472f6389b1cc95e1c34dc6a840e3",
+  "baseCommit": "41cd0188b99920d8295e17804d85224f92737399",
+  "previousReportSha256": "99613ac8b873f8b6cf8a114a87a047e53a5e23b3b1be1b38bcbe68b70fafcb21",
+  "finding": "Independent P2: candidate-work-brief, author-intent-repository, memory-transaction and journal lost automatic coverage; README8.2 claim must be historical.",
+  "before": [
+    {
+      "path": "scripts/prepare-ordinary-package-tests.mjs",
+      "sha256": "908578dacc04c6d7da696868eef019c57eaead21456d2ef5c2ff0f582ab287dc"
+    },
+    {
+      "path": ".github/workflows/ordinary-plugin.yml",
+      "sha256": "e4095c5916b2ea65b69c5fe410e06bb657bda3126bf65e822f3795e5789bca56"
+    },
+    {
+      "path": "README.md",
+      "sha256": "a018b53446628a25ff6e40f94f8dbd971b6c71623a77085a48e2cccb26d46f5e"
+    }
+  ]
+}

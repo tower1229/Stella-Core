@@ -1,0 +1,64 @@
+{
+  "baseCommit": "41cd0188b99920d8295e17804d85224f92737399",
+  "retired": [
+    {
+      "path": "tests/dreaming-public-seams.test.ts",
+      "sha256": "4f1fec24b52442c39781cd09b2e0beb01495e0a6d6fe858c2afdfb70fc2a9e60",
+      "gitBlob": "5f5fdfb1b93f32138d243934cea9d2cdec56eceb"
+    },
+    {
+      "path": "tests/host-compatibility.test.ts",
+      "sha256": "ca46d1770e5202f1479a7406a4ddf93c0377e32a8ec12b02160a5735013f9005",
+      "gitBlob": "db2dd48fd323052674883059e8a40edaa8846295"
+    },
+    {
+      "path": "tests/host-context-replay.test.ts",
+      "sha256": "1910fa0693950f5000f95f95edf5cedf38455c00529cd46210a7a5629dbb0e79",
+      "gitBlob": "47418b11c92477722c9185ddfffc85034018e8a5"
+    },
+    {
+      "path": "scripts/audit-dreaming-public-seams.mjs",
+      "sha256": "44c13e5c674928db23c8bf54244dc460b1d13747574d7cf9d4a12a1bfeeeb437",
+      "gitBlob": "ef05432c411da1bf204e4cc7cd958ae58961d815"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "736466f4ec92edd018402bb3108ede242d7f222de5b4e8c79eead98b9f555760",
+      "gitBlob": "c28ec5c4ca683112e142695d6e2d4c963c119c98"
+    },
+    {
+      "path": ".github/workflows/experimental-owner-chat.yml",
+      "sha256": "d730a1f8f770e85f1721bd2c9c6d04459f73609b4ce204ae3bb4c4b6c4c8e8f6",
+      "gitBlob": "cbd2777ba506d34f27acd8a6779764c43b477423"
+    }
+  ],
+  "withdrawnUncommittedPlan": [
+    {
+      "path": "src/canghai/reviewed-work-migration.ts",
+      "sha256": "89d0477419c293771f129df91d47dcb623270a8debed088ce0203bf405a3f6d4"
+    },
+    {
+      "path": "tests/reviewed-work-migration.test.ts",
+      "sha256": "f29f0f7e3d0af09f3a1380559dcd51976e5c20870daff8052ecbefff6d3c25d1"
+    }
+  ],
+  "withdrawnDisposition": "New unreviewed own files removed on user reprioritization after compile exit0; no functional test or Host execution. Temporary local copy retained; not part of product.",
+  "restoredBeforeAnyCommit": [
+    {
+      "path": "tests/host-context-authority.test.ts",
+      "sha256": "ad9ca064e152e14db52dc2b256bdaac0b2249c7426514a8f56cce9b5b37b99b1",
+      "gitBlob": "9422e76efa181379a64b673777d6d0048cccda9d"
+    },
+    {
+      "path": "tests/host-silent-draft.test.ts",
+      "sha256": "e16b7169ef2ecb6989cdbe7d5a4a1fa12b32bdfbe3c2e53e9e340ce6c85c184e",
+      "gitBlob": "e5b1116f96699f30a2c1a792a02556d6f39536b1"
+    },
+    {
+      "path": "tests/native-memory-reader.test.ts",
+      "sha256": "ed204ad9ecca113316e4a601d67aa0be107b4552f2485d8c48743bd51085bf36",
+      "gitBlob": "faff8dc0afee3d4cdd5edba48e2a0df8ac4b7b9b"
+    }
+  ],
+  "reasonForNarrowing": "Latest parent direction keeps unresolved SQL/completion and mixed behavior tests; only coherent independently8.2-pinned suites retired. Earlier broad deletion was uncommitted and restored byte-for-byte."
+}

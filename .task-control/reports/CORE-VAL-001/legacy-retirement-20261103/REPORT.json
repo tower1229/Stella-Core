@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "status": "local_candidate_pending_independent_review",
+  "observedAt": "2026-11-03T07:03:08.318159+00:00",
+  "baseCommit": "41cd0188b99920d8295e17804d85224f92737399",
+  "scope": "Reversible current-tree retirement after explicit user reprioritization. No runtime business code, real source, Host or grant changed.",
+  "retiredFiles": [
+    "tests/dreaming-public-seams.test.ts",
+    "tests/host-compatibility.test.ts",
+    "tests/host-context-replay.test.ts",
+    "scripts/audit-dreaming-public-seams.mjs",
+    ".github/workflows/ci.yml",
+    ".github/workflows/experimental-owner-chat.yml"
+  ],
+  "restoredSuites": [
+    "tests/host-context-authority.test.ts",
+    "tests/host-silent-draft.test.ts",
+    "tests/native-memory-reader.test.ts"
+  ],
+  "failureAccounting": {
+    "lastPublishedCommit": "6b400c2048c32bc2ae30ba4601c5315c90ecb9ae",
+    "publishedFailures": 26,
+    "known8_2PinOrPrivatePath": 13,
+    "nativeSQLFamily": 12,
+    "completionUnderlyingUnknown": 1,
+    "retiredHistoricalFailingCases": [
+      {
+        "title": "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+        "normalizedBlockSha256": "8355b8ddb2ef2b9c7837d15b0c96a5e8155eae336106674ebef63cc980db59c9",
+        "testFile": "tests/dreaming-public-seams.test.ts",
+        "group": "sdk_audit_8_2_pin"
+      },
+      {
+        "title": "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+        "normalizedBlockSha256": "3665e508f98bff48e46e436558fc456886a7c870787c8e6e491076529f5ccb51",
+        "testFile": "tests/host-compatibility.test.ts",
+        "group": "private_host_patch_8_2_pin"
+      },
+      {
+        "title": "isolated installer supports every acceptance runner but rejects unrelated consumers",
+        "normalizedBlockSha256": "72f0996d6f48c3a2abeee2538b25d5618c4e74cb1ba204d02b613378370ffdcc",
+        "testFile": "tests/host-compatibility.test.ts",
+        "group": "private_host_patch_8_2_pin"
+      },
+      {
+        "title": "fixed Google projection changes only the known declaration from original bound input",
+        "normalizedBlockSha256": "007f16c2c541a5636b300c1f7b2657b4cd8c8ea826a055e840ddab75d2e60d22",
+        "testFile": "tests/host-context-replay.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "Google codec cannot be selected by observed schema or for another Host/model",
+        "normalizedBlockSha256": "e8d452537a1dcc5a593342645b00ca4e6da0b552a2750fc078b034fb5fdb5397",
+        "testFile": "tests/host-context-replay.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "Google original schema rejects unbound required",
+        "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+        "testFile": "tests/host-context-replay.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "Google original schema rejects unbound enum",
+        "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+        "testFile": "tests/host-context-replay.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "Google original schema rejects unbound extra property",
+        "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+        "testFile": "tests/host-context-replay.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "Google original schema rejects unbound description",
+        "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+        "testFile": "tests/host-context-replay.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+        "normalizedBlockSha256": "9100fd753e7fe7c801e58ed0e4383d1b0dab0f26199dceafe06a06d5a5826136",
+        "testFile": "tests/host-context-replay.test.ts",
+        "group": "replay_codec_8_2_pin"
+      }
+    ],
+    "retainedHistoricalFailingCases": [
+      {
+        "title": "native memory uses the pinned codec and rejects serialized producer/output credentials",
+        "normalizedBlockSha256": "ea970ea1812f6ea9135431b34ef89f0ec20243401d9d95a5997fd6eb7a228250",
+        "testFile": "tests/host-context-authority.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "native summary must descend from its exact provider output receipt",
+        "normalizedBlockSha256": "b4f0381249f86b412e27d9cf45446d59e3dddf0fba10846abd06e88f3980ee9e",
+        "testFile": "tests/host-context-authority.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "real provider and tool results extend context and inherit source revocation",
+        "normalizedBlockSha256": "0d99c8abd8a1656799ae80b16b85a0b2283cdf535d5130db091abb5d890d0720",
+        "testFile": "tests/host-context-authority.test.ts",
+        "group": "replay_codec_8_2_pin"
+      },
+      {
+        "title": "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+        "normalizedBlockSha256": "d8f940184e41904e03cb5839581f1ea7a39b0ddf8e2d3861a228e273284bc747",
+        "testFile": "tests/host-silent-draft.test.ts",
+        "group": "empty_payload_policy_8_2_pin"
+      },
+      {
+        "title": "native index bytes are consumed only after exact authorized hit and range validation",
+        "normalizedBlockSha256": "ef7f51739f6aa5ab03b0f9809db085da4d6fc659cbd175b9eb68bd288a7e045f",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "native index authorization preserves indexed provenance and rejects concurrent changes",
+        "normalizedBlockSha256": "ca9954481391c303dde69d702711872773d90d8d368dc1955245635ac5c8f80b",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "native index cannot certify an unrelated indexed body for an authorized locator",
+        "normalizedBlockSha256": "7edf303dda864641625d6006176f7f48392db48cae5d0d41641beb62b45d2b57",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "verified native read digests bind index identity and never observe rejected bytes",
+        "normalizedBlockSha256": "5de097eeff94f06a896412457232508f8909410a806c92c18aaa88a0d25e3fda",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "native vector-backed reads bind the actual vector and embedding cache without search",
+        "normalizedBlockSha256": "ca521f931be89adb89f4d3d76622633a2d44708096981d51cb7ba3bc8c595021",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "a complete vector marker cannot certify missing or changed selected vector bytes",
+        "normalizedBlockSha256": "cd545088ca60157d117e396d2e506687529f288374f97d7130cabfaa21a9c956",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+        "normalizedBlockSha256": "ef4e4dcdf9f675597472f9eff16cc552c3ddddf9a2b9b9e726ae990bbb0225ee",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "concurrent vector invalidation wins before native file read",
+        "normalizedBlockSha256": "1ce05d1e49f305d46264c4a34dcef3ee31f5f6e26703eb573e52c10948ec8503",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+        "normalizedBlockSha256": "21db9d010c708b9c99fc8d088facf8e13f25e79525f5a3e5205881c9f9dc74ab",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "native exact reads without query embeddings revalidate the original index generation",
+        "normalizedBlockSha256": "a2da1cebf72ba945c2746584ca94a39704b7e07dcc3ddcf79e74c9909036fcf4",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "native exact reads revalidate source authority before another model call",
+        "normalizedBlockSha256": "cca76f0543e61bafac12d7059b2348efc0304fa176dfc0dd67bcb8cea8d11c30",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      },
+      {
+        "title": "a second native read cannot replace the first consumed index identity",
+        "normalizedBlockSha256": "3a541d8a483f965f6bcc5c35ac837423fb118a2a313857fd9864759d9d396ca7",
+        "testFile": "tests/native-memory-reader.test.ts",
+        "group": "native_sql_sdk_fixture_skew"
+      }
+    ],
+    "fixedFailures": 0,
+    "newFullSuiteRun": false,
+    "note": "Whole coherent old suites also contain historical passing cases. Removing them is retirement, not fixing failures or preserving every former assertion. Product semantics/source identity/authorization/transaction obligations remain; retained mixed suites are not deleted."
+  },
+  "sqlProbe": {
+    "sdkVersion": "2026.10.9",
+    "selectedCase": "native index bytes are consumed only after exact authorized hit and range validation",
+    "exitCode": 1,
+    "tests": 1,
+    "pass": 0,
+    "fail": 1,
+    "observed": {
+      "site": "JOIN source",
+      "missingPublicConstant": true,
+      "errorCode": "ERR_SQLITE_ERROR",
+      "undefinedTable": true
+    },
+    "wrappedCategory": "native_memory_index_unverifiable",
+    "stdoutSha256": "50f957bd005707ccda1edf2c8d49e087640a472fd5055d00d72cc9aab784909c",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "interpretation": "Actual selected synthetic case reaches JOIN undefined AS source and SQLite throws; old public export assumption is incompatible. This proves this first case on10.9; it does not freshly execute all12 or substitute for CI10.8. No fallback table or Host bridge repair."
+  },
+  "validation": {
+    "compileBuildExit": 0,
+    "compileTestExit": 0,
+    "ordinaryPackageExit": 0,
+    "ordinaryTests": 75,
+    "ordinaryPass": 75,
+    "ordinaryFail": 0,
+    "stdoutSha256": "8063a474ec68bac56c6eff0012796444a29a9a8ce2533d0590f1a6dd980e7d89",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifactSha256": "5394ae452a1f5a99d277e20bbc2dec6b479ca57dd2b32fc72fafb898129709fe",
+    "packageManifestDigest": "12e604da84a83df820bd547e71adfe3770b68da2bca08baf3c877662cff27dc5",
+    "sdkVersion": "2026.10.9",
+    "lockedSdkVersion": "2026.10.8",
+    "ciExecuted": false,
+    "unchangedRestoredFiles": true,
+    "diffCheck": true
+  },
+  "boundaries": [
+    "No claim that semantic understanding/live Host/full_memory passed.",
+    "Existing sourceRead/grants/97sources362descriptors and234 initialization-dependent objects untouched.",
+    "Mixed authority/nativeSQL/completion suites remain; default verify still runs all remaining tests and fails on failures.",
+    "Legacy runner implementations retained because other tests/probes still reference them; no wholesale source deletion.",
+    "No push or new CI; 41cd0188 is the earlier independent-package candidate, not a commit of this cleanup.",
+    "Unreviewed Work planner withdrawn on user reprioritization; only compile had run, no semantic or transaction execution.",
+    "Public root semantic/source/privacy obligations are not replaced by a smaller green suite."
+  ]
+}

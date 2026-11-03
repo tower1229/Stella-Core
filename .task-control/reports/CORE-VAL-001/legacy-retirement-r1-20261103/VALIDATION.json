@@ -1,0 +1,182 @@
+{
+  "observedAt": "2026-11-03T07:23:12.316476+00:00",
+  "commandExitCode": 0,
+  "command": "node --test --test-timeout=30000 ../harness/tests/*.test.js",
+  "cwd": ".artifacts/ordinary-package/run/package",
+  "counts": {
+    "tests": 133,
+    "pass": 133,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "durationMs": 56173.9765,
+  "stdoutSha256": "37f0c0677ec70dc8a046b558ef147006d34b34a20b317b49071a24ce346b5682",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderrBytes": 0,
+  "preparedSha256": "d22272d81dc65c8cc0e809386dec1034dd4c71bfbeee333ba7a6d90087f3c3b9",
+  "artifactSha256": "2bb8102a7a3e22c2bc419a6b3175abeda89b497f6324000da41d5d54838c6060",
+  "packageFiles": 551,
+  "packageManifestDigest": "302ce48549bbae25936b1238e38a260e377d1c6ffdc43c45d8f8ec8a37fd9a14",
+  "testFiles": {
+    "digest": "12e1d3931ddf2886be14cca41280e584c7f00ce6141b1eabdcf4285db637d5fd",
+    "entries": [
+      {
+        "path": "author-intent-repository.test.js",
+        "sha256": "9eff0a8eb81cc251e96ef717465e240f17b8b8dada6cb54270ec72949d0eda6a"
+      },
+      {
+        "path": "candidate-work-brief.test.js",
+        "sha256": "1892221c8aa63ef40387ec1d5d8494df53640331b8dd2a50af3b4b62b65fe836"
+      },
+      {
+        "path": "current-input-metadata.test.js",
+        "sha256": "70cbbf4039d75eaa2b3dc77adc388a3c9a43498d80655f20f45891c029a80cda"
+      },
+      {
+        "path": "fixtures/ordinary-source-read.js",
+        "sha256": "6ad35f181bc5a6d93dd0a1b33226c111173b9e37dd40f3b513e48a8a1c4c0a44"
+      },
+      {
+        "path": "memory-transaction-journal.test.js",
+        "sha256": "d5d4f1a3de4968921b5ef62d8a8485861e827c1e2a58faaf5138eb65448ca86a"
+      },
+      {
+        "path": "memory-transaction.test.js",
+        "sha256": "19e34bab915f9aef781db35d89af10bbd8ad0da0222cc1edbe1df62c2924983c"
+      },
+      {
+        "path": "ordinary-plugin.test.js",
+        "sha256": "d677b4ad331857f4c7f37c792f50e81c2d8927556bb6c519ecc66e7b7ef94f15"
+      },
+      {
+        "path": "ordinary-source-admission.test.js",
+        "sha256": "5648d3d9568b3446b69a7ddddfb1d0de3fb9e1541ba429c5f87569769087f3f3"
+      },
+      {
+        "path": "ordinary-source-read.test.js",
+        "sha256": "6572fd0c9cf0e88daee163628a0676dbf3d72a5b33a56f53d2a3a0cd87505ac3"
+      },
+      {
+        "path": "source-understanding-skill.test.js",
+        "sha256": "cc66e6134724b045982500a47ed23c202f55af7b72fc9e5eec32ecc90bac0c03"
+      },
+      {
+        "path": "tool-request-binding.test.js",
+        "sha256": "c620555a773e73fbd9873ddf7a0e755e62fd432857e011d29d9adfeeb8d8c906"
+      }
+    ]
+  },
+  "addedCurrentCoverage": [
+    {
+      "source": "tests/candidate-work-brief.test.ts",
+      "sourceSha256": "d24eca04757147e2a75a0c7cbf1811dcfeafd59e185f5ac929ad1778dfcf5b8d",
+      "unchangedFromHEAD": true,
+      "stagedTest": {
+        "path": "candidate-work-brief.test.js",
+        "sha256": "1892221c8aa63ef40387ec1d5d8494df53640331b8dd2a50af3b4b62b65fe836"
+      },
+      "observedPassingTitles": [
+        "save, restore in a new request, and versioned modification preserve candidate meaning",
+        "stale CAS and operation identity conflicts fail without changing the committed draft",
+        "exact retry is idempotent and an older operation never rolls back the new version",
+        "input cannot add author confirmation, source lookup, paths or an implicit expected version",
+        "unverified evidence is retained opaquely, with no file or URL resolution",
+        "missing marker, oversized proposal, dirty store and closed invocation fail explicitly",
+        "actual plugin tool restores across fresh factories and keeps publisher off",
+        "new draft tool restricts existing owner context without using it as author proof",
+        "configured drafts cannot escape a workspace-only or sandboxed Host context",
+        "plugin skill is discovered as an explicit model-routed command by the public Host SDK",
+        "continuation reads current, saves a candidate revision, then re-reads in a fresh request"
+      ],
+      "titleCountNote": "Literal titles only; dynamic generated cases are included in the aggregate133, not recounted here."
+    },
+    {
+      "source": "tests/author-intent-repository.test.ts",
+      "sourceSha256": "07bd032e8238a0f8e6a8c71c1b5c4ac6c7baf83045c76620f40c326658469fbb",
+      "unchangedFromHEAD": true,
+      "stagedTest": {
+        "path": "author-intent-repository.test.js",
+        "sha256": "9eff0a8eb81cc251e96ef717465e240f17b8b8dada6cb54270ec72949d0eda6a"
+      },
+      "observedPassingTitles": [
+        "one complete intent publication is committed locally and controlled reads preserve candidates and unresolved questions",
+        "durable retries retain their original result after a later publication and reject operation ID reuse",
+        "stale asset or source expectations do not write or silently rebase",
+        "current qualification is required before a new publication, durable replay, or controlled read",
+        "without trusted author evidence only an explicit candidate can be published",
+        "a model-supplied excerpt cannot borrow a genuine author's identity and source version",
+        "a source version change at the precommit boundary never becomes a successful publication",
+        "source permission is independently required for replay and reads even when request qualification remains valid",
+        "an interrupted file replacement remains fenced until the exact persisted intent is completed",
+        "the local commit cannot absorb unrelated staged or untracked files",
+        "malformed versions, source references and injected fields cannot write",
+        "a canceled request cannot publish or use a retained repository to read",
+        "changed or removed current statements must be named in the revision relation",
+        "a candidate cannot erase previously confirmed intent without author evidence",
+        "a new request cannot supply changed-source intent as current, while authorized history stays explicitly historical",
+        "missing retained material is unavailable instead of falling back to a different version",
+        "a separate Node process recovers a committed-but-unacknowledged publication using only the synthetic repository",
+        "a source-B revision validates source-A only as its qualified historical base and preserves current freshness",
+        "a concurrent complete publication cannot be overwritten while the old source-A base is being checked",
+        "an independent process retries an unacknowledged source-B revision without rewriting it"
+      ],
+      "titleCountNote": "Literal titles only; dynamic generated cases are included in the aggregate133, not recounted here."
+    },
+    {
+      "source": "tests/memory-transaction.test.ts",
+      "sourceSha256": "ae40c9f257c1d04d6d351a6c09137d723b915e3b8b30cf6c85970bd384ae55e6",
+      "unchangedFromHEAD": true,
+      "stagedTest": {
+        "path": "memory-transaction.test.js",
+        "sha256": "19e34bab915f9aef781db35d89af10bbd8ad0da0222cc1edbe1df62c2924983c"
+      },
+      "observedPassingTitles": [
+        "failed multi-file publication stays unreadable until exact retry synchronizes it",
+        "a validation failure before publication releases the fence and preserves all original bytes",
+        "concurrent publications and ordinary mutations cannot cross the transaction fence",
+        "file CAS and reserved transaction paths fail without publishing",
+        "one Git commit contains the full transaction and pointer failure retries without another commit",
+        "applyMemoryTransaction publishes live lock ownership for concurrent initialization admission",
+        "a killed process leaves its transaction fenced but the exact intent can reclaim the dead owner's lock",
+        "expired timestamps never authorize stealing a live or unknown owner's lock"
+      ],
+      "titleCountNote": "Literal titles only; dynamic generated cases are included in the aggregate133, not recounted here."
+    },
+    {
+      "source": "tests/memory-transaction-journal.test.ts",
+      "sourceSha256": "ff239887d633cc1690e26569af3d5e5a36791d21c532fad3a015be042c905820",
+      "unchangedFromHEAD": true,
+      "stagedTest": {
+        "path": "memory-transaction-journal.test.js",
+        "sha256": "d5d4f1a3de4968921b5ef62d8a8485861e827c1e2a58faaf5138eb65448ca86a"
+      },
+      "observedPassingTitles": [
+        "v1 canonical golden bytes preserve the existing journal contract, archive and base64",
+        "v2 canonical golden bytes preserve the original expected revision and opaque token",
+        "unknown top-level and file fields fail even with a correctly recomputed planHash",
+        "v1/v2 envelopes cannot silently add, remove or change checkpoint mode",
+        "missing or invalid original expected tokens are rejected without filling an observed value",
+        "v2 rejects invalid binding locations and identities",
+        "planHash binds business writes and the original expected tuple, never the newly observed tuple",
+        "wrong operation, hash, noncanonical bytes and malformed JSON are rejected",
+        "schema versions must be strings, never coercible arrays",
+        "explicit legacy utf8 encoding remains accepted and retains journal identity"
+      ],
+      "titleCountNote": "Literal titles only; dynamic generated cases are included in the aggregate133, not recounted here."
+    }
+  ],
+  "allExtractedAndStagedHashesUnchanged": true,
+  "importsResolveToExtractedTarball": true,
+  "sdkVersion": "2026.10.9",
+  "lockedSdkVersion": "2026.10.8",
+  "syntheticFixtureHostVersion": "2026.10.9",
+  "ciExecuted": false,
+  "liveHost": false,
+  "freshDependencyInstall": false,
+  "models": 0,
+  "privateSourceReads": 0,
+  "yamlAndTriggersParsed": true,
+  "gitDiffCheck": true
+}

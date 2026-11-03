@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-11-03T07:31:42.889880+00:00",
+  "source": "parent independent-review acceptance in current task",
+  "acceptedScope": "R1 current repository/transaction test coverage and historical README claims; exact13 code paths and frozen evidence",
+  "reportSha256": "0b5a96ee19b3bd6d9d31cf75c03952a02e3193ed7beab0fad8e892aa47b41f04",
+  "manifestSha256": "58cd285dfd526dec7c9c12263329a9b71bc2842750a1ff3fa638594e12ed7c39",
+  "notAccepted": [
+    "remaining16 historical failures",
+    "real CI SDK10.8",
+    "Host",
+    "model semantics"
+  ],
+  "save": "local exact whitelist only; no push; exclude existing state history and unrelated dirty"
+}

@@ -8,7 +8,7 @@ import { initialAcceptanceVersions, verifyWorkspaceVersions, verifyConsumerVersi
   verifyConsumerCliVersion, assertLegacyProbesMigrated } from "./lib/acceptance-versions.mjs";
 import { captureCommand } from "./lib/captured-command.mjs";
 
-assert.equal(process.argv.length, 2, "Usage: npm run verify:experimental");
+assert.equal(process.argv.length, 2, "Usage: npm run verify:legacy-owner-chat (historical scope)");
 assert.ok(process.env.npm_execpath, "Run through npm");
 const root = await realpath(fileURLToPath(new URL("../", import.meta.url)));
 const source = await sourceIdentity(root);

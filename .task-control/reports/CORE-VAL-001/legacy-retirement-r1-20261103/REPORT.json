@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "status": "r1_candidate_pending_independent_review",
+  "observedAt": "2026-11-03T07:23:12.316476+00:00",
+  "baseCommit": "41cd0188b99920d8295e17804d85224f92737399",
+  "baseRevision": 177,
+  "previousCandidate": {
+    "report": ".task-control/reports/CORE-VAL-001/legacy-retirement-20261103/REPORT.json",
+    "sha256": "99613ac8b873f8b6cf8a114a87a047e53a5e23b3b1be1b38bcbe68b70fafcb21",
+    "review": "P2 current CI coverage lost and README8.2 not marked historical; preserved unchanged"
+  },
+  "fixes": [
+    {
+      "path": "scripts/prepare-ordinary-package-tests.mjs",
+      "change": "Stage four existing unchanged current suites against extracted npm package; preserve the existing six suites and all assertions. No new runner or probes."
+    },
+    {
+      "path": ".github/workflows/ordinary-plugin.yml",
+      "change": "Name and scope document automatic draft/repository/transaction/journal coverage. Existing push/PR triggers and failure-propagating test command retained."
+    },
+    {
+      "path": "README.md",
+      "change": "Describe retained automatic suites and explicitly mark8.2/8.1 Host claims historical; distinguish locked10.8 from local10.9."
+    }
+  ],
+  "scope": {
+    "r1Files": 3,
+    "combinedCleanupFiles": 13,
+    "runtimeSourceChanged": false,
+    "testAssertionsChanged": false,
+    "legacyProbesRestored": false,
+    "retiredSuites": 3,
+    "retiredDedicatedAudit": 1,
+    "retiredAutomaticWorkflows": 2,
+    "retiredHistoricalFailingCases": 10,
+    "remainingHistoricalFailingCases": 16,
+    "historicalFailuresFixed": 0,
+    "fullSuiteRerun": false
+  },
+  "validation": "VALIDATION.json",
+  "counts": {
+    "tests": 133,
+    "pass": 133,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "sdkVersion": "2026.10.9",
+  "lockedSDK": "2026.10.8",
+  "compilerReceipt": "Fresh successful-completion identity files recovered; enclosing tool exit receipt unavailable. See COMPILE-RECOVERY.json. Compilers not rerun.",
+  "reviewInputs": {
+    "r1Delta": "R1.patch",
+    "r1DeltaSha256": "abb2c9dbbf4ee4886a78b28b0fd657fc360f86d00ea1ac686792c67fc0569e9f",
+    "combinedDelta": "combined.patch",
+    "combinedDeltaSha256": "6c10f9ceccf25adfa5a3bd845d37c922665c419ae394ecb0f096861cac7d9a93",
+    "codeManifest": "CODE-MANIFEST.json",
+    "codeManifestSha256": "b6ae1d53ab339c6a7b2bc26a8c519631152b3cc53e4b08608c288eec940040a9"
+  },
+  "recovery": ".task-control/reports/CORE-VAL-001/legacy-retirement-20261103/RECOVERY.json",
+  "preservedDirty": {
+    "PROJECT-STATE.yaml": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47",
+    "docs/ORDINARY-SOURCE-READ.md": "233d6e860a89dd64b12398acaf2c02569b1eda8132701591eefce2cabdf17039",
+    "historicalUntracked": "not staged or removed"
+  },
+  "boundaries": [
+    "No commit, push, main configuration, model, private data or CangHai mutations.",
+    "No claim of remoteCI10.8 pass, liveHost, semantic understanding or full_memory.",
+    "Remaining16 historical failures remain unresolved; retired10 are not passes.",
+    "Original R0 failure/review identity is retained; R1 awaits independent review."
+  ]
+}

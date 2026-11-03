@@ -1,3 +1,21 @@
+# Historical scope since 2026-11-03
+
+The user prioritized the new architecture over legacy compatibility. The two
+automatic workflows described below and three self-contained 8.2-specific test
+suites are retired from the current tree, recoverable at commit
+`41cd0188b99920d8295e17804d85224f92737399`. Ten of the historical 26 failing cases
+belong to those retired suites: they were not fixed or passed. Mixed authority,
+native-memory SQL and completion suites remain; their unresolved failures and
+current product obligations are not waived.
+
+Old runner commands are now explicitly named `test:legacy-package` and
+`verify:legacy-owner-chat`. `npm run verify` keeps type/schema and all remaining
+workspace tests; a retained failure still returns failure. The independent
+`Ordinary plugin package contract` workflow checks extracted package contracts
+using synthetic data. Live Host, semantics and full_memory remain unaccepted.
+The following document retains its original historical meaning; its old automatic
+workflow and command names no longer describe the current default entry.
+
 # Experimental owner chat 的 CI 边界
 
 实验模式和完整能力评估是两个独立 workflow，均在 push / pull request 运行。

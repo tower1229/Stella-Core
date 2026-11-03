@@ -1,0 +1,67 @@
+[
+  {
+    "path": "tests/dreaming-public-seams.test.ts",
+    "sha256": null,
+    "status": "deleted_restore_from_41cd0188"
+  },
+  {
+    "path": "tests/host-compatibility.test.ts",
+    "sha256": null,
+    "status": "deleted_restore_from_41cd0188"
+  },
+  {
+    "path": "tests/host-context-replay.test.ts",
+    "sha256": null,
+    "status": "deleted_restore_from_41cd0188"
+  },
+  {
+    "path": "scripts/audit-dreaming-public-seams.mjs",
+    "sha256": null,
+    "status": "deleted_restore_from_41cd0188"
+  },
+  {
+    "path": ".github/workflows/ci.yml",
+    "sha256": null,
+    "status": "deleted_restore_from_41cd0188"
+  },
+  {
+    "path": ".github/workflows/experimental-owner-chat.yml",
+    "sha256": null,
+    "status": "deleted_restore_from_41cd0188"
+  },
+  {
+    "path": ".github/workflows/ordinary-plugin.yml",
+    "sha256": "428ba96eb72935d2864cdbe7b8a17d78f9d93cc2c928ba8e8b811b5e7f587fe5",
+    "status": "present"
+  },
+  {
+    "path": "README.md",
+    "sha256": "9f6b4c3fcdf51b1781597d5ba9ca57b16cd2a949f339893d1e2d3194a6decec9",
+    "status": "present"
+  },
+  {
+    "path": "docs/EXPERIMENTAL-CI.md",
+    "sha256": "1873f37d7ca53aaef92ff21db0901df174c1937242cdaa960407b41379ad64fe",
+    "status": "present"
+  },
+  {
+    "path": "docs/CORE-CANGHAI-COORDINATION.md",
+    "sha256": "dabb3d3ed39a323370aef6ecffbd6ac0846a4cc82f6d7ccee482092920638e0d",
+    "status": "present"
+  },
+  {
+    "path": "package.json",
+    "sha256": "05292525ed2a62244e92c0b2aed6ce8e04a60ca52d84013fc3a1ecbb87142301",
+    "status": "present"
+  },
+  {
+    "path": "scripts/package-experimental-owner-chat.mjs",
+    "sha256": "af8d93d50cbdad148909ed768c3a3fc5e2aeb52fb3c8dff69032948de2161850",
+    "status": "present"
+  },
+  {
+    "path": "scripts/prepare-ordinary-package-tests.mjs",
+    "sha256": "6eeaebf9dac373c8b7b7c2da544d4b5022d8e57452dcdf19613b85ec9f701c3f",
+    "status": "present"
+  }
+]

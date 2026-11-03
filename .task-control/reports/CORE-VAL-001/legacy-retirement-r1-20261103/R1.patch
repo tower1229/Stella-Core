@@ -1,0 +1,66 @@
+--- a/scripts/prepare-ordinary-package-tests.mjs
++++ b/scripts/prepare-ordinary-package-tests.mjs
+@@ -50,7 +50,8 @@
+ assert.deepEqual(buildIdentity, JSON.parse(await readFile(path.join(root, ".test-dist/build-identity.json"), "utf8")));
+ 
+ const suites = ["ordinary-plugin", "ordinary-source-read", "ordinary-source-admission",
+-  "tool-request-binding", "current-input-metadata", "source-understanding-skill"];
++  "tool-request-binding", "current-input-metadata", "source-understanding-skill",
++  "candidate-work-brief", "author-intent-repository", "memory-transaction", "memory-transaction-journal"];
+ const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js"];
+ await mkdir(path.join(harness, "tests/fixtures"), { recursive: true });
+ for (const file of testFiles) await copyFile(path.join(root, ".test-dist/tests", file), path.join(harness, "tests", file));
+@@ -68,7 +69,7 @@
+   packageFiles, testFiles: await fileManifest(path.join(harness, "tests"), testFiles),
+   sdkVersion: sdk.version, lockedSdkVersion: lock.packages["node_modules/openclaw"].version,
+   syntheticSourceFixtureHostVersion: "2026.10.9",
+-  scope: "extracted npm package; existing synthetic contracts and public skill discovery using workspace dependencies",
++  scope: "extracted npm package; existing synthetic source, draft, repository, transaction/journal contracts and public skill discovery using workspace dependencies",
+   freshInstall: false, liveHost: false, realModel: false, privateSources: false, fullMemory: false,
+   testCommand: "node --test --test-timeout=30000 ../harness/tests/*.test.js",
+   testCwd: ".artifacts/ordinary-package/run/package",
+--- a/.github/workflows/ordinary-plugin.yml
++++ b/.github/workflows/ordinary-plugin.yml
+@@ -28,7 +28,7 @@
+           touch .artifacts/ordinary-package/npm-user.conf .artifacts/ordinary-package/npm-global.conf
+           npm pack --json --ignore-scripts --offline --cache .artifacts/ordinary-package/npm-cache --userconfig "$PWD/.artifacts/ordinary-package/npm-user.conf" --globalconfig "$PWD/.artifacts/ordinary-package/npm-global.conf" --pack-destination .artifacts/ordinary-package > .artifacts/ordinary-package/pack.json
+           node scripts/prepare-ordinary-package-tests.mjs
+-      - name: Test extracted package with synthetic sources
++      - name: Test extracted package sources, drafts and durable transactions
+         shell: bash
+         env:
+           HOME: ${{ github.workspace }}/.artifacts/ordinary-package/run/home
+@@ -57,5 +57,5 @@
+       - name: Explain the limited verdict
+         if: always()
+         run: |
+-          echo 'Extracted-package contracts and public skill discovery only; no live Gateway, model semantics, private data, fresh dependency install or full_memory acceptance.' >> "$GITHUB_STEP_SUMMARY"
++          echo 'Extracted-package source, draft, repository, transaction/journal contracts and public skill discovery only; no live Gateway, model semantics, private data, fresh dependency install or full_memory acceptance.' >> "$GITHUB_STEP_SUMMARY"
+           echo 'Three old 8.2 suites and automatic full/experimental workflows were retired on 2026-11-03. Mixed authority, SQL and completion suites remain; historical failures were not repaired or accepted by this check.' >> "$GITHUB_STEP_SUMMARY"
+--- a/README.md
++++ b/README.md
+@@ -101,7 +101,8 @@
+ files are recoverable from Git; their failed results remain historical failures.
+ 
+ `Ordinary plugin package contract` independently checks the current ordinary entry:
+-existing source-read, request-admission and skill-discovery tests run against the
++existing source-read, request-admission, skill-discovery, candidate-work-brief,
++author-intent-repository, memory-transaction and journal tests run against the
+ extracted npm package, with synthetic sources and workspace dependencies. It does
+ not start a Gateway, install fresh dependencies, call a model or accept semantic
+ understanding. Three self-contained 8.2-specific suites and their sole-use audit were
+@@ -122,8 +123,12 @@
+ npm run verify
+ ```
+ 
+-npm run verify runs that complete chain. OpenClaw 2026.8.2 is the pinned Host for integration evidence;
+-2026.8.1 remains an independently unverified minimum compatibility claim.
++`npm run verify` runs type/schema checks and the complete remaining workspace
++test suite, including compilation. OpenClaw 2026.8.2 was the fixed Host for the
++historical integration evidence; the former 2026.8.1 minimum was not independently
++verified. These are historical claims, not the ordinary plugin's current test
++baseline. The repository lock pins SDK 2026.10.8; local 2026.10.9 evidence is
++reported separately and does not establish 10.8 compatibility.
+ 
+ The current code contains managed Git durability, recovery-pointer CAS, recovery/evaluation runners,
+ activation check/apply and candidate receipt tooling. Those mechanisms do not yet establish compliance

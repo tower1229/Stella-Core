@@ -1,0 +1,647 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+deleted file mode 100644
+index c28ec5c4..00000000
+--- a/.github/workflows/ci.yml
++++ /dev/null
+@@ -1,105 +0,0 @@
+-name: Full capability assessment
+-
+-on:
+-  push:
+-  pull_request:
+-
+-jobs:
+-  prepare:
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 30
+-    outputs:
+-      source-sha: ${{ steps.source.outputs.sha }}
+-    steps:
+-      - uses: actions/checkout@v4
+-      - id: source
+-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version-file: .nvmrc
+-          cache: npm
+-      - run: npm ci
+-      - name: Check, test, build and freeze one package
+-        run: npm run test:package -- --prepare .artifacts/ci/prepared
+-        env:
+-          STELLA_ACCEPTANCE_RECEIPT_PATH: .artifacts/ci/prepare-receipt/receipt.json
+-      - name: Upload frozen package and compiled harness
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: stella-prepared
+-          path: .artifacts/ci/prepared
+-          if-no-files-found: error
+-      - name: Preserve preparation diagnostics
+-        if: always()
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: stella-prepare-receipt
+-          path: .artifacts/ci/prepare-receipt
+-          if-no-files-found: error
+-
+-  probes:
+-    needs: prepare
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 60
+-    strategy:
+-      fail-fast: false
+-      matrix:
+-        shard: [memory-access, native-chain, main-1, main-2, main-3, main-4, final]
+-    steps:
+-      - uses: actions/checkout@v4
+-        with:
+-          ref: ${{ needs.prepare.outputs.source-sha }}
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version-file: .nvmrc
+-          cache: npm
+-      - run: npm ci
+-      - uses: actions/download-artifact@v4
+-        with:
+-          name: stella-prepared
+-          path: .artifacts/ci/prepared
+-      - name: Verify assigned cases against the frozen package
+-        run: npm run test:package -- --shard "${{ matrix.shard }}" --prepared .artifacts/ci/prepared
+-        env:
+-          STELLA_ACCEPTANCE_RECEIPT_PATH: .artifacts/ci/shard-${{ matrix.shard }}/receipt.json
+-      - name: Preserve incremental case receipts and logs
+-        if: always()
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: stella-shard-${{ matrix.shard }}
+-          path: .artifacts/ci/shard-${{ matrix.shard }}
+-          if-no-files-found: error
+-
+-  verify:
+-    if: always()
+-    needs: [prepare, probes]
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 15
+-    steps:
+-      - uses: actions/checkout@v4
+-        with:
+-          ref: ${{ needs.prepare.outputs.source-sha || github.sha }}
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version-file: .nvmrc
+-      - uses: actions/download-artifact@v4
+-        with:
+-          pattern: stella-*
+-          path: .artifacts/ci/downloaded
+-      - name: Require all 152 unique cases and successful jobs
+-        if: always()
+-        run: node scripts/package-ci-aggregate.mjs .artifacts/ci/downloaded .artifacts/ci/aggregate
+-        env:
+-          STELLA_CI_JOB_RESULTS: ${{ toJSON(needs) }}
+-      - name: Explain independent complete-capability verdict
+-        if: always()
+-        run: |
+-          echo "## Full capability assessment" >> "$GITHUB_STEP_SUMMARY"
+-          echo "All 152 legacy/complete-capability probes remain mandatory in this assessment. A failure stays a failure; experimental owner chat has a separate check and does not accept full_memory." >> "$GITHUB_STEP_SUMMARY"
+-      - name: Preserve aggregate verdict
+-        if: always()
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: stella-aggregate
+-          path: .artifacts/ci/aggregate
+-          if-no-files-found: error
+diff --git a/.github/workflows/experimental-owner-chat.yml b/.github/workflows/experimental-owner-chat.yml
+deleted file mode 100644
+index cbd2777b..00000000
+--- a/.github/workflows/experimental-owner-chat.yml
++++ /dev/null
+@@ -1,41 +0,0 @@
+-name: Experimental owner chat
+-
+-on:
+-  push:
+-  pull_request:
+-
+-jobs:
+-  experimental-owner-chat:
+-    name: Installed experimental owner chat (synthetic)
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 35
+-    steps:
+-      - uses: actions/checkout@v4
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version-file: .nvmrc
+-          cache: npm
+-      - run: npm ci
+-      - name: Check source and test one installed package with stock Host
+-        run: npm run verify:experimental
+-      - name: Preserve exact scope, package and complete synthetic wire evidence
+-        if: always()
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: experimental-owner-chat
+-          path: |
+-            .artifacts/experimental-owner-chat/*/receipt.json
+-            .artifacts/experimental-owner-chat/*/*.tgz
+-            .artifacts/experimental-owner-chat/*/consumer-package-lock.json
+-            .artifacts/experimental-owner-chat/*/*.stdout
+-            .artifacts/experimental-owner-chat/*/*.stderr
+-            .artifacts/experimental-owner-chat/*/host-probe-ci/**
+-            .artifacts/experimental-owner-chat/*/host-probe-skill/**
+-            .artifacts/experimental-owner-chat/*/host-probe-budgetfile/**
+-            .artifacts/experimental-owner-chat/*/host-probe-budgettotal/**
+-            .artifacts/experimental-owner-chat/*/host-v3-a1/**
+-            .artifacts/experimental-owner-chat/*/host-v3-a2/**
+-            .artifacts/experimental-owner-chat/*/host-work-a1/**
+-            .artifacts/experimental-owner-chat/*/host-correction-a1/**
+-            .artifacts/experimental-owner-chat/*/host-understanding-a1/**
+-          if-no-files-found: error
+diff --git a/.github/workflows/ordinary-plugin.yml b/.github/workflows/ordinary-plugin.yml
+index 10e91369..25f3b278 100644
+--- a/.github/workflows/ordinary-plugin.yml
++++ b/.github/workflows/ordinary-plugin.yml
+@@ -28,7 +28,7 @@ jobs:
+           touch .artifacts/ordinary-package/npm-user.conf .artifacts/ordinary-package/npm-global.conf
+           npm pack --json --ignore-scripts --offline --cache .artifacts/ordinary-package/npm-cache --userconfig "$PWD/.artifacts/ordinary-package/npm-user.conf" --globalconfig "$PWD/.artifacts/ordinary-package/npm-global.conf" --pack-destination .artifacts/ordinary-package > .artifacts/ordinary-package/pack.json
+           node scripts/prepare-ordinary-package-tests.mjs
+-      - name: Test extracted package with synthetic sources
++      - name: Test extracted package sources, drafts and durable transactions
+         shell: bash
+         env:
+           HOME: ${{ github.workspace }}/.artifacts/ordinary-package/run/home
+@@ -57,5 +57,5 @@ jobs:
+       - name: Explain the limited verdict
+         if: always()
+         run: |
+-          echo 'Extracted-package contracts and public skill discovery only; no live Gateway, model semantics, private data, fresh dependency install or full_memory acceptance.' >> "$GITHUB_STEP_SUMMARY"
+-          echo 'Full capability assessment and Experimental owner chat keep their complete test sets and independent failed/incomplete verdicts.' >> "$GITHUB_STEP_SUMMARY"
++          echo 'Extracted-package source, draft, repository, transaction/journal contracts and public skill discovery only; no live Gateway, model semantics, private data, fresh dependency install or full_memory acceptance.' >> "$GITHUB_STEP_SUMMARY"
++          echo 'Three old 8.2 suites and automatic full/experimental workflows were retired on 2026-11-03. Mixed authority, SQL and completion suites remain; historical failures were not repaired or accepted by this check.' >> "$GITHUB_STEP_SUMMARY"
+diff --git a/README.md b/README.md
+index f735231c..d7317c17 100644
+--- a/README.md
++++ b/README.md
+@@ -95,15 +95,22 @@ The opt-in [experimental owner chat guide](docs/EXPERIMENTAL-OWNER-CHAT.md) desc
+ 
+ The [Suqing closeout](docs/suqing-closeout-2026-10-23.md) records each scoped exit and remaining boundary; [current request-lifecycle work](docs/mainline-request-lifecycle-2026-10-23.md) tracks the follow-up fixes, CI evidence, and real WebChat prerequisites.
+ 
+-[实验模式 CI 范围](docs/EXPERIMENTAL-CI.md) separates the installed synthetic owner-chat check from the independent 152-case complete-capability assessment. A green experimental check does not accept full_memory.
++[实验模式 CI 范围](docs/EXPERIMENTAL-CI.md) preserves the historical owner-chat and
++152-case complete-capability assessments. Their automatic workflows were retired
++on 2026-11-03 under the decision to prioritize the new architecture. The exact
++files are recoverable from Git; their failed results remain historical failures.
+ 
+ `Ordinary plugin package contract` independently checks the current ordinary entry:
+-existing source-read, request-admission and skill-discovery tests run against the
++existing source-read, request-admission, skill-discovery, candidate-work-brief,
++author-intent-repository, memory-transaction and journal tests run against the
+ extracted npm package, with synthetic sources and workspace dependencies. It does
+ not start a Gateway, install fresh dependencies, call a model or accept semantic
+-understanding. Both older workflows retain their complete test sets and their own
+-failed/incomplete verdicts; the new check does not turn the 26 retained failures
+-into passes. The preparation receipt records the actual SDK and synthetic fixture
++understanding. Three self-contained 8.2-specific suites and their sole-use audit were
++retired with the old automatic workflows. Ten of the historical 26 failures
++belong to those suites and were **not fixed or passed**. Mixed authority, SQL and
++completion tests remain, along with shared validators and current source-access
++tests. `npm run verify` still fails on retained test failures. The preparation
++receipt records the actual SDK and synthetic fixture
+ version separately; `PREPARED.json` alone is not a passing test result.
+ 
+ ## Validation and local use
+@@ -113,11 +120,15 @@ npm run check
+ npm run check:schemas
+ npm run build
+ npm test
+-npm run test:package
++npm run verify
+ ```
+ 
+-npm run verify runs that complete chain. OpenClaw 2026.8.2 is the pinned Host for integration evidence;
+-2026.8.1 remains an independently unverified minimum compatibility claim.
++`npm run verify` runs type/schema checks and the complete remaining workspace
++test suite, including compilation. OpenClaw 2026.8.2 was the fixed Host for the
++historical integration evidence; the former 2026.8.1 minimum was not independently
++verified. These are historical claims, not the ordinary plugin's current test
++baseline. The repository lock pins SDK 2026.10.8; local 2026.10.9 evidence is
++reported separately and does not establish 10.8 compatibility.
+ 
+ The current code contains managed Git durability, recovery-pointer CAS, recovery/evaluation runners,
+ activation check/apply and candidate receipt tooling. Those mechanisms do not yet establish compliance
+diff --git a/docs/CORE-CANGHAI-COORDINATION.md b/docs/CORE-CANGHAI-COORDINATION.md
+index 00cb5eaf..3a722ddd 100644
+--- a/docs/CORE-CANGHAI-COORDINATION.md
++++ b/docs/CORE-CANGHAI-COORDINATION.md
+@@ -1,3 +1,9 @@
++# 2026-11-03 简化旧兼容负担的边界
++
++用户将新架构的数据层与正向理解置于旧对象兼容迁移之前。旧派生对象迁移不再是当前来源问答的前置，不新增通用迁移框架；`raw_evidence` 仍不能自动解释为进行中的 Work。未完成的历史派生语义保留为未完成，不把原文保全说成理解迁移成功。
++
++清理按实际引用和可恢复性逐项进行。本次沧海协作核查确认，固定 `90f61d9c9ef019c5a06a419dbcb630fe598cb996` 的 97 来源范围内仍有 234 个 current 对象引用 initialization 目录，因此不能按目录名整删。原 Source、Evidence、策略、版本和仍被 checkpoint 使用的副本继续保留；Core 不在本轮修改沧海目录、生产数据或许可。具体任务与暂停状态仍只记在 `.task-control/state.json`。
++
+ # Core 与沧海的并行开发约定
+ 
+ 2026-10-23。按用户确认的 [D-060](DECISIONS.md#d-060--coordinate-core-and-canghai-without-disrupting-legacy-production) 协调两个项目。本页记录 Core 已实现的消费边界和双方交接要求；不是沧海当前目录或领域接口已经兼容的证明，也不执行数据迁移。
+diff --git a/docs/EXPERIMENTAL-CI.md b/docs/EXPERIMENTAL-CI.md
+index 19d4f08a..89e8a3e1 100644
+--- a/docs/EXPERIMENTAL-CI.md
++++ b/docs/EXPERIMENTAL-CI.md
+@@ -1,3 +1,21 @@
++# Historical scope since 2026-11-03
++
++The user prioritized the new architecture over legacy compatibility. The two
++automatic workflows described below and three self-contained 8.2-specific test
++suites are retired from the current tree, recoverable at commit
++`41cd0188b99920d8295e17804d85224f92737399`. Ten of the historical 26 failing cases
++belong to those retired suites: they were not fixed or passed. Mixed authority,
++native-memory SQL and completion suites remain; their unresolved failures and
++current product obligations are not waived.
++
++Old runner commands are now explicitly named `test:legacy-package` and
++`verify:legacy-owner-chat`. `npm run verify` keeps type/schema and all remaining
++workspace tests; a retained failure still returns failure. The independent
++`Ordinary plugin package contract` workflow checks extracted package contracts
++using synthetic data. Live Host, semantics and full_memory remain unaccepted.
++The following document retains its original historical meaning; its old automatic
++workflow and command names no longer describe the current default entry.
++
+ # Experimental owner chat 的 CI 边界
+ 
+ 实验模式和完整能力评估是两个独立 workflow，均在 push / pull request 运行。
+diff --git a/package.json b/package.json
+index d492f0ab..c7d1f070 100644
+--- a/package.json
++++ b/package.json
+@@ -28,16 +28,16 @@
+     "check:schemas": "node scripts/check-schemas.mjs",
+     "test": "node scripts/run-workspace-tests.mjs",
+     "test:host-archive": "node scripts/compile.mjs build && node scripts/compile.mjs test && node scripts/probe-archive-retention.mjs",
+-    "test:package": "node scripts/package-smoke.mjs --dreaming-disabled",
++    "test:legacy-package": "node scripts/package-smoke.mjs --dreaming-disabled",
+     "recover:private": "npm run build --silent && node scripts/run-private-recovery.mjs",
+     "praxis:private": "npm run build --silent && node scripts/run-private-praxis-loop.mjs",
+     "evaluate:praxis": "npm run build --silent && node scripts/run-praxis-evaluation.mjs",
+     "prepare:evaluation-source": "node scripts/compile.mjs build && node scripts/compile.mjs test && node scripts/prepare-public-evaluation-source.mjs",
+     "candidate": "npm run build --silent && node scripts/create-alpha-candidate.mjs",
+     "stella:activate": "npm run build --silent && node scripts/stella-activate.mjs",
+-    "verify": "npm run test:package",
++    "verify": "npm run check && npm run check:schemas && npm test",
+     "verify:dreaming-boundary": "node scripts/verify-dreaming-boundary.mjs",
+-    "verify:experimental": "node scripts/package-experimental-owner-chat.mjs"
++    "verify:legacy-owner-chat": "node scripts/package-experimental-owner-chat.mjs"
+   },
+   "dependencies": {
+     "ajv": "8.20.0",
+diff --git a/scripts/audit-dreaming-public-seams.mjs b/scripts/audit-dreaming-public-seams.mjs
+deleted file mode 100644
+index ef05432c..00000000
+--- a/scripts/audit-dreaming-public-seams.mjs
++++ /dev/null
+@@ -1,112 +0,0 @@
+-import assert from "node:assert/strict";
+-import { createHash } from "node:crypto";
+-import { execFileSync } from "node:child_process";
+-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+-import path from "node:path";
+-import { fileURLToPath } from "node:url";
+-import ts from "typescript";
+-
+-// Read-only inspection of the exact installed SDK and native implementation.
+-// Internal implementation files are read as evidence, never imported or run.
+-const root = fileURLToPath(new URL("../", import.meta.url));
+-const hostRoot = await realpath(path.resolve(process.env.STELLA_PROBE_HOST_ROOT ?? path.join(root, "node_modules/openclaw")));
+-const output = path.resolve(process.argv[2] ?? path.join(root, ".artifacts/issue23-dreaming-seams/interfaces.json"));
+-const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+-const files = new Map();
+-async function source(relative) {
+-  if (files.has(relative)) return files.get(relative);
+-  const bytes = await readFile(path.join(hostRoot, relative));
+-  const parsed = ts.createSourceFile(relative, bytes.toString("utf8"), ts.ScriptTarget.Latest, true);
+-  const result = { bytes, parsed, sha256: hash(bytes) };
+-  files.set(relative, result); return result;
+-}
+-function declarations(parsed, name) {
+-  const result = parsed.statements.find(node => (ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node)) && node.name.text === name);
+-  assert.ok(result, `Missing pinned SDK type: ${name}`); return result;
+-}
+-function members(parsed, node, seen = new Set()) {
+-  if (ts.isTypeAliasDeclaration(node)) return members(parsed, node.type, seen);
+-  if (ts.isInterfaceDeclaration(node) || ts.isTypeLiteralNode(node)) return [...node.members];
+-  if (ts.isIntersectionTypeNode(node)) return node.types.flatMap(type => members(parsed, type, seen));
+-  if (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && !seen.has(node.typeName.text)) {
+-    seen.add(node.typeName.text);
+-    const reference = parsed.statements.find(item => (ts.isTypeAliasDeclaration(item) || ts.isInterfaceDeclaration(item)) && item.name.text === node.typeName.text);
+-    if (reference) return members(parsed, reference, seen);
+-  }
+-  return [];
+-}
+-function fields(parsed, name) {
+-  return members(parsed, declarations(parsed, name)).map(member => ({ name: member.name?.getText(parsed),
+-    type: member.type?.getText(parsed), line: parsed.getLineAndCharacterOfPosition(member.getStart(parsed)).line + 1 }));
+-}
+-function exports(parsed) {
+-  return parsed.statements.filter(ts.isExportDeclaration).flatMap(node =>
+-    node.exportClause && ts.isNamedExports(node.exportClause) ? node.exportClause.elements.map(item => item.name.text) : []);
+-}
+-function publicTypeFile(parsed, name) {
+-  const item = parsed.statements.find(node => ts.isImportDeclaration(node) && node.importClause?.namedBindings &&
+-    ts.isNamedImports(node.importClause.namedBindings) && node.importClause.namedBindings.elements.some(element => element.name.text === name));
+-  assert.ok(item && ts.isStringLiteral(item.moduleSpecifier), `Missing SDK type import ${name}`);
+-  const relative = path.posix.normalize(path.posix.join("dist/plugin-sdk", item.moduleSpecifier.text.replace(/\.js$/, ".d.ts")));
+-  assert.ok(relative.startsWith("dist/") && !relative.includes("../")); return relative;
+-}
+-function codeEvidence(relative, name) {
+-  const { parsed } = files.get(relative);
+-  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+-  assert.ok(declaration, `Missing pinned native function ${name}`);
+-  return { path: relative, function: name, line: parsed.getLineAndCharacterOfPosition(declaration.getStart(parsed)).line + 1,
+-    functionSha256: hash(declaration.getText(parsed)) };
+-}
+-const pkg = JSON.parse((await source("package.json")).bytes);
+-assert.equal(pkg.version, "2026.8.2");
+-const entry = (await source("dist/plugin-sdk/plugin-entry.d.ts")).parsed;
+-const runtimeFile = publicTypeFile(entry, "OpenClawPluginApi"), hooksFile = publicTypeFile(entry, "PluginHookSkillBundleSnapshot");
+-const runtime = (await source(runtimeFile)).parsed, hooks = (await source(hooksFile)).parsed;
+-const sdk = {};
+-for (const name of ["memory-host-core", "memory-core-host-runtime-core", "memory-core-host-runtime-files", "memory-host-events", "plugin-runtime"]) {
+-  assert.ok(pkg.exports[`./plugin-sdk/${name}`], `Not a public SDK namespace: ${name}`);
+-  sdk[name] = exports((await source(`dist/plugin-sdk/${name}.js`)).parsed);
+-}
+-const hookNames = declarations(hooks, "PluginHookName").type.types.map(node => node.literal?.text).filter(Boolean);
+-const types = {};
+-for (const name of ["OpenClawPluginApi", "MemoryPluginCapability", "MemoryPluginRuntime", "MemoryCorpusSupplement", "MemoryPluginPublicArtifact",
+-  "PluginRuntimeLifecycleRegistration", "SubagentRunParams", "SubagentRunResult", "LlmDirectCompleteParams", "LlmCompleteCommonParams", "LlmCompleteResult", "ContextEngine"]) types[name] = fields(runtime, name);
+-for (const name of ["PluginHookBeforeAgentReplyEvent", "PluginHookBeforeAgentReplyResult", "PluginHookBeforeAgentRunEvent",
+-  "PluginAgentTurnPrepareEvent", "PluginAgentTurnPrepareResult", "PluginHookBeforeMessageWriteEvent", "PluginHookBeforeMessageWriteResult",
+-  "PluginHookHandlerMap", "PluginHookLlmInputEvent", "PluginHookLlmOutputEvent", "PluginHookBeforeAgentFinalizeEvent", "PluginHookBeforeAgentFinalizeResult"]) types[name] = fields(hooks, name);
+-const nativeSites = [
+-  ["dist/dreaming-BtRc_74l.js", "runShortTermDreamingPromotionIfTriggered"],
+-  ["dist/dreaming-narrative-D6hU_b7Q.js", "startNarrativeRunOrFallback"],
+-  ["dist/dreaming-narrative-D6hU_b7Q.js", "appendNarrativeEntry"],
+-  ["dist/dreaming-narrative-D6hU_b7Q.js", "appendFallbackNarrativeEntry"],
+-  ["dist/dreaming-phases-D6ou-Hmv.js", "runLightDreaming"],
+-  ["dist/dreaming-phases-D6ou-Hmv.js", "runRemDreaming"],
+-  ["dist/dreaming-dreams-file-Bq1YQ9a1.js", "updateDreamsFile"],
+-  ["dist/dreaming-dreams-file-Bq1YQ9a1.js", "writeDreamsFileAtomic"],
+-  ["dist/short-term-promotion-BCGI4auj.js", "applyShortTermPromotions"],
+-  ["dist/memory-entry-origins-CCiwtjR7.js", "writeMemoryContent"],
+-  ["dist/memory-artifact-provenance-BcOUEP3n.js", "normalizeMemoryArtifactRelativePath"],
+-  ["dist/memory-artifact-provenance-BcOUEP3n.js", "toPublicProvenance"],
+-  ["dist/hook-runner-global-ac8FBwry.js", "createHookRunner"],
+-  ["dist/hook-helpers-B4NmqFRB.js", "runAgentHarnessBeforeMessageWriteHook"],
+-];
+-for (const [file] of nativeSites) await source(file);
+-const core = [];
+-for (const relative of ["src/openclaw/host-memory-provider.ts", "src/openclaw/host-memory-acceptance.ts", "src/openclaw/host-history-compaction.ts",
+-  "src/openclaw/host-context-authority.ts", "src/openclaw/host-context-view.ts", "src/canghai/memory-transaction.ts", "src/canghai/synchronize.ts"]) {
+-  core.push({ path: relative, sha256: hash(await readFile(path.join(root, relative))) });
+-}
+-const report = { schemaVersion: "stella.dreaming-public-interface-audit/v1", scope: "read-only exact Host interface and native call-site inspection",
+-  auditVersion: "public-sdk-and-native-publish-chain/v1", hostVersion: pkg.version,
+-  coreRevision: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
+-  sourceClean: execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim() === "",
+-  publicMemoryNamespaces: Object.keys(pkg.exports).filter(key => key.includes("memory") || key.includes("dream")),
+-  sdk, hookNames, types, nativeSites: nativeSites.map(([file, name]) => codeEvidence(file, name)), core,
+-  hostFiles: [...files].map(([file, value]) => ({ path: file, sha256: value.sha256 })).sort((a, b) => a.path.localeCompare(b.path)),
+-  nativePublishAdapter: "no_supported_adapter_identified_in_this_audit", qualifiedDreamingVerified: false,
+-  productionMutation: false, externalModelRequests: 0, issue23Complete: false };
+-report.hostInterfaceSha256 = hash(JSON.stringify({ sdk, hookNames, types, files: report.hostFiles }));
+-await mkdir(path.dirname(output), { recursive: true });
+-await writeFile(output, JSON.stringify(report, null, 2));
+-process.stdout.write(JSON.stringify({ report: output, coreRevision: report.coreRevision, hostInterfaceSha256: report.hostInterfaceSha256,
+-  hostFiles: report.hostFiles.length, hookNames: hookNames.length, nativePublishAdapter: report.nativePublishAdapter }) + "\n");
+diff --git a/scripts/package-experimental-owner-chat.mjs b/scripts/package-experimental-owner-chat.mjs
+index 6f2842ed..6344ba84 100644
+--- a/scripts/package-experimental-owner-chat.mjs
++++ b/scripts/package-experimental-owner-chat.mjs
+@@ -8,7 +8,7 @@ import { initialAcceptanceVersions, verifyWorkspaceVersions, verifyConsumerVersi
+   verifyConsumerCliVersion, assertLegacyProbesMigrated } from "./lib/acceptance-versions.mjs";
+ import { captureCommand } from "./lib/captured-command.mjs";
+ 
+-assert.equal(process.argv.length, 2, "Usage: npm run verify:experimental");
++assert.equal(process.argv.length, 2, "Usage: npm run verify:legacy-owner-chat (historical scope)");
+ assert.ok(process.env.npm_execpath, "Run through npm");
+ const root = await realpath(fileURLToPath(new URL("../", import.meta.url)));
+ const source = await sourceIdentity(root);
+diff --git a/scripts/prepare-ordinary-package-tests.mjs b/scripts/prepare-ordinary-package-tests.mjs
+index 7b136f7b..6d552799 100644
+--- a/scripts/prepare-ordinary-package-tests.mjs
++++ b/scripts/prepare-ordinary-package-tests.mjs
+@@ -50,7 +50,8 @@ if (process.env.GITHUB_ACTIONS === "true") assert.equal(buildIdentity.sourceClea
+ assert.deepEqual(buildIdentity, JSON.parse(await readFile(path.join(root, ".test-dist/build-identity.json"), "utf8")));
+ 
+ const suites = ["ordinary-plugin", "ordinary-source-read", "ordinary-source-admission",
+-  "tool-request-binding", "current-input-metadata", "source-understanding-skill"];
++  "tool-request-binding", "current-input-metadata", "source-understanding-skill",
++  "candidate-work-brief", "author-intent-repository", "memory-transaction", "memory-transaction-journal"];
+ const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js"];
+ await mkdir(path.join(harness, "tests/fixtures"), { recursive: true });
+ for (const file of testFiles) await copyFile(path.join(root, ".test-dist/tests", file), path.join(harness, "tests", file));
+@@ -68,7 +69,7 @@ await writeFile(path.join(out, "PREPARED.json"), JSON.stringify({
+   packageFiles, testFiles: await fileManifest(path.join(harness, "tests"), testFiles),
+   sdkVersion: sdk.version, lockedSdkVersion: lock.packages["node_modules/openclaw"].version,
+   syntheticSourceFixtureHostVersion: "2026.10.9",
+-  scope: "extracted npm package; existing synthetic contracts and public skill discovery using workspace dependencies",
++  scope: "extracted npm package; existing synthetic source, draft, repository, transaction/journal contracts and public skill discovery using workspace dependencies",
+   freshInstall: false, liveHost: false, realModel: false, privateSources: false, fullMemory: false,
+   testCommand: "node --test --test-timeout=30000 ../harness/tests/*.test.js",
+   testCwd: ".artifacts/ordinary-package/run/package",
+diff --git a/tests/dreaming-public-seams.test.ts b/tests/dreaming-public-seams.test.ts
+deleted file mode 100644
+index 5f5fdfb1..00000000
+--- a/tests/dreaming-public-seams.test.ts
++++ /dev/null
+@@ -1,31 +0,0 @@
+-import assert from "node:assert/strict";
+-import { execFile } from "node:child_process";
+-import { mkdtemp, readFile, rm } from "node:fs/promises";
+-import os from "node:os";
+-import path from "node:path";
+-import test from "node:test";
+-import { promisify } from "node:util";
+-
+-test("exact SDK audit exposes the actual contracts without granting Dreaming publication", async t => {
+-  const temporary = await mkdtemp(path.join(os.tmpdir(), "stella-dreaming-interfaces-"));
+-  t.after(() => rm(temporary, { recursive: true, force: true }));
+-  const destination = path.join(temporary, "interfaces.json");
+-  await promisify(execFile)(process.execPath, ["scripts/audit-dreaming-public-seams.mjs", destination]);
+-  const report = JSON.parse(await readFile(destination, "utf8"));
+-  assert.equal(report.schemaVersion, "stella.dreaming-public-interface-audit/v1");
+-  assert.equal(report.hostVersion, "2026.8.2");
+-  assert.match(report.hostInterfaceSha256, /^[a-f0-9]{64}$/);
+-  assert.ok(report.hostFiles.length >= 15);
+-  assert.ok(report.hostFiles.every((entry: { path: string; sha256: string }) => !path.isAbsolute(entry.path) && /^[a-f0-9]{64}$/.test(entry.sha256)));
+-  const fields = (name: string) => report.types[name].map((field: { name: string }) => field.name);
+-  assert.ok(report.hookNames.includes("before_message_write"));
+-  assert.deepEqual(fields("PluginHookBeforeMessageWriteEvent"), ["message", "sessionKey", "agentId"]);
+-  assert.deepEqual(fields("MemoryPluginPublicArtifact"), ["kind", "workspaceDir", "relativePath", "absolutePath", "agentIds", "contentType"]);
+-  assert.deepEqual(fields("MemoryCorpusSupplement"), ["search", "get"]);
+-  assert.ok(fields("SubagentRunParams").includes("idempotencyKey"));
+-  assert.ok(!fields("SubagentRunParams").includes("sourceRefs"));
+-  assert.ok(report.sdk["memory-core-host-runtime-core"].includes("readMemoryArtifactProvenance"));
+-  assert.ok(report.nativeSites.some((site: { function: string }) => site.function === "writeMemoryContent"));
+-  for (const field of ["qualifiedDreamingVerified", "productionMutation", "issue23Complete"]) assert.equal(report[field], false);
+-  assert.equal(report.externalModelRequests, 0);
+-});
+diff --git a/tests/host-compatibility.test.ts b/tests/host-compatibility.test.ts
+deleted file mode 100644
+index db2dd48f..00000000
+--- a/tests/host-compatibility.test.ts
++++ /dev/null
+@@ -1,57 +0,0 @@
+-import assert from "node:assert/strict";
+-import test from "node:test";
+-import { readFile, mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+-import { createRequire } from "node:module";
+-import path from "node:path";
+-import os from "node:os";
+-import { pathToFileURL } from "node:url";
+-import { HOST_COMPATIBILITY, hostModuleHash, parseHostCompatibility, patchPrivateDraftHost, assertSameHostCompatibility } from "../src/acceptance/host-compatibility.js";
+-import { parseExactHostRecoveryReceipt } from "../src/acceptance/exact-host-evidence.js";
+-
+-test("compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes", async () => {
+-  const require = createRequire(import.meta.url);
+-  const dist = path.resolve(path.dirname(require.resolve("openclaw/plugin-sdk/plugin-entry")), "..");
+-  const original = await readFile(path.join(dist, path.basename(HOST_COMPATIBILITY.module)));
+-  assert.equal(hostModuleHash(original), HOST_COMPATIBILITY.originalSha256);
+-  const patched = patchPrivateDraftHost(original);
+-  assert.equal(hostModuleHash(patched), HOST_COMPATIBILITY.patchedSha256);
+-  assert.deepEqual(patchPrivateDraftHost(patched), patched);
+-  assert.throws(() => patchPrivateDraftHost(Buffer.concat([original, Buffer.from("\n")])), /original_module_mismatch/);
+-  assert.deepEqual(parseHostCompatibility(HOST_COMPATIBILITY), HOST_COMPATIBILITY);
+-  assert.throws(() => parseHostCompatibility({ ...HOST_COMPATIBILITY, patchedSha256: "0".repeat(64) }), /compatibility_mismatch/);
+-  assert.throws(() => parseExactHostRecoveryReceipt({ hostCompatibility: { id: HOST_COMPATIBILITY.id } }), /compatibility_mismatch/);
+-});
+-
+-test("candidate evidence cannot mix original and compatibility-patched Hosts", () => {
+-  assert.doesNotThrow(() => assertSameHostCompatibility(undefined, undefined, undefined));
+-  assert.doesNotThrow(() => assertSameHostCompatibility(HOST_COMPATIBILITY, { ...HOST_COMPATIBILITY }, HOST_COMPATIBILITY));
+-  assert.throws(() => assertSameHostCompatibility(HOST_COMPATIBILITY, undefined, HOST_COMPATIBILITY), /compatibility_mismatch/);
+-});
+-
+-test("isolated installer supports every acceptance runner but rejects unrelated consumers", async () => {
+-  const { installHostCompatibility } = await import(pathToFileURL(path.resolve("scripts/lib/install-host-compatibility.mjs")).href);
+-  const require = createRequire(import.meta.url);
+-  const dist = path.resolve(path.dirname(require.resolve("openclaw/plugin-sdk/plugin-entry")), "..");
+-  const original = await readFile(path.join(dist, path.basename(HOST_COMPATIBILITY.module)));
+-  const root = await mkdtemp(path.join(os.tmpdir(), "stella-host-installer-test-"));
+-  try {
+-    const hostRoot = path.join(root, "node_modules/openclaw");
+-    const target = path.join(hostRoot, HOST_COMPATIBILITY.module);
+-    await mkdir(path.dirname(target), { recursive: true });
+-    await writeFile(path.join(hostRoot, "package.json"), JSON.stringify({ version: HOST_COMPATIBILITY.hostVersion }));
+-    for (const name of ["stella-private-recovery", "stella-private-evaluation", "stella-private-praxis"]) {
+-      await writeFile(path.join(root, "package.json"), JSON.stringify({ name, private: true }));
+-      await writeFile(target, original);
+-      assert.deepEqual(await installHostCompatibility(root), HOST_COMPATIBILITY);
+-      assert.equal(hostModuleHash(await readFile(target)), HOST_COMPATIBILITY.patchedSha256);
+-    }
+-    for (const manifest of [{ name: "unrelated", private: true }, { name: "stella-private-praxis", private: false }]) {
+-      await writeFile(path.join(root, "package.json"), JSON.stringify(manifest));
+-      await writeFile(target, original);
+-      await assert.rejects(() => installHostCompatibility(root), /requires_isolated_consumer/);
+-      assert.deepEqual(await readFile(target), original);
+-    }
+-  } finally {
+-    await rm(root, { recursive: true, force: true });
+-  }
+-});
+diff --git a/tests/host-context-replay.test.ts b/tests/host-context-replay.test.ts
+deleted file mode 100644
+index 47418b11..00000000
+--- a/tests/host-context-replay.test.ts
++++ /dev/null
+@@ -1,93 +0,0 @@
+-import assert from "node:assert/strict";
+-import test from "node:test";
+-import { assertHostReplayTarget, loadHostReplayProjection, resolveHostReplayTarget } from "../src/openclaw/host-context-replay.js";
+-import { FRAGMENT_READ_DESCRIPTION, FRAGMENT_READ_PARAMETERS, FRAGMENT_READ_TOOL } from "../src/openclaw/fragment-read-tool.js";
+-import { appendAssistantTrace, assembleContextTrace, contextFragmentTrace, contextInputDigest, projectContextTrace, readContextInputTrace } from "../src/openclaw/host-context-graph.js";
+-import type { HostMemoryInput } from "../src/openclaw/host-memory-provider.js";
+-
+-const modelRef = "stella-guarded/gemini-3.8-flash";
+-const configuration = () => ({ models: { providers: { "stella-guarded": { api: "google-generative-ai",
+-  models: [{ id: "gemini-3.8-flash" }] } } } });
+-type Input = Omit<HostMemoryInput, "tools"> & { tools: Array<{ name: string; description: string; parameters: Record<string, unknown> }> };
+-const schema = (value: HostMemoryInput) => value.tools[0]!.parameters as Record<string, unknown>;
+-const input = (): Input => ({ systemPrompt: "Synthetic public rules", messages: [{ role: "user", content: "Synthetic current input", timestamp: 0 }],
+-  tools: [{ name: FRAGMENT_READ_TOOL, description: FRAGMENT_READ_DESCRIPTION, parameters: structuredClone(FRAGMENT_READ_PARAMETERS) as unknown as Record<string, unknown> }] });
+-
+-test("replay target requires explicit unique model/API configuration without reading credentials", () => {
+-  const config = configuration();
+-  Object.defineProperty(config.models.providers["stella-guarded"], "apiKey", { get() { throw new Error("Credentials must not be read"); } });
+-  const target = resolveHostReplayTarget(config, modelRef)!;
+-  assert.deepEqual(target, { provider: "stella-guarded", modelId: "gemini-3.8-flash", api: "google-generative-ai" });
+-  assert.ok(Object.isFrozen(target));
+-  config.models.providers["stella-guarded"].api = "other";
+-  assert.equal(target.api, "google-generative-ai");
+-  assert.equal(resolveHostReplayTarget({}, modelRef), undefined);
+-  assert.equal(resolveHostReplayTarget(configuration(), "google/gemini-3.8-flash"), undefined);
+-  const duplicate = configuration(); duplicate.models.providers["stella-guarded"].models.push({ id: "gemini-3.8-flash" });
+-  assert.equal(resolveHostReplayTarget(duplicate, modelRef), undefined);
+-});
+-
+-test("actual provider API/model must match the independently bound replay target", () => {
+-  const target = resolveHostReplayTarget(configuration(), modelRef);
+-  assertHostReplayTarget(target, modelRef, "google-generative-ai");
+-  assert.throws(() => assertHostReplayTarget(target, modelRef, "openai-completions"), /host_context_replay_target_changed/);
+-  assert.throws(() => assertHostReplayTarget(target, "stella-guarded/other", "google-generative-ai"), /host_context_replay_target_changed/);
+-});
+-
+-test("fixed Google projection changes only the known declaration from original bound input", async () => {
+-  const prior = input(), snapshot = structuredClone(prior);
+-  const project = await loadHostReplayProjection("2026.8.2", resolveHostReplayTarget(configuration(), modelRef));
+-  const wire = project(prior);
+-  const expected = structuredClone(prior); delete expected.tools[0]!.parameters.additionalProperties;
+-  assert.equal(contextInputDigest(wire), contextInputDigest(expected));
+-  assert.deepEqual(prior, snapshot);
+-  assert.equal(schema(prior).additionalProperties, false);
+-  assert.equal(Object.hasOwn(schema(wire), "additionalProperties"), false);
+-  const wrong = structuredClone(wire); wrong.messages[0]!.content = "Unbound source";
+-  assert.notEqual(contextInputDigest(wrong), contextInputDigest(project(prior)));
+-});
+-
+-test("Google codec cannot be selected by observed schema or for another Host/model", async () => {
+-  const prior = input();
+-  assert.equal(schema((await loadHostReplayProjection("2026.8.2"))(prior)).additionalProperties, false);
+-  const openai = { provider: "stella-guarded", modelId: "gemini-3.8-flash", api: "openai-completions" };
+-  assert.equal(schema((await loadHostReplayProjection("2026.8.2", openai))(prior)).additionalProperties, false);
+-  await assert.rejects(loadHostReplayProjection("2026.8.1", resolveHostReplayTarget(configuration(), modelRef)), /host_context_replay_version_unsupported/);
+-  await assert.rejects(loadHostReplayProjection("2026.8.2", { ...openai, api: "google-generative-ai", modelId: "other" }), /host_context_replay_target_unsupported/);
+-});
+-
+-// D-062 replacements for "already omitted" and the non-Stella schema assertion:
+-// docs/HOST-REPLAY-CODEC-MIGRATION.md. The other seven legacy cases stay active.
+-for (const mutation of ["required", "enum", "extra property", "description"] as const) test(`Google original schema rejects unbound ${mutation}`, async () => {
+-  const original = input(), tool = original.tools[0]!;
+-  if (mutation === "required") tool.parameters.required = ["action", "handle"];
+-  if (mutation === "enum") tool.parameters.properties = { action: { type: "string", enum: ["read", "delete"] } };
+-  if (mutation === "extra property") tool.parameters.properties = { ...(tool.parameters.properties as Record<string, unknown>), path: { type: "string" } };
+-  if (mutation === "description") tool.description += " extra";
+-  const project = await loadHostReplayProjection("2026.8.2", resolveHostReplayTarget(configuration(), modelRef));
+-  assert.throws(() => project(original), /host_context_google_tool_schema_unbound/);
+-});
+-
+-test("Google projected tool declaration keeps original system lineage and validates archived assistant basis", async () => {
+-  const original = input();
+-  const sources = { dependencies: [], originals: [], payloads: [], configurationInputs: [], archives: [] };
+-  const trace = assembleContextTrace(original, [], [contextFragmentTrace("current_input", "Synthetic current input", sources)]);
+-  const wire = (await loadHostReplayProjection("2026.8.2", resolveHostReplayTarget(configuration(), modelRef)))(original);
+-  const projected = projectContextTrace(trace, wire);
+-  assert.notEqual(projected.system, trace.system);
+-  assert.deepEqual(projected.nodes.find(node => node.id === projected.system)!.parents, [trace.system]);
+-  assert.ok(projected.nodes.some(node => node.id === trace.system && node.content.includes('"additionalProperties":false')));
+-  readContextInputTrace(projected, wire, sources);
+-  const message = { role: "assistant" as const, content: [{ type: "text" as const, text: "Synthetic answer" }],
+-    api: "google-generative-ai", provider: "stella-guarded", model: "gemini-3.8-flash", stopReason: "stop" as const, timestamp: 0,
+-    usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
+-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } };
+-  const archived = appendAssistantTrace(projected, wire, message);
+-  const completed = { ...wire, messages: [...wire.messages, message] };
+-  readContextInputTrace(archived, completed, sources);
+-  const restored = projectContextTrace(archived, { ...completed, tools: original.tools });
+-  readContextInputTrace(restored, { ...completed, tools: original.tools }, sources);
+-  const tampered = structuredClone(restored);
+-  tampered.nodes.find(node => node.producer === "assistant")!.basisDigest = contextInputDigest(original);
+-  assert.throws(() => readContextInputTrace(tampered, { ...completed, tools: original.tools }, sources), /host_context_graph_invalid/);
+-});

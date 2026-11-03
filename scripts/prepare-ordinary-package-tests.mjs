@@ -50,7 +50,8 @@ if (process.env.GITHUB_ACTIONS === "true") assert.equal(buildIdentity.sourceClea
 assert.deepEqual(buildIdentity, JSON.parse(await readFile(path.join(root, ".test-dist/build-identity.json"), "utf8")));
 
 const suites = ["ordinary-plugin", "ordinary-source-read", "ordinary-source-admission",
-  "tool-request-binding", "current-input-metadata", "source-understanding-skill"];
+  "tool-request-binding", "current-input-metadata", "source-understanding-skill",
+  "candidate-work-brief", "author-intent-repository", "memory-transaction", "memory-transaction-journal"];
 const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js"];
 await mkdir(path.join(harness, "tests/fixtures"), { recursive: true });
 for (const file of testFiles) await copyFile(path.join(root, ".test-dist/tests", file), path.join(harness, "tests", file));
@@ -68,7 +69,7 @@ await writeFile(path.join(out, "PREPARED.json"), JSON.stringify({
   packageFiles, testFiles: await fileManifest(path.join(harness, "tests"), testFiles),
   sdkVersion: sdk.version, lockedSdkVersion: lock.packages["node_modules/openclaw"].version,
   syntheticSourceFixtureHostVersion: "2026.10.9",
-  scope: "extracted npm package; existing synthetic contracts and public skill discovery using workspace dependencies",
+  scope: "extracted npm package; existing synthetic source, draft, repository, transaction/journal contracts and public skill discovery using workspace dependencies",
   freshInstall: false, liveHost: false, realModel: false, privateSources: false, fullMemory: false,
   testCommand: "node --test --test-timeout=30000 ../harness/tests/*.test.js",
   testCwd: ".artifacts/ordinary-package/run/package",

@@ -1,0 +1,25 @@
+{
+  "commandExitReceipt": "not retained across tool output truncation; not claimed",
+  "completedCompilersEvidence": "Both fresh identity files postdate STATE-BEGIN; compile.mjs writes them only after successful compiler close. No recompilation.",
+  "identities": [
+    {
+      "path": "dist/build-identity.json",
+      "sha256": "5957cf653c652e3a67ad5fc6bafbb730a99cba0685c71634900daab547ffb07f",
+      "mtimeUtc": "2026-11-03T07:17:12.995268+00:00",
+      "identity": {
+        "coreRevision": "41cd0188b99920d8295e17804d85224f92737399",
+        "sourceClean": false
+      }
+    },
+    {
+      "path": ".test-dist/build-identity.json",
+      "sha256": "5957cf653c652e3a67ad5fc6bafbb730a99cba0685c71634900daab547ffb07f",
+      "mtimeUtc": "2026-11-03T07:17:19.985983+00:00",
+      "identity": {
+        "coreRevision": "41cd0188b99920d8295e17804d85224f92737399",
+        "sourceClean": false
+      }
+    }
+  ],
+  "previousPackagePreserved": ".artifacts/ordinary-package-before-r1-41cd018"
+}

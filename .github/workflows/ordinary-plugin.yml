@@ -28,7 +28,7 @@ jobs:
           touch .artifacts/ordinary-package/npm-user.conf .artifacts/ordinary-package/npm-global.conf
           npm pack --json --ignore-scripts --offline --cache .artifacts/ordinary-package/npm-cache --userconfig "$PWD/.artifacts/ordinary-package/npm-user.conf" --globalconfig "$PWD/.artifacts/ordinary-package/npm-global.conf" --pack-destination .artifacts/ordinary-package > .artifacts/ordinary-package/pack.json
           node scripts/prepare-ordinary-package-tests.mjs
-      - name: Test extracted package with synthetic sources
+      - name: Test extracted package sources, drafts and durable transactions
         shell: bash
         env:
           HOME: ${{ github.workspace }}/.artifacts/ordinary-package/run/home
@@ -57,5 +57,5 @@ jobs:
       - name: Explain the limited verdict
         if: always()
         run: |
-          echo 'Extracted-package contracts and public skill discovery only; no live Gateway, model semantics, private data, fresh dependency install or full_memory acceptance.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Full capability assessment and Experimental owner chat keep their complete test sets and independent failed/incomplete verdicts.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Extracted-package source, draft, repository, transaction/journal contracts and public skill discovery only; no live Gateway, model semantics, private data, fresh dependency install or full_memory acceptance.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Three old 8.2 suites and automatic full/experimental workflows were retired on 2026-11-03. Mixed authority, SQL and completion suites remain; historical failures were not repaired or accepted by this check.' >> "$GITHUB_STEP_SUMMARY"

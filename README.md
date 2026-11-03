@@ -95,15 +95,22 @@ The opt-in [experimental owner chat guide](docs/EXPERIMENTAL-OWNER-CHAT.md) desc
 
 The [Suqing closeout](docs/suqing-closeout-2026-10-23.md) records each scoped exit and remaining boundary; [current request-lifecycle work](docs/mainline-request-lifecycle-2026-10-23.md) tracks the follow-up fixes, CI evidence, and real WebChat prerequisites.
 
-[实验模式 CI 范围](docs/EXPERIMENTAL-CI.md) separates the installed synthetic owner-chat check from the independent 152-case complete-capability assessment. A green experimental check does not accept full_memory.
+[实验模式 CI 范围](docs/EXPERIMENTAL-CI.md) preserves the historical owner-chat and
+152-case complete-capability assessments. Their automatic workflows were retired
+on 2026-11-03 under the decision to prioritize the new architecture. The exact
+files are recoverable from Git; their failed results remain historical failures.
 
 `Ordinary plugin package contract` independently checks the current ordinary entry:
-existing source-read, request-admission and skill-discovery tests run against the
+existing source-read, request-admission, skill-discovery, candidate-work-brief,
+author-intent-repository, memory-transaction and journal tests run against the
 extracted npm package, with synthetic sources and workspace dependencies. It does
 not start a Gateway, install fresh dependencies, call a model or accept semantic
-understanding. Both older workflows retain their complete test sets and their own
-failed/incomplete verdicts; the new check does not turn the 26 retained failures
-into passes. The preparation receipt records the actual SDK and synthetic fixture
+understanding. Three self-contained 8.2-specific suites and their sole-use audit were
+retired with the old automatic workflows. Ten of the historical 26 failures
+belong to those suites and were **not fixed or passed**. Mixed authority, SQL and
+completion tests remain, along with shared validators and current source-access
+tests. `npm run verify` still fails on retained test failures. The preparation
+receipt records the actual SDK and synthetic fixture
 version separately; `PREPARED.json` alone is not a passing test result.
 
 ## Validation and local use
@@ -113,11 +120,15 @@ npm run check
 npm run check:schemas
 npm run build
 npm test
-npm run test:package
+npm run verify
 ```
 
-npm run verify runs that complete chain. OpenClaw 2026.8.2 is the pinned Host for integration evidence;
-2026.8.1 remains an independently unverified minimum compatibility claim.
+`npm run verify` runs type/schema checks and the complete remaining workspace
+test suite, including compilation. OpenClaw 2026.8.2 was the fixed Host for the
+historical integration evidence; the former 2026.8.1 minimum was not independently
+verified. These are historical claims, not the ordinary plugin's current test
+baseline. The repository lock pins SDK 2026.10.8; local 2026.10.9 evidence is
+reported separately and does not establish 10.8 compatibility.
 
 The current code contains managed Git durability, recovery-pointer CAS, recovery/evaluation runners,
 activation check/apply and candidate receipt tooling. Those mechanisms do not yet establish compliance

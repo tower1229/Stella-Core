@@ -1,0 +1,21 @@
+{
+  "inputs": [
+    {
+      "name": "REPORT.json",
+      "sha256": "d03ffd172829321ee4e2b940465473fade22c911b30295873a5707743dab640d"
+    },
+    {
+      "name": "SYNTHETIC.json",
+      "sha256": "6d7231f5da785d3c2ff6f53c8987f4747b2740f929dde6642ea8857ab7be3b33"
+    }
+  ],
+  "decision": "Legacy-derived migration paused per latest user priority; no production apply, new permission or compatibility framework. raw_evidence is not active Work.",
+  "scope": "Metadata and synthetic illustration read only; no additional private payload lookup. CangHai original writer owns archive and data changes.",
+  "dataProtected": {
+    "sources": 97,
+    "descriptors": 362,
+    "currentObjectsReferencingInitialization": 234,
+    "rootRef": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "source": "parent CangHai handoff; not re-enumerated here"
+  }
+}
