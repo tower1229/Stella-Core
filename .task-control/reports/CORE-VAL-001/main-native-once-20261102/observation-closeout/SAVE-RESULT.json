@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-02T15:50:39.405377+00:00",
+  "commit": "8cf8be7ed1ee96d05834883b7622b2055f6124b3",
+  "committedStateRevision": 146,
+  "exactFileCount": 59,
+  "scopeAudit": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-closeout/SAVE-AUDIT.json",
+  "scopeAuditSha256": "ae8611d7b2615aa8556555240a73f273e6b31af9ad0bdde9c48b03485f0ea49d",
+  "priorCommitsIncluded": [
+    "117c5229161f1b1a198b800117e1b428d4b6339e",
+    "8cdf0ebcc081c83c58d78307fbd0e06df2455a41",
+    "fca2f2ceb637cb6057eea15fa6aff23e471aac3f",
+    "73eb1768d86a79777899e4121baf63935326d13b"
+  ],
+  "push": {
+    "attempts": 1,
+    "exitCode": 0,
+    "mode": "ordinary_fast_forward",
+    "repository": "tower1229/Stella-Core",
+    "branch": "codex/issue23-integrated-regression",
+    "remoteBefore": "6bc71077e041676468c3b7d4690fef09640cbb6e",
+    "remoteAfterVerifiedByLsRemote": "8cf8be7ed1ee96d05834883b7622b2055f6124b3",
+    "verificationExitCode": 0,
+    "forceOrHistoryRewrite": false,
+    "source": "Prior completed git push and separate ls-remote tool receipts; no new push or remote query this turn"
+  },
+  "ci": {
+    "headSha": "8cf8be7ed1ee96d05834883b7622b2055f6124b3",
+    "status": "completed",
+    "conclusion": "failure",
+    "runs": [
+      {
+        "id": 41467929945,
+        "workflow": "CI",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/tower1229/Stella-Core/actions/runs/41467929945"
+      },
+      {
+        "id": 41467930027,
+        "workflow": "Experimental owner chat",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/tower1229/Stella-Core/actions/runs/41467930027"
+      }
+    ],
+    "countsEach": {
+      "tests": 1842,
+      "pass": 1816,
+      "fail": 26,
+      "skipped": 0
+    },
+    "baselineCommit": "6bc71077e041676468c3b7d4690fef09640cbb6e",
+    "allTestResultsMatchBaseline": true,
+    "normalized26FailureBlocksMatchBaseline": true,
+    "newRegressionObserved": false,
+    "check": "pass",
+    "schema": "pass",
+    "ciHostSdkVersion": "2026.10.8",
+    "installationPackageAndStockHostAcceptance": "not_completed_due_to_workspace_test_failure",
+    "probes": "not_completed",
+    "aggregate": "failed_prepared.json_missing",
+    "allGreen": false,
+    "evidenceSource": "Parent independent read-only CI verification supplied in this closeout delegation; not re-fetched or rerun by this task",
+    "supersedes": "earlier in_progress observation only"
+  },
+  "local": {
+    "indexEmpty": true,
+    "preexistingProjectStateSha256": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47",
+    "localReceiptStateRevision": 147,
+    "receiptAndState147UncommittedByInstruction": true,
+    "earlierReceiptWrite": "not_executed_transport_disconnected_before_process_creation"
+  },
+  "operationsThisCloseout": {
+    "tests": 0,
+    "commit": 0,
+    "push": 0,
+    "remoteQueries": 0,
+    "sandbox": 0,
+    "service": 0,
+    "models": 0,
+    "installedWrites": 0,
+    "permissionChanges": 0
+  },
+  "remaining": {
+    "taskStatus": "blocked",
+    "OSsandbox": "EPERM_exit71_unresolved",
+    "actualPendingOwner": "unknown",
+    "R2": "accepted_uninstalled_partial_observation_only",
+    "main": "ordinary restored healthy per prior dated recovery; not rechecked here",
+    "paidQuotaRemaining": 0,
+    "costsOfOriginalRequest": "unknown"
+  },
+  "resumeBoundary": "Hold. Legitimate sandbox capability resolution and separately reviewed/released bounded collection plan are required before service execution. No automatic retry from connection recovery; any new paid request needs new authorization."
+}

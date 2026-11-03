@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-03T02:44:01.711473+00:00",
+  "scope": "Read-only environment recovery investigation; archival writes only. No observation code or installed runtime change.",
+  "status": "platform_capability_clarification_required_not_recovered",
+  "baseline": {
+    "head": "8cf8be7ed1ee96d05834883b7622b2055f6124b3",
+    "stateRevision": 147,
+    "indexEmpty": true
+  },
+  "environmentMetadata": {
+    "macOS": "27.2",
+    "build": "26B123",
+    "kernel": "Darwin27.2.0 arm64",
+    "desktopBundle": "com.openai.codex",
+    "desktopVersion": "26.1027.61615",
+    "desktopBuild": "24141",
+    "executorBackendBuild": "not_exposed_or_verified",
+    "currentReadOnlyCommands": "working; does not prove inner sandbox activation works"
+  },
+  "existingFailure": {
+    "ref": ".task-control/reports/CORE-VAL-001/main-native-once-20261102/observation-r1/SANDBOX-TRUE-RESULT.json",
+    "sha256": "b251a005e8254e5fbff8f6e77a087fcc306e4e40798c0c99b191dcce4d1882f1",
+    "at": "2026-11-02T13:15:25.776696+00:00",
+    "target": "/usr/bin/true",
+    "commandType": "sandbox-exec -f unchanged-approved-profile /usr/bin/true",
+    "channel": "exec_command use_default",
+    "exit": 71,
+    "signal": null,
+    "stderr": "sandbox-exec: sandbox_apply: Operation not permitted",
+    "elapsedMs": 8.980457962024957,
+    "profileSha256": "6a221d95ebc5e354a00d58ff1eac0576898e2842cbad11b638f4ca09f38f7819",
+    "currentProfileMatches": true
+  },
+  "localOfficialEvidence": {
+    "sandboxExecMan": {
+      "path": "/usr/share/man/man1/sandbox-exec.1",
+      "sha256": "0d264f72dc6a8e0db5474840f33b512542c469beb109ed146c17055da287336b",
+      "fact": "Enters selected sandbox then executes target; deprecated utility."
+    },
+    "sandboxMan": {
+      "path": "/usr/share/man/man7/sandbox.7",
+      "sha256": "9043d9296715714f95b4de6c5f88a5436c5cc3b83b62641327212078c5c69b04",
+      "fact": "Child processes inherit parent sandbox."
+    },
+    "sdkHeader": {
+      "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sandbox.h",
+      "sha256": "a2321eb6f1d41fcc7fd8b260d5c3cef985df9e4cf0a6a7c23d91bbfd7c8f26e0",
+      "lines": "24-27",
+      "fact": "Public deprecated sandbox_init contract returns error if already sandboxed; does not itself establish private sandbox_apply cause."
+    },
+    "currentSystemBinary": {
+      "path": "/usr/bin/sandbox-exec",
+      "sha256": "10cf4a46a575e4747d2419cf343800db0d11ae6e6e9b8415998d3d8f336b2a92",
+      "inspection": "strings and otool static only; binary not executed",
+      "compileCall": "0x100000780 sandbox_compile_file",
+      "compileFailure": "0x1000007c0 null-profile branch / profile compilation failed",
+      "applyCall": "0x100000830 sandbox_apply",
+      "applyError": "0x100000834 nonzero ->0x10000086c sandbox_apply error label",
+      "execTarget": "0x100000854 execvp only after successful apply",
+      "limit": "Current binary inspected; prior failure did not freeze binary hash. Error-label/control-flow match locates the observed failure class, not exact kernel reason."
+    }
+  },
+  "officialWebSources": [
+    {
+      "url": "https://learn.chatgpt.com/docs/sandboxing",
+      "fact": "Default command sandbox inherited by spawned commands; macOS uses Seatbelt; local execution differs from cloud orchestration."
+    },
+    {
+      "url": "https://learn.chatgpt.com/docs/agent-approvals-security",
+      "fact": "Sandbox controls technical ability separately from approval policy; macOS commands use sandbox-exec."
+    },
+    {
+      "url": "https://learn.chatgpt.com/docs/enterprise/managed-configuration",
+      "fact": "Local effective policy can include system, Agent Security, legacy managed and MDM requirements; lower-priority allows cannot override applicable denies."
+    },
+    {
+      "url": "https://learn.chatgpt.com/docs/reference/troubleshooting",
+      "fact": "Supported feedback route; include app/OS/execution environment and scrub sensitive logs. No feedback submitted by this task."
+    }
+  ],
+  "classification": [
+    {
+      "layer": "transport_or_approval",
+      "conclusion": "Historical exit71 contains actual sandbox-exec application error, unlike later CreateProcess transport-disconnected events. It was not recorded as automatic approval rejection. Managed execution context can still be causal."
+    },
+    {
+      "layer": "profile_compile_or_target_runtime",
+      "conclusion": "Current binary has separate compile-failure and execvp-failure branches. Recorded sandbox_apply error is an application-stage failure; no evidence supports expanding file/network rules or changing Node/Core to fix it. Full kernel acceptance of profile semantics is not independently proved."
+    },
+    {
+      "layer": "nested_sandbox",
+      "conclusion": "Best-supported hypothesis: use_default command is already OS-sandboxed and another profile activation conflicts with inherited context. Apple inheritance/init contracts support plausibility, but historical effective parent sandbox, generated outer SBPL and exact denial operation were not captured. Not confirmed root cause."
+    }
+  ],
+  "missingDiscriminatingEvidence": "Platform-owned record of the failing command process bootstrap and effective inherited sandbox/requirements, or a denial operation tied specifically to that sandbox_apply. Current connection status and current userland metadata cannot reconstruct it. No full env, private session store, system log or process census requested.",
+  "minimalRecoveryPlan": [
+    {
+      "owner": "platform executor maintainer / OpenAI support; administrator only if a managed requirement is identified",
+      "action": "Inspect failed local exec launch context and effective policy using the recorded time/error/profile hash. Confirm whether applying an additional Seatbelt profile in this managed execution path is supported and identify the specific denial layer."
+    },
+    {
+      "owner": "platform maintainer",
+      "action": "If bootstrap incompatibility is confirmed, supply a supported corrected executor path that preserves current outer restrictions and approved test-profile constraints; identify the fixed backend/client build. No established in-session repair command is available here. Do not propose Full Access, sudo, rule deletion, alternate terminal or disabling isolation as a workaround."
+    },
+    {
+      "owner": "user/parent coordination",
+      "action": "Use official app feedback to submit only the minimal error/version/hash summary and request the above capability clarification. No full conversation/log/private profile upload is necessary. No message was sent in this task."
+    },
+    {
+      "owner": "parent after material platform repair evidence and explicit limited release",
+      "action": "Only then consider one same-policy capability validation, followed separately by reviewed zero-provider boundary/service checks. No such validation is authorized or executed in this investigation; a successful true exit alone would not prove Gateway or full isolation readiness."
+    }
+  ],
+  "remaining": {
+    "OSsandbox": "unresolved",
+    "actualNativePendingOwner": "unknown; distinct from sandbox activation issue",
+    "R2": "accepted partial-only uninstalled",
+    "main": "previously restored healthy; not queried or changed",
+    "paidQuotaRemaining": 0
+  },
+  "operations": {
+    "sandboxActivations": 0,
+    "sandboxRuleChanges": 0,
+    "services": 0,
+    "modelRequests": 0,
+    "privilegeEscalations": 0,
+    "permissionChanges": 0,
+    "privateBodyOrLogReads": 0,
+    "newDiagnosticCode": 0,
+    "messagesSent": 0,
+    "commitOrPush": 0
+  }
+}

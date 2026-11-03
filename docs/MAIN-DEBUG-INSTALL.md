@@ -150,3 +150,11 @@ TTS／视频的唯一详细正文位于同一工作区的 [Bili `docs/ARCHITECTU
 真实 Chrome WebUI 各执行一次状态工具和来源 `list`：状态返回 `public_request_adapter_requires_admission`；来源调用明确返回 `forbidden / source_request_admission_unavailable`。直接 `tools.invoke` 没有原生 Agent 请求的 run/入场 recorder，认证设备匹配不能替代这些事实。自建 Debug 页已关闭，未触碰用户聊天页。
 
 本次没有来源正文成功读回，也没有模型调用。原362描述符全部为分段范围，现行读取契约在首次原文读取前需要 Gemini 的结构化来源适用性判断；不能为完成无模型演示伪造 verdict 或绕过原生准入。下一步是另行明确模型和资料发送范围后的一个真实用户请求，观察原生请求关联、获准来源原文与位置版本。已配置不等于已供给，更不等于已理解。
+
+## 2026-11-03 timeline 卸载后的无模型恢复
+
+本次以用户卸载后的现有配置为新回滚基线，未恢复昨天的整份配置。真实 Gateway health 的 active registry 已无 timeline；同时发现 Core 也被禁用、移出插件 allowlist，来源与合成草稿配置均已移除，移除原因未确定。原 `plugins enable` 返回通用 exit 1；固定10.9实现确认 CLI 保留 allowlist，缺少 Core 会在写入前被阻断。没有保留下来的底层 Gateway 错误，不把静态分支推断写成原始错误回执。
+
+2752文件与已审普通产物清单一致后，官方链接恢复到 generation 7；随后通过官方 `plugins.setEnabled` 管理入口仅补回 `stella-core` allowlist 项并启用，generation 8、无需重启，PID仍为31634。配置差异仅 Core 加载路径、allowlist 项及 enabled；timeline、selfie及其他现有设置保留，未接受新能力、改身份/资料 grant或调用模型。真实 `stella_status` 成功：普通插件、native memory/context/loop、publisher=false，sourceRead=not_configured、persistence=none。health正常、activeWork及queuedSystemEvents均0；启用前activeOnly会话为空。公开接口未给出独立retained归属，不能称昨日3个retained已经证明归零。
+
+timeline的上下文注入可以触发原生prompt-projection持久化，其他注入也可以；目前没有证据将昨日模型等待归因于它，更未证明该等待已修复。原固定90f及5项来源/grant元数据hash仍匹配，但本次没有恢复sourceRead或读取正文。工程回执、配置差异、未验范围见[本次恢复记录](../.task-control/reports/CORE-VAL-001/post-timeline-20261103/REPORT.json)；当前安排只读唯一台账。

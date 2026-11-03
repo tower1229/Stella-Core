@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-03T03:20:51.942276+00:00",
+  "phase": "post_timeline_no_model_main_basic_runtime_recovered",
+  "base": {
+    "baseRevision": 148,
+    "baseStateSha256": "37c4e318993e3ed5d5ce6c98cab5f05de9a5f98f91a2c588fc7d7dc2364fc64f",
+    "mainDocSha256": "bf00ae96fa9748db208bf74d75aac4c4e89c50e33bccd6bcfba595e5d9d439ea",
+    "preservedProjectStateSha256": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47",
+    "head": "8cf8be7ed1ee96d05834883b7622b2055f6124b3",
+    "writer": {
+      "agent": "Core actual main source activation and forward-data handoff single writer",
+      "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+    },
+    "observedAt": "2026-11-03T03:20:51.942276+00:00"
+  },
+  "host": {
+    "version": "2026.10.9",
+    "pid": 31634,
+    "samePidAsYesterdayRecovery": true,
+    "generationBefore": 6,
+    "generationLinkedDisabled": 7,
+    "generationEnabled": 8,
+    "restartPerformed": false
+  },
+  "initialFindings": {
+    "timelineConfigDisabledAndNotAllowlisted": true,
+    "timelineAbsentActualHealthRegistry": true,
+    "coreConfigAlsoDisabledAndAbsentFromAllowlist": true,
+    "coreConfigSourceReadAndDraftRootAbsent": true,
+    "coreToolActualResult": "not_found",
+    "causeOfCoreConfigurationRemoval": "unknown; not attributed to timeline uninstall"
+  },
+  "originalEnableFailure": {
+    "exitCode": 1,
+    "at": "2026-11-03T03:01:55.788948+00:00",
+    "configUnchanged": true,
+    "cliDiagnostic": "The CLI command failed; For help, run openclaw doctor",
+    "originalDetailedGatewayErrorRetained": false,
+    "boundedExistingErrorMetadataMatches": 0,
+    "staticDirectBlocker": "CLI preserves restrictive allowlist; current list omits stella-core, so official pure policy branch rejects before consent/config write",
+    "causalBoundary": "This identifies a deterministic configuration blocker consistent with the failure; original Gateway exception payload was not retained. No claim timeline caused either enable failure or old model wait."
+  },
+  "resolution": {
+    "officialMethod": "plugins.setEnabled",
+    "params": {
+      "pluginId": "stella-core",
+      "enabled": true
+    },
+    "acknowledgeCapabilitiesUsed": false,
+    "ok": true,
+    "exitCode": 0,
+    "restartRequired": false,
+    "generation": 8,
+    "selectedEntry": ".artifacts/device-source-20261102-00dab376/ordinary/dist/src/ordinary-plugin.js",
+    "sourceDigest": "6e141fca31164d74cddad56a7ff682343adaaeca7b2c7dbfa2cd822553375e69",
+    "entrySha256": "e0f939faaf96bc3378c74c37a67b6dbbe8f89935567e4f883be8eb3f589b1459",
+    "artifactFilesMatched": 2752,
+    "artifactManifestSha256": "d560a96c530270d4f33dae31783dd72a41c51490752258b40e421617ba959e50"
+  },
+  "config": {
+    "newPostUninstallBaselineSha256": "a122f2fa3041686df1ac09252392bf372efb77eac0a32df474fe71624949908b",
+    "afterSha256": "9db921ef189ae9009f0d75b2e8f875268ce50bd490d6317ae0acc638e303d8bb",
+    "onlyChanges": [
+      "plugins.load.paths: add reviewed Core artifact",
+      "plugins.allow: add stella-core",
+      "plugins.entries.stella-core.enabled: false -> true"
+    ],
+    "timelineAndAllOtherCurrentUserSettingsUnchanged": true,
+    "sourceReadAbsent": true,
+    "candidateDraftsRootAbsent": true,
+    "privateBaselineRetainedOutsideRepository": true,
+    "oldWholeConfigNotRestored": true
+  },
+  "actualStatus": {
+    "architecture": "ordinary-plugin",
+    "stage": "candidate-only",
+    "agentId": "main",
+    "publisher": false,
+    "sourceAdapter": "not_connected",
+    "authorConfirmation": false,
+    "sourceReadPort": "not_configured",
+    "persistence": "none",
+    "candidateDraftsConfigured": false,
+    "draftScope": "synthetic_debug",
+    "modelCalls": false,
+    "legacyRuntime": "inactive",
+    "requestBinding": "public-tool-hook-metadata",
+    "currentInputAdmission": "not_connected",
+    "currentInputObservation": "passive-native-admission-metadata-only",
+    "memory": "host-owned",
+    "context": "host-owned",
+    "agentLoop": "host-owned"
+  },
+  "actualHealth": {
+    "method": "health",
+    "at": "2026-11-03T03:18:14.898461+00:00",
+    "exitCode": 0,
+    "stdoutSha256": "ba5ed1080870a57c80f66aec06ccc97d6ad606c0bd134c956c1b2f01d9c01d8d",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ok": true,
+    "plugins": {
+      "loaded": [
+        "brave",
+        "codex",
+        "deepseek",
+        "google",
+        "memory-core",
+        "minimax",
+        "openai",
+        "stella-core",
+        "telegram"
+      ],
+      "errors": [],
+      "unavailable": []
+    },
+    "configReload": {
+      "hotReloadStatus": "active"
+    }
+  },
+  "actualRuntimeWork": {
+    "method": "status",
+    "at": "2026-11-03T03:18:15.573237+00:00",
+    "exitCode": 0,
+    "stdoutSha256": "5551c446ac7b6875a62c7ff3a6dd110173ef489e8f68d74c03dd64a28ec3c0da",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "pid": 31634,
+    "runtimeVersion": "2026.10.9",
+    "shutdownBudget": {
+      "timeoutMs": 325000,
+      "reserveMs": 10000,
+      "nativeStopBudget": true,
+      "activeWork": {
+        "rootRequests": 0,
+        "cronRuns": 0,
+        "sessionMutations": 0,
+        "terminalPersistence": 0,
+        "lifecycleWrites": 0
+      },
+      "writeCustody": []
+    },
+    "queuedSystemEventsCount": 0
+  },
+  "activeSessionsBeforeEnable": {
+    "method": "sessions.list",
+    "at": "2026-11-03T03:13:40.866362+00:00",
+    "exitCode": 0,
+    "stdoutSha256": "868e5d4f76d48418f5a22b0329b11ed0ecc39fe1c86579a0e1fec517998fa289",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "count": 0,
+    "totalCount": 0,
+    "hasMore": false,
+    "returnedRows": 0
+  },
+  "retainedWork": {
+    "currentIndependentCount": null,
+    "ownerAttribution": null,
+    "limitation": "public active work/queued-system-event counts and active sessions are zero; these do not retroactively prove old opaque retained=3 cleared or attribute its ownership"
+  },
+  "timelineCausality": {
+    "actualRegistryAbsent": true,
+    "historicalConfiguredDuringOldFailure": true,
+    "independentStaticReviewSha256": "fe8bd873e0e1314f82c9773c14d439f7e9798aabdd6ad44c27dd8afb1482462e",
+    "finding": "prependContext can trigger native prompt-projection persistence; standing intents and other injectors can also do so; no causal hang proof",
+    "oldNativePendingOwner": "unknown",
+    "modelContrastRun": false
+  },
+  "sourceBindingPreparation": {
+    "at": "2026-11-03T03:18:57.423574+00:00",
+    "scope": "metadata hashes only; no source bodies or device identity output",
+    "root": "/Users/zangtao/.openclaw/stella-sources/main",
+    "commit": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "commitMatchesOriginal": true,
+    "metadata": [
+      {
+        "path": "50_PersonalAgent/stella/knowledge-migration-v1/manifest.json",
+        "sha256": "bd782c90acedc82a202e0e0d149fd4c44ef79718b6e7e30097de6da88babf7a8",
+        "matchesOriginal": true
+      },
+      {
+        "path": "50_PersonalAgent/stella/knowledge-migration-v1/runtime-profile.json",
+        "sha256": "d89bccca812a0187f56c2a645b93204c8214917a93e9c235f4bff850cb21f243",
+        "matchesOriginal": true
+      },
+      {
+        "path": "30_Knowledge/migration-v1/runtime/catalog.json",
+        "sha256": "d50cfa4d25e78c596904df03782172a225984e9020fba1ceddfa4cb969381eb6",
+        "matchesOriginal": true
+      },
+      {
+        "path": "30_Knowledge/migration-v1/converted/descriptors.supply.review.json",
+        "sha256": "38f5732508a687faaa7bd5c349c33c215f5e73c8ac5e51f60aedd536f55bb7da",
+        "matchesOriginal": true
+      },
+      {
+        "path": "50_PersonalAgent/stella/knowledge-migration-v1/capabilities/source_access_context.json",
+        "sha256": "8c8af4909a93e703950e4bf45e8b2c7159ea10dd6a81c33a9c81e70453e47b26",
+        "matchesOriginal": true
+      }
+    ],
+    "originalScope": {
+      "sources": 97,
+      "descriptors": 362,
+      "devicePrincipals": 1,
+      "readPurpose": "personal_context",
+      "derivePurpose": "personal_understanding",
+      "audience": "owner-direct",
+      "model": "google/gemini-3.8-flash"
+    },
+    "currentConfigRestored": false,
+    "currentLiveRequestAuthorityChecked": false,
+    "financeInclusionPermitted": false
+  },
+  "boundaries": {
+    "newAgentRequests": 0,
+    "paidModelRequests": 0,
+    "sourceBodyReads": 0,
+    "grantOrIdentityChanges": false,
+    "hostSourceModified": false,
+    "sandboxRetried": false,
+    "observationCandidateInstalled": false,
+    "publisher": false,
+    "CangHaiModified": false
+  },
+  "transportInterruption": {
+    "originalFinalQuery": "automatic approval review timeout before process creation; outcome recovered via cell49",
+    "sameScopeReadonlyRetry": 1,
+    "retryCompleted": true,
+    "enableOrRelinkRepeated": false
+  },
+  "nextMinimum": "Reconcile and restore only the original sourceRead binding after original97/362 grant/current ingress scope check; fixed90f and five metadata hashes match, but no live request eligibility or model use is authorized/proved by this metadata check. No new model request without explicit scope allocation.",
+  "sdkEvidence": [
+    {
+      "file": "plugins-cli.runtime-DRtu6Xd-.mjs",
+      "lines": "56-72",
+      "sha256": "f8ee28292fe996728311c766f261ebee5d8ce0e974b32a519e0f93ac1763ee5a",
+      "finding": "CLI calls plugins.setEnabled with allowlistPolicy=preserve"
+    },
+    {
+      "file": "management-mutations-BsicUGFk.mjs",
+      "lines": "173-228",
+      "sha256": "d61c7abbfed5b58eaf528f9424ba909c1ea7d0a397c2f2f80f89f278570ec1f6",
+      "finding": "preserve allowlist blocks before consent/write; official management default adds only selected plugin"
+    },
+    {
+      "file": "enable-DpFYy764.mjs",
+      "lines": "28-67",
+      "sha256": "85891fe945d85131d578958c403b8947fdbb490ef9d1e8c9497e5d290668479d",
+      "finding": "nonempty allowlist missing stella-core returns blocked by allowlist"
+    },
+    {
+      "file": "collector-x2sil8px.mjs",
+      "lines": "113-150",
+      "sha256": "a339103e47af482c84e549848e1bbf7bb795dff4b512018ba5786d37d5a7ca70",
+      "finding": "health loaded plugin list reads actual active Gateway registry"
+    }
+  ],
+  "receiptHashes": {
+    "BASELINE.json": "d7d4e33ae2ba3742c9414b678251b892f2819e7544f48c92a1170c1c93072a81",
+    "status-summary.json": "bcc3ea93e604e2385f78f66a92cf0ba216067377d554f2d71b504d38ce1bc08f",
+    "health-runtime-summary.json": "7e6ff26773b06cf84e374abc1572aa768f30be74d0590b7a7cdfa7cf8b83087b",
+    "sessions-list-runtime-summary.json": "12e330effd72357ce51666a591ca6ed31e1e12ad92065155202df2813a83e61f",
+    "core-status-availability.json": "02990e4672d7da8394b03ed555d2aed91cb30a4954548c3616340c80710ecddf",
+    "ordinary-preflight.json": "d659015ef3df0a55f16c8c7d209bcaa667cc35a3752e5a2f77727f94cae4ad5c",
+    "ordinary-link.claim.json": "149f1f60e4339d8da2f2ed40415c53b083c1a77df1ea76b4cead971dc9413738",
+    "ordinary-link.receipt.json": "0ccc0d7e7070208361ca9f78ee5d36958b92f174aa806838871a972bd077d123",
+    "ordinary-enable.claim.json": "fd0f4eb51c679572765ec718e726fddb63aed7f26a66a27901e8a6a098a9008f",
+    "ordinary-enable.receipt.json": "5fc95527494e5994ec7ee48c991d935524d4c7a5091b0598680721ba8948f8ce",
+    "final-query-first-approval-timeout.json": "976a9f307d12aa38be990045a7b31f82defeb25b12946bbf151cb2d3fb6c4a3a",
+    "final-runtime.json": "3fd2b2ff669d65f7ba307e647785124b2beed42ba8a3413fe074d31bef433e67",
+    "core-enable-inspect.json": "1a8add121ea2e4e9a4a81441480e1ed7f971e5d11f9478749510ff24c0b15b4e",
+    "original-enable-error-metadata.json": "d3b1b4376f8903e6249f6e8644d66e5713c092fe40dae7ce50632cac38ad81a5",
+    "ordinary-managed-enable.claim.json": "ce98cc8f2a5764b4706e992a329c3c77cf73a45af5773edb1b2661c900dd28a6",
+    "ordinary-managed-enable.receipt.json": "8f4bee18e1b1f27ee8167e10bb6b45bdfbe67a77ee289e276045c9e1c607c533",
+    "ordinary-recovery-verified.json": "7aaadadae07ad0e15dc2696820842daca4af20d9d2f3f94c4b5de5fa02e4b99e",
+    "source-binding-unchanged-metadata.json": "80dcbde58bb19bef4ece8adaa9af6c9bee95f7017e49b6d49bee67d0c567d0f7"
+  },
+  "save": {
+    "committed": false,
+    "pushed": false,
+    "rawLogsPrivateConfigAndSeedsExcluded": true
+  }
+}
