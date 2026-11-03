@@ -12,6 +12,7 @@ import { prepareRepositorySource } from "../../src/canghai/repository-source.js"
 import { CatalogError, parseMemoryCatalog } from "../../src/canghai/catalog-reader.js";
 import { canonicalJson, bytesVersion, objectVersion } from "../../src/canghai/content-version.js";
 import type { VersionedRef } from "../../src/praxis/episode-v2.js";
+import { sourceSegments, assertEvidenceSegment, segmentLocator } from "../../src/canghai/source-segments.js";
 
 const run = promisify(execFile);
 export const prefix = "50_PersonalAgent/stella/knowledge-migration-v1";
@@ -77,7 +78,13 @@ export async function fixture(t: TestContext, count = 3, textSize = 0, payloadTe
   };
   const revision = await commit();
   let metadataCalls = 0; const sourcePolicies: string[] = [];
-  const admission: SourceReadAdmission = { assertCurrent() {}, async assertMetadata() { metadataCalls++; },
+  const admission: SourceReadAdmission = { assertCurrent() {}, async assertMetadata(reader, ref) {
+    metadataCalls++;
+    const e = await reader.read(ref, "evidence"), source = await reader.read(e.source as VersionedRef, "sources");
+    const segment = assertEvidenceSegment(sourceSegments(source), e);
+    return { sourceRef: e.source as VersionedRef, policyRef: e.policyRef as VersionedRef,
+      ...(segment ? { segment: segmentLocator(segment) } : {}), description: `Reviewed fictional record ${refs.findIndex(r => r.id === ref.id)}.` };
+  },
     purpose: { readPurpose: "read", derivePurpose: "interpret", deliveryScope: "host", evidenceCutoff: "2026-10-01T00:00:00Z",
       trustedAdapters: { user_report: [], tool_observation: [], system_event: [] },
       sourceAccess: async (_reader, target) => { sourcePolicies.push(target.policyRef.id); return { judgment: {

@@ -26,6 +26,72 @@ test("selected real-contract manifest/profile/catalog lists roles and times with
   assert.equal(JSON.stringify(result).includes("the harbor walk"), false); assert.equal(result.scope, "selected_manifest_catalog");
 });
 
+test("descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence", async t => {
+  const f = await fixture(t, 1), originalRead = CatalogReader.prototype.readPayload;
+  CatalogReader.prototype.readPayload = async () => { throw new Error("list must not read payload"); };
+  t.after(() => { CatalogReader.prototype.readPayload = originalRead; });
+  const result = await f.execute({ action: "list" }, { ...f.admission, async assertMetadata(reader, ref) {
+    const descriptor = await f.admission.assertMetadata(reader, ref); if (descriptor === false) assert.fail();
+    return { ...descriptor, extraPrivateBody: "synthetic-unapproved-body",
+      sourceRef: { ...descriptor.sourceRef, extraPrivateBody: "synthetic-unapproved-body" },
+      policyRef: { ...descriptor.policyRef, extraPrivateBody: "synthetic-unapproved-body" } };
+  } });
+  if (result.status !== "listed") assert.fail();
+  assert.equal(result.items[0].description, "Reviewed fictional record 0.");
+  assert.equal(result.descriptionUse, "untrusted_locator_not_evidence");
+  assert.deepEqual(Object.keys(result.items[0]).sort(), ["ref", "sourceRef", "policyRef", "segment", "description", "role", "kind", "occurredAt", "authoredAt", "capturedAt"].sort());
+  assert.equal(JSON.stringify(result).includes("synthetic-unapproved-body"), false);
+  assert.equal(f.sourcePolicies.length, 0);
+});
+
+test("list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies", async t => {
+  const f = await fixture(t, 1);
+  const mutations = [
+    () => undefined,
+    (d: any) => ({ ...d, description: " " }),
+    (d: any) => ({ ...d, description: "x".repeat(8001) }),
+    (d: any) => ({ ...d, description: { text: "not a string" } }),
+    (d: any) => ({ ...d, sourceRef: { ...d.sourceRef, version: "sha256:" + "a".repeat(64) } }),
+    (d: any) => ({ ...d, policyRef: { ...d.policyRef, version: "sha256:" + "a".repeat(64) } }),
+    (d: any) => ({ ...d, segment: { ...d.segment, start: d.segment.start + 1 } }),
+    (d: any) => ({ ...d, segment: undefined }),
+  ];
+  for (const mutate of mutations) await assert.rejects(f.execute({ action: "list" }, { ...f.admission,
+    async assertMetadata(reader, ref) { return mutate(await f.admission.assertMetadata(reader, ref)); },
+  } as SourceReadAdmission), /source_descriptor_(unavailable|mismatch)/);
+  assert.equal(f.sourcePolicies.length, 0);
+});
+
+test("descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate", async t => {
+  const f = await fixture(t, 8), description = "漢".repeat(7500), refs: VersionedRef[] = [];
+  const admission = { ...f.admission, async assertMetadata(reader: CatalogReader, ref: VersionedRef) {
+    const descriptor = await f.admission.assertMetadata(reader, ref); if (descriptor === false) return false as const;
+    return { ...descriptor, description };
+  } };
+  let cursor: { catalogHash: string; offset: number } | undefined, pages = 0;
+  do {
+    const result = await f.execute({ action: "list", ...(cursor ? { cursor } : {}) }, admission);
+    if (result.status !== "listed") assert.fail();
+    assert.ok(Buffer.byteLength(JSON.stringify(result), "utf8") <= 128 * 1024);
+    assert.ok(result.items.length > 0); assert.equal(result.excludedByScopeOnPage, 0); assert.equal(result.excludedByTimeOnPage, 0);
+    for (const item of result.items) { assert.equal(item.description, description); refs.push(item.ref); }
+    if (result.nextCursor) assert.ok(result.nextCursor.offset > (cursor?.offset ?? 0));
+    cursor = result.nextCursor ?? undefined; pages++; assert.ok(pages <= 8);
+  } while (cursor);
+  assert.ok(pages > 1); assert.deepEqual(refs, f.refs); assert.equal(f.sourcePolicies.length, 0);
+});
+
+test("an expired metadata await cannot release descriptors after replacing the original guard", async t => {
+  const f = await fixture(t, 1); let active = true;
+  const admission: SourceReadAdmission = { ...f.admission, assertCurrent() { assert.ok(active, "request_expired"); },
+    async assertMetadata(reader, ref) {
+      const descriptor = await f.admission.assertMetadata(reader, ref);
+      active = false; admission.assertCurrent = () => {}; return descriptor;
+    } };
+  await assert.rejects(f.execute({ action: "list" }, admission), /request_expired/);
+  assert.equal(f.sourcePolicies.length, 0);
+});
+
 test("exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies", async t => {
   const f = await fixture(t), result = await f.execute({ action: "read", ref: f.refs[0] });
   assert.equal(result.status, "read"); if (result.status !== "read") assert.fail();
@@ -126,7 +192,7 @@ test("cancelled or expired original admission cannot be replaced during awaits",
   await assert.rejects(executeOrdinarySourceRead({ binding: f.binding, agentId: "main", hostVersion, parameters: { action: "list" }, admission: f.admission, signal: abort.signal }), /synthetic cancelled/);
   let active = true;
   const admission = { ...f.admission, assertCurrent() { assert.ok(active, "source admission expired"); }, async assertMetadata() {
-    active = false; admission.assertCurrent = () => {};
+    active = false; admission.assertCurrent = () => {}; return false as const;
   } };
   await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }, admission), /source admission expired/);
   assert.equal(f.sourcePolicies.length, 0);

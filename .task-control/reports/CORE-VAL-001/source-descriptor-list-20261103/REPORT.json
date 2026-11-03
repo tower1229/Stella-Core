@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-03T05:18:31.323816+00:00",
+  "goal": "Expose existing authorized descriptions so the native Agent can select relevant versioned sources, then verify originals. Deterministic data seam only.",
+  "baseline": "6b400c2048c32bc2ae30ba4601c5315c90ecb9ae",
+  "task": "CORE-VAL-001",
+  "requirements": [
+    "docs/09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority",
+    "docs/ORDINARY-SOURCE-READ.md#tool-contract"
+  ],
+  "existingContracts": [
+    "src/canghai/personal-context-access.ts: reviewed descriptor processing grant and model/requester/purpose checks",
+    "src/canghai/semantic-retrieval.ts: descriptors are selection locators, not facts; older retrieval engine not reactivated",
+    "src/canghai/source-access.ts: original-body access requires separate semantic source-policy judgment"
+  ],
+  "files": [
+    "src/openclaw/ordinary-source-admission.ts",
+    "src/openclaw/ordinary-source-read.ts",
+    "src/ordinary-plugin.ts",
+    "tests/fixtures/ordinary-source-read.ts",
+    "tests/ordinary-source-admission.test.ts",
+    "tests/ordinary-source-read.test.ts",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ],
+  "implementation": {
+    "admission": "existing base+leaf descriptor scope and derive-processing authority; return leaf descriptor, never grant extras",
+    "list": "snapshot description and validate exact Source/policy/segment binding; projected refs; no payload read or semantic ranking",
+    "pagination": "maximum32 scanned entries and128KiB serialized list result; overflow row returned whole on next page, no silent loss",
+    "read": "existing body gate/role/time/original bytes retained",
+    "nativeGuidance": "semantic selection and original verification via existing tool; no new loop or lexical filter"
+  },
+  "validation": "TEST-RESULT.json",
+  "redGreen": "old production entry omitted description; strengthened test fails before and passes after",
+  "codeReview": "author reviewed, pending independent review",
+  "deployment": "not installed",
+  "newPaidCalls": 0,
+  "realPayloadReads": 0,
+  "mainChanges": 0,
+  "grantChanges": 0,
+  "pushAssigned": false,
+  "localCommit": "pending; exact receipt follows outside commit",
+  "remaining": [
+    "Model semantic quality and real native consumption still unverified. Paid testing and runtime activation are not authorized by this code package.",
+    "Original full main tool-scope and final-argument fixture issues are separate; no environment work or bypass attempted."
+  ],
+  "preserved": [
+    "prior PROJECT-STATE dirty bytes",
+    "prior30 documentation lines",
+    "all old untracked/paused candidates",
+    "all historical failed runs and spent quotas"
+  ],
+  "manifest": {
+    "src/openclaw/ordinary-source-admission.ts": {
+      "sha256": "2ebbf257feaf659a35aa9114ec5e2efd308387772d05b4e39762eb7e3bdbfaa7",
+      "bytes": 20251
+    },
+    "src/openclaw/ordinary-source-read.ts": {
+      "sha256": "f600c0fbe0cbe41e5205416bc40785bc51ddf84a1678215a4024c6e99a52bd57",
+      "bytes": 16181
+    },
+    "src/ordinary-plugin.ts": {
+      "sha256": "5f1fb911b85225154cbb0901fd3031e4e2d05f99e6de10c9de78bd98d810d637",
+      "bytes": 15268
+    },
+    "tests/fixtures/ordinary-source-read.ts": {
+      "sha256": "4f07d82a8abc80735d8de1bd887d4511f2a8c1376a837fd662a83eabd69a6f93",
+      "bytes": 8823
+    },
+    "tests/ordinary-source-admission.test.ts": {
+      "sha256": "e07f198476000f00109461664461d827eedc7e9ac82c2a224c0b8f6bd7ad28f1",
+      "bytes": 31480
+    },
+    "tests/ordinary-source-read.test.ts": {
+      "sha256": "d81b0d2c92e7617ebb530fa870fe5ced631ae7e4454f2ff17c863140a21fe6e4",
+      "bytes": 18661
+    },
+    "docs/ORDINARY-SOURCE-READ.md": {
+      "stagedCandidateSha256": "d6445696f396705c1b65d1123fb0ff0f4acf54aa492326103e86b1bb5ee64139",
+      "workingCopySha256": "292ee5f855d9c73b73f6e8bc8e0370ba36d843cf6eccf0da2368d4d19ede6c83",
+      "reason": "30 prior uncommitted lines kept in worktree, excluded from this commit; DOCUMENT.patch applies only this package to HEAD"
+    }
+  }
+}

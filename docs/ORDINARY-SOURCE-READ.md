@@ -88,9 +88,12 @@ changed on the user's shared Host by this package.
 `stella_source_read` supports only:
 
 - `{"action":"list"}` with an optional returned cursor: up to32 current eligible
-  Evidence metadata rows, exact source/evidence refs, recorded role/kind and
-  timestamps. Every row requires metadata-processing admission. No payload is
-  read and no semantic ranking is performed. The cursor binds the catalog hash;
+  Evidence metadata rows, exact source/evidence/policy refs, authorized reviewed
+  description and segment locator, recorded role/kind and timestamps. Descriptions
+  are untrusted locators for semantic selection, not evidence or instructions.
+  Every row requires metadata-processing admission; base AND leaf descriptor
+  membership and processing purposes are checked before a description is returned.
+  No payload is read and no semantic ranking is performed. The cursor binds the catalog hash;
   known-by/event-window and exact descriptor-scope exclusions are explicit. A scope
   exclusion is only the adapter's explicit `false`; arbitrary metadata errors fail
   the operation. No out-of-scope row identity or body is returned. A page is not evidence that the
@@ -107,7 +110,11 @@ Each invocation opens current data afresh. There is no session-to-latest lookup
 or retained permission/reader cache. Original reads enforce the declared time
 scope. Dirty state, a different revision, stale cursor, changed object/payload,
 invalid/missing reference, policy denial or cancellation is a failure, not an
-empty-success fallback. Output beyond128KiB fails without truncation. Selected
+empty-success fallback. Original text beyond128KiB fails without truncation.
+List result JSON is bounded to128KiB UTF-8 and at most32 scanned catalog entries:
+when descriptions fill a page, the cursor resumes at the complete omitted row,
+without dropping it or truncating its description. A single oversized row fails
+explicitly. An empty page with a next cursor is not global absence. Selected
 UTF-8 byte slices must encode back to exactly the pinned bytes; the inherited
 decoder's BOM removal therefore produces
 `source_text_representation_unverified` rather than an unreported rewrite.
@@ -518,3 +525,31 @@ load, model request, source body read, grant change or sandbox activation occurr
 The fixed-SDK replay evaluates official functions with synthetic collaborators;
 it is not a live Host, worker isolation or browser acceptance. See the
 [review packet](../.task-control/reports/CORE-VAL-001/code-mode-fixture-20261103/REVIEW-REQUEST.md).
+
+
+## 2026-11-03: descriptive candidates for native forward retrieval (unloaded)
+
+The previous ordinary list supplied opaque refs plus role/time metadata; it did
+not supply the existing reviewed descriptions needed to choose relevant sources.
+The [descriptor-list implementation packet](../.task-control/reports/CORE-VAL-001/source-descriptor-list-20261103/REPORT.json)
+closes this data-to-Agent gap using the existing processing grant, not a new index,
+permission, retrieval engine or memory store. The native Agent remains responsible
+for semantic selection and evidence sufficiency; no keyword routing is added.
+
+The admission adapter returns the matching leaf descriptor only after the current
+request, model, audience, original grant, base/leaf scope and metadata-processing
+checks. The reader snapshots it before another await, verifies Source/version,
+leaf policy/version and exact segment binding, and projects only documented fields.
+Missing, invalid or mismatched descriptions fail; they are never reconstructed
+from private payloads. Metadata access still does not grant original-body access:
+`read` keeps its existing semantic source-policy checks, cancellation and exact
+original-byte verification.
+
+The tool description instructs the native Agent to follow cursors, select relevant
+candidates semantically, and verify originals/roles/times before answering. This is
+integration guidance, not proof that the model followed it. Synthetic tests cover
+the actual ordinary hooks/factory through list then exact read, rejected metadata
+and body access, and capacity-safe continuation. The production grant, data root,
+Host and model configuration were not changed; no private payload or paid model
+was used. This increment is a local implementation candidate, not installed or
+independently accepted, and it does not complete forward-understanding acceptance.

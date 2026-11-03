@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "baselineFailingTest": "actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel",
+  "red": {
+    "exitCode": 1,
+    "pass": 0,
+    "fail": 1,
+    "actualDescription": null,
+    "expectedDescription": "A synthetic harbor-walk record; no real person or private history."
+  },
+  "compileFirst": {
+    "exitCode": 1,
+    "reason": "TS7034/TS7005 local list-array type required; fixed with explicit item type"
+  },
+  "compileFinal": {
+    "command": "node scripts/compile.mjs test",
+    "exitCode": 0
+  },
+  "focused": {
+    "command": "node --test .test-dist/tests/ordinary-source-read.test.js .test-dist/tests/ordinary-source-admission.test.js",
+    "exitCode": 0,
+    "tests": 42,
+    "pass": 42,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "newTestGroups": 4,
+    "existingProductionEntryTestStrengthened": true
+  },
+  "logs": {
+    "green.tap": {
+      "sha256": "70272788c98bcc53adefd20d192f1e443735a9594757a4abdace4e820364e8f1",
+      "bytes": 5092
+    },
+    "red-compile.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "green-compile.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "compile-first-type-failure.log": {
+      "sha256": "a9606b44a6f2cade9a2f0ec5bd65d6b1a6be2756016273d792fc8300ff59341e",
+      "bytes": 844
+    },
+    "red.tap": {
+      "sha256": "c4da00340a17bf963ff7237979347e835df86908089b5b1037483cfe9a6251ac",
+      "bytes": 1252
+    }
+  },
+  "runtime": "Node24.22.1; installed OpenClaw SDK2026.10.9; no Host or provider process started by this package",
+  "claimsExcluded": [
+    "real semantic selection",
+    "private payload consumption",
+    "installed Host validation",
+    "full suite green"
+  ]
+}

@@ -19,8 +19,9 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
   const sourceRef = { id: f.catalog.sources[0]!.id, version: f.catalog.sources[0]!.version };
   const segment = source.accessSegments[0];
   const grant = { schemaVersion: "stella.personal-context-access/v1", ownerId: "synthetic-owner", requesterIds: [requesterId],
-    modelRefs: ["google/gemini-3.8-flash"], purpose, descriptors: [source.policyRef, segment.policyRef].map(policyRef =>
-      ({ sourceRef, policyRef, segment: segmentLocator(segment), description: "A synthetic harbor-walk record; no real person or private history." })) };
+    modelRefs: ["google/gemini-3.8-flash"], purpose, descriptors: [source.policyRef, segment.policyRef].map((policyRef, index) =>
+      ({ sourceRef, policyRef, segment: segmentLocator(segment), description: index === 0 ? "Synthetic parent metadata, not a segment description." :
+        "A synthetic harbor-walk record; no real person or private history." })) };
   f.profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
     config_ref: `path:${grantPath}`, acceptance_ref: `path:${prefix}/not-loaded-acceptance.json`, required_secret_refs: [] } as never);
   await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
@@ -63,9 +64,13 @@ test("actual ordinary hooks and factory read only reviewed descriptors, then exa
   const f = await setup(t), turn = f.turn(); turn.dispatch(); assert.equal(turn.hook("list"), undefined);
   const listed = await turn.tool.execute("list", { action: "list" });
   assert.equal(listed.details.status, "listed"); assert.equal(listed.details.items.length, 1); assert.equal(listed.details.excludedByScopeOnPage, 1);
+  assert.equal(listed.details.items[0].description, f.grant.descriptors[1]!.description);
+  assert.deepEqual(listed.details.items[0].policyRef, f.grant.descriptors[1]!.policyRef);
+  assert.deepEqual(listed.details.items[0].segment, f.grant.descriptors[1]!.segment);
+  assert.equal(listed.details.descriptionUse, "untrusted_locator_not_evidence");
   assert.equal(f.modelCalls(), 0); assert.equal(JSON.stringify(listed).includes("harbor walk is planned"), false);
   assert.equal(turn.hook("read"), undefined);
-  const read = await turn.tool.execute("read", { action: "read", ref: f.refs[0] });
+  const read = await turn.tool.execute("read", { action: "read", ref: listed.details.items[0].ref });
   assert.equal(read.details.status, "read"); assert.equal(read.details.original.text, f.texts[0]); assert.equal(f.modelCalls(), 2);
   assert.equal(read.details.publisher, false); assert.equal(read.details.authorConfirmation, false);
   turn.hook("out-of-scope"); const denied = await turn.tool.execute("out-of-scope", { action: "read", ref: f.refs[1] });

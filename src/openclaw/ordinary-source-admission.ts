@@ -230,7 +230,7 @@ export function createOrdinarySourceAdmission(input: {
         const sourceAccess = createPersonalContextAccess({ request, modelRef: SOURCE_POLICY_MODEL, binding: processing.loaded,
           assertRequestCurrent: guard, reuseWithinRequest: true, signal, processingAuthority: authority,
           complete: async params => { guard(); const value = await input.complete(params); guard(); return value; } });
-        const descriptors = new Set(config.descriptors.map(sourceAccessKey));
+        const descriptors = new Map(config.descriptors.map(d => [sourceAccessKey(d), d]));
         return { assertCurrent: guard,
           purpose: { ...config.purpose, evidenceCutoff: turn.cutoff, trustedAdapters: { user_report: [], tool_observation: [], system_event: [] }, sourceAccess },
           async assertMetadata(reader, ref) {
@@ -249,6 +249,11 @@ export function createOrdinarySourceAdmission(input: {
             check(leafPolicy.ownerId === config.ownerId, "personal_context_owner_mismatch");
             assertProcessingStage(authority, leafPolicy, "derive");
             guard();
+            const descriptor = descriptors.get(sourceAccessKey({ sourceRef: evidence.source, policyRef: evidence.policyRef,
+              ...(segment ? { segment: segmentLocator(segment) } : {}) }))!;
+            return { sourceRef: { id: evidence.source.id, version: evidence.source.version },
+              policyRef: { id: evidence.policyRef.id, version: evidence.policyRef.version },
+              ...(segment ? { segment: segmentLocator(segment) } : {}), description: descriptor.description };
           } };
       };
     },

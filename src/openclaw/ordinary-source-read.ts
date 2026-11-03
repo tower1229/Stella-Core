@@ -6,7 +6,9 @@ import { satisfies } from "semver";
 import { parse as parseYaml } from "yaml";
 import { Type } from "typebox";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
-import { bytesVersion } from "../canghai/content-version.js";
+import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
+import type { SourceAccessDescriptor } from "../canghai/source-access.js";
+import { sourceSegments, assertEvidenceSegment, segmentLocator, type SegmentLocator } from "../canghai/source-segments.js";
 import { MAX_CANGHAI_DOCUMENT_BYTES, parseConsciousnessManifest } from "../canghai/manifest.js";
 import { parseRuntimeProfile } from "../canghai/runtime-profile.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
@@ -15,13 +17,15 @@ import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
 
 export const SOURCE_READ_TOOL = "stella_source_read";
+export const MAX_SOURCE_LIST_BYTES = 128 * 1024;
 export type SourceReadBinding = Readonly<{ root: string; manifestPath: string; revision: string }>;
 /** Supplied by an existing trusted request/source-processing adapter, never tool
  * arguments or plugin config. Root selection and owner status do not mint it. */
 export type SourceReadAdmission = {
   assertCurrent(): void | Promise<void>;
-  /** false is an explicit descriptor-scope exclusion, never an arbitrary error. */
-  assertMetadata(reader: CatalogReader, ref: VersionedRef): Promise<void | false>;
+  /** Return the existing, processing-authorized leaf descriptor. false is an
+   * explicit scope exclusion, never an arbitrary error or a grant to read text. */
+  assertMetadata(reader: CatalogReader, ref: VersionedRef): Promise<SourceAccessDescriptor | false>;
   purpose: EvidencePurpose;
 };
 const run = promisify(execFile);
@@ -143,25 +147,51 @@ export async function executeOrdinarySourceRead(input: {
     check(!args.cursor || args.cursor.catalogHash === reader.catalogHash, "source_cursor_stale");
     const entries = reader.catalog.evidence.filter(e => e.status === "current" && reader.eligible(e));
     const offset = args.cursor?.offset ?? 0; check(offset <= entries.length, "source_cursor_invalid");
-    const items = []; let excludedByScopeOnPage = 0;
+    const items: Array<{ ref: VersionedRef; sourceRef: VersionedRef; policyRef: VersionedRef; description: string; segment?: SegmentLocator;
+      role: unknown; kind: unknown; occurredAt: unknown; authoredAt: unknown; capturedAt: unknown }> = [];
+    let excludedByScopeOnPage = 0, excludedByTimeOnPage = 0, scanned = 0;
     const page = entries.slice(offset, offset + 32);
+    const listed = () => ({ status: "listed" as const, ...snapshot, items,
+      nextCursor: offset + scanned < entries.length ? { catalogHash: reader.catalogHash, offset: offset + scanned } : null,
+      excludedByScopeOnPage, excludedByTimeOnPage, descriptionUse: "untrusted_locator_not_evidence" as const,
+      semanticSelection: "not_performed" as const, questionSufficiency: "not_assessed" as const });
     for (const entry of page) {
       const ref = { id: entry.id, version: entry.version };
+      await guard();
       const allowed = await metadata(reader, ref); await guard();
-      if (allowed === false) { excludedByScopeOnPage++; continue; }
+      if (allowed === false) { excludedByScopeOnPage++; scanned++; continue; }
+      // Snapshot before another await; never release arbitrary grant fields or
+      // substitute original text when a reviewed description is unavailable.
+      const descriptor = structuredClone(allowed);
+      check(isRecord(descriptor) && validMemoryRef(descriptor.sourceRef) && validMemoryRef(descriptor.policyRef) &&
+        typeof descriptor.description === "string" && descriptor.description.trim() && descriptor.description.length <= 8_000,
+      "source_descriptor_unavailable");
       await pinRef(ref);
       const e = await reader.read(ref, "evidence"); await guard();
-      check(validMemoryRef(e.source) && ["owner", "other", "assistant", "tool", "external_author", "unknown"].includes(String(e.role)) &&
+      check(validMemoryRef(e.source) && validMemoryRef(e.policyRef) && ["owner", "other", "assistant", "tool", "external_author", "unknown"].includes(String(e.role)) &&
         ["direct_observation", "reported", "inference", "quotation", "unknown"].includes(String(e.kind)) && timestamp(e.occurredAt, true) &&
         timestamp(e.authoredAt, true) && timestamp(e.capturedAt), "invalid_evidence");
-      if (!evidenceTemporallyEligible(e, purpose)) continue;
-      items.push({ ref, sourceRef: { id: e.source.id, version: e.source.version }, role: e.role, kind: e.kind, occurredAt: e.occurredAt, authoredAt: e.authoredAt, capturedAt: e.capturedAt });
+      if (!evidenceTemporallyEligible(e, purpose)) { excludedByTimeOnPage++; scanned++; continue; }
+      const source = await reader.read(e.source, "sources"); await guard();
+      const segment = assertEvidenceSegment(sourceSegments(source), e);
+      check(descriptor.sourceRef.id === e.source.id && descriptor.sourceRef.version === e.source.version &&
+        descriptor.policyRef.id === e.policyRef.id && descriptor.policyRef.version === e.policyRef.version &&
+        canonicalJson(descriptor.segment ?? null) === canonicalJson(segment ? segmentLocator(segment) : null),
+      "source_descriptor_mismatch");
+      items.push({ ref, sourceRef: { id: e.source.id, version: e.source.version },
+        policyRef: { id: e.policyRef.id, version: e.policyRef.version }, ...(segment ? { segment: segmentLocator(segment) } : {}),
+        description: descriptor.description, role: e.role, kind: e.kind, occurredAt: e.occurredAt, authoredAt: e.authoredAt, capturedAt: e.capturedAt });
+      scanned++;
+      if (Buffer.byteLength(JSON.stringify(listed()), "utf8") > MAX_SOURCE_LIST_BYTES) {
+        items.pop(); scanned--;
+        check(items.length > 0, "source_list_output_capacity");
+        break; // Resume at this complete item, never truncate or silently skip it.
+      }
     }
     await current();
-    return { status: "listed" as const, ...snapshot, items,
-      nextCursor: offset + page.length < entries.length ? { catalogHash: reader.catalogHash, offset: offset + page.length } : null,
-      excludedByScopeOnPage, excludedByTimeOnPage: page.length - items.length - excludedByScopeOnPage,
-      semanticSelection: "not_performed" as const, questionSufficiency: "not_assessed" as const };
+    const result = listed();
+    check(Buffer.byteLength(JSON.stringify(result), "utf8") <= MAX_SOURCE_LIST_BYTES, "source_list_output_capacity");
+    return result;
   }
   const allowed = await metadata(reader, args.ref); await guard();
   check(allowed !== false, "source_descriptor_scope_denied");

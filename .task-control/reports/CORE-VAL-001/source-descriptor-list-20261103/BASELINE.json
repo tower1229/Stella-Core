@@ -1,0 +1,10 @@
+{
+  "baseRevision": 161,
+  "stateSha256": "eb9c38a6687020ec1e90cd2c9a110e58d1105139f85decf0c2f705e5e2fc5a45",
+  "head": "6b400c2048c32bc2ae30ba4601c5315c90ecb9ae",
+  "indexEmpty": true,
+  "preservedProjectStateSha256": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47",
+  "originalDocSha256": "a2c171811e6fd7ce9509ffe17548f57541485a080c5e3a2ed4aed9bca2f19976",
+  "writerCheck": "sole assigned Core writer; recent Core task active and review idle; no competing implementation assigned",
+  "scope": "Expose existing reviewed source descriptors through ordinary list after current metadata admission. Synthetic data only; no paid calls, Host/config/source/grant changes, new environment or push."
+}

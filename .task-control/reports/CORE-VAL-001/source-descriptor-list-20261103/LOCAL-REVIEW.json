@@ -1,0 +1,18 @@
+{
+  "scope": "6 code/test files, package-only documentation delta, own synthetic evidence; state remains local to preserve prior uncommitted investigative history",
+  "checks": {
+    "codeDiffReviewed": true,
+    "onlySyntheticTestMaterials": true,
+    "noRealSourceOrConfigReadThisPackage": true,
+    "secretPatternScan": {
+      "private_key": false,
+      "google_api_key": false,
+      "github_token": false,
+      "bearer_secret": false
+    },
+    "priorProjectStateUnchanged": true,
+    "indexInitiallyEmpty": true,
+    "productionManifestAndPermissionsUnchanged": true
+  },
+  "limits": "Pattern scan is a check, not a proof against all secrets; added lines and evidence contents manually reviewed. No independent review or live/semantic acceptance claimed."
+}
