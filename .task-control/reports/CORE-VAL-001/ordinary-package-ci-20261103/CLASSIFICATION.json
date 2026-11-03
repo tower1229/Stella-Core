@@ -1,0 +1,441 @@
+{
+  "observedAt": "2026-11-03T06:25:52.931Z",
+  "baseCommit": "fe781b65e3ae189ea5b6fc358d0a7c6df8641f24",
+  "classification": "first_observed_prerequisites_not_unexecuted_assertions",
+  "groups": [
+    {
+      "id": "sdk_audit_8_2_pin",
+      "count": 1,
+      "failureNumbers": [
+        1
+      ],
+      "classification": "old_route_version_specific_assertion",
+      "handling": "Do not replace version string: native call-site filenames and field contracts are pinned to8.2 too.",
+      "observedFailurePointOrPrerequisite": "scripts/audit-dreaming-public-seams.mjs:61 asserts installed2026.8.2; current workspace10.8",
+      "oldCoreRouteInLocalStaticImportClosure": false,
+      "subsequentAssertionsVerified": false
+    },
+    {
+      "id": "private_host_patch_8_2_pin",
+      "count": 2,
+      "failureNumbers": [
+        2,
+        3
+      ],
+      "classification": "old_route_byte_pinned_patch_fixture",
+      "handling": "No Host patch migration or looser hash/filename matching; ordinary plugin keeps Host execution.",
+      "observedFailurePointOrPrerequisite": "HOST_COMPATIBILITY names embedded-agent-DGMNaRB-.js and exact8.2 hashes; installed10.8 lacks it",
+      "oldCoreRouteInLocalStaticImportClosure": false,
+      "subsequentAssertionsVerified": false
+    },
+    {
+      "id": "replay_codec_8_2_pin",
+      "count": 10,
+      "failureNumbers": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "classification": "old_route_runtime_abi_incompatibility",
+      "handling": "Ten include native-summary wrapper failure; focused replay reveals same ERR_MODULE_NOT_FOUND cause. Do not select another private export or widen supported versions.",
+      "observedFailurePointOrPrerequisite": "loadHostReplayProjection accepts only8.2 then imports tool-call-id-bBWjBMFi.js and model-context-message-Dmngk3hL.js from currentSDK dist; files absent in10.8",
+      "oldCoreRouteInLocalStaticImportClosure": false,
+      "subsequentAssertionsVerified": false
+    },
+    {
+      "id": "empty_payload_policy_8_2_pin",
+      "count": 1,
+      "failureNumbers": [
+        14
+      ],
+      "classification": "old_route_version_specific_assertion",
+      "handling": "Retain historical policy evidence; current ordinary loop delegates provider formatting to Host.",
+      "observedFailurePointOrPrerequisite": "host-silent-draft test requires8.2 and old builtin-openclaw private exports; current10.8 rejected",
+      "oldCoreRouteInLocalStaticImportClosure": false,
+      "subsequentAssertionsVerified": false
+    },
+    {
+      "id": "native_sql_sdk_fixture_skew",
+      "count": 12,
+      "failureNumbers": [
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "classification": "legacy_bridge_and_fixture_sdk_contract_skew",
+      "handling": "Not missing SQLite/vector extension or OS sandbox access. Do not hardcode a fallback table name, fabricate an export, or enable the8.2 bridge on10.8.",
+      "observedFailurePointOrPrerequisite": "8.2 fixture/runtime claim and ambient storage declarations are mixed with actual10.8 SDK. MEMORY_INDEX_SOURCES_TABLE is internal but not publicly exported, so SQL JOIN undefined raises before selected invariants",
+      "oldCoreRouteInLocalStaticImportClosure": false,
+      "subsequentAssertionsVerified": false
+    }
+  ],
+  "failures": [
+    {
+      "title": "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+      "normalizedBlockSha256": "8355b8ddb2ef2b9c7837d15b0c96a5e8155eae336106674ebef63cc980db59c9",
+      "testFile": "tests/dreaming-public-seams.test.ts",
+      "group": "sdk_audit_8_2_pin"
+    },
+    {
+      "title": "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+      "normalizedBlockSha256": "3665e508f98bff48e46e436558fc456886a7c870787c8e6e491076529f5ccb51",
+      "testFile": "tests/host-compatibility.test.ts",
+      "group": "private_host_patch_8_2_pin"
+    },
+    {
+      "title": "isolated installer supports every acceptance runner but rejects unrelated consumers",
+      "normalizedBlockSha256": "72f0996d6f48c3a2abeee2538b25d5618c4e74cb1ba204d02b613378370ffdcc",
+      "testFile": "tests/host-compatibility.test.ts",
+      "group": "private_host_patch_8_2_pin"
+    },
+    {
+      "title": "native memory uses the pinned codec and rejects serialized producer/output credentials",
+      "normalizedBlockSha256": "ea970ea1812f6ea9135431b34ef89f0ec20243401d9d95a5997fd6eb7a228250",
+      "testFile": "tests/host-context-authority.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "native summary must descend from its exact provider output receipt",
+      "normalizedBlockSha256": "b4f0381249f86b412e27d9cf45446d59e3dddf0fba10846abd06e88f3980ee9e",
+      "testFile": "tests/host-context-authority.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "real provider and tool results extend context and inherit source revocation",
+      "normalizedBlockSha256": "0d99c8abd8a1656799ae80b16b85a0b2283cdf535d5130db091abb5d890d0720",
+      "testFile": "tests/host-context-authority.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "fixed Google projection changes only the known declaration from original bound input",
+      "normalizedBlockSha256": "007f16c2c541a5636b300c1f7b2657b4cd8c8ea826a055e840ddab75d2e60d22",
+      "testFile": "tests/host-context-replay.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "Google codec cannot be selected by observed schema or for another Host/model",
+      "normalizedBlockSha256": "e8d452537a1dcc5a593342645b00ca4e6da0b552a2750fc078b034fb5fdb5397",
+      "testFile": "tests/host-context-replay.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "Google original schema rejects unbound required",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+      "testFile": "tests/host-context-replay.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "Google original schema rejects unbound enum",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+      "testFile": "tests/host-context-replay.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "Google original schema rejects unbound extra property",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+      "testFile": "tests/host-context-replay.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "Google original schema rejects unbound description",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989",
+      "testFile": "tests/host-context-replay.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+      "normalizedBlockSha256": "9100fd753e7fe7c801e58ed0e4383d1b0dab0f26199dceafe06a06d5a5826136",
+      "testFile": "tests/host-context-replay.test.ts",
+      "group": "replay_codec_8_2_pin"
+    },
+    {
+      "title": "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+      "normalizedBlockSha256": "d8f940184e41904e03cb5839581f1ea7a39b0ddf8e2d3861a228e273284bc747",
+      "testFile": "tests/host-silent-draft.test.ts",
+      "group": "empty_payload_policy_8_2_pin"
+    },
+    {
+      "title": "native index bytes are consumed only after exact authorized hit and range validation",
+      "normalizedBlockSha256": "ef7f51739f6aa5ab03b0f9809db085da4d6fc659cbd175b9eb68bd288a7e045f",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "native index authorization preserves indexed provenance and rejects concurrent changes",
+      "normalizedBlockSha256": "ca9954481391c303dde69d702711872773d90d8d368dc1955245635ac5c8f80b",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "native index cannot certify an unrelated indexed body for an authorized locator",
+      "normalizedBlockSha256": "7edf303dda864641625d6006176f7f48392db48cae5d0d41641beb62b45d2b57",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "verified native read digests bind index identity and never observe rejected bytes",
+      "normalizedBlockSha256": "5de097eeff94f06a896412457232508f8909410a806c92c18aaa88a0d25e3fda",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "native vector-backed reads bind the actual vector and embedding cache without search",
+      "normalizedBlockSha256": "ca521f931be89adb89f4d3d76622633a2d44708096981d51cb7ba3bc8c595021",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "a complete vector marker cannot certify missing or changed selected vector bytes",
+      "normalizedBlockSha256": "cd545088ca60157d117e396d2e506687529f288374f97d7130cabfaa21a9c956",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+      "normalizedBlockSha256": "ef4e4dcdf9f675597472f9eff16cc552c3ddddf9a2b9b9e726ae990bbb0225ee",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "concurrent vector invalidation wins before native file read",
+      "normalizedBlockSha256": "1ce05d1e49f305d46264c4a34dcef3ee31f5f6e26703eb573e52c10948ec8503",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+      "normalizedBlockSha256": "21db9d010c708b9c99fc8d088facf8e13f25e79525f5a3e5205881c9f9dc74ab",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "native exact reads without query embeddings revalidate the original index generation",
+      "normalizedBlockSha256": "a2da1cebf72ba945c2746584ca94a39704b7e07dcc3ddcf79e74c9909036fcf4",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "native exact reads revalidate source authority before another model call",
+      "normalizedBlockSha256": "cca76f0543e61bafac12d7059b2348efc0304fa176dfc0dd67bcb8cea8d11c30",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    },
+    {
+      "title": "a second native read cannot replace the first consumed index identity",
+      "normalizedBlockSha256": "3a541d8a483f965f6bcc5c35ac837423fb118a2a313857fd9864759d9d396ca7",
+      "testFile": "tests/native-memory-reader.test.ts",
+      "group": "native_sql_sdk_fixture_skew"
+    }
+  ],
+  "staticLocalImports": [
+    {
+      "path": "src/canghai/author-intent-asset.ts",
+      "sha256": "15acc47b55a373be56b000efa1ab6a4fc67612f7fa89c2c43ef27aa5cd4b4bb5"
+    },
+    {
+      "path": "src/canghai/author-intent-repository.ts",
+      "sha256": "a0133a913a0e860095336d5abc12eb7c10c0d3330a0ac323e69e408acdb19d5e"
+    },
+    {
+      "path": "src/canghai/catalog-reader.ts",
+      "sha256": "aca923ba8d14e671542ba874585e23c147e6416bbe65b3e14c99afb1d2e96ba9"
+    },
+    {
+      "path": "src/canghai/checkpoint-committed-document.ts",
+      "sha256": "2b11a70d3e72103cffde3bcc9bf6714d6e75937eb6a7cdc121c2058f23f7f4dd"
+    },
+    {
+      "path": "src/canghai/content-version.ts",
+      "sha256": "12830edf4006307e12a1819c49032b3199570038994729a4bacb2f02d6035f64"
+    },
+    {
+      "path": "src/canghai/exclusive-file-lock.ts",
+      "sha256": "0e0226e7e755398393ad5ade213f4fa14aa2e1fb2e5907a91ae0719314537b33"
+    },
+    {
+      "path": "src/canghai/manifest.ts",
+      "sha256": "cce428a78fc05c6a4a12132839bd0ab8e53b7fa83b7424a38421c12ea47194be"
+    },
+    {
+      "path": "src/canghai/memory-transaction-journal.ts",
+      "sha256": "8e83f1cc9395d4e57877b4a9e17a5247047b9616a4306263f666b7e456a3dd9a"
+    },
+    {
+      "path": "src/canghai/memory-transaction-plan.ts",
+      "sha256": "808dea57ac3b4fe7892a8bd44eda7bdd25535c250f97c0a79f44983c832738ae"
+    },
+    {
+      "path": "src/canghai/memory-transaction.ts",
+      "sha256": "dbe1fb87b7af2a3ef847bfdaf8eae37f80484d3073f265d3287ab7c933f6c345"
+    },
+    {
+      "path": "src/canghai/personal-context-access.ts",
+      "sha256": "78d25d6b59da41c68bf56b4952ccf75b7cb48334614d7218c93a51c7619b5b87"
+    },
+    {
+      "path": "src/canghai/recovery-authority-contract.ts",
+      "sha256": "93b9f52cc234de1a0d219d8963b6c3d16c0bfa25662d2597cec0206c68bddad2"
+    },
+    {
+      "path": "src/canghai/recovery-checkpoint-contract.ts",
+      "sha256": "5aa19b42d93f5ed240eab9aebd94f3556e5405dd4ad9a8132911ca16068b1f9e"
+    },
+    {
+      "path": "src/canghai/ref.ts",
+      "sha256": "0f5a1020e41dc94c757d31be0737070e110fde8bf6f623b1cb2021e6bfca0b71"
+    },
+    {
+      "path": "src/canghai/runtime-profile.ts",
+      "sha256": "bd3f2f60564066021d82cf761066fd894f6536bbfe830e098a25fc83fd6a4db3"
+    },
+    {
+      "path": "src/canghai/schema.ts",
+      "sha256": "9ab96dbc1ba0bea25066ead03f7451b3dbbd1cadba37aeff47ef25ea5e32f99d"
+    },
+    {
+      "path": "src/canghai/source-access.ts",
+      "sha256": "d00cb5c1d3ce2e0cdcdb7a480d72be93bf8f0323434876c9be499f6bb8c84c2d"
+    },
+    {
+      "path": "src/canghai/source-policy.ts",
+      "sha256": "83af5855513346406cd7741f66ba34474d4830ab4c0c3cc15ff3a552fd4a69ed"
+    },
+    {
+      "path": "src/canghai/source-segments.ts",
+      "sha256": "0b86731dc4539ee66fc563784e85de6586291dce0a396416370f362626406531"
+    },
+    {
+      "path": "src/canghai/synchronization-state.ts",
+      "sha256": "e81656cbe27a47180775fef2fd4809ca91ec5606a35d21d2bbef49c2b3d677fe"
+    },
+    {
+      "path": "src/canghai/view-migration.ts",
+      "sha256": "2f4a4a3a0c17dbb4f3151a7ccb72b46b7f6c8983e7925934c606293dca52aeb3"
+    },
+    {
+      "path": "src/canghai/view-recipe.ts",
+      "sha256": "768f3f6f0ddc46a6a2e56b6ece543dd69fe35511c9fdd2602dc9721a3e1761f8"
+    },
+    {
+      "path": "src/openclaw/candidate-work-brief.ts",
+      "sha256": "a74f581caf248ed908f5682a9f2dcacecf72a95f3ce82696e9640976638b6c83"
+    },
+    {
+      "path": "src/openclaw/completion.ts",
+      "sha256": "1a89a758640c92891ef1a04277940e644cd0a1742618dccffdbc0985866b6d00"
+    },
+    {
+      "path": "src/openclaw/current-input-metadata.ts",
+      "sha256": "d4cadf4c3e87917be406987782f95da8ac998000cb3170d44a0d4fd681301145"
+    },
+    {
+      "path": "src/openclaw/ordinary-source-admission.ts",
+      "sha256": "2ebbf257feaf659a35aa9114ec5e2efd308387772d05b4e39762eb7e3bdbfaa7"
+    },
+    {
+      "path": "src/openclaw/ordinary-source-read.ts",
+      "sha256": "d66f03d20afa49dcc6267fc37bd7034b04a70ff38cb3e543aaa7259632b7e409"
+    },
+    {
+      "path": "src/openclaw/processing-authority.ts",
+      "sha256": "7f920f027cbe9395c534a4aa7c66f8b3e8c9120a675338ba3d74b9f73db7983c"
+    },
+    {
+      "path": "src/openclaw/tool-request-binding.ts",
+      "sha256": "328fc4f52b887197006df00d8c4e5987b2018dd6b6c3466545dcecf30ea5dea2"
+    },
+    {
+      "path": "src/openclaw/turn-audience.ts",
+      "sha256": "5b77305ce606ff7e232a034cbadb38d0b66835e8232db6d9fac87afe09904584"
+    },
+    {
+      "path": "src/openclaw/turn-request.ts",
+      "sha256": "b2fddd60b742b32ce4df26c18f488326729ed6db519c9df6b9de294072e33862"
+    },
+    {
+      "path": "src/openclaw/work-brief-proposal.ts",
+      "sha256": "0223ee14c0ee0ed55a0d17f1c49adcc030af98fc1330d057a6ad120afc711398"
+    },
+    {
+      "path": "src/ordinary-plugin.ts",
+      "sha256": "5f266e7ca11d9c601428facef0266cd09ea40c0c389e812c61b031fc70e77d6b"
+    },
+    {
+      "path": "src/praxis/episode-evidence.ts",
+      "sha256": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d"
+    },
+    {
+      "path": "src/praxis/episode-store.ts",
+      "sha256": "90c304a31d6b34c7f89a4a46ef7f014fc8af7873bfec8265abb4c9ccf53ba3d6"
+    },
+    {
+      "path": "src/praxis/episode-v2.ts",
+      "sha256": "36406549d82f10ee1dd123933fac02985e8ac108fb858eab932a6f977e7cb33b"
+    },
+    {
+      "path": "src/praxis/evidence-bundle.ts",
+      "sha256": "efca3d90b853ffb6f3212ba093c9b60e676280fe5e9191a7f53024a5854b438a"
+    },
+    {
+      "path": "src/praxis/personal-views.ts",
+      "sha256": "4610b542fa4e723deb9b9119222238ec674f9a719046e01990af11b10ee223b8"
+    },
+    {
+      "path": "src/shared/type-guards.ts",
+      "sha256": "4fdfaaed5a8eb10774cb2a7219c0b8c6b4cabe4df8bebf5d91c85ada82331628"
+    }
+  ],
+  "externalImports": [
+    "ajv/dist/2020.js",
+    "node:async_hooks",
+    "node:child_process",
+    "node:crypto",
+    "node:fs",
+    "node:fs/promises",
+    "node:path",
+    "node:url",
+    "node:util",
+    "openclaw/plugin-sdk/agent-runtime",
+    "openclaw/plugin-sdk/core",
+    "openclaw/plugin-sdk/file-lock",
+    "openclaw/plugin-sdk/plugin-entry",
+    "openclaw/plugin-sdk/plugin-runtime",
+    "openclaw/plugin-sdk/routing",
+    "semver",
+    "typebox",
+    "yaml"
+  ],
+  "boundary": "Local static source closure only, including type-only imports conservatively; excludes dynamic/Host/external internals. Does not prove product correctness.",
+  "legacyInCurrentClosure": [],
+  "unchangedGates": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "736466f4ec92edd018402bb3108ede242d7f222de5b4e8c79eead98b9f555760"
+    },
+    {
+      "path": ".github/workflows/experimental-owner-chat.yml",
+      "sha256": "d730a1f8f770e85f1721bd2c9c6d04459f73609b4ce204ae3bb4c4b6c4c8e8f6"
+    },
+    {
+      "path": "scripts/run-workspace-tests.mjs",
+      "sha256": "a7589d33a8f8c2dfa706ee18574ba22237abceeb978345882642434750007287"
+    }
+  ],
+  "nextFix": "Add an independent ordinary extracted-package check. Preserve both existing red workflows, all tests and legacy gates. This repairs absent current-package feedback, not the26 old runtime incompatibilities."
+}

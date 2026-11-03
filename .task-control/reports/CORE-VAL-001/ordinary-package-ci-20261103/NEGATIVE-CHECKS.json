@@ -1,0 +1,17 @@
+{
+  "scope": "only own extracted artifact temporarily changed; originals restored",
+  "cases": [
+    {
+      "case": "missing_entry",
+      "exitCode": 1,
+      "stdoutSha256": "b645f5e8583189376e499907f8922d7285f9f3cefc5ddeb36a07ca3fc3769b95",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "case": "missing_skill",
+      "exitCode": 1,
+      "stdoutSha256": "6d4f8748c290526506bd1cec5e859f25d5b62c6789d0e9257d308234ebbd5bc0",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

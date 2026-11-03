@@ -97,6 +97,15 @@ The [Suqing closeout](docs/suqing-closeout-2026-10-23.md) records each scoped ex
 
 [实验模式 CI 范围](docs/EXPERIMENTAL-CI.md) separates the installed synthetic owner-chat check from the independent 152-case complete-capability assessment. A green experimental check does not accept full_memory.
 
+`Ordinary plugin package contract` independently checks the current ordinary entry:
+existing source-read, request-admission and skill-discovery tests run against the
+extracted npm package, with synthetic sources and workspace dependencies. It does
+not start a Gateway, install fresh dependencies, call a model or accept semantic
+understanding. Both older workflows retain their complete test sets and their own
+failed/incomplete verdicts; the new check does not turn the 26 retained failures
+into passes. The preparation receipt records the actual SDK and synthetic fixture
+version separately; `PREPARED.json` alone is not a passing test result.
+
 ## Validation and local use
 
 ```bash

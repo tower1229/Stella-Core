@@ -1,0 +1,11 @@
+{
+  "baseRevision": 173,
+  "baseSha256": "eb796941d6790b11fc5916a3c83865bc04f14b93c34e598adc7ddedc4ceeebd8",
+  "head": "fe781b65e3ae189ea5b6fc358d0a7c6df8641f24",
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  },
+  "startedAt": "2026-11-03T06:24:45.068598+00:00",
+  "scope": "Classify retained26 and repair current ordinary package validation dependency; no old tests removed or weakened, no Host/model/push."
+}

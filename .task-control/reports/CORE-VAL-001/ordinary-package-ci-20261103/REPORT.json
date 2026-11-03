@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "status": "local_candidate_ready_for_independent_review",
+  "observedAt": "2026-11-03T06:28:46.612Z",
+  "baseCommit": "fe781b65e3ae189ea5b6fc358d0a7c6df8641f24",
+  "fix": "Independent current ordinary extracted-package contract job; legacy workflows and26 failures retained, not repaired or skipped.",
+  "validation": {
+    "buildExit": 0,
+    "testCompileExit": 0,
+    "preparedExit": 0,
+    "testExit": 0,
+    "tests": 75,
+    "pass": 75,
+    "fail": 0,
+    "skipped": 0,
+    "sdkVersion": "2026.10.9",
+    "lockedSdkVersion": "2026.10.8",
+    "syntheticFixtureHostVersion": "2026.10.9",
+    "actualCIExecuted": false,
+    "stdoutSha256": "547eccdea2e8b78f940a05d3178b718eb4f28945f56db0b9617eed8c5c18163b",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "missingPackageEntryAndSkillEachFail": true,
+    "extractedPackageRestoredAndHashesMatch": true
+  },
+  "package": {
+    "artifactSha256": "497bd3cc1df081020d151720070009c17413929241b26cd822cae4adf4bfd316",
+    "packageIntegrity": "sha512-qHzb8HltVMf/2mD++P7R2SKrkR+cKy4j6aPutYGIsZ+LbIu9p7iUJ1jVYAnAr0uI2VF4j+LRQnuceSDfzxH3xQ==",
+    "manifestDigest": "47359e6f8411bba67559a882ecf1861735d0117f8bb72b9697220613386bc6f4",
+    "testManifest": {
+      "digest": "3052b879ae30a558bc5f4058a719b601a753deb0274d4d54cf4454375e2f9b01",
+      "entries": [
+        {
+          "path": "current-input-metadata.test.js",
+          "sha256": "70cbbf4039d75eaa2b3dc77adc388a3c9a43498d80655f20f45891c029a80cda"
+        },
+        {
+          "path": "fixtures/ordinary-source-read.js",
+          "sha256": "6ad35f181bc5a6d93dd0a1b33226c111173b9e37dd40f3b513e48a8a1c4c0a44"
+        },
+        {
+          "path": "ordinary-plugin.test.js",
+          "sha256": "d677b4ad331857f4c7f37c792f50e81c2d8927556bb6c519ecc66e7b7ef94f15"
+        },
+        {
+          "path": "ordinary-source-admission.test.js",
+          "sha256": "5648d3d9568b3446b69a7ddddfb1d0de3fb9e1541ba429c5f87569769087f3f3"
+        },
+        {
+          "path": "ordinary-source-read.test.js",
+          "sha256": "6572fd0c9cf0e88daee163628a0676dbf3d72a5b33a56f53d2a3a0cd87505ac3"
+        },
+        {
+          "path": "source-understanding-skill.test.js",
+          "sha256": "cc66e6134724b045982500a47ed23c202f55af7b72fc9e5eec32ecc90bac0c03"
+        },
+        {
+          "path": "tool-request-binding.test.js",
+          "sha256": "c620555a773e73fbd9873ddf7a0e755e62fd432857e011d29d9adfeeb8d8c906"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "No live Host, model semantic, private-source or fresh consumer install acceptance.",
+    "SDK10.8 job defined, not run; local actual SDK10.9 and explicit synthetic fixture10.9.",
+    "Existing tests use injected synthetic Host facts and policy completion, not authenticated native producers.",
+    "None of26 old ABI/fixture failures were fixed. Assertions after their first blockers remain unverified."
+  ],
+  "environmentEvents": [
+    "First npm pack failed EPERM writing user cache before archive created; no cache permissions changed.",
+    "Using /dev/null twice for npm configs was rejected; then distinct task-owned empty config files and offline cache pack succeeded."
+  ],
+  "scope": {
+    "mainChanges": 0,
+    "paidCalls": 0,
+    "privatePayloadReads": 0,
+    "sourceWrites": 0,
+    "push": false
+  },
+  "files": [
+    ".github/workflows/ordinary-plugin.yml",
+    "scripts/prepare-ordinary-package-tests.mjs",
+    "README.md"
+  ]
+}

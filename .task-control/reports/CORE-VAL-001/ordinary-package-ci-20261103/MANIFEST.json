@@ -1,0 +1,42 @@
+[
+  {
+    "path": ".github/workflows/ordinary-plugin.yml",
+    "sha256": "86f1f6d4b65349df5be942263a2c2e7156b722f5e30224ad2d66a35ebeb55cc3"
+  },
+  {
+    "path": "scripts/prepare-ordinary-package-tests.mjs",
+    "sha256": "908578dacc04c6d7da696868eef019c57eaead21456d2ef5c2ff0f582ab287dc"
+  },
+  {
+    "path": "README.md",
+    "sha256": "4eb4b91e43a645ad13ac0676e8877e4a7cfbbc89238db35fce27c91d3df786ec"
+  },
+  {
+    "path": ".task-control/reports/CORE-VAL-001/ordinary-package-ci-20261103/CLASSIFICATION.json",
+    "sha256": "40a38a6a6b6d3936d1bffbc4548ffec55f06dca567139764656c454446f39c00"
+  },
+  {
+    "path": ".task-control/reports/CORE-VAL-001/ordinary-package-ci-20261103/NEGATIVE-CHECKS.json",
+    "sha256": "8fdf7ebc05662aacb9ce09fa65c96708c92d07803847cf19b4404b3a79bc7783"
+  },
+  {
+    "path": ".task-control/reports/CORE-VAL-001/ordinary-package-ci-20261103/REPORT.json",
+    "sha256": "c8ce8517451789730314ef179dfac2a1e5de71ac4a82f21febbcd80c80c4e017"
+  },
+  {
+    "path": ".task-control/reports/CORE-VAL-001/ordinary-package-ci-20261103/STATE-BEGIN.json",
+    "sha256": "c1446bc5b42fcb2ade0c2ca1b8796e5d4228bf568234113df243b5a93b31eaad"
+  },
+  {
+    "path": ".task-control/reports/CORE-VAL-001/ordinary-package-ci-20261103/STATE-UPDATE.json",
+    "sha256": "66add48bcd698b847f2efae5cfd22fc0c46a62505ec77f99fa91c7c66ca09ce9"
+  },
+  {
+    "path": ".task-control/reports/CORE-VAL-001/ordinary-package-ci-20261103/changes.patch",
+    "sha256": "974abb8e1ffcf27bd749a8da9b49c511eddcba57f531e50ffb77b119e98fc390"
+  },
+  {
+    "path": ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/INDEPENDENT-ACCEPTANCE.json",
+    "sha256": "8871b1363f0697ada33d64b62a84385482f6afd0691421d71bd8849362f30e14"
+  }
+]
