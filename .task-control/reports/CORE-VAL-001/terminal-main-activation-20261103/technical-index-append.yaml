@@ -1,0 +1,15 @@
+
+# 2026-11-03 accepted cleanup loaded; actual native terminal/cache proof remains open.
+ordinary_terminal_cleanup_main_20261103:
+  evidence: .task-control/reports/CORE-VAL-001/terminal-main-activation-20261103/REPORT.json
+  code_commit: c6ef12a3dcbd6355971b64449128db9ee9dcb5b1
+  actual_host_version: 2026.10.9
+  actual_generation: 17
+  no_restart: true
+  status_and_health: passed
+  core_registration_diagnostics: empty
+  independent_focused_tests: 89_of_89
+  actual_terminal_dispatch_and_cache_release: not_verified_no_safe_zero_model_path_confirmed
+  retained_count: unknown
+  conversation_access_and_source_grant: unchanged
+  paid_calls_and_private_body_reads: zero

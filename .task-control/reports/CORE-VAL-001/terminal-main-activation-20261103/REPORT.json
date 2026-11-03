@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T08:44:57.465625+00:00",
+  "codeCommit": "c6ef12a3dcbd6355971b64449128db9ee9dcb5b1",
+  "scope": "accepted9source/test files plus12 non-sensitive evidence files committed locally; no push",
+  "review": "INDEPENDENT-ACCEPTANCE.json",
+  "priorTests": {
+    "independentPass": 89,
+    "fail": 0,
+    "rerun": false,
+    "sdk": "2026.10.9"
+  },
+  "build": {
+    "result": "passed",
+    "identity": {
+      "coreRevision": "c6ef12a3dcbd6355971b64449128db9ee9dcb5b1",
+      "sourceClean": false
+    },
+    "changedCompiledFiles": [
+      "build-identity.json",
+      "src/openclaw/tool-request-binding.d.ts",
+      "src/openclaw/tool-request-binding.js",
+      "src/openclaw/tool-request-binding.js.map",
+      "src/ordinary-plugin.js",
+      "src/ordinary-plugin.js.map"
+    ],
+    "package": ".artifacts/terminal-cleanup-20261103-c6ef12a3/package",
+    "members": 2753,
+    "allHashesMatched": true,
+    "manifestSha256": "4b14e264a5cd240f5f21b258cc4c7e3e6ad6eaa886b9b31f9ccf9810c3b04d00",
+    "dependencyAndDeclarationChanges": false
+  },
+  "operations": [
+    {
+      "action": "official link --force --no-enable",
+      "exitCode": 1,
+      "partialGeneration": 16,
+      "result": "install saved; duplicate prior Core path caused package-owner ambiguity; not repeated"
+    },
+    {
+      "action": "official Core-only load-path patch",
+      "exitCode": 0,
+      "generation": 17,
+      "restarts": 0,
+      "capabilityAcceptance": false
+    }
+  ],
+  "runtime": {
+    "version": "2026.10.9",
+    "pid": 31634,
+    "generation": 17,
+    "coreActive": true,
+    "coreDiagnostics": [],
+    "statusToolOk": true,
+    "publisher": false,
+    "sourceReadPort": "public_request_adapter_requires_admission",
+    "health": true,
+    "timelineLoaded": false,
+    "activeWork": {
+      "rootRequests": 0,
+      "cronRuns": 0,
+      "sessionMutations": 0,
+      "terminalPersistence": 0,
+      "lifecycleWrites": 0
+    },
+    "writeCustodyCount": 0,
+    "queuedEventsCount": 0,
+    "independentRetainedCount": null,
+    "skills": [
+      {
+        "name": "stella-selfie",
+        "eligible": true,
+        "blockedByAgentFilter": false
+      },
+      {
+        "name": "stella-understand-sources",
+        "eligible": true,
+        "blockedByAgentFilter": false
+      }
+    ]
+  },
+  "configuration": {
+    "beforeSha256": "60f33e07c9dd55af863c6c0bac339e7d1fc156aa32d7aadb1f3ba6d15c3ef656",
+    "afterSha256": "9df0d3dcb29b0138e9d4a0e8a27ead9c9dbdb731ae84f8a246ca2cb430f6f65f",
+    "onlyChangedPath": "plugins.load.paths: old Core artifact replaced by reviewed new Core artifact",
+    "allOtherSettingsEqual": true,
+    "originalSourceGrant": "unchanged97sources362descriptors90f",
+    "conversationAccess": "not_added",
+    "toolAndIdentityPermissions": "unchanged"
+  },
+  "rollback": {
+    "package": ".artifacts/main-forward-20261103-5ab3ccf/package",
+    "original2753MembersStillMatch": true,
+    "freshPrivateConfigAndNarrowPatchRetained": true,
+    "exercised": false,
+    "instructions": "Officially relink retained old artifact with --no-enable, then replace only Core load path if duplicate; use current config baseline and preserve later user changes. Do not replay whole historical config."
+  },
+  "nativeTerminalVerification": {
+    "status": "not_run_no_safe_zero_model_complete_path_confirmed",
+    "reason": "tools.invoke only exercises direct tool invocation without native request/recorder lifecycle; text slash-command completion is not proof of agent lifecycle end, and no supported RPC exposes Core request-cache counts. A real agent run can invoke paid provider; no current allowance.",
+    "notAttempted": [
+      "chat.send",
+      "synthetic lifecycle emission into main",
+      "new diagnostic plugin/tools",
+      "paid model",
+      "private source payload"
+    ],
+    "evidenceLimit": "managed generation17 activation, selected config path, exact new artifact hashes, no Core registration diagnostics and successful actual status prove load/basic service only; do not prove terminal handler execution or cache retirement",
+    "nextMinimalCondition": "a separately authorized native request with minimal metadata-only terminal/cache observation, or a documented zero-model native lifecycle producer; no new conversation-access permission required for the selected subscription"
+  },
+  "realModelAndPrivateBodyCalls": 0,
+  "fullMemoryAccepted": false,
+  "rawPrivateReceiptsNotArchived": true,
+  "privateReceiptHashes": {
+    "COMMIT-RESULT.json": "9b2bcbda49ebf96cec23e764ed2709b588e541c7b189ba223a0d8e929dfe271d",
+    "CONFIG-BASELINE.private.json": "60f33e07c9dd55af863c6c0bac339e7d1fc156aa32d7aadb1f3ba6d15c3ef656",
+    "INSTALL-RESULT.private.json": "aa202e57305239e3f57d372233c431e54d932dd0d05136ed4fcef5de23396567",
+    "LINK-PATCH.private.json": "7ed36438393ece8b7e8f055cdb3460ff4d5f697c227385841d4c128b5a00426e",
+    "PACKAGE-MANIFEST.json": "4b14e264a5cd240f5f21b258cc4c7e3e6ad6eaa886b9b31f9ccf9810c3b04d00",
+    "PATHFIX-RESULT.private.json": "eeb40ff841d22b54a3d08b0664a108d8ee4f1faa1116fe7a746c9ce1a6a44d8a",
+    "PLAN.json": "396e554b1b650b985a22427d05e715321a603dab8d0b9dc5af4c6097c70e8c89",
+    "ROLLBACK-PATH.private.json": "a459bfbb4d6bc6263c4699ec9f77801df7db59a998ad5ecb1d40c393ccaaeb0d",
+    "health-after.private.json": "7d2f3d2fbd79511f8921132d6b51e3e1581bce2eb36f451dfc0c485d602cff96",
+    "health-before.private.json": "3ff50653af276ea417b211153d5f7bbd0b6fad853d2b749888559a622f51a489",
+    "install.claim.json": "2b349192be90a5fb576a2044d831be9ad26a7e8cf63246641243a23a8ad5be9f",
+    "pathfix.claim.json": "0578d4228ad8ce325983a4387fee122ad0830c21809d500448c6a1cf9e7ce811",
+    "plugins.inspect-after.private.json": "a377a199768111be4b54160fb95d60e5cb245901c3470078978a6b2240372df6",
+    "plugins.list-after.private.json": "3eb9310ddf80e0a92fccba49403ca55137c125a52e71c500acf7c8bccff0854b",
+    "plugins.list-before.private.json": "65f12fe5f707f668651c5c0aa54ee02e9694448e01e3ed59f151ebc531a9da16",
+    "skills.status-after.private.json": "9b324989a04f9d6b9223cabc7ba0d2b8bc2366df0b0d5cb9fd9f4422339f9a6e",
+    "status-after.private.json": "bd9a1f6fbeeea84c7cbaae53cc856d9a5467a5441a29152da1108d533e1073de",
+    "status-before-pathfix.private.json": "6a49415b5f8309b59584da2c85ddbe36cb8a69ece85f30e96fb7f1b159bc2ddc",
+    "status-before.private.json": "bcd47a087df238b16f80ece3baa90c617a6b516c7024e47c09d42ddd62e6f33a",
+    "status-preinstall.private.json": "e8a419da8aa8e9be083ea381f1044dd090cec1586263469be5d096c35a21b0d2",
+    "tools.catalog-after.private.json": "8dea67429e425ca21e0e145601e186547c87732cebcb2c24afac742c1482cdd7",
+    "tools.invoke-after.private.json": "d39f5bbbcb5bb24460b4c77ab9633e39473879ea83f7db01649c279071870362"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "commit": "c6ef12a3dcbd6355971b64449128db9ee9dcb5b1",
+  "files": [
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/CANDIDATE.patch",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/FIRST-GREEN-ATTEMPT.tap",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/GREEN.tap",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/MANIFEST.json",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/POSTCHECK.json",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/RED.txt",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/REPORT.json",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/REPORT.md",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/STATE-CLOSEOUT.json",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/documentation-append.md",
+    ".task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/technical-index-append.yaml",
+    ".task-control/reports/CORE-VAL-001/terminal-main-activation-20261103/INDEPENDENT-ACCEPTANCE.json",
+    "src/openclaw/tool-request-binding.ts",
+    "src/ordinary-plugin.ts",
+    "tests/candidate-work-brief.test.ts",
+    "tests/current-input-metadata.test.ts",
+    "tests/ordinary-plugin.test.ts",
+    "tests/ordinary-source-admission.test.ts",
+    "tests/ordinary-source-read.test.ts",
+    "tests/ordinary-terminal-lifecycle.test.ts",
+    "tests/tool-request-binding.test.ts"
+  ],
+  "push": false,
+  "codeHashesMatched": true,
+  "indexEmptyAfterCommit": true,
+  "sourceDiffCheckPassed": true,
+  "frozenEvidenceWhitespace": "preserved, not rewritten to silence git --check"
+}

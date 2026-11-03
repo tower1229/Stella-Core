@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "files": {
+    "INDEPENDENT-ACCEPTANCE.json": "7de9df0dde2756a2e55334553030ec7d94ff577f8428576d0d45820adfbce47a",
+    "REPORT.json": "6111cb52d8dbe0a06edaa8fcb197c5bffa60d60815ede1be01d4d53f87b3b87f",
+    "REPORT.md": "bc5c5afa5ad5dcd3310856552b2bfd889801c8af1f4830c3963cc5b620a497cb",
+    "SAVE-RESULT.json": "659add07f322adf01d0902b046ac51f065c743f88d156cc69888b74fc595617a",
+    "STATE-CLOSEOUT.json": "8d3a2852e0d574d7b7e4b2c5e01528e01db8a82f8b91a99d8e11a204aa65d0d6",
+    "documentation-append.md": "4179903e70823fa3f9eac536ead88c5182397a96d0ab716d2380a7aa0c10f0db",
+    "technical-index-append.yaml": "719d6ca1107bdbc441c5cb7e3168a39efb798c29a68965d4a7495c01878a8a3c"
+  }
+}
