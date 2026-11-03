@@ -10,7 +10,7 @@ const proposal = { topic: "Synthetic writing task", interpretation: "A proposed 
 function fixture() {
   let factory: any, command: any, guardCalls = 0, active = true;
   const hooks = new Map<string, Function>();
-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
+  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", publisher: false },
     registerTool(value: unknown) { factory = value; }, registerCommand(value: unknown) { command = value; },
     on(name: string, handler: Function) { hooks.set(name, handler); },
   } as unknown as OpenClawPluginApi);
@@ -41,7 +41,7 @@ test("registration contributes guarded tools, passive metadata hooks and a no-mo
   assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
   assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
   assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
-  assert.deepEqual([...f.hooks.keys()], ["reply_dispatch", "agent_end", "before_tool_call"]);
+  assert.deepEqual([...f.hooks.keys()], ["reply_dispatch", "before_tool_call"]);
 });
 
 test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {

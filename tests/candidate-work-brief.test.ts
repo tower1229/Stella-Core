@@ -86,7 +86,7 @@ test("missing marker, oversized proposal, dirty store and closed invocation fail
 });
 function toolFixture(root?: string, owner: unknown = true) {
   let factory: any, active = true;
-  plugin.register!({ pluginConfig: { publisher: false, ...(root ? { candidateDraftsRoot: root } : {}) },
+  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { publisher: false, ...(root ? { candidateDraftsRoot: root } : {}) },
     registerTool(value: unknown) { factory = value; }, registerCommand() {}, on() {},
   } as unknown as OpenClawPluginApi);
   const context = { agentId: "main", senderIsOwner: owner, assertInvocationCurrent() { if (!active) throw Error("closed"); } };
@@ -112,7 +112,7 @@ test("new draft tool restricts existing owner context without using it as author
 test("configured drafts cannot escape a workspace-only or sandboxed Host context", async t => {
   const f = await fixture(t);
   let factory: any;
-  plugin.register!({ pluginConfig: { candidateDraftsRoot: f.root }, registerTool(value: unknown) { factory = value; },
+  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { candidateDraftsRoot: f.root }, registerTool(value: unknown) { factory = value; },
     registerCommand() {}, on() {},
   } as unknown as OpenClawPluginApi);
   const base = { agentId: "main", senderIsOwner: true, assertInvocationCurrent() {} };

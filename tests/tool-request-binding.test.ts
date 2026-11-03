@@ -86,7 +86,7 @@ test("cancellation removes pending metadata; capacity is explicit and consumptio
 
 test("plugin hook metadata reaches only the exact candidate execution and retains unsaved/source-off contract", async () => {
   let factory: any; const hooks = new Map<string, Function>();
-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false }, on(name: string, handler: Function) { hooks.set(name, handler); },
+  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", publisher: false }, on(name: string, handler: Function) { hooks.set(name, handler); },
     registerTool(value: unknown) { factory = value; }, registerCommand() {} } as unknown as OpenClawPluginApi);
   const context = { ...identity, assertInvocationCurrent() {} };
   const tool = factory.create(context).find((t: any) => t.name === CANDIDATE_TOOL);

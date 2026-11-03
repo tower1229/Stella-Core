@@ -34,6 +34,13 @@ export function createToolRequestBinding(agentId: string, toolName: string) {
       pending.set(call, entry);
       signal?.addEventListener("abort", discard, { once: true });
     },
+    end(event: { runId?: string }, context: Identity & { runId?: string }) {
+      if (!value(event.runId) || event.runId !== context.runId || context.agentId !== agentId || !value(context.sessionKey)) return;
+      for (const [id, entry] of pending) {
+        if (entry.runId !== event.runId || entry.sessionKey !== context.sessionKey) continue;
+        pending.delete(id); entry.release();
+      }
+    },
     consume(callId: string, factory: Identity) {
       const entry = pending.get(callId);
       if (!entry) return { status: "unavailable" as const, code: "host_tool_hook_not_observed" };

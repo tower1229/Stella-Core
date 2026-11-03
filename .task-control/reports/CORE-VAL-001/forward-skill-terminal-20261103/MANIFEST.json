@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "files": {
+    "CANDIDATE.patch": "952c2c365f8d8f23c16cc84ad055ae857a6bb118cdbbb51a7d3fe09129d3cd4a",
+    "FIRST-GREEN-ATTEMPT.tap": "dd5f071c0412ed93681f7a301af833255d7b84a3b4f6aae9d542d388611d9c92",
+    "GREEN.tap": "61804b236ecda913f0b2480724d2312d9c3ff8cf23bce2fda1b5783b79148855",
+    "POSTCHECK.json": "dc7e07e7ce445cb46f66d1d1385831a347d07088dab9eef188582511178f6bf1",
+    "RED.txt": "c99645831baa5092c76ff824eecf491ba479a62ef64ad06d0f7151721c6aa658",
+    "REPORT.json": "fc06fd4fb6b55bb0befb72f28161106ca23b3d185826de730fba1886f43eb140",
+    "REPORT.md": "12d76d7b89f28bc88772c4630b669beeff3be9b705e84d136f7c232e3ef1874f",
+    "STATE-CLOSEOUT.json": "8058bff1aba5f9f6fbf33bebd8f3b032f29252aebb4cb3e89a303c43f9e9731c",
+    "documentation-append.md": "ce0fd0c133b1f1a4507d0b05accdcc04f387dc1a7d2728ed1b2d9f88cde0b3f1",
+    "technical-index-append.yaml": "0e28ca1883656e8fd8893d4fee19e28d84c14d600474d5ef5559490e1cdb02b2"
+  }
+}

@@ -88,7 +88,20 @@ return definePluginEntry({
       getGatewayRequestScope: options.getGatewayRequestScope,
       complete: options.completeSourceAccess ?? createSourcePolicyCompletion(api, config.agentId) });
     api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
-    api.on("agent_end", (event, context) => { currentInput.end(event, context); if (config.sourceRead) sourceInput.end(event, context); });
+    // Host-owned metadata events do not request conversation contents. A tool
+    // round or retryable error is not the end of the enclosing user request.
+    api.agent.events.registerAgentEventSubscription({ id: "stella-request-terminal", streams: ["lifecycle"],
+      handle(event) {
+        if (event.stream !== "lifecycle") return;
+        const phase = event.data.phase;
+        if (phase !== "end" && !(phase === "error" &&
+          (event.data.executionSettled === true || event.data.fallbackExhaustedFailure === true))) return;
+        const context = { runId: event.runId, agentId: event.agentId, sessionKey: event.sessionKey };
+        const terminal = { runId: context.runId };
+        currentInput.end(terminal, context); requestBinding.end(terminal, context);
+        if (config.sourceRead) sourceInput.end(terminal, context);
+      },
+    });
     api.on("before_tool_call", (event, context) => {
       const error = requestBinding.observe(event, context) ?? (config.sourceRead ? sourceInput.observeTool(event, context) : undefined);
       if (error) return { block: true, blockReason: error };

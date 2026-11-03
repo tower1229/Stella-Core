@@ -25,7 +25,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
   f.profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
     config_ref: `path:${grantPath}`, acceptance_ref: `path:${prefix}/not-loaded-acceptance.json`, required_secret_refs: [] } as never);
   await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
-  const hooks = new Map<string, Function>(); let factory: any, modelCalls = 0, active = true, denyScenario = false;
+  const hooks = new Map<string, Function>(); let factory: any, terminal: any, modelCalls = 0, active = true, denyScenario = false;
   const modelRequestHashes = new Set<string>();
   const plugin = createOrdinaryPlugin({ getGatewayRequestScope, completeSourceAccess: async params => {
     modelCalls++;
@@ -34,7 +34,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
     return { text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef, policyRef: value.policyRef, segment: value.segment,
       applicable: true, scenarios: [denyScenario ? "social" : "writing"], topicRequested: true, topicExplicitlyNamed: true }) };
   } });
-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false, sourceRead: f.binding }, runtime: { version: hostVersion },
+  plugin.register!({ agent: { events: { registerAgentEventSubscription(value: any) { terminal = value.handle; } } }, pluginConfig: { agentId: "main", publisher: false, sourceRead: f.binding }, runtime: { version: hostVersion },
     registerTool(v: unknown) { factory = v; }, registerCommand() {}, on(name: string, handler: Function) { hooks.set(name, handler); } } as unknown as OpenClawPluginApi);
   function turn(runId = "run-1", changes: { ctx?: Record<string, unknown>; factory?: Record<string, unknown>; receipt?: Record<string, unknown> } = {}) {
     const abort = new AbortController(); let persisted = true, blocked = false;
@@ -55,10 +55,32 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
         requester: { senderId: "synthetic-requester", senderIsOwner: true }, ...extra });
     return { receipt, context, event, dispatch, hook, tool, abort,
       pending() { persisted = false; }, commit() { persisted = true; }, block() { blocked = true; },
-      end() { hooks.get("agent_end")!({ runId }, { ...identity, runId }); } };
+      end(data: object = { phase: "end" }, extra: object = {}) { terminal({ ...identity, runId, stream: "lifecycle", data, ...extra }, {}); } };
   }
   return { ...f, grant, turn, hooks, modelCalls: () => modelCalls, modelRequestHashes, expire() { active = false; }, deny() { denyScenario = true; } };
 }
+
+test("public terminal events release source turns and pending calls without abort or conversation access", async t => {
+  const f = await setup(t);
+  for (let i = 0; i < 40; i++) {
+    const turn = f.turn(`terminal-${i}`); turn.dispatch();
+    for (let n = 0; n < 4; n++) assert.equal(turn.hook(`pending-${i}-${n}`), undefined);
+    turn.end(i % 2 ? { phase: "error", executionSettled: true } : { phase: "end" });
+    assert.equal(turn.abort.signal.aborted, false);
+    const denied = await turn.tool.execute(`pending-${i}-0`, { action: "read", ref: f.refs[0] });
+    assert.equal(denied.details.code, "source_request_admission_unavailable");
+    assert.deepEqual(turn.hook(`late-${i}`), { block: true, blockReason: "source_request_binding_mismatch" });
+  }
+  const fresh = f.turn("fresh"); fresh.dispatch();
+  fresh.end({ phase: "end" }, { agentId: "other" });
+  fresh.end({ phase: "end" }, { sessionKey: "other" });
+  fresh.end({ phase: "end" }, { runId: "other" });
+  fresh.end({ phase: "error" });
+  fresh.end({ phase: "end" }, { stream: "tool" });
+  assert.equal(fresh.hook("fresh-list"), undefined);
+  assert.equal((await fresh.tool.execute("fresh-list", { action: "list" })).details.status, "listed");
+  assert.equal(f.modelCalls(), 0);
+});
 
 test("actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel", async t => {
   const f = await setup(t), turn = f.turn(); turn.dispatch(); assert.equal(turn.hook("list"), undefined);

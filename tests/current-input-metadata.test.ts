@@ -196,8 +196,8 @@ test("cancellation or agent-end during a recorder read cannot return an observat
 });
 
 test("ordinary plugin callbacks carry native metadata to only the exact candidate; candidate and publisher limits stay intact", async () => {
-  let factory: any; const hooks = new Map<string, Function>();
-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
+  let factory: any, terminal: any; const hooks = new Map<string, Function>();
+  plugin.register!({ agent: { events: { registerAgentEventSubscription(value: any) { terminal = value.handle; } } }, pluginConfig: { agentId: "main", publisher: false },
     on(name: string, handler: Function) { hooks.set(name, handler); }, registerTool(value: unknown) { factory = value; },
     registerCommand() {} } as unknown as OpenClawPluginApi);
   const f = fixture(); const context = { ...identity, assertInvocationCurrent() {} };
@@ -216,7 +216,7 @@ test("ordinary plugin callbacks carry native metadata to only the exact candidat
   const direct = await tool.execute("without-hook", proposal);
   assert.equal(direct.details.currentInputObservation.code, "host_run_not_provided");
   assert.equal(direct.details.status, "candidate");
-  hooks.get("agent_end")!({ runId: f.event.runId }, { ...identity, runId: f.event.runId });
+  terminal({ ...identity, runId: f.event.runId, stream: "lifecycle", data: { phase: "end" } }, {});
   const late = { ...event, toolCallId: "late" }; hooks.get("before_tool_call")!(late, { ...identity, ...late });
   assert.equal((await tool.execute("late", proposal)).details.currentInputObservation.code, "reply_dispatch_not_observed");
 });

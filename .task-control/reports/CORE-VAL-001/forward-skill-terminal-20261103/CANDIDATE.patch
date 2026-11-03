@@ -1,0 +1,284 @@
+diff --git a/src/openclaw/tool-request-binding.ts b/src/openclaw/tool-request-binding.ts
+index b0ec593b..85344ace 100644
+--- a/src/openclaw/tool-request-binding.ts
++++ b/src/openclaw/tool-request-binding.ts
+@@ -34,6 +34,13 @@ export function createToolRequestBinding(agentId: string, toolName: string) {
+       pending.set(call, entry);
+       signal?.addEventListener("abort", discard, { once: true });
+     },
++    end(event: { runId?: string }, context: Identity & { runId?: string }) {
++      if (!value(event.runId) || event.runId !== context.runId || context.agentId !== agentId || !value(context.sessionKey)) return;
++      for (const [id, entry] of pending) {
++        if (entry.runId !== event.runId || entry.sessionKey !== context.sessionKey) continue;
++        pending.delete(id); entry.release();
++      }
++    },
+     consume(callId: string, factory: Identity) {
+       const entry = pending.get(callId);
+       if (!entry) return { status: "unavailable" as const, code: "host_tool_hook_not_observed" };
+diff --git a/src/ordinary-plugin.ts b/src/ordinary-plugin.ts
+index 8de9e394..593c1860 100644
+--- a/src/ordinary-plugin.ts
++++ b/src/ordinary-plugin.ts
+@@ -88,7 +88,20 @@ return definePluginEntry({
+       getGatewayRequestScope: options.getGatewayRequestScope,
+       complete: options.completeSourceAccess ?? createSourcePolicyCompletion(api, config.agentId) });
+     api.on("reply_dispatch", (event, context) => { currentInput.observe(event, context); if (config.sourceRead) sourceInput.observeDispatch(event, context); });
+-    api.on("agent_end", (event, context) => { currentInput.end(event, context); if (config.sourceRead) sourceInput.end(event, context); });
++    // Host-owned metadata events do not request conversation contents. A tool
++    // round or retryable error is not the end of the enclosing user request.
++    api.agent.events.registerAgentEventSubscription({ id: "stella-request-terminal", streams: ["lifecycle"],
++      handle(event) {
++        if (event.stream !== "lifecycle") return;
++        const phase = event.data.phase;
++        if (phase !== "end" && !(phase === "error" &&
++          (event.data.executionSettled === true || event.data.fallbackExhaustedFailure === true))) return;
++        const context = { runId: event.runId, agentId: event.agentId, sessionKey: event.sessionKey };
++        const terminal = { runId: context.runId };
++        currentInput.end(terminal, context); requestBinding.end(terminal, context);
++        if (config.sourceRead) sourceInput.end(terminal, context);
++      },
++    });
+     api.on("before_tool_call", (event, context) => {
+       const error = requestBinding.observe(event, context) ?? (config.sourceRead ? sourceInput.observeTool(event, context) : undefined);
+       if (error) return { block: true, blockReason: error };
+diff --git a/tests/candidate-work-brief.test.ts b/tests/candidate-work-brief.test.ts
+index 5f103bce..8a9b5d65 100644
+--- a/tests/candidate-work-brief.test.ts
++++ b/tests/candidate-work-brief.test.ts
+@@ -86,7 +86,7 @@ test("missing marker, oversized proposal, dirty store and closed invocation fail
+ });
+ function toolFixture(root?: string, owner: unknown = true) {
+   let factory: any, active = true;
+-  plugin.register!({ pluginConfig: { publisher: false, ...(root ? { candidateDraftsRoot: root } : {}) },
++  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { publisher: false, ...(root ? { candidateDraftsRoot: root } : {}) },
+     registerTool(value: unknown) { factory = value; }, registerCommand() {}, on() {},
+   } as unknown as OpenClawPluginApi);
+   const context = { agentId: "main", senderIsOwner: owner, assertInvocationCurrent() { if (!active) throw Error("closed"); } };
+@@ -112,7 +112,7 @@ test("new draft tool restricts existing owner context without using it as author
+ test("configured drafts cannot escape a workspace-only or sandboxed Host context", async t => {
+   const f = await fixture(t);
+   let factory: any;
+-  plugin.register!({ pluginConfig: { candidateDraftsRoot: f.root }, registerTool(value: unknown) { factory = value; },
++  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { candidateDraftsRoot: f.root }, registerTool(value: unknown) { factory = value; },
+     registerCommand() {}, on() {},
+   } as unknown as OpenClawPluginApi);
+   const base = { agentId: "main", senderIsOwner: true, assertInvocationCurrent() {} };
+diff --git a/tests/current-input-metadata.test.ts b/tests/current-input-metadata.test.ts
+index bcb3e577..1dab677e 100644
+--- a/tests/current-input-metadata.test.ts
++++ b/tests/current-input-metadata.test.ts
+@@ -196,8 +196,8 @@ test("cancellation or agent-end during a recorder read cannot return an observat
+ });
+ 
+ test("ordinary plugin callbacks carry native metadata to only the exact candidate; candidate and publisher limits stay intact", async () => {
+-  let factory: any; const hooks = new Map<string, Function>();
+-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
++  let factory: any, terminal: any; const hooks = new Map<string, Function>();
++  plugin.register!({ agent: { events: { registerAgentEventSubscription(value: any) { terminal = value.handle; } } }, pluginConfig: { agentId: "main", publisher: false },
+     on(name: string, handler: Function) { hooks.set(name, handler); }, registerTool(value: unknown) { factory = value; },
+     registerCommand() {} } as unknown as OpenClawPluginApi);
+   const f = fixture(); const context = { ...identity, assertInvocationCurrent() {} };
+@@ -216,7 +216,7 @@ test("ordinary plugin callbacks carry native metadata to only the exact candidat
+   const direct = await tool.execute("without-hook", proposal);
+   assert.equal(direct.details.currentInputObservation.code, "host_run_not_provided");
+   assert.equal(direct.details.status, "candidate");
+-  hooks.get("agent_end")!({ runId: f.event.runId }, { ...identity, runId: f.event.runId });
++  terminal({ ...identity, runId: f.event.runId, stream: "lifecycle", data: { phase: "end" } }, {});
+   const late = { ...event, toolCallId: "late" }; hooks.get("before_tool_call")!(late, { ...identity, ...late });
+   assert.equal((await tool.execute("late", proposal)).details.currentInputObservation.code, "reply_dispatch_not_observed");
+ });
+diff --git a/tests/ordinary-plugin.test.ts b/tests/ordinary-plugin.test.ts
+index 18d74152..f95d8c1b 100644
+--- a/tests/ordinary-plugin.test.ts
++++ b/tests/ordinary-plugin.test.ts
+@@ -10,7 +10,7 @@ const proposal = { topic: "Synthetic writing task", interpretation: "A proposed
+ function fixture() {
+   let factory: any, command: any, guardCalls = 0, active = true;
+   const hooks = new Map<string, Function>();
+-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
++  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", publisher: false },
+     registerTool(value: unknown) { factory = value; }, registerCommand(value: unknown) { command = value; },
+     on(name: string, handler: Function) { hooks.set(name, handler); },
+   } as unknown as OpenClawPluginApi);
+@@ -41,7 +41,7 @@ test("registration contributes guarded tools, passive metadata hooks and a no-mo
+   assert.equal(status.details.publisher, false); assert.equal(status.details.legacyRuntime, "inactive");
+   assert.equal(status.details.memory, "host-owned"); assert.equal(status.details.context, "host-owned");
+   assert.equal(JSON.parse(f.command.handler().text).modelCalls, false);
+-  assert.deepEqual([...f.hooks.keys()], ["reply_dispatch", "agent_end", "before_tool_call"]);
++  assert.deepEqual([...f.hooks.keys()], ["reply_dispatch", "before_tool_call"]);
+ });
+ 
+ test("real tool contract returns an unsaved candidate, retaining open questions and unverified evidence", async () => {
+diff --git a/tests/ordinary-source-admission.test.ts b/tests/ordinary-source-admission.test.ts
+index 1030e34c..f1786c38 100644
+--- a/tests/ordinary-source-admission.test.ts
++++ b/tests/ordinary-source-admission.test.ts
+@@ -25,7 +25,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
+   f.profile.capabilities.push({ id: "source_access_context", required: true, adapter_id: "stella.personal-context-access", adapter_version: "1",
+     config_ref: `path:${grantPath}`, acceptance_ref: `path:${prefix}/not-loaded-acceptance.json`, required_secret_refs: [] } as never);
+   await f.put(grantPath, canonicalJson(grant)); await f.put(profilePath, canonicalJson(f.profile)); f.binding.revision = await f.commit();
+-  const hooks = new Map<string, Function>(); let factory: any, modelCalls = 0, active = true, denyScenario = false;
++  const hooks = new Map<string, Function>(); let factory: any, terminal: any, modelCalls = 0, active = true, denyScenario = false;
+   const modelRequestHashes = new Set<string>();
+   const plugin = createOrdinaryPlugin({ getGatewayRequestScope, completeSourceAccess: async params => {
+     modelCalls++;
+@@ -34,7 +34,7 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
+     return { text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef, policyRef: value.policyRef, segment: value.segment,
+       applicable: true, scenarios: [denyScenario ? "social" : "writing"], topicRequested: true, topicExplicitlyNamed: true }) };
+   } });
+-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false, sourceRead: f.binding }, runtime: { version: hostVersion },
++  plugin.register!({ agent: { events: { registerAgentEventSubscription(value: any) { terminal = value.handle; } } }, pluginConfig: { agentId: "main", publisher: false, sourceRead: f.binding }, runtime: { version: hostVersion },
+     registerTool(v: unknown) { factory = v; }, registerCommand() {}, on(name: string, handler: Function) { hooks.set(name, handler); } } as unknown as OpenClawPluginApi);
+   function turn(runId = "run-1", changes: { ctx?: Record<string, unknown>; factory?: Record<string, unknown>; receipt?: Record<string, unknown> } = {}) {
+     const abort = new AbortController(); let persisted = true, blocked = false;
+@@ -55,11 +55,33 @@ async function setup(t: TestContext, leafDerivePurposes?: string[], getGatewayRe
+         requester: { senderId: "synthetic-requester", senderIsOwner: true }, ...extra });
+     return { receipt, context, event, dispatch, hook, tool, abort,
+       pending() { persisted = false; }, commit() { persisted = true; }, block() { blocked = true; },
+-      end() { hooks.get("agent_end")!({ runId }, { ...identity, runId }); } };
++      end(data: object = { phase: "end" }, extra: object = {}) { terminal({ ...identity, runId, stream: "lifecycle", data, ...extra }, {}); } };
+   }
+   return { ...f, grant, turn, hooks, modelCalls: () => modelCalls, modelRequestHashes, expire() { active = false; }, deny() { denyScenario = true; } };
+ }
+ 
++test("public terminal events release source turns and pending calls without abort or conversation access", async t => {
++  const f = await setup(t);
++  for (let i = 0; i < 40; i++) {
++    const turn = f.turn(`terminal-${i}`); turn.dispatch();
++    for (let n = 0; n < 4; n++) assert.equal(turn.hook(`pending-${i}-${n}`), undefined);
++    turn.end(i % 2 ? { phase: "error", executionSettled: true } : { phase: "end" });
++    assert.equal(turn.abort.signal.aborted, false);
++    const denied = await turn.tool.execute(`pending-${i}-0`, { action: "read", ref: f.refs[0] });
++    assert.equal(denied.details.code, "source_request_admission_unavailable");
++    assert.deepEqual(turn.hook(`late-${i}`), { block: true, blockReason: "source_request_binding_mismatch" });
++  }
++  const fresh = f.turn("fresh"); fresh.dispatch();
++  fresh.end({ phase: "end" }, { agentId: "other" });
++  fresh.end({ phase: "end" }, { sessionKey: "other" });
++  fresh.end({ phase: "end" }, { runId: "other" });
++  fresh.end({ phase: "error" });
++  fresh.end({ phase: "end" }, { stream: "tool" });
++  assert.equal(fresh.hook("fresh-list"), undefined);
++  assert.equal((await fresh.tool.execute("fresh-list", { action: "list" })).details.status, "listed");
++  assert.equal(f.modelCalls(), 0);
++});
++
+ test("actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel", async t => {
+   const f = await setup(t), turn = f.turn(); turn.dispatch(); assert.equal(turn.hook("list"), undefined);
+   const listed = await turn.tool.execute("list", { action: "list" });
+diff --git a/tests/ordinary-source-read.test.ts b/tests/ordinary-source-read.test.ts
+index 4393e8eb..5d502507 100644
+--- a/tests/ordinary-source-read.test.ts
++++ b/tests/ordinary-source-read.test.ts
+@@ -159,7 +159,7 @@ test("missing issuer/config and owner/tool parameters cannot supply source permi
+   for (const configured of [false, true]) {
+     let factory: any;
+     const plugin = createOrdinaryPlugin();
+-    plugin.register!({ pluginConfig: { agentId: "main", publisher: false, ...(configured ? { sourceRead: { root: "/nonexistent/synthetic", manifestPath, revision: "a".repeat(40) } } : {}) },
++    plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", publisher: false, ...(configured ? { sourceRead: { root: "/nonexistent/synthetic", manifestPath, revision: "a".repeat(40) } } : {}) },
+       registerTool(v: unknown) { factory = v; }, registerCommand() {}, on() {} } as unknown as OpenClawPluginApi);
+     const tool = factory.create({ agentId: "main", senderIsOwner: true, assertInvocationCurrent() {} }).find((x: any) => x.name === SOURCE_READ_TOOL);
+     const result = await tool.execute("synthetic-call", { action: "read", owner: true, sourceRoot: "/forged", ref: { id: "forged", version: "sha256:" + "a".repeat(64) } });
+@@ -173,7 +173,7 @@ test("missing issuer/config and owner/tool parameters cannot supply source permi
+ test("ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced", async t => {
+   const f = await fixture(t); let factory: any, admissions = 0, active = true;
+   const plugin = createOrdinaryPlugin({ async admitSourceRead() { admissions++; return f.admission; } });
+-  plugin.register!({ pluginConfig: { agentId: "main", sourceRead: f.binding }, runtime: { version: hostVersion },
++  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", sourceRead: f.binding }, runtime: { version: hostVersion },
+     registerTool(v: unknown) { factory = v; }, registerCommand() {}, on() {} } as unknown as OpenClawPluginApi);
+   const make = (extra = {}) => factory.create({ agentId: "main", assertInvocationCurrent() { assert.ok(active, "closed"); }, ...extra }).find((x: any) => x.name === SOURCE_READ_TOOL);
+   assert.equal((await make().execute("read-call", { action: "read", ref: f.refs[0] })).details.original.text, f.texts[0]);
+diff --git a/tests/tool-request-binding.test.ts b/tests/tool-request-binding.test.ts
+index a19279b9..9bb15304 100644
+--- a/tests/tool-request-binding.test.ts
++++ b/tests/tool-request-binding.test.ts
+@@ -86,7 +86,7 @@ test("cancellation removes pending metadata; capacity is explicit and consumptio
+ 
+ test("plugin hook metadata reaches only the exact candidate execution and retains unsaved/source-off contract", async () => {
+   let factory: any; const hooks = new Map<string, Function>();
+-  plugin.register!({ pluginConfig: { agentId: "main", publisher: false }, on(name: string, handler: Function) { hooks.set(name, handler); },
++  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", publisher: false }, on(name: string, handler: Function) { hooks.set(name, handler); },
+     registerTool(value: unknown) { factory = value; }, registerCommand() {} } as unknown as OpenClawPluginApi);
+   const context = { ...identity, assertInvocationCurrent() {} };
+   const tool = factory.create(context).find((t: any) => t.name === CANDIDATE_TOOL);
+diff --git a/tests/ordinary-terminal-lifecycle.test.ts b/tests/ordinary-terminal-lifecycle.test.ts
+new file mode 100644
+index 00000000..56cbb182
+--- /dev/null
++++ b/tests/ordinary-terminal-lifecycle.test.ts
+@@ -0,0 +1,74 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
++import plugin, { CANDIDATE_TOOL } from "../src/ordinary-plugin.js";
++
++const identity = { agentId: "main", sessionKey: "agent:main:synthetic", sessionId: "synthetic-session" };
++const proposal = { topic: "Synthetic", interpretation: "Unconfirmed", proposedPremises: [], openQuestions: [], evidenceReferences: [] };
++function setup() {
++  let factory: any, subscription: any;
++  const hooks = new Map<string, Function>();
++  plugin.register!({ pluginConfig: { agentId: "main", publisher: false },
++    agent: { events: { registerAgentEventSubscription(value: unknown) { subscription = value; } } },
++    registerTool(value: unknown) { factory = value; }, registerCommand() {},
++    on(name: string, handler: Function) { hooks.set(name, handler); },
++  } as unknown as OpenClawPluginApi);
++  const tool = factory.create({ ...identity, assertInvocationCurrent() {} }).find((t: any) => t.name === CANDIDATE_TOOL);
++  function turn(runId: string) {
++    const abort = new AbortController();
++    const receipt = { ...identity, storePath: "/synthetic/not-read.db", entryId: runId, logicalTurnId: runId,
++      generation: "g", idempotencyKey: runId, role: "user", rawSeq: 1, effectiveParentId: null, activeMessagePosition: 0 };
++    hooks.get("reply_dispatch")!({ runId, sessionKey: identity.sessionKey, ctx: { AgentId: "main", SessionKey: identity.sessionKey } },
++      { dispatchKind: "agent", abortSignal: abort.signal, userTurnTranscriptRecorder: {
++        hasPersisted: () => true, isBlocked: () => false, getAdmissionReceipt: () => receipt,
++      } });
++    const hook = (toolCallId: string) => hooks.get("before_tool_call")!({ toolName: CANDIDATE_TOOL, toolCallId, runId },
++      { ...identity, toolName: CANDIDATE_TOOL, toolCallId, runId, abortSignal: abort.signal });
++    return { abort, hook, read: (id: string) => tool.execute(id, proposal) };
++  }
++  const emit = (runId: string, data: object, extra = {}) => subscription.handle({ ...identity, runId,
++    seq: 1, ts: 1, stream: "lifecycle", data, ...extra }, {});
++  return { hooks, subscription, turn, emit };
++}
++
++test("normal terminal lifecycle replaces conversation hook and releases metadata plus unconsumed calls", async () => {
++  const f = setup();
++  assert.ok(f.subscription, "public lifecycle subscription missing");
++  assert.deepEqual(f.subscription.streams, ["lifecycle"]); assert.equal(f.hooks.has("agent_end"), false);
++  for (let i = 0; i < 40; i++) {
++    const run = `run-${i}`, t = f.turn(run);
++    t.hook(`${run}-read`);
++    assert.equal((await t.read(`${run}-read`)).details.currentInputObservation.status, "observed");
++    // Four calls never execute. Without terminal cleanup the 128-call cap leaks.
++    for (let n = 0; n < 4; n++) assert.equal(t.hook(`${run}-pending-${n}`), undefined);
++    f.emit(run, { phase: "end" }); assert.equal(t.abort.signal.aborted, false);
++    assert.equal((await t.read(`${run}-pending-0`)).details.requestBinding.status, "unavailable");
++    t.hook(`${run}-late`);
++    assert.equal((await t.read(`${run}-late`)).details.currentInputObservation.code, "reply_dispatch_not_observed");
++  }
++});
++
++test("tool rounds, recoverable errors, absent or mismatched identities do not retire an active request", async () => {
++  const f = setup(), t = f.turn("run-active"); assert.ok(f.subscription);
++  const cases = [
++    [{ phase: "end" }, { stream: "tool" }], [{ phase: "start" }, {}], [{ phase: "error" }, {}],
++    [{ phase: "end" }, { agentId: "other" }], [{ phase: "end" }, { agentId: undefined }],
++    [{ phase: "end" }, { sessionKey: "other" }], [{ phase: "end" }, { sessionKey: undefined }],
++    [{ phase: "end" }, { runId: "other" }], [{ phase: "end" }, { runId: undefined }],
++  ] as const;
++  for (const [i, [data, extra]] of cases.entries()) {
++    f.emit("run-active", data, extra); t.hook(`continued-${i}`);
++    assert.equal((await t.read(`continued-${i}`)).details.currentInputObservation.status, "observed");
++  }
++});
++
++test("settled/exhausted errors and cancellation retire only the matching request", async () => {
++  for (const data of [{ phase: "error", executionSettled: true }, { phase: "error", fallbackExhaustedFailure: true }]) {
++    const f = setup(), a = f.turn("a"), b = f.turn("b"); assert.ok(f.subscription);
++    f.emit("a", data); f.emit("a", data);
++    a.hook("a-late"); assert.equal((await a.read("a-late")).details.currentInputObservation.status, "unavailable");
++    b.hook("b-live"); assert.equal((await b.read("b-live")).details.currentInputObservation.status, "observed");
++    b.abort.abort(); b.hook("b-late");
++    assert.equal((await b.read("b-late")).details.currentInputObservation.status, "unavailable");
++  }
++});

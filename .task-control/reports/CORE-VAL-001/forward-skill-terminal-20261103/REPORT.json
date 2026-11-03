@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T08:21:39.977431+00:00",
+  "baseHead": "5ab3ccf44153682ed8d82f58ccb9f4a011ee6d29",
+  "hostVersion": "2026.10.9",
+  "skillActivation": {
+    "status": "actual_main_eligible_unfiltered",
+    "officialPatchExit": 0,
+    "onlyConfigPath": "agents.entries.main.skills",
+    "onlyAppended": "stella-understand-sources",
+    "countBefore": 69,
+    "countAfter": 70,
+    "beforeConfigSha256": "4754fcc55adbf034a2d8e415f9359a729e51cc12a790e58a22f747f3ac3e91c0",
+    "afterConfigSha256": "60f33e07c9dd55af863c6c0bac339e7d1fc156aa32d7aadb1f3ba6d15c3ef656",
+    "allOtherConfigEqual": true,
+    "reviewedAndProjectedSkillSha256": "8f13233ada425b3995ad586a76af6175b8de14dad39ca3dfaaaf5e2c9ecc286d",
+    "eligible": true,
+    "blockedByAgentFilter": false,
+    "selfieEligible": true,
+    "selfieBlockedByAgentFilter": false,
+    "pid": 31634,
+    "health": true,
+    "hotReloadStatus": "active",
+    "activeWork": {
+      "rootRequests": 0,
+      "cronRuns": 0,
+      "sessionMutations": 0,
+      "terminalPersistence": 0,
+      "lifecycleWrites": 0
+    },
+    "writeCustodyCount": 0,
+    "queuedEventsCount": 0,
+    "timelineLoaded": false,
+    "coreLoaded": true,
+    "restarts": 0,
+    "backupAndNarrowRollbackRetained": true,
+    "rollbackExercised": false,
+    "privateReceiptHashes": {
+      "CONFIG-BASELINE.private.json": "4754fcc55adbf034a2d8e415f9359a729e51cc12a790e58a22f747f3ac3e91c0",
+      "PATCH-RESULT.private.json": "80818f2809fae7c358ae13d9cf82c4699d7417cd20cd3603cb6df7a4c6dde3c6",
+      "ROLLBACK-PATCH.private.json": "4681d2763484306d2a29031cc742fea9117f3761cc134525068637dc06369160",
+      "SKILL-PATCH.private.json": "90de04b2fb445ba0c4ff39c74901b0846d4ac5a4ceb47020fd437b36f74f3713",
+      "health-after.private.json": "8a00a18d5c105bba1fcf48b58b7bc42f4200b571fabc88c71054412f2f71f193",
+      "skill-patch.claim.json": "b05403618b5e17813b8c7f42faebb0b408897429b9a5e14182dcbc53ebf2887a",
+      "skills.status-after.private.json": "9b324989a04f9d6b9223cabc7ba0d2b8bc2366df0b0d5cb9fd9f4422339f9a6e",
+      "skills.status-before.private.json": "cc6a3780f0dad812e7db516d5484219c89c51ef6255488f8e9714a4893f1ff05",
+      "status-after.private.json": "5bbebfd850fd78c497ad058d6532e15b2d78a380d9775d38764e8ffdc5b3c425",
+      "status-before.private.json": "3f52108bfca1d53348515f7066bed054366c5eedc0203a22a882e4505b64876c"
+    },
+    "rawReceiptsNotCopied": true
+  },
+  "terminalCandidate": {
+    "status": "local_unreviewed_not_loaded",
+    "sourceFiles": [
+      {
+        "path": "src/ordinary-plugin.ts",
+        "sha256": "4ae3fd567690e41e593abb454b0748fa94b9fcf245c1c368b7a06baffca407fb"
+      },
+      {
+        "path": "src/openclaw/tool-request-binding.ts",
+        "sha256": "00d3e47920c10cc5f985e9da5538e422b782c169181153054f08a3b6bb0e3e3e"
+      },
+      {
+        "path": "tests/ordinary-terminal-lifecycle.test.ts",
+        "sha256": "bdbd21d0ad72714adae9d3813b60fbb45675920c57aacec673c3aa1112ff8910"
+      },
+      {
+        "path": "tests/ordinary-plugin.test.ts",
+        "sha256": "2e906a71f5ec7a08cbcf23aded7d4dc68ad6edf68a872800e6d36770f089aed1"
+      },
+      {
+        "path": "tests/current-input-metadata.test.ts",
+        "sha256": "e45eb9b9aa2db606eb834485a2fdfa5f07ae0a033c24057caf4fd3cd9153e2d6"
+      },
+      {
+        "path": "tests/ordinary-source-admission.test.ts",
+        "sha256": "b44572cff08d868cd326209fcc7d42e7ceeee63ec4cdbf068c3caf7c8045446d"
+      },
+      {
+        "path": "tests/ordinary-source-read.test.ts",
+        "sha256": "eed3de720d186f48bc7e9075bcb310880a971c866a18b1824d6c72950c838d06"
+      },
+      {
+        "path": "tests/tool-request-binding.test.ts",
+        "sha256": "6a956b39414cf8c15ab5f7b75fb12a3f4b2dd9e77e4dcb5ec7fba08b5ebe36ce"
+      },
+      {
+        "path": "tests/candidate-work-brief.test.ts",
+        "sha256": "2614de7895d14b25df1331c99263457f0aab1335fb58d309eb0078f0c42404a3"
+      }
+    ],
+    "publicSeam": "api.agent.events.registerAgentEventSubscription, streams=[lifecycle]",
+    "selectedFactsOnly": [
+      "stream",
+      "data.phase",
+      "data.executionSettled",
+      "data.fallbackExhaustedFailure",
+      "runId",
+      "agentId",
+      "sessionKey"
+    ],
+    "retirement": "end or error explicitly executionSettled/fallbackExhaustedFailure; exact observed agent/run/session; existing cancellation remains",
+    "retryableOrUnknownError": "retained, not inferred terminal",
+    "removedConversationHook": "agent_end",
+    "noConversationPermissionChange": true,
+    "noSdkInternalImportsOrHostModifications": true,
+    "productionFilesChanged": 2,
+    "tests": {
+      "compile": "passed10.9",
+      "red": {
+        "tests": 3,
+        "pass": 0,
+        "fail": 3,
+        "reason": "old entry did not register public lifecycle seam"
+      },
+      "firstGreenAttempt": {
+        "tests": 89,
+        "pass": 88,
+        "fail": 1,
+        "cause": "new test expected raw string rather than existing Host block-result object; assertion corrected, production unchanged"
+      },
+      "final": {
+        "tests": 89,
+        "pass": 89,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "coverage": [
+        "40 normally ended requests exceed old32turn/128pending-call bounds without abort",
+        "both metadata and source-turn/pending-call retirement",
+        "late source calls denied before synthetic policy completion",
+        "matching end/executionSettled/exhausted errors",
+        "retryable error/tool continuation/missing or different identity ignored",
+        "cancellation and existing source/metadata/admission/device/scope contracts"
+      ]
+    },
+    "patchSha256": "952c2c365f8d8f23c16cc84ad055ae857a6bb118cdbbb51a7d3fe09129d3cd4a",
+    "officialSourceHashes": [
+      {
+        "path": "dist/config-contracts-DzLaG7FV.d.ts",
+        "sha256": "72741a327458246b1d15850da3ce948c0ba962a17853b2c1a8785f8bb19dbe17",
+        "localAndGlobalIdentical": true
+      },
+      {
+        "path": "dist/registry-CTP8XMYJ.mjs",
+        "sha256": "3edab64b6e829364d4c95e025a67b1393b6bba57671c32ab5a6f077a6f66cdd7",
+        "localAndGlobalIdentical": true
+      },
+      {
+        "path": "dist/runtime-U4i1bMh7.mjs",
+        "sha256": "69c62beffefadb8edab9e70754673610e5a4469f8d6e36a161eaf383e6e81e4d",
+        "localAndGlobalIdentical": true
+      },
+      {
+        "path": "dist/agent-events-jWdQ_ESE.mjs",
+        "sha256": "3cc002505d6e13633a21db1ad7ac6305c226036e5e063b9854b04f0211d6751a",
+        "localAndGlobalIdentical": true
+      },
+      {
+        "path": "dist/agent-run-terminal-outcome-CrMEEYuY.mjs",
+        "sha256": "84415bf572b1a1ba1df6b913932d70c05e3f4d96084172652177b1131019db6d",
+        "localAndGlobalIdentical": true
+      },
+      {
+        "path": "dist/dispatch-from-config-D0ByBFxM.mjs",
+        "sha256": "5b42abe88035db530bd69bf397ecc614e129e84e2e7cd8886662c9ac2b983986",
+        "localAndGlobalIdentical": true
+      },
+      {
+        "path": "dist/reply-run-registry.registry-ICalZVvY.mjs",
+        "sha256": "4c0df0f8027b5909c6fe28ccf9fc477c8386f2e2c961f89e8e56b18af011225a",
+        "localAndGlobalIdentical": true
+      },
+      {
+        "path": "docs/plugins/sdk-overview/host-hooks.md",
+        "sha256": "d5259b64f833648f90a44c81cb660cfb05533b00273047deabbb3693ac2a4435",
+        "localAndGlobalIdentical": true
+      }
+    ],
+    "actualHostLifecycleAndSdk10_8": "not_verified"
+  },
+  "boundaries": {
+    "modelRequests": 0,
+    "privateBodyReads": 0,
+    "newGrants": 0,
+    "sourceScope": "unchanged original97sources362descriptors fixed90f",
+    "publisher": false,
+    "candidateInstalled": false,
+    "push": false,
+    "retainedWorkIndependentCount": "not_exposed_not_claimed_zero",
+    "fullMemoryAndModelConsumption": "not_verified"
+  }
+}

@@ -1,0 +1,14 @@
+
+# 2026-11-03 follow-up to generation15: exact skill-only hot config update.
+ordinary_forward_skill_20261103:
+  evidence: .task-control/reports/CORE-VAL-001/forward-skill-terminal-20261103/REPORT.json
+  main_skill: stella-understand-sources
+  eligible: true
+  blocked_by_agent_filter: false
+  whitelist_change: append_only_69_to_70
+  all_other_config: unchanged
+  paid_calls_and_private_body_reads: zero
+  terminal_cleanup_candidate: public_lifecycle_subscription_not_loaded_pending_review
+  focused_tests_sdk10_9: 89_of_89
+  actual_terminal_and_sdk10_8: not_verified
+  conversation_access_permission: unchanged_not_granted

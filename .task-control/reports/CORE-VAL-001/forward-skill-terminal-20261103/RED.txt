@@ -1,0 +1,71 @@
+✖ normal terminal lifecycle replaces conversation hook and releases metadata plus unconsumed calls (0.908625ms)
+✖ tool rounds, recoverable errors, absent or mismatched identities do not retire an active request (2.812916ms)
+✖ settled/exhausted errors and cancellation retire only the matching request (0.2705ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2374.359
+
+✖ failing tests:
+
+test at .test-dist/tests/ordinary-terminal-lifecycle.test.js:29:1
+✖ normal terminal lifecycle replaces conversation hook and releases metadata plus unconsumed calls (0.908625ms)
+  AssertionError [ERR_ASSERTION]: public lifecycle subscription missing
+      at TestContext.<anonymous> (file://<repo>/.test-dist/tests/ordinary-terminal-lifecycle.test.js:31:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at .test-dist/tests/ordinary-terminal-lifecycle.test.js:48:1
+✖ tool rounds, recoverable errors, absent or mismatched identities do not retire an active request (2.812916ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(f.subscription)
+  
+      at TestContext.<anonymous> (file://<repo>/.test-dist/tests/ordinary-terminal-lifecycle.test.js:50:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at .test-dist/tests/ordinary-terminal-lifecycle.test.js:63:1
+✖ settled/exhausted errors and cancellation retire only the matching request (0.2705ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(f.subscription)
+  
+      at TestContext.<anonymous> (file://<repo>/.test-dist/tests/ordinary-terminal-lifecycle.test.js:66:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

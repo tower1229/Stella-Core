@@ -159,7 +159,7 @@ test("missing issuer/config and owner/tool parameters cannot supply source permi
   for (const configured of [false, true]) {
     let factory: any;
     const plugin = createOrdinaryPlugin();
-    plugin.register!({ pluginConfig: { agentId: "main", publisher: false, ...(configured ? { sourceRead: { root: "/nonexistent/synthetic", manifestPath, revision: "a".repeat(40) } } : {}) },
+    plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", publisher: false, ...(configured ? { sourceRead: { root: "/nonexistent/synthetic", manifestPath, revision: "a".repeat(40) } } : {}) },
       registerTool(v: unknown) { factory = v; }, registerCommand() {}, on() {} } as unknown as OpenClawPluginApi);
     const tool = factory.create({ agentId: "main", senderIsOwner: true, assertInvocationCurrent() {} }).find((x: any) => x.name === SOURCE_READ_TOOL);
     const result = await tool.execute("synthetic-call", { action: "read", owner: true, sourceRoot: "/forged", ref: { id: "forged", version: "sha256:" + "a".repeat(64) } });
@@ -173,7 +173,7 @@ test("missing issuer/config and owner/tool parameters cannot supply source permi
 test("ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced", async t => {
   const f = await fixture(t); let factory: any, admissions = 0, active = true;
   const plugin = createOrdinaryPlugin({ async admitSourceRead() { admissions++; return f.admission; } });
-  plugin.register!({ pluginConfig: { agentId: "main", sourceRead: f.binding }, runtime: { version: hostVersion },
+  plugin.register!({ agent: { events: { registerAgentEventSubscription() {} } }, pluginConfig: { agentId: "main", sourceRead: f.binding }, runtime: { version: hostVersion },
     registerTool(v: unknown) { factory = v; }, registerCommand() {}, on() {} } as unknown as OpenClawPluginApi);
   const make = (extra = {}) => factory.create({ agentId: "main", assertInvocationCurrent() { assert.ok(active, "closed"); }, ...extra }).find((x: any) => x.name === SOURCE_READ_TOOL);
   assert.equal((await make().execute("read-call", { action: "read", ref: f.refs[0] })).details.original.text, f.texts[0]);
