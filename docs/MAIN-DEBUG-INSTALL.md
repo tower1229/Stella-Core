@@ -158,3 +158,9 @@ TTS／视频的唯一详细正文位于同一工作区的 [Bili `docs/ARCHITECTU
 2752文件与已审普通产物清单一致后，官方链接恢复到 generation 7；随后通过官方 `plugins.setEnabled` 管理入口仅补回 `stella-core` allowlist 项并启用，generation 8、无需重启，PID仍为31634。配置差异仅 Core 加载路径、allowlist 项及 enabled；timeline、selfie及其他现有设置保留，未接受新能力、改身份/资料 grant或调用模型。真实 `stella_status` 成功：普通插件、native memory/context/loop、publisher=false，sourceRead=not_configured、persistence=none。health正常、activeWork及queuedSystemEvents均0；启用前activeOnly会话为空。公开接口未给出独立retained归属，不能称昨日3个retained已经证明归零。
 
 timeline的上下文注入可以触发原生prompt-projection持久化，其他注入也可以；目前没有证据将昨日模型等待归因于它，更未证明该等待已修复。原固定90f及5项来源/grant元数据hash仍匹配，但本次没有恢复sourceRead或读取正文。工程回执、配置差异、未验范围见[本次恢复记录](../.task-control/reports/CORE-VAL-001/post-timeline-20261103/REPORT.json)；当前安排只读唯一台账。
+
+## 2026-11-03 一次真实模型对照与普通产物恢复
+
+用户批准恢复原97来源／362描述符的固定90f绑定后，实际 WebUI 只提交一次 Google Gemini3.8Flash/low 请求，首次终态观察在约36秒内，未重发。模型通过原生 code-mode `exec` 试图调用指定 `stella_source_read`，被测试夹具的直接工具名限制拦截，最终明确回答读取失败。本次没有原文分析、来源供给或语义理解通过；历史挂起未复现也不证明 timeline 是根因。
+
+普通已审产物已热恢复到 generation13，PID31634未变；真实Gateway健康、活动工作计数0，真实WebUI状态工具通过，临时夹具卸除，原范围绑定保留，publisher关闭、timeline缺席。配置与本次已绑定回滚基线逐字节一致，selfie及其他用户设置未变。磁盘夹具回执停在注册时，不能用旧零计数作终态证据。Host报告两轮assistant、60225 tokens、USD0.0918315，未核账单或物理重试；本次额度已用完。详见[真实对照与恢复证据](../.task-control/reports/CORE-VAL-001/post-timeline-once-20261103/REPORT.md)，当前安排只读唯一台账。

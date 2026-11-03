@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-03T03:46:06.714468+00:00",
+  "status": "request_terminal_read_blocked_ordinary_restored",
+  "hostVersion": "2026.10.9",
+  "sourceCommit": "794753da8e791c7d83338052279a3d3d706a8905",
+  "run": {
+    "id": "74374410-09ac-480a-8589-c31567efacac",
+    "submitted": 1,
+    "authorized": 1,
+    "remaining": 0,
+    "sentAt": "2026-11-03T03:36:32.592Z",
+    "deadline": "2026-11-03T03:38:02.592Z",
+    "terminalObservedByElapsedMs": 35819,
+    "terminalObservation": "real WebUI chat.history: final assistant stop, hasActiveRun=false, activeRunIds=[], pendingInputs=0",
+    "exactEndTimestamp": null,
+    "cancelled": false,
+    "resent": false
+  },
+  "model": {
+    "provider": "google",
+    "model": "gemini-3.8-flash",
+    "thinking": "low",
+    "hostReportedAssistantTurns": 2,
+    "hostReportedUsage": {
+      "input": 59976,
+      "output": 249,
+      "totalTokens": 60225,
+      "costUsd": 0.0918315
+    },
+    "usageBasis": "sum of two assistant message usage fields from real WebUI chat.history; not billing or physical HTTP retry verification",
+    "physicalModelRequests": null,
+    "costHardCap": false
+  },
+  "result": {
+    "toolCallName": "exec",
+    "toolCallId": "call_504128",
+    "nestedIntent": "JavaScript catalog.search(stella_source_read), then one read with the exact selected ref",
+    "blockedBeforeExecution": "test_other_tool_forbidden",
+    "finalAnswer": "explicit read failure; no fabricated fragment analysis",
+    "sourcePayloadReturned": false,
+    "sourcePolicyJudgmentObserved": false,
+    "sourceReadSuccess": false,
+    "semanticUnderstandingAccepted": false,
+    "timelineHangReproduced": false,
+    "timelineCausalClaim": "not established; this bounded run reached two model turns and final response"
+  },
+  "receiptLimitation": {
+    "boundaryReceiptTimestamp": "2026-11-03T03:34:34.717Z",
+    "containsPostRunObservation": false,
+    "counterValuesAreTerminal": false,
+    "reason": "disk receipt remained registration snapshot; later observer did not persist a matching event",
+    "doNotInfer": "zero usage, terminal read/policy counters or completed observation from stale zero counters"
+  },
+  "binding": {
+    "rootType": "existing formal CangHai fixed worktree",
+    "revision": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "sources": 97,
+    "descriptors": 362,
+    "grantExpanded": false,
+    "financeAdded": false,
+    "retainedAfterRestore": true
+  },
+  "restoration": {
+    "at": "2026-11-03T03:44:02.271837+00:00",
+    "pid": 31634,
+    "generation": 13,
+    "restart": false,
+    "ordinaryArtifact": ".artifacts/device-source-20261102-00dab376/ordinary",
+    "entry": "dist/src/ordinary-plugin.js",
+    "entrySha256": "e0f939faaf96bc3378c74c37a67b6dbbe8f89935567e4f883be8eb3f589b1459",
+    "fixtureUnloaded": true,
+    "timelineAbsent": true,
+    "health": true,
+    "activeWork": {
+      "rootRequests": 0,
+      "cronRuns": 0,
+      "sessionMutations": 0,
+      "terminalPersistence": 0,
+      "lifecycleWrites": 0
+    },
+    "writeCustody": [],
+    "ordinaryStatusPassed": true,
+    "browserStatusPassed": true,
+    "sourceReadPort": "public_request_adapter_requires_admission",
+    "publisher": false,
+    "configEqualsApprovedBoundBaseline": true,
+    "configSha256": "76e2e996a18212ace9b4948848645cbd0aa166649ddd75ba9f59696cef480dd5",
+    "selfieAndOtherSettingsUnchanged": true,
+    "retainedWorkIndependentCount": null
+  },
+  "nextFiniteWork": "No-model compatibility correction for reviewed boundary versus native code-mode exec transport; do not simply allow arbitrary exec. Review before any new paid test; current quota exhausted.",
+  "nonGoals": [
+    "no new model request",
+    "no new grant or identity mapping",
+    "no change to installed Host source",
+    "no sandbox activation retry",
+    "no source plaintext, private seed, config backup or raw history in Git"
+  ]
+}

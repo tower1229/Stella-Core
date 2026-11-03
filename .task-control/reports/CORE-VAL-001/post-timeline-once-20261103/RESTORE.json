@@ -1,0 +1,95 @@
+{
+  "plugins.list": {
+    "generation": 13,
+    "keys": [
+      "plugins",
+      "diagnostics",
+      "mutationAllowed",
+      "generation"
+    ],
+    "core": [
+      {
+        "id": "stella-core",
+        "enabled": true,
+        "runtime": {
+          "state": "active"
+        }
+      }
+    ],
+    "timelinePresent": false
+  },
+  "health": {
+    "ok": true,
+    "plugins": {
+      "loaded": [
+        "brave",
+        "codex",
+        "deepseek",
+        "google",
+        "memory-core",
+        "minimax",
+        "openai",
+        "stella-core",
+        "telegram"
+      ],
+      "errors": [],
+      "unavailable": []
+    },
+    "configReload": {
+      "hotReloadStatus": "active"
+    }
+  },
+  "status": {
+    "pid": 31634,
+    "shutdownBudget": {
+      "timeoutMs": 325000,
+      "reserveMs": 10000,
+      "nativeStopBudget": true,
+      "activeWork": {
+        "rootRequests": 0,
+        "cronRuns": 0,
+        "sessionMutations": 0,
+        "terminalPersistence": 0,
+        "lifecycleWrites": 0
+      },
+      "writeCustody": []
+    },
+    "queuedSystemEventsCount": null
+  },
+  "tools.invoke": {
+    "ok": true,
+    "toolName": "stella_status",
+    "output": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"architecture\":\"ordinary-plugin\",\"stage\":\"candidate-only\",\"agentId\":\"main\",\"publisher\":false,\"sourceAdapter\":\"not_connected\",\"authorConfirmation\":false,\"sourceReadPort\":\"public_request_adapter_requires_admission\",\"persistence\":\"none\",\"candidateDraftsConfigured\":false,\"draftScope\":\"synthetic_debug\",\"modelCalls\":\"on_demand_source_policy\",\"legacyRuntime\":\"inactive\",\"requestBinding\":\"public-tool-hook-metadata\",\"currentInputAdmission\":\"not_connected\",\"currentInputObservation\":\"passive-native-admission-metadata-only\",\"memory\":\"host-owned\",\"context\":\"host-owned\",\"agentLoop\":\"host-owned\"}"
+        }
+      ],
+      "details": {
+        "architecture": "ordinary-plugin",
+        "stage": "candidate-only",
+        "agentId": "main",
+        "publisher": false,
+        "sourceAdapter": "not_connected",
+        "authorConfirmation": false,
+        "sourceReadPort": "public_request_adapter_requires_admission",
+        "persistence": "none",
+        "candidateDraftsConfigured": false,
+        "draftScope": "synthetic_debug",
+        "modelCalls": "on_demand_source_policy",
+        "legacyRuntime": "inactive",
+        "requestBinding": "public-tool-hook-metadata",
+        "currentInputAdmission": "not_connected",
+        "currentInputObservation": "passive-native-admission-metadata-only",
+        "memory": "host-owned",
+        "context": "host-owned",
+        "agentLoop": "host-owned"
+      }
+    },
+    "source": "plugin"
+  },
+  "configSha256": "76e2e996a18212ace9b4948848645cbd0aa166649ddd75ba9f59696cef480dd5",
+  "configEqualsBoundBaseline": true,
+  "at": "2026-11-03T03:44:02.271837+00:00"
+}

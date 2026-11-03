@@ -1,0 +1,58 @@
+{
+  "privateEvidenceRetainedLocally": true,
+  "rawEvidenceNotPublished": true,
+  "files": [
+    {
+      "name": "PLAN.json",
+      "sha256": "ff1239afa7537cac2f840780c99fcfc77224439e6dd1ae1df88a0a0d7a097b9c"
+    },
+    {
+      "name": "SOURCE-BIND-RESULT.json",
+      "sha256": "47ba658f75cb8e6580558a1dc7dd94e35e6f8b1038de7b883938c059547ef075"
+    },
+    {
+      "name": "ASSEMBLY.json",
+      "sha256": "85c878908ad9f39781a3bfbd08baec8dcfb38e09abb2af449adf8d2c1c4a41d2"
+    },
+    {
+      "name": "PRE-SEND-IDENTITY-CHECK.json",
+      "sha256": "ad8428ae80d688e2c8de3ff8deb7a870187bf0ba40227924e2dc147e09524659"
+    },
+    {
+      "name": "PREFLIGHT-COMPLETE.json",
+      "sha256": "525031448d03c7e3e072dd1304b84231f5feb27260b1fd1fd328e3ae6c4a388e"
+    },
+    {
+      "name": "chat-send.claim.json",
+      "sha256": "315d4c5260ccb87e42d08544c5340d9e197fa58bc13dd179d3fa08bc473830c3"
+    },
+    {
+      "name": "CHAT-ACK.json",
+      "sha256": "c69219e7026491542a2ac1f6e11595a68ff7abe61f18dfe3a62bdfdc32bdcaf8"
+    },
+    {
+      "name": "BOUNDARY-RECEIPT.json",
+      "sha256": "14fde1c5cacb32c4bd6de64a4d4909cd945867bd5865e84c55af4777f207d69f"
+    },
+    {
+      "name": "PRE-RESTORE-STATUS.json",
+      "sha256": "4a106bb8081c17a35e740d37242ad31e2a1d692008891c1799824ebf558c6e18"
+    },
+    {
+      "name": "RESTORE-CONFIG-RESULT.json",
+      "sha256": "bf42db3835d3b5faa4fac08e945bea42c304a5d434c7d7f8159b13ebc567f5a0"
+    },
+    {
+      "name": "RESTORE-REGISTER-RESULT.json",
+      "sha256": "d8cdee9d4a47c37530175d78a90f0b95067dcd4a84c9be6ed73a08b55f5d9b5c"
+    },
+    {
+      "name": "ORDINARY-RESTORED-VERIFIED.json",
+      "sha256": "4cc5b24e26b79336a2c9d3be6c3d2160423caad2b734fa17a4a3a905cc5056f0"
+    },
+    {
+      "name": "TERMINAL-SUMMARY.json",
+      "sha256": "6bda48e3f0d370ce4cc2ace6898ce8f15511228d34d0878843d95ed9b3c66dd5"
+    }
+  ]
+}
