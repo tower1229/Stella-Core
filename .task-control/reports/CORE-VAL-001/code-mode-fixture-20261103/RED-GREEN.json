@@ -1,0 +1,24 @@
+{
+  "kind": "same synthetic regression, historical red and candidate green",
+  "rows": [
+    {
+      "name": "original",
+      "outerBlocked": true,
+      "reason": "test_other_tool_forbidden",
+      "deniedToolBlocked": true,
+      "transitionReceipts": 0,
+      "lastReceiptDenials": null
+    },
+    {
+      "name": "candidate",
+      "outerBlocked": false,
+      "reason": null,
+      "deniedToolBlocked": true,
+      "transitionReceipts": 3,
+      "lastReceiptDenials": 1
+    }
+  ],
+  "providerCalls": 0,
+  "sourceIO": 0,
+  "hostStarted": false
+}

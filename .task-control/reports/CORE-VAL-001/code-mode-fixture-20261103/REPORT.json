@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T04:04:46.095757+00:00",
+  "status": "author_verified_frozen_for_independent_review",
+  "baseCommit": "f76025c908b8adfbf0af4e4083105089bdfe8983",
+  "scope": "test fixtures only; production source/grant and main unchanged",
+  "files": [
+    "scripts/lib/single-source-test-boundary.mjs",
+    "scripts/fixtures/single-source-native-entry.mjs",
+    "scripts/lib/single-source-test-boundary.test.mjs",
+    "scripts/fixtures/single-source-code-mode-replay.mjs",
+    "scripts/lib/single-source-code-mode.test.mjs",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ],
+  "historicalFailureRetained": ".task-control/reports/CORE-VAL-001/post-timeline-once-20261103/REPORT.json",
+  "fixedHostSource": "2026.10.9",
+  "tests": {
+    "command": "node --test scripts/lib/single-source-test-boundary.test.mjs scripts/lib/single-source-code-mode.test.mjs",
+    "total": 45,
+    "pass": 45,
+    "fail": 0,
+    "originalBoundaryCases": 25,
+    "addedCodeModeReceiptCases": 20
+  },
+  "redGreen": "RED-GREEN.json",
+  "constraints": {
+    "exactExecutableProgramOnly": true,
+    "arbitraryCodeMode": false,
+    "plainShellExec": false,
+    "nativeKindAndInputRequired": true,
+    "oneControlCall": true,
+    "oneSourceAttempt": true,
+    "oneLogicalPolicyJudgment": true,
+    "originalGuardAndPermissionPreserved": true,
+    "deadlineMs": 90000,
+    "collectionCompleteClaim": false,
+    "liveHostAcceptance": false,
+    "modelSemanticAcceptance": false,
+    "executionReady": false
+  },
+  "receiptChange": "synchronous counters-only snapshots inside the boundary on every transition, including blocking denial; separate verified official run facts required for terminal observation; async or throwing sinks fail closed",
+  "futureLoaderCompatibility": "third callback receives snapshot, not getter; do not reuse old registration-only loader",
+  "futureRequestCompatibility": "must include the exact singleSourceCodeModeProgram(ref) bytes; arbitrary model formatting is explicitly rejected. This is a bounded technical supply test, not autonomous tool-selection acceptance.",
+  "additionalPrerequisite": "Independent review and separately allocated paid request before any actual Host promotion/test. Public hook observes pre-execution params; all actual Host transformations and future loader must remain within the reviewed fixed contract.",
+  "activity": {
+    "hostOperations": 0,
+    "providerCalls": 0,
+    "privateSourceReads": 0,
+    "networkCalls": 0,
+    "sandboxActivationAttempts": 0,
+    "grantChanges": 0
+  },
+  "commitStatus": "uncommitted candidate, awaiting independent review",
+  "oldProjectStateSha256": "7da18288da5a0348b63ef0edc4a596b96f3233b8075d1a92099a37e205059d47"
+}

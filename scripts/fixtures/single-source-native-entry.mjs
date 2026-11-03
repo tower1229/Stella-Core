@@ -6,7 +6,10 @@ import { createSingleSourceTestBoundary } from "../lib/single-source-test-bounda
  * The seed is a restriction, never authorization or a substitute for native
  * reply_dispatch / v2 invocation / authenticated Gateway facts. */
 export function createSingleSourceNativeEntry(ordinary, seed, onBoundary = () => {}) {
-  const boundary = createSingleSourceTestBoundary(seed);
+  // The sink receives a counters-only immutable snapshot at every transition,
+  // including rejection BEFORE the Host short-circuits later hook handlers.
+  // It must persist synchronously; errors leave the test fail-closed.
+  const boundary = createSingleSourceTestBoundary(seed, { onChange: onBoundary });
   return {
     id: "stella-core",
     name: "Stella Core",
@@ -30,7 +33,7 @@ export function createSingleSourceNativeEntry(ordinary, seed, onBoundary = () =>
       api.on("before_prompt_build", (event, ctx) => boundary.beforePrompt(event, ctx));
       api.on("before_tool_call", (event, ctx) => boundary.beforeTool(event, ctx));
       api.on("agent_end", (event, ctx) => boundary.end(event, ctx));
-      onBoundary(() => boundary.summary()); // Counters only; no body/ref/identity.
+      boundary.recordRegistration();
     },
   };
 }

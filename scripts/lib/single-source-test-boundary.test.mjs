@@ -32,7 +32,11 @@ test("one admitted exact read and one original policy completion; no identity/gr
   }).execute(f.ctx.toolCallId, params());
   assert.deepEqual(result, { text: "synthetic-policy" });
   assert.equal(reads, 1); assert.equal(policies, 1);
-  assert.deepEqual(f.gate.summary(), { requestObserved: true, closed: false, executions: 1, policyCompletions: 1, denials: 0 });
+  const summary = f.gate.summary();
+  assert.equal(summary.executions, 1); assert.equal(summary.policyCompletions, 1);
+  assert.equal(summary.completedExecutions, 1); assert.equal(summary.pendingExecutions, 0);
+  assert.equal(summary.denials, 0); assert.equal(summary.captureIncomplete, false);
+  assert.equal(summary.collectionComplete, false);
 });
 
 for (const [name, change] of [

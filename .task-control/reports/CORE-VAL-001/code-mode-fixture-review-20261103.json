@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T04:13:38.632Z",
+  "verdict": "accepted_for_preservation_as_unloaded_fixed_program_test_fixture_only",
+  "stateRevisionObserved": 156,
+  "baseCommit": "f76025c908b8adfbf0af4e4083105089bdfe8983",
+  "manifestSha256": "24ed1aa0c1d72b6705e19d634d1263760ab8fc44afc82603a7b3180887bf861a",
+  "members": 15,
+  "sixFilesMatchFrozen": true,
+  "SDK": {
+    "installedSource": "2026.10.9",
+    "sourcePins": 8,
+    "allMatched": true,
+    "notTenPointEightAcceptance": true
+  },
+  "independentResults": {
+    "focused": {
+      "tests": 45,
+      "pass": 45,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "redGreenReplay": {
+      "exitCode": 0,
+      "originalOuterBlocked": true,
+      "candidateOuterBlocked": false,
+      "otherToolDeniedInBoth": true
+    },
+    "literalSafety": {
+      "tests": 3,
+      "pass": 3,
+      "scope": "Synthetic quote/backtick/newline/Unicode ref literal roundtrip; no network/process escape",
+      "notAddedToFocusedCount": true
+    }
+  },
+  "blockingFindings": [],
+  "safetyFindings": [
+    "Public hook toolKind/code_mode_exec and toolInputKind/javascript are Host authoritative. Exact source wrapper computes them from the marked actual tool object, not model params. Generic same-name shell exec has no mark and is refused.",
+    "The program is a complete byte-for-byte fixed fixture. It is not a semantic classifier, arbitrary-JS allow rule, partial string filter or program rewrite. Source id/version are JSON literals; independent hostile literal roundtrip probes did not execute injected operations.",
+    "Outer code/command must match and awaitResults is forced true; restartSafe true, language/typecheck/unknown keys, arbitrary store/network programs and additional control calls are rejected.",
+    "Nested tool calls go through the unchanged native policy/tool path and original ordinary source executor. Exact source ref, one attempted read and one logical policy completion are retained with current request/v2 guard/cancellation/deadline checks.",
+    "Synchronous immutable counters snapshots are published inside the restriction, including denial before native short-circuit. Throwing/async sinks close the test; only the returned observer rejection is consumed. No global exception handler is installed.",
+    "collectionComplete is always false. Same-run independent official terminal/inactive/zero-pending facts are required for terminalObserved. Completed internal source execution is not model delivery/semantic proof."
+  ],
+  "limits": [
+    "These are fixed-source synthetic collaborator replays. No actual Guest worker, Gateway/browser callbacks, source grant/body or provider was executed.",
+    "The normal hook validates params at its public pre-execution boundary; it is not a cryptographic seal against later trusted hooks changing final parameters. Actual final Host transformations and active loader behavior remain part of later reviewed execution wiring; changed/unknown final behavior must not be described as verified or silently allowed.",
+    "The new private loader callback must persist each snapshot synchronously, not reuse the old getter/registration-only callback. No private seed or concrete launch is accepted here.",
+    "The exact fixed program must be supplied in a newly approved request; arbitrary model formatting fails. This is a bounded transport/data-supply test, not autonomous semantic tool selection acceptance.",
+    "90second checks do not promise an unconditional provider kill or dollar cap. Prior paid authorization remains exhausted; executionReady staysfalse."
+  ],
+  "saveWhitelist": [
+    "scripts/lib/single-source-test-boundary.mjs",
+    "scripts/fixtures/single-source-native-entry.mjs",
+    "scripts/lib/single-source-test-boundary.test.mjs",
+    "scripts/fixtures/single-source-code-mode-replay.mjs",
+    "scripts/lib/single-source-code-mode.test.mjs",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ],
+  "evidenceWhitelist": "Exact frozen code-mode packet and minimal coordinator state/review-summary update; exclude unrelated PROJECT-STATE and all private seed/config/body/build data.",
+  "next": "Preserve the six reviewed files plus exact non-sensitive packet. Then only mechanically review the new snapshot-loader wiring/final artifact/source hashes and any final parameter transformation boundary before deciding a separately authorized live request. No production permissions/grant/SDK/main change is granted by this review.",
+  "operations": {
+    "repositoryWrites": 0,
+    "Host": 0,
+    "network": 0,
+    "model": 0,
+    "privateBodyReads": 0,
+    "grantOrPermissionChanges": 0,
+    "sandboxActivation": 0
+  },
+  "evidenceDirectory": "/var/folders/3g/sbd2x9l51tb9gkn_k1y2j_7w0000gn/T/core-code-mode-independent-20261103-iSZKgJ"
+}

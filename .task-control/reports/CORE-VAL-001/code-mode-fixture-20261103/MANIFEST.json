@@ -1,0 +1,66 @@
+{
+  "baseCommit": "f76025c908b8adfbf0af4e4083105089bdfe8983",
+  "stateRevision": 156,
+  "members": [
+    {
+      "path": "OFFICIAL-SOURCE-PINS.json",
+      "sha256": "d89e8c7b6ee328101e9aaa4e62afdf4f9d6124f43c39405b55edb7d19a0e8ad1"
+    },
+    {
+      "path": "RED-GREEN.json",
+      "sha256": "b0eb54831e073d190975f9d98a970cc156e4849586675e85f7165b4c4188ddd7"
+    },
+    {
+      "path": "REPLAY.mjs",
+      "sha256": "006d623a46fffc9fff1ba5325ac829bb0da1a7509f50787582f5ffe03133c6a7"
+    },
+    {
+      "path": "REPORT.json",
+      "sha256": "940bd3bb7cb69bd6f76b117f65aa2332dafd9d108fb5afd6bfd77e1bcf4e861e"
+    },
+    {
+      "path": "REVIEW-REQUEST.md",
+      "sha256": "e0dfd9ef1909269d7973d262e03d79aed269613584e0c4d94fc3efa5de8e5e0b"
+    },
+    {
+      "path": "STATE156-SNAPSHOT.json",
+      "sha256": "dddbf9246f433d1123108d4423db18e40ab9548bf01afb74f100dd2e0c718d39"
+    },
+    {
+      "path": "changes.patch",
+      "sha256": "2d3c45d01617c74c0128f9318422bf33883d9d9d4a2faa861b3b526d02a81238"
+    },
+    {
+      "path": "frozen/docs/ORDINARY-SOURCE-READ.md",
+      "sha256": "e1e4e9682e9bb2be9a13d542df7b0f8cb95a303e3a269a206a921d93cc44ab30"
+    },
+    {
+      "path": "frozen/scripts/fixtures/single-source-code-mode-replay.mjs",
+      "sha256": "b27712f0f1cfb3abb031e74e2d51716b2a5c68956f371ac1e65bad5211ccbf6e"
+    },
+    {
+      "path": "frozen/scripts/fixtures/single-source-native-entry.mjs",
+      "sha256": "894a74189f4c7c76cee5611d40c915fa778474931f3b7d944d2804fa50fe1953"
+    },
+    {
+      "path": "frozen/scripts/lib/single-source-code-mode.test.mjs",
+      "sha256": "aa990d764b9b10eb5f3e61716228ba4febb44639b1d2d01b25b5deac17422eb2"
+    },
+    {
+      "path": "frozen/scripts/lib/single-source-test-boundary.mjs",
+      "sha256": "9eecd96270daf781e24f042acc9a39a585e4057acd23287ea4c9374b6bc6cf84"
+    },
+    {
+      "path": "frozen/scripts/lib/single-source-test-boundary.test.mjs",
+      "sha256": "eb7f6fbc5b3af95e10bbafece69751d4e574399803d9ddedef523c12c54af738"
+    },
+    {
+      "path": "tests.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tests.stdout.txt",
+      "sha256": "f3f02546ff0ae3290371e179f6b0fad16e1080627e181b246024388ef474472d"
+    }
+  ]
+}
