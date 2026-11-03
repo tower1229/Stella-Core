@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T06:08:38.203688+00:00",
+  "coreCommit": "6c3c91a2be1ea5aba25a4d383855ca9e7c83a7f4",
+  "legacyRef": "CangHai dev",
+  "legacyCommit": "d423d9e85ae3b2a9a120b7cdc52b3746b592b189",
+  "fixedRuntimeCommit": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+  "sourceProducerCommit": "2ea285d98d21c0882092582141aac92f93fa432a",
+  "inspection": "Static implementation plus exact Git tree/blob identifiers; no private file body, model, Host or CangHai mutation",
+  "knownCatalogCheck": {
+    "path": "50_PersonalAgent/stella/initialization/memory/catalog.json",
+    "presentAtLegacyDev": false,
+    "gitExit": 128,
+    "scope": "Only this previously known Core catalog path checked; not a claim that no other legacy store exists"
+  },
+  "legacyRawPreservation": [
+    {
+      "scope": "30_RAG/model-seed",
+      "trackedNonemptyFiles": 2,
+      "bytes": 11616,
+      "samePathSameBlobAtFixedRuntime": 2
+    },
+    {
+      "scope": "30_RAG/self-reflection",
+      "trackedNonemptyFiles": 12,
+      "bytes": 43723,
+      "samePathSameBlobAtFixedRuntime": 12
+    },
+    {
+      "scope": "30_RAG/work",
+      "trackedNonemptyFiles": 2,
+      "bytes": 15334,
+      "samePathSameBlobAtFixedRuntime": 2
+    }
+  ],
+  "countsMeaning": "Raw files, not counts of Understanding/Work objects. Does not prove descriptor/grant membership, semantic correctness or complete old memory migration. No names/body copied.",
+  "implementationFindings": [
+    {
+      "component": "Core source bootstrap migration",
+      "path": "scripts/prepare-source-catalog-migration.mjs",
+      "condition": "Rejects nonempty understandings/works/changes/bundles/views",
+      "error": "derived_state_requires_dependency_migration"
+    },
+    {
+      "component": "CangHai materializer at pinned producer",
+      "path": "99_System/Scripts/knowledge-migration/materialize.mjs",
+      "condition": "views must be empty; understandings/works/changes/bundles must be empty",
+      "errors": [
+        "unsupported_derived_views_require_explicit_migration",
+        "derived_objects_require_explicit_reassessment"
+      ]
+    },
+    {
+      "component": "Core target contracts",
+      "path": "src/praxis/personal-views.ts",
+      "meaning": "Structured scope, support/counter/dependency refs and recorded changes; not interchangeable with old Markdown or raw file presence"
+    },
+    {
+      "component": "Core synchronization and view migration",
+      "paths": [
+        "src/canghai/synchronize.ts",
+        "src/canghai/view-migration.ts"
+      ],
+      "meaning": "Can reassess already valid current structured targets through explicit completion and verification, preserve scope/history and publish via existing transaction; not a legacy Markdown-to-object importer or ordinary plugin entry"
+    },
+    {
+      "component": "Legacy Episode quarantine",
+      "path": "src/praxis/legacy-migration.ts",
+      "meaning": "Unverified Episode history preservation only; no Understanding/Work promotion or migration"
+    }
+  ],
+  "mostImportantGap": "No selected, version-bound legacy-derived input and supported semantic mapping to target Understanding/Work/Change records. Existing source-policy reviews do not establish those meanings. Raw16 selected-path files are preserved, but neither their current grant membership nor converted derived-object identity is established.",
+  "safeNextPackage": {
+    "owner": "CangHai selected-input writer coordinated with Core sole writer",
+    "input": "One explicit legacy writing/work asset at fixed dev commit, declared role/identity and actual permission; metadata inventory first, no whole-repository conversion",
+    "mapping": "Review retained source links, confirmed versus candidate premises, rejected interpretations, open questions, time and scope; preserve uncertainty and trace one LearningChange without inventing confirmation",
+    "reuse": "Existing validators, source/version references, semantic reassessment and MemoryTransaction; keep originals and old consumption unchanged",
+    "noAutomaticApply": true,
+    "beforeImplementation": "Fix actual input/target contract; do not relax nonempty guards or implement a universal converter on an unverified legacy format"
+  },
+  "independentFiniteQuestion": "Existing97/362 original-source question is separate and need not wait for all derived migration. It still requires approved native tool scope and new paid/material consent.",
+  "codeChangeJustifiedNow": false,
+  "reasonNoCode": "Current evidence does not select a real old object format or semantic mapping; new converter code would invent data semantics. Existing validation/reassessment is not a missing generic engine.",
+  "sourcePins": {
+    "scripts/prepare-source-catalog-migration.mjs": "e6639c563a970dad7b3795cf937a2824e92a2091275618396a6fd5c633af55e6",
+    "src/praxis/personal-views.ts": "4610b542fa4e723deb9b9119222238ec674f9a719046e01990af11b10ee223b8",
+    "src/canghai/synchronize.ts": "a3e4c4e880c5a6ee2b133e53fa1fbe8721b57ab233b8773c8d2d0a5529130235",
+    "src/canghai/view-migration.ts": "2f4a4a3a0c17dbb4f3151a7ccb72b46b7f6c8983e7925934c606293dca52aeb3",
+    "src/praxis/legacy-migration.ts": "5103d03f5cf5c208db0f9243ef4b8760c01adbbc444a8fba5e7a85254d425baf",
+    "src/ordinary-plugin.ts": "5f266e7ca11d9c601428facef0266cd09ea40c0c389e812c61b031fc70e77d6b",
+    "CangHai@2ea285d98d21c0882092582141aac92f93fa432a:99_System/Scripts/knowledge-migration/materialize.mjs": "156a9c006f5b7851664472009cafde99ea7a364adc315db96fe8bb7ed820475d"
+  },
+  "operations": {
+    "privateBodyReads": 0,
+    "models": 0,
+    "Host": 0,
+    "CangHaiWrites": 0,
+    "codeWrites": 0
+  },
+  "transport": {
+    "oneReadFailedBeforeProcessCreation": true,
+    "singleRecoveryFailed": "exec-server transport disconnected; recovery timed out",
+    "laterEnvironmentRestore": "user environment restored; lightweight HEAD check succeeded; metadata-only read then completed"
+  }
+}

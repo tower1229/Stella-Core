@@ -1,0 +1,13 @@
+{
+  "baseCommit": "6c3c91a2be1ea5aba25a4d383855ca9e7c83a7f4",
+  "files": {
+    ".task-control/reports/CORE-VAL-001/derived-migration-audit-20261103/REPORT.json": "ae11949e2ca51d2b7a2da036cbc1faffdd134ee18c9a2aafd2c819e354802137",
+    ".task-control/reports/CORE-VAL-001/derived-migration-audit-20261103/REPORT.md": "7a1c53ad223b9731a8c6ac03caacb1144dcf6a393146c4121cda31bcd601888b",
+    ".task-control/reports/CORE-VAL-001/derived-migration-audit-20261103/STATE-BEGIN.json": "7061ee96e122b205c6c41b6104142fe3a09797030d364d24ef4a1e17e065f201",
+    "docs/CORE-CANGHAI-COORDINATION.md": "b3549db239a9f15d4c8df270ff1d80c8f05b1e494cffa51bb461602dc51048d8"
+  },
+  "privateBodiesOrFilenamesCopied": false,
+  "codeChanges": 0,
+  "testsRerun": 0,
+  "scope": "metadata and implementation audit; not actual migration"
+}

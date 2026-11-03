@@ -1,0 +1,11 @@
+{
+  "baseRevision": 170,
+  "baseStateSha256": "2c810dfd94decd945eafd49582094e388d710beed39a331fa1353ae441dc20a8",
+  "nextRevision": 171,
+  "recordedBeforeReplacement": true,
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  },
+  "reason": "Track assigned exact CI runs and fixed-input legacy migration audit; no speculative converter or paid/Host operation."
+}

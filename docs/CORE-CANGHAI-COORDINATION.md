@@ -164,3 +164,12 @@ CangHai 主工作区仍为生产 `dev@c050a046f48837f755c9b3f10bba2910d5218083`�
 
 
 2026-11-02 后续目录交接已完成：登记的 `stella-sources/main` 实核为 detached、干净的 `90f61d9c9ef019c5a06a419dbcb630fe598cb996`，五项选定元数据／许可的工作文件与提交 blob 完全一致且均0600。目录侧批准的权限收紧已由独立写者执行，金融资料未扩入362描述符范围；旧checkpoint和112副本保留。**不再有目录交接阻塞**。Core 已安装解析器通过真实 manifest/profile/grant 的无模型检查，但在配置写入前发现原 `openclaw-device` 请求者与 Host 唯一 canonical profile 不相等；现有 WebChat 适配器要求精确相等，因此未绑定、未改身份或调用模型。该问题是具体入场身份兼容缺口，不应继续写成目录未准备好。证据与不扩权的设备认证接缝候选见 [90f绑定就绪检查](../.task-control/reports/CORE-VAL-001/fixed90f-binding-readiness-20261102.json)。
+
+
+## 2026-11-03：旧派生对象迁移的实际边界
+
+再次按规则解析旧版来源为 `dev@d423d9e85ae3b2a9a120b7cdc52b3746b592b189`。只比对 Git 树和 blob 标识：`30_RAG/model-seed` 的2份、`self-reflection` 的12份及 `work` 的2份非空文件，在固定 `90f61d9c9ef019c5a06a419dbcb630fe598cb996` 同路径均为相同 blob。没有读取私人正文、复制文件名或修改沧海。这证明这16份原始文件留存，**不是16个新版理解／持续工作对象，也不证明它们全部属于当前97/362许可**。
+
+已知 `50_PersonalAgent/stella/initialization/memory/catalog.json` 在该dev提交不存在；这里只检查这一已知路径，不能推广为全仓不存在其他旧存储。迁移分支 `2ea285d98d21c0882092582141aac92f93fa432a` 的物化器仍拒绝非空 Understanding／Work／Change／Bundle及View。Core的bootstrap也保留同类门禁。现有验证、语义重评及事务可复用，但消费的是已合法构造的结构化对象，不是旧Markdown的自动语义转换器。
+
+最重要缺口是**固定一个实际旧资产及其范围，建立原文、前提／候选／未决、目标对象和LearningChange的语义映射**；源策略审阅不等于这些解释已被确认，不能靠复制字段或重绑hash完成迁移。完整派生迁移尚未完成；已留存原文范围的有限正向问答不必等待全量迁移。核查和最小交接见[迁移审计](../.task-control/reports/CORE-VAL-001/derived-migration-audit-20261103/REPORT.json)，执行状态仍只维护在任务索引。
