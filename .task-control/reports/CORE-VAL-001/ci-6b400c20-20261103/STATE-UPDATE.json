@@ -1,0 +1,11 @@
+{
+  "baseRevision": 171,
+  "baseStateSha256": "1a720c535069862d5654bbec62bcd327eb15d1de38a9e722a0c054f630595622",
+  "nextRevision": 172,
+  "recordedBeforeReplacement": true,
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  },
+  "reason": "Both assigned exact CI runs terminal, full test/failure comparison done; migration audit locally committed."
+}

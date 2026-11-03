@@ -1,0 +1,200 @@
+{
+  "baselineCommit": "8cf8be7ed1ee96d05834883b7622b2055f6124b3",
+  "targetCommit": "6b400c2048c32bc2ae30ba4601c5315c90ecb9ae",
+  "normalization": [
+    "drop diagnostic duration_ms lines",
+    "replace only generated stella-dreaming-interfaces temporary prefix; preserve error, expected/actual values, code, stack and source location"
+  ],
+  "allNestedAndTopLevelStatusesIdentical": 1842,
+  "noDeletedAddedOrChangedResults": true,
+  "failureBlocksIdentical": 26,
+  "failures": [
+    {
+      "title": "exact SDK audit exposes the actual contracts without granting Dreaming publication",
+      "normalizedBlockSha256": "8355b8ddb2ef2b9c7837d15b0c96a5e8155eae336106674ebef63cc980db59c9"
+    },
+    {
+      "title": "compatibility patch is byte-pinned, idempotent, and refuses unrelated module changes",
+      "normalizedBlockSha256": "3665e508f98bff48e46e436558fc456886a7c870787c8e6e491076529f5ccb51"
+    },
+    {
+      "title": "isolated installer supports every acceptance runner but rejects unrelated consumers",
+      "normalizedBlockSha256": "72f0996d6f48c3a2abeee2538b25d5618c4e74cb1ba204d02b613378370ffdcc"
+    },
+    {
+      "title": "native memory uses the pinned codec and rejects serialized producer/output credentials",
+      "normalizedBlockSha256": "ea970ea1812f6ea9135431b34ef89f0ec20243401d9d95a5997fd6eb7a228250"
+    },
+    {
+      "title": "native summary must descend from its exact provider output receipt",
+      "normalizedBlockSha256": "b4f0381249f86b412e27d9cf45446d59e3dddf0fba10846abd06e88f3980ee9e"
+    },
+    {
+      "title": "real provider and tool results extend context and inherit source revocation",
+      "normalizedBlockSha256": "0d99c8abd8a1656799ae80b16b85a0b2283cdf535d5130db091abb5d890d0720"
+    },
+    {
+      "title": "fixed Google projection changes only the known declaration from original bound input",
+      "normalizedBlockSha256": "007f16c2c541a5636b300c1f7b2657b4cd8c8ea826a055e840ddab75d2e60d22"
+    },
+    {
+      "title": "Google codec cannot be selected by observed schema or for another Host/model",
+      "normalizedBlockSha256": "e8d452537a1dcc5a593342645b00ca4e6da0b552a2750fc078b034fb5fdb5397"
+    },
+    {
+      "title": "Google original schema rejects unbound required",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989"
+    },
+    {
+      "title": "Google original schema rejects unbound enum",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989"
+    },
+    {
+      "title": "Google original schema rejects unbound extra property",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989"
+    },
+    {
+      "title": "Google original schema rejects unbound description",
+      "normalizedBlockSha256": "5cfbd739ffc612f7592d057ac1d038676f8d30def370559c0fceb69ba305e989"
+    },
+    {
+      "title": "Google projected tool declaration keeps original system lineage and validates archived assistant basis",
+      "normalizedBlockSha256": "9100fd753e7fe7c801e58ed0e4383d1b0dab0f26199dceafe06a06d5a5826136"
+    },
+    {
+      "title": "exact Host empty-payload policy does not cover a Gemini private draft with a recovered payload",
+      "normalizedBlockSha256": "d8f940184e41904e03cb5839581f1ea7a39b0ddf8e2d3861a228e273284bc747"
+    },
+    {
+      "title": "native index bytes are consumed only after exact authorized hit and range validation",
+      "normalizedBlockSha256": "ef7f51739f6aa5ab03b0f9809db085da4d6fc659cbd175b9eb68bd288a7e045f"
+    },
+    {
+      "title": "native index authorization preserves indexed provenance and rejects concurrent changes",
+      "normalizedBlockSha256": "ca9954481391c303dde69d702711872773d90d8d368dc1955245635ac5c8f80b"
+    },
+    {
+      "title": "native index cannot certify an unrelated indexed body for an authorized locator",
+      "normalizedBlockSha256": "7edf303dda864641625d6006176f7f48392db48cae5d0d41641beb62b45d2b57"
+    },
+    {
+      "title": "verified native read digests bind index identity and never observe rejected bytes",
+      "normalizedBlockSha256": "5de097eeff94f06a896412457232508f8909410a806c92c18aaa88a0d25e3fda"
+    },
+    {
+      "title": "native vector-backed reads bind the actual vector and embedding cache without search",
+      "normalizedBlockSha256": "ca521f931be89adb89f4d3d76622633a2d44708096981d51cb7ba3bc8c595021"
+    },
+    {
+      "title": "a complete vector marker cannot certify missing or changed selected vector bytes",
+      "normalizedBlockSha256": "cd545088ca60157d117e396d2e506687529f288374f97d7130cabfaa21a9c956"
+    },
+    {
+      "title": "vector consumption rejects absent or mismatched cache and explicit rebuild state",
+      "normalizedBlockSha256": "ef4e4dcdf9f675597472f9eff16cc552c3ddddf9a2b9b9e726ae990bbb0225ee"
+    },
+    {
+      "title": "concurrent vector invalidation wins before native file read",
+      "normalizedBlockSha256": "1ce05d1e49f305d46264c4a34dcef3ee31f5f6e26703eb573e52c10948ec8503"
+    },
+    {
+      "title": "original query transport binds actual native KNN and rejects changed candidates before later consumption",
+      "normalizedBlockSha256": "21db9d010c708b9c99fc8d088facf8e13f25e79525f5a3e5205881c9f9dc74ab"
+    },
+    {
+      "title": "native exact reads without query embeddings revalidate the original index generation",
+      "normalizedBlockSha256": "a2da1cebf72ba945c2746584ca94a39704b7e07dcc3ddcf79e74c9909036fcf4"
+    },
+    {
+      "title": "native exact reads revalidate source authority before another model call",
+      "normalizedBlockSha256": "cca76f0543e61bafac12d7059b2348efc0304fa176dfc0dd67bcb8cea8d11c30"
+    },
+    {
+      "title": "a second native read cannot replace the first consumed index identity",
+      "normalizedBlockSha256": "3a541d8a483f965f6bcc5c35ac837423fb118a2a313857fd9864759d9d396ca7"
+    }
+  ],
+  "inputs": {
+    "baseline": {
+      "stdoutSha256": "d5067e4203332249809ef1f4e1543e36abb30fe494e3c1fd040be991976f7a53",
+      "stderrSha256": "d6177625c23ec8583601d98ecd871d4166b33fb9f5572a56f1a417a1b7c9c0d1",
+      "receiptSha256": "758b15eb9bddb444046ec5376a8bc375b726a5d82876739438ee705bd13f9ede",
+      "counts": {
+        "tests": 1842,
+        "pass": 1816,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "supervisor": {
+        "child": {
+          "exitCode": 1,
+          "signal": null,
+          "killed": false,
+          "closeObserved": true
+        },
+        "groupGone": true,
+        "timedOut": false,
+        "stdioComplete": true,
+        "ownedWorkStatus": "complete",
+        "pending": 0,
+        "cleanup": "removed"
+      }
+    },
+    "full": {
+      "stdoutSha256": "d3ed2999103f8685769bdf512ac4d7dee4478a487ce1a0a1b5a316efe45153e3",
+      "stderrSha256": "6fd1e78bbdf9989dbdb715d88ca5abdd7ae8bce470d4c20a7572df5a46427b54",
+      "receiptSha256": "06c17a0735a1592fe9afb05888148eb2cb4c381e2d7cf6ac704b33f2f17e0dc8",
+      "counts": {
+        "tests": 1842,
+        "pass": 1816,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "supervisor": {
+        "child": {
+          "exitCode": 1,
+          "signal": null,
+          "killed": false,
+          "closeObserved": true
+        },
+        "groupGone": true,
+        "timedOut": false,
+        "stdioComplete": true,
+        "ownedWorkStatus": "complete",
+        "pending": 0,
+        "cleanup": "removed"
+      }
+    },
+    "experimental": {
+      "stdoutSha256": "dfeb2c814e068e297129821bb4b921a1d2c08123ba461fd58adc2fdf7fc41132",
+      "stderrSha256": "a610bcc66307b7a025b53a1b9763b0e11fcd4896dea0185a6b5797e8f2bec915",
+      "receiptSha256": "394b8a4860fdd4e82336448c12ed625da123cb5677d1e4ea983f390bf7a1f76d",
+      "counts": {
+        "tests": 1842,
+        "pass": 1816,
+        "fail": 26,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "supervisor": {
+        "child": {
+          "exitCode": 1,
+          "signal": null,
+          "killed": false,
+          "closeObserved": true
+        },
+        "groupGone": true,
+        "timedOut": false,
+        "stdioComplete": true,
+        "ownedWorkStatus": "complete",
+        "pending": 0,
+        "cleanup": "removed"
+      }
+    }
+  }
+}

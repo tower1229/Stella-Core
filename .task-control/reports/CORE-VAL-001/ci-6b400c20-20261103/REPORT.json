@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T06:15:15.581239+00:00",
+  "commit": "6b400c2048c32bc2ae30ba4601c5315c90ecb9ae",
+  "runs": [
+    {
+      "id": 41587034815,
+      "name": "Full capability assessment",
+      "status": "completed",
+      "conclusion": "failure",
+      "failedJobs": [
+        "prepare",
+        "verify"
+      ],
+      "skippedJobs": [
+        "probes"
+      ]
+    },
+    {
+      "id": 41587034798,
+      "name": "Experimental owner chat",
+      "status": "completed",
+      "conclusion": "failure",
+      "failedJobs": [
+        "Installed experimental owner chat (synthetic)"
+      ]
+    }
+  ],
+  "countsEach": {
+    "tests": 1842,
+    "pass": 1816,
+    "fail": 26,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "comparison": "COMPARISON.json",
+  "comparisonSha256": "cc3ac2968410c6ca902bd588d82561f02714e01e52c69016b84765571e7bc6d5",
+  "baseline": {
+    "commit": "8cf8be7ed1ee96d05834883b7622b2055f6124b3",
+    "run": 41467929945,
+    "artifact": 13154882354
+  },
+  "artifacts": [
+    {
+      "id": 13209340462,
+      "name": "stella-prepare-receipt",
+      "archiveDigestFromGitHub": "sha256:2227addcee5f36107e2a9aa81a7e002391030710f3e9bfea9519a05bdc364843"
+    },
+    {
+      "id": 13208179020,
+      "name": "experimental-owner-chat",
+      "archiveDigestFromGitHub": "sha256:d16cada575c4032a81737cfb0cba067f2edf1e8eb40fa04b4e382b84e1a49fbe"
+    }
+  ],
+  "check": "pass_both",
+  "checkSchemas": "pass_both",
+  "workspace": "failed_same26_old_failures",
+  "newRegressionObserved": false,
+  "newOrDeletedWorkspaceTests": 0,
+  "hostSdkVersion": "2026.10.8",
+  "runtime10_9Acceptance": false,
+  "installedArtifactTested": false,
+  "freshDependencyInstallTested": false,
+  "stockHostProbes": "not_run_after_workspace_failure",
+  "aggregateError": "ENOENT stella-prepared/prepared.json; preparation failed earlier",
+  "allGreen": false,
+  "codeFixPerformed": false,
+  "reasonNoFix": "All1842 results and26 normalized failure blocks identical to previous published baseline. Historical failures retained; no new regression to repair and no legacy bridge revival.",
+  "newUnpushedPackagesCovered": false,
+  "operations": {
+    "workflowReruns": 0,
+    "workflowCancels": 0,
+    "localTestsRerun": 0,
+    "model": 0,
+    "Host": 0,
+    "push": 0
+  },
+  "rawLogs": "Downloaded to temporary directory only; repository stores non-sensitive hashes/signatures and bounded findings."
+}
