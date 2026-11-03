@@ -1,0 +1,84 @@
+diff --git a/src/canghai/catalog-reader.ts b/src/canghai/catalog-reader.ts
+index 986f638d..c738cab6 100644
+--- a/src/canghai/catalog-reader.ts
++++ b/src/canghai/catalog-reader.ts
+@@ -245,7 +245,9 @@ export class CatalogReader {
+ 
+ export function selectTextEvidence(bytes: Uint8Array, selector: unknown): string {
+   requireCondition(isRecord(selector) && typeof selector.kind === "string" && typeof selector.value === "string", "invalid_selector");
+-  const decoder = new TextDecoder("utf-8", { fatal: true });
++  // Byte selectors return the original slice, including a leading U+FEFF.
++  // JSON pointers still parse a document-level BOM using the normal decoder.
++  const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: selector.kind === "utf8_bytes" });
+   try {
+     if (selector.kind === "utf8_bytes") {
+       requireCondition(/^(0|[1-9][0-9]*):(0|[1-9][0-9]*)$/.test(selector.value), "invalid_selector");
+diff --git a/tests/episode-evidence.test.ts b/tests/episode-evidence.test.ts
+index 8f72cbb4..bad0e39f 100644
+--- a/tests/episode-evidence.test.ts
++++ b/tests/episode-evidence.test.ts
+@@ -408,6 +408,19 @@ test("selectors enforce UTF-8 boundaries, JSON pointer escapes and real nodes",
+   assert.throws(() => selectTextEvidence(json, { kind: "json_pointer", value: "/missing" }), /selector_unavailable/);
+ });
+ 
++test("byte selectors preserve BOM characters at the file or selected-fragment start without changing JSON parsing", () => {
++  for (const prefix of ["", "前文\n"]) {
++    const selected = "\uFEFF合成原文\r\n保留 e\u0301。", bytes = Buffer.from(prefix + selected + "\n后文");
++    const start = Buffer.byteLength(prefix), end = start + Buffer.byteLength(selected);
++    const text = selectTextEvidence(bytes, { kind: "utf8_bytes", value: `${start}:${end}` });
++    assert.equal(text, selected);
++    assert.deepEqual(Buffer.from(text), bytes.subarray(start, end));
++    assert.throws(() => selectTextEvidence(bytes, { kind: "utf8_bytes", value: `${start + 1}:${end}` }), /invalid_utf8/);
++  }
++  const json = Buffer.from("\uFEFF" + JSON.stringify({ text: "\uFEFF合成字符串" }));
++  assert.equal(selectTextEvidence(json, { kind: "json_pointer", value: "/text" }), "\uFEFF合成字符串");
++});
++
+ test("catalog rejects duplicate current identities and missing collections", async (t) => {
+   const { catalog } = await fixture(t);
+   assert.throws(() => parseMemoryCatalog({ ...catalog, coverage: undefined }), /invalid_catalog/);
+diff --git a/tests/ordinary-source-read.test.ts b/tests/ordinary-source-read.test.ts
+index 5d502507..7cd3538e 100644
+--- a/tests/ordinary-source-read.test.ts
++++ b/tests/ordinary-source-read.test.ts
+@@ -231,12 +231,19 @@ test("original read enforces temporal cutoff and explicit output capacity; no tr
+   await assert.rejects(big.execute({ action: "read", ref: big.refs[0] }), /source_output_capacity/);
+ });
+ 
+-test("UTF-8 original bytes are preserved; an inherited decoder's BOM projection is an explicit unsupported representation", async t => {
++test("UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check", async t => {
+   const text = "合成资料：保留尚未回答的问题。\n";
+   const plain = await fixture(t, 1, 0, text), result = await plain.execute({ action: "read", ref: plain.refs[0] });
+   if (result.status !== "read") assert.fail(); assert.equal(result.original.text, text);
+-  const bom = await fixture(t, 1, 0, "\uFEFF" + text);
+-  await assert.rejects(bom.execute({ action: "read", ref: bom.refs[0] }), /source_text_representation_unverified/);
++  const original = "\uFEFF" + text + "e\u0301\r\n", bom = await fixture(t, 1, 0, original);
++  const read = await bom.execute({ action: "read", ref: bom.refs[0] });
++  if (read.status !== "read") assert.fail();
++  assert.equal(read.original.text, original);
++  assert.deepEqual(Buffer.from(read.original.text), Buffer.from(original));
++  assert.equal(read.locator.payloadSha256, bytesVersion(original));
++  assert.deepEqual(read.locator.selector, { kind: "utf8_bytes", value: `0:${Buffer.byteLength(original)}` });
++  assert.deepEqual(bom.sourcePolicies.sort(), ["synthetic-base", "synthetic-leaf"]);
++  assert.equal(read.publisher, false);
+ });
+ 
+ test("cancelled or expired original admission cannot be replaced during awaits", async t => {
+--- a/docs/ORDINARY-SOURCE-READ.md
++++ b/docs/ORDINARY-SOURCE-READ.md
+@@ -131,9 +131,12 @@
+ when descriptions fill a page, the cursor resumes at the complete omitted row,
+ without dropping it or truncating its description. A single oversized row fails
+ explicitly. An empty page with a next cursor is not global absence. Selected
+-UTF-8 byte slices must encode back to exactly the pinned bytes; the inherited
+-decoder's BOM removal therefore produces
+-`source_text_representation_unverified` rather than an unreported rewrite.
++UTF-8 byte slices must encode back to exactly the pinned bytes. The pending
++lossless-selector fix preserves a leading U+FEFF, line endings and combining
++characters; JSON-pointer document parsing is unchanged. Earlier builds removed
++the leading BOM and failed with `source_text_representation_unverified`. This
++candidate fixes decoding rather than relaxing the byte check; it is not loaded
++and no claim is made that the selected private collection contains such files.
+ The existing JSON-pointer selector retains its declared string projection.
+ 
+ Listing and deterministic source checks cannot decide natural-language meaning.

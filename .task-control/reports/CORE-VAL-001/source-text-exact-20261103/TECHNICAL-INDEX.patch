@@ -1,0 +1,16 @@
+--- a/PROJECT-STATE.yaml
++++ b/PROJECT-STATE.yaml
+@@ -1031,3 +1031,13 @@
+   prior_load_delegation_receipt: unknown_not_replayed
+   main_changes_and_new_model_requests: zero
+   private_original_read_and_semantic_answer: not_verified
++
++ordinary_source_text_exact_candidate_20261103:
++  evidence: .task-control/reports/CORE-VAL-001/source-text-exact-20261103/REPORT.json
++  production_change: preserve_leading_U_FEFF_only_for_utf8_byte_selectors
++  old_decoder_red: two_of_two_expected_failures
++  affected_synthetic_tests: 55_of_55
++  source_hash_selector_and_existing_permission_checks: unchanged
++  independent_review_and_installation: pending_not_loaded
++  real_selected_collection_BOM_presence: not_inspected
++  private_originals_models_and_Host_actions: zero

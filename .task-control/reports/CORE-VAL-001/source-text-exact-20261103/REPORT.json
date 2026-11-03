@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-03T12:04:38.586463+00:00",
+  "status": "candidate_ready_for_independent_review_not_installed",
+  "baseHead": "47a521a40f4d12fd703c881cb237044c40121010",
+  "baseStateRevision": 195,
+  "writerCheck": "Unique task writer unchanged; collaboration inventory contains only this root. Cross-thread platform delivery receipt remains unavailable, so no Host operation replayed.",
+  "goal": "Existing source selection -> lossless authorized original -> grounded native answer; fix a deterministic original-read incompatibility independently of pending Host loading.",
+  "selectionRationale": "Source descriptions/provenance/native guidance are implemented and reviewed. Ordinary source read explicitly rejects BOM because shared decoder removes it. Fix is one decoder option, no new system; real selected dataset BOM presence not inspected or claimed.",
+  "productionChange": {
+    "file": "src/canghai/catalog-reader.ts",
+    "function": "selectTextEvidence",
+    "change": "ignoreBOM true only for utf8_bytes; preserve U+FEFF at any selected fragment start. JSON document decoder retains prior BOM handling.",
+    "admissionVersionByteHashCapacityChecks": "unchanged"
+  },
+  "candidatePaths": [
+    "src/canghai/catalog-reader.ts",
+    "tests/episode-evidence.test.ts",
+    "tests/ordinary-source-read.test.ts",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ],
+  "priorDirtyDocs": "Only isolated paragraph delta included, all earlier dirty retained.",
+  "frozenCompatibilityCodeUnchanged": {
+    "src/openclaw/ordinary-source-admission.ts": "fd50d0f697508829eb8b0b59706b88d5967382197912c5cc9a389711fc89048d",
+    "src/ordinary-plugin.ts": "ef8c87835a4f05434b8128717e549ad9bd9e3deda534d3fec43bb4b2e6648946",
+    "tests/ordinary-source-admission.test.ts": "d7d9aa6b17493d4f902e0ba523b39134f7465db81eeaae61333ebab9d527dcd8"
+  },
+  "frozenArtifact": "Existing .artifacts/memory-core-source-20261103-47a521a4/package not rebuilt or modified.",
+  "red": {
+    "compileExit": 0,
+    "testExit": 1,
+    "counts": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "logSha256": "84a6841a7f3d9dc1cb246652de016b300a337cbddbb5df76e7bd4cc2ae00d40c",
+    "scope": "Two new assertions on unchanged production decoder, synthetic files only",
+    "log": "RED.txt",
+    "reporter": "Node default spec reporter"
+  },
+  "green": {
+    "compileExit": 0,
+    "testExit": 0,
+    "counts": {
+      "tests": 55,
+      "pass": 55,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "suites": [
+      "episode-evidence",
+      "ordinary-source-read",
+      "repository-source",
+      "source-segments"
+    ],
+    "logSha256": "543da200a556302023def118cd6186408fd30e38b41ec21be585a4a47c6ed92a",
+    "scope": "existing affected synthetic suites; no Host/private originals/model/network"
+  },
+  "codeReview": {
+    "author": "complete; exact byte preservation, fatal invalid UTF8 and JSON pointer behavior checked",
+    "independent": "pending"
+  },
+  "noOperations": [
+    "Host load or config",
+    "unknown loading delegation replay",
+    "private originals or CangHai mutation",
+    "model/network source requests",
+    "new permissions or grants",
+    "new runner or retrieval/identity platform",
+    "new commit or push"
+  ],
+  "stillRequired": [
+    "Resolve old loading delivery/execution receipt before any repeat.",
+    "Load the already reviewed compatibility artifact through approved official path, preserve current configuration.",
+    "Real source choice/policy/original/answer and normal terminal dispatch require actual native request evidence; offline or CI success is not that evidence."
+  ],
+  "secondaryWorkNotExpanded": [
+    "legacy derived object migration",
+    "native SQL/private bridges",
+    "new retrieval engine",
+    "new permission edge-case framework"
+  ],
+  "references": [
+    {
+      "path": "src/ordinary-plugin.ts",
+      "line": 187,
+      "meaning": "existing normal source tool and native loop seam"
+    },
+    {
+      "path": "src/openclaw/ordinary-source-read.ts",
+      "line": 162,
+      "meaning": "authorized descriptive cursor pages and exact original read"
+    },
+    {
+      "path": "src/openclaw/ordinary-source-admission.ts",
+      "line": 249,
+      "meaning": "current request plus existing source-processing boundary"
+    },
+    {
+      "path": "skills/stella-understand-sources/SKILL.md",
+      "line": 14,
+      "meaning": "native semantic selection, original verification and grounded answering"
+    }
+  ],
+  "files": {
+    "src/canghai/catalog-reader.ts": "acf4975ae2d40727ab58506980a2f04d0a5a488668b5e232dfa7f654d5d752a3",
+    "tests/episode-evidence.test.ts": "bf23b994a32da40a559f4ca888f4ebdc761889c255679abf711acea14f219109",
+    "tests/ordinary-source-read.test.ts": "24df9c2a3306c5d5887bb4eccb1856871b095e84da2da7e88d82f03650e7f7de",
+    "docs/ORDINARY-SOURCE-READ.md": "853f43dab09a7ad68b846dec2521117b96127608222ae4bd80ada68d08883667"
+  },
+  "patchSha256": "725b1be7ad7fce6289f9b9514f79aa831395244feff1d09f149978097dcb4dae"
+}

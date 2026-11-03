@@ -1,0 +1,9 @@
+{
+  "baseRevision": 196,
+  "baseSha256": "69a8bde991cb85f16ad4efbadc416eaae1214e1b10677ec69654d57c12c1abca",
+  "taskId": "CORE-VAL-001",
+  "package": "sourceTextExact",
+  "review": "accepted",
+  "scope": "local save assigned, no push/Host/model; existing unknown load is not replayed",
+  "canonicalStateHandling": "Current state includes earlier uncommitted revision157-to196 history; preserve it locally, save only this package delta here rather than stage unrelated history. Actual commit receipt will update local canonical state after commit."
+}

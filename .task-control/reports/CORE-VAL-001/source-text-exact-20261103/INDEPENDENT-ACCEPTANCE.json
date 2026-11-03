@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-11-03T12:14:44.219297+00:00",
+  "decision": "accepted_by_independent_review_as_reported_by_parent",
+  "source": "current parent delegation; reviewer path/hash and independent count not supplied, not invented",
+  "reviewedReportSha256": "cbdd1ce65fbcc96a5362e1019edccffb5fdcc8bba18f1f2e9d712b1329fb900a",
+  "reviewedPatchSha256": "725b1be7ad7fce6289f9b9514f79aa831395244feff1d09f149978097dcb4dae",
+  "reviewedManifestSha256": "99b0e87cc477df7e0817d9f5f6e78695402f807e9c2357c9f429b65f483ee1a1",
+  "scope": "three code/test paths, isolated integration paragraph, own technical-index append and packet; local save only",
+  "authorTests": {
+    "pass": 55,
+    "fail": 0,
+    "redFailures": 2
+  },
+  "notAccepted": [
+    "real-source BOM prevalence",
+    "live Host loading",
+    "source semantic understanding"
+  ],
+  "push": false,
+  "load": false
+}

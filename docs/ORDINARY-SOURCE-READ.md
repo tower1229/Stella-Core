@@ -118,9 +118,12 @@ List result JSON is bounded to128KiB UTF-8 and at most32 scanned catalog entries
 when descriptions fill a page, the cursor resumes at the complete omitted row,
 without dropping it or truncating its description. A single oversized row fails
 explicitly. An empty page with a next cursor is not global absence. Selected
-UTF-8 byte slices must encode back to exactly the pinned bytes; the inherited
-decoder's BOM removal therefore produces
-`source_text_representation_unverified` rather than an unreported rewrite.
+UTF-8 byte slices must encode back to exactly the pinned bytes. The pending
+lossless-selector fix preserves a leading U+FEFF, line endings and combining
+characters; JSON-pointer document parsing is unchanged. Earlier builds removed
+the leading BOM and failed with `source_text_representation_unverified`. This
+candidate fixes decoding rather than relaxing the byte check; it is not loaded
+and no claim is made that the selected private collection contains such files.
 The existing JSON-pointer selector retains its declared string projection.
 
 Listing and deterministic source checks cannot decide natural-language meaning.

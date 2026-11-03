@@ -808,3 +808,15 @@ ordinary_memory_core_source_compatibility_20261103:
   main_and_grants_changed: false
   new_model_requests_and_private_payload_reads: zero
   real_source_grounded_answer_and_sdk10_8: not_verified
+
+ordinary_source_text_exact_candidate_20261103:
+  evidence: .task-control/reports/CORE-VAL-001/source-text-exact-20261103/REPORT.json
+  production_change: preserve_leading_U_FEFF_only_for_utf8_byte_selectors
+  old_decoder_red: two_of_two_expected_failures
+  affected_synthetic_tests: 55_of_55
+  source_hash_selector_and_existing_permission_checks: unchanged
+  independent_review: accepted
+  installation: not_loaded
+  real_source_understanding: not_verified
+  real_selected_collection_BOM_presence: not_inspected
+  private_originals_models_and_Host_actions: zero

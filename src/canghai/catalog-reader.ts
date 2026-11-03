@@ -245,7 +245,9 @@ export class CatalogReader {
 
 export function selectTextEvidence(bytes: Uint8Array, selector: unknown): string {
   requireCondition(isRecord(selector) && typeof selector.kind === "string" && typeof selector.value === "string", "invalid_selector");
-  const decoder = new TextDecoder("utf-8", { fatal: true });
+  // Byte selectors return the original slice, including a leading U+FEFF.
+  // JSON pointers still parse a document-level BOM using the normal decoder.
+  const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: selector.kind === "utf8_bytes" });
   try {
     if (selector.kind === "utf8_bytes") {
       requireCondition(/^(0|[1-9][0-9]*):(0|[1-9][0-9]*)$/.test(selector.value), "invalid_selector");

@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-11-03T12:04:38.586463+00:00",
+  "headSha": "47a521a40f4d12fd703c881cb237044c40121010",
+  "run": 41629745846,
+  "job": 125895983680,
+  "workflow": "Ordinary plugin package contract",
+  "status": "completed",
+  "conclusion": "success",
+  "completedAt": "2026-11-03T11:44:17Z",
+  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41629745846",
+  "checkedSteps": [
+    "npm ci",
+    "type/schema checks",
+    "build/test compilation",
+    "pack/extract current entry",
+    "synthetic source/draft/repository/transaction suites"
+  ],
+  "testCount": "not_extracted_this_check",
+  "scope": "Existing exact47a521a4; does not test this uncommitted decoder candidate, a real Host/model, full_memory, or remaining16 historical workspace failures."
+}

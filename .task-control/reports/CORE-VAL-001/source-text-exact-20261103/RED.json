@@ -1,0 +1,16 @@
+{
+  "compileExit": 0,
+  "testExit": 1,
+  "counts": {
+    "tests": 2,
+    "pass": 0,
+    "fail": 2,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "logSha256": "84a6841a7f3d9dc1cb246652de016b300a337cbddbb5df76e7bd4cc2ae00d40c",
+  "scope": "Two new assertions on unchanged production decoder, synthetic files only",
+  "log": "RED.txt",
+  "reporter": "Node default spec reporter"
+}

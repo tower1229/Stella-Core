@@ -1,0 +1,20 @@
+{
+  "compileExit": 0,
+  "testExit": 0,
+  "counts": {
+    "tests": 55,
+    "pass": 55,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "suites": [
+    "episode-evidence",
+    "ordinary-source-read",
+    "repository-source",
+    "source-segments"
+  ],
+  "logSha256": "543da200a556302023def118cd6186408fd30e38b41ec21be585a4a47c6ed92a",
+  "scope": "existing affected synthetic suites; no Host/private originals/model/network"
+}

@@ -408,6 +408,19 @@ test("selectors enforce UTF-8 boundaries, JSON pointer escapes and real nodes", 
   assert.throws(() => selectTextEvidence(json, { kind: "json_pointer", value: "/missing" }), /selector_unavailable/);
 });
 
+test("byte selectors preserve BOM characters at the file or selected-fragment start without changing JSON parsing", () => {
+  for (const prefix of ["", "前文\n"]) {
+    const selected = "\uFEFF合成原文\r\n保留 e\u0301。", bytes = Buffer.from(prefix + selected + "\n后文");
+    const start = Buffer.byteLength(prefix), end = start + Buffer.byteLength(selected);
+    const text = selectTextEvidence(bytes, { kind: "utf8_bytes", value: `${start}:${end}` });
+    assert.equal(text, selected);
+    assert.deepEqual(Buffer.from(text), bytes.subarray(start, end));
+    assert.throws(() => selectTextEvidence(bytes, { kind: "utf8_bytes", value: `${start + 1}:${end}` }), /invalid_utf8/);
+  }
+  const json = Buffer.from("\uFEFF" + JSON.stringify({ text: "\uFEFF合成字符串" }));
+  assert.equal(selectTextEvidence(json, { kind: "json_pointer", value: "/text" }), "\uFEFF合成字符串");
+});
+
 test("catalog rejects duplicate current identities and missing collections", async (t) => {
   const { catalog } = await fixture(t);
   assert.throws(() => parseMemoryCatalog({ ...catalog, coverage: undefined }), /invalid_catalog/);

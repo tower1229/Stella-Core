@@ -231,12 +231,19 @@ test("original read enforces temporal cutoff and explicit output capacity; no tr
   await assert.rejects(big.execute({ action: "read", ref: big.refs[0] }), /source_output_capacity/);
 });
 
-test("UTF-8 original bytes are preserved; an inherited decoder's BOM projection is an explicit unsupported representation", async t => {
+test("UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check", async t => {
   const text = "合成资料：保留尚未回答的问题。\n";
   const plain = await fixture(t, 1, 0, text), result = await plain.execute({ action: "read", ref: plain.refs[0] });
   if (result.status !== "read") assert.fail(); assert.equal(result.original.text, text);
-  const bom = await fixture(t, 1, 0, "\uFEFF" + text);
-  await assert.rejects(bom.execute({ action: "read", ref: bom.refs[0] }), /source_text_representation_unverified/);
+  const original = "\uFEFF" + text + "e\u0301\r\n", bom = await fixture(t, 1, 0, original);
+  const read = await bom.execute({ action: "read", ref: bom.refs[0] });
+  if (read.status !== "read") assert.fail();
+  assert.equal(read.original.text, original);
+  assert.deepEqual(Buffer.from(read.original.text), Buffer.from(original));
+  assert.equal(read.locator.payloadSha256, bytesVersion(original));
+  assert.deepEqual(read.locator.selector, { kind: "utf8_bytes", value: `0:${Buffer.byteLength(original)}` });
+  assert.deepEqual(bom.sourcePolicies.sort(), ["synthetic-base", "synthetic-leaf"]);
+  assert.equal(read.publisher, false);
 });
 
 test("cancelled or expired original admission cannot be replaced during awaits", async t => {

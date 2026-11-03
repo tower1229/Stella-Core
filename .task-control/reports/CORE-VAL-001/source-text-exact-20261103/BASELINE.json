@@ -1,0 +1,25 @@
+{
+  "at": "2026-11-03T12:00:36.063881+00:00",
+  "head": "47a521a40f4d12fd703c881cb237044c40121010",
+  "stateRevision": 195,
+  "files": {
+    "src/canghai/catalog-reader.ts": "aca923ba8d14e671542ba874585e23c147e6416bbe65b3e14c99afb1d2e96ba9",
+    "tests/episode-evidence.test.ts": "d5da84e7910331d6998f1adae3769dd3c9220f15fc60370584c721b8fcf39c20",
+    "tests/ordinary-source-read.test.ts": "eed3de720d186f48bc7e9075bcb310880a971c866a18b1824d6c72950c838d06",
+    "docs/ORDINARY-SOURCE-READ.md": "2ed6cc2cf92a12db7c728d16374074f8ae6bb2e0704cf1d837fa38d66a444ddc",
+    "PROJECT-STATE.yaml": "54475fe047d700ac2b13cffec7764e89f6f92189aa22adb2c70f20713cef3202",
+    ".task-control/state.json": "54e3ef7649b607bca9ec6bd20445c67ea93e83072aef80d8e7e816c91e893491"
+  },
+  "immutableCompatibilityCode": {
+    "src/openclaw/ordinary-source-admission.ts": "fd50d0f697508829eb8b0b59706b88d5967382197912c5cc9a389711fc89048d",
+    "src/ordinary-plugin.ts": "ef8c87835a4f05434b8128717e549ad9bd9e3deda534d3fec43bb4b2e6648946",
+    "tests/ordinary-source-admission.test.ts": "d7d9aa6b17493d4f902e0ba523b39134f7465db81eeaae61333ebab9d527dcd8"
+  },
+  "scope": "Lossless UTF8 byte selector only; no semantic routing, admission changes, Host, private source read or model request. Existing unsupported BOM result preserved as red evidence.",
+  "originalDirty": [
+    ".task-control/state.json",
+    "PROJECT-STATE.yaml",
+    "docs/MAIN-DEBUG-INSTALL.md",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ]
+}

@@ -1,0 +1,340 @@
+TAP version 13
+# Subtest: evidence read scopes separate concurrent operations, inherit nested reads and reject late metadata reads
+ok 1 - evidence read scopes separate concurrent operations, inherit nested reads and reject late metadata reads
+  ---
+  duration_ms: 15.049375
+  type: 'test'
+  ...
+# Subtest: restricted evidence fails before payload access without an admitted semantic context
+ok 2 - restricted evidence fails before payload access without an admitted semantic context
+  ---
+  duration_ms: 9.908042
+  type: 'test'
+  ...
+# Subtest: the evidence reader applies semantic authorization to each source before reading original bytes
+ok 3 - the evidence reader applies semantic authorization to each source before reading original bytes
+  ---
+  duration_ms: 54.69125
+  type: 'test'
+  ...
+# Subtest: persisted bundles reread original roles and reject unauthorized or modified evidence
+ok 4 - persisted bundles reread original roles and reject unauthorized or modified evidence
+  ---
+  duration_ms: 17.960375
+  type: 'test'
+  ...
+# Subtest: question preparation supplies original roles and rereads the source after model judgment
+ok 5 - question preparation supplies original roles and rereads the source after model judgment
+  ---
+  duration_ms: 37.813083
+  type: 'test'
+  ...
+# Subtest: question evidence resolves model-selected handles to exact read versions without accepting invented refs
+ok 6 - question evidence resolves model-selected handles to exact read versions without accepting invented refs
+  ---
+  duration_ms: 42.324541
+  type: 'test'
+  ...
+# Subtest: evidence resolver rereads a genuine selected source span before semantic verification
+ok 7 - evidence resolver rereads a genuine selected source span before semantic verification
+  ---
+  duration_ms: 10.127292
+  type: 'test'
+  ...
+# Subtest: source labels cannot turn assistant or inferred content into an actual action
+ok 8 - source labels cannot turn assistant or inferred content into an actual action
+  ---
+  duration_ms: 11.759291
+  type: 'test'
+  ...
+# Subtest: semantic ambiguity remains unsupported and invented evidence refs fail
+ok 9 - semantic ambiguity remains unsupported and invented evidence refs fail
+  ---
+  duration_ms: 17.800041
+  type: 'test'
+  ...
+# Subtest: future evidence and unauthorized delivery are rejected before model access
+ok 10 - future evidence and unauthorized delivery are rejected before model access
+  ---
+  duration_ms: 7.301333
+  type: 'test'
+  ...
+# Subtest: outcomes require exact semantic support independently of actual-action support
+ok 11 - outcomes require exact semantic support independently of actual-action support
+  ---
+  duration_ms: 48.647833
+  type: 'test'
+  ...
+# Subtest: unknown or inferred outcomes never reach the semantic verifier
+ok 12 - unknown or inferred outcomes never reach the semantic verifier
+  ---
+  duration_ms: 29.165791
+  type: 'test'
+  ...
+# Subtest: outcome verification rejects a catalog changed during model inference
+ok 13 - outcome verification rejects a catalog changed during model inference
+  ---
+  duration_ms: 12.509375
+  type: 'test'
+  ...
+# Subtest: deleted source blocks original text and dependent evidence without fetching history
+ok 14 - deleted source blocks original text and dependent evidence without fetching history
+  ---
+  duration_ms: 2.208084
+  type: 'test'
+  ...
+# Subtest: catalog and source mutation during model judgment revoke write eligibility
+ok 15 - catalog and source mutation during model judgment revoke write eligibility
+  ---
+  duration_ms: 17.92475
+  type: 'test'
+  ...
+# Subtest: reference versions and locator byte hashes are verified independently
+ok 16 - reference versions and locator byte hashes are verified independently
+  ---
+  duration_ms: 2.245584
+  type: 'test'
+  ...
+# Subtest: canonical versions ignore source location but retain payload content and semantic dependencies
+ok 17 - canonical versions ignore source location but retain payload content and semantic dependencies
+  ---
+  duration_ms: 0.228292
+  type: 'test'
+  ...
+# Subtest: selectors enforce UTF-8 boundaries, JSON pointer escapes and real nodes
+ok 18 - selectors enforce UTF-8 boundaries, JSON pointer escapes and real nodes
+  ---
+  duration_ms: 0.296209
+  type: 'test'
+  ...
+# Subtest: byte selectors preserve BOM characters at the file or selected-fragment start without changing JSON parsing
+ok 19 - byte selectors preserve BOM characters at the file or selected-fragment start without changing JSON parsing
+  ---
+  duration_ms: 0.159125
+  type: 'test'
+  ...
+# Subtest: catalog rejects duplicate current identities and missing collections
+ok 20 - catalog rejects duplicate current identities and missing collections
+  ---
+  duration_ms: 1.992167
+  type: 'test'
+  ...
+# Subtest: real evidence resolver gates the v2 write and persists only a supported closure
+ok 21 - real evidence resolver gates the v2 write and persists only a supported closure
+  ---
+  duration_ms: 251.07075
+  type: 'test'
+  ...
+# Subtest: learning resolves a scoped strategy and its exact supported LearningChange
+ok 22 - learning resolves a scoped strategy and its exact supported LearningChange
+  ---
+  duration_ms: 23.122875
+  type: 'test'
+  ...
+# Subtest: outcome planning binds the exact Episode and original evidence without writing or fabricating learning
+ok 23 - outcome planning binds the exact Episode and original evidence without writing or fabricating learning
+  ---
+  duration_ms: 96.683416
+  type: 'test'
+  ...
+# Subtest: outcome planning clarifies unknown authorship without treating the request as action proof
+ok 24 - outcome planning clarifies unknown authorship without treating the request as action proof
+  ---
+  duration_ms: 21.260375
+  type: 'test'
+  ...
+# Subtest: transaction preview cannot replace original evidence or authorize fabricated object bytes
+ok 25 - transaction preview cannot replace original evidence or authorize fabricated object bytes
+  ---
+  duration_ms: 4.077416
+  type: 'test'
+  ...
+# Subtest: evidence-bound closure atomically commits learning, retries pointer failure, and restores without promoting a candidate
+ok 26 - evidence-bound closure atomically commits learning, retries pointer failure, and restores without promoting a candidate
+  ---
+  duration_ms: 3274.9755
+  type: 'test'
+  ...
+# Subtest: outcome fails closed on an open required view until structured rebuild admissions are supplied
+ok 27 - outcome fails closed on an open required view until structured rebuild admissions are supplied
+  ---
+  duration_ms: 1149.391792
+  type: 'test'
+  ...
+# Subtest: outcome clarification rejects missing model identity and originals changed during inference
+ok 28 - outcome clarification rejects missing model identity and originals changed during inference
+  ---
+  duration_ms: 43.888625
+  type: 'test'
+  ...
+# Subtest: evidence capture records nested model calls and rejects late calls before model disclosure
+ok 29 - evidence capture records nested model calls and rejects late calls before model disclosure
+  ---
+  duration_ms: 4.305375
+  type: 'test'
+  ...
+# Subtest: selected real-contract manifest/profile/catalog lists roles and times without reading original payloads
+ok 30 - selected real-contract manifest/profile/catalog lists roles and times without reading original payloads
+  ---
+  duration_ms: 296.565416
+  type: 'test'
+  ...
+# Subtest: descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence
+ok 31 - descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence
+  ---
+  duration_ms: 205.474708
+  type: 'test'
+  ...
+# Subtest: list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies
+ok 32 - list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies
+  ---
+  duration_ms: 674.919292
+  type: 'test'
+  ...
+# Subtest: descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate
+ok 33 - descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate
+  ---
+  duration_ms: 563.689584
+  type: 'test'
+  ...
+# Subtest: an expired metadata await cannot release descriptors after replacing the original guard
+ok 34 - an expired metadata await cannot release descriptors after replacing the original guard
+  ---
+  duration_ms: 139.373416
+  type: 'test'
+  ...
+# Subtest: exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies
+ok 35 - exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies
+  ---
+  duration_ms: 245.7035
+  type: 'test'
+  ...
+# Subtest: two originals with the same role preserve different recorded speakers and source records without inferring identity
+ok 36 - two originals with the same role preserve different recorded speakers and source records without inferring identity
+  ---
+  duration_ms: 412.407625
+  type: 'test'
+  ...
+# Subtest: read provenance projects only selected recorded labels; list never releases the new attribution fields
+ok 37 - read provenance projects only selected recorded labels; list never releases the new attribution fields
+  ---
+  duration_ms: 336.339333
+  type: 'test'
+  ...
+# Subtest: oversized provenance fails before policy completion or payload reads without truncating identifiers
+ok 38 - oversized provenance fails before policy completion or payload reads without truncating identifiers
+  ---
+  duration_ms: 170.850917
+  type: 'test'
+  ...
+# Subtest: missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access
+ok 39 - missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access
+  ---
+  duration_ms: 1.119
+  type: 'test'
+  ...
+# Subtest: ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced
+ok 40 - ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced
+  ---
+  duration_ms: 203.914459
+  type: 'test'
+  ...
+# Subtest: metadata processing denial and semantic source-policy denial are explicit failures, never empty success
+ok 41 - metadata processing denial and semantic source-policy denial are explicit failures, never empty success
+  ---
+  duration_ms: 214.467334
+  type: 'test'
+  ...
+# Subtest: explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits
+ok 42 - explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits
+  ---
+  duration_ms: 146.062375
+  type: 'test'
+  ...
+# Subtest: manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML
+ok 43 - manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML
+  ---
+  duration_ms: 226.719
+  type: 'test'
+  ...
+# Subtest: catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking
+ok 44 - catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking
+  ---
+  duration_ms: 1447.273875
+  type: 'test'
+  ...
+# Subtest: original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence
+ok 45 - original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence
+  ---
+  duration_ms: 508.621084
+  type: 'test'
+  ...
+# Subtest: UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check
+ok 46 - UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check
+  ---
+  duration_ms: 374.657167
+  type: 'test'
+  ...
+# Subtest: cancelled or expired original admission cannot be replaced during awaits
+ok 47 - cancelled or expired original admission cannot be replaced during awaits
+  ---
+  duration_ms: 120.52525
+  type: 'test'
+  ...
+# Subtest: request expiry during source judgment stops before any protected payload load
+ok 48 - request expiry during source judgment stops before any protected payload load
+  ---
+  duration_ms: 154.4275
+  type: 'test'
+  ...
+# Subtest: request expiry while reading coverage is checked immediately before the first payload load
+ok 49 - request expiry while reading coverage is checked immediately before the first payload load
+  ---
+  duration_ms: 157.191916
+  type: 'test'
+  ...
+# Subtest: source references and selectors expose documented fields only
+ok 50 - source references and selectors expose documented fields only
+  ---
+  duration_ms: 329.071542
+  type: 'test'
+  ...
+# Subtest: repository import retains mixed original bytes as unknown, never as owner action
+ok 51 - repository import retains mixed original bytes as unknown, never as owner action
+  ---
+  duration_ms: 49.139958
+  type: 'test'
+  ...
+# Subtest: native-bound fragments require native reads and revalidate retained bytes after asynchronous consumption
+ok 52 - native-bound fragments require native reads and revalidate retained bytes after asynchronous consumption
+  ---
+  duration_ms: 76.253042
+  type: 'test'
+  ...
+# Subtest: reviewed segments preserve originals and independent origin while enforcing narrower fragment policy before payload access
+ok 53 - reviewed segments preserve originals and independent origin while enforcing narrower fragment policy before payload access
+  ---
+  duration_ms: 55.4935
+  type: 'test'
+  ...
+# Subtest: shared-policy fragments use their own descriptions and cannot reuse a neighbor's semantic verdict
+ok 54 - shared-policy fragments use their own descriptions and cannot reuse a neighbor's semantic verdict
+  ---
+  duration_ms: 67.175042
+  type: 'test'
+  ...
+# Subtest: restricted parent policies authorize personal views through their evidence fragment
+ok 55 - restricted parent policies authorize personal views through their evidence fragment
+  ---
+  duration_ms: 62.17175
+  type: 'test'
+  ...
+1..55
+# tests 55
+# suites 0
+# pass 55
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9410.848833
