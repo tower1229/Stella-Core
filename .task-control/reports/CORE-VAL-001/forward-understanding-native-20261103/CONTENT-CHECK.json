@@ -1,0 +1,18 @@
+{
+  "files": [
+    "skills/stella-understand-sources/SKILL.md",
+    "tests/source-understanding-skill.test.ts",
+    "README.md",
+    "docs/ORDINARY-SOURCE-READ.md",
+    ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/REPORT.json",
+    ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/changes.patch",
+    ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/DOCUMENT.patch",
+    ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/VALIDATION.json",
+    ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/MANIFEST.json",
+    ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/REVIEW.md",
+    ".task-control/reports/CORE-VAL-001/forward-understanding-native-20261103/STATE-BEGIN.json"
+  ],
+  "credentialFormatHits": 0,
+  "scope": "new authored guidance, synthetic test, non-sensitive report and document diff; no private material input",
+  "notAProofOfArbitraryTextSafety": true
+}

@@ -102,7 +102,8 @@ changed on the user's shared Host by this package.
   original Evidence slice with Source/version, payload hash/selector, original
   role/kind/time, coverage and usage constraints. `provenance` carries the recorded
   speakerId (including null) and the selected Source origin's adapterId,
-  collectionId and upstreamId. These labels are not authenticated identity or
+  collectionId and upstreamId. `upstreamId` is a source record identifier, not
+  necessarily an original message ID. These labels are not authenticated identity or
   author confirmation. Both base and segment policy remain enforced. Request lifetime is checked around semantic policy awaits and
   immediately before the first payload read. Returned Source references and
   selectors are projected to documented fields. The result is neither author
@@ -583,3 +584,46 @@ factory's permitted/denied read output. These tests do not establish truthful
 source labels, real-person identity, model understanding or installed behavior.
 The change is not installed, and no private data, external model, permissions or
 Host configuration was used or changed during development.
+
+The coordinator subsequently reported independent acceptance of commit
+`57267dc7343dacd44fbe5a90cc655260bf4b7c0f`; the
+[review record](../.task-control/reports/CORE-VAL-001/source-provenance-read-20261103/INDEPENDENT-REVIEW.json)
+preserves its limits. In particular, `upstreamId` is the originating adapter's
+source-record key, not proof of a platform message ID or a resolvable message URL.
+
+## Native forward-understanding guidance (unloaded candidate)
+
+The packaged [stella-understand-sources skill](../skills/stella-understand-sources/SKILL.md)
+connects the ordinary list/read seam to the existing native Agent loop: understand
+the question, select relevant descriptions, read originals, follow contrary or
+updated evidence, then answer with source attribution and explicit uncertainty.
+It is eligible for normal model discovery and needs no briefId or special command.
+There is no second retrieval loop, keyword ranker, memory store or automatic writer.
+The existing plugin `skills` directory already covers the file; no tool contract,
+grant, model client or Host configuration changes are part of this candidate.
+
+The skill is guidance, not a security boundary or proof of semantic consumption.
+Host skill selection may still exclude it. Enabling it, loading the two accepted
+source increments, and running a model are separate actions. The current
+full-tool main must not be treated as a source-only executor; prior paid-test
+permission is exhausted. No test fixture or prompt can replace those boundaries.
+
+The next product milestone is one natural question answered from relevant original
+sources, with meaningful counterevidence considered and observation distinguished
+from inference. Remaining dependencies cover the whole path:
+
+- The fixed selected migration has a finite original-source supply (97 sources /
+  362 descriptors). It does not establish complete migration of nonempty old
+  Understandings, Ongoing Work or Learning Changes; those need selected legacy
+  inputs and explicit reassessment in CangHai. They are not a prerequisite for
+  answering a bounded question about the already selected originals.
+- The accepted descriptor/provenance code plus this guidance must be reviewed as
+  an installable combination and exposed through an approved native tool scope.
+  SDK10.9 discovery is distinct from the project's pinned10.8 compatibility.
+- A newly authorized real request must demonstrate native selection, successful
+  source-policy judgment, original read, final model consumption and a useful
+  source-grounded answer. Neither schema/tests nor a successful file read closes
+  that semantic milestone. No new request is authorized by this document.
+
+Execution ownership, current blockers and the next assigned action remain only in
+the [task index](../.task-control/state.json), rather than a second schedule here.

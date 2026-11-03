@@ -1,0 +1,13 @@
+{
+  "source": "Parent delegated independent review acceptance received2026-11-03; no separate reviewer file/hash or test count supplied, none inferred",
+  "commit": "57267dc7343dacd44fbe5a90cc655260bf4b7c0f",
+  "decision": "accepted",
+  "clarification": "upstreamId is a source record identifier, not necessarily an original message ID",
+  "notVerified": [
+    "real model semantic use",
+    "installed combination",
+    "OpenClaw2026.10.8 compatibility"
+  ],
+  "hostInstalled": false,
+  "newPaidOrPushAuthorized": false
+}

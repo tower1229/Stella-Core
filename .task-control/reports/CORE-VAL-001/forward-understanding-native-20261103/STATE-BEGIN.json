@@ -1,0 +1,12 @@
+{
+  "baseRevision": 167,
+  "baseStateSha256": "77a72407cd559471822147f0d6e932f3a7859b1f5668bcfd151970890c44b9b6",
+  "nextRevision": 168,
+  "head": "57267dc7343dacd44fbe5a90cc655260bf4b7c0f",
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  },
+  "recordedBeforeReplacement": true,
+  "reason": "Record source provenance independent acceptance and begin a whole native forward-understanding guidance increment, not another metadata field."
+}

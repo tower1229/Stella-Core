@@ -1,0 +1,40 @@
+{
+  "compile": {
+    "command": "node scripts/compile.mjs test",
+    "exitCode": 0
+  },
+  "focused": {
+    "command": "node --test .test-dist/tests/source-understanding-skill.test.js",
+    "pass": 1,
+    "fail": 0,
+    "skipped": 0,
+    "durationMs": 1329.909417,
+    "sdk": "2026.10.9"
+  },
+  "observed": [
+    "plugin enabled discovers exactly one matching skill",
+    "modelVisible true",
+    "native model dispatch, not direct Core runner",
+    "explicit same-name filter includes",
+    "disabled plugin excludes",
+    "other-skill allowlist excludes"
+  ],
+  "skillCreatorValidator": {
+    "status": "not_run_import_failure",
+    "reason": "Python yaml module absent; no dependency installed"
+  },
+  "frontmatter": {
+    "status": "pass",
+    "method": "existing project yaml parser; exact name/description and unfinished placeholder checks"
+  },
+  "notProven": [
+    "semantic decisions",
+    "actual prompt/model consumption",
+    "installed Host behavior",
+    "OpenClaw10.8 compatibility"
+  ],
+  "hostServiceCalls": 0,
+  "modelCalls": 0,
+  "privatePayloadReads": 0,
+  "newEnvironmentOrRunner": false
+}

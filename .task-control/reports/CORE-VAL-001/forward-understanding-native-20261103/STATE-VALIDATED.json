@@ -1,0 +1,11 @@
+{
+  "baseRevision": 168,
+  "baseStateSha256": "99c82f673a14040449f8aedafc7b935a94cd5f8f62feaf9f7f1b2c7128681f23",
+  "nextRevision": 169,
+  "recordedBeforeReplacement": true,
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  },
+  "reason": "Native source-understanding guidance compile and real SDK discovery complete; local candidate only, whole semantic milestone remains open."
+}

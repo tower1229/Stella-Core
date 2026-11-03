@@ -3,15 +3,23 @@
 Stella Core is the OpenClaw plugin for Stella 3.0: a personal digital twin and high-dimensional self.
 One Cortex combines Personal Twin, Framework Compiler, Reality / Social Intelligence and Praxis.
 
-The current debug build uses an **ordinary plugin** beside OpenClaw's native
-memory, context and Agent loop. Its default entry provides an unconfirmed,
-unsaved author-intent candidate tool and a no-model status command. Private-source
-admission and confirmed publication remain disconnected. See the
+The development build uses an **ordinary plugin** beside OpenClaw's native
+memory, context and Agent loop. Its default entry provides candidate work tools,
+status and a controlled selected-source read port. Confirmed publication remains
+disabled. See the
 [main debug installation and rollback guide](docs/MAIN-DEBUG-INSTALL.md).
 The older runtime and its acceptance records remain historical; the old
 activation scripts do not configure this new entry.
 
-The [unconfirmed work-brief increment](docs/CANDIDATE-WORK-BRIEF.md) adds explicit
+The current priority is **understanding existing data**: select relevant sources,
+check originals, and answer with evidence and uncertainty. The
+[source-read integration](docs/ORDINARY-SOURCE-READ.md#native-forward-understanding-guidance-unloaded-candidate)
+includes an unloaded native-Agent guidance candidate that needs no work brief.
+Its instructions and offline checks do not prove real semantic behavior. Runtime
+observations are dated evidence; current execution status is in the
+[single task index](.task-control/state.json).
+
+The historical [unconfirmed work-brief increment](docs/CANDIDATE-WORK-BRIEF.md) adds explicit
 save/read and versioned modification in a separate synthetic-debug Git store.
 The existing main Gateway has loaded this reviewed build (generation 11), and
 four no-model calls saved, restored and revised one fictional brief across

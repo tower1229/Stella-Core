@@ -1,0 +1,16 @@
+{
+  "skills/stella-understand-sources/SKILL.md": {
+    "sha256": "8f13233ada425b3995ad586a76af6175b8de14dad39ca3dfaaaf5e2c9ecc286d"
+  },
+  "tests/source-understanding-skill.test.ts": {
+    "sha256": "539bef8c59816a7e10f2a6a2eedfba4e163433daafc18080e55cd64463a6262f"
+  },
+  "README.md": {
+    "sha256": "bd41d69c62a3bedad51778b06cd759cfcd91514cfe1b5311d4c89ccb83776bb9"
+  },
+  "docs/ORDINARY-SOURCE-READ.md": {
+    "sha256": "b58b53b8755d49444186b6e86de682a000d3f9d12317e7ef0a8307abbbc283c4",
+    "workingCopySha256": "233d6e860a89dd64b12398acaf2c02569b1eda8132701591eefce2cabdf17039",
+    "note": "Candidate excludes the previous30 uncommitted investigative lines; they remain in worktree."
+  }
+}

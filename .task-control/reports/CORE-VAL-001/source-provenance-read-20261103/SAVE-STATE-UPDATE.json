@@ -1,0 +1,7 @@
+{
+  "baseRevision": 166,
+  "baseSha256": "9a70eef42c46547aed17b668fd6acf4aa4a108859e3e0d29d30f77900b411c4e",
+  "newRevision": 167,
+  "reason": "Record exact local provenance commit and handoff, no execution authorization",
+  "newSha256": "77a72407cd559471822147f0d6e932f3a7859b1f5668bcfd151970890c44b9b6"
+}

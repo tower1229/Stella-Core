@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-11-03T05:56:22.692580+00:00",
+  "baseCommit": "57267dc7343dacd44fbe5a90cc655260bf4b7c0f",
+  "goal": "Native forward-understanding from existing authorized data, not another metadata field or manual work-brief stage",
+  "gap": "Only packaged skill previously guided explicit synthetic brief continuation; no packaged source-grounded native reasoning guidance",
+  "implementation": "One normally discoverable plugin skill using existing stella_source_read list/read and native Agent loop; no tool, grant, model client, writer, runtime code or main configuration change",
+  "files": [
+    "skills/stella-understand-sources/SKILL.md",
+    "tests/source-understanding-skill.test.ts",
+    "README.md",
+    "docs/ORDINARY-SOURCE-READ.md"
+  ],
+  "acceptedDependencies": [
+    {
+      "commit": "eb886f26d05cbcc4b620fe6c472ff4483c7dc614",
+      "purpose": "authorized descriptions for semantic source selection"
+    },
+    {
+      "commit": "57267dc7343dacd44fbe5a90cc655260bf4b7c0f",
+      "purpose": "recorded provenance; upstreamId is source record identifier, not guaranteed message ID"
+    }
+  ],
+  "requirements": [
+    "docs/09-REQUIREMENTS-ALIGNMENT.md#forward-understanding-priority",
+    "CONTEXT.md"
+  ],
+  "fullPathRemaining": [
+    "Selected original97/362 migration can support a bounded question; nonempty legacy Understanding/Work/Change migration separately requires selected inputs and semantic reassessment, not bypassing old guards",
+    "Review and expose accepted source increments plus skill through an approved native tool scope; main full/off is not source-only and has not been changed",
+    "New paid/material authorization and native request must prove source selection, policy, original consumption, contrary evidence and useful grounded answer; no invocation is assigned here"
+  ],
+  "validation": "VALIDATION.json",
+  "review": "author validation complete; independent review pending",
+  "installed": false,
+  "newPaidCalls": 0,
+  "privatePayloadReads": 0,
+  "mainChanges": 0,
+  "grantChanges": 0,
+  "pushAssignedForThisPackage": false,
+  "separatePushAuthorization": "Only previous reviewed range ending6b400c20; excludes both source increments and this packet",
+  "statePreservation": "Fullstate contains earlier uncommitted investigative updates and remains local; this packet supplies its transition receipt, not a truncated replacement state. PROJECT-STATE and old30doclines unchanged.",
+  "evidence": {
+    "MANIFEST.json": "6fd7d758fb33a97449353e7be4e9ce5c04a1b97c19a7ee10c324af4cf40ae9a1",
+    "VALIDATION.json": "d0382d618f4f0e8aafaea6a11fc3e0a843d175003a8d4083df17fabe71645f64",
+    "changes.patch": "f51597666863ea6b70acba88eee6e427feaff8674527e27100749eb2816344d0",
+    "DOCUMENT.patch": "e01efe03403dcaf72142d5716c605d7457f3c38b8c1e0f059e40c6c1fa79889b"
+  }
+}
