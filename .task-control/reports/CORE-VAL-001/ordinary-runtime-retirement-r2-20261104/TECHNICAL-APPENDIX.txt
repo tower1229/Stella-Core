@@ -1,0 +1,12 @@
+
+ordinary_runtime_retirement_stage2_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/ordinary-runtime-retirement-r2-20261104/REPORT.json
+  removed_source_entries: 5
+  removed_standalone_launchers: 4
+  retired_test_files: 7
+  retained_current_assertions: ordinary_startup_source_origin_and_split_data_contracts
+  author_packaged_tests: 143_pass_0_fail_local_sdk_10_9
+  author_mixed_tests: 38_pass_0_fail_after_two_line_synthetic_ESM_fix
+  initial_mixed_failure: 37_pass_1_fixture_failure_preserved
+  independent_review_and_stage2_CI: pending_not_run
+  real_host_model_private_data: not_run

@@ -5,19 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { parse as parseYaml } from "yaml";
 import { StellaInitializer, parseMaterialization, type InitializationPorts, type Materialization } from "../src/openclaw/initialization.js";
 import { bytesVersion } from "../src/canghai/content-version.js";
-import { registerStellaInitialization } from "../src/openclaw/initialization-registration.js";
-import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk/plugin-entry";
 import { prepareInitializationFixture } from "./consciousness-fixture.js";
-import { coordinateCompletion, readActiveCompletionRequest } from "../src/openclaw/completion.js";
-import type { BoundTurnRequest } from "../src/openclaw/turn-request.js";
 import { compileInitializationSource, readCompiledContextRules } from "../src/openclaw/initialization-source.js";
 import { BOOTSTRAP_TARGETS, INITIALIZATION_TEMPLATE_VERSION, type HostIdentity } from "../src/openclaw/initialization-templates.js";
 
 import { withMemoryMutationLock } from "../src/canghai/memory-transaction.js";
-import { isolateHostProfile, hasHostProfileIsolation, type HostAdmissionConfig } from "../src/openclaw/host-admission-isolation.js";
 
 const exec = promisify(execFile);
 async function fixture(t: { after(fn: () => Promise<void>): void }, verify: InitializationPorts["verify"] = async () => undefined) {
@@ -307,205 +301,6 @@ test("rollback restores adopted files and modes, removes new files, and retains 
   await assert.rejects(f.initializer.assertCurrent(), /initialization_pending/);
 });
 
-test("Host service initializes on startup; manual entry shares the same transaction and admission gate", async (t) => {
-  const f = await fixture(t);
-  const prefix = "50_PersonalAgent/stella";
-  await mkdir(path.join(f.source, prefix), { recursive: true });
-  await writeFile(path.join(f.source, prefix, "manifest.yaml"), `identity:\n  runtimeProfileRef: path:${prefix}/runtime-profile.yaml\n`);
-  await writeFile(path.join(f.source, prefix, "runtime-profile.yaml"), JSON.stringify({ schema_version: "stella.runtime-profile/v2", host_materialization_ref: "path:recipe.json",
-    contract_profile: "alpha_praxis", agent_id: "stella", language: "zh-CN", timezone: "Asia/Shanghai",
-    models: Object.fromEntries(["main", "router", "learning", "framework_compiler"].map((role) => [role,
-      { provider: "synthetic", model: "synthetic", required_capabilities: [] }])), capabilities: [], source_policies_ref: "path:policies.yaml",
-    autonomy: { research_enabled: false, proactive_delivery_enabled: false, delivery_policy_ref: "path:delivery.yaml", delegation_registry_ref: "path:delegations.yaml" },
-  }));
-  await prepareInitializationFixture(f.source, "stella");
-  await f.git(["add", "."]);
-  await f.git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "Synthetic profile"]);
-  const pluginConfig = { canghaiRoot: f.source, recoveryRevision: await f.git(["rev-parse", "HEAD"]), manifestPath: `${prefix}/manifest.yaml`, agentId: "stella" };
-  const hooks = new Map<string, (event: unknown, ctx: unknown) => Promise<unknown>>();
-  let service: Parameters<OpenClawPluginApi["registerService"]>[0] | undefined;
-  let command: Parameters<OpenClawPluginApi["registerCommand"]>[0] | undefined;
-  let registeredTool: Parameters<OpenClawPluginApi["registerTool"]>[0] | undefined;
-  let toolOptions: Parameters<OpenClawPluginApi["registerTool"]>[1];
-  const hostConfig: OpenClawConfig = { agents: { entries: { stella: { workspace: f.workspace }, other: { identity: { name: "Keep other identity" } } } },
-    plugins: { entries: { "stella-core": { enabled: true, config: pluginConfig } } } };
-  const api = {
-    config: hostConfig,
-    runtime: { version: "2026.8.2", config: { current: () => hostConfig,
-      async mutateConfigFile(input: { mutate(config: OpenClawConfig): unknown }) { await input.mutate(hostConfig); return {}; } },
-    agent: { async ensureAgentWorkspace(input: { dir: string }) { return { dir: input.dir, bootstrapPending: false }; } },
-    gateway: { async request(method: string, params: { name?: string }) {
-      if (method === "agents.files.list") return { workspace: f.workspace };
-      if (method === "skills.status") return { workspaceDir: f.workspace, skills: [{ name: "stella-initialization-probe", eligible: true, filePath: path.join(f.workspace, "skills/stella-initialization-probe/SKILL.md") }] };
-      if (method === "agents.files.get") return { file: { content: await readFile(path.join(f.workspace, params.name!), "utf8") } };
-      throw new Error("unexpected Host method");
-    } } },
-    logger: { error() {} },
-    registerService(value: typeof service) { service = value; },
-    registerCommand(value: typeof command) { command = value; },
-    registerTool(value: typeof registeredTool, options: typeof toolOptions) { registeredTool = value; toolOptions = options; }, registerGatewayMethod() {},
-    on(name: string, handler: (event: unknown, ctx: unknown) => Promise<unknown>) { hooks.set(name, handler); },
-  };
-  let inventoryRequests = 0;
-  const initialization = registerStellaInitialization(api as never, pluginConfig, async (method, params) => {
-    if (method === "agents.files.list" && ++inventoryRequests === 1) throw new Error("Synthetic listener is not ready yet");
-    return api.runtime.gateway.request(method, params);
-  });
-  assert.equal(initialization.status().state, "not_started");
-  const context = { agentId: "stella", runId: "test-run" };
-  assert.equal((await hooks.get("before_agent_run")!({}, context) as { outcome: string }).outcome, "block");
-  assert.equal(await hooks.get("before_agent_run")!({}, { agentId: "other" }), undefined);
-  await withMemoryMutationLock(f.source, async () => {
-    await writeFile(path.join(f.source, "in-flight-write.txt"), "uncommitted synthetic transaction");
-    await service!.start({ config: api.config, stateDir: f.state, logger: api.logger } as never);
-    await new Promise(resolve => setTimeout(resolve, 40));
-    assert.equal(inventoryRequests, 0, "Automatic initialization must wait for this process's writer before touching Host state");
-    await rm(path.join(f.source, "in-flight-write.txt"));
-  });
-  await hooks.get("gateway_start")!({}, {});
-  assert.equal(inventoryRequests, 2);
-  assert.equal(initialization.status().state, "ready", JSON.stringify(initialization.status()));
-  let preparedRequest: BoundTurnRequest | undefined;
-  const preparationFinished = new Error("Synthetic preparation finished before generation");
-  await assert.rejects(coordinateCompletion({ operationId: "prepare-rules", runId: "prepare-rules", timeoutMs: 10000,
-    request: { agentId: "stella", sessionId: "prepare-session", sessionKey: "agent:stella:main", prompt: "Synthetic request",
-      senderId: "owner", senderIsOwner: true, chatType: "direct" } }, {
-    async generateDraft() {
-      preparedRequest = readActiveCompletionRequest("stella");
-      await assert.rejects(initialization.prepareContextCompilation({ ...preparedRequest }), /host_request_binding_required/);
-      const compiled = await initialization.prepareContextCompilation(preparedRequest);
-      assert.equal(readCompiledContextRules(compiled).agentId, "stella");
-      await assert.rejects(initialization.assertRun("prepare-rules"), /stale_initialization_run/);
-      throw preparationFinished;
-    },
-    async persist() { throw new Error("Preparation test must not persist"); },
-    async publishFinal() { throw new Error("Preparation test must not publish"); },
-  }), error => error instanceof Error && error.cause === preparationFinished);
-  await assert.rejects(initialization.prepareContextCompilation(preparedRequest!), /invalid_run_permit/);
-  const isolationRoot = await realpath(path.join(f.state, "stella-core/initialization/stella"));
-  const installedOperationId = initialization.status().operationId;
-  await isolateHostProfile({ readConfig: () => hostConfig as HostAdmissionConfig,
-    async mutateConfig(mutate) { mutate(hostConfig as HostAdmissionConfig); } }, "stella", "plugin_start_failed", isolationRoot);
-  await assert.rejects(initialization.assertReady(), /initialization_required/);
-  assert.equal(await hasHostProfileIsolation(isolationRoot, "stella"), true);
-  await writeFile(path.join(f.source, "still-dirty.txt"), "Recovery has not completed");
-  assert.equal((await initialization.initialize()).state, "blocked");
-  assert.equal(await hasHostProfileIsolation(isolationRoot, "stella"), true, "Invalid source must preserve isolation");
-  await rm(path.join(f.source, "still-dirty.txt"));
-  assert.equal((await initialization.initialize()).state, "ready");
-  assert.equal(initialization.status().operationId, installedOperationId, "Verified receipt is reused without reinstalling");
-  assert.equal(await hasHostProfileIsolation(isolationRoot, "stella"), false);
-  assert.equal(hostConfig.agents?.entries?.stella?.tools, undefined, "Only the recorded previous tool configuration is restored");
-  const originalHooks = new Map(hooks), originalService = service, originalCommand = command,
-    originalTool = registeredTool, originalToolOptions = toolOptions;
-  const retiring = registerStellaInitialization(api as never, pluginConfig,
-    (method, params) => api.runtime.gateway.request(method, params));
-  const beforeRetirement = JSON.stringify(hostConfig);
-  let markRetiringTurn!: () => void;
-  const retiringTurnStarted = new Promise<void>(resolve => { markRetiringTurn = resolve; });
-  const retiringAbort = new AbortController();
-  const retiringTurn = coordinateCompletion({ operationId: "reload-overlap", runId: "reload-overlap",
-    resourceScope: f.source, timeoutMs: 10000, abortSignal: retiringAbort.signal }, {
-    generateDraft: ({ abortSignal }) => new Promise((_resolve, reject) => {
-      abortSignal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
-      markRetiringTurn();
-    }),
-    async persist() { throw new Error("No persistence in retired startup test"); },
-    async publishFinal() { throw new Error("No publication in retired startup test"); },
-  });
-  const retiringCancelled = assert.rejects(retiringTurn, /cancelled/);
-  await retiringTurnStarted;
-  try {
-    await service!.start({ config: api.config, stateDir: f.state, logger: api.logger } as never);
-    await new Promise(resolve => setTimeout(resolve, 40));
-    assert.equal(retiring.status().state, "not_started", "Reload must wait between the live turn's write phases too");
-    await assert.rejects(Promise.race([
-      retiring.initialize(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("manual initialization joined its own drain")), 200)),
-    ]), /initialization_in_progress/);
-    await service!.stop!({ config: api.config, stateDir: f.state, logger: api.logger } as never);
-    await hooks.get("gateway_start")!({}, {});
-    assert.equal(retiring.status().category, "gateway_stopping");
-    assert.equal(JSON.stringify(hostConfig), beforeRetirement, "Retired startup must not isolate the replacement Host");
-  } finally { retiringAbort.abort(); await retiringCancelled; }
-  hooks.clear(); for (const [name, handler] of originalHooks) hooks.set(name, handler);
-  service = originalService; command = originalCommand; registeredTool = originalTool; toolOptions = originalToolOptions;
-  assert.equal(hostConfig.agents?.entries?.stella?.identity?.name, "Synthetic Stella");
-  assert.equal(hostConfig.agents?.entries?.other?.identity?.name, "Keep other identity");
-  hostConfig.agents!.entries!.stella!.bootstrapMaxChars = 100;
-  await assert.rejects(initialization.assertReady(), /host_bootstrap_context_incomplete/);
-  assert.equal((await initialization.initialize()).state, "blocked");
-  delete hostConfig.agents!.entries!.stella!.bootstrapMaxChars;
-  assert.equal((await initialization.initialize()).state, "ready");
-  assert.equal(await hooks.get("before_agent_run")!({}, context), undefined);
-  const manual = await command!.handler({ agentId: "stella", isAuthorizedSender: true } as never);
-  assert.equal(JSON.parse(manual.text!).state, "ready");
-  const runtimeProfilePath = path.join(f.source, prefix, "runtime-profile.yaml");
-  const alphaProfile = await readFile(runtimeProfilePath, "utf8");
-  const fullProfile = parseYaml(alphaProfile) as Record<string, unknown>;
-  fullProfile.contract_profile = "full_memory";
-  fullProfile.memory = { catalog_ref: "path:catalog.json", semantic_provider: "synthetic", required_views: [], archive_max_rpo_seconds: 300 };
-  await writeFile(runtimeProfilePath, JSON.stringify(fullProfile));
-  await f.git(["add", "."]);
-  await f.git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "Declare synthetic full-memory requirements"]);
-  pluginConfig.recoveryRevision = await f.git(["rev-parse", "HEAD"]);
-  const installed = await initialization.initialize();
-  assert.equal(installed.state, "ready");
-  assert.equal(installed.scope, "host_bootstrap");
-  assert.deepEqual(installed.runtime, { state: "blocked", blockers: ["full_memory_acceptance_unavailable", "host_memory_consumption_unverifiable"] });
-  await assert.rejects(initialization.assertReady(), /runtime_capabilities_unavailable/);
-  assert.equal((await hooks.get("before_agent_run")!({}, context) as { category: string }).category, "runtime_capabilities_unavailable");
-  const inspected = JSON.parse((await command!.handler({ agentId: "stella", args: "status" } as never)).text!);
-  assert.equal(inspected.state, "ready");
-  assert.equal(inspected.runtime.state, "blocked");
-  await writeFile(runtimeProfilePath, alphaProfile);
-  await f.git(["add", "."]);
-  await f.git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "Restore synthetic Alpha profile"]);
-  pluginConfig.recoveryRevision = await f.git(["rev-parse", "HEAD"]);
-  assert.equal((await initialization.initialize()).state, "ready");
-  assert.equal(typeof registeredTool, "function");
-  assert.deepEqual(toolOptions?.names, ["stella_initialize"]);
-  if (typeof registeredTool !== "function") throw new Error("Missing initialization tool factory");
-  const visitorTool = registeredTool({ agentId: "stella", senderIsOwner: false });
-  if (!visitorTool || Array.isArray(visitorTool)) throw new Error("Missing initialization tool");
-  await assert.rejects(visitorTool.execute("visitor-request", { action: "apply" }), /owner_authorization_required/);
-  let markGenerating!: () => void;
-  const generating = new Promise<void>((resolve) => { markGenerating = resolve; });
-  const abort = new AbortController();
-  const activeTurn = coordinateCompletion({ operationId: "draining", runId: "draining", resourceScope: f.source,
-    timeoutMs: 10000, abortSignal: abort.signal }, {
-    generateDraft: ({ abortSignal }) => new Promise((_resolve, reject) => {
-      abortSignal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
-      markGenerating();
-    }),
-    async persist() { throw new Error("Must not persist a cancelled test turn"); },
-    async publishFinal() { throw new Error("Must not publish a cancelled test turn"); },
-  });
-  const cancelled = assert.rejects(activeTurn, /cancelled/);
-  await generating;
-  const soulBefore = await readFile(path.join(f.workspace, "SOUL.md"), "utf8");
-  await assert.rejects(initialization.rollback(initialization.status().operationId!), /active_turn_drain_required/);
-  assert.equal(await readFile(path.join(f.workspace, "SOUL.md"), "utf8"), soulBefore);
-  await assert.rejects(initialization.assertReady(), /initialization_pending/);
-  abort.abort();
-  await cancelled;
-  await initialization.initialize();
-  assert.equal(initialization.status().state, "ready");
-  await writeFile(path.join(f.workspace, "USER.md"), "Changed while running");
-  assert.equal((await hooks.get("reply_payload_sending")!({ runId: "test-run", sessionKey: "agent:stella:main" }, {}) as { cancel: boolean }).cancel, true);
-  const profilePath = path.join(f.source, prefix, "runtime-profile.yaml");
-  const profile = parseYaml(await readFile(profilePath, "utf8")) as Record<string, unknown>;
-  profile.schema_version = "stella.runtime-profile/v1";
-  delete profile.host_materialization_ref;
-  await writeFile(profilePath, JSON.stringify(profile));
-  await f.git(["add", "."]);
-  await f.git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "Change synthetic profile contract"]);
-  pluginConfig.recoveryRevision = await f.git(["rev-parse", "HEAD"]);
-  await assert.rejects(initialization.assertReady(), /profile_migration_required/);
-  await service!.stop!({ config: api.config, stateDir: f.state, logger: api.logger } as never);
-  assert.equal((await initialization.initialize()).state, "blocked");
-});
-
 
 test("initialization accepts only its live delivery lock and still rejects unrelated dirty source", async (t) => {
   const f = await fixture(t);
@@ -545,8 +340,8 @@ test("initialization rechecks a transaction fence released after Git observed it
   t.after(async () => { process.env.PATH = originalPath; await rm(control, { recursive: true, force: true }); });
   const observed = path.join(control, "observed"), resume = path.join(control, "resume");
   await writeFile(path.join(control, "git"), `#!${process.execPath}
-const { execFileSync } = require('node:child_process');
-const { writeFileSync, existsSync } = require('node:fs');
+import { execFileSync } from 'node:child_process';
+import { writeFileSync, existsSync } from 'node:fs';
 const args = process.argv.slice(2);
 const output = execFileSync(${JSON.stringify(realGit)}, args);
 if (args.includes('--porcelain') && !existsSync(${JSON.stringify(observed)})) {

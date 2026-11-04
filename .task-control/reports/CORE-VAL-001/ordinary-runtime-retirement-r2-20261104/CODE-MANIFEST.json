@@ -1,0 +1,102 @@
+{
+  "README.md": {
+    "status": "present",
+    "sha256": "a34a513452e7e97c5ca654bff1586d9a4f95afec2dc11fd53520c8ebedb5a825"
+  },
+  "scripts/preflight-private-source.mjs": {
+    "status": "deleted",
+    "baseSha256": "af42057f1c0a09844064ae97e644534ae7482a0bd2a8921c0336e3cb6efaba26"
+  },
+  "scripts/prepare-ordinary-package-tests.mjs": {
+    "status": "present",
+    "sha256": "ccb0c10b29b239feb3c205f7631f87ceadd72b92ee03180d3656b3d44bd1ba91"
+  },
+  "scripts/run-praxis-evaluation.mjs": {
+    "status": "deleted",
+    "baseSha256": "d0e46853f36e2fdb34f1d7e75c43994d601e1a42bb54121e58686663f8a850ef"
+  },
+  "scripts/run-private-recovery.mjs": {
+    "status": "deleted",
+    "baseSha256": "a5be65927e06e3157641ae78556abbb3bbb55d38fdd516274781423cb70b2762"
+  },
+  "scripts/stella-activate.mjs": {
+    "status": "deleted",
+    "baseSha256": "76478882d495a072345fd2663546fe08150fc523d5acce73c0a5fb7875555bbc"
+  },
+  "src/README.md": {
+    "status": "present",
+    "sha256": "bc3ef41cc98eb4a159bf5243f75b17041be5a230e784dc4f0b0c3b69c929de5e"
+  },
+  "src/openclaw/host-memory-acceptance.ts": {
+    "status": "deleted",
+    "baseSha256": "8326c4763e71876867b08874cbf59aab4143206b24aa323f2566b181f5d97a88"
+  },
+  "src/openclaw/initialization-registration.ts": {
+    "status": "deleted",
+    "baseSha256": "ae8759ec1dca7ab2dbcd1df4481f8e9c715f8ba551f5d9ffa8d4c4e357a4277a"
+  },
+  "src/openclaw/native-memory-reader.ts": {
+    "status": "deleted",
+    "baseSha256": "96c0e500501ac7dfba010cd6199723fe99e3ab851bc7f2ef695ef3099b901275"
+  },
+  "src/openclaw/native-query-embedding.ts": {
+    "status": "deleted",
+    "baseSha256": "704c6255af224f457a9b4174a08b8da39cefc8acbc55c65217a1c834729a1da4"
+  },
+  "src/plugin.ts": {
+    "status": "deleted",
+    "baseSha256": "e8849f0886ac778625d27040395ded0d9f707aa64eb82a7c7cbe051a23c35998"
+  },
+  "tests/README.md": {
+    "status": "present",
+    "sha256": "1372b88292ffc5a89c6854773b58cbb038c335409c12ec6a3c98f2de823098bf"
+  },
+  "tests/capability-gateway.test.ts": {
+    "status": "deleted",
+    "baseSha256": "8f1bc8c88adf0db9ab9e35b3968c584104fa87b1443b889b815f25b217a0e158"
+  },
+  "tests/initialization-install.test.ts": {
+    "status": "deleted",
+    "baseSha256": "ac75feb0dacfadc1d59af6fd38f0a24d696bddfe1d6d80dada8a798f6f405118"
+  },
+  "tests/initialization.test.ts": {
+    "status": "present",
+    "sha256": "ab479761d22da7caa23802d340eb7713198341102cccb1f9320b66d9f1b6fb76"
+  },
+  "tests/native-memory-reader.test.ts": {
+    "status": "deleted",
+    "baseSha256": "ed204ad9ecca113316e4a601d67aa0be107b4552f2485d8c48743bd51085bf36"
+  },
+  "tests/native-query-embedding.test.ts": {
+    "status": "deleted",
+    "baseSha256": "409a20238aca9460a6d6cb43791598f2a3b1a3484736a74787b3fe264c81ad56"
+  },
+  "tests/openclaw-10.7-compatibility.test.ts": {
+    "status": "deleted",
+    "baseSha256": "f89ca58ecb6376b7c4fd1050c511a762718d8288feb4e71db848383adb446522"
+  },
+  "tests/plugin-startup-seam.test.ts": {
+    "status": "deleted",
+    "baseSha256": "8ed1c49ac2d754ad306fa63e5d90a84edc18b0e1bd1cbd6db73c7cf052220542"
+  },
+  "tests/plugin.test.ts": {
+    "status": "deleted",
+    "baseSha256": "b7b0d6ca5d531819ecdfbc9622f0cf29f891ee85911ae34cb209dc75127c9d0e"
+  },
+  "tests/recovery-read-binding.test.ts": {
+    "status": "present",
+    "sha256": "05986ce0e1afedc486b156449308ab52914a2f23e4aad6d0996620f65540b760"
+  },
+  "tests/source-access.test.ts": {
+    "status": "present",
+    "sha256": "0c3045dbb37fec7efac93c333398892991c9a1d3e47cf701a3fc73b84b8b260e"
+  },
+  "tests/native-memory-origin.test.ts": {
+    "status": "present",
+    "sha256": "cc667531f385444031c541d55c325b3d40ed3493048e7882de0c8fb3ca267465"
+  },
+  "tests/ordinary-startup-seam.test.ts": {
+    "status": "present",
+    "sha256": "14a364903be32a5f9dea7901231d7eed038e3fe33554ec9e76bd4d8e1be38d0f"
+  }
+}

@@ -1,0 +1,933 @@
+{
+  "localSdk": "2026.10.9",
+  "buildExit": 0,
+  "initialTestCompileExit": 0,
+  "postFixtureFixTestCompileExit": 0,
+  "packaged": {
+    "source": ".artifacts/ordinary-package-r2-20261104/run",
+    "exit": 0,
+    "counts": {
+      "tests": 143,
+      "pass": 143,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "stdoutSha256": "f6d2d6e5eda6fc550303bf806e19d8d045ae0a1bf43bf6761ec72669c97db1cb",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cases": [
+      {
+        "status": "ok",
+        "name": "one complete intent publication is committed locally and controlled reads preserve candidates and unresolved questions"
+      },
+      {
+        "status": "ok",
+        "name": "durable retries retain their original result after a later publication and reject operation ID reuse"
+      },
+      {
+        "status": "ok",
+        "name": "stale asset or source expectations do not write or silently rebase"
+      },
+      {
+        "status": "ok",
+        "name": "current qualification is required before a new publication, durable replay, or controlled read"
+      },
+      {
+        "status": "ok",
+        "name": "without trusted author evidence only an explicit candidate can be published"
+      },
+      {
+        "status": "ok",
+        "name": "a model-supplied excerpt cannot borrow a genuine author's identity and source version"
+      },
+      {
+        "status": "ok",
+        "name": "a source version change at the precommit boundary never becomes a successful publication"
+      },
+      {
+        "status": "ok",
+        "name": "source permission is independently required for replay and reads even when request qualification remains valid"
+      },
+      {
+        "status": "ok",
+        "name": "a failure at replaced reconstructs from disk without duplicate publication"
+      },
+      {
+        "status": "ok",
+        "name": "a failure at committed reconstructs from disk without duplicate publication"
+      },
+      {
+        "status": "ok",
+        "name": "a failure at before_return reconstructs from disk without duplicate publication"
+      },
+      {
+        "status": "ok",
+        "name": "an interrupted file replacement remains fenced until the exact persisted intent is completed"
+      },
+      {
+        "status": "ok",
+        "name": "the local commit cannot absorb unrelated staged or untracked files"
+      },
+      {
+        "status": "ok",
+        "name": "malformed versions, source references and injected fields cannot write"
+      },
+      {
+        "status": "ok",
+        "name": "a canceled request cannot publish or use a retained repository to read"
+      },
+      {
+        "status": "ok",
+        "name": "changed or removed current statements must be named in the revision relation"
+      },
+      {
+        "status": "ok",
+        "name": "a candidate cannot erase previously confirmed intent without author evidence"
+      },
+      {
+        "status": "ok",
+        "name": "a new request cannot supply changed-source intent as current, while authorized history stays explicitly historical"
+      },
+      {
+        "status": "ok",
+        "name": "missing retained material is unavailable instead of falling back to a different version"
+      },
+      {
+        "status": "ok",
+        "name": "a separate Node process recovers a committed-but-unacknowledged publication using only the synthetic repository"
+      },
+      {
+        "status": "ok",
+        "name": "a source-B revision validates source-A only as its qualified historical base and preserves current freshness"
+      },
+      {
+        "status": "ok",
+        "name": "source refresh retains the stale_A refusal boundary"
+      },
+      {
+        "status": "ok",
+        "name": "source refresh retains the B_permission refusal boundary"
+      },
+      {
+        "status": "ok",
+        "name": "source refresh retains the B_author refusal boundary"
+      },
+      {
+        "status": "ok",
+        "name": "source refresh retains the base_permission refusal boundary"
+      },
+      {
+        "status": "ok",
+        "name": "source refresh retains the missing_history refusal boundary"
+      },
+      {
+        "status": "ok",
+        "name": "source refresh retains the uncommitted_current refusal boundary"
+      },
+      {
+        "status": "ok",
+        "name": "a concurrent complete publication cannot be overwritten while the old source-A base is being checked"
+      },
+      {
+        "status": "ok",
+        "name": "an independent process retries an unacknowledged source-B revision without rewriting it"
+      },
+      {
+        "status": "ok",
+        "name": "save, restore in a new request, and versioned modification preserve candidate meaning"
+      },
+      {
+        "status": "ok",
+        "name": "stale CAS and operation identity conflicts fail without changing the committed draft"
+      },
+      {
+        "status": "ok",
+        "name": "exact retry is idempotent and an older operation never rolls back the new version"
+      },
+      {
+        "status": "ok",
+        "name": "input cannot add author confirmation, source lookup, paths or an implicit expected version"
+      },
+      {
+        "status": "ok",
+        "name": "unverified evidence is retained opaquely, with no file or URL resolution"
+      },
+      {
+        "status": "ok",
+        "name": "missing marker, oversized proposal, dirty store and closed invocation fail explicitly"
+      },
+      {
+        "status": "ok",
+        "name": "actual plugin tool restores across fresh factories and keeps publisher off"
+      },
+      {
+        "status": "ok",
+        "name": "new draft tool restricts existing owner context without using it as author proof"
+      },
+      {
+        "status": "ok",
+        "name": "configured drafts cannot escape a workspace-only or sandboxed Host context"
+      },
+      {
+        "status": "ok",
+        "name": "plugin skill is discovered as an explicit model-routed command by the public Host SDK"
+      },
+      {
+        "status": "ok",
+        "name": "continuation reads current, saves a candidate revision, then re-reads in a fresh request"
+      },
+      {
+        "status": "ok",
+        "name": "dispatch is passive; first call reads only committed native metadata and returns no transcript path or text"
+      },
+      {
+        "status": "ok",
+        "name": "missing ingress, signal, session or agent fields never fall back to prompt, history or another run"
+      },
+      {
+        "status": "ok",
+        "name": "committed receipt and factory must match exact agent, session and incarnation"
+      },
+      {
+        "status": "ok",
+        "name": "receipt identity and numeric fields are required; receipt exceptions stay explicit"
+      },
+      {
+        "status": "ok",
+        "name": "receipt getter snapshot rejects invalid first rawSeq without accepting a later value"
+      },
+      {
+        "status": "ok",
+        "name": "receipt getter snapshot rejects invalid first activeMessagePosition without accepting a later value"
+      },
+      {
+        "status": "ok",
+        "name": "receipt getter snapshot rejects invalid first effectiveParentId without accepting a later value"
+      },
+      {
+        "status": "ok",
+        "name": "receipt getter snapshot rejects invalid first sessionId without accepting a later value"
+      },
+      {
+        "status": "ok",
+        "name": "receipt scalar snapshot is read once and the same validated values determine its hash"
+      },
+      {
+        "status": "ok",
+        "name": "one run cannot switch recorders or native admissions; restoring old metadata cannot revive it"
+      },
+      {
+        "status": "ok",
+        "name": "blocked/vanished admission never becomes observed; independent new requests read their own receipt"
+      },
+      {
+        "status": "ok",
+        "name": "original read methods are captured; cancellation and exact agent-end release bounded references"
+      },
+      {
+        "status": "ok",
+        "name": "cancellation or agent-end during a recorder read cannot return an observation"
+      },
+      {
+        "status": "ok",
+        "name": "ordinary plugin callbacks carry native metadata to only the exact candidate; candidate and publisher limits stay intact"
+      },
+      {
+        "status": "ok",
+        "name": "v1 canonical golden bytes preserve the existing journal contract, archive and base64"
+      },
+      {
+        "status": "ok",
+        "name": "v2 canonical golden bytes preserve the original expected revision and opaque token"
+      },
+      {
+        "status": "ok",
+        "name": "unknown top-level and file fields fail even with a correctly recomputed planHash"
+      },
+      {
+        "status": "ok",
+        "name": "v1/v2 envelopes cannot silently add, remove or change checkpoint mode"
+      },
+      {
+        "status": "ok",
+        "name": "missing or invalid original expected tokens are rejected without filling an observed value"
+      },
+      {
+        "status": "ok",
+        "name": "v2 rejects invalid binding locations and identities"
+      },
+      {
+        "status": "ok",
+        "name": "planHash binds business writes and the original expected tuple, never the newly observed tuple"
+      },
+      {
+        "status": "ok",
+        "name": "wrong operation, hash, noncanonical bytes and malformed JSON are rejected"
+      },
+      {
+        "status": "ok",
+        "name": "schema versions must be strings, never coercible arrays"
+      },
+      {
+        "status": "ok",
+        "name": "explicit legacy utf8 encoding remains accepted and retains journal identity"
+      },
+      {
+        "status": "ok",
+        "name": "failed multi-file publication stays unreadable until exact retry synchronizes it"
+      },
+      {
+        "status": "ok",
+        "name": "a validation failure before publication releases the fence and preserves all original bytes"
+      },
+      {
+        "status": "ok",
+        "name": "concurrent publications and ordinary mutations cannot cross the transaction fence"
+      },
+      {
+        "status": "ok",
+        "name": "file CAS and reserved transaction paths fail without publishing"
+      },
+      {
+        "status": "ok",
+        "name": "one Git commit contains the full transaction and pointer failure retries without another commit"
+      },
+      {
+        "status": "ok",
+        "name": "applyMemoryTransaction publishes live lock ownership for concurrent initialization admission"
+      },
+      {
+        "status": "ok",
+        "name": "a killed process leaves its transaction fenced but the exact intent can reclaim the dead owner's lock"
+      },
+      {
+        "status": "ok",
+        "name": "expired timestamps never authorize stealing a live or unknown owner's lock"
+      },
+      {
+        "status": "ok",
+        "name": "native memory origin accepts only a closed versioned relative range"
+      },
+      {
+        "status": "ok",
+        "name": "default package is ordinary and historical config is rejected without importing old runtime"
+      },
+      {
+        "status": "ok",
+        "name": "registration contributes guarded tools, passive metadata hooks and a no-model command"
+      },
+      {
+        "status": "ok",
+        "name": "real tool contract returns an unsaved candidate, retaining open questions and unverified evidence"
+      },
+      {
+        "status": "ok",
+        "name": "spoofed confirmation, missing fields and oversized input are rejected"
+      },
+      {
+        "status": "ok",
+        "name": "closed invocation, replaced guard and cancellation cannot return a candidate"
+      },
+      {
+        "status": "ok",
+        "name": "public terminal events release source turns and pending calls without abort or conversation access"
+      },
+      {
+        "status": "ok",
+        "name": "actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel"
+      },
+      {
+        "status": "ok",
+        "name": "missing real hook/request fields never use owner flags, model parameters or session latest"
+      },
+      {
+        "status": "ok",
+        "name": "Host owner/requester/audience/model must match existing grant without granting new identities"
+      },
+      {
+        "status": "ok",
+        "name": "exact call/run/incarnation rejects ambiguity, mismatch, replay and expired original guard"
+      },
+      {
+        "status": "ok",
+        "name": "uncommitted or blocked native turn cannot read; commitment before a later first valid call is supported"
+      },
+      {
+        "status": "ok",
+        "name": "new user request in same session requalifies its own input and rereads selected version; old qualification is not reused"
+      },
+      {
+        "status": "ok",
+        "name": "native admission conflict, cancellation and end do not revive an old binding"
+      },
+      {
+        "status": "ok",
+        "name": "semantic policy denial remains an explicit read failure; metadata access does not grant body access"
+      },
+      {
+        "status": "ok",
+        "name": "reviewed descriptor membership cannot override the segment's metadata-processing purpose"
+      },
+      {
+        "status": "ok",
+        "name": "authenticated public WebChat profile binds the same native run/call and existing grant without fabricating SenderId"
+      },
+      {
+        "status": "ok",
+        "name": "missing or unqualified WebChat scope cannot be replaced with wire-looking owner/profile fields"
+      },
+      {
+        "status": "ok",
+        "name": "synthetic and delegated Gateway clients cannot fall back to matching transport sender or owner flags"
+      },
+      {
+        "status": "ok",
+        "name": "WebChat profile cannot alias the selected grant or disagree with Host sender, owner or audience"
+      },
+      {
+        "status": "ok",
+        "name": "WebChat keeps native request lifetime after RPC completion; each new request needs fresh live admission"
+      },
+      {
+        "status": "ok",
+        "name": "WebChat identity mutation, cross-run call, incarnation mismatch and cancellation remain closed"
+      },
+      {
+        "status": "ok",
+        "name": "each WebChat hook and protected read requires the same public scope; parallel principals never merge"
+      },
+      {
+        "status": "ok",
+        "name": "official memory-core without native audience can use only the same device's existing source grant"
+      },
+      {
+        "status": "ok",
+        "name": "absent audience never admits unknown memory providers, native providers or a profile-only grant"
+      },
+      {
+        "status": "ok",
+        "name": "ordinary memory retains direct owner, authenticated device, grant and non-delegation boundaries before payload access"
+      },
+      {
+        "status": "ok",
+        "name": "ordinary memory does not replace a conflicting audience or accept a changed memory owner"
+      },
+      {
+        "status": "ok",
+        "name": "ordinary memory requires committed current input, call incarnation and fresh admission after terminal cleanup"
+      },
+      {
+        "status": "ok",
+        "name": "Host-attested same device satisfies the existing device grant without changing profile, grant or tool identity"
+      },
+      {
+        "status": "ok",
+        "name": "profile-only, wire device IDs, unknown devices and malformed attestations cannot satisfy a device grant"
+      },
+      {
+        "status": "ok",
+        "name": "device attestation never grants synthetic or delegated Gateway ingress"
+      },
+      {
+        "status": "ok",
+        "name": "device mutation or cross-connection reuse invalidates the original run even after restoration"
+      },
+      {
+        "status": "ok",
+        "name": "device grants retain native request lifetime but require new admission, exact incarnation and cancellation"
+      },
+      {
+        "status": "ok",
+        "name": "an explicit profile grant keeps its original semantics when another valid device fact is present"
+      },
+      {
+        "status": "ok",
+        "name": "device grant rejects missing-gateway transport SenderId before model or payload access"
+      },
+      {
+        "status": "ok",
+        "name": "device grant rejects non-WebChat-gateway transport SenderId before model or payload access"
+      },
+      {
+        "status": "ok",
+        "name": "a new data branch supplies explicit manifest/profile/catalog paths without legacy directory discovery"
+      },
+      {
+        "status": "ok",
+        "name": "a newly selected synchronized generation cannot reuse an old cursor or removed source"
+      },
+      {
+        "status": "ok",
+        "name": "selected real-contract manifest/profile/catalog lists roles and times without reading original payloads"
+      },
+      {
+        "status": "ok",
+        "name": "descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence"
+      },
+      {
+        "status": "ok",
+        "name": "list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies"
+      },
+      {
+        "status": "ok",
+        "name": "descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate"
+      },
+      {
+        "status": "ok",
+        "name": "an expired metadata await cannot release descriptors after replacing the original guard"
+      },
+      {
+        "status": "ok",
+        "name": "exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies"
+      },
+      {
+        "status": "ok",
+        "name": "two originals with the same role preserve different recorded speakers and source records without inferring identity"
+      },
+      {
+        "status": "ok",
+        "name": "read provenance projects only selected recorded labels; list never releases the new attribution fields"
+      },
+      {
+        "status": "ok",
+        "name": "oversized provenance fails before policy completion or payload reads without truncating identifiers"
+      },
+      {
+        "status": "ok",
+        "name": "missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access"
+      },
+      {
+        "status": "ok",
+        "name": "ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced"
+      },
+      {
+        "status": "ok",
+        "name": "metadata processing denial and semantic source-policy denial are explicit failures, never empty success"
+      },
+      {
+        "status": "ok",
+        "name": "explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits"
+      },
+      {
+        "status": "ok",
+        "name": "manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML"
+      },
+      {
+        "status": "ok",
+        "name": "catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking"
+      },
+      {
+        "status": "ok",
+        "name": "original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence"
+      },
+      {
+        "status": "ok",
+        "name": "UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check"
+      },
+      {
+        "status": "ok",
+        "name": "cancelled or expired original admission cannot be replaced during awaits"
+      },
+      {
+        "status": "ok",
+        "name": "request expiry during source judgment stops before any protected payload load"
+      },
+      {
+        "status": "ok",
+        "name": "request expiry while reading coverage is checked immediately before the first payload load"
+      },
+      {
+        "status": "ok",
+        "name": "source references and selectors expose documented fields only"
+      },
+      {
+        "status": "ok",
+        "name": "ordinary plugin imports through the real SDK without identity directory enumeration"
+      },
+      {
+        "status": "ok",
+        "name": "source understanding is model-visible through existing plugin skills and respects Host selection"
+      },
+      {
+        "status": "ok",
+        "name": "exact public run/call and factory session bind without reading tool params or author facts"
+      },
+      {
+        "status": "ok",
+        "name": "direct invocation keeps missing run explicit and never upgrades it to user admission"
+      },
+      {
+        "status": "ok",
+        "name": "different calls and same-session runs stay distinct; identity conflicts and ambiguity reject"
+      },
+      {
+        "status": "ok",
+        "name": "malformed event/context pairs reject; unrelated agents/tools never enter the pending map"
+      },
+      {
+        "status": "ok",
+        "name": "incarnation rejects empty sessionId from hook and factory"
+      },
+      {
+        "status": "ok",
+        "name": "incarnation rejects null sessionId from hook and factory"
+      },
+      {
+        "status": "ok",
+        "name": "incarnation rejects number sessionId from hook and factory"
+      },
+      {
+        "status": "ok",
+        "name": "incarnation rejects same object sessionId from hook and factory"
+      },
+      {
+        "status": "ok",
+        "name": "cancellation removes pending metadata; capacity is explicit and consumption frees a slot"
+      },
+      {
+        "status": "ok",
+        "name": "plugin hook metadata reaches only the exact candidate execution and retains unsaved/source-off contract"
+      }
+    ]
+  },
+  "mixedBeforeFixtureFix": {
+    "source": ".artifacts/ordinary-r2-targeted",
+    "exit": 1,
+    "counts": {
+      "tests": 38,
+      "pass": 37,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "stdoutSha256": "5c7d3f56b6715c5885fd9cdc53accb2d41877b19fd4b04564acaf331740c07b9",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cases": [
+      {
+        "status": "ok",
+        "name": "read-only initialization planning leaves the Git index unchanged"
+      },
+      {
+        "status": "ok",
+        "name": "initializes reviewed bootstrap and skills, preserving unrelated files"
+      },
+      {
+        "status": "ok",
+        "name": "installed Host verification is read-only and cannot certify complete runtime capabilities"
+      },
+      {
+        "status": "ok",
+        "name": "a Host verification result cannot survive cancellation or edits made during verification"
+      },
+      {
+        "status": "ok",
+        "name": "compiles public Core templates and pinned reviewed behavior without rewriting the source"
+      },
+      {
+        "status": "ok",
+        "name": "source or runtime changes invalidate an already reviewed plan"
+      },
+      {
+        "status": "ok",
+        "name": "skill reads require the current receipt and cannot read personal or undeclared files"
+      },
+      {
+        "status": "ok",
+        "name": "failed Host verification stays fenced and resumes from the same durable operation"
+      },
+      {
+        "status": "ok",
+        "name": "subsequent initialization does not overwrite owner drift"
+      },
+      {
+        "status": "ok",
+        "name": "process death after file writes resumes the durable operation without age-based lock stealing"
+      },
+      {
+        "status": "ok",
+        "name": "rejects skill and source path escapes"
+      },
+      {
+        "status": "ok",
+        "name": "rollback restores adopted files and modes, removes new files, and retains unrelated content"
+      },
+      {
+        "status": "ok",
+        "name": "initialization accepts only its live delivery lock and still rejects unrelated dirty source"
+      },
+      {
+        "status": "ok",
+        "name": "initialization accepts live memory transaction marker with its owned lock"
+      },
+      {
+        "status": "not ok",
+        "name": "initialization rechecks a transaction fence released after Git observed it"
+      },
+      {
+        "status": "ok",
+        "name": "context compilation requires a current admitted run and detects installed drift"
+      },
+      {
+        "status": "ok",
+        "name": "read binding captures once and old assertions never adopt B or a rotated same-SHA token"
+      },
+      {
+        "status": "ok",
+        "name": "caller scope is frozen before asynchronous authority read"
+      },
+      {
+        "status": "ok",
+        "name": "closed registration scope rejects old and in-flight read/assert callbacks"
+      },
+      {
+        "status": "ok",
+        "name": "missing/corrupt authority and wrong scope reject without fallback"
+      },
+      {
+        "status": "ok",
+        "name": "execution hash explicitly binds Core snapshot while legacy pointer gate remains"
+      },
+      {
+        "status": "ok",
+        "name": "outcome recovery cannot replace frozen revision or use a different repository scope"
+      },
+      {
+        "status": "ok",
+        "name": "mutable expected aliases cannot upgrade token while a read assertion awaits"
+      },
+      {
+        "status": "ok",
+        "name": "direct scoped assertion freezes the original expected object before awaiting"
+      },
+      {
+        "status": "ok",
+        "name": "read snapshots reject coercible revision arrays before assertion"
+      },
+      {
+        "status": "ok",
+        "name": "personal-context operator grants are not inferred from recovery or compaction"
+      },
+      {
+        "status": "ok",
+        "name": "v3 access requires every source-specific rule and cannot accept partial or invented checks"
+      },
+      {
+        "status": "ok",
+        "name": "one source's semantic verdict cannot authorize a second source sharing its policy"
+      },
+      {
+        "status": "ok",
+        "name": "denied purposes and missing quote grants stop before metadata or model disclosure"
+      },
+      {
+        "status": "ok",
+        "name": "model output cannot override Host trigger, presentation or quote authority"
+      },
+      {
+        "status": "ok",
+        "name": "unrelated topics, forbidden uses, and old request verdicts fail explicitly"
+      },
+      {
+        "status": "ok",
+        "name": "source descriptors are version bound and cannot rewrite the requested target"
+      },
+      {
+        "status": "ok",
+        "name": "asynchronous judgments cannot outlive catalog changes, cancellation, or policy tampering"
+      },
+      {
+        "status": "ok",
+        "name": "provider failures expose only stable categories without private causes"
+      },
+      {
+        "status": "ok",
+        "name": "changing a topic descriptor during inference invalidates its verdict"
+      },
+      {
+        "status": "ok",
+        "name": "personal metadata processing requires exact Host requester, model, owner and purpose"
+      },
+      {
+        "status": "ok",
+        "name": "personal metadata grant revocation during inference invalidates the result"
+      },
+      {
+        "status": "ok",
+        "name": "persistence only revalidates prior exact-source decisions and never starts a new model judgment"
+      }
+    ],
+    "failure": "Synthetic extensionless Git shim inherited repository ESM package scope, so CommonJS require was undefined; business runtime unchanged. Exactly2 shim import lines changed to ESM; same38 cases replayed."
+  },
+  "mixedAfterFixtureFix": {
+    "source": ".artifacts/ordinary-r2-targeted-r1",
+    "exit": 0,
+    "counts": {
+      "tests": 38,
+      "pass": 38,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "stdoutSha256": "932e203b997d6103fa68d885265c555263435a17ed274105a26f7e10a2cf3836",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cases": [
+      {
+        "status": "ok",
+        "name": "read-only initialization planning leaves the Git index unchanged"
+      },
+      {
+        "status": "ok",
+        "name": "initializes reviewed bootstrap and skills, preserving unrelated files"
+      },
+      {
+        "status": "ok",
+        "name": "installed Host verification is read-only and cannot certify complete runtime capabilities"
+      },
+      {
+        "status": "ok",
+        "name": "a Host verification result cannot survive cancellation or edits made during verification"
+      },
+      {
+        "status": "ok",
+        "name": "compiles public Core templates and pinned reviewed behavior without rewriting the source"
+      },
+      {
+        "status": "ok",
+        "name": "source or runtime changes invalidate an already reviewed plan"
+      },
+      {
+        "status": "ok",
+        "name": "skill reads require the current receipt and cannot read personal or undeclared files"
+      },
+      {
+        "status": "ok",
+        "name": "failed Host verification stays fenced and resumes from the same durable operation"
+      },
+      {
+        "status": "ok",
+        "name": "subsequent initialization does not overwrite owner drift"
+      },
+      {
+        "status": "ok",
+        "name": "process death after file writes resumes the durable operation without age-based lock stealing"
+      },
+      {
+        "status": "ok",
+        "name": "rejects skill and source path escapes"
+      },
+      {
+        "status": "ok",
+        "name": "rollback restores adopted files and modes, removes new files, and retains unrelated content"
+      },
+      {
+        "status": "ok",
+        "name": "initialization accepts only its live delivery lock and still rejects unrelated dirty source"
+      },
+      {
+        "status": "ok",
+        "name": "initialization accepts live memory transaction marker with its owned lock"
+      },
+      {
+        "status": "ok",
+        "name": "initialization rechecks a transaction fence released after Git observed it"
+      },
+      {
+        "status": "ok",
+        "name": "context compilation requires a current admitted run and detects installed drift"
+      },
+      {
+        "status": "ok",
+        "name": "read binding captures once and old assertions never adopt B or a rotated same-SHA token"
+      },
+      {
+        "status": "ok",
+        "name": "caller scope is frozen before asynchronous authority read"
+      },
+      {
+        "status": "ok",
+        "name": "closed registration scope rejects old and in-flight read/assert callbacks"
+      },
+      {
+        "status": "ok",
+        "name": "missing/corrupt authority and wrong scope reject without fallback"
+      },
+      {
+        "status": "ok",
+        "name": "execution hash explicitly binds Core snapshot while legacy pointer gate remains"
+      },
+      {
+        "status": "ok",
+        "name": "outcome recovery cannot replace frozen revision or use a different repository scope"
+      },
+      {
+        "status": "ok",
+        "name": "mutable expected aliases cannot upgrade token while a read assertion awaits"
+      },
+      {
+        "status": "ok",
+        "name": "direct scoped assertion freezes the original expected object before awaiting"
+      },
+      {
+        "status": "ok",
+        "name": "read snapshots reject coercible revision arrays before assertion"
+      },
+      {
+        "status": "ok",
+        "name": "personal-context operator grants are not inferred from recovery or compaction"
+      },
+      {
+        "status": "ok",
+        "name": "v3 access requires every source-specific rule and cannot accept partial or invented checks"
+      },
+      {
+        "status": "ok",
+        "name": "one source's semantic verdict cannot authorize a second source sharing its policy"
+      },
+      {
+        "status": "ok",
+        "name": "denied purposes and missing quote grants stop before metadata or model disclosure"
+      },
+      {
+        "status": "ok",
+        "name": "model output cannot override Host trigger, presentation or quote authority"
+      },
+      {
+        "status": "ok",
+        "name": "unrelated topics, forbidden uses, and old request verdicts fail explicitly"
+      },
+      {
+        "status": "ok",
+        "name": "source descriptors are version bound and cannot rewrite the requested target"
+      },
+      {
+        "status": "ok",
+        "name": "asynchronous judgments cannot outlive catalog changes, cancellation, or policy tampering"
+      },
+      {
+        "status": "ok",
+        "name": "provider failures expose only stable categories without private causes"
+      },
+      {
+        "status": "ok",
+        "name": "changing a topic descriptor during inference invalidates its verdict"
+      },
+      {
+        "status": "ok",
+        "name": "personal metadata processing requires exact Host requester, model, owner and purpose"
+      },
+      {
+        "status": "ok",
+        "name": "personal metadata grant revocation during inference invalidates the result"
+      },
+      {
+        "status": "ok",
+        "name": "persistence only revalidates prior exact-source decisions and never starts a new model judgment"
+      }
+    ]
+  },
+  "counting": "143 current extracted package cases and38 split mixed cases are separate suites; red37/1 is not added to green counts",
+  "rerunFullWorkspace": false,
+  "stage2CI": "not_run",
+  "host": false,
+  "model": false
+}

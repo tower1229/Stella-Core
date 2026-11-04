@@ -1,0 +1,17 @@
+{
+  "headSha": "2bd7f2a8f18b0c3e89057d8e63ed67ae8e1f176a",
+  "id": 41761223076,
+  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41761223076",
+  "status": "completed",
+  "conclusion": "success",
+  "completedAt": "2026-11-04T02:32:08Z",
+  "observedVia": "gh run view JSON",
+  "stepsPassed": [
+    "check and schemas",
+    "source/test compile",
+    "npm pack and staging",
+    "extracted package tests",
+    "artifact upload"
+  ],
+  "scope": "first-stage code and statistics correction only; second-stage changes not pushed or tested by this CI"
+}

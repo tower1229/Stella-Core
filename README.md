@@ -15,6 +15,16 @@ Host bridges, context replacement, SQL reader and activation guides. Retired
 activation/acceptance npm aliases have been removed. Historical source and tests
 are being removed by dependency group; Git retains their recovery point.
 
+The second retirement group removes the old plugin entry, direct native-SQL and
+query-embedding bridges, their acceptance/initialization registration, and four
+standalone launchers. The former startup and source-locator assertions now run
+against the ordinary entry and the retained repository-data parser. Mixed
+source-access, initialization-file and recovery tests keep their applicable
+assertions. Older compound probe runners remain historical and are not invoked
+by the current npm entry points or CI; their dependency graph is a later cleanup
+group, not an alternative installation route. Retiring an obsolete test does not
+turn its historical failure into a passing result or prove semantic recall.
+
 The current priority is **understanding existing data**: select relevant sources,
 check originals, and answer with evidence and uncertainty. The
 [source-read integration](docs/ORDINARY-SOURCE-READ.md#native-forward-understanding-guidance-unloaded-candidate)

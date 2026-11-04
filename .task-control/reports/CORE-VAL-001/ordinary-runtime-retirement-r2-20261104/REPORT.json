@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-04T02:39:00.938769+00:00",
+  "status": "author_validated_pending_independent_review",
+  "baseCommit": "2bd7f2a8f18b0c3e89057d8e63ed67ae8e1f176a",
+  "codeManifestSha256": "0c8f64520bd31662a8a6572000d1f555051c5a83b936e75fdcc8544459069d78",
+  "changes": {
+    "paths": 25,
+    "removedTrackedFiles": 16,
+    "removedSourceModules": 5,
+    "removedStandaloneLaunchers": 4,
+    "removedLegacyTestFiles": 7,
+    "newFocusedTests": 2,
+    "mixedSuitesSplit": 3,
+    "newCurrentProductionLogic": false,
+    "npmPackageMembers": 145
+  },
+  "assertionRetention": {
+    "nativeOrigin": "original assertion body copied exactly into native-memory-origin.test.ts; required by repository-source, not native SQL acceptance",
+    "ordinaryStartup": "existing no-directory-enumeration assertion now imports actual ordinary entry; both added to current extracted-package CI suites",
+    "sourceAccess": "13 cases retained,12 bodies identical; first case removes only old Host acceptance parser and keeps personal-context parser guards",
+    "initialization": "17->16 cases; obsolete registered service case removed,15 remaining bodies identical,1 synthetic Git shim corrected for ESM",
+    "recoveryBinding": "11->9 cases; only2 old HostMemoryAcceptance cases removed; other9 bodies identical"
+  },
+  "validation": {
+    "ref": "VALIDATION.json",
+    "packaged143": true,
+    "mixed38": true,
+    "firstAttempt37pass1fixtureFailurePreserved": true,
+    "buildAndCompile": true,
+    "localSdk": "2026.10.9",
+    "stage2CI": "not_run",
+    "wholeWorkspaceFailures": "not rerun or relabelled; SQL adapter failures retired with that adapter, not repaired semantic recall"
+  },
+  "remainingLegacy": {
+    "compoundProbeAndRunnerGraph": "still present, historical and absent from current npm/workflow paths; next coherent retirement group, no replacement framework",
+    "sourceGraphs": "Host context/provider/completion/checkpoint and old Praxis/evaluation remain outside current package; data validators used by ordinary entry stay",
+    "dataContracts": "manifest/profile/catalog/source policy/Evidence bytes, synchronization-state and transaction/view fences unchanged; full CangHai migration and new-format sync handoff still required"
+  },
+  "recovery": "all removed files are exact Git base bytes; restore/review by baseCommit, no user data deleted",
+  "boundaries": {
+    "host": false,
+    "oldUnknownLoad": "not_replayed",
+    "model": false,
+    "privateOriginals": false,
+    "canghaiWrites": false,
+    "grantOrConfigChanges": false,
+    "stage2Push": false,
+    "independentReview": "pending"
+  },
+  "firstStage": {
+    "headSha": "2bd7f2a8f18b0c3e89057d8e63ed67ae8e1f176a",
+    "id": 41761223076,
+    "url": "https://github.com/tower1229/Stella-Core/actions/runs/41761223076",
+    "status": "completed",
+    "conclusion": "success",
+    "completedAt": "2026-11-04T02:32:08Z",
+    "observedVia": "gh run view JSON",
+    "stepsPassed": [
+      "check and schemas",
+      "source/test compile",
+      "npm pack and staging",
+      "extracted package tests",
+      "artifact upload"
+    ],
+    "scope": "first-stage code and statistics correction only; second-stage changes not pushed or tested by this CI"
+  }
+}

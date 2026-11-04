@@ -62,9 +62,10 @@ const buildIdentity = JSON.parse(await readFile(path.join(pkg, "dist/build-ident
 if (process.env.GITHUB_ACTIONS === "true") assert.equal(buildIdentity.sourceClean, true, "CI source must be clean");
 assert.deepEqual(buildIdentity, JSON.parse(await readFile(path.join(root, ".test-dist/build-identity.json"), "utf8")));
 
-const suites = ["ordinary-plugin", "ordinary-source-read", "ordinary-source-admission",
+const suites = ["ordinary-plugin", "ordinary-startup-seam", "ordinary-source-read", "ordinary-source-admission",
   "tool-request-binding", "current-input-metadata", "source-understanding-skill",
-  "candidate-work-brief", "author-intent-repository", "memory-transaction", "memory-transaction-journal"];
+  "candidate-work-brief", "author-intent-repository", "memory-transaction", "memory-transaction-journal",
+  "native-memory-origin"];
 const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js"];
 await mkdir(path.join(harness, "tests/fixtures"), { recursive: true });
 for (const file of testFiles) await copyFile(path.join(root, ".test-dist/tests", file), path.join(harness, "tests", file));

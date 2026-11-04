@@ -1,12 +1,9 @@
-import { createLegacyRecoveryAuthority } from "../src/canghai/recovery-bound-loader.js";
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { canonicalJson } from "../src/canghai/content-version.js";
 import { RecoveryAuthorityError, type RecoveryAuthorityResolver, type RecoveryAuthoritySnapshot } from "../src/canghai/recovery-authority-contract.js";
 import { captureRecoveryReadBinding, assertRecoveryReadBinding, createRecoveryReadScope } from "../src/canghai/recovery-read-binding.js";
 import { hostContextExecutionHash } from "../src/openclaw/host-memory-inventory.js";
-import { createHostMemoryAcceptance } from "../src/openclaw/host-memory-acceptance.js";
 import { loadOutcomeRecoveryBinding } from "../src/praxis/outcome-recovery-binding.js";
 
 const revisionA = "a".repeat(40), revisionB = "b".repeat(40);
@@ -68,14 +65,6 @@ test("execution hash explicitly binds Core snapshot while legacy pointer gate re
   const legacy = { ...scope, recoveryRevision: revisionA };
   assert.equal(hostContextExecutionHash(config, legacy), hostContextExecutionHash(structuredClone(config), legacy));
 });
-test("acceptance missing authority fails before config or any model call", async () => {
-  const missing = new RecoveryAuthorityError("checkpoint_missing"); let configReads = 0, modelCalls = 0;
-  const api = { runtime: { config: { current() { configReads++; assert.fail("Config should not be read after missing authority"); } },
-    llm: { complete() { modelCalls++; assert.fail("No model calls allowed"); } } } } as unknown as OpenClawPluginApi;
-  const f = authority(), acceptance = createHostMemoryAcceptance(api, { ...scope, recoveryRevision: revisionA }, { ...f.resolver, async read() { throw missing; } });
-  await assert.rejects(acceptance.captureDependencies(), error => error === missing);
-  assert.equal(configReads, 0); assert.equal(modelCalls, 0);
-});
 test("outcome recovery cannot replace frozen revision or use a different repository scope", async () => {
   const f = authority(), binding = await captureRecoveryReadBinding(scope, f.resolver);
   await assert.rejects(loadOutcomeRecoveryBinding(scope.canghaiRoot, scope.manifestPath, revisionB, binding), category("recovery_binding_changed"));
@@ -99,12 +88,6 @@ test("mutable expected aliases cannot upgrade token while a read assertion await
       : loadOutcomeRecoveryBinding(scope.canghaiRoot, scope.manifestPath, revisionA, binding), category("recovery_authority_changed"));
     await entered.promise; external.token = "token-B"; current = snapshot(revisionA, "token-B"); gate.resolve(); await pending;
   }
-});
-test("explicit legacy resolver still requires the live Host pointer to match", async () => {
-  const resolver = createLegacyRecoveryAuthority(snapshot().binding, () => revisionA);
-  const api = { runtime: { config: { current() { return { plugins: { entries: { "stella-core": { enabled: true, config: { ...scope, recoveryRevision: revisionB } } } } }; } } } } as unknown as OpenClawPluginApi;
-  const acceptance = createHostMemoryAcceptance(api, { ...scope, recoveryRevision: revisionA }, resolver);
-  await assert.rejects(acceptance.captureDependencies(), category("host_memory_acceptance_configuration_changed"));
 });
 
 

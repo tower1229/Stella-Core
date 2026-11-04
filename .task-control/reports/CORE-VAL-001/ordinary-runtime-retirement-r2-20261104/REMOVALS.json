@@ -1,0 +1,90 @@
+{
+  "baseCommit": "2bd7f2a8f18b0c3e89057d8e63ed67ae8e1f176a",
+  "files": {
+    "src/plugin.ts": {
+      "sha256": "e8849f0886ac778625d27040395ded0d9f707aa64eb82a7c7cbe051a23c35998",
+      "bytes": 125195
+    },
+    "src/openclaw/native-memory-reader.ts": {
+      "sha256": "96c0e500501ac7dfba010cd6199723fe99e3ab851bc7f2ef695ef3099b901275",
+      "bytes": 20753
+    },
+    "src/openclaw/native-query-embedding.ts": {
+      "sha256": "704c6255af224f457a9b4174a08b8da39cefc8acbc55c65217a1c834729a1da4",
+      "bytes": 9247
+    },
+    "src/openclaw/host-memory-acceptance.ts": {
+      "sha256": "8326c4763e71876867b08874cbf59aab4143206b24aa323f2566b181f5d97a88",
+      "bytes": 18445
+    },
+    "src/openclaw/initialization-registration.ts": {
+      "sha256": "ae8759ec1dca7ab2dbcd1df4481f8e9c715f8ba551f5d9ffa8d4c4e357a4277a",
+      "bytes": 44672
+    },
+    "scripts/preflight-private-source.mjs": {
+      "sha256": "af42057f1c0a09844064ae97e644534ae7482a0bd2a8921c0336e3cb6efaba26",
+      "bytes": 6796
+    },
+    "scripts/stella-activate.mjs": {
+      "sha256": "76478882d495a072345fd2663546fe08150fc523d5acce73c0a5fb7875555bbc",
+      "bytes": 6443
+    },
+    "scripts/run-praxis-evaluation.mjs": {
+      "sha256": "d0e46853f36e2fdb34f1d7e75c43994d601e1a42bb54121e58686663f8a850ef",
+      "bytes": 17879
+    },
+    "scripts/run-private-recovery.mjs": {
+      "sha256": "a5be65927e06e3157641ae78556abbb3bbb55d38fdd516274781423cb70b2762",
+      "bytes": 15909
+    },
+    "tests/capability-gateway.test.ts": {
+      "sha256": "8f1bc8c88adf0db9ab9e35b3968c584104fa87b1443b889b815f25b217a0e158",
+      "bytes": 14633
+    },
+    "tests/initialization-install.test.ts": {
+      "sha256": "ac75feb0dacfadc1d59af6fd38f0a24d696bddfe1d6d80dada8a798f6f405118",
+      "bytes": 14372
+    },
+    "tests/native-memory-reader.test.ts": {
+      "sha256": "ed204ad9ecca113316e4a601d67aa0be107b4552f2485d8c48743bd51085bf36",
+      "bytes": 25107
+    },
+    "tests/native-query-embedding.test.ts": {
+      "sha256": "409a20238aca9460a6d6cb43791598f2a3b1a3484736a74787b3fe264c81ad56",
+      "bytes": 11311
+    },
+    "tests/openclaw-10.7-compatibility.test.ts": {
+      "sha256": "f89ca58ecb6376b7c4fd1050c511a762718d8288feb4e71db848383adb446522",
+      "bytes": 1972
+    },
+    "tests/plugin.test.ts": {
+      "sha256": "b7b0d6ca5d531819ecdfbc9622f0cf29f891ee85911ae34cb209dc75127c9d0e",
+      "bytes": 68112
+    },
+    "tests/plugin-startup-seam.test.ts": {
+      "sha256": "8ed1c49ac2d754ad306fa63e5d90a84edc18b0e1bd1cbd6db73c7cf052220542",
+      "bytes": 23518
+    }
+  },
+  "retiredCases": [
+    {
+      "file": "tests/initialization.test.ts",
+      "name": "Host service initializes on startup; manual entry shares the same transaction and admission gate"
+    },
+    {
+      "file": "tests/recovery-read-binding.test.ts",
+      "name": "explicit legacy resolver still requires the live Host pointer to match"
+    },
+    {
+      "file": "tests/recovery-read-binding.test.ts",
+      "name": "acceptance missing authority fails before config or any model call"
+    }
+  ],
+  "preserved": [
+    "native origin parser assertion moved without changing its cases",
+    "ordinary import directory-enumeration assertion retargeted to the actual entry",
+    "personal-context parsing assertions kept within the mixed first test",
+    "remaining initialization and recovery tests retained"
+  ],
+  "remainingLegacyTooling": "Old compound probe/package runner graph remains explicitly historical for the next coherent retirement group; current npm aliases/workflow do not invoke it."
+}
