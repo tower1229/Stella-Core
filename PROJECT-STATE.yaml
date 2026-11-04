@@ -833,3 +833,12 @@ ordinary_distribution_retirement_20261104:
   remaining_historical_failures: not_rerun_not_passed
   real_host_and_semantics: not_run
   canghai_full_migration_and_new_format_sync: handoff_and_implementation_remaining
+
+ordinary_distribution_review_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/ordinary-retirement-20261104/REVIEW-SUMMARY.json
+  independent_packaged_tests: 141_pass_0_fail_same_suite_not_additional
+  tarball_member_comparison: 551_to_145
+  old_prepared_directory: 2753_including_2202_dependency_files_not_comparable_denominator
+  compiled_source_comparison: 175_to_42
+  code_patch_and_test_receipts: unchanged
+  host_and_semantics: not_verified

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-04T02:22:06.989140+00:00",
+  "reviewedCommit": "f7ee60b94e240a75d23c03fb687acff84f48e46c",
+  "originalReportSha256": "dc797ee0558ec20019c6236bbcdf2a4a12f6fb2af1c703223955595a8af316ba",
+  "correctedReportSha256": "60be04b467d20031ce23595631734a5a9ac22f09d92e2edf7a49e752f89c682b",
+  "codeManifestSha256": "ee7ba1e9523fdd350b943d8d9c2ffb68476739110944971a8c02d53fc404e859",
+  "patchSha256": "27b27ba9823894166bedcee6b67525b15bc2d0f37768fcca51fb126b51fbef27",
+  "testReceiptSha256": "292ac4294484f8d072e198e435e70b97bd5e8b0ee3ece0f889aef9f7f6ab19e0",
+  "acceptance": "Code and package boundary accepted in parent independent review;141/141 independent replay, not added to author count",
+  "correction": {
+    "oldPreparedDirectory": 2753,
+    "dependencyFiles": 2202,
+    "oldTarball": 551,
+    "newTarball": 145,
+    "sourceModulesBefore": 175,
+    "sourceModulesAfter": 42
+  },
+  "source": "Parent delegation2026-11-04; source review path and digest not provided",
+  "noCodeOrTestChanges": true
+}

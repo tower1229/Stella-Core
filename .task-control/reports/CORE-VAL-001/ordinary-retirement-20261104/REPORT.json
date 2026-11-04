@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "observedAt": "2026-11-04T02:03:22.240623+00:00",
-  "status": "self_reviewed_candidate_for_independent_review",
+  "status": "independent_review_accepted_statistics_corrected",
   "baseCommit": "24551ff6a9350b9912cf43d013cf2c48c9e100a8",
   "baseRevision": 198,
   "worktreeInputs": [
@@ -70,7 +70,11 @@
       "8.2 input recorder",
       "old episode store"
     ],
-    "remaining": "Shared modules still contain reusable validators and some old routines; source/test tree is not fully retired."
+    "remaining": "Shared modules still contain reusable validators and some old routines; source/test tree is not fully retired.",
+    "oldTarballMembers": 551,
+    "newTarballMembers": 145,
+    "preparedOldDependencyMembers": 2202,
+    "comparisonBasis": "tarball members551->145; prepared old directory2753 includes2202 node_modules files and is not a like-for-like denominator"
   },
   "validation": {
     "ref": "VALIDATION.json",
@@ -130,7 +134,22 @@
     "sourceConfigChanged": false,
     "permissionChanged": false,
     "canghaiMutated": false,
-    "independentReview": "pending",
+    "independentReview": "accepted_by_parent_independent_review",
     "pushed": false
+  },
+  "independentReview": {
+    "status": "accepted_code_and_package_boundary",
+    "evidenceSource": "Parent delegation2026-11-04 reports independent extracted-package141/141 and requests statistics correction; no independent evidence path/hash supplied",
+    "tests": {
+      "pass": 141,
+      "fail": 0,
+      "counting": "independent replay of same suite, not additional282"
+    },
+    "statisticsCorrection": "tarball551->145 and compiled source modules175->42; no code/test rerun",
+    "notVerified": [
+      "real Host",
+      "semantic consumption",
+      "new candidate CI10.8"
+    ]
   }
 }
