@@ -4,6 +4,7 @@ import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js
 import { stableId, type ArchiveObject } from "./host-input-archive.js";
 import type { VersionedRef } from "./ref.js";
 import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "./native-memory-origin.js";
+import { isRecord } from "../shared/type-guards.js";
 
 export const REPOSITORY_SOURCE_ADAPTER = "stella-repository-file/v1";
 
@@ -69,4 +70,64 @@ export async function prepareRepositorySource(input: {
   }, [sourceRef, segment.policyRef]));
   // The original bytes stay in place; a later writer must revalidate this digest before committing.
   return { sourceRef, evidenceRefs, objects };
+}
+
+type RepositorySourceInput = Parameters<typeof prepareRepositorySource>[0];
+export type MigratedRepositorySourceInput = Omit<RepositorySourceInput, "relativePath" | "expectedSha256" | "nativeMemory" | "reviewedSegments"> & {
+  /** An inactive MIG02 document receipt, not its aggregate manifest/mapping. */
+  receipt: unknown;
+  /** Original producer baseline, distinct from the later runtime export commit. */
+  sourceRevision: string;
+  /** Explicit selected retained original; never select normalized prose by filename. */
+  originalPath: string;
+  reviewedSegments: NonNullable<RepositorySourceInput["reviewedSegments"]>;
+};
+
+/** Prepare objects only: no writes, commits, grant issuance or activation. The
+ * producer owns the fixed input snapshot and later verifies/writes these objects;
+ * ordinary-source-read independently pins the final committed runtime export.
+ * Existing source_id is a record identifier, not proof of author identity. */
+export async function prepareMigratedRepositorySource(input: MigratedRepositorySourceInput) {
+  input = structuredClone(input);
+  const receipt = input.receipt;
+  const check: (ok: unknown, code: string) => asserts ok = (ok, code) => {
+    if (!ok) throw new CatalogError(code);
+  };
+  check(isRecord(receipt) && receipt.schemaVersion === "canghai.evidence-migration-receipt/v1" &&
+    receipt.disposition === "document_package_candidate" &&
+    Array.isArray(receipt.reasons) && receipt.reasons.length === 0 &&
+    receipt.sourceMetadataNotInferred === true && receipt.modelReadPermissionGranted === false &&
+    receipt.activeCatalogChanged === false && receipt.semanticallyAdmitted === false,
+  "migration_document_receipt_required");
+  check(typeof input.sourceRevision === "string" && /^[a-f0-9]{40}$/.test(input.sourceRevision) &&
+    receipt.sourceRevision === input.sourceRevision, "migration_source_revision_mismatch");
+  check(receipt.requiresSourceVersionReview === undefined || receipt.requiresSourceVersionReview === false,
+    "migration_source_version_review_required");
+  check(isRecord(receipt.identity) && receipt.identity.kind === "existing_source_id" &&
+    typeof input.sourceId === "string" && input.sourceId.length > 0 &&
+    receipt.identity.value === input.sourceId && receipt.requiresIdentityReview === false,
+  "migration_stable_identity_required");
+  check(Array.isArray(receipt.targetFiles) && receipt.targetFiles.every(p => typeof p === "string") &&
+    new Set(receipt.targetFiles).size === receipt.targetFiles.length &&
+    receipt.targetFiles.includes(input.originalPath), "migration_original_not_declared");
+  check(typeof receipt.originSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.originSha256) &&
+    typeof receipt.normalizedSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.normalizedSha256) &&
+    typeof receipt.originBlob === "string" && /^[a-f0-9]{40}$/.test(receipt.originBlob) &&
+    ["100644", "100755"].includes(String(receipt.originMode)) &&
+    Number.isSafeInteger(receipt.originBytes) && Number(receipt.originBytes) > 0 &&
+    Number(receipt.originBytes) <= 16 * 1024 * 1024, "migration_original_metadata_invalid");
+  check(Array.isArray(input.reviewedSegments) && input.reviewedSegments.length > 0,
+    "migration_reviewed_segments_required");
+  const prepared = await prepareRepositorySource({ root: input.root, collectionId: input.collectionId,
+    sourceId: input.sourceId, relativePath: input.originalPath, expectedSha256: `sha256:${receipt.originSha256}`,
+    capturedAt: input.capturedAt, policyRef: input.policyRef, objectRoot: input.objectRoot,
+    reviewedSegments: input.reviewedSegments });
+  const source = prepared.objects.find(item => item.group === "sources")!.object;
+  const payloads = source.payloads as Array<{ bytes: number }>;
+  check(payloads[0]!.bytes === receipt.originBytes, "migration_original_size_mismatch");
+  return { ...prepared, migration: { sourceRevision: input.sourceRevision, originBlob: receipt.originBlob,
+    originalSha256: `sha256:${receipt.originSha256}`, originalBytes: receipt.originBytes,
+    normalizationChangedBytes: receipt.originSha256 !== receipt.normalizedSha256,
+    payloadRepresentation: "retained_original" as const, runtimeActivated: false as const,
+    processingPermissionGranted: false as const } };
 }

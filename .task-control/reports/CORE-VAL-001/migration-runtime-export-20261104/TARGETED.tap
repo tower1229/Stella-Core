@@ -1,0 +1,232 @@
+TAP version 13
+# Subtest: fixed MIG02 producer receipt exports rewritten link with retained BOM/CRLF original through current runtime entry
+ok 1 - fixed MIG02 producer receipt exports rewritten link with retained BOM/CRLF original through current runtime entry
+  ---
+  duration_ms: 2070.731167
+  type: 'test'
+  ...
+# Subtest: fixed MIG02 producer receipt exports unchanged original through current runtime entry
+ok 2 - fixed MIG02 producer receipt exports unchanged original through current runtime entry
+  ---
+  duration_ms: 394.559333
+  type: 'test'
+  ...
+# Subtest: a normalized link rewrite cannot be substituted for the selected original bytes
+ok 3 - a normalized link rewrite cannot be substituted for the selected original bytes
+  ---
+  duration_ms: 64.578042
+  type: 'test'
+  ...
+# Subtest: migration aggregate manifest and mapping cannot stand in for a document receipt
+ok 4 - migration aggregate manifest and mapping cannot stand in for a document receipt
+  ---
+  duration_ms: 86.326542
+  type: 'test'
+  ...
+# Subtest: provisional identities, mismatched record IDs and pending version review remain explicit failures
+ok 5 - provisional identities, mismatched record IDs and pending version review remain explicit failures
+  ---
+  duration_ms: 105.268375
+  type: 'test'
+  ...
+# Subtest: inactive candidate flags are not a grant, and unsupported dispositions do not become text evidence
+ok 6 - inactive candidate flags are not a grant, and unsupported dispositions do not become text evidence
+  ---
+  duration_ms: 101.309459
+  type: 'test'
+  ...
+# Subtest: explicit original membership, size, payload digest and reviewed segmentation are required
+ok 7 - explicit original membership, size, payload digest and reviewed segmentation are required
+  ---
+  duration_ms: 104.595792
+  type: 'test'
+  ...
+# Subtest: source updates retain record identity but require a new export pin and reject old evidence/cursors
+ok 8 - source updates retain record identity but require a new export pin and reject old evidence/cursors
+  ---
+  duration_ms: 596.654084
+  type: 'test'
+  ...
+# Subtest: receipt and returned preparation do not bypass ordinary source admission
+ok 9 - receipt and returned preparation do not bypass ordinary source admission
+  ---
+  duration_ms: 233.761583
+  type: 'test'
+  ...
+# Subtest: a new data branch supplies explicit manifest/profile/catalog paths without legacy directory discovery
+ok 10 - a new data branch supplies explicit manifest/profile/catalog paths without legacy directory discovery
+  ---
+  duration_ms: 608.670541
+  type: 'test'
+  ...
+# Subtest: a newly selected synchronized generation cannot reuse an old cursor or removed source
+ok 11 - a newly selected synchronized generation cannot reuse an old cursor or removed source
+  ---
+  duration_ms: 421.763417
+  type: 'test'
+  ...
+# Subtest: selected real-contract manifest/profile/catalog lists roles and times without reading original payloads
+ok 12 - selected real-contract manifest/profile/catalog lists roles and times without reading original payloads
+  ---
+  duration_ms: 260.78075
+  type: 'test'
+  ...
+# Subtest: descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence
+ok 13 - descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence
+  ---
+  duration_ms: 189.882833
+  type: 'test'
+  ...
+# Subtest: list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies
+ok 14 - list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies
+  ---
+  duration_ms: 745.354333
+  type: 'test'
+  ...
+# Subtest: descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate
+ok 15 - descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate
+  ---
+  duration_ms: 782.198
+  type: 'test'
+  ...
+# Subtest: an expired metadata await cannot release descriptors after replacing the original guard
+ok 16 - an expired metadata await cannot release descriptors after replacing the original guard
+  ---
+  duration_ms: 118.778833
+  type: 'test'
+  ...
+# Subtest: exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies
+ok 17 - exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies
+  ---
+  duration_ms: 210.621708
+  type: 'test'
+  ...
+# Subtest: two originals with the same role preserve different recorded speakers and source records without inferring identity
+ok 18 - two originals with the same role preserve different recorded speakers and source records without inferring identity
+  ---
+  duration_ms: 411.956833
+  type: 'test'
+  ...
+# Subtest: read provenance projects only selected recorded labels; list never releases the new attribution fields
+ok 19 - read provenance projects only selected recorded labels; list never releases the new attribution fields
+  ---
+  duration_ms: 316.287542
+  type: 'test'
+  ...
+# Subtest: oversized provenance fails before policy completion or payload reads without truncating identifiers
+ok 20 - oversized provenance fails before policy completion or payload reads without truncating identifiers
+  ---
+  duration_ms: 157.3625
+  type: 'test'
+  ...
+# Subtest: missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access
+ok 21 - missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access
+  ---
+  duration_ms: 1.138584
+  type: 'test'
+  ...
+# Subtest: ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced
+ok 22 - ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced
+  ---
+  duration_ms: 204.320208
+  type: 'test'
+  ...
+# Subtest: metadata processing denial and semantic source-policy denial are explicit failures, never empty success
+ok 23 - metadata processing denial and semantic source-policy denial are explicit failures, never empty success
+  ---
+  duration_ms: 239.319042
+  type: 'test'
+  ...
+# Subtest: explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits
+ok 24 - explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits
+  ---
+  duration_ms: 161.158375
+  type: 'test'
+  ...
+# Subtest: manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML
+ok 25 - manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML
+  ---
+  duration_ms: 236.789667
+  type: 'test'
+  ...
+# Subtest: catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking
+ok 26 - catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking
+  ---
+  duration_ms: 1504.401083
+  type: 'test'
+  ...
+# Subtest: original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence
+ok 27 - original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence
+  ---
+  duration_ms: 517.6205
+  type: 'test'
+  ...
+# Subtest: UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check
+ok 28 - UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check
+  ---
+  duration_ms: 379.553375
+  type: 'test'
+  ...
+# Subtest: cancelled or expired original admission cannot be replaced during awaits
+ok 29 - cancelled or expired original admission cannot be replaced during awaits
+  ---
+  duration_ms: 120.181875
+  type: 'test'
+  ...
+# Subtest: request expiry during source judgment stops before any protected payload load
+ok 30 - request expiry during source judgment stops before any protected payload load
+  ---
+  duration_ms: 155.703875
+  type: 'test'
+  ...
+# Subtest: request expiry while reading coverage is checked immediately before the first payload load
+ok 31 - request expiry while reading coverage is checked immediately before the first payload load
+  ---
+  duration_ms: 168.579917
+  type: 'test'
+  ...
+# Subtest: source references and selectors expose documented fields only
+ok 32 - source references and selectors expose documented fields only
+  ---
+  duration_ms: 336.257375
+  type: 'test'
+  ...
+# Subtest: repository import retains mixed original bytes as unknown, never as owner action
+ok 33 - repository import retains mixed original bytes as unknown, never as owner action
+  ---
+  duration_ms: 30.006875
+  type: 'test'
+  ...
+# Subtest: native provenance remains part of source identity and retained bytes must still match
+ok 34 - native provenance remains part of source identity and retained bytes must still match
+  ---
+  duration_ms: 20.102916
+  type: 'test'
+  ...
+# Subtest: reviewed segments preserve originals and independent origin while enforcing narrower fragment policy before payload access
+ok 35 - reviewed segments preserve originals and independent origin while enforcing narrower fragment policy before payload access
+  ---
+  duration_ms: 40.512584
+  type: 'test'
+  ...
+# Subtest: shared-policy fragments use their own descriptions and cannot reuse a neighbor's semantic verdict
+ok 36 - shared-policy fragments use their own descriptions and cannot reuse a neighbor's semantic verdict
+  ---
+  duration_ms: 63.56475
+  type: 'test'
+  ...
+# Subtest: restricted parent policies authorize personal views through their evidence fragment
+ok 37 - restricted parent policies authorize personal views through their evidence fragment
+  ---
+  duration_ms: 54.438
+  type: 'test'
+  ...
+1..37
+# tests 37
+# suites 0
+# pass 37
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 15235.57325

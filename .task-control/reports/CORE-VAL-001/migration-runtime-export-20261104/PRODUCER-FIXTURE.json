@@ -1,0 +1,20 @@
+{
+  "generatorCommit": "8eff06a1444e46411c439c10aa49a2a6602b562c",
+  "generatorHashes": {
+    "evidence_packages.py": "c7de055151e8e1dd8825d5c195a2a161a1201b4e5b4b4444d0cbf1142a8552e5",
+    "warehouse_inventory.py": "7a9fdac63ec8a209d95d801fc4e331a1b08bb2a5c156bd62e97fc2b8b6b9b573",
+    "migration_issues.py": "88b21d4a2c80c12429478cca7448395765bd02162442b3f219ca2bd4abfb3266",
+    "migration_boundary.py": "06235eb08c6d7188b89909964487ce794687a238c7c93c5a9de86f996c81b200"
+  },
+  "sourceRevision": "a0accb7097f12f1bf026afee484ef9c6c39c5665",
+  "planDigest": "5c11920805b268947cbf412d155a95c5f15d11de5475beb515cf25c647a25198",
+  "receipts": 2,
+  "called": [
+    "warehouse_inventory.build",
+    "evidence_packages.build"
+  ],
+  "applyCalled": false,
+  "fixtureSha256": "dabe2381b8db3bdb621230780100bc996a8d1a25101b8c91d977f0abfbb650ac",
+  "temporarySyntheticRepoCleanedOnExit": true,
+  "realDataRead": false
+}

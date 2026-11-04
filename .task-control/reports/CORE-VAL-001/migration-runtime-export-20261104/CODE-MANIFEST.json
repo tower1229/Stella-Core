@@ -1,0 +1,26 @@
+{
+  "src/canghai/repository-source.ts": {
+    "sha256": "7062bb417a8374ed3b4807565eb27c9eb87d821c177336c3f049fb3fb18f86ab",
+    "bytes": 10057
+  },
+  "scripts/prepare-ordinary-package-tests.mjs": {
+    "sha256": "f3784b98cd6f00e9c7ad4b0cafd2041bc62477ce28444e8f891bfe507cb9c388",
+    "bytes": 6796
+  },
+  "tests/fixtures/migration-source-export.ts": {
+    "sha256": "dabe2381b8db3bdb621230780100bc996a8d1a25101b8c91d977f0abfbb650ac",
+    "bytes": 9572
+  },
+  "tests/migration-source-export.test.ts": {
+    "sha256": "8d07449e875ac9cd189287641c683c40dd6c2be70ce264b3a831923e51ca4aa2",
+    "bytes": 10495
+  },
+  "docs/MIGRATION-RUNTIME-EXPORT.md": {
+    "sha256": "21fe12228c1cc920aacbb9245c270f2f84572b2990f9388856171977420ef4d8",
+    "bytes": 6590
+  },
+  "docs/CORE-CANGHAI-COORDINATION.md": {
+    "sha256": "214339f2d1a026a67d78ceb94c98938e6614b8f6a964a37600750201639428f7",
+    "bytes": 33974
+  }
+}

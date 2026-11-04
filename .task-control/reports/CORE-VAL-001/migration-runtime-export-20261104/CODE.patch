@@ -1,0 +1,424 @@
+diff --git a/docs/CORE-CANGHAI-COORDINATION.md b/docs/CORE-CANGHAI-COORDINATION.md
+index f7637cbd..ab62f1b8 100644
+--- a/docs/CORE-CANGHAI-COORDINATION.md
++++ b/docs/CORE-CANGHAI-COORDINATION.md
+@@ -14,6 +14,8 @@ Core 当前读接口保持最小：`plugins.entries.stella-core.config.sourceRea
+ 
+ 本轮用纯合成 Git 分支证明新 manifest/profile/catalog 路径可被现有普通入口列举与读回，并验证换代后旧版本／游标／移除来源拒绝。它不证明全仓转换完成、真实授权变化、自动同步、Host 加载或模型理解。当前仍绑定的固定 90f 快照与 97／362 范围保持；只有沧海交接后才安排受控替换，不能用新目录名掩盖数据未迁移。
+ 
++2026-11-04 补齐生产者接缝：固定 MIG02 生成器的纯合成文稿收据可通过无写盘的 `prepareMigratedRepositorySource` 准备 Source v2／Evidence／coverage，再由测试写者组成现有运行 manifest/profile/catalog 并固定提交回读。输入明确保留原件、稳定记录 ID、审核分段与策略；不会把迁移清单、provisional ID 或候选标记当运行 catalog／许可。字段归属、版本关系、实际验证与真实导出剩余项见 [MIG02 运行导出合同](MIGRATION-RUNTIME-EXPORT.md)。本增量没有修改同步会话的验收包或沧海工作树，也没有实现真实批量导出或理解回写。
++
+ 旧代码分阶段退役：先抽离中立类型、收紧安装包到普通插件与仍使用的数据／事务工具；随后按现行依赖移除旧专用入口、私有 Host 桥、脚本和测试。有效的来源权限、版本、取消、原文完整性、事务断言必须保留。Git 中可恢复的历史实现不再作为新运行能力，旧失败不会改记通过。下一批不得删除仍被新 catalog 引用的 initialization 数据或原始附件。
+ 
+ # 2026-11-03 简化旧兼容负担的边界
+@@ -37,9 +39,9 @@ Core 当前读接口保持最小：`plugins.entries.stella-core.config.sourceRea
+ 
+ Core 工作包只修改 Core；沧海工作包独立核对并修改获准的开发工作树，双方均不操作生产消费指针。任务是否已启动或交付，以对应会话与固定版本证据为准。
+ 
+-## Core 当前确切依赖
++## 历史：2026-10-23 checkpoint 依赖
+ 
+-以下路径是 Core 的源码依据；右列是需由双方确认的实例选择，不是给沧海指定新目录。
++以下是旧 checkpoint 路线的历史源码定位；其中已退役的文件不再是当前入口。当前普通插件接口见页首和 [MIG02 运行导出合同](MIGRATION-RUNTIME-EXPORT.md)。右列保留当时的交接要求，不是给沧海指定新目录。
+ 
+ | 接缝 | Core 当前行为与源码 | 必须交接的最小信息 |
+ | --- | --- | --- |
+diff --git a/scripts/prepare-ordinary-package-tests.mjs b/scripts/prepare-ordinary-package-tests.mjs
+index a1652a99..6601ab4d 100644
+--- a/scripts/prepare-ordinary-package-tests.mjs
++++ b/scripts/prepare-ordinary-package-tests.mjs
+@@ -68,8 +68,8 @@ assert.deepEqual(buildIdentity, JSON.parse(await readFile(path.join(root, ".test
+ const suites = ["ordinary-plugin", "ordinary-startup-seam", "ordinary-source-read", "ordinary-source-admission",
+   "tool-request-binding", "current-input-metadata", "source-understanding-skill",
+   "candidate-work-brief", "author-intent-repository", "memory-transaction", "memory-transaction-journal",
+-  "native-memory-origin"];
+-const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js"];
++  "native-memory-origin", "migration-source-export"];
++const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js", "fixtures/migration-source-export.js"];
+ await mkdir(path.join(harness, "tests/fixtures"), { recursive: true });
+ for (const file of testFiles) await copyFile(path.join(root, ".test-dist/tests", file), path.join(harness, "tests", file));
+ await writeFile(path.join(harness, "package.json"), '{"type":"module"}\n');
+diff --git a/src/canghai/repository-source.ts b/src/canghai/repository-source.ts
+index b32730c3..73ecedc1 100644
+--- a/src/canghai/repository-source.ts
++++ b/src/canghai/repository-source.ts
+@@ -4,6 +4,7 @@ import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js
+ import { stableId, type ArchiveObject } from "./host-input-archive.js";
+ import type { VersionedRef } from "./ref.js";
+ import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "./native-memory-origin.js";
++import { isRecord } from "../shared/type-guards.js";
+ 
+ export const REPOSITORY_SOURCE_ADAPTER = "stella-repository-file/v1";
+ 
+@@ -70,3 +71,63 @@ export async function prepareRepositorySource(input: {
+   // The original bytes stay in place; a later writer must revalidate this digest before committing.
+   return { sourceRef, evidenceRefs, objects };
+ }
++
++type RepositorySourceInput = Parameters<typeof prepareRepositorySource>[0];
++export type MigratedRepositorySourceInput = Omit<RepositorySourceInput, "relativePath" | "expectedSha256" | "nativeMemory" | "reviewedSegments"> & {
++  /** An inactive MIG02 document receipt, not its aggregate manifest/mapping. */
++  receipt: unknown;
++  /** Original producer baseline, distinct from the later runtime export commit. */
++  sourceRevision: string;
++  /** Explicit selected retained original; never select normalized prose by filename. */
++  originalPath: string;
++  reviewedSegments: NonNullable<RepositorySourceInput["reviewedSegments"]>;
++};
++
++/** Prepare objects only: no writes, commits, grant issuance or activation. The
++ * producer owns the fixed input snapshot and later verifies/writes these objects;
++ * ordinary-source-read independently pins the final committed runtime export.
++ * Existing source_id is a record identifier, not proof of author identity. */
++export async function prepareMigratedRepositorySource(input: MigratedRepositorySourceInput) {
++  input = structuredClone(input);
++  const receipt = input.receipt;
++  const check: (ok: unknown, code: string) => asserts ok = (ok, code) => {
++    if (!ok) throw new CatalogError(code);
++  };
++  check(isRecord(receipt) && receipt.schemaVersion === "canghai.evidence-migration-receipt/v1" &&
++    receipt.disposition === "document_package_candidate" &&
++    Array.isArray(receipt.reasons) && receipt.reasons.length === 0 &&
++    receipt.sourceMetadataNotInferred === true && receipt.modelReadPermissionGranted === false &&
++    receipt.activeCatalogChanged === false && receipt.semanticallyAdmitted === false,
++  "migration_document_receipt_required");
++  check(typeof input.sourceRevision === "string" && /^[a-f0-9]{40}$/.test(input.sourceRevision) &&
++    receipt.sourceRevision === input.sourceRevision, "migration_source_revision_mismatch");
++  check(receipt.requiresSourceVersionReview === undefined || receipt.requiresSourceVersionReview === false,
++    "migration_source_version_review_required");
++  check(isRecord(receipt.identity) && receipt.identity.kind === "existing_source_id" &&
++    typeof input.sourceId === "string" && input.sourceId.length > 0 &&
++    receipt.identity.value === input.sourceId && receipt.requiresIdentityReview === false,
++  "migration_stable_identity_required");
++  check(Array.isArray(receipt.targetFiles) && receipt.targetFiles.every(p => typeof p === "string") &&
++    new Set(receipt.targetFiles).size === receipt.targetFiles.length &&
++    receipt.targetFiles.includes(input.originalPath), "migration_original_not_declared");
++  check(typeof receipt.originSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.originSha256) &&
++    typeof receipt.normalizedSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.normalizedSha256) &&
++    typeof receipt.originBlob === "string" && /^[a-f0-9]{40}$/.test(receipt.originBlob) &&
++    ["100644", "100755"].includes(String(receipt.originMode)) &&
++    Number.isSafeInteger(receipt.originBytes) && Number(receipt.originBytes) > 0 &&
++    Number(receipt.originBytes) <= 16 * 1024 * 1024, "migration_original_metadata_invalid");
++  check(Array.isArray(input.reviewedSegments) && input.reviewedSegments.length > 0,
++    "migration_reviewed_segments_required");
++  const prepared = await prepareRepositorySource({ root: input.root, collectionId: input.collectionId,
++    sourceId: input.sourceId, relativePath: input.originalPath, expectedSha256: `sha256:${receipt.originSha256}`,
++    capturedAt: input.capturedAt, policyRef: input.policyRef, objectRoot: input.objectRoot,
++    reviewedSegments: input.reviewedSegments });
++  const source = prepared.objects.find(item => item.group === "sources")!.object;
++  const payloads = source.payloads as Array<{ bytes: number }>;
++  check(payloads[0]!.bytes === receipt.originBytes, "migration_original_size_mismatch");
++  return { ...prepared, migration: { sourceRevision: input.sourceRevision, originBlob: receipt.originBlob,
++    originalSha256: `sha256:${receipt.originSha256}`, originalBytes: receipt.originBytes,
++    normalizationChangedBytes: receipt.originSha256 !== receipt.normalizedSha256,
++    payloadRepresentation: "retained_original" as const, runtimeActivated: false as const,
++    processingPermissionGranted: false as const } };
++}
+diff --git a/tests/fixtures/migration-source-export.ts b/tests/fixtures/migration-source-export.ts
+new file mode 100644
+index 00000000..1e7e1916
+--- /dev/null
++++ b/tests/fixtures/migration-source-export.ts
+@@ -0,0 +1,106 @@
++// Generated by the fixed public MIG02 producer using fictional inputs only.
++// Hashes and original inactive receipt flags are retained; no runtime grant is inferred.
++export const migrationSourceFixture = {
++  "producerCommit": "8eff06a1444e46411c439c10aa49a2a6602b562c",
++  "producerFilesSha256": {
++    "evidence_packages.py": "c7de055151e8e1dd8825d5c195a2a161a1201b4e5b4b4444d0cbf1142a8552e5",
++    "warehouse_inventory.py": "7a9fdac63ec8a209d95d801fc4e331a1b08bb2a5c156bd62e97fc2b8b6b9b573",
++    "migration_issues.py": "88b21d4a2c80c12429478cca7448395765bd02162442b3f219ca2bd4abfb3266",
++    "migration_boundary.py": "06235eb08c6d7188b89909964487ce794687a238c7c93c5a9de86f996c81b200"
++  },
++  "sourceRevision": "a0accb7097f12f1bf026afee484ef9c6c39c5665",
++  "planDigest": "5c11920805b268947cbf412d155a95c5f15d11de5475beb515cf25c647a25198",
++  "sourceData": "two fictional text documents and synthetic binary; no real CangHai data",
++  "samples": [
++    {
++      "receiptPath": "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/migration-receipt.json",
++      "receipt": {
++        "activeCatalogChanged": false,
++        "category": "document",
++        "containsRetainedOriginalDependencies": false,
++        "disposition": "document_package_candidate",
++        "identity": {
++          "kind": "existing_source_id",
++          "value": "fictional-linked-note"
++        },
++        "issueIds": [],
++        "modelReadPermissionGranted": false,
++        "normalizedSha256": "030961c145e64747ce233c956956ae920e7673948a74b4dcfc89fd6ffeef3906",
++        "originBlob": "c58256f2072f669642d0ab7585ae2d63b747bafc",
++        "originBytes": 134,
++        "originMode": "100644",
++        "originPath": "30_RAG/linked.md",
++        "originSha256": "120378eea5c1ebafbbff3d64a173494a8a87dbb7d7352417ad105b19989b2f08",
++        "originalFrontmatterSha256": "8dda48e4651c1cf90bd5c75b607a02f1c729ac8e67942ebb58acfa3616755381",
++        "reasons": [],
++        "referenceAudit": [
++          {
++            "attachmentSha256": "6eacbf3bbce37489605b955edac09da81516ffd968315b39d075f52ed66f8c6f",
++            "candidateTarget": "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/assets/6eacbf3bbce37489605b955edac09da81516ffd968315b39d075f52ed66f8c6f.png",
++            "fragment": "",
++            "kind": "local",
++            "originBlob": "65d3cf65290f860e1dda937d7c2ca74c527d82fa",
++            "query": "",
++            "syntax": "markdown",
++            "target": "99_System/Assets/map.png"
++          }
++        ],
++        "requiresIdentityReview": false,
++        "schemaVersion": "canghai.evidence-migration-receipt/v1",
++        "semanticallyAdmitted": false,
++        "sourceMetadataNotInferred": true,
++        "sourceRevision": "a0accb7097f12f1bf026afee484ef9c6c39c5665",
++        "targetFiles": [
++          "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/source.md",
++          "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/assets/6eacbf3bbce37489605b955edac09da81516ffd968315b39d075f52ed66f8c6f.png",
++          "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/original/source.md"
++        ]
++      },
++      "originalPath": "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/original/source.md",
++      "originalText": "﻿---\r\nsource_id: fictional-linked-note\r\nquote_policy: never_quote\r\n---\r\nFictional harbor walk. ![map](../99_System/Assets/map.png)\r\n",
++      "files": {
++        "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/source.md": "﻿---\r\nsource_id: fictional-linked-note\r\nquote_policy: never_quote\r\n---\r\nFictional harbor walk. ![map](assets/6eacbf3bbce37489605b955edac09da81516ffd968315b39d075f52ed66f8c6f.png)\r\n",
++        "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/original/source.md": "﻿---\r\nsource_id: fictional-linked-note\r\nquote_policy: never_quote\r\n---\r\nFictional harbor walk. ![map](../99_System/Assets/map.png)\r\n",
++        "30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/migration-receipt.json": "{\n  \"activeCatalogChanged\": false,\n  \"category\": \"document\",\n  \"containsRetainedOriginalDependencies\": false,\n  \"disposition\": \"document_package_candidate\",\n  \"identity\": {\n    \"kind\": \"existing_source_id\",\n    \"value\": \"fictional-linked-note\"\n  },\n  \"issueIds\": [],\n  \"modelReadPermissionGranted\": false,\n  \"normalizedSha256\": \"030961c145e64747ce233c956956ae920e7673948a74b4dcfc89fd6ffeef3906\",\n  \"originBlob\": \"c58256f2072f669642d0ab7585ae2d63b747bafc\",\n  \"originBytes\": 134,\n  \"originMode\": \"100644\",\n  \"originPath\": \"30_RAG/linked.md\",\n  \"originSha256\": \"120378eea5c1ebafbbff3d64a173494a8a87dbb7d7352417ad105b19989b2f08\",\n  \"originalFrontmatterSha256\": \"8dda48e4651c1cf90bd5c75b607a02f1c729ac8e67942ebb58acfa3616755381\",\n  \"reasons\": [],\n  \"referenceAudit\": [\n    {\n      \"attachmentSha256\": \"6eacbf3bbce37489605b955edac09da81516ffd968315b39d075f52ed66f8c6f\",\n      \"candidateTarget\": \"30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/assets/6eacbf3bbce37489605b955edac09da81516ffd968315b39d075f52ed66f8c6f.png\",\n      \"fragment\": \"\",\n      \"kind\": \"local\",\n      \"originBlob\": \"65d3cf65290f860e1dda937d7c2ca74c527d82fa\",\n      \"query\": \"\",\n      \"syntax\": \"markdown\",\n      \"target\": \"99_System/Assets/map.png\"\n    }\n  ],\n  \"requiresIdentityReview\": false,\n  \"schemaVersion\": \"canghai.evidence-migration-receipt/v1\",\n  \"semanticallyAdmitted\": false,\n  \"sourceMetadataNotInferred\": true,\n  \"sourceRevision\": \"a0accb7097f12f1bf026afee484ef9c6c39c5665\",\n  \"targetFiles\": [\n    \"30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/source.md\",\n    \"30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/assets/6eacbf3bbce37489605b955edac09da81516ffd968315b39d075f52ed66f8c6f.png\",\n    \"30_Knowledge/evidence/full-migration-v1/documents/src-767bcfabc315849be916d256057849d6/original/source.md\"\n  ]\n}\n"
++      }
++    },
++    {
++      "receiptPath": "30_Knowledge/evidence/full-migration-v1/documents/src-bcecc18f319c1650ebb837adf5edeed4/migration-receipt.json",
++      "receipt": {
++        "activeCatalogChanged": false,
++        "category": "document",
++        "containsRetainedOriginalDependencies": false,
++        "disposition": "document_package_candidate",
++        "identity": {
++          "kind": "existing_source_id",
++          "value": "fictional-plain-note"
++        },
++        "issueIds": [],
++        "modelReadPermissionGranted": false,
++        "normalizedSha256": "840b7b3ae4d5d7037cc6216cfd17403488e50859a9d44fd8e1367d0868e84cf7",
++        "originBlob": "dc430570bf233340050a9bb03fd31f93366dfe18",
++        "originBytes": 65,
++        "originMode": "100644",
++        "originPath": "30_RAG/plain.md",
++        "originSha256": "840b7b3ae4d5d7037cc6216cfd17403488e50859a9d44fd8e1367d0868e84cf7",
++        "originalFrontmatterSha256": "f034fb0df4a070a4e2a9b7c19a22b0464d3b1a43b5451109533be0cb57329254",
++        "reasons": [],
++        "referenceAudit": [],
++        "requiresIdentityReview": false,
++        "schemaVersion": "canghai.evidence-migration-receipt/v1",
++        "semanticallyAdmitted": false,
++        "sourceMetadataNotInferred": true,
++        "sourceRevision": "a0accb7097f12f1bf026afee484ef9c6c39c5665",
++        "targetFiles": [
++          "30_Knowledge/evidence/full-migration-v1/documents/src-bcecc18f319c1650ebb837adf5edeed4/source.md"
++        ]
++      },
++      "originalPath": "30_Knowledge/evidence/full-migration-v1/documents/src-bcecc18f319c1650ebb837adf5edeed4/source.md",
++      "originalText": "---\nsource_id: fictional-plain-note\n---\nFictional library visit.\n",
++      "files": {
++        "30_Knowledge/evidence/full-migration-v1/documents/src-bcecc18f319c1650ebb837adf5edeed4/source.md": "---\nsource_id: fictional-plain-note\n---\nFictional library visit.\n",
++        "30_Knowledge/evidence/full-migration-v1/documents/src-bcecc18f319c1650ebb837adf5edeed4/migration-receipt.json": "{\n  \"activeCatalogChanged\": false,\n  \"category\": \"document\",\n  \"containsRetainedOriginalDependencies\": false,\n  \"disposition\": \"document_package_candidate\",\n  \"identity\": {\n    \"kind\": \"existing_source_id\",\n    \"value\": \"fictional-plain-note\"\n  },\n  \"issueIds\": [],\n  \"modelReadPermissionGranted\": false,\n  \"normalizedSha256\": \"840b7b3ae4d5d7037cc6216cfd17403488e50859a9d44fd8e1367d0868e84cf7\",\n  \"originBlob\": \"dc430570bf233340050a9bb03fd31f93366dfe18\",\n  \"originBytes\": 65,\n  \"originMode\": \"100644\",\n  \"originPath\": \"30_RAG/plain.md\",\n  \"originSha256\": \"840b7b3ae4d5d7037cc6216cfd17403488e50859a9d44fd8e1367d0868e84cf7\",\n  \"originalFrontmatterSha256\": \"f034fb0df4a070a4e2a9b7c19a22b0464d3b1a43b5451109533be0cb57329254\",\n  \"reasons\": [],\n  \"referenceAudit\": [],\n  \"requiresIdentityReview\": false,\n  \"schemaVersion\": \"canghai.evidence-migration-receipt/v1\",\n  \"semanticallyAdmitted\": false,\n  \"sourceMetadataNotInferred\": true,\n  \"sourceRevision\": \"a0accb7097f12f1bf026afee484ef9c6c39c5665\",\n  \"targetFiles\": [\n    \"30_Knowledge/evidence/full-migration-v1/documents/src-bcecc18f319c1650ebb837adf5edeed4/source.md\"\n  ]\n}\n"
++      }
++    }
++  ]
++} as const;
+diff --git a/tests/migration-source-export.test.ts b/tests/migration-source-export.test.ts
+new file mode 100644
+index 00000000..409d842c
+--- /dev/null
++++ b/tests/migration-source-export.test.ts
+@@ -0,0 +1,141 @@
++import assert from "node:assert/strict";
++import test, { type TestContext } from "node:test";
++import { readFile } from "node:fs/promises";
++import path from "node:path";
++import { fixture } from "./fixtures/ordinary-source-read.js";
++import { migrationSourceFixture } from "./fixtures/migration-source-export.js";
++import { prepareMigratedRepositorySource, type MigratedRepositorySourceInput } from "../src/canghai/repository-source.js";
++import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
++
++async function setup(t: TestContext, index = 0) {
++  const f = await fixture(t, 0);
++  const sample = structuredClone(migrationSourceFixture.samples[index]!);
++  for (const [file, bytes] of Object.entries(sample.files)) await f.put(file, bytes);
++  const ref = (entry: { id: string; version: string }) => ({ id: entry.id, version: entry.version });
++  const input: MigratedRepositorySourceInput = { root: f.root, receipt: sample.receipt,
++    sourceRevision: migrationSourceFixture.sourceRevision, sourceId: sample.receipt.identity.value,
++    collectionId: "synthetic-MIG02-records", originalPath: sample.originalPath,
++    capturedAt: "2026-09-01T00:00:00Z", policyRef: ref(f.catalog.policies[0]!),
++    objectRoot: "runtime-export/objects", reviewedSegments: [
++      { start: 0, end: Buffer.byteLength(sample.originalText), policyRef: ref(f.catalog.policies[1]!) },
++    ] };
++  const publish = async (prepared: Awaited<ReturnType<typeof prepareMigratedRepositorySource>>) => {
++    for (const item of prepared.objects) {
++      for (const old of f.catalog[item.group]) if (old.id === item.ref.id && old.status === "current") old.status = "superseded";
++      await f.put(item.entry.locator.path, item.bytes); f.catalog[item.group].push(item.entry);
++    }
++    f.catalog.parentGenerationId = f.catalog.generationId;
++    f.catalog.generationId = `export-${prepared.sourceRef.version}`;
++    f.manifest.sourceBaseline.commit = input.sourceRevision;
++    f.manifest.identity.runtimeProfileRef = "path:runtime-export/profile.json";
++    f.manifest.runtimeState.runtimeProfileRef = f.manifest.identity.runtimeProfileRef;
++    f.profile.memory.catalog_ref = "path:runtime-export/catalog.json";
++    await f.put("runtime-export/manifest.json", canonicalJson(f.manifest));
++    await f.put("runtime-export/profile.json", canonicalJson(f.profile));
++    await f.put("runtime-export/catalog.json", canonicalJson(f.catalog));
++    const revision = await f.commit();
++    f.binding.manifestPath = "runtime-export/manifest.json"; f.binding.revision = revision;
++    return revision;
++  };
++  return { f, sample, input, publish };
++}
++
++for (const [index, label] of ["rewritten link with retained BOM/CRLF original", "unchanged original"].entries()) {
++  test(`fixed MIG02 producer receipt exports ${label} through current runtime entry`, async t => {
++    const { f, sample, input, publish } = await setup(t, index);
++    const before = await f.git("status", "--porcelain");
++    const prepared = await prepareMigratedRepositorySource(input);
++    assert.equal(await f.git("status", "--porcelain"), before, "preparation writes no objects or config");
++    assert.equal(prepared.migration.processingPermissionGranted, false);
++    assert.equal(prepared.migration.runtimeActivated, false);
++    assert.equal(prepared.migration.sourceRevision, migrationSourceFixture.sourceRevision);
++    assert.equal(prepared.migration.normalizationChangedBytes, index === 0);
++    assert.deepEqual(await readFile(path.join(f.root, sample.originalPath)), Buffer.from(sample.originalText));
++    const revision = await publish(prepared);
++    assert.notEqual(revision, migrationSourceFixture.sourceRevision, "final export commit is not the original producer baseline");
++    const listed = await f.execute({ action: "list" }); assert.equal(listed.status, "listed");
++    assert.deepEqual(listed.items.map(item => item.ref), prepared.evidenceRefs);
++    const read = await f.execute({ action: "read", ref: prepared.evidenceRefs[0] }); assert.equal(read.status, "read");
++    assert.equal(read.original.text, sample.originalText); assert.equal(read.revision, revision);
++    assert.equal(read.original.role, "unknown"); assert.equal(read.original.kind, "unknown");
++    assert.equal(read.original.occurredAt, null); assert.equal(read.original.authoredAt, null);
++    assert.equal(read.provenance.speakerId, null);
++    assert.equal(read.provenance.origin.upstreamId, input.sourceId);
++    for (const key of ["manifestHash", "profileHash", "catalogHash"] as const) assert.match(read[key], /^sha256:[a-f0-9]{64}$/);
++    assert.deepEqual(f.catalog.understandings, []); assert.deepEqual(f.catalog.works, []);
++  });
++}
++
++test("a normalized link rewrite cannot be substituted for the selected original bytes", async t => {
++  const { input, sample } = await setup(t);
++  const normalized = sample.receipt.targetFiles.find(file => file.endsWith("/source.md") && !file.includes("/original/"))!;
++  await assert.rejects(prepareMigratedRepositorySource({ ...input, originalPath: normalized }), /repository_source_changed/);
++});
++
++test("migration aggregate manifest and mapping cannot stand in for a document receipt", async t => {
++  const { input } = await setup(t);
++  for (const receipt of [{ schemaVersion: "canghai.evidence-migration-receipt/v1", planDigest: "x", files: [] },
++    { schemaVersion: "canghai.evidence-migration-receipt/v1", entries: [], sourceRevision: input.sourceRevision }]) {
++    await assert.rejects(prepareMigratedRepositorySource({ ...input, receipt }), /migration_document_receipt_required/);
++  }
++});
++
++test("provisional identities, mismatched record IDs and pending version review remain explicit failures", async t => {
++  const { input, sample } = await setup(t);
++  for (const receipt of [
++    { ...sample.receipt, identity: { kind: "provisional_origin_path", path: "note.md" }, requiresIdentityReview: true },
++    { ...sample.receipt, requiresIdentityReview: true },
++    { ...sample.receipt, identity: { kind: "existing_source_id", value: "different-record" } },
++  ]) await assert.rejects(prepareMigratedRepositorySource({ ...input, receipt }), /migration_stable_identity_required/);
++  await assert.rejects(prepareMigratedRepositorySource({ ...input, receipt: { ...sample.receipt, requiresSourceVersionReview: true } }), /migration_source_version_review_required/);
++  await assert.rejects(prepareMigratedRepositorySource({ ...input, sourceRevision: "b".repeat(40) }), /migration_source_revision_mismatch/);
++});
++
++test("inactive candidate flags are not a grant, and unsupported dispositions do not become text evidence", async t => {
++  const { input, sample } = await setup(t);
++  for (const change of [{ modelReadPermissionGranted: true }, { activeCatalogChanged: true }, { semanticallyAdmitted: true },
++    { disposition: "opaque_original_preserved" }, { disposition: "native_domain_preserved_candidate" }, { reasons: ["unresolved_local_reference"] }]) {
++    await assert.rejects(prepareMigratedRepositorySource({ ...input, receipt: { ...sample.receipt, ...change } }), /migration_document_receipt_required/);
++  }
++});
++
++test("explicit original membership, size, payload digest and reviewed segmentation are required", async t => {
++  const { f, input, sample } = await setup(t);
++  await assert.rejects(prepareMigratedRepositorySource({ ...input, originalPath: "not-in-the-receipt.md" }), /migration_original_not_declared/);
++  await assert.rejects(prepareMigratedRepositorySource({ ...input, reviewedSegments: [] }), /migration_reviewed_segments_required/);
++  await assert.rejects(prepareMigratedRepositorySource({ ...input, reviewedSegments: [{ ...input.reviewedSegments[0]!, end: 1 }] }), /source_segment_coverage_incomplete/);
++  await assert.rejects(prepareMigratedRepositorySource({ ...input, receipt: { ...sample.receipt, originBytes: sample.receipt.originBytes + 1 } }), /migration_original_size_mismatch/);
++  await f.put(input.originalPath, "tampered fictional original");
++  await assert.rejects(prepareMigratedRepositorySource(input), /repository_source_changed/);
++});
++
++test("source updates retain record identity but require a new export pin and reject old evidence/cursors", async t => {
++  const { f, input, sample, publish } = await setup(t, 1);
++  const first = await prepareMigratedRepositorySource(input); const beforeRevision = await publish(first);
++  const listed = await f.execute({ action: "list" }); assert.equal(listed.status, "listed");
++  const nextText = sample.originalText + "Fictional revision: choose August instead.\n";
++  await f.put(input.originalPath, nextText);
++  input.sourceRevision = await f.commit();
++  // A manually constructed synthetic update, not a second MIG02 producer run or a grant.
++  const receipt = { ...sample.receipt, sourceRevision: input.sourceRevision,
++    originBlob: (await f.git("hash-object", input.originalPath)).trim(),
++    originBytes: Buffer.byteLength(nextText), originSha256: bytesVersion(nextText).slice(7),
++    normalizedSha256: bytesVersion(nextText).slice(7) };
++  const second = await prepareMigratedRepositorySource({ ...input, receipt,
++    reviewedSegments: [{ ...input.reviewedSegments[0]!, end: Buffer.byteLength(nextText) }] });
++  assert.equal(second.sourceRef.id, first.sourceRef.id); assert.notEqual(second.sourceRef.version, first.sourceRef.version);
++  await publish(second); const afterRevision = f.binding.revision; f.binding.revision = beforeRevision;
++  await assert.rejects(f.execute({ action: "list" }), /source_revision_mismatch/); f.binding.revision = afterRevision;
++  await assert.rejects(f.execute({ action: "list", cursor: { catalogHash: listed.catalogHash, offset: 0 } }), /source_cursor_stale/);
++  await assert.rejects(f.execute({ action: "read", ref: first.evidenceRefs[0] }));
++  const read = await f.execute({ action: "read", ref: second.evidenceRefs[0] }); assert.equal(read.status, "read");
++  assert.equal(read.original.text, nextText); assert.equal(read.revision, afterRevision);
++});
++
++test("receipt and returned preparation do not bypass ordinary source admission", async t => {
++  const { f, input, publish } = await setup(t);
++  const prepared = await prepareMigratedRepositorySource(input); await publish(prepared);
++  const denied = { ...f.admission, assertMetadata: async () => false as const };
++  const listed = await f.execute({ action: "list" }, denied); assert.equal(listed.status, "listed"); assert.deepEqual(listed.items, []);
++  await assert.rejects(f.execute({ action: "read", ref: prepared.evidenceRefs[0] }, denied), /source_descriptor_scope_denied/);
++});
+diff --git a/docs/MIGRATION-RUNTIME-EXPORT.md b/docs/MIGRATION-RUNTIME-EXPORT.md
+new file mode 100644
+index 00000000..c9fcf37a
+--- /dev/null
++++ b/docs/MIGRATION-RUNTIME-EXPORT.md
+@@ -0,0 +1,43 @@
++# MIG02 文稿到普通来源读取的运行导出
++
++本合同衔接沧海的原件保全生产者与 Core 当前读接口，不另建迁移或记忆系统。2026-11-04 的实现是**无写盘准备函数和纯合成消费验证**；真实全仓运行导出、Host 加载与模型理解仍未验收。
++
++## 三种产物和三个版本
++
++- MIG02 的 `manifest.json`、`mapping.json` 和逐件 receipt 记录迁移文件、处置及原始字节；它们不是运行 catalog，也不授予资料读取许可。
++- 运行导出使用现有 `stella.consciousness-manifest/v1` → `stella.runtime-profile/v1` 或 v2 → `stella.memory-catalog/v1`。Source、Evidence、policy、coverage 的版本和 locator hash 仍由现有内核解释。
++- 普通插件只读 `{ root, manifestPath, revision }`，要求干净的固定 Git 工作树。`revision` 是**写入完整运行导出后的提交**；既不是迁移生成器代码提交，也不是 receipt 的原始资料 `sourceRevision`。
++
++本包生成器固定为 CangHai `8eff06a1444e46411c439c10aa49a2a6602b562c`。真实首批候选观察为 `2c6df62075c77cf6db66b615e52f58dcebf99b28`，与生成器硬化版本分开；没有读取它的私人正文或将其连接到运行入口。现有 90f 消费快照不变。
++
++## 最小代码接缝
++
++[`prepareMigratedRepositorySource`](../src/canghai/repository-source.ts) 在现有 `prepareRepositorySource` 上增加 MIG02 文稿收据校验；返回待写的 Source v2、Evidence、coverage 对象及明确的迁移元数据，**不写文件、不 commit、不构造 grant、不激活运行源**。
++
++| 输入／事实 | 责任和验证 |
++| --- | --- |
++| receipt 与 `sourceRevision` | 沧海生产者交付逐件 `document_package_candidate`，无未决 reasons，候选标记保持 inactive。Core 比较显式预期 baseline；这只是元数据匹配，函数不独立验证原 Git commit 或 `originBlob` 可达性。生产者仍须证明固定输入快照与原件归属。 |
++| `collectionId / sourceId` | 显式传入；只接收已有 `source_id` 且不待身份审阅。这个 ID 是**来源记录编号**，不是原始消息 ID、作者或账号认证。临时路径身份、冲突或待版本审阅明确拒绝，不猜测映射。 |
++| `originalPath` | 调用者明确选择 receipt 声明的保留原件；核对 `originSha256` 和 `originBytes`。不根据后缀选正文，不拿改写链接后的 `normalizedSha256` 代替原件。现有安全路径、UTF-8 与字节 selector 检查继续生效。 |
++| `policyRef / reviewedSegments` | 外部显式提供现有版本化策略和已审分段；函数只做结构／完整覆盖校验。它不理解 frontmatter 限制，不自动编译策略，不替代来源审阅或处理许可。 |
++| `capturedAt` | 导出捕获时间；没有有据元数据时 role/kind 保持 `unknown`，speaker/发生/创作时间保持 `null`，不从文件名、内容或 source_id 推断。 |
++| `objectRoot` 与返回对象 | 由沧海唯一写者选择新命名空间，复用 canonical version/locator hash。写入前重新核原件摘要、完整引用和工作树基线，再按现有写入安排提交；此函数不提供并发写入或事务完成证明。 |
++
++opaque／原生领域保存候选、临时身份、待版本审阅及无明确分段的文件不进入此文稿路径。附件继续保留在沧海，二进制读取需媒体能力；本包不自动跟随原文链接，也不证明附件全覆盖。Understanding、Work 和学习变更不会从 raw Evidence 自动生成；待专家收敛的理解回写语义不在此片中决定。
++
++## 生产者交接与消费顺序
++
++1. **沧海写者**固定生成器 SHA、原资料 SHA、候选数据 SHA 和逐件 receipt，交付稳定记录映射、原件路径／hash、明确的策略及审核分段。完整原件和附件保全仍按全仓迁移计划推进。
++2. 准备 Source／Evidence／coverage；写者将返回对象与实际 policy 一并组成现有 catalog，填 generation、parentGeneration 和依赖。`identity.runtimeProfileRef` 与可选 `runtimeState.runtimeProfileRef` 一致，profile 的 `memory.catalog_ref` 指到该 catalog。
++3. **准入资料单独交付**：descriptor 必须精确绑定 Source 版本、片段与策略；profile 的 `source_access_context` 配置与已有处理许可相符。迁移 review 或合成 admission 不是 grant；旧 97／362 不自动覆盖新增或改版对象。
++4. **协调者**接收最终数据 commit、入口路径/hash、catalog generation、生产者 before/after 与变更处置。**Core**用当前普通入口验证固定版本列举／回读，记录 revision、manifest/profile/catalog hash 和精确 Evidence 引用。下一请求采用新版必须显式交接；不自动跟随分支。
++
++本包测试中的 `publish` 只写自己的合成临时仓库，演示上述已有格式如何组合；它不是新增生产迁移 CLI。同步会话继续维护 14 项矩阵及其冻结验收，不重复修改其工作树。下一生产接线只需把这个准备函数接入沧海既有导出步骤，补齐所选真实对象的稳定身份、分段、策略／descriptor 证据，交付最终运行 SHA；不能把通过合成测试改称真实数据已供给。
++
++## 本包实际证据
++
++[`migration-source-export.test.ts`](../tests/migration-source-export.test.ts) 复用当前普通读取 fixture。两个虚构文稿由上述固定版本的真实 `warehouse_inventory.build` 与 `evidence_packages.build` 生成；没有执行真实 apply。生成器四文件 hash、原合成 Git SHA、plan digest 和生成结果摘要见 [PRODUCER-FIXTURE.json](../.task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/PRODUCER-FIXTURE.json)。
++
++新增 9 项覆盖：原件未改写和链接改写留存原件、BOM／CRLF 精确保留、manifest/profile/catalog 回读；迁移清单冒充、待审身份／版本、改写字节替换、无分段／覆盖缺失、篡改及来源准入拒绝；改版后旧 pin／cursor／Evidence 拒绝。改版用例是另行显式构造的合成更新，不是第二次 MIG02 生成器运行。真实生成器产物用于前两个正例及其拒绝对照；测试未证明真实 Host 身份、LLM 策略判断、全仓转换或自动同步。
++
++当前 descriptor 数量／准入文档容量、媒体能力和真实模型语义限制仍在原合同中；分页不是扩容或扩权。独立审查、源码构建与解包验证的实际结果分别记在 [本包报告](../.task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/REPORT.json)，不能合并为真实端到端验收。

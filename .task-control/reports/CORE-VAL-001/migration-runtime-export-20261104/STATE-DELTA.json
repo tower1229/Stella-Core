@@ -1,0 +1,35 @@
+{
+  "baseRevision": 228,
+  "baseSha256": "aebbfd01b2367a520421ab92e58f2f957cc3ba72c3df2af9ae724a3a662ec068",
+  "revision": 229,
+  "sha256": "3a495e10ca9a69afa286e91b184eb3861b9a4d9d8dd71f0f2ff36bb96324b155",
+  "before": {
+    "scope": "新沧海数据分支的固定版本运行导出与普通插件消费、同步，再验证原生正向语义理解；当前只读交接，不重发UNKNOWN加载、不操作Host/模型或扩大资料许可。",
+    "resume": {
+      "checkpoint": "C批已推送/CI通过；当前Core唯一写者开始MIG02原件准备到运行读取契约包，生成器8eff仅在纯合成临时仓库调用build，不执行真实apply。同步会话已有32/17用例保持不改。",
+      "nextAction": "在既有repository-source中实现无写盘原件适配，拒绝临时身份/版本待决/错误字节与冒名清单；用实际固定生成器纯合成收据经当前manifest/profile/catalog回读，保留策略/描述符独立和更新freshness。完成定向验证后单独本地提交交审，不加载Host或模型。"
+    },
+    "nextAction": "在既有repository-source中实现无写盘原件适配，拒绝临时身份/版本待决/错误字节与冒名清单；用实际固定生成器纯合成收据经当前manifest/profile/catalog回读，保留策略/描述符独立和更新freshness。完成定向验证后单独本地提交交审，不加载Host或模型。",
+    "updatedAt": "2026-11-04T05:09:03.461663+00:00"
+  },
+  "after": {
+    "scope": "新沧海数据分支的固定版本运行导出与普通插件消费、同步，再验证原生正向语义理解；当前MIG02无写盘准备/合成消费候选待独审，不重发UNKNOWN加载、不操作Host/模型或扩大资料许可。",
+    "resume": {
+      "checkpoint": "MIG02六文件候选已完成：真实固定生产者两份纯合成收据，定向37/37、解包152/152分别通过，SDK10.9；独审待安排，原真实数据与Host不变。",
+      "nextAction": "精确本地保存候选交独审；沧海下一步在既有导出流程提供稳定身份、明确原件/分段/策略与descriptor及最终runtime SHA，Core复核消费，不重建迁移框架或决定理解回写。"
+    },
+    "nextAction": "精确本地保存候选交独审；沧海下一步在既有导出流程提供稳定身份、明确原件/分段/策略与descriptor及最终runtime SHA，Core复核消费，不重建迁移框架或决定理解回写。",
+    "updatedAt": "2026-11-04T05:19:18.845050+00:00"
+  },
+  "addedEvidence": {
+    "id": "C-VAL-MIG02-RUNTIME-EXPORT-CANDIDATE",
+    "kind": "verification",
+    "ref": ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/REPORT.json",
+    "claim": "作者合成验证：固定生成器文稿收据→无写盘准备→当前普通读取；37/37与152/152分列。独审、真实导出/Host/模型/10.8CI未验。",
+    "observedAt": "2026-11-04T05:19:18.845050+00:00",
+    "subject": {
+      "baseCommit": "c0c4d2da1c3a4c2563ca4a3e99b9196d118155d5",
+      "sha256": "16c48ee4d85c400be122eee3407f258389dd88cbfd4e1e7d5fe5176633f59866"
+    }
+  }
+}

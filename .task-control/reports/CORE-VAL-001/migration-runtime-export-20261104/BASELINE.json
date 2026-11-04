@@ -1,0 +1,19 @@
+{
+  "head": "c0c4d2da1c3a4c2563ca4a3e99b9196d118155d5",
+  "baseRevision": 227,
+  "baseStateSha256": "97dccc1f86218d78369c3bd2b770ec92f39e476b3a1db10e96f53ca83f0c8d6a",
+  "newRevision": 228,
+  "newStateSha256": "aebbfd01b2367a520421ab92e58f2f957cc3ba72c3df2af9ae724a3a662ec068",
+  "baseFiles": {
+    "src/canghai/repository-source.ts": "6e43a765280a42c33957695c5f4df33854d3872e2359e3e3d8463b03af6c52f7",
+    "scripts/prepare-ordinary-package-tests.mjs": "052679d8436c9d522da484cc53f487eab99b75c30238d3c04b4f0185e76bf9db",
+    "docs/CORE-CANGHAI-COORDINATION.md": "02d560d47e3c84a2cb5fc049b8669a04237013448bb6db65751ef225fe90e699",
+    "PROJECT-STATE.yaml": "69bcec5b8ac79c953bdbfae494e9745096551b5de20c91c82ae9c7e8fc47d2ef"
+  },
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  },
+  "scope": "Core only; MIG02 public producer build with synthetic inputs; no real apply/Host/private data/model",
+  "readTransportInterruption": "Three read-only processes failed to create: exec-server transport disconnected. Same-channel pwd health succeeded, reads then completed. No unknown mutation."
+}

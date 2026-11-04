@@ -1,0 +1,78 @@
+{
+  "src/canghai/repository-source.ts": {
+    "sha256": "7062bb417a8374ed3b4807565eb27c9eb87d821c177336c3f049fb3fb18f86ab",
+    "bytes": 10057
+  },
+  "scripts/prepare-ordinary-package-tests.mjs": {
+    "sha256": "f3784b98cd6f00e9c7ad4b0cafd2041bc62477ce28444e8f891bfe507cb9c388",
+    "bytes": 6796
+  },
+  "tests/fixtures/migration-source-export.ts": {
+    "sha256": "dabe2381b8db3bdb621230780100bc996a8d1a25101b8c91d977f0abfbb650ac",
+    "bytes": 9572
+  },
+  "tests/migration-source-export.test.ts": {
+    "sha256": "8d07449e875ac9cd189287641c683c40dd6c2be70ce264b3a831923e51ca4aa2",
+    "bytes": 10495
+  },
+  "docs/MIGRATION-RUNTIME-EXPORT.md": {
+    "sha256": "21fe12228c1cc920aacbb9245c270f2f84572b2990f9388856171977420ef4d8",
+    "bytes": 6590
+  },
+  "docs/CORE-CANGHAI-COORDINATION.md": {
+    "sha256": "214339f2d1a026a67d78ceb94c98938e6614b8f6a964a37600750201639428f7",
+    "bytes": 33974
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/BASELINE.json": {
+    "sha256": "6b93ae0ecb0253c58c21cb3570044448b0dee25557291c2412ba760abf341e1a",
+    "bytes": 1238
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/PRODUCER-FIXTURE.json": {
+    "sha256": "21bbbde746a955efa6ec0965b81955951719145960b323763d5f3f84cf3b65f1",
+    "bytes": 911
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/REPORT.json": {
+    "sha256": "16c48ee4d85c400be122eee3407f258389dd88cbfd4e1e7d5fe5176633f59866",
+    "bytes": 4020
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/REPORT.md": {
+    "sha256": "a0b1339bf027e8dba366e52449d87865d8173905ce30fbd7422be838fd750d59",
+    "bytes": 1496
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/CODE-MANIFEST.json": {
+    "sha256": "db60382084dd7419a751018be57575290344c0992c6036fe9a44ba3e540cad4d",
+    "bytes": 901
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/CODE.patch": {
+    "sha256": "97389c87dc53a6bc4f11f6cdf8ec22916d34b627aa0d39da1dcc295e7dd8711a",
+    "bytes": 36778
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/VALIDATION.json": {
+    "sha256": "746a2bc8b5ad172f0c30cf832c749edeea9f3dbaefc1cfce44390e3fec55d848",
+    "bytes": 1745
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/TARGETED.tap": {
+    "sha256": "9a47560c70dbfde42ad0270464a2d28a68b556176dc9b17ec78868372bb83c06",
+    "bytes": 9999
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/PACKAGE.txt": {
+    "sha256": "09d0c1eda99e83c5c276deb576c11a53c950b40122afb0874c0d138f8354e25e",
+    "bytes": 16519
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/STATE-DELTA.json": {
+    "sha256": "67637befd6f045fe4255ea2b728b90a8c23dbbb4b06b407c5f335c78b922804a",
+    "bytes": 3103
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/TECHNICAL-APPENDIX.txt": {
+    "sha256": "4288fe35f51a5a38d5cc11aafe87ea44b76eaf4ac19c8c02a97bf2f223063790",
+    "bytes": 588
+  },
+  ".task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/pack.stderr": {
+    "sha256": "250e369d730a46c4d41df37449a5c58c169b4b1d2ab546951a8bed0285805a95",
+    "bytes": 117
+  },
+  "PROJECT-STATE.yaml": {
+    "sha256": "4b6aa97e446c49a4b94cb31e72adaaa37ce40b8c3d2b781f3d47920ff35c3539",
+    "bytes": 66705
+  }
+}

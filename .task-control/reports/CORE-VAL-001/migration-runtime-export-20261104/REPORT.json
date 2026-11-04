@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "stella.migration-runtime-export-candidate/v1",
+  "observedAt": "2026-11-04T05:19:18.845050+00:00",
+  "baseCommit": "c0c4d2da1c3a4c2563ca4a3e99b9196d118155d5",
+  "status": "author_verified_candidate_pending_independent_review",
+  "scope": "MIG02 document receipt to write-free existing Source/Evidence/coverage preparation, then current manifest/profile/catalog in synthetic tests",
+  "codePaths": [
+    "src/canghai/repository-source.ts",
+    "scripts/prepare-ordinary-package-tests.mjs",
+    "tests/fixtures/migration-source-export.ts",
+    "tests/migration-source-export.test.ts",
+    "docs/MIGRATION-RUNTIME-EXPORT.md",
+    "docs/CORE-CANGHAI-COORDINATION.md"
+  ],
+  "codeManifestSha256": "db60382084dd7419a751018be57575290344c0992c6036fe9a44ba3e540cad4d",
+  "codePatchSha256": "97389c87dc53a6bc4f11f6cdf8ec22916d34b627aa0d39da1dcc295e7dd8711a",
+  "producer": {
+    "generatorCommit": "8eff06a1444e46411c439c10aa49a2a6602b562c",
+    "generatorHashes": {
+      "evidence_packages.py": "c7de055151e8e1dd8825d5c195a2a161a1201b4e5b4b4444d0cbf1142a8552e5",
+      "warehouse_inventory.py": "7a9fdac63ec8a209d95d801fc4e331a1b08bb2a5c156bd62e97fc2b8b6b9b573",
+      "migration_issues.py": "88b21d4a2c80c12429478cca7448395765bd02162442b3f219ca2bd4abfb3266",
+      "migration_boundary.py": "06235eb08c6d7188b89909964487ce794687a238c7c93c5a9de86f996c81b200"
+    },
+    "sourceRevision": "a0accb7097f12f1bf026afee484ef9c6c39c5665",
+    "planDigest": "5c11920805b268947cbf412d155a95c5f15d11de5475beb515cf25c647a25198",
+    "receipts": 2,
+    "called": [
+      "warehouse_inventory.build",
+      "evidence_packages.build"
+    ],
+    "applyCalled": false,
+    "fixtureSha256": "dabe2381b8db3bdb621230780100bc996a8d1a25101b8c91d977f0abfbb650ac",
+    "temporarySyntheticRepoCleanedOnExit": true,
+    "realDataRead": false
+  },
+  "observedCangHai": {
+    "formalDev": "de4b8554995be2004aec706e3156d95b7c46fc62",
+    "MIG02FirstCandidate": "2c6df62075c77cf6db66b615e52f58dcebf99b28",
+    "hardeningProducer": "8eff06a1444e46411c439c10aa49a2a6602b562c",
+    "existingRuntimeSnapshot": "90f61d9c9ef019c5a06a419dbcb630fe598cb996",
+    "onlyGitAndPublicCodeMetadataRead": true,
+    "noPrivateBodyRead": true,
+    "notModified": true
+  },
+  "syncHandoff": {
+    "matrixSha256": "1c3a485d90464d128bc487c2d3cbfc6ea4f2cd531989631ecec5146277f5b379",
+    "priorSynthetic32And17": "separate previous evidence; not rerun or counted",
+    "independentWriterNotTouched": true
+  },
+  "validation": "VALIDATION.json",
+  "contract": "docs/MIGRATION-RUNTIME-EXPORT.md",
+  "proofLimits": [
+    "Final runtime Git SHA is pinned by ordinary consumer; receipt baseline/originBlob are not independently resolved by preparation helper.",
+    "Existing source_id is a record ID, not author identity or original message ID.",
+    "Segmentation/policy/descriptors are explicit synthetic caller inputs; real mapping and authorization are not minted or proved.",
+    "Actual fixed producer build generated two original fixtures; version-change case is manual synthetic update, not producer re-run.",
+    "Binary and native-domain data, provisional identity, source-version pending, attachment closure, automatic sync and fullwarehouse export remain outside this slice.",
+    "No main load/config, real data, model, understanding-writeback decision, old UNKNOWN replay or CangHai writes."
+  ],
+  "nextProducerDeliverable": "Use the existing CangHai export step with stable IDs, explicit original bytes and reviewed segment/policy refs; assemble current manifest/profile/catalog with matching descriptors and deliver final data SHA. Core adapter is write-free; actual writer and activation remain separate.",
+  "secretAudit": {
+    "scannedCodePaths": 6,
+    "credentialPatternHits": [],
+    "contentReview": "Synthetic fictional texts, public generator structures, version/hash metadata and source/tests/docs only; no private raw data/config/seeds/token."
+  },
+  "save": "local exact candidate commit only; no push before independent review"
+}

@@ -1,0 +1,52 @@
+{
+  "authorOnly": true,
+  "independentReview": "pending",
+  "compileTestExit": 0,
+  "buildExit": 0,
+  "targeted": {
+    "exitCode": 0,
+    "tests": 37,
+    "pass": 37,
+    "fail": 0,
+    "addedMigrationCases": 9,
+    "receipt": "TARGETED.tap"
+  },
+  "extractedPackage": {
+    "exitCode": 0,
+    "tests": 152,
+    "pass": 152,
+    "fail": 0,
+    "addedMigrationCases": 9,
+    "receipt": "PACKAGE.txt",
+    "notAdditiveWithTargeted": true,
+    "artifactSha256": "12f08c266879e86631ad68e57aea04f61f6568815bd46a5968ecc096c50732a8",
+    "packagedMembers": 142,
+    "sourceModules": 41,
+    "sdkVersion": "2026.10.9",
+    "lockedSdkVersion": "2026.10.8",
+    "buildIdentity": {
+      "coreRevision": "c0c4d2da1c3a4c2563ca4a3e99b9196d118155d5",
+      "sourceClean": false
+    },
+    "freshInstall": false,
+    "ciRunForCandidate": false,
+    "liveHost": false,
+    "realModel": false,
+    "privateData": false,
+    "packageContainsExistingWorktreeDocDeltas": "MAIN-DEBUG-INSTALL and ORDINARY-SOURCE-READ; not added to this commit"
+  },
+  "initialPackFailure": {
+    "exitCode": 1,
+    "reason": "npm refused same /dev/null as both userconfig and globalconfig before packing",
+    "receipt": "pack.stderr",
+    "correction": "two distinct empty config files, same existing CI procedure; corrected pack exit0"
+  },
+  "testSourceChangeAfterInitialCompile": "synthetic update now recomputes actual Git blob and snapshot commit; final compile before tests",
+  "stdoutHashes": {
+    "TARGETED.tap": "9a47560c70dbfde42ad0270464a2d28a68b556176dc9b17ec78868372bb83c06",
+    "PACKAGE.txt": "09d0c1eda99e83c5c276deb576c11a53c950b40122afb0874c0d138f8354e25e"
+  },
+  "noProductionPermissionOrGrantChange": true,
+  "noRealApply": true,
+  "noHostOrPaidCalls": true
+}

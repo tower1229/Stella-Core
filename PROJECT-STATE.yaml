@@ -913,3 +913,16 @@ praxis_retirement_c_20261104:
   final_extracted_package: 143_pass_0_fail_sdk10_9
   real_host_models_private_data: not_run
   new_MIG02_runtime_export_consumption_and_sync: remaining
+
+# 2026-11-04 MIG02 receipt preparation and synthetic current-reader contract.
+migration_runtime_export_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/migration-runtime-export-20261104/REPORT.json
+  producer_commit: 8eff06a1444e46411c439c10aa49a2a6602b562c
+  preparation: write_free_explicit_original_document_only
+  generated_fictional_receipts: 2
+  added_contract_cases: 9
+  targeted: 37_pass_0_fail
+  extracted_package: 152_pass_0_fail_not_additive
+  local_sdk: 2026.10.9
+  independent_review: pending
+  true_data_export_Host_model_and_understanding_writeback: not_validated

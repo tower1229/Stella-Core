@@ -68,8 +68,8 @@ assert.deepEqual(buildIdentity, JSON.parse(await readFile(path.join(root, ".test
 const suites = ["ordinary-plugin", "ordinary-startup-seam", "ordinary-source-read", "ordinary-source-admission",
   "tool-request-binding", "current-input-metadata", "source-understanding-skill",
   "candidate-work-brief", "author-intent-repository", "memory-transaction", "memory-transaction-journal",
-  "native-memory-origin"];
-const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js"];
+  "native-memory-origin", "migration-source-export"];
+const testFiles = [...suites.map(name => `${name}.test.js`), "fixtures/ordinary-source-read.js", "fixtures/migration-source-export.js"];
 await mkdir(path.join(harness, "tests/fixtures"), { recursive: true });
 for (const file of testFiles) await copyFile(path.join(root, ".test-dist/tests", file), path.join(harness, "tests", file));
 await writeFile(path.join(harness, "package.json"), '{"type":"module"}\n');
