@@ -1,0 +1,176 @@
+{
+  "comparison": "named top-level test bodies; dynamic cases separately described, never added across overlapping reruns",
+  "suites": [
+    {
+      "file": "tests/correction.test.ts",
+      "beforeNamed": 13,
+      "afterNamed": 11,
+      "unchanged": [
+        "writing correction updates work and scoped understanding atomically and preserves their historical judgments",
+        "clarification survives learning restart and replay still enforces processing permission",
+        "v3 source constraints reach correction verification and rejected learning never becomes a transaction",
+        "owner correction synchronizes immutable work and change, then fresh readers preserve author intent",
+        "correction rejects non-owner evidence and semantic verification failures before mutation",
+        "changed dependencies outside the authorized correction batch cannot stay usable",
+        "unread references and changes to originals during correction inference are rejected",
+        "clarification records no invented replacement or completed work",
+        "authenticated ingress archive keeps original custody without inventing a transcript event",
+        "correction reauthenticates an evidence-bound required view when only derived cognition changes",
+        "correction rebuilds a work-bound required view from recorded admissions without rerunning a model"
+      ],
+      "changed": [],
+      "addedOrRenamed": [],
+      "retiredOrRenamed": [
+        "Host correction archives exact owner input before inference and restores a failed custody transaction",
+        "revoking a correction grant during input custody prevents learning without relying on the caller callback"
+      ]
+    },
+    {
+      "file": "tests/ingest.test.ts",
+      "beforeNamed": 25,
+      "afterNamed": 24,
+      "unchanged": [
+        "unknown upstream total cannot certify complete archive coverage",
+        "declared upstream manifest detects omitted events even when received count matches",
+        "interrupted import resumes the persisted input cursor and retains same-content independent events",
+        "cleanup waits for synchronized verified originals and isolated clone restores the declared attachment",
+        "unavailable declared attachments and unknown totals never authorize Host cleanup",
+        "same manifest resumes a wholly absent event and attachment without permitting earlier metadata changes",
+        "without an independent manifest a pending retry cannot add undeclared events",
+        "file import retains exact original bytes, unknown authorship and idempotent source identity",
+        "skill product retains model attribution, skill version and source evidence without becoming owner words",
+        "external research keeps available originals and marks summary-only imports incomplete",
+        "repository synchronization ingests a committed original in place and rejects changed or missing sources",
+        "file batch preserves empty and binary originals; invalid attribution is explicitly rejected",
+        "multi-source skill derivation preserves exactly the parent's independent origins and rejects unavailable evidence",
+        "skill import rejects a hash-valid parent evidence whose original fragment is absent",
+        "Host message ingest walks received→staged→validated→local_committed→synchronized with provenance",
+        "explicit record and Host message share the same ingest contract surface",
+        "identical operationId retry returns original evidence; changed input conflicts",
+        "upstream identity: edit creates a new source version; same text on different events stays separate",
+        "do_not_retain blocks before any disk write when Host cannot guarantee surfaces",
+        "admitted do_not_retain records content-free operation status without payload or evidence",
+        "prepareHostInputArchive and ingestHostMessage share the same sourceRef.id",
+        "G-03 role slice: assistant/unknown evidence is not owner; owner text stays recoverable",
+        "new ingest rejects stale expectedRevision; corrupt operation replay fails closed"
+      ],
+      "changed": [],
+      "addedOrRenamed": [
+        "persistHostInputArchive blocks do_not_retain before any disk write"
+      ],
+      "retiredOrRenamed": [
+        "archiveCorrectionInput walks ingest phases and retries without new evidence",
+        "archiveCorrectionInput and persistHostInputArchive block do_not_retain before any disk write"
+      ]
+    },
+    {
+      "file": "tests/episode-evidence.test.ts",
+      "beforeNamed": 27,
+      "afterNamed": 28,
+      "unchanged": [
+        "evidence read scopes separate concurrent operations, inherit nested reads and reject late metadata reads",
+        "restricted evidence fails before payload access without an admitted semantic context",
+        "the evidence reader applies semantic authorization to each source before reading original bytes",
+        "persisted bundles reread original roles and reject unauthorized or modified evidence",
+        "question preparation supplies original roles and rereads the source after model judgment",
+        "question evidence resolves model-selected handles to exact read versions without accepting invented refs",
+        "evidence resolver rereads a genuine selected source span before semantic verification",
+        "source labels cannot turn assistant or inferred content into an actual action",
+        "semantic ambiguity remains unsupported and invented evidence refs fail",
+        "future evidence and unauthorized delivery are rejected before model access",
+        "outcomes require exact semantic support independently of actual-action support",
+        "unknown or inferred outcomes never reach the semantic verifier",
+        "outcome verification rejects a catalog changed during model inference",
+        "deleted source blocks original text and dependent evidence without fetching history",
+        "catalog and source mutation during model judgment revoke write eligibility",
+        "reference versions and locator byte hashes are verified independently",
+        "canonical versions ignore source location but retain payload content and semantic dependencies",
+        "selectors enforce UTF-8 boundaries, JSON pointer escapes and real nodes",
+        "byte selectors preserve BOM characters at the file or selected-fragment start without changing JSON parsing",
+        "catalog rejects duplicate current identities and missing collections",
+        "real evidence resolver gates the v2 write and persists only a supported closure",
+        "learning resolves a scoped strategy and its exact supported LearningChange",
+        "outcome planning binds the exact Episode and original evidence without writing or fabricating learning",
+        "outcome planning clarifies unknown authorship without treating the request as action proof",
+        "transaction preview cannot replace original evidence or authorize fabricated object bytes",
+        "outcome clarification rejects missing model identity and originals changed during inference",
+        "evidence capture records nested model calls and rejects late calls before model disclosure"
+      ],
+      "changed": [],
+      "addedOrRenamed": [
+        "Learning Change disposition and target shape agree without a native provider"
+      ],
+      "retiredOrRenamed": []
+    },
+    {
+      "file": "tests/sdk-owner-suite.test.ts",
+      "beforeNamed": 6,
+      "afterNamed": 10,
+      "unchanged": [
+        "file summary publishes once after all fixtures and cannot erase stop/pending/missing work",
+        "native multi-file suite preserves the exact file set, failures, totals and concurrency four",
+        "suite refuses omitted/duplicate files and non-owner terminal reports",
+        "TODO keeps native results without overriding ordinary failure, cancellation or log failure",
+        "four native files including a TERM-ignoring owner are gone before cancellation settles, even if leader exits first",
+        "cancelling one owned suite does not signal or remove a concurrent suite"
+      ],
+      "changed": [],
+      "addedOrRenamed": [
+        "ordinary suite has no invented SDK owner, strips inherited ownership and keeps raw failures",
+        "ordinary suite cancellation, deadline and log failure remain failed after group and stdio settle",
+        "ordinary suite retains failed terminal evidence for an unacknowledged log write",
+        "ordinary suite cancellation waits for TERM-ignoring descendants in its own group"
+      ],
+      "retiredOrRenamed": []
+    },
+    {
+      "file": "tests/sdk-owner-supervisor.test.ts",
+      "beforeNamed": 12,
+      "afterNamed": 12,
+      "unchanged": [
+        "SDK owner root remains until the file process and its late writing thread terminate",
+        "native assertion failure preserves counts, bytes and exit code but may release a clean owner root",
+        "stop/pending failure is durable and cannot be replaced with a successful cleanup receipt",
+        "cancel and timeout stay failed when the supervised file handles SIGTERM with exit0",
+        "log failure cannot become success even when its SIGTERM child exits0",
+        "an unacknowledged log write settles as failure after the file exits",
+        "a signal exit and a missing cleanup report remain distinct raw failure facts",
+        "unowned deletion targets and unsafe runner options are refused before launch",
+        "missing, mismatched and symlink cleanup reports cannot authorize root removal",
+        "root mode or symlink replacement never permits deletion of a replacement/victim",
+        "concurrent runs use distinct captured roots and ignore an environment deletion target",
+        "CLI cancellation through actual npm/shell owned process groups stays failed and retains roots"
+      ],
+      "changed": [],
+      "addedOrRenamed": [],
+      "retiredOrRenamed": []
+    },
+    {
+      "file": "tests/workspace-test-entry.test.ts",
+      "beforeNamed": 7,
+      "afterNamed": 5,
+      "unchanged": [
+        "workspace entry cancellation joins its compiler even when TERM produces exit0"
+      ],
+      "changed": [
+        "workspace test entry compiles twice and supervises the complete native file set",
+        "either compilation failure blocks stale tests and supervision",
+        "direct owner without a legal supervisor root fails before fixture allocation"
+      ],
+      "addedOrRenamed": [
+        "compiled enumeration accepts ordinary tests without an owner and rejects empty or symlink sets"
+      ],
+      "retiredOrRenamed": [
+        "compiled enumeration rejects missing owner and symlink test files",
+        "file summary preserves an earlier fixture shutdown failure",
+        "capacity timing observes exact round/phase on cancellation without changing results"
+      ]
+    }
+  ],
+  "retiredDynamic": [
+    "correction durable Host context no_change/needs_clarification (two cases)"
+  ],
+  "preservedExtracted": "Learning Change validation: six legal/contradictory shapes retained in episode-evidence; native reference mapping retired",
+  "sharedData": "ingest original bytes, role/provenance, attachments, idempotency and do_not_retain remain; memory transaction/journal suites unchanged",
+  "retiredOnly": "Old custom checkpoint publication, native-lease mapping, Host correction choreography, bootstrap materialization, SDK supply capacity timing and its fixture-specific cleanup tests are not claimed equivalent to current tool checks."
+}

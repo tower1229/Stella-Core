@@ -1,0 +1,98 @@
+{
+  "buildExit": 0,
+  "wholeTestCompileInitialExit": 1,
+  "initialFailure": "Extracted shared Learning Change validator test lacked two imports; fixed imports only. Initial failure bytes retained.",
+  "wholeTestCompileFinalExit": 0,
+  "targeted": {
+    "exit": 0,
+    "counts": {
+      "tests": 156,
+      "pass": 156,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "suites": [
+      "workspace-test-entry",
+      "sdk-owner-supervisor",
+      "sdk-owner-suite",
+      "correction",
+      "ingest",
+      "episode-evidence",
+      "memory-transaction",
+      "memory-transaction-journal"
+    ],
+    "environment": "inherited local environment; all fixture paths generated synthetic, no Host/provider calls"
+  },
+  "renamedEntry": {
+    "exit": 0,
+    "counts": {
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    }
+  },
+  "ciStyleSupervision": {
+    "exit": 0,
+    "counts": {
+      "tests": 62,
+      "pass": 62,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "environment": "env -i; synthetic HOME/TMPDIR; Git config disabled; protocol=file; no Host"
+  },
+  "countsNotAdditive": true,
+  "sdk": "2026.10.9",
+  "testReceiptHashes": {
+    "BUILD.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "retention": "local_only_not_committed"
+    },
+    "COMPILE-TEST.txt": {
+      "sha256": "1a810d519faa4934e9c9eb1460e19d7ba71893e588abab2609a0e88fe72acff9",
+      "bytes": 865,
+      "retention": "local_only_not_committed"
+    },
+    "COMPILE-TEST-R1.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "retention": "local_only_not_committed"
+    },
+    "COMPILE-TEST-R2.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "retention": "local_only_not_committed"
+    },
+    "TEST.txt": {
+      "sha256": "d5c23903e2197569371d169a1bfc7abcc2f3fd6ed62cf2476901d51bc3df8bd5",
+      "bytes": 18138,
+      "retention": "local_only_not_committed"
+    },
+    "ENTRY-RENAMED-TEST.txt": {
+      "sha256": "e8ce58f6968624484ea67a0db33ea91105222f0f779f204b996ac86cfe6319f8",
+      "bytes": 780,
+      "retention": "local_only_not_committed"
+    },
+    "CI-STYLE-SUPERVISION.txt": {
+      "sha256": "de33f6af09d56cb7a7f85a9178318f6f929389b4dea6211a7c92d63dcfcbbcfc",
+      "bytes": 8983,
+      "retention": "local_only_not_committed"
+    },
+    "PACK-STAGE.txt": {
+      "sha256": "3bbb7c42f6ff5635a0212232ca3d004edb2671a98756753fb4f54216f73a8911",
+      "bytes": 63,
+      "retention": "local_only_not_committed"
+    }
+  },
+  "currentRuntime126BytesUnchanged": true,
+  "realHost": false,
+  "realModel": false
+}

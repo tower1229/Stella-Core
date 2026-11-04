@@ -911,96 +911,11 @@ test("G-03 role slice: assistant/unknown evidence is not owner; owner text stays
   assert.match(payload.bytes.toString("utf8"), /主人原话。/);
 });
 
-test("archiveCorrectionInput walks ingest phases and retries without new evidence", async (t) => {
-  const { archiveCorrectionInput } = await import("../src/learning/host-correction.js");
-  const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
-  const repo = await gitRepo(t);
-  const text = "纠正入口原话。";
-  const host = snapshot({ entryId: "correction-message", text });
-  const bound = snapshotTurnRequest({
-    agentId: host.agentId,
-    sessionId: host.sessionId,
-    sessionKey: host.sessionKey,
-    prompt: text,
-    senderId: "owner-ingest",
-    senderIsOwner: true,
-    chatType: "direct",
-  }, "correction-run-1");
-  const portsBase = {
-    request: bound,
-    original: host,
-    ownerId: "owner-ingest",
-    reader: await CatalogReader.load(repo.root, "catalog.json"),
-    archive: { policyRef: repo.policyRef, objectRoot: "memory/objects", payloadRoot: "experience/conversations" },
-    purpose: {
-      readPurpose: "alpha",
-      derivePurpose: "alpha",
-      deliveryScope: "synthetic",
-      evidenceCutoff: now,
-      trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] },
-    },
-    durability: durability(repo.root, repo.remote, repo.branch),
-    signal: new AbortController().signal,
-    assertCurrent: async () => {},
-    retentionGuarantees: retainGuarantees,
-  };
-  const first = await archiveCorrectionInput(portsBase);
-  assert.equal(first.evidenceRefs.length, 1);
-  assert.equal((await first.resolver.readEvidence(first.evidenceRefs[0]!)).text, text);
-  const phasePath = path.join(repo.root, "operations", `${first.operationId}.phase.json`);
-  const phase = JSON.parse(await readFile(phasePath, "utf8"));
-  assert.equal(phase.schemaVersion, "stella.ingest-phase/v1");
-  assert.equal(phase.phase, "synchronized");
-  const op = JSON.parse(await readFile(path.join(repo.root, "operations", `${first.operationId}.json`), "utf8"));
-  assert.equal(op.schemaVersion, "stella.memory-operation/v1");
-  assert.equal(op.kind, "ingest");
-  const beforeCount = (await CatalogReader.load(repo.root, "catalog.json")).catalog.evidence.length;
-  const second = await archiveCorrectionInput({
-    ...portsBase,
-    reader: await CatalogReader.load(repo.root, "catalog.json"),
-  });
-  assert.deepEqual(second.evidenceRefs, first.evidenceRefs);
-  assert.equal((await CatalogReader.load(repo.root, "catalog.json")).catalog.evidence.length, beforeCount);
-});
-
-test("archiveCorrectionInput and persistHostInputArchive block do_not_retain before any disk write", async (t) => {
-  const { archiveCorrectionInput } = await import("../src/learning/host-correction.js");
-  const { snapshotTurnRequest } = await import("../src/openclaw/turn-request.js");
+test("persistHostInputArchive blocks do_not_retain before any disk write", async (t) => {
   const repo = await gitRepo(t, "do_not_retain");
   const before = await run("git", ["-C", repo.root, "rev-parse", "HEAD"]);
   const listingBefore = await readdir(repo.root, { recursive: true });
-  const text = "不得落盘的纠正原文。";
-  const host = snapshot({ entryId: "dnr-correction", text });
-  const bound = snapshotTurnRequest({
-    agentId: host.agentId,
-    sessionId: host.sessionId,
-    sessionKey: host.sessionKey,
-    prompt: text,
-    senderId: "owner-ingest",
-    senderIsOwner: true,
-    chatType: "direct",
-  }, "correction-dnr-run");
-  const dnrReader = await CatalogReader.load(repo.root, "catalog.json");
-  await assert.rejects(
-    () => archiveCorrectionInput({
-      request: bound,
-      original: host,
-      ownerId: "owner-ingest",
-      reader: dnrReader,
-      archive: { policyRef: repo.policyRef, objectRoot: "memory/objects", payloadRoot: "experience/conversations" },
-      purpose: {
-        readPurpose: "alpha",
-        derivePurpose: "alpha",
-        deliveryScope: "synthetic",
-        evidenceCutoff: now,
-        trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] },
-      },
-      durability: durability(repo.root, repo.remote, repo.branch),
-      signal: new AbortController().signal,
-      assertCurrent: async () => {},
-    }),
-    (error: unknown) => error instanceof CatalogError && error.category === "retention_guarantee_unavailable",
-  );
+  const host = snapshot({ entryId: "dnr-correction", text: "Synthetic non-retained correction" });
   const archive = prepareHostInputArchive(host, {
     policyRef: repo.policyRef,
     objectRoot: "memory/objects",

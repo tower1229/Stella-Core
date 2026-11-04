@@ -100,8 +100,19 @@ export async function superviseOwnerTest(options) {
 /** The native public runner owns result aggregation and file concurrency.
  * Exactly one listed file may publish this root's owned-work terminal state. */
 export async function superviseOwnerSuite(options) {
+  return superviseSuite(options, true);
+}
+
+/** Ordinary tests own no shared SDK fixture root. The supervisor still owns
+ * their process group and joins exit, stdio and log writes. This is an explicit
+ * mode, never a fallback for a missing owner or an invalid cleanup receipt. */
+export async function superviseTestSuite(options) {
+  return superviseSuite(options, false);
+}
+
+async function superviseSuite(options, hasOwner) {
   if (!["darwin", "linux"].includes(process.platform)) throw fail("owner_suite_platform_unsupported");
-  const allowed = ["files", "ownerFile", "cwd", "env", "signal", "timeoutMs", "stdout", "stderr"];
+  const allowed = ["files", "cwd", "env", "signal", "timeoutMs", "stdout", "stderr", ...(hasOwner ? ["ownerFile"] : [])];
   if (!options || Object.keys(options).some(key => !allowed.includes(key)) || !Array.isArray(options.files) || !options.files.length)
     throw fail("owner_suite_options_invalid");
   const cwd = await realpath(options.cwd ?? process.cwd());
@@ -113,10 +124,10 @@ export async function superviseOwnerSuite(options) {
     const stat = await lstat(file);
     if (!stat.isFile() || stat.isSymbolicLink()) throw fail("owner_test_file_invalid");
   }
-  const ownerFile = path.resolve(cwd, options.ownerFile ?? "");
-  if (!files.includes(ownerFile)) throw fail("owner_suite_file_missing");
+  const ownerFile = hasOwner ? path.resolve(cwd, options.ownerFile ?? "") : null;
+  if (hasOwner && !files.includes(ownerFile)) throw fail("owner_suite_file_missing");
   const { files: _files, ownerFile: _owner, ...common } = options;
-  return supervise({ ...common, args: [ownerFile] }, { ownerFile, files });
+  return supervise({ ...common, args: [ownerFile ?? files[0]] }, { ownerFile, files });
 }
 
 async function supervise(options, suite) {
@@ -131,10 +142,15 @@ async function supervise(options, suite) {
   if (timeoutMs !== null && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 600_000)) throw fail("owner_timeout_invalid");
   const env = { ...(options.env ?? process.env) };
   if (env.NODE_OPTIONS) throw fail("owner_node_options_unsupported");
-  delete env.NODE_OPTIONS; delete env.NODE_PATH; delete env.NODE_TEST_CONTEXT; delete env[fileKey];
-  if (suite) env[fileKey] = suite.ownerFile;
-  const { root, identity } = await captureRoot(), runId = randomUUID();
-  env[rootKey] = root; env[runKey] = runId;
+  delete env.NODE_OPTIONS; delete env.NODE_PATH; delete env.NODE_TEST_CONTEXT;
+  delete env[fileKey]; delete env[rootKey]; delete env[runKey];
+  const hasOwner = !suite || suite.ownerFile !== null;
+  const { root, identity } = hasOwner ? await captureRoot() : { root: null, identity: null };
+  const runId = hasOwner ? randomUUID() : null;
+  if (hasOwner) {
+    if (suite) env[fileKey] = suite.ownerFile;
+    env[rootKey] = root; env[runKey] = runId;
+  }
   const logErrors = [], errors = [], writes = new Set();
   let child, group, groupState, timer, killTimer, stdioTimer, closed = false, interrupted, timedOut = false;
   const destinations = [options.stdout ?? process.stdout, options.stderr ?? process.stderr];
@@ -207,6 +223,14 @@ async function supervise(options, suite) {
   }
   try {
     const stdioComplete = child?.stdout.readableEnded === true && child?.stderr.readableEnded === true;
+    if (!hasOwner) return {
+      passed: exitCode === 0 && closeObserved && !interrupted && signal === null && stdioComplete &&
+        !errors.length && !logErrors.length && groupState?.confirmedGone === true,
+      child: { exitCode, signal, killed: child?.killed ?? false, closeObserved },
+      group: group?.status() ?? groupState ?? null,
+      interrupted: interrupted ?? null, timedOut, stdioComplete, logErrors, errors,
+      ownedWork: null, cleanup: { root: null, status: "not_applicable", started: false },
+    };
     let ownedWork = null, rootValid = false, cleanup = "retained", cleanupStarted = false;
     try { await assertRoot(root, identity); rootValid = true; ownedWork = await readOwnedWork(root, runId); }
     catch (error) { errors.push(error.code ?? error.message); }

@@ -22,6 +22,11 @@ jobs:
       - run: npm run check && npm run check:schemas
       - name: Compile source and existing tests
         run: node scripts/compile.mjs build && node scripts/compile.mjs test
+      - name: Verify native test supervision without a Host
+        timeout-minutes: 5
+        run: |
+          mkdir -p .artifacts/test-supervision/home .artifacts/test-supervision/tmp
+          env -i PATH="$PATH" HOME="$PWD/.artifacts/test-supervision/home" TMPDIR="$PWD/.artifacts/test-supervision/tmp" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_ALLOW_PROTOCOL=file GIT_TERMINAL_PROMPT=0 node --test --test-concurrency=1 .test-dist/tests/workspace-test-entry.test.js .test-dist/tests/sdk-owner-supervisor.test.js .test-dist/tests/sdk-owner-suite.test.js > .artifacts/test-supervision/stdout 2> .artifacts/test-supervision/stderr
       - name: Pack and stage the current ordinary entry
         run: |
           mkdir -p .artifacts/ordinary-package
@@ -53,9 +58,11 @@ jobs:
             .artifacts/ordinary-package/*.tgz
             .artifacts/ordinary-package/run/test.stdout
             .artifacts/ordinary-package/run/test.stderr
+            .artifacts/test-supervision/stdout
+            .artifacts/test-supervision/stderr
           if-no-files-found: error
       - name: Explain the limited verdict
         if: always()
         run: |
           echo 'Extracted-package source, draft, repository, transaction/journal contracts and public skill discovery only; no live Gateway, model semantics, private data, fresh dependency install or full_memory acceptance.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Three old 8.2 suites and automatic full/experimental workflows were retired on 2026-11-03. Mixed authority, SQL and completion suites remain; historical failures were not repaired or accepted by this check.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Old full/experimental runners, custom SQL/context/checkpoint adapters and their dedicated suites are retired. Current data/transaction assertions and native process supervision remain; retired failures are not counted as repaired or as Host acceptance.' >> "$GITHUB_STEP_SUMMARY"

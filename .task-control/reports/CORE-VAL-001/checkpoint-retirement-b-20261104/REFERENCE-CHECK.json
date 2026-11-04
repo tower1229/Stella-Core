@@ -1,0 +1,19 @@
+{
+  "activeLiteralReferencesToRemovedCode": [],
+  "wholeSourceAndTestsTypecheck": 0,
+  "currentRuntimeCompiledBytesUnchanged": 126,
+  "retainedCheckpointContracts": [
+    "checkpoint-committed-document",
+    "recovery-checkpoint-contract",
+    "recovery-authority-contract",
+    "memory-transaction",
+    "memory-transaction-journal"
+  ],
+  "stillHistoricalOrLaterBatch": [
+    "checkpoint-snapshot-import and its helpers",
+    "local checkpoint recovery/store with current transaction contract dependencies",
+    "remaining Praxis runtime/routing and associated mixed tests",
+    "installed-correction-profile/reused-consumer identity assertions"
+  ],
+  "limitations": "Static imports/literal scans and compilation do not prove Host or semantic behavior."
+}

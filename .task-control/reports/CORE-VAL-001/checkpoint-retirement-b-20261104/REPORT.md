@@ -1,0 +1,9 @@
+B批从31e46a13退役14份旧Host checkpoint/Host-correction源码、17套专用测试、4份fixture辅助文件和2份旧脚本。工作区测试枚举改为独立compiled-test-suite模块，普通suite模式复用现有真实进程组/stdio/取消监督，不分配或冒充SDK资源owner；显式owner模式继续严格校验回执、目录身份与退出后清理。进程组组件本身未改。
+
+八套定向测试156/156通过。重命名后的入口7/7、与新增CI步骤相同的干净环境监督测试62/62分别通过，不累加计数。初次编译缺少迁入数据验证用例的两条import，已修正且原失败hash保留。当前普通插件126编译源码字节未变，145成员tarball已解包核验；12套当前包CI列表未变，新增3套监督/入口测试的自动执行。本候选未运行Linux CI、Host或模型。
+
+correction、ingest、episode-evidence保留61个原具名测试体；其中ingest的do_not_retain拆除旧wrapper调用后保留真实persistHostInputArchive拒绝与无落盘断言；Learning Change六种形状从native-readback测试提取到真实共享验证器。未将旧Host纠正/发布编排、native lease映射、初始化materialization或SDK供给容量验证当成已由新路线等价完成。全部有效owner监督测试保留，旧专用fixture的关闭工具随死依赖退役。具体逐项清单见ASSERTION-RETENTION.json。
+
+8份未跟踪installed-correction探针按原字节保存在被ignore的本机历史目录，逐文件hash和恢复位置见HISTORICAL-ARCHIVE.json；不上传原始探针。所有Git删除对象均由REMOVALS.json绑定父版本可恢复。CangHai/current数据、主Host、selfie、grant及旧UNKNOWN加载均未触碰。
+
+A批已推送并在41768312001通过143/143（SDK10.8），单列A-CI.json。MIG02矩阵已作为下一数据接入依赖接收；迁移文件清单不充当运行catalog，不擅自定义理解写回。当前B批仅本地候选，待独审，不推送。

@@ -1,0 +1,20 @@
+{
+  "sourceDocument": "MIG02-CORE-INTERFACE-MATRIX.md",
+  "sourceSha256": "1c3a485d90464d128bc487c2d3cbfc6ea4f2cd531989631ecec5146277f5b379",
+  "status": "read_only_dependency_received_not_runtime_binding",
+  "minimumSyntheticExport": [
+    "fixed root/revision and running manifest -> profile -> catalog refs",
+    "stable synthetic Source/Evidence IDs, exact original bytes/selector/hash and explicit unknown role/time",
+    "versioned policies and reviewed descriptor bindings; no inherited grant for new real sources",
+    "source-read list/read receipt with revision/generation/catalog/profile/manifest hashes",
+    "second generation invalidates old cursors and removed sources, no follow-HEAD"
+  ],
+  "reuse": [
+    "tests/fixtures/ordinary-source-read.ts",
+    "tests/ordinary-source-read.test.ts",
+    "src/canghai/catalog-reader.ts",
+    "src/canghai/content-version.ts",
+    "src/canghai/source-segments.ts"
+  ],
+  "boundary": "Migration file manifest is not runtime manifest/catalog. No Work/understanding synthesis or disputed writeback policy. CangHai producer owns export/data; Core consumes fixed handoff; this batch changes neither."
+}

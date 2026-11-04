@@ -1,0 +1,16 @@
+
+checkpoint_retirement_b_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/checkpoint-retirement-b-20261104/REPORT.json
+  retired_sources: 14
+  retired_dedicated_suites: 17
+  retired_fixture_helpers: 4
+  ordinary_suite_owner: explicit_none_not_fabricated
+  real_resource_owner_protocol: preserved
+  local_targeted_tests: 156_pass_0_fail_sdk10_9
+  clean_environment_supervision: 62_pass_0_fail_not_additive
+  current_compiled_source_files_unchanged: 126
+  packaged_members: 145
+  current_package_ci_suites: 12_unchanged
+  added_ci_supervision_suites: 3
+  untracked_probe_archive: 8_original_bytes_local_only
+  real_host_and_model: not_run

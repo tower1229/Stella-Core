@@ -1,0 +1,11 @@
+{
+  "compiledSourceFiles": 126,
+  "changedCompiledFiles": [],
+  "tarballMembers": 145,
+  "artifactSha256": "812effd2014a61ad7a6308b3f5d632ea6a91aa91f7095dbbedb17760020456ff",
+  "stagingExit": 0,
+  "packageTests": "not_repeated_current_runtime_bytes_unchanged; exact parent A CI143/143 separate",
+  "currentTwelveSuites": "unchanged",
+  "ciAddition": "three native supervision suites; local clean environment62/62; B Linux CI not run",
+  "buildIdentity": "local build at A HEAD with dirty worktree; not installed"
+}

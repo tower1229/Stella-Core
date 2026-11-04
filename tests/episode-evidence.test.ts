@@ -5,7 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { CatalogError, CatalogReader, parseMemoryCatalog, selectTextEvidence, type CatalogGroup, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
-import { EpisodeEvidenceResolver, type EvidencePurpose } from "../src/praxis/episode-evidence.js";
+import { EpisodeEvidenceResolver, validateLearningChange, type EvidencePurpose } from "../src/praxis/episode-evidence.js";
+import { personalMemoryFixture } from "./personal-memory-fixture.js";
 import type { EpisodeV2, VersionedRef } from "../src/praxis/episode-v2.js";
 import { EpisodeRepository } from "../src/praxis/episode-repository.js";
 import { PraxisRuntimeMemory } from "../src/praxis/runtime-memory.js";
@@ -559,4 +560,25 @@ test("evidence capture records nested model calls and rejects late calls before 
   release();
   await assert.rejects(late!, /evidence_read_scope_expired/);
   assert.equal(calls, 1);
+});
+
+test("Learning Change disposition and target shape agree without a native provider", async t => {
+  const memory = await personalMemoryFixture(t), initial = await memory.resolver();
+  const base = await initial.reader.read(initial.reader.currentRef("change", "changes"), "changes");
+  const cases: Array<{ disposition: string; legal: boolean; value: Record<string, unknown>; ref: typeof memory.understanding }> = [];
+  for (const disposition of ["update", "no_change", "needs_clarification"]) for (const legal of [false, true]) {
+    const hasTargets = legal ? disposition === "update" : disposition !== "update";
+    const targets = hasTargets ? [memory.understanding] : [];
+    const value = { ...base, id: `state-${disposition}-${legal}`, disposition, targetRefs: targets,
+      changes: targets.map(after => ({ kind: "create", before: null, after, supportRefs: [memory.evidence], counterRefs: [] })) };
+    cases.push({ disposition, legal, value, ref: await memory.put("changes", value, [memory.evidence, ...targets]) });
+  }
+  await memory.save();
+  for (const example of cases) await t.test(`${example.disposition}: ${example.legal ? "legal shape accepted" : "contradictory targets rejected"}`, async () => {
+    if (!example.legal) {
+      assert.throws(() => validateLearningChange(example.value), /learning_change_target_mismatch/);
+    } else {
+      assert.doesNotThrow(() => validateLearningChange(example.value));
+    }
+  });
 });

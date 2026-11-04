@@ -9,7 +9,7 @@ import test, { type TestContext } from "node:test";
 
 const supervisor = new URL("../../scripts/lib/sdk-owner-supervisor.mjs", import.meta.url).href;
 const summary = new URL("../../scripts/lib/owned-work-summary.mjs", import.meta.url).href;
-const { superviseOwnerTest, superviseOwnerSuite } = await import(supervisor);
+const { superviseOwnerTest, superviseOwnerSuite, superviseTestSuite } = await import(supervisor);
 function output(onText?: (text: string) => Error | void) {
   let text = "";
   return { stream: new Writable({ write(bytes, _encoding, done) { text += bytes; done(onText?.(text) ?? undefined); } }), text: () => text };
@@ -230,4 +230,69 @@ const interval=setInterval(()=>{},1000);await barrier;clearInterval(interval);})
   assert.equal(b.group.confirmedGone, true); assert.equal(b.group.terminationRequested, false); assert.equal(alive(records[1].pid), false);
   assert.notEqual(records[0].root, records[1].root);
   t.diagnostic(JSON.stringify({ cancelledGroup: a.group, otherGroup: b.group, bothFilesGoneBeforeTeardown: true }));
+});
+
+test("ordinary suite has no invented SDK owner, strips inherited ownership and keeps raw failures", async t => {
+  for (const failing of [false, true]) await t.test(String(failing), async t => {
+    const f = await temporary(t), file = path.join(f.root, "ordinary.test.mjs");
+    await writeFile(file, `import test from 'node:test';import assert from 'node:assert/strict';
+test('ordinary fixture',()=>{for(const key of ['STELLA_TEST_OWNER_ROOT','STELLA_TEST_OWNER_RUN','STELLA_TEST_OWNER_FILE'])assert.equal(process.env[key],undefined);console.log('ORDINARY_STDOUT');console.error('ORDINARY_STDERR');assert.equal(${failing},false);});`);
+    const stdout = output(), stderr = output();
+    const result = await superviseTestSuite({ files: [file], env: { ...process.env,
+      STELLA_TEST_OWNER_ROOT: f.root, STELLA_TEST_OWNER_RUN: 'foreign', STELLA_TEST_OWNER_FILE: file },
+      stdout: stdout.stream, stderr: stderr.stream, timeoutMs: 5000 });
+    assert.equal(result.passed, !failing); assert.equal(result.child.exitCode, failing ? 1 : 0);
+    assert.equal(result.child.closeObserved, true); assert.equal(result.stdioComplete, true);
+    assert.equal(result.group.confirmedGone, true); assert.equal(result.ownedWork, null);
+    assert.deepEqual(result.cleanup, { root: null, status: 'not_applicable', started: false });
+    assert.match(stdout.text(), /ORDINARY_STDOUT/); assert.match(stdout.text(), /ORDINARY_STDERR/);
+    assert.equal(totals(stdout.text()).fail, failing ? 1 : 0);
+    await assert.rejects(readFile(path.join(f.root, 'owned-work.json')), { code: 'ENOENT' });
+    await assert.rejects(superviseTestSuite({ files: [file], ownerFile: file }), { code: 'owner_suite_options_invalid' });
+    await assert.rejects(superviseOwnerSuite({ files: [file] }), { code: 'owner_suite_file_missing' });
+  });
+});
+
+test("ordinary suite cancellation, deadline and log failure remain failed after group and stdio settle", { timeout: 20_000 }, async t => {
+  for (const mode of ['cancel', 'timeout', 'log']) await t.test(mode, async t => {
+    const f = await temporary(t), file = path.join(f.root, 'waiting.test.mjs'), cancel = new AbortController();
+    await writeFile(file, `import test from 'node:test';process.on('SIGTERM',()=>process.exit(0));
+test('pending ordinary work',async()=>{console.log('ORDINARY_READY');await new Promise(()=>{setInterval(()=>{},1000)});});`);
+    const stdout = output(text => {
+      if (text.includes('ORDINARY_READY')) {
+        if (mode === 'cancel') cancel.abort();
+        if (mode === 'log') return Object.assign(new Error('synthetic log error'), { code: 'EIO' });
+      }
+    }), stderr = output();
+    const result = await superviseTestSuite({ files: [file], signal: cancel.signal,
+      stdout: stdout.stream, stderr: stderr.stream, timeoutMs: mode === 'timeout' ? 1500 : 5000 });
+    assert.match(stdout.text(), /ORDINARY_READY/); assert.equal(result.passed, false);
+    assert.equal(result.interrupted, mode === 'cancel' ? 'cancelled' : mode === 'log' ? 'log_failure' : 'timeout');
+    assert.equal(result.timedOut, mode === 'timeout'); assert.equal(result.group.confirmedGone, true);
+    assert.equal(result.child.closeObserved, true); assert.equal(result.stdioComplete, true);
+    assert.equal(result.ownedWork, null); assert.equal(result.cleanup.status, 'not_applicable');
+    if (mode === 'log') assert.ok(result.logErrors.includes('EIO'));
+  });
+});
+
+test("ordinary suite retains failed terminal evidence for an unacknowledged log write", { timeout: 10_000 }, async t => {
+  const f = await temporary(t), file = path.join(f.root, 'drain.test.mjs');
+  await writeFile(file, "import test from 'node:test';test('write',()=>{console.log('UNACKNOWLEDGED')});");
+  const stdout = new Writable({ write(_bytes, _encoding, _done) {} }), stderr = output();
+  const result = await superviseTestSuite({ files: [file], stdout, stderr: stderr.stream, timeoutMs: 5000 });
+  assert.equal(result.passed, false); assert.ok(result.logErrors.includes('owner_log_drain_timeout'));
+  assert.equal(result.group.confirmedGone, true); assert.equal(result.ownedWork, null);
+  assert.equal(result.cleanup.status, 'not_applicable'); stdout.destroy();
+});
+
+test("ordinary suite cancellation waits for TERM-ignoring descendants in its own group", { timeout: 10_000 }, async t => {
+  const f = await temporary(t), file = path.join(f.root, 'ignores-term.test.mjs'), cancel = new AbortController();
+  await writeFile(file, `import test from 'node:test';process.on('SIGTERM',()=>{});
+test('owned descendant',async()=>{console.log('IGNORE_TERM_READY');await new Promise(()=>{setInterval(()=>{},1000)});});`);
+  const stdout = output(text => { if(text.includes('IGNORE_TERM_READY'))cancel.abort(); }), stderr = output();
+  const result = await superviseTestSuite({ files: [file], signal: cancel.signal, stdout: stdout.stream, stderr: stderr.stream, timeoutMs: 5000 });
+  assert.equal(result.passed, false); assert.equal(result.interrupted, 'cancelled');
+  assert.equal(result.group.escalated, true); assert.ok(result.group.signals.includes('SIGKILL'));
+  assert.equal(result.group.confirmedGone, true); assert.equal(result.child.closeObserved, true);
+  assert.equal(result.stdioComplete, true); assert.equal(result.cleanup.status, 'not_applicable');
 });

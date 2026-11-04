@@ -1,0 +1,20 @@
+{
+  "baseRevision": 219,
+  "baseSha256": "7071314f67f7bf2f87fae3dcdf2990f41a5e1324fdd4101b317931aab0e89c62",
+  "revision": 220,
+  "resume": {
+    "checkpoint": "A批31e46a13已推送，CI41768312001通过143/143。B批14旧源码退役与测试入口解耦已实现：156/156；clean-env监督62/62另计，126当前编译文件未变；本地候选待独审。",
+    "nextAction": "精确白名单保存B批并交独审，不推送未审代码。随后C批Praxis单列；MIG02运行导出/消费闭包依赖已接收，不改沧海或理解写回。旧UNKNOWN加载不重发、不操作Host/模型。"
+  },
+  "evidence": {
+    "id": "C-VAL-CHECKPOINT-RETIREMENT-B",
+    "kind": "verification",
+    "ref": ".task-control/reports/CORE-VAL-001/checkpoint-retirement-b-20261104/REPORT.json",
+    "claim": "作者有限离线验证；当前Host与语义未验，候选待独审。",
+    "observedAt": "2026-11-04T03:46:47.824171+00:00",
+    "subject": {
+      "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+      "sha256": "ddf9960953142d08e69a4d376e6798a61e9d836b829dbd4398ccee2dd631ebb9"
+    }
+  }
+}

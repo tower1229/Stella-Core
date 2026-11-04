@@ -1,0 +1,261 @@
+[
+  {
+    "path": "scripts/lib/correction-capture-contract.mjs",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "9af408fcb38d4034d49b671c1746ee07e1dfdb5d",
+    "sha256": "0d60badc8af7b2a4d958b1f208f8ebd0bde4b69c429cb8e18bfae01fe1e13fd2",
+    "bytes": 17862
+  },
+  {
+    "path": "scripts/lib/owner-suite-invocation.mjs",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "5455fe2d8202ada3574df7faf4a7d0bf895f33e5",
+    "sha256": "2d842c06db4ab2241701ae8fe4e84485391902df1a53d2dcaaf28f4ac216c8d2",
+    "bytes": 1339
+  },
+  {
+    "path": "src/learning/host-correction.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "954771f9f620565f8a3a01483019a29f82489834",
+    "sha256": "9b7d2a786eef4a938576f57e3e4432968985f34a4a93aaa26e781f14467fa0cf",
+    "bytes": 14561
+  },
+  {
+    "path": "src/openclaw/checkpoint-agent-correction.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "687c8f8d28a90431fd30d4abc9ed7ea122d86e76",
+    "sha256": "84e46356bf2238f17b24fdefdd23ddb9d00ce13e130805517ac30190e267e216",
+    "bytes": 6938
+  },
+  {
+    "path": "src/openclaw/checkpoint-agent-supply.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "8127a2abd3169026d4057300d55f6b196b98af28",
+    "sha256": "77369faa726adafd6c1a404081708fadc755f7bc60cdc1727d3dc9f70b13739f",
+    "bytes": 36291
+  },
+  {
+    "path": "src/openclaw/checkpoint-correction-readback.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "07570f5e0409e37de985ed518b97bb470e9f3c74",
+    "sha256": "e195e501d0b3239663740325793c00e50a451cd39f8b8c1b2d335b6a503dfa38",
+    "bytes": 8142
+  },
+  {
+    "path": "src/openclaw/checkpoint-failure-reply.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "7662a2f0908c1f55ded27d3c9aa03fc8c897202d",
+    "sha256": "4f23126f1407a87c2cd30c7e591c0aa405a53b1e790619ccb7f2cd38cac20095",
+    "bytes": 1965
+  },
+  {
+    "path": "src/openclaw/checkpoint-host-request.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "060c43dd274c6e7262580ced4e62792f4d74d813",
+    "sha256": "946fc286d511f2e31c33fc9b93aa469358fb72c9fa313cf6019bdff1e15021a6",
+    "bytes": 10638
+  },
+  {
+    "path": "src/openclaw/checkpoint-initialization.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "745a19f3efe1d9db9907b657ca73829c2857f6d5",
+    "sha256": "301b08cb7fa943df2bbaaf0c2c1df94716ee2db2d76f0850157f9e247a8513ef",
+    "bytes": 9848
+  },
+  {
+    "path": "src/openclaw/checkpoint-native-readback.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "819609985264b6d6e43681a325dadee90eff98df",
+    "sha256": "f050594590a4e12b1cc897326f2343686fd88fc1f7aa5d7b1e43180e4f886219",
+    "bytes": 4800
+  },
+  {
+    "path": "src/openclaw/checkpoint-observation.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "bbe181e1d19c0b1d89522181739b44cba1282cb5",
+    "sha256": "a2f299b49e51a6e7be3ca2cca8d8f4912fac0fbeea5a93743f26238fb44d8bca",
+    "bytes": 4911
+  },
+  {
+    "path": "src/openclaw/checkpoint-plugin-registration.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "e8c6b1edcbc71dc8566fd44d012cedfc169e19a5",
+    "sha256": "52d194f86f1e4af31985d262c6739d10548d4222e5e476b8879053c684024014",
+    "bytes": 8212
+  },
+  {
+    "path": "src/openclaw/checkpoint-plugin-runtime.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "1a6ff109317d09cb155bfb25ed8399a62acf74c3",
+    "sha256": "632f71299c6fd66cb595ca5f586e449e213c8a4892408311ce03445a005386e6",
+    "bytes": 14639
+  },
+  {
+    "path": "src/openclaw/checkpoint-request-identity.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "f743c14e64ab27afe14194b950157c853a3d341f",
+    "sha256": "56c5afd41b79f0f81bd42fa384d34e31e417c002c7edb951e53d4a835a01088b",
+    "bytes": 6128
+  },
+  {
+    "path": "src/openclaw/checkpoint-request-ingress.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "cb88e43732ac5e32cf76836bdade760832d819f8",
+    "sha256": "c5d7ad1687ebd924779c89f3ace9bdf4c2fff5f9e783d2a446d34e9ab971a4e0",
+    "bytes": 18423
+  },
+  {
+    "path": "src/openclaw/checkpoint-source-access.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "ecad95ff1047306888b8790760c749d1b4f20ede",
+    "sha256": "f24456ef03b58c7e4259fa7773a6035108c8d5fad040ac27ae4bdbaef6a6001b",
+    "bytes": 9782
+  },
+  {
+    "path": "tests/checkpoint-agent-correction-supply.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "8f564a4c4ef480f0dd883ed5b59c855beedc7b0b",
+    "sha256": "8836d0802d7d6e8a14fa87d161022ddc7adb3b74d7e19886c3624fc0ff3fc4e4",
+    "bytes": 64513
+  },
+  {
+    "path": "tests/checkpoint-agent-correction.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "458d5090db613fe71c3761a3e2c2e965a7f2e1d3",
+    "sha256": "e00ee4f02d9e7b6b5d871c2193cd4a32d6bf216bf8e6b4f45b4053ec21305330",
+    "bytes": 13529
+  },
+  {
+    "path": "tests/checkpoint-agent-supply-lifecycle.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "dbe781cb1a9f929fd4f4e47534dbb347ed7b2864",
+    "sha256": "7ec2ff6b01d54b597f76541a40e2df8ff160ad27b7be2a6ced2352f7c28b8bf5",
+    "bytes": 8715
+  },
+  {
+    "path": "tests/checkpoint-agent-supply-lifecycle.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "594b2e47cba86fa5185cbcad82df3bff0607f5d2",
+    "sha256": "576eee39f8693d66aff51655dc227368a12a64a9deed53aaebf4740a0ac1e64d",
+    "bytes": 2565
+  },
+  {
+    "path": "tests/checkpoint-agent-supply-timing.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "e867c0ff676c2ffd1d9b5067a5856dd6f8b5185e",
+    "sha256": "ac5780a063ee7d312d5f1457a95265d34f97356295854d89734567f8cc62b79c",
+    "bytes": 1461
+  },
+  {
+    "path": "tests/checkpoint-agent-supply.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "cf6cedd93907c4973b26e7ecae5d2a0d5ce5d1ff",
+    "sha256": "e75fff09e039705bfdf77c6f2245de4d9ec10619df01d987e95f85cab1868ef7",
+    "bytes": 64888
+  },
+  {
+    "path": "tests/checkpoint-correction-readback.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "2d918ec51db46a9414275c256798585dd3c4a036",
+    "sha256": "fe8a5e4fcf59d0f3cb20854b93ec29ba84c712e0527c625189190e3d02b7f7b6",
+    "bytes": 33503
+  },
+  {
+    "path": "tests/checkpoint-correction.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "f30626814f26faae60fea799675a2febc1a96b1c",
+    "sha256": "210ad1dd31be5b1ff372a6ec5b309378fa7d452e19be233ad6c64b82a8a07f69",
+    "bytes": 14720
+  },
+  {
+    "path": "tests/checkpoint-failure-reply.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "f4b44217f19d5be41ad8fb2acc3dbc67c3aa48d5",
+    "sha256": "b8fe839ceef7ef5e9169333e37aa8f2782f4e86da679bb8de5025e94af1d0b7d",
+    "bytes": 4749
+  },
+  {
+    "path": "tests/checkpoint-ingress-lifetime.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "aa26e6ebda008d179d56240b6e6e392adbb59bcb",
+    "sha256": "0171e85234fe759c6ecd686bc30d43383e84b09d83512d47e29569d4df9d0307",
+    "bytes": 16672
+  },
+  {
+    "path": "tests/checkpoint-initialization.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "f0ab414dbbad9cb77d57474acf8b061895c69df2",
+    "sha256": "1ebb5b5079a5ce3182cfef7a45b9044dbb402b40307449845510dec73e7d2f31",
+    "bytes": 13469
+  },
+  {
+    "path": "tests/checkpoint-native-evidence-get.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "eb375f6c0032cc81ed38559380471fc882447a1a",
+    "sha256": "f2af1eec4881079ba16166c84b14ad0ae400894399bacd56309122a00f25f007",
+    "bytes": 30323
+  },
+  {
+    "path": "tests/checkpoint-native-readback.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "ca1d86dc94d5b02b3bcf416d49dda282f837c187",
+    "sha256": "1792955f4d02b1fb570bdcc3f11b1606b9a7b0eeb10d5f7613938a168da6d10f",
+    "bytes": 21488
+  },
+  {
+    "path": "tests/checkpoint-plugin-runtime.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "2e4d4ce25f5df58e2925c09c727062e53727445d",
+    "sha256": "a4c230481df9a999fa6b60a37c2572896e8b0e72ef90642db013eadb882ff753",
+    "bytes": 32078
+  },
+  {
+    "path": "tests/checkpoint-source-access.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "b873722a95c90eb3991925d2f048cef1d6741081",
+    "sha256": "1003492e91564e59f484149a4053a8e12350cbace82b7d192c759364644f689b",
+    "bytes": 14186
+  },
+  {
+    "path": "tests/checkpoint-understanding-fixture.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "a7ecccb5eeb26666956d1477af6a283027f6a149",
+    "sha256": "588c92128a75fa1d9ed4eccaf2933d8cf64f1f147489d5bf61540a2a063ab9bb",
+    "bytes": 7774
+  },
+  {
+    "path": "tests/checkpoint-understanding-supply.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "920738ccb7c24dab4f30cbff29e9e3354da78765",
+    "sha256": "923e4d728860dbbc5a865425c1cce3960336c835b054343df233401700ffe503",
+    "bytes": 13189
+  },
+  {
+    "path": "tests/checkpoint-work-fixture.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "d67ed23746ba88c666e9f9f41bfda0c64dd6542d",
+    "sha256": "e43978d5229132174a651d805baf85450497d94616562c4a457d2eb62036d77b",
+    "bytes": 13341
+  },
+  {
+    "path": "tests/checkpoint-work-supply.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "aacc5df852f7518b9d1241e758db5a405b2548d2",
+    "sha256": "e79167f87897031c8518a8eedde4e64cf53f05870f13d87c13084e7f419e52a2",
+    "bytes": 11756
+  },
+  {
+    "path": "tests/correction-capture-contract.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "40fbf8fd54eb956c9859bf8224271ec5286ab05f",
+    "sha256": "8ae89f785d54b1671a12ff3d019eb2b88a1b9abd84c223530a7601bd022447b0",
+    "bytes": 21987
+  },
+  {
+    "path": "tests/webchat-identity-diagnostic.test.ts",
+    "baseCommit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+    "blob": "6930bf4db3a555f41f323cbe2633b6e37226c177",
+    "sha256": "2efbb0aa0fe6ad1fb46501d3ec0bd5749d8d43fae1b78b2f4caa6d246fa3d6f7",
+    "bytes": 12553
+  }
+]

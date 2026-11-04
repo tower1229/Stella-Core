@@ -1,0 +1,58 @@
+[
+  {
+    "original": "scripts/fixtures/installed-correction-observer.mjs",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/scripts/fixtures/installed-correction-observer.mjs",
+    "bytes": 3523,
+    "sha256": "3e954dc2b5d2f872b6ede1c4c5845f1ab8d031db33bdf8bc162b11e48af5e368",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  },
+  {
+    "original": "scripts/lib/installed-correction-diagnostics.mjs",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/scripts/lib/installed-correction-diagnostics.mjs",
+    "bytes": 14566,
+    "sha256": "fe25860813517a3331f76460f48b49069e18770f313d0eb63b5dda26fc43ed06",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  },
+  {
+    "original": "scripts/lib/installed-correction-fixed-provider.mjs",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/scripts/lib/installed-correction-fixed-provider.mjs",
+    "bytes": 12067,
+    "sha256": "27b691963c487ec7410dc3f6aa055c703e0f8e97685f6b0b8136ff203cc01939",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  },
+  {
+    "original": "scripts/lib/installed-correction-host-trial.test.mjs",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/scripts/lib/installed-correction-host-trial.test.mjs",
+    "bytes": 36856,
+    "sha256": "0d740c6c046d9eb3977eea5fb07d4086934a498b251916d14375709b1dda60dd",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  },
+  {
+    "original": "scripts/lib/installed-correction-network.mjs",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/scripts/lib/installed-correction-network.mjs",
+    "bytes": 3879,
+    "sha256": "6a6fe95d575e88e4aca59b9fd58259eb87f29c2f671528cd2e40a6832fd1cf7b",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  },
+  {
+    "original": "scripts/run-installed-correction-host.mjs",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/scripts/run-installed-correction-host.mjs",
+    "bytes": 17297,
+    "sha256": "b3980d5738ba870c77f8654e8c1a6b402f4bb1cb6e095ef3c528a638922beda5",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  },
+  {
+    "original": "tests/installed-correction-diagnostics.test.ts",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/tests/installed-correction-diagnostics.test.ts",
+    "bytes": 24272,
+    "sha256": "f0ceb9e0d179631107d3ccbeda709170e5d133688e4361e5a4f6dce91ff3799a",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  },
+  {
+    "original": "tests/installed-correction-host-runner.test.ts",
+    "archive": ".artifacts/checkpoint-retirement-b-20261104/historical/tests/installed-correction-host-runner.test.ts",
+    "bytes": 26548,
+    "sha256": "33a8463b803eb4e3f45cd4db354cb52fc21aa9e3737de9b2c62c8125b5d99bb7",
+    "status": "historical_untracked_not_installed_not_standalone_runnable"
+  }
+]

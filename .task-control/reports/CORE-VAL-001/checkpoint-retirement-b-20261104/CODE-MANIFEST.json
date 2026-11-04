@@ -1,0 +1,194 @@
+{
+  ".github/workflows/ordinary-plugin.yml": {
+    "status": "present",
+    "sha256": "dde5f686e7da382aa383b8f36d3ce6d26355e9e123ae19b9892c77f8d7fad50b"
+  },
+  "README.md": {
+    "status": "present",
+    "sha256": "b7b57d2049316079b6920d0d92ff8d432d421140e3ccfb310e9dfeb90605b76a"
+  },
+  "scripts/lib/compiled-test-suite.mjs": {
+    "status": "present",
+    "sha256": "ae00c76158d78e6fd6163cce138f6ada36af1da4a1ca46bf83eb9c52fbba7a36"
+  },
+  "scripts/lib/correction-capture-contract.mjs": {
+    "status": "deleted",
+    "baseSha256": "0d60badc8af7b2a4d958b1f208f8ebd0bde4b69c429cb8e18bfae01fe1e13fd2"
+  },
+  "scripts/lib/owner-suite-invocation.mjs": {
+    "status": "deleted",
+    "baseSha256": "2d842c06db4ab2241701ae8fe4e84485391902df1a53d2dcaaf28f4ac216c8d2"
+  },
+  "scripts/lib/sdk-owner-supervisor.mjs": {
+    "status": "present",
+    "sha256": "663e7bd60db27bbc4e2748dc312a67f0dc06116d782f0e01d88a7be6dd6f0b2e"
+  },
+  "scripts/run-workspace-tests.mjs": {
+    "status": "present",
+    "sha256": "9d451a385b6ca2e37fc8a3c598140b1396773a16ded6143a1c268238d864dbe8"
+  },
+  "src/learning/host-correction.ts": {
+    "status": "deleted",
+    "baseSha256": "9b7d2a786eef4a938576f57e3e4432968985f34a4a93aaa26e781f14467fa0cf"
+  },
+  "src/openclaw/checkpoint-agent-correction.ts": {
+    "status": "deleted",
+    "baseSha256": "84e46356bf2238f17b24fdefdd23ddb9d00ce13e130805517ac30190e267e216"
+  },
+  "src/openclaw/checkpoint-agent-supply.ts": {
+    "status": "deleted",
+    "baseSha256": "77369faa726adafd6c1a404081708fadc755f7bc60cdc1727d3dc9f70b13739f"
+  },
+  "src/openclaw/checkpoint-correction-readback.ts": {
+    "status": "deleted",
+    "baseSha256": "e195e501d0b3239663740325793c00e50a451cd39f8b8c1b2d335b6a503dfa38"
+  },
+  "src/openclaw/checkpoint-failure-reply.ts": {
+    "status": "deleted",
+    "baseSha256": "4f23126f1407a87c2cd30c7e591c0aa405a53b1e790619ccb7f2cd38cac20095"
+  },
+  "src/openclaw/checkpoint-host-request.ts": {
+    "status": "deleted",
+    "baseSha256": "946fc286d511f2e31c33fc9b93aa469358fb72c9fa313cf6019bdff1e15021a6"
+  },
+  "src/openclaw/checkpoint-initialization.ts": {
+    "status": "deleted",
+    "baseSha256": "301b08cb7fa943df2bbaaf0c2c1df94716ee2db2d76f0850157f9e247a8513ef"
+  },
+  "src/openclaw/checkpoint-native-readback.ts": {
+    "status": "deleted",
+    "baseSha256": "f050594590a4e12b1cc897326f2343686fd88fc1f7aa5d7b1e43180e4f886219"
+  },
+  "src/openclaw/checkpoint-observation.ts": {
+    "status": "deleted",
+    "baseSha256": "a2f299b49e51a6e7be3ca2cca8d8f4912fac0fbeea5a93743f26238fb44d8bca"
+  },
+  "src/openclaw/checkpoint-plugin-registration.ts": {
+    "status": "deleted",
+    "baseSha256": "52d194f86f1e4af31985d262c6739d10548d4222e5e476b8879053c684024014"
+  },
+  "src/openclaw/checkpoint-plugin-runtime.ts": {
+    "status": "deleted",
+    "baseSha256": "632f71299c6fd66cb595ca5f586e449e213c8a4892408311ce03445a005386e6"
+  },
+  "src/openclaw/checkpoint-request-identity.ts": {
+    "status": "deleted",
+    "baseSha256": "56c5afd41b79f0f81bd42fa384d34e31e417c002c7edb951e53d4a835a01088b"
+  },
+  "src/openclaw/checkpoint-request-ingress.ts": {
+    "status": "deleted",
+    "baseSha256": "c5d7ad1687ebd924779c89f3ace9bdf4c2fff5f9e783d2a446d34e9ab971a4e0"
+  },
+  "src/openclaw/checkpoint-source-access.ts": {
+    "status": "deleted",
+    "baseSha256": "f24456ef03b58c7e4259fa7773a6035108c8d5fad040ac27ae4bdbaef6a6001b"
+  },
+  "tests/README.md": {
+    "status": "present",
+    "sha256": "e695c820f359b20580cc13062b9ece7b012361d6132f3d20828e51d96090e175"
+  },
+  "tests/checkpoint-agent-correction-supply.test.ts": {
+    "status": "deleted",
+    "baseSha256": "8836d0802d7d6e8a14fa87d161022ddc7adb3b74d7e19886c3624fc0ff3fc4e4"
+  },
+  "tests/checkpoint-agent-correction.test.ts": {
+    "status": "deleted",
+    "baseSha256": "e00ee4f02d9e7b6b5d871c2193cd4a32d6bf216bf8e6b4f45b4053ec21305330"
+  },
+  "tests/checkpoint-agent-supply-lifecycle.test.ts": {
+    "status": "deleted",
+    "baseSha256": "7ec2ff6b01d54b597f76541a40e2df8ff160ad27b7be2a6ced2352f7c28b8bf5"
+  },
+  "tests/checkpoint-agent-supply-lifecycle.ts": {
+    "status": "deleted",
+    "baseSha256": "576eee39f8693d66aff51655dc227368a12a64a9deed53aaebf4740a0ac1e64d"
+  },
+  "tests/checkpoint-agent-supply-timing.ts": {
+    "status": "deleted",
+    "baseSha256": "ac5780a063ee7d312d5f1457a95265d34f97356295854d89734567f8cc62b79c"
+  },
+  "tests/checkpoint-agent-supply.test.ts": {
+    "status": "deleted",
+    "baseSha256": "e75fff09e039705bfdf77c6f2245de4d9ec10619df01d987e95f85cab1868ef7"
+  },
+  "tests/checkpoint-correction-readback.test.ts": {
+    "status": "deleted",
+    "baseSha256": "fe8a5e4fcf59d0f3cb20854b93ec29ba84c712e0527c625189190e3d02b7f7b6"
+  },
+  "tests/checkpoint-correction.test.ts": {
+    "status": "deleted",
+    "baseSha256": "210ad1dd31be5b1ff372a6ec5b309378fa7d452e19be233ad6c64b82a8a07f69"
+  },
+  "tests/checkpoint-failure-reply.test.ts": {
+    "status": "deleted",
+    "baseSha256": "b8fe839ceef7ef5e9169333e37aa8f2782f4e86da679bb8de5025e94af1d0b7d"
+  },
+  "tests/checkpoint-ingress-lifetime.test.ts": {
+    "status": "deleted",
+    "baseSha256": "0171e85234fe759c6ecd686bc30d43383e84b09d83512d47e29569d4df9d0307"
+  },
+  "tests/checkpoint-initialization.test.ts": {
+    "status": "deleted",
+    "baseSha256": "1ebb5b5079a5ce3182cfef7a45b9044dbb402b40307449845510dec73e7d2f31"
+  },
+  "tests/checkpoint-native-evidence-get.test.ts": {
+    "status": "deleted",
+    "baseSha256": "f2af1eec4881079ba16166c84b14ad0ae400894399bacd56309122a00f25f007"
+  },
+  "tests/checkpoint-native-readback.test.ts": {
+    "status": "deleted",
+    "baseSha256": "1792955f4d02b1fb570bdcc3f11b1606b9a7b0eeb10d5f7613938a168da6d10f"
+  },
+  "tests/checkpoint-plugin-runtime.test.ts": {
+    "status": "deleted",
+    "baseSha256": "a4c230481df9a999fa6b60a37c2572896e8b0e72ef90642db013eadb882ff753"
+  },
+  "tests/checkpoint-source-access.test.ts": {
+    "status": "deleted",
+    "baseSha256": "1003492e91564e59f484149a4053a8e12350cbace82b7d192c759364644f689b"
+  },
+  "tests/checkpoint-understanding-fixture.ts": {
+    "status": "deleted",
+    "baseSha256": "588c92128a75fa1d9ed4eccaf2933d8cf64f1f147489d5bf61540a2a063ab9bb"
+  },
+  "tests/checkpoint-understanding-supply.test.ts": {
+    "status": "deleted",
+    "baseSha256": "923e4d728860dbbc5a865425c1cce3960336c835b054343df233401700ffe503"
+  },
+  "tests/checkpoint-work-fixture.ts": {
+    "status": "deleted",
+    "baseSha256": "e43978d5229132174a651d805baf85450497d94616562c4a457d2eb62036d77b"
+  },
+  "tests/checkpoint-work-supply.test.ts": {
+    "status": "deleted",
+    "baseSha256": "e79167f87897031c8518a8eedde4e64cf53f05870f13d87c13084e7f419e52a2"
+  },
+  "tests/correction-capture-contract.test.ts": {
+    "status": "deleted",
+    "baseSha256": "8ae89f785d54b1671a12ff3d019eb2b88a1b9abd84c223530a7601bd022447b0"
+  },
+  "tests/correction.test.ts": {
+    "status": "present",
+    "sha256": "717d4c6324acfcc5b2174eac7dd0748a3e97da61cdb56c7086b64a690752e299"
+  },
+  "tests/episode-evidence.test.ts": {
+    "status": "present",
+    "sha256": "cd42a8037f5e1f8cd02ee82d41b991faa7ab2c8963c8912fec9c514f260a02eb"
+  },
+  "tests/ingest.test.ts": {
+    "status": "present",
+    "sha256": "5eb22cf3ca7e98b9d403b133848639304046cf6c227ac27cae5bba62aaf18fdb"
+  },
+  "tests/sdk-owner-suite.test.ts": {
+    "status": "present",
+    "sha256": "a14d24189d755bf01f610012670d695c7858148d4ed8c04b40dc6c71d4dcaa3a"
+  },
+  "tests/webchat-identity-diagnostic.test.ts": {
+    "status": "deleted",
+    "baseSha256": "2efbb0aa0fe6ad1fb46501d3ec0bd5749d8d43fae1b78b2f4caa6d246fa3d6f7"
+  },
+  "tests/workspace-test-entry.test.ts": {
+    "status": "present",
+    "sha256": "ff9ff5c9cc39e3c5c78b70db3d1e1e9bfa59f69e1e08ecea831e97b3fd08ee04"
+  }
+}

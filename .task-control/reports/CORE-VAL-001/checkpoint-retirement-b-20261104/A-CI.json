@@ -1,0 +1,17 @@
+{
+  "commit": "31e46a13d45edfdf466b0b89bf2f208bdf6bace5",
+  "run": 41768312001,
+  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41768312001",
+  "conclusion": "success",
+  "completedAt": "2026-11-04T03:39:10Z",
+  "sdk": "2026.10.8",
+  "tests": 143,
+  "pass": 143,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "tarballMembers": 145,
+  "artifactSha256": "fd510684a9fb317a6706609cc29fafb94c775391c3aba1b4137a644dff08e051",
+  "testStdoutSha256": "9ae0a60fb4556fd084c36b0d0c6a9fcbd9a3313d33c74ac9434ecf7233b75369",
+  "scope": "Extracted ordinary package; no actual Host/model/whole workspace verdict"
+}

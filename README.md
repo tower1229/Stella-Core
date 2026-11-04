@@ -114,7 +114,7 @@ Schema success alone does not verify temporal, cross-record, permission or evide
 
 ## Experimental owner chat
 
-The opt-in [experimental owner chat guide](docs/EXPERIMENTAL-OWNER-CHAT.md) describes the bounded pure-plugin mode, initialization, continuous conversation, and rollback. It is separate from full memory and Alpha acceptance.
+The [experimental owner chat guide](docs/EXPERIMENTAL-OWNER-CHAT.md) is historical. Its custom checkpoint runtime, initialization and source-supply adapters have been retired; it is not an alternative install path. Current development uses the ordinary plugin and native OpenClaw memory/context/Agent loop.
 
 The [Suqing closeout](docs/suqing-closeout-2026-10-23.md) records each scoped exit and remaining boundary; [current request-lifecycle work](docs/mainline-request-lifecycle-2026-10-23.md) tracks the follow-up fixes, CI evidence, and real WebChat prerequisites.
 
