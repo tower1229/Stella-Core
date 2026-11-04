@@ -17,3 +17,5 @@ Host context/provider退役批次将旧completion/fragment adapter及其专用�
 Checkpoint退役批次移除旧Host入场、供给、纠正、初始化和native-readback适配器；不删除当前仓储/事务仍使用的checkpoint契约和数据类型。混合测试中的原件、角色、版本、保留策略与事务断言保留，Learning Change六种合法/矛盾形状直接验证共享数据内核。旧Host纠正编排和native lease映射行为明确退役，不以普通工具测试冒充等价验收。
 
 `npm test`编译后枚举完整顶层测试集，使用普通suite模式监督真实进程组、stdio和取消，不再要求某个checkpoint文件充当SDK资源owner。普通模式不分配共享SDK目录、不接受或伪造清理回执；显式owner入口仍验证真实测试资源归属和终态，失败保留目录。三套监督/入口测试另在现行CI自动执行；12套解包合同测试保持。旧未跟踪installed-correction探针的本机原字节归档见本批`HISTORICAL-ARCHIVE.json`，不运行或上传原始探针。
+
+Praxis退役批次删除旧runtime/packet/Episode仓储与事务编排、旧snapshot-import和专用脚本/测试。通用`SourceEvidenceReader`与`VersionedRef`移入CangHai数据层；原文/BOM/角色/来源及对象版本、策略、时间、Learning Change与模型判据仍直接验证。恢复测试保留真实数据读取身份快照；公共夹具通过CatalogReader验证无主人画像和跨Git换行配置的原文字节，不再创建Praxis runtime。原Episode转换/预测封存/执行回执属于已退役实现，不宣称由新测试等价覆盖；留存schema契约与历史Git证据，不删除用户资产。MIG02文件manifest仍不是运行catalog，真实新分支消费及理解回写另行接入。

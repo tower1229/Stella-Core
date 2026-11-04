@@ -1,0 +1,177 @@
+[
+  {
+    "path": "src/acceptance/praxis-loop-state.ts",
+    "sha256": "f597db4dec2de5b002b719fb36e1b70bde8f71935819d663896cda38c98f555e",
+    "bytes": 2945
+  },
+  {
+    "path": "src/acceptance/recovery-drill.ts",
+    "sha256": "0013560c64f4dda99654d171aade5deba125f3348304a3be15e5eecf0d3b108d",
+    "bytes": 7901
+  },
+  {
+    "path": "src/canghai/checkpoint-snapshot-import.ts",
+    "sha256": "4e116d781e6d48ff01b2cbfded722408cd4c78c32926c50ebebbda5fd4894360",
+    "bytes": 21589
+  },
+  {
+    "path": "src/praxis/cortex-context.ts",
+    "sha256": "c4f351092aae4a9e764da6b86283cf61b4e5c65c2f091c4f60c314390ce601ba",
+    "bytes": 4457
+  },
+  {
+    "path": "src/praxis/episode-repository.ts",
+    "sha256": "8b8e872c8daefc6e94553dffe94caa5dfdb0cd4563cd1a9378cff38a7eb7e06a",
+    "bytes": 12329
+  },
+  {
+    "path": "src/praxis/episode-store.ts",
+    "sha256": "97d41b2641ecaa8069dbc8f73ddce023e127c126225a7a53b15841a9106cfa4a",
+    "bytes": 21540
+  },
+  {
+    "path": "src/praxis/legacy-migration.ts",
+    "sha256": "5103d03f5cf5c208db0f9243ef4b8760c01adbbc444a8fba5e7a85254d425baf",
+    "bytes": 5974
+  },
+  {
+    "path": "src/praxis/outcome-evidence-bundle.ts",
+    "sha256": "b0d3f94430777236500debfe0436b2d8c240de2bdfe0e2c416d054108c585dee",
+    "bytes": 2238
+  },
+  {
+    "path": "src/praxis/outcome-preparation.ts",
+    "sha256": "443d6f56042eafb261e75888dcd06f641b98f21c527a277ba879c6d4e20f6d10",
+    "bytes": 13102
+  },
+  {
+    "path": "src/praxis/outcome-recovery-binding.ts",
+    "sha256": "5c008e8b818044b0bad72c6d8b3fb0a898aae80152e5ee2dd0d0de8fda0a4aac",
+    "bytes": 2801
+  },
+  {
+    "path": "src/praxis/packet.ts",
+    "sha256": "5601b932abcdc2d43b0416ba5b2a5ce75d0718114cd87eb5f200fec679865715",
+    "bytes": 14223
+  },
+  {
+    "path": "src/praxis/question-transaction.ts",
+    "sha256": "2e693cb08d45566b23ae72225bd0edbc97b1822acd9576114d4b8450674b2a8d",
+    "bytes": 10118
+  },
+  {
+    "path": "src/praxis/routing-context.ts",
+    "sha256": "4554cb2ee0ce4025244b5b9c4a3962b25cce6238fc46c12ac3147fad99be0dc7",
+    "bytes": 8894
+  },
+  {
+    "path": "src/praxis/runtime-binding.ts",
+    "sha256": "252eefa3b7db09179ee95b53531077134dae819bdcc63fea3332563fe0eddda3",
+    "bytes": 15607
+  },
+  {
+    "path": "src/praxis/runtime-memory.ts",
+    "sha256": "2063e6129b3f8a996a76d296a6d6ec96830a22e3ceab39bbf6f53a9429bb8cce",
+    "bytes": 6833
+  },
+  {
+    "path": "src/praxis/episode-v2.ts",
+    "sha256": "36406549d82f10ee1dd123933fac02985e8ac108fb858eab932a6f977e7cb33b",
+    "bytes": 6619
+  },
+  {
+    "path": "src/praxis/episode-evidence.ts",
+    "sha256": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d",
+    "bytes": 27362
+  },
+  {
+    "path": "tests/exact-host-praxis.test.ts",
+    "sha256": "c0c1883747a56823df9fd26c8f85e1f4167a3a4655e8976032720aa7828661f1",
+    "bytes": 4846
+  },
+  {
+    "path": "tests/recovery-drill.test.ts",
+    "sha256": "fa2d95896d1a24606597b2c43c10d4d213f452d5d02ea03784c61175d056e43c",
+    "bytes": 15790
+  },
+  {
+    "path": "tests/checkpoint-snapshot-import.test.ts",
+    "sha256": "18d48c092b87dccf47a42653f6be553b486c05c0678d9c65918998f439504e15",
+    "bytes": 12690
+  },
+  {
+    "path": "tests/episode-repository.test.ts",
+    "sha256": "713d653c952ff1d7cc48843dbe9f8c29a04561311e79c1fe793bf1982c03a84b",
+    "bytes": 14160
+  },
+  {
+    "path": "tests/runtime-memory.test.ts",
+    "sha256": "997b59a2f9886c7d3a21b88ea15a4148257ba81fc83d4b7ee909fb1ba5b18969",
+    "bytes": 9395
+  },
+  {
+    "path": "tests/praxis-episode-store.test.ts",
+    "sha256": "406e53746e52ed984e7399c06a0eb589337d4f6a057b199be3f9d07134de4913",
+    "bytes": 15771
+  },
+  {
+    "path": "tests/legacy-migration.test.ts",
+    "sha256": "059a6df7043f6c026b09cb591a3bb9893b3af3034c9803fc9701dd885197d529",
+    "bytes": 3658
+  },
+  {
+    "path": "tests/runtime-binding.test.ts",
+    "sha256": "2db2d08000245aedc93d179e1ae9f5b108e31990964588479115a6366c4caaf5",
+    "bytes": 23083
+  },
+  {
+    "path": "tests/praxis-packet.test.ts",
+    "sha256": "239e8542f815e07bff435d3630998fdd56ceb89ce595e2ef831f1e56e61b9a41",
+    "bytes": 9893
+  },
+  {
+    "path": "tests/question-transaction.test.ts",
+    "sha256": "f3724019ce8409b907247cb5ef894c82899f70b9c2c4553ec093e22a5a1b16ee",
+    "bytes": 7019
+  },
+  {
+    "path": "tests/routing-context.test.ts",
+    "sha256": "ba87866d5f9caabfd5d2f3c909e4891a68a36782c2a4571b1a0ce1ff18df7af4",
+    "bytes": 18782
+  },
+  {
+    "path": "tests/episode-v2.test.ts",
+    "sha256": "1d7d3f1d6f25648c0b3d43345081e7fa80b024b6deca072c44f8b72287177539",
+    "bytes": 4813
+  },
+  {
+    "path": "scripts/quarantine-legacy-episodes.mjs",
+    "sha256": "7ee062b3f5edf9dabad5e145c26880b76a59cb9c63b8bcc55f250bed658cbc40",
+    "bytes": 1380
+  },
+  {
+    "path": "scripts/stage-alpha-view-plan.mjs",
+    "sha256": "d1332efaa36cfd823d2053da7021eeb80f4f2534aa8a2615cd25dca947f3d7ec",
+    "bytes": 5274
+  },
+  {
+    "path": "scripts/migrate-staged-runtime.mjs",
+    "sha256": "c955b3a8e0ae6b825bb59a8524751623264f6191aa002908a491a1814ef8b8a2",
+    "bytes": 7292
+  },
+  {
+    "path": "scripts/stage-runtime-capabilities.mjs",
+    "sha256": "c7a92506849b3ba8056806b8aa2bc52aae83187a067c2292aa212b3c67977148",
+    "bytes": 3847
+  },
+  {
+    "path": "scripts/stage-v2-source-baseline.mjs",
+    "sha256": "b0484bbd2cf496b50496e89e11666ac1c5069635f542cf8cd01c1f22c25157ef",
+    "bytes": 7111
+  },
+  {
+    "path": "scripts/run-private-praxis-loop.mjs",
+    "sha256": "fdd7e45cecce3f52e24257df8e8694b5093c41762571edc3ea5271625a6d2054",
+    "bytes": 23748
+  }
+]

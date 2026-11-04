@@ -5,7 +5,7 @@ import { CatalogError, parseMemoryCatalog, validMemoryRef, type CatalogEntry, ty
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import { parseSourcePolicy } from "./source-policy.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import type { MemoryFileChange } from "./memory-transaction.js";
 
 const run = promisify(execFile);

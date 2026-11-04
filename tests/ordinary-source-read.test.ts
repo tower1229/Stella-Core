@@ -11,7 +11,7 @@ import { executeOrdinarySourceRead, parseSourceReadBinding, type SourceReadAdmis
 import { prepareRepositorySource } from "../src/canghai/repository-source.js";
 import { CatalogError, CatalogReader, parseMemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { canonicalJson, bytesVersion, objectVersion } from "../src/canghai/content-version.js";
-import type { VersionedRef } from "../src/praxis/episode-v2.js";
+import type { VersionedRef } from "../src/canghai/ref.js";
 
 import { fixture, prefix, manifestPath, profilePath, catalogPath, hostVersion } from "./fixtures/ordinary-source-read.js";
 

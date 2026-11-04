@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { HostInputSnapshot } from "../canghai/host-input-snapshot.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { isRecord } from "../shared/type-guards.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { CatalogError, type CatalogEntry, type CatalogGroup, validMemoryRef } from "./catalog-reader.js";

@@ -5,7 +5,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { CatalogError, CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
 import { prepareRepositorySource, REPOSITORY_SOURCE_ADAPTER } from "../src/canghai/repository-source.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
 import { createFixture } from "./consciousness-fixture.js";
 
 test("repository import retains mixed original bytes as unknown, never as owner action", async (t) => {
@@ -28,7 +28,7 @@ test("repository import retains mixed original bytes as unknown, never as owner 
     catalog[object.group].push(object.entry);
   }
   await writeFile(path.join(root, catalogPath), canonicalJson(catalog));
-  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, catalogPath), {
+  const resolver = new SourceEvidenceReader(await CatalogReader.load(root, catalogPath), {
     readPurpose: "alpha_praxis", derivePurpose: "alpha_praxis", deliveryScope: "host-chat", evidenceCutoff: input.capturedAt,
     trustedAdapters: { user_report: [REPOSITORY_SOURCE_ADAPTER], tool_observation: [], system_event: [] },
   }, async () => { throw new Error("Unknown provenance must fail before semantic action judgment"); });

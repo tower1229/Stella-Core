@@ -2,7 +2,7 @@ import path from "node:path";
 import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 
 export type MemoryView = {
   id: string; generationId: string; recipeRef: VersionedRef; required: boolean; sourceRefs: VersionedRef[];

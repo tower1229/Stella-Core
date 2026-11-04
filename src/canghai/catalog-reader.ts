@@ -5,7 +5,7 @@ import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { isRecord } from "../shared/type-guards.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { assertMemoryTransactionReadable } from "./memory-transaction.js";
 import { migrateSynchronizationState, type SynchronizationState } from "./synchronization-state.js";

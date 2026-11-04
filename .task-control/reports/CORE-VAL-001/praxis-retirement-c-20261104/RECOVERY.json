@@ -1,0 +1,16 @@
+{
+  "permissionEvidence": "Current developer managed workspace-write policy and selected environment filesystem both explicitly restore write access to the Stella-Core repository; not inferred from read success. No permission changes made by the agent.",
+  "previousFailure": "exec-server transport disconnected before process creation; one read recovery check timed out; environment then unavailable",
+  "resumeBase": {
+    "head": "bc4d2aa918857c6abad714bb920da86565821895",
+    "stateRevision": 222,
+    "stateSha256": "66b1b2678e08b81501982ba36fee277744d1270a20f35645e5d610148a4c787b",
+    "backupMembersVerified": 327,
+    "retiredPathsStillAbsent": 35,
+    "mixedScriptAbsent": true,
+    "initialCompileLogAbsent": true,
+    "indexEmpty": true
+  },
+  "resumedOnly": "mixed tests/dependencies, compilation, local evidence/commit; no deletion replay, no B push replay",
+  "privateSourceOrHostOrModelActions": false
+}

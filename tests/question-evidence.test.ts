@@ -206,7 +206,7 @@ test("prepareQuestionEvidence throws schema retrieval checkpoint when semantic b
   const { CatalogReader, parseMemoryCatalog, CatalogError } = await import("../src/canghai/catalog-reader.js");
   const { bytesVersion, canonicalJson, objectVersion } = await import("../src/canghai/content-version.js");
   const { prepareRepositorySource } = await import("../src/canghai/repository-source.js");
-  const { EpisodeEvidenceResolver } = await import("../src/praxis/episode-evidence.js");
+  const { SourceEvidenceReader } = await import("../src/canghai/evidence-reader.js");
   const { parseRetrievalCheckpoint } = await import("../src/canghai/retrieve.js");
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-pqe-retrieve-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -227,7 +227,7 @@ test("prepareQuestionEvidence throws schema retrieval checkpoint when semantic b
   for (const object of imported.objects) { await put(object.entry.locator.path, object.bytes); catalog[object.group].push(object.entry); }
   await put("catalog.json", canonicalJson(catalog));
   const reader = await CatalogReader.load(root, "catalog.json");
-  const resolver = new EpisodeEvidenceResolver(reader, { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
+  const resolver = new SourceEvidenceReader(reader, { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
     evidenceCutoff: "2026-09-09T00:00:00Z", trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No judgment"); });
   const descriptors = [{ sourceRef: imported.sourceRef, policyRef, description: "desc" }];
   const retrievalConfig = { schemaVersion: "stella.semantic-retrieval/v1" as const, pageSize: 16, maxRounds: 1, maxSelected: 4, maxOriginalChars: 96000 };

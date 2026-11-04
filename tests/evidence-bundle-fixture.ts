@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
 import type { EvidenceBundle } from "../src/praxis/evidence-bundle.js";
 
 export function syntheticBundle(): EvidenceBundle {
@@ -32,7 +32,7 @@ export async function bundleFixture(t: { after(fn: () => Promise<void>): void })
     await writeFile(path.join(root, "catalog.json"), canonicalJson(catalog));
   };
   await save();
-  const resolver = () => CatalogReader.load(root, "catalog.json").then((reader) => new EpisodeEvidenceResolver(reader,
+  const resolver = () => CatalogReader.load(root, "catalog.json").then((reader) => new SourceEvidenceReader(reader,
     { readPurpose: "synthetic", derivePurpose: "synthetic", deliveryScope: "synthetic", evidenceCutoff: "2026-09-06T00:00:00Z",
       trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No semantic action claim in this fixture"); }));
   const answer = (text: string) => ({ text, bundleRef: { id: bundle.id, version: bundle.version },

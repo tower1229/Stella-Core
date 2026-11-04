@@ -1,8 +1,8 @@
 import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { EpisodeEvidenceResolver, EvidencePurpose, EventWindow } from "../praxis/episode-evidence.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { SourceEvidenceReader, EvidencePurpose, EventWindow } from "./evidence-reader.js";
+import type { VersionedRef } from "./ref.js";
 import type { SourceAccessDescriptor } from "./source-access.js";
 import type { SourceAccessExclusions } from "../praxis/evidence-bundle.js";
 import {
@@ -153,7 +153,7 @@ type RetrieveWiring = {
   purpose: EvidencePurpose;
   requiredCapabilities: string[];
   resourceBudget: { config: SemanticRetrievalConfig; abortSignal?: AbortSignal };
-  resolver: EpisodeEvidenceResolver;
+  resolver: SourceEvidenceReader;
   descriptors: SourceAccessDescriptor[];
   ownerId: string;
   modelRef: string;

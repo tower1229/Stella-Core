@@ -2,7 +2,7 @@ import path from "node:path";
 import { CatalogError, CatalogReader, readRepositoryBytes, validMemoryRef } from "../canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson } from "../canghai/content-version.js";
 import { MemoryTransactionError, readRecordedMemoryTransaction } from "../canghai/memory-transaction.js";
-import { EpisodeEvidenceResolver, type EvidencePurpose } from "../praxis/episode-evidence.js";
+import { SourceEvidenceReader, type EvidencePurpose } from "../canghai/evidence-reader.js";
 import { loadEvidenceBundle } from "../praxis/evidence-bundle.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { PraxisEvaluationAnswer } from "./model-praxis-evaluator.js";
@@ -12,8 +12,8 @@ function check(value: unknown): asserts value { if (!value) throw new CatalogErr
 /** Evaluates the exact delivered question/answer pair, not an adapter-supplied replacement. */
 async function loadBoundQuestionEvaluationAnswer(input: {
   root: string; catalogPath: string; requestId: string; question: string; text: string;
-  purpose: EvidencePurpose; complete: EpisodeEvidenceResolver["complete"];
-}, progress: { stage: string }): Promise<{ answer: PraxisEvaluationAnswer; resolver: EpisodeEvidenceResolver }> {
+  purpose: EvidencePurpose; complete: SourceEvidenceReader["complete"];
+}, progress: { stage: string }): Promise<{ answer: PraxisEvaluationAnswer; resolver: SourceEvidenceReader }> {
   check(input.requestId && input.question.trim() && input.text.trim());
   progress.stage = "catalog";
   const reader = await CatalogReader.load(input.root, input.catalogPath);
@@ -34,7 +34,7 @@ async function loadBoundQuestionEvaluationAnswer(input: {
   check(journal.files.find((file) => file.path === bindingPath)?.after === canonicalJson(binding));
   progress.stage = "evidence_scope";
   const evidenceCutoff = new Date(Math.min(Date.parse(binding.evidenceCutoff), Date.parse(input.purpose.evidenceCutoff))).toISOString();
-  const resolver = new EpisodeEvidenceResolver(reader, { ...input.purpose, evidenceCutoff }, input.complete);
+  const resolver = new SourceEvidenceReader(reader, { ...input.purpose, evidenceCutoff }, input.complete);
   const answer: PraxisEvaluationAnswer = { text: input.text, requestId: input.requestId, revision: binding.revision,
     generationId: binding.generationId, bundleRef: { id: binding.bundleRef.id, version: binding.bundleRef.version } };
   progress.stage = "evidence_bundle";

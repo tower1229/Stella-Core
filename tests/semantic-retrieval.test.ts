@@ -8,7 +8,7 @@ import os from "node:os";
 import { CatalogReader, parseMemoryCatalog, CatalogError } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { prepareRepositorySource } from "../src/canghai/repository-source.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
 import { retrieveCatalogEvidence, type SemanticRetrievalConfig } from "../src/canghai/semantic-retrieval.js";
 import type { SourceAccessDescriptor } from "../src/canghai/source-access.js";
 
@@ -30,7 +30,7 @@ test("semantic retrieval searches beyond 64 entries and follows original-driven 
   }
   await put("catalog.json", canonicalJson(catalog));
   const reader = await CatalogReader.load(root, "catalog.json");
-  const resolver = new EpisodeEvidenceResolver(reader, { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct", evidenceCutoff: "2026-09-09T00:00:00Z", trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No action judgment"); });
+  const resolver = new SourceEvidenceReader(reader, { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct", evidenceCutoff: "2026-09-09T00:00:00Z", trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No action judgment"); });
   let pages = 0, reviews = 0;
   const input = { question: "Follow the evidence", resolver, descriptors, ownerId: "owner", modelRef: "synthetic/model", config, assertProcessingCurrent: async () => {} };
   const result = await retrieveCatalogEvidence({ ...input, complete: async ({ prompt }) => {
@@ -103,7 +103,7 @@ test("semantic retrieval searches beyond 64 entries and follows original-driven 
   for (const object of archive.objects) { await put(object.entry.locator.path, object.bytes); catalog[object.group].push(object.entry); }
   catalog.generationId = "two"; await put("catalog.json", canonicalJson(catalog));
   const archivedReader = await CatalogReader.load(root, "catalog.json");
-  const archivedResolver = new EpisodeEvidenceResolver(archivedReader, { ...resolver.purpose, trustedAdapters: { user_report: [HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, async () => { throw new Error("No judgment"); });
+  const archivedResolver = new SourceEvidenceReader(archivedReader, { ...resolver.purpose, trustedAdapters: { user_report: [HOST_REQUEST_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] } }, async () => { throw new Error("No judgment"); });
   const archivedResult = await retrieveCatalogEvidence({ ...input, resolver: archivedResolver, complete: async ({ prompt: query }) => {
     const data = JSON.parse(query.split("\n").at(-1)!);
     if (data.candidates) {

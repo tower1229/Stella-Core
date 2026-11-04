@@ -1,5 +1,8 @@
 import path from "node:path";
 
+/** Stable object identity and explicit content version; not a Git revision. */
+export type VersionedRef = { id: string; version: string };
+
 export type CangHaiPathRef = {
   kind: "path";
   raw: string;

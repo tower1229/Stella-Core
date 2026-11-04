@@ -1,0 +1,32 @@
+{
+  "commit": "bc4d2aa918857c6abad714bb920da86565821895",
+  "runId": 41770819247,
+  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41770819247",
+  "conclusion": "success",
+  "completedAt": "2026-11-04T04:04:45Z",
+  "sdkVersion": "2026.10.8",
+  "lockedSdkVersion": "2026.10.8",
+  "results": {
+    "package": {
+      "sha256": "3c43c83e7cf83b05c2a2077a5e844e9f9c00c497be536cea8de89f091ad76fad",
+      "counts": {
+        "tests": 143,
+        "pass": 143,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "supervision": {
+      "sha256": "c4f8b17e7130348c75d210bc3b670d8ee2f535fdfd50aefeb9a2ace6fbf46395",
+      "counts": {
+        "tests": 62,
+        "pass": 62,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "scope": "synthetic extracted package and native test supervision; not live Host or model semantics"
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { verifySourceInterpretation } from "../src/canghai/source-interpretation.js";
 import { compileReviewedSourceConstraints } from "../src/canghai/source-policy-migration.js";
-import type { OriginalEvidence } from "../src/praxis/episode-evidence.js";
+import type { OriginalEvidence } from "../src/canghai/evidence-reader.js";
 
 test("derived source-use checks reject missed rules, semantic violations, changed authority and unbound model output", async () => {
   const original: OriginalEvidence = { ref: { id: "evidence", version: `sha256:${"1".repeat(64)}` }, text: "A historical synthetic observation.",

@@ -1,0 +1,23 @@
+{
+  "handoff": "MIG02-CORE-INTERFACE-MATRIX.md, referenced in B/MIG02-DEPENDENCY.json",
+  "currentInterface": [
+    "fixed source root and Git revision",
+    "instance manifest -> runtime profile -> catalog",
+    "stable Source/Evidence/version/policy/descriptor references",
+    "list/read receipt with revision, generation and pinned hashes",
+    "fresh admission for a new request/version"
+  ],
+  "notEquivalent": "Removed checkpoint-snapshot-import published old core_checkpoint authority and rejected shared Git object stores; it was not MIG02 runtime export or new-branch consumption. Its removal does not remove or implement the new synchronization interface.",
+  "preserved": [
+    "catalog/source synchronization plan and executor",
+    "memory transaction/journal/durability",
+    "original byte, BOM, role, timestamp, source/object version, policy and LearningChange contracts"
+  ],
+  "pending": [
+    "producer runtime export -> consumer catalog closure",
+    "newbranch actual consumption and sync receipt",
+    "expert-aligned understanding writeback semantics"
+  ],
+  "realCangHaiWrites": false,
+  "grantExpansion": false
+}

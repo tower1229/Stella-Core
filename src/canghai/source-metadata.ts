@@ -1,7 +1,7 @@
 import { CatalogError, CatalogReader, validMemoryRef } from "./catalog-reader.js";
 import { canonicalJson } from "./content-version.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 
 const key = (ref: VersionedRef) => canonicalJson({ id: ref.id, version: ref.version });
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }

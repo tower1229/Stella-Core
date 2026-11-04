@@ -4,7 +4,7 @@ import { createSourceAccessProvider, sourceAccessKey, type SourceAccessDescripto
 import { assertSourcePolicyAccess, parseSourcePolicy, type PolicyPurpose, type SourceAccessContext } from "./source-policy.js";
 import { sourceSegments, segmentLocator, validSegmentLocator } from "./source-segments.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 import type { ProcessingAuthority } from "../openclaw/processing-authority.js";
 import { assertPrivateContextAudience, resolveTurnAudience } from "../openclaw/turn-audience.js";

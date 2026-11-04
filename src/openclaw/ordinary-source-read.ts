@@ -12,8 +12,8 @@ import { sourceSegments, assertEvidenceSegment, segmentLocator, type SegmentLoca
 import { MAX_CANGHAI_DOCUMENT_BYTES, parseConsciousnessManifest } from "../canghai/manifest.js";
 import { parseRuntimeProfile } from "../canghai/runtime-profile.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
-import { EpisodeEvidenceResolver, evidenceTemporallyEligible, type EvidencePurpose } from "../praxis/episode-evidence.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import { SourceEvidenceReader, evidenceTemporallyEligible, type EvidencePurpose } from "../canghai/evidence-reader.js";
+import type { VersionedRef } from "../canghai/ref.js";
 import { isRecord } from "../shared/type-guards.js";
 
 export const SOURCE_READ_TOOL = "stella_source_read";
@@ -143,7 +143,7 @@ export async function executeOrdinarySourceRead(input: {
   check(profile.agent_id === agentId && profile.memory !== undefined, "source_profile_binding_mismatch");
   const catalogPath = pathRef(profile.memory.catalog_ref), reader = await CatalogReader.load(binding.root, catalogPath); await guard();
   await pin(catalogPath, reader.catalogHash);
-  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new CatalogError("source_read_does_not_run_models"); });
+  const resolver = new SourceEvidenceReader(reader, purpose, async () => { throw new CatalogError("source_read_does_not_run_models"); });
   const pinned = new Set<string>();
   const pinRef = async (ref: VersionedRef): Promise<void> => {
     const key = `${ref.id}:${ref.version}`;

@@ -4,8 +4,8 @@ import { CatalogError, CatalogReader, validMemoryRef } from "../canghai/catalog-
 import { canonicalJson, bytesVersion } from "../canghai/content-version.js";
 import { isRecord } from "../shared/type-guards.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
-import type { EpisodeEvidenceResolver, OriginalEvidence } from "./episode-evidence.js";
-import type { VersionedRef } from "./episode-v2.js";
+import type { SourceEvidenceReader, OriginalEvidence } from "../canghai/evidence-reader.js";
+import type { VersionedRef } from "../canghai/ref.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "./evidence-bundle.js";
 
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
@@ -83,7 +83,7 @@ type Candidate = { handle: string; ref: VersionedRef; group: "understandings" | 
   record: Record<string, unknown>; originals: OriginalEvidence[] };
 
 type PreparedPersonalContext = {
-  resolver: EpisodeEvidenceResolver; authority: ProcessingAuthority; requestId: string; requestHash: string; context: string;
+  resolver: SourceEvidenceReader; authority: ProcessingAuthority; requestId: string; requestHash: string; context: string;
   dependencies: Array<{ ref: VersionedRef; digest: string }>; originals: OriginalEvidence[];
   configurationInputs: Array<{ path: string; sha256: string }>;
   assertCurrent(): Promise<void>;
@@ -105,7 +105,7 @@ export async function preparePersonalViews(input: {
   audience: "owner_direct";
   processingAuthority: ProcessingAuthority;
   processingGrant?: object;
-  resolver: EpisodeEvidenceResolver;
+  resolver: SourceEvidenceReader;
   selection?: "model" | "all_authorized";
   assertProcessingCurrent: () => Promise<void>;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;

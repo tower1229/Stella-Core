@@ -897,3 +897,19 @@ checkpoint_retirement_b_20261104:
   added_ci_supervision_suites: 3
   untracked_probe_archive: 8_original_bytes_local_only
   real_host_and_model: not_run
+
+# 2026-11-04 C batch: old execution retired; retained data contract evidence only.
+praxis_retirement_c_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/praxis-retirement-c-20261104/REPORT.json
+  retired_source_paths: 17
+  retired_dedicated_test_suites: 12
+  retired_launchers: 6
+  neutral_reader_methods_unchanged: 10
+  ordinary_compiled_source_modules: 41
+  ordinary_praxis_imports: none
+  package_members: 142
+  initial_targeted: 178_pass_2_fixture_lookup_failures_of_180
+  corrected_affected_tests: 33_pass_0_fail_not_additive
+  final_extracted_package: 143_pass_0_fail_sdk10_9
+  real_host_models_private_data: not_run
+  new_MIG02_runtime_export_consumption_and_sync: remaining

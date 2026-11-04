@@ -6,7 +6,7 @@ import test from "node:test";
 import { prepareHostInputArchive, HOST_INPUT_ARCHIVE_ADAPTER } from "../src/canghai/host-input-archive.js";
 import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
 import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
 import { persistHostInputArchive } from "../src/canghai/archive-writer.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
@@ -74,7 +74,7 @@ test("materialized Host source is readable by the real catalog and evidence reso
   const payload = path.join(root, archive.payload.path);
   await mkdir(path.dirname(payload), { recursive: true }); await writeFile(payload, archive.payload.bytes);
   await writeFile(path.join(root, "catalog.json"), canonicalJson(catalog));
-  const resolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, "catalog.json"), {
+  const resolver = new SourceEvidenceReader(await CatalogReader.load(root, "catalog.json"), {
     readPurpose: "alpha", derivePurpose: "alpha", deliveryScope: "synthetic", evidenceCutoff: now,
     trustedAdapters: { user_report: [HOST_INPUT_ARCHIVE_ADAPTER], tool_observation: [], system_event: [] },
   }, async () => { throw new Error("No semantic model needed for original span retrieval"); });

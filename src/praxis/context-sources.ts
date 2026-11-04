@@ -4,8 +4,8 @@ import { sourceSegments } from "../canghai/source-segments.js";
 import { parseCangHaiRef } from "../canghai/ref.js";
 import { isRecord } from "../shared/type-guards.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
-import type { EpisodeEvidenceResolver, OriginalEvidence } from "./episode-evidence.js";
-import type { VersionedRef } from "./episode-v2.js";
+import type { SourceEvidenceReader, OriginalEvidence } from "../canghai/evidence-reader.js";
+import type { VersionedRef } from "../canghai/ref.js";
 
 export type ContextSources = {
   dependencies: Array<{ ref: VersionedRef; digest: string }>; originals: OriginalEvidence[];
@@ -17,7 +17,7 @@ const key = (ref: VersionedRef) => canonicalJson({ id: ref.id, version: ref.vers
 
 /** Collect source closures for Core's fixed context compilers. The returned
  * snapshot is data; only a compiler receipt can admit it to a Host authority. */
-export function collectContextSources(resolver: EpisodeEvidenceResolver, authority: ProcessingAuthority,
+export function collectContextSources(resolver: SourceEvidenceReader, authority: ProcessingAuthority,
   assertScopeCurrent: () => Promise<void>, seed?: ContextSources) {
   authority = structuredClone(authority);
   seed = seed ? structuredClone({ dependencies: seed.dependencies, originals: seed.originals,

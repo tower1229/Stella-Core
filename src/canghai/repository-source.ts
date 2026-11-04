@@ -2,7 +2,7 @@ import { CatalogError, readRepositoryBytes, selectTextEvidence, validMemoryRef, 
 import { sourceSegments } from "./source-segments.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";
 import { stableId, type ArchiveObject } from "./host-input-archive.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { parseNativeMemoryOrigin, type NativeMemoryOrigin } from "./native-memory-origin.js";
 
 export const REPOSITORY_SOURCE_ADAPTER = "stella-repository-file/v1";

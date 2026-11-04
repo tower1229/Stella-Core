@@ -1,7 +1,7 @@
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { isRecord } from "../shared/type-guards.js";
 import {
   CatalogError,

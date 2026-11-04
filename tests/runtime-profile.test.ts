@@ -63,3 +63,32 @@ test("profile accepts fully validated v2 policy resources without granting runti
   await writeFile(policyPath, JSON.stringify({ ...policy, id: "unregistered-policy" }));
   await assert.rejects(loadRuntimeProfileResources(root, profile), /source_policy_identity_mismatch/);
 });
+
+
+test("profile resources require exact identities and availability without promoting acceptance", async t => {
+  const root = await createFixture(); t.after(() => rm(root, { recursive: true, force: true }));
+  const profile = parseRuntimeProfile(parse(await readFile(path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml"), "utf8")));
+  const resources = await loadRuntimeProfileResources(root, profile);
+  const receipt = "50_PersonalAgent/stella/capability-acceptance.json";
+  assert.ok(resources.authorityPaths.includes(receipt));
+  assert.ok(resources.authorityPaths.includes("30_PersonalData/memory/policy.json"));
+  assert.ok(!resources.authorityPaths.includes("30_PersonalData/memory/catalog.json"));
+  const file = path.join(root, receipt), bytes = await readFile(file);
+  assert.equal(JSON.parse(bytes.toString()).status, "not_evaluated");
+  await rm(file); await assert.rejects(loadRuntimeProfileResources(root, profile), /profile_resource_unavailable/);
+  await writeFile(file, bytes); assert.deepEqual(await readFile(file), bytes);
+});
+
+test("profile resource loading rejects invalid UTF-8 and duplicate policy identities", async t => {
+  const root = await createFixture(); t.after(() => rm(root, { recursive: true, force: true }));
+  const profile = parseRuntimeProfile(parse(await readFile(path.join(root, "50_PersonalAgent/stella/runtime-profile.yaml"), "utf8")));
+  const file = path.join(root, "50_PersonalAgent/stella/capability-acceptance.json"), bytes = await readFile(file);
+  await writeFile(file, Buffer.from([0xff, 0xfe]));
+  await assert.rejects(loadRuntimeProfileResources(root, profile), /invalid_profile_resource/);
+  await writeFile(file, bytes);
+  const item = { id: "policy-fixture", ref: "path:30_PersonalData/memory/policy.json" };
+  await writeFile(path.join(root, "50_PersonalAgent/stella/source-policies.yaml"), JSON.stringify({
+    schema_version: "stella.source-policy-registry/v1", id: "fixture-policies", policies: [item, item],
+  }));
+  await assert.rejects(loadRuntimeProfileResources(root, profile), /invalid_source_policy_registry/);
+});

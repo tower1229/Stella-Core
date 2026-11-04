@@ -9,9 +9,9 @@ import { afterDurablePersistPublishView } from "../canghai/managed-durable-write
 import type { RecoveryAuthoritySnapshot } from "../canghai/recovery-authority-contract.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
-import { EpisodeEvidenceResolver, validLearningChangeTargetState, type OriginalEvidence, type EvidencePurpose } from "../praxis/episode-evidence.js";
+import { SourceEvidenceReader, validLearningChangeTargetState, type OriginalEvidence, type EvidencePurpose } from "../canghai/evidence-reader.js";
 import { preparePersonalViews, validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "../canghai/ref.js";
 import { isRecord } from "../shared/type-guards.js";
 import { readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
 import { applyViewMigration, planViewMigration, rebuildsFromRecordedPlan, isViewMigrationFile, type ViewMigrationPlan, type ViewRebuildAdmission } from "../canghai/view-migration.js";
@@ -137,7 +137,7 @@ export async function prepareCorrection(input: {
   checkpoint?: RecoveryAuthoritySnapshot;
   processingGrant?: object;
   operationId: string; request: string; ownerId: string; modelRef: string; recordedAt: string;
-  evidenceRefs: VersionedRef[]; resolver: EpisodeEvidenceResolver; objectRoot: string;
+  evidenceRefs: VersionedRef[]; resolver: SourceEvidenceReader; objectRoot: string;
   processingAuthority: ProcessingAuthority;
   assertProcessingCurrent: () => Promise<void>; complete: Complete;
   /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
@@ -388,7 +388,7 @@ export async function prepareCorrection(input: {
     ...(input.checkpoint ? { recoveryCheckpoint: { binding: input.checkpoint.binding,
       expected: { revision: input.checkpoint.revision, token: input.checkpoint.token } } } : {}) };
   const verify = async (current: CatalogReader) => current.validatePreview(after, objects, async preview => {
-    const resolver = new EpisodeEvidenceResolver(preview, input.resolver.purpose, input.resolver.complete);
+    const resolver = new SourceEvidenceReader(preview, input.resolver.purpose, input.resolver.complete);
     for (const evidence of ownerEvidence) {
       check(canonicalJson(await resolver.readEvidence(evidence.ref)) === canonicalJson(evidence), "correction_evidence_changed");
     }
@@ -559,7 +559,7 @@ export async function recoverCorrection(input: {
     check(input.processingAuthority.privateContextAllowed && input.processingAuthority.audience === "owner_direct",
       "private_context_audience_forbidden");
     const noInference = async (): Promise<never> => { throw new CatalogError("correction_recovery_model_forbidden"); };
-    const resolver = new EpisodeEvidenceResolver(reader, purpose, noInference);
+    const resolver = new SourceEvidenceReader(reader, purpose, noInference);
     const originals: string[] = [];
     for (const ref of inputRefs) {
       const stored = await reader.read(ref, "evidence");

@@ -2,7 +2,7 @@ import { CatalogError, type CatalogGroup } from "./catalog-reader.js";
 import { canonicalJson, bytesVersion, objectVersion } from "./content-version.js";
 import { stableId, type HostInputArchive } from "./host-input-archive.js";
 import { snapshotTurnRequest, type BoundTurnRequest } from "../openclaw/turn-request.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 
 export const HOST_REQUEST_ARCHIVE_ADAPTER = "openclaw-reply-dispatch-2026.8.2";
 export type HostRequestSnapshot = { schemaVersion: "stella.host-request-snapshot/v1"; request: BoundTurnRequest; capturedAt: string };

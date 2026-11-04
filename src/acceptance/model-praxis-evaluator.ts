@@ -5,7 +5,7 @@ import type {
   PraxisEvaluationObservation,
 } from "./praxis-evaluation.js";
 import { loadEvidenceBundle, type EvidenceBundleBinding } from "../praxis/evidence-bundle.js";
-import type { EpisodeEvidenceResolver } from "../praxis/episode-evidence.js";
+import type { SourceEvidenceReader } from "../canghai/evidence-reader.js";
 import { canonicalJson } from "../canghai/content-version.js";
 
 const DIMENSION_KEYS = [
@@ -40,7 +40,7 @@ export type PraxisEvaluationAnswer = EvidenceBundleBinding & { text: string };
 
 type ModelPraxisEvaluatorOptions = {
   answerCase: (evaluationCase: PraxisEvaluationCase) => Promise<PraxisEvaluationAnswer>;
-  evidenceResolver: (evaluationCase: PraxisEvaluationCase, answer: PraxisEvaluationAnswer) => Promise<EpisodeEvidenceResolver>;
+  evidenceResolver: (evaluationCase: PraxisEvaluationCase, answer: PraxisEvaluationAnswer) => Promise<SourceEvidenceReader>;
   judge: (prompt: string) => Promise<{ text: string }>;
 };
 

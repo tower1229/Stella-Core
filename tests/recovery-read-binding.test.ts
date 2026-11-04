@@ -3,7 +3,6 @@ import test from "node:test";
 import { canonicalJson } from "../src/canghai/content-version.js";
 import { RecoveryAuthorityError, type RecoveryAuthorityResolver, type RecoveryAuthoritySnapshot } from "../src/canghai/recovery-authority-contract.js";
 import { captureRecoveryReadBinding, assertRecoveryReadBinding, createRecoveryReadScope } from "../src/canghai/recovery-read-binding.js";
-import { loadOutcomeRecoveryBinding } from "../src/praxis/outcome-recovery-binding.js";
 
 const revisionA = "a".repeat(40), revisionB = "b".repeat(40);
 const scope = { agentId: "synthetic", canghaiRoot: "/synthetic/repository", manifestPath: "manifest.json" };
@@ -51,19 +50,8 @@ test("missing/corrupt authority and wrong scope reject without fallback", async 
   for (const changed of [{ ...scope, agentId: "another" }, { ...scope, canghaiRoot: "/synthetic/another" }, { ...scope, manifestPath: "other.json" }])
     await assert.rejects(captureRecoveryReadBinding(changed, f.resolver), category("recovery_read_binding_mismatch"));
 });
-function hostConfig() { return { plugins: { entries: { "stella-core": { enabled: true, config: { ...scope, dataMode: "managed_durable_write", recoveryRevision: revisionA } } } } }; }
-test("outcome recovery cannot replace frozen revision or use a different repository scope", async () => {
-  const f = authority(), binding = await captureRecoveryReadBinding(scope, f.resolver);
-  await assert.rejects(loadOutcomeRecoveryBinding(scope.canghaiRoot, scope.manifestPath, revisionB, binding), category("recovery_binding_changed"));
-  await assert.rejects(loadOutcomeRecoveryBinding("/synthetic/other", scope.manifestPath, revisionA, binding), category("recovery_read_binding_mismatch"));
-  f.set(snapshot(revisionB, "token-B"));
-  await assert.rejects(loadOutcomeRecoveryBinding(scope.canghaiRoot, scope.manifestPath, revisionA, binding), category("recovery_authority_changed"));
-  assert.equal(f.counts().reads, 1);
-});
-
-
 test("mutable expected aliases cannot upgrade token while a read assertion awaits", async () => {
-  for (const endpoint of ["assert", "outcome"] as const) {
+  for (const nextToken of ["token-B", "token-C"] as const) {
     const external = { ...snapshot(), binding: { ...snapshot().binding } }, entered = deferred<void>(), gate = deferred<void>();
     let current = snapshot();
     const resolver: RecoveryAuthorityResolver = { mode: "core_checkpoint", async read() { return current; }, async assertCurrent(expected) {
@@ -71,9 +59,8 @@ test("mutable expected aliases cannot upgrade token while a read assertion await
       if (canonicalJson(expected) !== canonicalJson(current)) throw new RecoveryAuthorityError("recovery_authority_changed");
     } };
     const binding = { resolver, expected: external };
-    const pending = assert.rejects(endpoint === "assert" ? assertRecoveryReadBinding(binding, scope)
-      : loadOutcomeRecoveryBinding(scope.canghaiRoot, scope.manifestPath, revisionA, binding), category("recovery_authority_changed"));
-    await entered.promise; external.token = "token-B"; current = snapshot(revisionA, "token-B"); gate.resolve(); await pending;
+    const pending = assert.rejects(assertRecoveryReadBinding(binding, scope), category("recovery_authority_changed"));
+    await entered.promise; external.token = nextToken; current = snapshot(revisionA, nextToken); gate.resolve(); await pending;
   }
 });
 

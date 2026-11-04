@@ -6,7 +6,7 @@ import { bytesVersion, canonicalJson, objectVersion } from "../canghai/content-v
 import { prepareRepositorySource } from "../canghai/repository-source.js";
 import { retrieve, resumeRetrieve, resolveTemporalPurpose } from "../canghai/retrieve.js";
 import type { SemanticRetrievalConfig } from "../canghai/semantic-retrieval.js";
-import { EpisodeEvidenceResolver } from "../praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../canghai/evidence-reader.js";
 import type { CapabilityAdapter } from "./capability-acceptance.js";
 
 /** Constrained memory_access adapter: verifies authorized original discovery / fragment read surface without business admission. */
@@ -70,7 +70,7 @@ export function createDefaultMemoryAccessVerify(): CapabilityAdapter["execute"] 
       for (const object of imported.objects) { await put(object.entry.locator.path, object.bytes); catalog[object.group].push(object.entry); }
       await put("catalog.json", canonicalJson(catalog));
       const reader = await CatalogReader.load(root, "catalog.json");
-      const resolver = new EpisodeEvidenceResolver(reader, { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
+      const resolver = new SourceEvidenceReader(reader, { readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
         evidenceCutoff: "2026-09-09T00:00:00Z", trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, async () => { throw new Error("No judgment"); });
       const entry = reader.catalog.evidence[0]!;
       const original = await resolver.readEvidence({ id: entry.id, version: entry.version });
@@ -107,7 +107,7 @@ export function createDefaultSemanticRetrievalVerify(): CapabilityAdapter["execu
       const reader = await CatalogReader.load(root, "catalog.json");
       const purpose = resolveTemporalPurpose({ readPurpose: "read", derivePurpose: "derive", deliveryScope: "direct",
         trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } }, "current");
-      const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No judgment"); });
+      const resolver = new SourceEvidenceReader(reader, purpose, async () => { throw new Error("No judgment"); });
       const descriptors = [{ sourceRef: { id: reader.catalog.sources[0]!.id, version: reader.catalog.sources[0]!.version }, policyRef, description: "d1" },
         { sourceRef: { id: reader.catalog.sources[1]!.id, version: reader.catalog.sources[1]!.version }, policyRef, description: "d2" }];
       const first = await retrieve({

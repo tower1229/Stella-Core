@@ -4,8 +4,8 @@ import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { canonicalJson } from "./content-version.js";
 import { sourceAccessKey, type SourceAccessDescriptor } from "./source-access.js";
 import { isRecord } from "../shared/type-guards.js";
-import { evidenceTemporallyEligible, type EpisodeEvidenceResolver, type OriginalEvidence } from "../praxis/episode-evidence.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import { evidenceTemporallyEligible, type SourceEvidenceReader, type OriginalEvidence } from "./evidence-reader.js";
+import type { VersionedRef } from "./ref.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions } from "../praxis/evidence-bundle.js";
 import { sourceSegments, assertEvidenceSegment, segmentLocator } from "./source-segments.js";
 
@@ -55,7 +55,7 @@ const key = (ref: VersionedRef) => canonicalJson({ id: ref.id, version: ref.vers
  * Selected originals still pass the ordinary source access and segment gates.
  * Budget exhaustion returns a continuable progress snapshot instead of pretending completeness. */
 export async function retrieveCatalogEvidence(input: {
-  question: string; resolver: EpisodeEvidenceResolver; descriptors: SourceAccessDescriptor[]; modelRef: string; ownerId: string;
+  question: string; resolver: SourceEvidenceReader; descriptors: SourceAccessDescriptor[]; modelRef: string; ownerId: string;
   config: SemanticRetrievalConfig; assertProcessingCurrent(): Promise<void>;
   complete(input: { prompt: string; maxTokens: number }): Promise<{ text: string; provider?: string; model?: string }>;
   abortSignal?: AbortSignal;

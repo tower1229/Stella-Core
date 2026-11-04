@@ -5,9 +5,9 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CatalogReader, CatalogError } from "../src/canghai/catalog-reader.js";
 import { objectVersion, canonicalJson, bytesVersion } from "../src/canghai/content-version.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
 import { preparePersonalViews, readPreparedPersonalContext } from "../src/praxis/personal-views.js";
-import type { VersionedRef } from "../src/praxis/episode-v2.js";
+import type { VersionedRef } from "../src/canghai/ref.js";
 
 import { personalMemoryFixture as fixture } from "./personal-memory-fixture.js";
 import { ownerDirectAuthority } from "./processing-authority-fixture.js";

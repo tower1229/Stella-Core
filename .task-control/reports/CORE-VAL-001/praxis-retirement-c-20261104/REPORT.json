@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "scope": "C: retire old Praxis execution and preserve neutral source/data contracts",
+  "baseCommit": "bc4d2aa918857c6abad714bb920da86565821895",
+  "codePaths": 91,
+  "retired": {
+    "sourcePaths": 17,
+    "testSuites": 12,
+    "scripts": 6
+  },
+  "extraction": "VersionedRef -> canghai/ref.ts; SourceEvidenceReader -> canghai/evidence-reader.ts; no compatibility barrel or ordinary Praxis import",
+  "validation": "VALIDATION.json",
+  "preservedAssertions": "ASSERTION-RETENTION.json and ASSERTION-NOTES.json",
+  "package": "PACKAGE-BOUNDARY.json",
+  "recovery": "RECOVERY.json; BASELINE.json and local .artifacts baseline retain all 327 original files",
+  "Bprior": "B-PUSH.json + B-CI.json; exact remote bc4d2aa, CI success143 package /62 supervision separate",
+  "remaining": "MIG02-BOUNDARY.json; five retained praxis namespace data helpers remain outside ordinary closure, no old runtime",
+  "independentReview": "pending",
+  "Cpush": "not_requested_not_done",
+  "Cci": "not_run",
+  "HostModelDataActions": false,
+  "oldUnknownLoad": "not_replayed"
+}

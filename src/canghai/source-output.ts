@@ -1,8 +1,8 @@
 import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { parseSourcePolicy } from "./source-policy.js";
-import type { EpisodeEvidenceResolver, OriginalEvidence } from "../praxis/episode-evidence.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { SourceEvidenceReader, OriginalEvidence } from "./evidence-reader.js";
+import type { VersionedRef } from "./ref.js";
 import { isRecord } from "../shared/type-guards.js";
 
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }
@@ -12,7 +12,7 @@ function outputPolicy(value: unknown) {
 }
 /** The current access adapter grants summaries only. A model cannot grant quotation authority. */
 export async function prepareSourceOutputCheck(input: {
-  question: string; originals: OriginalEvidence[]; resolver: EpisodeEvidenceResolver; modelRef: string;
+  question: string; originals: OriginalEvidence[]; resolver: SourceEvidenceReader; modelRef: string;
   assertCurrent(): Promise<void>;
   complete(input: { prompt: string; maxTokens: number; signal: AbortSignal }): Promise<{ text: string; provider?: string; model?: string }>;
 }) {

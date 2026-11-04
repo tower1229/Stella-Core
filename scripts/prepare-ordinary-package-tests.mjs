@@ -28,7 +28,9 @@ assert.equal(new Set(files).size, files.length);
 for (const retired of ["dist/src/plugin.js", "dist/src/openclaw/native-memory-reader.js",
   "dist/src/openclaw/host-context-engine.js", "dist/src/openclaw/host-memory-provider.js",
   "dist/src/openclaw/completion.js", "dist/src/openclaw/host-input.js",
-  "dist/src/praxis/episode-store.js", "legacy/openclaw.plugin.json",
+  "dist/src/praxis/episode-store.js", "dist/src/praxis/episode-v2.js",
+  "dist/src/praxis/episode-evidence.js", "dist/src/praxis/runtime-binding.js",
+  "dist/src/praxis/packet.js", "dist/src/canghai/checkpoint-snapshot-import.js", "legacy/openclaw.plugin.json",
   "docs/EXPERIMENTAL-OWNER-CHAT.md", "docs/EXPLICIT-SNAPSHOT-IMPORT.md",
   "docs/CHECKPOINT-WORK-SUPPLY.md", "docs/CHECKPOINT-CORRECTION-WRITER.md"]) {
   assert.ok(!files.includes(retired), `retired runtime member was packed: ${retired}`);
@@ -55,6 +57,7 @@ assert.equal(metadata.main, "./dist/src/ordinary-plugin.js");
 assert.deepEqual(metadata.openclaw.extensions, [metadata.main]);
 for (const required of [metadata.main.slice(2), "openclaw.plugin.json",
   "dist/src/canghai/repository-source.js", "dist/src/canghai/durability.js",
+  "dist/src/canghai/evidence-reader.js", "dist/src/canghai/ref.js",
   "skills/stella-understand-sources/SKILL.md", "skills/stella-continue/SKILL.md"]) {
   assert.ok(files.includes(required), `required ordinary package file missing: ${required}`);
 }

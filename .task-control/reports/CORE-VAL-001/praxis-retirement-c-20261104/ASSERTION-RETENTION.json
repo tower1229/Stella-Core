@@ -1,0 +1,512 @@
+{
+  "comparison": "Top-level named callback bodies; dynamic cases are not added across overlapping runs",
+  "suites": [
+    {
+      "file": "tests/episode-evidence.test.ts",
+      "beforeNamed": 28,
+      "afterNamed": 24,
+      "retired": [
+        {
+          "name": "real evidence resolver gates the v2 write and persists only a supported closure",
+          "bodySha256": "6c83ed8649902bb3b509268580fb9a533c7146d87fd1683285fd48d94d5c66ef"
+        },
+        {
+          "name": "outcome planning binds the exact Episode and original evidence without writing or fabricating learning",
+          "bodySha256": "35e5c6daf33848c2c78417c7c53cfad40c1f93b990078b3769bc730aecfd8896"
+        },
+        {
+          "name": "outcome planning clarifies unknown authorship without treating the request as action proof",
+          "bodySha256": "e421844acd9b9ffcc0df04e349324a43373d3ccd8e9c364a743436b3d08c1e99"
+        },
+        {
+          "name": "outcome clarification rejects missing model identity and originals changed during inference",
+          "bodySha256": "c0d1a26ed9beb988916b6903ed268577b2c1b9614690b4f9362d8ab66a1452ad"
+        }
+      ],
+      "retained": [
+        {
+          "name": "evidence read scopes separate concurrent operations, inherit nested reads and reject late metadata reads",
+          "oldBodySha256": "5d128d8521f0b1df84d7dc815fca64661b310ac648d7643dc129370b103dadb3",
+          "newBodySha256": "06af612ad9261fcea2293d250b3834cccd9d4d09ce5b8dd3c6bdec6eef1f8d9e",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "restricted evidence fails before payload access without an admitted semantic context",
+          "oldBodySha256": "d4baf18bb33f85153ff235b14bfd8d71df7ea78a965dd105aae6addc34df7938",
+          "newBodySha256": "fdc5912bc22c3911d1e1d6c46f0527d87da7f973f5ade7ac1d7159349653b069",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "the evidence reader applies semantic authorization to each source before reading original bytes",
+          "oldBodySha256": "bdf8fc8e5059ca8598dba78f74f39ccc99675efa38deff2388551259dbbf5e7b",
+          "newBodySha256": "8a98545f3e3d3e504adad4b29a9d3d39ed35ac5ff7d78c35e40bfd5237b7aa88",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "persisted bundles reread original roles and reject unauthorized or modified evidence",
+          "oldBodySha256": "f53e5cdfc0fc145cbd2edc920f881b3d01dbe7b30d98f16404bb8054180c9724",
+          "newBodySha256": "599830afdd06bc773ffad2995983b3cfaa93fe0739c9b2609557ab50f7a7b0cb",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "question preparation supplies original roles and rereads the source after model judgment",
+          "oldBodySha256": "8c6896bc5e2d8e82a71a90440b490088e19c9d9027c8d59bd621b50042d3c876",
+          "newBodySha256": "f83b49acf68fa3e6e6969c6dff7f759aa302df091101087d131761bae1a115a7",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "question evidence resolves model-selected handles to exact read versions without accepting invented refs",
+          "oldBodySha256": "5b87e99b7b1eb6c17e2e4d4feb5ab1ea4e1fc38ce94373c057a056e21d3b431d",
+          "newBodySha256": "ce895ecf1b4f0bf81f9b590aa6bdb76d4147df68211513efb0a60f8b37fee764",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "evidence resolver rereads a genuine selected source span before semantic verification",
+          "oldBodySha256": "8725864af1ba4b11a6c96554b2d8b923a410466e30997d238661b840402a69d6",
+          "newBodySha256": "60037ad7cc8ee33cafc3136341c773cfc166c9341d0bf1dbe15c0d43e58c4e26",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "source labels cannot turn assistant or inferred content into an actual action",
+          "oldBodySha256": "273f24cc5f69729d654d8148b2bab99e30fbb06dc2a9c6d42983f2ea6f5e42b5",
+          "newBodySha256": "e4741c441d6cdc7b2351274b7dc382888425087d195559e51e43654f77e07b70",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "semantic ambiguity remains unsupported and invented evidence refs fail",
+          "oldBodySha256": "2f007671050df4512f60bc7fff90711f30e328413ba30c2b60423560cb9b18fe",
+          "newBodySha256": "d1c796469d54eb3d55c604c262d5f7be8e6df498f57c7f690f469c7597fee037",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "future evidence and unauthorized delivery are rejected before model access",
+          "oldBodySha256": "7d55caaf18b0ca97a5f6081102aa2bf584f2219fd8701784c8f5e33d321a0e36",
+          "newBodySha256": "0a9d2332bf1a0154e9eb7eff24fc12fd7e21787f68c5962fdc3a381ee29dafa7",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "outcomes require exact semantic support independently of actual-action support",
+          "oldBodySha256": "ea73aea0858649b419c365d68c97f63a83e2612ba0073bfc964253d99fbacfad",
+          "newBodySha256": "ae21c4c96bde0dd84cec08deba292fb7035823a5e5ff19459091e560d67c8141",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "unknown or inferred outcomes never reach the semantic verifier",
+          "oldBodySha256": "ffcff2619e37e375df6e4df90c09df50ba388a6dfd3341971f2dc40bf32b5eae",
+          "newBodySha256": "3dacea7ada4ffa00abcc302c863c5b044d03970f492d1919ddfba7af6cc0f8bc",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "outcome verification rejects a catalog changed during model inference",
+          "oldBodySha256": "7c97dd73be367b41e33f5a345222dcf2861d0acf23263ea7554f5e24bd2274f9",
+          "newBodySha256": "2ea8f057d6d6b162680e1ec12be793e7a946d8f5d7d802048b21ab83d21a1ab7",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "deleted source blocks original text and dependent evidence without fetching history",
+          "oldBodySha256": "e35dafa054f9a0619016dc2beb73c47048dc658a1c6d19f2d5067bf80daff28d",
+          "newBodySha256": "e35dafa054f9a0619016dc2beb73c47048dc658a1c6d19f2d5067bf80daff28d",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "catalog and source mutation during model judgment revoke write eligibility",
+          "oldBodySha256": "2360a49af352db67b346f2672fcfbdd2d7fd5a4be1f43737cb3c051dddc11cae",
+          "newBodySha256": "d7f0b4653eb619d084091b7c2edd3f174dc4b87c8873b462c7f2f4710dc02e19",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "reference versions and locator byte hashes are verified independently",
+          "oldBodySha256": "49a14f66151027036fff8211d5dc69f8a292d02fa1619c741722157766bef83c",
+          "newBodySha256": "49a14f66151027036fff8211d5dc69f8a292d02fa1619c741722157766bef83c",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "canonical versions ignore source location but retain payload content and semantic dependencies",
+          "oldBodySha256": "3df04a4f1c318f4c3c36fbffbeda6168bd68db18d09323729161bab337f43695",
+          "newBodySha256": "3df04a4f1c318f4c3c36fbffbeda6168bd68db18d09323729161bab337f43695",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "selectors enforce UTF-8 boundaries, JSON pointer escapes and real nodes",
+          "oldBodySha256": "523b9d32ee43de175660db4c9c42a8a01f876d7dbdcda49a11072ea2b9386d2a",
+          "newBodySha256": "523b9d32ee43de175660db4c9c42a8a01f876d7dbdcda49a11072ea2b9386d2a",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "byte selectors preserve BOM characters at the file or selected-fragment start without changing JSON parsing",
+          "oldBodySha256": "2b4cf785d28a0d7d5ce5f4c62cbb8075b3b5c2740b07bf7c9b6f893c58a30f4d",
+          "newBodySha256": "2b4cf785d28a0d7d5ce5f4c62cbb8075b3b5c2740b07bf7c9b6f893c58a30f4d",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "catalog rejects duplicate current identities and missing collections",
+          "oldBodySha256": "03272038b8bae23b9de49d13d4bd11ea1f3543c2e4b56f70d8ce73fce1b75fc7",
+          "newBodySha256": "03272038b8bae23b9de49d13d4bd11ea1f3543c2e4b56f70d8ce73fce1b75fc7",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "learning resolves a scoped strategy and its exact supported LearningChange",
+          "oldBodySha256": "2efc8299ac39e5338501291dfb236656ec816f6522a684e043a00968e301903c",
+          "newBodySha256": "c426fdceeb866f34ae490737018358221d6dae6aeecc2f9cdf6831ffdd425cee",
+          "sameRawBody": false,
+          "sameAfterResolverRename": false
+        },
+        {
+          "name": "transaction preview cannot replace original evidence or authorize fabricated object bytes",
+          "oldBodySha256": "7974bdccee8c361d80d33d8568161543c00f0f2604da3e904e6af99da6ea1915",
+          "newBodySha256": "7974bdccee8c361d80d33d8568161543c00f0f2604da3e904e6af99da6ea1915",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "evidence capture records nested model calls and rejects late calls before model disclosure",
+          "oldBodySha256": "1607379f971883f69645a44e9fe655a9f507ecf5e57afbb406f02047913c295d",
+          "newBodySha256": "372bad6a32cdc50f35c43529f113365946c0a94db5ef06a3619e7f286ac2b099",
+          "sameRawBody": false,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "Learning Change disposition and target shape agree without a native provider",
+          "oldBodySha256": "6f2e608edb1db3e28dbe78a028ac4ff6a80839021367031df19c80544036dcdb",
+          "newBodySha256": "6f2e608edb1db3e28dbe78a028ac4ff6a80839021367031df19c80544036dcdb",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        }
+      ]
+    },
+    {
+      "file": "tests/recovery-read-binding.test.ts",
+      "beforeNamed": 8,
+      "afterNamed": 7,
+      "retired": [
+        {
+          "name": "outcome recovery cannot replace frozen revision or use a different repository scope",
+          "bodySha256": "f2e80044464084acbb5804083b59aecb5bb2ef622881fc68d0e5d933e6d03db7"
+        }
+      ],
+      "retained": [
+        {
+          "name": "read binding captures once and old assertions never adopt B or a rotated same-SHA token",
+          "oldBodySha256": "dca9515dcc7f15e0b7dbb8947b61e924834fbdfe9d68a8a6335f60be9da8c847",
+          "newBodySha256": "dca9515dcc7f15e0b7dbb8947b61e924834fbdfe9d68a8a6335f60be9da8c847",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "caller scope is frozen before asynchronous authority read",
+          "oldBodySha256": "99ea7ffdbf88f6fb22c34507240dc34734df1e7c822c5d73c6e7fd5447d849aa",
+          "newBodySha256": "99ea7ffdbf88f6fb22c34507240dc34734df1e7c822c5d73c6e7fd5447d849aa",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "closed registration scope rejects old and in-flight read/assert callbacks",
+          "oldBodySha256": "d83048b21090757d1b0d0faefa08c16b1d575e15ae6cfc629b401f99c7659dc0",
+          "newBodySha256": "d83048b21090757d1b0d0faefa08c16b1d575e15ae6cfc629b401f99c7659dc0",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "missing/corrupt authority and wrong scope reject without fallback",
+          "oldBodySha256": "6ae700761930faf9402ca8a3754c1259fa513e8cdb99b78dfc2757d662dc134f",
+          "newBodySha256": "6ae700761930faf9402ca8a3754c1259fa513e8cdb99b78dfc2757d662dc134f",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "mutable expected aliases cannot upgrade token while a read assertion awaits",
+          "oldBodySha256": "c234717ba94502e42c61547f96a587fbcd2f9c4752f02563b6a77b0c407650ab",
+          "newBodySha256": "ae36fcfad0d8c041c360b5713d45e42ac316123e21ce4fc562ddb2e713b85433",
+          "sameRawBody": false,
+          "sameAfterResolverRename": false
+        },
+        {
+          "name": "direct scoped assertion freezes the original expected object before awaiting",
+          "oldBodySha256": "8d0c21b8553cb391a4b2de6b035352515894ccdc81836b2b6b0d0a5fcb870f34",
+          "newBodySha256": "8d0c21b8553cb391a4b2de6b035352515894ccdc81836b2b6b0d0a5fcb870f34",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "read snapshots reject coercible revision arrays before assertion",
+          "oldBodySha256": "81d0fc83d1e6654edbccbe8d6f3534039efc94a0a78c3ef443c460e49f1b1deb",
+          "newBodySha256": "81d0fc83d1e6654edbccbe8d6f3534039efc94a0a78c3ef443c460e49f1b1deb",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        }
+      ]
+    },
+    {
+      "file": "tests/public-evaluation-source.test.ts",
+      "beforeNamed": 3,
+      "afterNamed": 3,
+      "retired": [],
+      "retained": [
+        {
+          "name": "standalone public cases receive no fixture owner hypotheses while retaining general framework operators",
+          "oldBodySha256": "01de17523ef06ba9e256a538427975cea7c1b12b009d181bdb5ef18af0b9f11b",
+          "newBodySha256": "9affb4dd8a6babfd3bfbddec38c98e261b5fdfac55717d49b73704e5ac0a1b12",
+          "sameRawBody": false,
+          "sameAfterResolverRename": false
+        },
+        {
+          "name": "public source bytes survive a clone with Windows-style Git line-ending conversion enabled",
+          "oldBodySha256": "17fcb6fa71cc2fcb3faf887f967a9cedaa6e172beaa8348cf93715680dc0f0b6",
+          "newBodySha256": "7194c2144d9715b93deda0411b3de29ca088cc9736c71d3af5d020a5de956872",
+          "sameRawBody": false,
+          "sameAfterResolverRename": false
+        },
+        {
+          "name": "public source admission rejects the generic owner fixture and changes to declared originals",
+          "oldBodySha256": "ab1ea701e7ff35d19b143b56bea60d892e981e97357c8925bc714fd9a301c01b",
+          "newBodySha256": "672e99aace25e72769e9722303cb427c80d04c6786ac647b98f96c9fbc4ceb39",
+          "sameRawBody": false,
+          "sameAfterResolverRename": false
+        }
+      ]
+    },
+    {
+      "file": "tests/runtime-profile.test.ts",
+      "beforeNamed": 5,
+      "afterNamed": 7,
+      "retired": [],
+      "retained": [
+        {
+          "name": "profile structural parsing preserves explicit roles, empty views and disabled autonomy without asserting acceptance",
+          "oldBodySha256": "dc72730ac2b592d5ba28bc85138c9349b14bcd5eb212c3330d503980cf74fb5a",
+          "newBodySha256": "dc72730ac2b592d5ba28bc85138c9349b14bcd5eb212c3330d503980cf74fb5a",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "missing or optional model dependencies cannot masquerade as a complete profile",
+          "oldBodySha256": "af29a49a532615879780d79c4da3356c724468de5f2ac63b511ea4085836a574",
+          "newBodySha256": "af29a49a532615879780d79c4da3356c724468de5f2ac63b511ea4085836a574",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "profile rejects unknown versions, absent roles, unsafe refs and invalid timezones",
+          "oldBodySha256": "96a655bf33386224a89b6c8c26d0f4a7d70078670f5e08bc0c98c74ca7b09db5",
+          "newBodySha256": "96a655bf33386224a89b6c8c26d0f4a7d70078670f5e08bc0c98c74ca7b09db5",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "initialization uses an explicit v2 reference rather than changing v1 semantics",
+          "oldBodySha256": "b50e6c2e656fef4fde8070a89b8a22175cb826790ddbc54ba0336cae084791b0",
+          "newBodySha256": "b50e6c2e656fef4fde8070a89b8a22175cb826790ddbc54ba0336cae084791b0",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "profile accepts fully validated v2 policy resources without granting runtime access",
+          "oldBodySha256": "6ca1530c620a2dd90b84680d17097a706dc9be4a899b462e13ba05e4fc1848df",
+          "newBodySha256": "6ca1530c620a2dd90b84680d17097a706dc9be4a899b462e13ba05e4fc1848df",
+          "sameRawBody": true,
+          "sameAfterResolverRename": true
+        },
+        {
+          "name": "profile resources require exact identities and availability without promoting acceptance",
+          "oldBodySha256": null,
+          "newBodySha256": "76772c0b8f8fa2c9365390c5a7527a27d567b9696e320d6f3e5c87f0935fa1a5",
+          "sameRawBody": false,
+          "sameAfterResolverRename": false
+        },
+        {
+          "name": "profile resource loading rejects invalid UTF-8 and duplicate policy identities",
+          "oldBodySha256": null,
+          "newBodySha256": "1129ffeffaab63e24c976ab37ab0c942cfe88caa2f25a16aa74c2fbb99413fca",
+          "sameRawBody": false,
+          "sameAfterResolverRename": false
+        }
+      ]
+    }
+  ],
+  "retiredSuites": [
+    {
+      "path": "tests/exact-host-praxis.test.ts",
+      "sha256": "c0c1883747a56823df9fd26c8f85e1f4167a3a4655e8976032720aa7828661f1",
+      "bytes": 4846,
+      "namedTests": [
+        "accepts only complete private managed-write Praxis evidence",
+        "current Praxis candidate evidence rejects old transport and missing revision coverage",
+        "private runner readback supports v2 IDs and absent predictions, and rejects unbound history"
+      ]
+    },
+    {
+      "path": "tests/recovery-drill.test.ts",
+      "sha256": "fa2d95896d1a24606597b2c43c10d4d213f452d5d02ea03784c61175d056e43c",
+      "bytes": 15790,
+      "namedTests": [
+        "restores Level 3 continuity from one exact CangHai revision",
+        "allows empty important state but does not substitute ordinary state for fixture coverage",
+        "restores legal empty Episode and learning sets without fabricating coverage",
+        "rejects a durable-state directory instead of reporting a tree SHA as a blob",
+        "recovery fails closed when a declared rebuild or continuity probe fails",
+        "v2 recovery reads a standalone clean Git copy with no original runtime",
+        "v2 recovery refuses a legacy Episode instead of promoting its learning",
+        "declared v2 learning cannot recover without its original payload",
+        "recovery cannot accept a source modified during continuity verification"
+      ]
+    },
+    {
+      "path": "tests/checkpoint-snapshot-import.test.ts",
+      "sha256": "18d48c092b87dccf47a42653f6be553b486c05c0678d9c65918998f439504e15",
+      "bytes": 12690,
+      "namedTests": [
+        "explicit data snapshot creates a Core child/journal/CAS under the owned repository lock and exact replay is idempotent",
+        "stale caller expectation is refused without fetch, files or authority change",
+        "a consumer catalog divergence conflicts instead of merging",
+        "a new v3 Source version needs its exact descriptor already reviewed in the consumer grant",
+        "invalid candidate catalog schema never changes the consumer",
+        "a self-consistent new policy version is explicitly rejected rather than imported",
+        "a commit followed by failed acknowledgement stays fenced and retries the original journal without a second commit",
+        "pre-cancellation performs no preparation or mutation",
+        "a non-UTF-8 payload is rejected before any lossy write, fetch or CAS"
+      ]
+    },
+    {
+      "path": "tests/episode-repository.test.ts",
+      "sha256": "713d653c952ff1d7cc48843dbe9f8c29a04561311e79c1fe793bf1982c03a84b",
+      "bytes": 14160,
+      "namedTests": [
+        "v2 repository persists no-prediction lifecycle, historical versions and exact idempotent results",
+        "legacy ownerless Episode locks require explicit recovery rather than silent deletion",
+        "v2 repository rejects stale CAS and operation reuse without overwriting",
+        "v2 repository resumes a failed durability call without replaying lifecycle or duplicating versions",
+        "v2 repository rejects fabricated action before exposing a closed record",
+        "v2 repository separates historical integrity from current evidence eligibility",
+        "normal recall excludes invalidated Episodes before rereading their removed evidence",
+        "cancellation during evidence validation cannot create an Episode or call durability",
+        "v2 repository verifies immutable prediction and rejects damaged history",
+        "v2 repository refuses v1 activation, path traversal and concurrent ownership",
+        "v2 operations survive real Git pointer failure, retry and clean remote recovery"
+      ]
+    },
+    {
+      "path": "tests/runtime-memory.test.ts",
+      "sha256": "997b59a2f9886c7d3a21b88ea15a4148257ba81fc83d4b7ee909fb1ba5b18969",
+      "bytes": 9395,
+      "namedTests": [
+        "v2 runtime recalls a no-prediction Episode with an exact immutable selection",
+        "v2 runtime rejects a stale selected Episode and never invents an outcome",
+        "source removal suppresses normal Episode recall and preserves legal empty state",
+        "v2 runtime rejects v1 input and pre-cancelled writes",
+        "advice revision preserves sealed prediction, retries exactly and rejects stale writers",
+        "removing a revision source hides the new recommendation without changing history"
+      ]
+    },
+    {
+      "path": "tests/praxis-episode-store.test.ts",
+      "sha256": "406e53746e52ed984e7399c06a0eb589337d4f6a057b199be3f9d07134de4913",
+      "bytes": 15771,
+      "namedTests": [
+        "original Praxis Episode v1 records remain schema-compatible",
+        "local_write closes one Episode without rewriting its prediction and exposes versioned learning",
+        "managed writes synchronize open state critically and closed learning normally",
+        "recommended episodes can terminate but cannot jump to acted or closed afterward",
+        "write modes fail closed and never publish a partial Episode",
+        "local_write rejects the wrong branch before staging any Episode",
+        "a publish collision preserves the existing Episode and removes staging data"
+      ]
+    },
+    {
+      "path": "tests/legacy-migration.test.ts",
+      "sha256": "059a6df7043f6c026b09cb591a3bb9893b3af3034c9803fc9701dd885197d529",
+      "bytes": 3658,
+      "namedTests": [
+        "unverified source labels and tracking IDs never establish real action eligibility",
+        "migration rejects stale plans, traversal, and archive tampering without overwriting history"
+      ]
+    },
+    {
+      "path": "tests/runtime-binding.test.ts",
+      "sha256": "2db2d08000245aedc93d179e1ae9f5b108e31990964588479115a6366c4caaf5",
+      "bytes": 23083,
+      "namedTests": [
+        "runtime binding requires explicit v2 configuration and refuses unknown cognitive references",
+        "alpha main required session-current-view must exist in the catalog with a readable recipe",
+        "recovery bindings tolerate pending business files but reject changed authority at the configured revision",
+        "read-only recovery authority validation leaves the Git index unchanged",
+        "runtime binding requires declared profile resources without promoting not-evaluated acceptance",
+        "recovery pins referenced policies even when bootstrap documents and main binding are unchanged",
+        "profile resources reject invalid UTF-8 and duplicate source-policy identities",
+        "bound v2 advice archives original input, resumes pointer failure, and restores from a clean Git clone",
+        "persistBoundAdvice blocks do_not_retain without Host guarantees before any archive write",
+        "full-memory uses its explicit lifecycle binding and requires private processing for every model role"
+      ]
+    },
+    {
+      "path": "tests/praxis-packet.test.ts",
+      "sha256": "239e8542f815e07bff435d3630998fdd56ceb89ce595e2ef831f1e56e61b9a41",
+      "bytes": 9893,
+      "namedTests": [
+        "candidate and retired Twin records cannot be recalled or injected by a stale route",
+        "builds a bounded traceable Praxis packet from validated CangHai registries",
+        "Reality Need Check distinguishes available personal Praxis memory",
+        "includes the selected open Episode stage and bounded recovery context",
+        "zero selected Framework operators remains a valid bounded Praxis packet",
+        "packet and selected record excerpts retain hard limits",
+        "packet content cannot escape the Stella Praxis envelope"
+      ]
+    },
+    {
+      "path": "tests/question-transaction.test.ts",
+      "sha256": "f3724019ce8409b907247cb5ef894c82899f70b9c2c4553ec093e22a5a1b16ee",
+      "bytes": 7019,
+      "namedTests": []
+    },
+    {
+      "path": "tests/routing-context.test.ts",
+      "sha256": "ba87866d5f9caabfd5d2f3c909e4891a68a36782c2a4571b1a0ce1ff18df7af4",
+      "bytes": 18782,
+      "namedTests": [
+        "routing candidates bind real repository documents and reject copied or mutated receipts",
+        "unselected cognitive source changes invalidate prepared routing data",
+        "missing cognitive bindings and changed profile configuration fail before route inference",
+        "open Episode candidates retain current Episode bytes and their original ingress dependency",
+        "unselected learning candidates preserve the originals of their Learning Change",
+        "cached profile and manifest snapshots cannot certify replacement configuration",
+        "a configuration change during the final authority recheck prevents candidate issuance",
+        "a direct Episode Source dependency cannot survive payload deletion without a catalog edit",
+        "malformed manifest replacements never expose private YAML in diagnostics",
+        "segment Evidence retains its authorized slice while a direct Source cannot broaden that grant"
+      ]
+    },
+    {
+      "path": "tests/episode-v2.test.ts",
+      "sha256": "1d7d3f1d6f25648c0b3d43345081e7fa80b024b6deca072c44f8b72287177539",
+      "bytes": 4813,
+      "namedTests": [
+        "v2 accepts a meaningful no-prediction lifecycle without fabricated learning",
+        "v2 rejects inferred actions and missing original evidence",
+        "v2 requires normalized sealed predictions and rejects their revision",
+        "v2 cannot add a retrospective prediction to an already opened no-prediction matter",
+        "v2 rejects terminal reopening and replaced historical references",
+        "v2 rejects a revised recommendation without its own source pins",
+        "v2 resolves exact historical versions independently and requires semantic action support"
+      ]
+    }
+  ]
+}

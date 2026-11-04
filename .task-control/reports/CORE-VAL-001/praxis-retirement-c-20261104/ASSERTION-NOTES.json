@@ -1,0 +1,22 @@
+{
+  "dataMethods": "All 10 retained SourceEvidenceReader method bodies are exact copies. Only class/path/type ownership changed; old Episode-specific eligibility and unused historical/resolve wrappers removed.",
+  "mixedSuites": {
+    "episode-evidence": "23 retained callback bodies identical after class rename; 1 learning test now reads actual Understanding and rejects removed dependencies without old runtime listMemory; 4 old Episode writer/planner receipt tests retired. Existing action/outcome semantic support, unknown author, roles and changed-original negatives remain.",
+    "recovery-read-binding": "6 callback bodies unchanged; mutable-alias test retains direct assertion and removes old outcome wrapper; one dedicated outcome-binding test retired.",
+    "public-evaluation-source": "3 tests adapted to current catalog/source reads with explicit provenance matching; preserve no owner persona, original bytes across autocrlf clone, generic/tampered source refusal. No legacy runtime fallback.",
+    "runtime-profile": "5 existing bodies unchanged plus 2 extracted data-loader checks for availability/not_evaluated/invalid UTF8/duplicate policies. Policy identity already tested here."
+  },
+  "retiredNotEquivalent": [
+    "Episode state transitions, prediction sealing and Episode storage idempotency",
+    "old packet/cortex/Praxis routing and outcome/question publication receipts",
+    "old checkpoint snapshot publication and recovery drill"
+  ],
+  "stillCoveredElsewhere": [
+    "schema praxis-episode-v2 structure for retained historical assets",
+    "memory-transaction + journal atomicity/CAS/recovery in current package CI",
+    "consciousness-manifest read-only activation Git-index preservation",
+    "ingest do_not_retain before any disk writes",
+    "current source-read freshness and permission negatives"
+  ],
+  "notClaimed": "Retired assertions are not counted as repaired/pass or equivalent new Host/model behavior."
+}

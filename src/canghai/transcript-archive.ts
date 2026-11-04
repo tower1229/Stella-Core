@@ -1,4 +1,4 @@
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { CatalogReader } from "./catalog-reader.js";
 import { CatalogError } from "./catalog-reader.js";

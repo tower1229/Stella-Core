@@ -1,10 +1,10 @@
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import path from "node:path";
 import { CatalogError, CatalogReader, parseMemoryCatalog, readRepositoryBytes, validMemoryRef, type CatalogGroup, type MemoryCatalog } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { applyMemoryTransaction, readRecordedMemoryTransaction, MemoryTransactionError, type MemoryTransactionPlan } from "./memory-transaction.js";
 import type { IngestDurabilityPort } from "./ingest.js";
-import { EpisodeEvidenceResolver, type EvidencePurpose, type OriginalEvidence } from "../praxis/episode-evidence.js";
+import { SourceEvidenceReader, type EvidencePurpose, type OriginalEvidence } from "./evidence-reader.js";
 import { preparePersonalViews, validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -35,7 +35,7 @@ export type SynchronizePorts = {
   corpusRegistryRef?: string;
   /** Structured rebuild admissions for required views whose inputs changed. Recovery replays plan files only. */
   viewRebuilds?: (generationId: string, after: MemoryCatalog, journalPath: string, context: {
-    resolver: EpisodeEvidenceResolver; before: MemoryCatalog; assertCurrent(): Promise<void>;
+    resolver: SourceEvidenceReader; before: MemoryCatalog; assertCurrent(): Promise<void>;
   }) =>
     | readonly ViewRebuildAdmission[]
     | undefined
@@ -252,7 +252,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   const snapshot = () => CatalogReader.synchronizationPreview(ports.root, ports.catalogPath, plan.catalog,
     plan.files.map(file => ({ path: file.path, bytes: file.after })), fenceHash);
   const reader = await snapshot();
-  const resolver = new EpisodeEvidenceResolver(reader, ports.purpose, ports.complete);
+  const resolver = new SourceEvidenceReader(reader, ports.purpose, ports.complete);
   const evidence: OriginalEvidence[] = [];
   let exclusions = 0;
   for (const entry of plan.catalog.evidence) {
@@ -379,7 +379,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   plan.catalog.parentGenerationId = original.catalog.generationId;
   plan.catalog.generationId = `generation_${bytesVersion(canonicalJson({ digest, catalog: plan.catalog })).slice(7)}`;
   const viewRebuilds = await ports.viewRebuilds?.(plan.catalog.generationId, structuredClone(plan.catalog), finalJournal, {
-    resolver: new EpisodeEvidenceResolver(rebuildReader!, ports.purpose, ports.complete),
+    resolver: new SourceEvidenceReader(rebuildReader!, ports.purpose, ports.complete),
     before: structuredClone(original.catalog), assertCurrent,
   });
   const viewMigration: ViewMigrationPlan = planViewMigration({
@@ -389,7 +389,7 @@ export async function synchronize(request: SynchronizeRequest, ports: Synchroniz
   plan.catalog = applyViewMigration(plan.catalog, viewMigration);
   parseMemoryCatalog(plan.catalog);
   const preview = await snapshot();
-  const personal = await preparePersonalViews({ resolver: new EpisodeEvidenceResolver(preview, ports.purpose, ports.complete), requestId: id,
+  const personal = await preparePersonalViews({ resolver: new SourceEvidenceReader(preview, ports.purpose, ports.complete), requestId: id,
     question: "Verify synchronized current understanding", ownerId: ports.ownerId, modelRef: ports.modelRef, audience: "owner_direct",
     selection: "all_authorized", processingAuthority: ports.processingAuthority, assertProcessingCurrent: active, complete: ports.complete });
   let currentWorkReady = false;

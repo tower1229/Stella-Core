@@ -1,5 +1,5 @@
 import { manifestForItems } from "./archive-integrity.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readRepositoryBytes } from "./catalog-reader.js";

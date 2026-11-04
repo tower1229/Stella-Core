@@ -51,7 +51,7 @@ const modules = [
   path.join(root, "dist/src/canghai/retrieve.js"),
   path.join(root, "dist/src/canghai/semantic-retrieval.js"),
   path.join(root, "dist/src/canghai/retrieval-progress.js"),
-  path.join(root, "dist/src/praxis/episode-evidence.js"),
+  path.join(root, "dist/src/canghai/evidence-reader.js"),
   path.join(root, "dist/src/praxis/temporal-scope.js"),
   path.join(root, "dist/src/acceptance/retrieval-capability.js"),
 ];

@@ -1,0 +1,16 @@
+{
+  "beforeTarballMembers": 145,
+  "afterTarballMembers": 142,
+  "beforeCompiledSourceModules": 42,
+  "afterCompiledSourceModules": 41,
+  "ordinaryPraxisImports": [],
+  "artifactSha256": "840ab0f3cea9e7c0ccef0c20882efa9e3a6b2c1a4c33b0063d28ea2cdbcad7e7",
+  "packageIntegrity": "sha512-aHg7/uYO3i0U7sd2x/GJ0LMPWLTMJHZTMarN+em7SKNsXc0Q2RMr3G3EABWoTOaaRHOVlXzXSwNG/snXYido2w==",
+  "preparedSha256": "819ec8e0305c8328a27d8a9f6e5490faa5f4e3550e5a09aa074ef5421cf468fe",
+  "sdkVersion": "2026.10.9",
+  "lockedSdkVersion": "2026.10.8",
+  "sourceClean": false,
+  "freshInstall": false,
+  "liveHost": false,
+  "model": false
+}

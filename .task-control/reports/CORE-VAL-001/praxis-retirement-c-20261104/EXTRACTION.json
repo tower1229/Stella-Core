@@ -1,0 +1,66 @@
+{
+  "source": "src/praxis/episode-evidence.ts",
+  "target": "src/canghai/evidence-reader.ts",
+  "oldSha256": "25d917e222fc47ad5ea79939ef55c602c358d5283c4530bd241b4de42a21c89d",
+  "newSha256": "cab4a52d415a46e9545d3735e42187736a5848434299b23e9c2f2a490deb848b",
+  "versionedRef": "same { id: string; version: string } in canghai/ref.ts",
+  "actionOutcome": "data claim types detached from EpisodeV2; semantic validators retained unchanged, no Episode storage or transition",
+  "unchangedMethods": [
+    {
+      "name": "captureReads",
+      "bodyUnchanged": true,
+      "sha256": "0f731f1d61b894431a49fa290b154a5cbac1c0a86f0d1ff3eeaf348bfdea48e7"
+    },
+    {
+      "name": "readMetadata",
+      "bodyUnchanged": true,
+      "sha256": "07f08b647acc51406910be5c7d544bcfdc75d80d9a5ff4fe2b84386047d63518"
+    },
+    {
+      "name": "assertSourceAccess",
+      "bodyUnchanged": true,
+      "sha256": "f563fab38a56d7d7025817e8864883cf3a0d2fd1af00b987d0518ee654c70467"
+    },
+    {
+      "name": "assertSourceMetadataAccess",
+      "bodyUnchanged": true,
+      "sha256": "dcc7c27a113101af7f4c9b5842f0680f2d1139867fb4f8b9401c61dd53c2091a"
+    },
+    {
+      "name": "#dependencies",
+      "bodyUnchanged": true,
+      "sha256": "b7ba06c071dee0b6f6af43da650c402c34897f0c0050b1c1f51365f9de6a8d8d"
+    },
+    {
+      "name": "assertCurrentEvidencePayloadIntegrity",
+      "bodyUnchanged": true,
+      "sha256": "c43b293dc5d3ff249523ab8dac8592f9ebb46c5e74c44ccf5248f1ecb5db1fba"
+    },
+    {
+      "name": "readEvidence",
+      "bodyUnchanged": true,
+      "sha256": "65c93fa746b7e77859118639ea38b351926a11a6968ba693deb1c80e8487a7cc"
+    },
+    {
+      "name": "verifyActionEvidence",
+      "bodyUnchanged": true,
+      "sha256": "0de7b9e305593c050cf5ba76d6be3af80f8f86dc43a2e66d558575d53a8a486c"
+    },
+    {
+      "name": "verifyOutcomeEvidence",
+      "bodyUnchanged": true,
+      "sha256": "11b45263780108df43d85b17be301eddb8728ab9876fe18c5cb912fa17b0738f"
+    },
+    {
+      "name": "resolveLearning",
+      "bodyUnchanged": true,
+      "sha256": "61239e5e17ba45e867f12109c6e9611640c1cc051dc812082181c34d6eb97a44"
+    }
+  ],
+  "retiredMethods": [
+    "resolveHistorical",
+    "resolveEvidence",
+    "isCurrentlyEligible"
+  ],
+  "retiredFunction": "episodeContextRefs"
+}

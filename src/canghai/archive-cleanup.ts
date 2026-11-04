@@ -7,7 +7,7 @@ import { checkpointPath, loadCheckpoint, resumeIngestCursor } from "./ingest-pro
 import { isLiveMemoryMutationDirt, withMemoryMutationLock } from "./memory-transaction.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { IngestPorts } from "./ingest.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 
 const run = promisify(execFile);
 

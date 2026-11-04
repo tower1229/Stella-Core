@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { CatalogReader, type CatalogGroup, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { objectVersion, canonicalJson, bytesVersion } from "../src/canghai/content-version.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
-import type { VersionedRef } from "../src/praxis/episode-v2.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
+import type { VersionedRef } from "../src/canghai/ref.js";
 
 export async function personalMemoryFixture(t: { after(fn: () => Promise<void>): void }, interpretationRules = false, segmented = false) {
   const root = await mkdtemp(path.join(os.tmpdir(), "stella-personal-views-"));
@@ -56,7 +56,7 @@ export async function personalMemoryFixture(t: { after(fn: () => Promise<void>):
   const workRef = await put("works", work, [source, evidence]);
   const save = () => writeFile(path.join(root, "catalog.json"), canonicalJson(catalog));
   await save();
-  const resolver = () => CatalogReader.load(root, "catalog.json").then(reader => new EpisodeEvidenceResolver(reader, {
+  const resolver = () => CatalogReader.load(root, "catalog.json").then(reader => new SourceEvidenceReader(reader, {
     readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model", evidenceCutoff: "2026-09-08T00:00:00Z",
     trustedAdapters: { user_report: ["synthetic"], tool_observation: [], system_event: [] },
     ...(interpretationRules ? { sourceAccess: async () => ({ judgment: { scenarios: ["writing"], trigger: "user_requested" as const,

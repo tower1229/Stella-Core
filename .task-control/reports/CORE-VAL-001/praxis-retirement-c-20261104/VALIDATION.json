@@ -1,0 +1,76 @@
+{
+  "build": {
+    "exit": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "testCompile": {
+    "exit": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "schemas": {
+    "exit": 0,
+    "validated": 9,
+    "sha256": "588888ad69128df77c59c48e2438cff01c765f298ef8587a6a204f042f4dc099"
+  },
+  "initialTargeted": {
+    "log": "TARGETED.txt",
+    "sha256": "b967788978c4e6ff2d73e698df6088a1c97261f779981b9e71e1d942dbd0553f",
+    "exit": 1,
+    "counts": {
+      "tests": 180,
+      "pass": 178,
+      "fail": 2,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "targetedFix": {
+    "log": "TARGETED-FIX.txt",
+    "sha256": "d1e1b851df9babec89cd2cd97d1402bdc87968efcba1b95a8f42dd2a2aa2a6dc",
+    "exit": 0,
+    "counts": {
+      "tests": 33,
+      "pass": 33,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "firstPackageEnvironmentFailure": {
+    "log": "PACKAGE-ENV-FAIL.test.stdout",
+    "sha256": "372b493768eba7cf5db8f6e6db8db24f8f1ffbc0de041b20a18007c9d7561816",
+    "exit": 1,
+    "counts": {
+      "tests": 143,
+      "pass": 42,
+      "fail": 101,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "packageCorrectEnvWrongCwd": {
+    "log": "PACKAGE-TEST.txt",
+    "sha256": "91c6c60b3ded7677fe6235218152d0153c46861c6ccc93859b50b5890d2f1579",
+    "exit": 0,
+    "counts": {
+      "tests": 143,
+      "pass": 143,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "finalExtractedPackage": {
+    "log": "PACKAGE-FINAL.txt",
+    "sha256": "94a44301ed062b6755471cc7980004ac55e5ff77c29cea3a0a9974135fcbb8e9",
+    "exit": 0,
+    "counts": {
+      "tests": 143,
+      "pass": 143,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "counting": "Initial 180 = 178 passed + 2 new public-fixture lookup failures. Source provenance ID corrected; affected 33/33 then passed. Overlapping runs are not added. First package run had incorrectly nested TMPDIR and failed ENOENT. Intermediate correct-env run used repository cwd and is not final package acceptance. Final 143/143 uses exact extracted package cwd and explicit synthetic HOME/TMP/config."
+}

@@ -2,7 +2,7 @@ import { CatalogError, type CatalogReader, validMemoryRef } from "./catalog-read
 import { bytesVersion, canonicalJson } from "./content-version.js";
 import { assertSourcePolicyAccess, parseSourcePolicy, type PolicyPurpose, type SourceAccessContext } from "./source-policy.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { assertProcessingStage, type ProcessingAuthority } from "../openclaw/processing-authority.js";
 
 import { sourceSegments, segmentLocator, validSegmentLocator, type SegmentLocator } from "./source-segments.js";

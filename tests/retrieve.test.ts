@@ -15,7 +15,7 @@ import {
   toPublicRetrieveReport,
 } from "../src/canghai/retrieve.js";
 import type { SourceAccessDescriptor } from "../src/canghai/source-access.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
 import {
   createDefaultMemoryAccessVerify,
   createDefaultSemanticRetrievalVerify,
@@ -105,7 +105,7 @@ test("budget exhaustion keeps a resumable checkpoint and resume revalidates auth
       trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
     "current",
   );
-  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No action judgment"); });
+  const resolver = new SourceEvidenceReader(reader, purpose, async () => { throw new Error("No action judgment"); });
   let reviews = 0;
   const first = await retrieve({
     requestId: "req-1", question: "Calibrate relationship investment", revision: "a".repeat(40),
@@ -187,7 +187,7 @@ test("historical knownBy rejects post-hoc capture while eventWindow keeps fact-v
   );
   assert.equal(purpose.evidenceCutoff, temporalScope.knownBy);
   assert.deepEqual(purpose.eventWindow, temporalScope.eventWindow);
-  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No action judgment"); });
+  const resolver = new SourceEvidenceReader(reader, purpose, async () => { throw new Error("No action judgment"); });
   const readable: string[] = [];
   for (const entry of reader.catalog.evidence.filter(e => e.status === "current")) {
     try {
@@ -227,7 +227,7 @@ test("retrieve distinguishes empty coverage gap, not-ready and source fault", as
       trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
     "current",
   );
-  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No action judgment"); });
+  const resolver = new SourceEvidenceReader(reader, purpose, async () => { throw new Error("No action judgment"); });
   const empty = await retrieve({
     requestId: "empty", question: "Anything?", revision: "a".repeat(40), generationId: "one",
     temporalScope: "current", purpose, requiredCapabilities: ["semantic_retrieval"],
@@ -273,7 +273,7 @@ test("retrieve maps stale_generation to generation_mismatch fault", async (t) =>
       trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
     "current",
   );
-  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No action judgment"); });
+  const resolver = new SourceEvidenceReader(reader, purpose, async () => { throw new Error("No action judgment"); });
   const assertCurrent = reader.assertCurrent.bind(reader);
   reader.assertCurrent = async () => { throw new CatalogError("stale_generation"); };
   const fault = await retrieve({
@@ -300,7 +300,7 @@ test("retrieve reports coverage_gap when temporal scope filters all candidates",
       trustedAdapters: { user_report: [], tool_observation: [], system_event: [] } },
     temporalScope,
   );
-  const resolver = new EpisodeEvidenceResolver(reader, purpose, async () => { throw new Error("No action judgment"); });
+  const resolver = new SourceEvidenceReader(reader, purpose, async () => { throw new Error("No action judgment"); });
   const gap = await retrieve({
     requestId: "gap", question: "July?", revision: "a".repeat(40), generationId: reader.catalog.generationId,
     temporalScope, purpose, requiredCapabilities: ["semantic_retrieval"],

@@ -1,8 +1,8 @@
 import { CatalogError, type CatalogReader, validMemoryRef } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { validateOngoingWork, validateUnderstanding } from "../praxis/personal-views.js";
-import { type EpisodeEvidenceResolver, type OriginalEvidence, validateLearningChange } from "../praxis/episode-evidence.js";
+import { type SourceEvidenceReader, type OriginalEvidence, validateLearningChange } from "./evidence-reader.js";
 import { assertEvidenceSegment, segmentLocator, sourceSegments, type SegmentLocator } from "./source-segments.js";
 import { parseSourcePolicy } from "./source-policy.js";
 import { isRecord } from "../shared/type-guards.js";
@@ -16,7 +16,7 @@ type Current = () => void | Promise<void>;
 export type AuthorizedExactReadScope = {
   reader: CatalogReader;
   /** Same reader, with the admitted request's complete Evidence/fragment policy context. */
-  resolver: EpisodeEvidenceResolver;
+  resolver: SourceEvidenceReader;
   assertCurrent: Current;
   /** Explicit source admission and live capability; the resolver independently checks Evidence/fragment permissions. */
   authorizeSources(input: { target: VersionedRef; sourceRefs: readonly VersionedRef[] }): Promise<{ assertCurrent: Current }>;

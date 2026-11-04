@@ -12,8 +12,8 @@ import { stableId } from "../canghai/host-input-archive.js";
 import type { CortexRoute } from "../routing/router.js";
 import { isRecord } from "../shared/type-guards.js";
 import { parseEvidenceBundle, SOURCE_ACCESS_EXCLUSION_CATEGORIES, type SourceAccessExclusions, type EvidenceBundle } from "./evidence-bundle.js";
-import type { EpisodeEvidenceResolver, OriginalEvidence } from "./episode-evidence.js";
-import type { VersionedRef } from "./episode-v2.js";
+import type { SourceEvidenceReader, OriginalEvidence } from "../canghai/evidence-reader.js";
+import type { VersionedRef } from "../canghai/ref.js";
 
 function check(value: unknown, category: string): asserts value {
   if (!value) throw new CatalogError(category);
@@ -49,7 +49,7 @@ function assessmentSchema(handles: string[]) {
 }
 
 type PreparedQuestionContext = {
-  resolver: EpisodeEvidenceResolver; requestId: string; requestHash: string; generationId: string; modelRef: string; modelRefs: string[];
+  resolver: SourceEvidenceReader; requestId: string; requestHash: string; generationId: string; modelRef: string; modelRefs: string[];
   checkpoint?: RetrievalCheckpoint;
   retrievalDescriptors?: import("../canghai/source-access.js").SourceAccessDescriptor[]; processingGrant?: object;
   priorContext: string; provisionalRoute: CortexRoute; context: string;
@@ -116,7 +116,7 @@ export async function prepareQuestionEvidence(input: Parameters<typeof assessQue
 /** Assess selected catalog originals; legacy Alpha callers retain exhaustive bounded reading. Neither path proves full-repository coverage. */
 async function assessQuestionEvidence(input: {
   requestId: string; revision: string; question: string; route: CortexRoute; priorContext: string;
-  resolver: EpisodeEvidenceResolver;
+  resolver: SourceEvidenceReader;
   complete: (input: { prompt: string; maxTokens: number }) => Promise<{ text: string; provider?: string; model?: string }>;
   abortSignal?: AbortSignal;
   retrieval?: {

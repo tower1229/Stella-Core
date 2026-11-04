@@ -1,6 +1,6 @@
 import { CatalogError, validMemoryRef } from "./catalog-reader.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 
 export type SegmentLocator = { payloadSha256: string; start: number; end: number };
 export type SourceSegment = { payloadSha256: string; start: number; end: number; policyRef: VersionedRef };

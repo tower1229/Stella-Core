@@ -1,4 +1,4 @@
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import { validateSchema } from "./schema.js";
 
 export type ReassessmentProgress = {

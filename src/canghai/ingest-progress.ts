@@ -2,7 +2,7 @@ import path from "node:path";
 import { CatalogError, readRepositoryBytes } from "./catalog-reader.js";
 import { canonicalJson } from "./content-version.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { VersionedRef } from "../praxis/episode-v2.js";
+import type { VersionedRef } from "./ref.js";
 import type { IngestPorts, IngestRequest, IngestResult } from "./ingest.js";
 import { MemoryTransactionError, readRecordedMemoryTransaction } from "./memory-transaction.js";
 

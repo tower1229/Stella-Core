@@ -8,7 +8,7 @@ import { sourceSegments, assertEvidenceSegment } from "../src/canghai/source-seg
 import { bytesVersion, objectVersion, canonicalJson } from "../src/canghai/content-version.js";
 import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { loadPersonalContextAccess, validatePersonalContextCatalog, type PersonalContextAccess } from "../src/canghai/personal-context-access.js";
-import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
+import { SourceEvidenceReader } from "../src/canghai/evidence-reader.js";
 import { ownerDirectAuthority } from "./processing-authority-fixture.js";
 import type { NativeMemoryOrigin } from "../src/canghai/native-memory-origin.js";
 
@@ -92,11 +92,11 @@ test("reviewed segments preserve originals and independent origin while enforcin
   let payloadReads = 0, trigger: "proactive" | "user_requested" = "proactive", presentation: "summary" | "quote" = "summary";
   const readPayload = reader.readPayload.bind(reader);
   reader.readPayload = async (...args) => { payloadReads++; return readPayload(...args); };
-  const resolver = new EpisodeEvidenceResolver(reader, { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "owner-direct",
+  const resolver = new SourceEvidenceReader(reader, { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "owner-direct",
     evidenceCutoff: "2026-09-02T00:00:00Z", trustedAdapters: { user_report: [], tool_observation: [], system_event: [] },
     sourceAccess: async () => ({ judgment: { trigger, presentation, topicRequested: true, topicExplicitlyNamed: true, scenarios: ["health_recovery"] }, quoteGrants: [medicalRef] }),
   }, async () => { throw new Error("No semantic action inference"); });
-  const noContext = new EpisodeEvidenceResolver(reader, { ...resolver.purpose, sourceAccess: undefined }, resolver.complete);
+  const noContext = new SourceEvidenceReader(reader, { ...resolver.purpose, sourceAccess: undefined }, resolver.complete);
   await assert.rejects(noContext.readEvidence(imported.evidenceRefs[0]!), /source_access_context_required/);
   const ordinary = await resolver.readEvidence(imported.evidenceRefs[0]!);
   assert.equal(ordinary.text, "一般观察。\n"); assert.equal(ordinary.role, "unknown");
@@ -136,7 +136,7 @@ test("reviewed segments preserve originals and independent origin while enforcin
     locator: { path: "whole.json", sha256: bytesVersion(wholeBody) } });
   catalog.generationId = "two";
   await writeFile(path.join(root, "catalog.json"), canonicalJson(catalog));
-  const forgedResolver = new EpisodeEvidenceResolver(await CatalogReader.load(root, "catalog.json"), resolver.purpose, resolver.complete);
+  const forgedResolver = new SourceEvidenceReader(await CatalogReader.load(root, "catalog.json"), resolver.purpose, resolver.complete);
   const { prepareCorrection } = await import("../src/learning/correction.js");
   const { prepareSourceOutputCheck } = await import("../src/canghai/source-output.js");
   const noModel = async (): Promise<never> => { throw new Error("Unauthorized content must not reach inference"); };
@@ -190,7 +190,7 @@ test("shared-policy fragments use their own descriptions and cannot reuse a neig
     },
   });
   const reader = await CatalogReader.load(f.root, "catalog.json");
-  const resolver = new EpisodeEvidenceResolver(reader, { ...base.purpose, sourceAccess: provider }, base.complete);
+  const resolver = new SourceEvidenceReader(reader, { ...base.purpose, sourceAccess: provider }, base.complete);
   assert.equal((await resolver.readEvidence(imported.evidenceRefs[0]!)).text, "First context.\n");
   persistence = true;
   await assert.rejects(resolver.readEvidence(imported.evidenceRefs[1]!), /source_access_revalidation_receipt_required/);
@@ -228,7 +228,7 @@ test("restricted parent policies authorize personal views through their evidence
       return { text: JSON.stringify({ requestHash: value.requestHash, sourceRef: value.sourceRef, policyRef: value.policyRef,
         segment: value.segment, applicable: true, scenarios: ["writing"], topicRequested: true, topicExplicitlyNamed: true }) };
     } });
-  const resolver = new EpisodeEvidenceResolver(base.reader, { ...base.purpose, sourceAccess: access }, base.complete);
+  const resolver = new SourceEvidenceReader(base.reader, { ...base.purpose, sourceAccess: access }, base.complete);
   await writeFile(path.join(f.root, "view-grant.json"), canonicalJson({ schemaVersion: "stella.personal-context-access/v1",
     ownerId: "owner", requesterIds: ["owner-host"], modelRefs: ["synthetic/model"], viewProcessingModelRefs: ["synthetic/model"],
     purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model" }, descriptors: [] }));

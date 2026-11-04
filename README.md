@@ -26,8 +26,11 @@ standalone command-capture regressions and process supervision remain; their
 applicable assertions are retained. The custom Host context/provider chain and its
 completion/fragment adapters have now been removed. Mixed tests exercise source
 bytes, roles, versions, permissions and transactions directly, without recreating
-that Host projection. Checkpoint and the remaining Praxis runtime are later
-dependency groups. Retiring an obsolete test does not turn its historical
+that Host projection. The custom checkpoint adapters and old Praxis runtime,
+packet, Episode stores and snapshot-import execution chain have also been removed.
+The ordinary entry now uses neutral CangHai version references and source-evidence
+reading. Catalog, policy, source synchronization, candidate repositories and durable
+transactions remain; their presence does not prove the new MIG02 branch is connected. Retiring an obsolete test does not turn its historical
 failure into a passing result or prove semantic recall.
 
 The current priority is **understanding existing data**: select relevant sources,

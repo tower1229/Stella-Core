@@ -2,8 +2,8 @@ import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson, objectVersion } from "../canghai/content-version.js";
 import type { ResponseKind } from "../shared/response-kind.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { EpisodeEvidenceResolver } from "./episode-evidence.js";
-import type { VersionedRef } from "./episode-v2.js";
+import type { SourceEvidenceReader } from "../canghai/evidence-reader.js";
+import type { VersionedRef } from "../canghai/ref.js";
 
 export const SOURCE_ACCESS_EXCLUSION_CATEGORIES = [
   "permission_denied", "source_topic_unresolved", "source_scenario_forbidden",
@@ -86,7 +86,7 @@ export type EvidenceBundleBinding = {
 };
 
 /** Reload persisted originals under the caller's current policy and historical cutoff. */
-export async function loadEvidenceBundle(resolver: EpisodeEvidenceResolver, binding: EvidenceBundleBinding) {
+export async function loadEvidenceBundle(resolver: SourceEvidenceReader, binding: EvidenceBundleBinding) {
   const reader = resolver.reader;
   const bundle = parseEvidenceBundle(await reader.read(binding.bundleRef, "bundles"));
   check(bundle.requestId === binding.requestId && bundle.revision === binding.revision &&

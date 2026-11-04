@@ -1,11 +1,15 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { CatalogError, CatalogReader, selectTextEvidence, validMemoryRef } from "../canghai/catalog-reader.js";
-import { canonicalJson } from "../canghai/content-version.js";
+import { CatalogError, CatalogReader, selectTextEvidence, validMemoryRef } from "./catalog-reader.js";
+import { canonicalJson } from "./content-version.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { ActualSource, EpisodeV2, VersionedRef } from "./episode-v2.js";
-import { assertSourcePolicyAccess, parseSourcePolicy, type SourceUsageRule, type SourceRestrictions } from "../canghai/source-policy.js";
-import type { SourceAccessProvider } from "../canghai/source-access.js";
-import { sourceSegments, assertEvidenceSegment, segmentLocator, type SegmentLocator } from "../canghai/source-segments.js";
+import type { VersionedRef } from "./ref.js";
+
+export type ActualSource = "user_report" | "tool_observation" | "system_event";
+export type ActionEvidenceClaim = { action: string; occurredAt: string | null; recordedAt: string; source: ActualSource; evidenceRefs: VersionedRef[] };
+export type OutcomeEvidenceClaim = { observations: string[]; result: string; observedAt: string; evidenceRefs: VersionedRef[] };
+import { assertSourcePolicyAccess, parseSourcePolicy, type SourceUsageRule, type SourceRestrictions } from "./source-policy.js";
+import type { SourceAccessProvider } from "./source-access.js";
+import { sourceSegments, assertEvidenceSegment, segmentLocator, type SegmentLocator } from "./source-segments.js";
 
 export type OriginalEvidence = {
   ref: VersionedRef; text: string; role: string; kind: string; independentOriginId: string;
@@ -22,7 +26,7 @@ export type EvidencePurpose = {
   eventWindow?: EventWindow;
   trustedAdapters: Record<ActualSource, readonly string[]>;
 };
-type Actual = NonNullable<EpisodeV2["actual"]>;
+type Actual = ActionEvidenceClaim;
 function check(condition: unknown, category: string): asserts condition { if (!condition) throw new CatalogError(category); }
 function timestamp(value: unknown, nullable = false): value is string | null {
   return nullable && value === null || typeof value === "string" && /(?:Z|[+-][0-9]{2}:[0-9]{2})$/.test(value) && Number.isFinite(Date.parse(value));
@@ -76,18 +80,11 @@ export function evidenceTemporallyEligible(
   return true;
 }
 
-/** Every current-use dependency of an Episode, including sealed predictions. */
-export function episodeContextRefs(episode: EpisodeV2): VersionedRef[] {
-  return [...episode.historicalInputRefs, ...(episode.decision?.inputRefs ?? []), ...(episode.twin?.hypothesisRefs ?? []), ...(episode.framework?.frameworkRefs ?? []),
-    ...(episode.reality?.externalRefs ?? []), ...(episode.reality?.similarEpisodeRefs ?? []), ...(episode.actual?.evidenceRefs ?? []),
-    ...(episode.outcome?.evidenceRefs ?? []), ...(episode.learning?.evidenceRefs ?? []), ...(episode.learning?.twin ?? []), ...(episode.learning?.praxis ?? [])];
-}
-
 /** Structural provenance gates precede, but never replace, the model's semantic action judgment. */
 type EvidenceModelReceipt = { provider?: string; model?: string };
 type EvidenceCompletion = (input: { prompt: string; maxTokens: number }) => Promise<{ text: string } & EvidenceModelReceipt>;
 type EvidenceReadScope = { active: boolean; models: EvidenceModelReceipt[]; originals: Map<string, OriginalEvidence>; metadata: Map<string, VersionedRef>; parent?: EvidenceReadScope };
-export class EpisodeEvidenceResolver {
+export class SourceEvidenceReader {
   readonly #readScopes = new AsyncLocalStorage<EvidenceReadScope>();
   readonly complete: EvidenceCompletion;
   constructor(readonly reader: CatalogReader, readonly purpose: EvidencePurpose, complete: EvidenceCompletion) {
@@ -277,12 +274,7 @@ export class EpisodeEvidenceResolver {
     await Promise.all(actual.evidenceRefs.map((ref) => this.readEvidence(ref)));
     return result.supported;
   }
-  async resolveHistorical(ref: VersionedRef): Promise<void> {
-    await this.reader.assertCurrent();
-    if (this.reader.entry(ref).status === "removed") return;
-    await this.reader.read(ref, undefined, "historical");
-  }
-  async verifyOutcomeEvidence(actual: Actual, outcome: NonNullable<EpisodeV2["outcome"]>): Promise<boolean> {
+  async verifyOutcomeEvidence(actual: Actual, outcome: OutcomeEvidenceClaim): Promise<boolean> {
     const claim = structuredClone({ actual, outcome });
     check(claim.outcome.evidenceRefs.length > 0 && timestamp(claim.outcome.observedAt) &&
       Date.parse(claim.outcome.observedAt) <= Date.parse(this.purpose.evidenceCutoff), "invalid_outcome_evidence");
@@ -316,7 +308,6 @@ export class EpisodeEvidenceResolver {
     await Promise.all([...claim.actual.evidenceRefs, ...claim.outcome.evidenceRefs].map((ref) => this.readEvidence(ref)));
     return verdict.supported;
   }
-  async resolveEvidence(ref: VersionedRef): Promise<void> { await this.readEvidence(ref); }
   async resolveLearning(ref: VersionedRef): Promise<void> {
     const understanding = await this.reader.read(ref, "understandings");
     check(understanding.schemaVersion === "stella.understanding/v1" && typeof understanding.statement === "string" && understanding.statement &&
@@ -336,10 +327,5 @@ export class EpisodeEvidenceResolver {
     check(object.disposition === "update" && includesRef(object.targetRefs as VersionedRef[], ref), "learning_change_target_mismatch");
     for (const evidence of validated.rowEvidenceRefs) await this.readEvidence(evidence);
     this.#dependencies(changeRef, validated.dependencies);
-  }
-  async isCurrentlyEligible(episode: EpisodeV2): Promise<boolean> {
-    await this.reader.assertCurrent();
-    return episodeContextRefs(episode)
-      .every((ref) => this.reader.eligible(ref));
   }
 }

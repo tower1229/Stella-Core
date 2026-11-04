@@ -1,6 +1,6 @@
 import { CatalogError } from "./catalog-reader.js";
 import { bytesVersion, canonicalJson } from "./content-version.js";
-import type { OriginalEvidence } from "../praxis/episode-evidence.js";
+import type { OriginalEvidence } from "./evidence-reader.js";
 import { isRecord } from "../shared/type-guards.js";
 
 /** Validate derived content before it becomes durable learning or evidence. */
