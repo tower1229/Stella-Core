@@ -1,0 +1,32 @@
+{
+  "head": "de96b892f05193bf10d6ac961ce7904c59e3e809",
+  "baseRevision": 230,
+  "baseStateSha256": "3dfd5c6b56f71e8844d3eaf4ba7d12b6df69c15988165fb77fb7ac12c1ec18d5",
+  "files": {
+    "src/canghai/repository-source.ts": "7062bb417a8374ed3b4807565eb27c9eb87d821c177336c3f049fb3fb18f86ab",
+    "tests/migration-source-export.test.ts": "8d07449e875ac9cd189287641c683c40dd6c2be70ce264b3a831923e51ca4aa2",
+    "PROJECT-STATE.yaml": "2fc13e034cacf175a50c3e2b4f5813a72cfb0f636a93a47ff13b71af5a3e0746"
+  },
+  "writer": {
+    "agent": "Core actual main source activation and forward-data handoff single writer",
+    "session": "delegated:01a18d89-0f02-7627-af05-10b2d9b00017:main-source-closeout-20261102"
+  },
+  "parentReview": {
+    "verdict": "limited_acceptance_with_P3_originMode_coercion",
+    "independentCompile": true,
+    "countsSeparate": [
+      "33/33",
+      "4/4",
+      "extracted152/152",
+      "boundaries4/4"
+    ],
+    "notProven": [
+      "grant issuance",
+      "actual original Git provenance/final data SHA",
+      "Host/model semantics",
+      "8eff producer baseline re-review"
+    ]
+  },
+  "revision": 231,
+  "stateSha256": "4bafb7571aa39b54b75b604b3797499da86d0b5ad88e52fdc024697bcfbf7256"
+}

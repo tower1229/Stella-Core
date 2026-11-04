@@ -926,3 +926,13 @@ migration_runtime_export_20261104:
   local_sdk: 2026.10.9
   independent_review: pending
   true_data_export_Host_model_and_understanding_writeback: not_validated
+
+# 2026-11-04 MIG02 mode type correction; original de96 review remains limited.
+migration_runtime_export_mode_r1_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/migration-runtime-export-mode-r1-20261104/REPORT.json
+  production_change: strict_string_originMode_without_coercion
+  red: 11_pass_4_expected_rejection_failures
+  green: 16_pass_0_fail
+  compile_and_build: pass_sdk10_9
+  r1_independent_review: pending
+  actual_origin_provenance_runtime_SHA_Host_semantics_8eff_review: not_validated

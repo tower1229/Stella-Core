@@ -1,0 +1,33 @@
+{
+  "baseRevision": 231,
+  "baseSha256": "4bafb7571aa39b54b75b604b3797499da86d0b5ad88e52fdc024697bcfbf7256",
+  "revision": 232,
+  "sha256": "55f4df840113607e1d3178f74ca583da29d1527c730658e31358edd9e5bf192d",
+  "before": {
+    "resume": {
+      "checkpoint": "de96独审有限接受，P3为originMode字符串强制转换接受数字/数组；当前唯一写者窄修并补修前/修后反例，旧包和证据保留。",
+      "nextAction": "仅修严格字符串类型并定向验证，交原审者快速复审；接受后按授权推送精确提交及CI，不触碰沧海/Host/旧UNKNOWN。"
+    },
+    "nextAction": "仅修严格字符串类型并定向验证，交原审者快速复审；接受后按授权推送精确提交及CI，不触碰沧海/Host/旧UNKNOWN。",
+    "updatedAt": "2026-11-04T05:35:11.643627+00:00"
+  },
+  "after": {
+    "resume": {
+      "checkpoint": "de96已独审有限接受；originMode P3已窄修，修前4反例失败、修后16/16及编译构建通过。R1待原审者复审；未推送、未改沧海/Host。",
+      "nextAction": "冻结两代码文件与红绿证据，精确本地保存并交原审者；R1接受后普通推送精确提交并核CI。原件归属/实际数据SHA/Host语义/8eff基础复审仍未验。"
+    },
+    "nextAction": "冻结两代码文件与红绿证据，精确本地保存并交原审者；R1接受后普通推送精确提交并核CI。原件归属/实际数据SHA/Host语义/8eff基础复审仍未验。",
+    "updatedAt": "2026-11-04T05:36:52.087732+00:00"
+  },
+  "addedEvidence": {
+    "id": "C-VAL-MIG02-MODE-R1",
+    "kind": "verification",
+    "ref": ".task-control/reports/CORE-VAL-001/migration-runtime-export-mode-r1-20261104/REPORT.json",
+    "claim": "de96独审有限接受，P3窄修作者红绿回归通过；R1独审待办，不替代真实资料/Host或生产者基础复审。",
+    "observedAt": "2026-11-04T05:36:52.087732+00:00",
+    "subject": {
+      "baseCommit": "de96b892f05193bf10d6ac961ce7904c59e3e809",
+      "sha256": "3af80dcb67b3f86528675a84a6a405d0bcc79a3cdd8af12e978bb4e62a5a7bd7"
+    }
+  }
+}

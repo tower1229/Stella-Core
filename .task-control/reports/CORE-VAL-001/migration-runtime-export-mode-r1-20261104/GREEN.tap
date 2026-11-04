@@ -1,0 +1,106 @@
+TAP version 13
+# Subtest: fixed MIG02 producer receipt exports rewritten link with retained BOM/CRLF original through current runtime entry
+ok 1 - fixed MIG02 producer receipt exports rewritten link with retained BOM/CRLF original through current runtime entry
+  ---
+  duration_ms: 391.098417
+  type: 'test'
+  ...
+# Subtest: fixed MIG02 producer receipt exports unchanged original through current runtime entry
+ok 2 - fixed MIG02 producer receipt exports unchanged original through current runtime entry
+  ---
+  duration_ms: 347.3995
+  type: 'test'
+  ...
+# Subtest: a normalized link rewrite cannot be substituted for the selected original bytes
+ok 3 - a normalized link rewrite cannot be substituted for the selected original bytes
+  ---
+  duration_ms: 58.134625
+  type: 'test'
+  ...
+# Subtest: migration aggregate manifest and mapping cannot stand in for a document receipt
+ok 4 - migration aggregate manifest and mapping cannot stand in for a document receipt
+  ---
+  duration_ms: 58.482916
+  type: 'test'
+  ...
+# Subtest: provisional identities, mismatched record IDs and pending version review remain explicit failures
+ok 5 - provisional identities, mismatched record IDs and pending version review remain explicit failures
+  ---
+  duration_ms: 61.862042
+  type: 'test'
+  ...
+# Subtest: inactive candidate flags are not a grant, and unsupported dispositions do not become text evidence
+ok 6 - inactive candidate flags are not a grant, and unsupported dispositions do not become text evidence
+  ---
+  duration_ms: 64.479125
+  type: 'test'
+  ...
+# Subtest: explicit original membership, size, payload digest and reviewed segmentation are required
+ok 7 - explicit original membership, size, payload digest and reviewed segmentation are required
+  ---
+  duration_ms: 66.385042
+  type: 'test'
+  ...
+# Subtest: MIG02 rejects numeric regular mode without coercing it to a string
+ok 8 - MIG02 rejects numeric regular mode without coercing it to a string
+  ---
+  duration_ms: 67.147292
+  type: 'test'
+  ...
+# Subtest: MIG02 rejects numeric executable mode without coercing it to a string
+ok 9 - MIG02 rejects numeric executable mode without coercing it to a string
+  ---
+  duration_ms: 74.165042
+  type: 'test'
+  ...
+# Subtest: MIG02 rejects array regular mode without coercing it to a string
+ok 10 - MIG02 rejects array regular mode without coercing it to a string
+  ---
+  duration_ms: 74.698291
+  type: 'test'
+  ...
+# Subtest: MIG02 rejects array executable mode without coercing it to a string
+ok 11 - MIG02 rejects array executable mode without coercing it to a string
+  ---
+  duration_ms: 74.46525
+  type: 'test'
+  ...
+# Subtest: MIG02 accepts the exact string mode 100644
+ok 12 - MIG02 accepts the exact string mode 100644
+  ---
+  duration_ms: 87.795292
+  type: 'test'
+  ...
+# Subtest: MIG02 accepts the exact string mode 100755
+ok 13 - MIG02 accepts the exact string mode 100755
+  ---
+  duration_ms: 78.166167
+  type: 'test'
+  ...
+# Subtest: source updates retain record identity but require a new export pin and reject old evidence/cursors
+ok 14 - source updates retain record identity but require a new export pin and reject old evidence/cursors
+  ---
+  duration_ms: 827.947875
+  type: 'test'
+  ...
+# Subtest: receipt and returned preparation do not bypass ordinary source admission
+ok 15 - receipt and returned preparation do not bypass ordinary source admission
+  ---
+  duration_ms: 357.412958
+  type: 'test'
+  ...
+# Subtest: repository import retains mixed original bytes as unknown, never as owner action
+ok 16 - repository import retains mixed original bytes as unknown, never as owner action
+  ---
+  duration_ms: 72.07425
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3103.809417

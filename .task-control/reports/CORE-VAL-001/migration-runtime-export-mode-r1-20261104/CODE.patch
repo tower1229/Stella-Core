@@ -1,0 +1,43 @@
+diff --git a/src/canghai/repository-source.ts b/src/canghai/repository-source.ts
+index 73ecedc1..7a714fc4 100644
+--- a/src/canghai/repository-source.ts
++++ b/src/canghai/repository-source.ts
+@@ -113,7 +113,7 @@ export async function prepareMigratedRepositorySource(input: MigratedRepositoryS
+   check(typeof receipt.originSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.originSha256) &&
+     typeof receipt.normalizedSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.normalizedSha256) &&
+     typeof receipt.originBlob === "string" && /^[a-f0-9]{40}$/.test(receipt.originBlob) &&
+-    ["100644", "100755"].includes(String(receipt.originMode)) &&
++    typeof receipt.originMode === "string" && ["100644", "100755"].includes(receipt.originMode) &&
+     Number.isSafeInteger(receipt.originBytes) && Number(receipt.originBytes) > 0 &&
+     Number(receipt.originBytes) <= 16 * 1024 * 1024, "migration_original_metadata_invalid");
+   check(Array.isArray(input.reviewedSegments) && input.reviewedSegments.length > 0,
+diff --git a/tests/migration-source-export.test.ts b/tests/migration-source-export.test.ts
+index 409d842c..182c63a1 100644
+--- a/tests/migration-source-export.test.ts
++++ b/tests/migration-source-export.test.ts
+@@ -109,6 +109,25 @@ test("explicit original membership, size, payload digest and reviewed segmentati
+   await assert.rejects(prepareMigratedRepositorySource(input), /repository_source_changed/);
+ });
+ 
++for (const [label, originMode] of [
++  ["numeric regular mode", 100644], ["numeric executable mode", 100755],
++  ["array regular mode", ["100644"]], ["array executable mode", ["100755"]],
++] as const) {
++  test(`MIG02 rejects ${label} without coercing it to a string`, async t => {
++    const { input, sample } = await setup(t);
++    await assert.rejects(prepareMigratedRepositorySource({ ...input,
++      receipt: { ...sample.receipt, originMode } }), /migration_original_metadata_invalid/);
++  });
++}
++
++for (const originMode of ["100644", "100755"]) {
++  test(`MIG02 accepts the exact string mode ${originMode}`, async t => {
++    const { input, sample } = await setup(t);
++    const prepared = await prepareMigratedRepositorySource({ ...input, receipt: { ...sample.receipt, originMode } });
++    assert.equal(prepared.migration.originalSha256, `sha256:${sample.receipt.originSha256}`);
++  });
++}
++
+ test("source updates retain record identity but require a new export pin and reject old evidence/cursors", async t => {
+   const { f, input, sample, publish } = await setup(t, 1);
+   const first = await prepareMigratedRepositorySource(input); const beforeRevision = await publish(first);

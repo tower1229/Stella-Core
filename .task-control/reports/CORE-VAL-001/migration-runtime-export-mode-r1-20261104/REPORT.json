@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "stella.migration-mode-r1/v1",
+  "observedAt": "2026-11-04T05:36:52.087732+00:00",
+  "baseCommit": "de96b892f05193bf10d6ac961ce7904c59e3e809",
+  "codePaths": [
+    "src/canghai/repository-source.ts",
+    "tests/migration-source-export.test.ts"
+  ],
+  "codeManifestSha256": "2758898753ef63c826d23a1dbf3725faf554356929a0ff5925141d43bd865d36",
+  "patchSha256": "26c1b7cd2b5184df0a8798034f87f87183c199eaa4aeb5ac096b328e94c4ca52",
+  "finding": "P3: String(originMode) accepted numeric/array values",
+  "change": "Require typeof originMode === string before exact mode allowlist; no other production change.",
+  "red": {
+    "exitCode": 1,
+    "tests": 15,
+    "pass": 11,
+    "fail": 4,
+    "expectedFailures": [
+      "numeric100644",
+      "numeric100755",
+      "array100644",
+      "array100755"
+    ],
+    "receipt": "RED.tap",
+    "sha256": "0da2e0a218045a36b062bff697ced979cd082520803027c5252daf58e1b22b40"
+  },
+  "green": {
+    "exitCode": 0,
+    "tests": 16,
+    "pass": 16,
+    "fail": 0,
+    "scope": "15 migration cases including 4 coercion negatives + 2 string positives; 1 existing repository-source case",
+    "receipt": "GREEN.tap",
+    "sha256": "f1c30de50fa775a0e05d54d1528e6308d71b997919725bb17457cf10e217a380"
+  },
+  "compileTestExit": 0,
+  "buildExit": 0,
+  "sdkVersion": "2026.10.9",
+  "lockedSdkVersion": "2026.10.8",
+  "priorDe96Review": {
+    "verdict": "limited_acceptance_with_P3_originMode_coercion",
+    "independentCompile": true,
+    "countsSeparate": [
+      "33/33",
+      "4/4",
+      "extracted152/152",
+      "boundaries4/4"
+    ],
+    "notProven": [
+      "grant issuance",
+      "actual original Git provenance/final data SHA",
+      "Host/model semantics",
+      "8eff producer baseline re-review"
+    ]
+  },
+  "r1IndependentReview": "pending_original_reviewer",
+  "fullPackageRetested": false,
+  "priorExtracted152": "accepted de96 evidence only; not counted as R1 execution",
+  "notValidated": [
+    "origin Git provenance and final real runtime SHA",
+    "grant issuance",
+    "Host/model semantics",
+    "8eff producer baseline re-review",
+    "new CI"
+  ],
+  "noCangHaiHostModelOrUnknownReplay": true,
+  "push": "pending_R1_independent_acceptance"
+}

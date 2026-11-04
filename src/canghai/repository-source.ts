@@ -113,7 +113,7 @@ export async function prepareMigratedRepositorySource(input: MigratedRepositoryS
   check(typeof receipt.originSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.originSha256) &&
     typeof receipt.normalizedSha256 === "string" && /^[a-f0-9]{64}$/.test(receipt.normalizedSha256) &&
     typeof receipt.originBlob === "string" && /^[a-f0-9]{40}$/.test(receipt.originBlob) &&
-    ["100644", "100755"].includes(String(receipt.originMode)) &&
+    typeof receipt.originMode === "string" && ["100644", "100755"].includes(receipt.originMode) &&
     Number.isSafeInteger(receipt.originBytes) && Number(receipt.originBytes) > 0 &&
     Number(receipt.originBytes) <= 16 * 1024 * 1024, "migration_original_metadata_invalid");
   check(Array.isArray(input.reviewedSegments) && input.reviewedSegments.length > 0,

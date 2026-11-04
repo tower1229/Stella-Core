@@ -109,6 +109,25 @@ test("explicit original membership, size, payload digest and reviewed segmentati
   await assert.rejects(prepareMigratedRepositorySource(input), /repository_source_changed/);
 });
 
+for (const [label, originMode] of [
+  ["numeric regular mode", 100644], ["numeric executable mode", 100755],
+  ["array regular mode", ["100644"]], ["array executable mode", ["100755"]],
+] as const) {
+  test(`MIG02 rejects ${label} without coercing it to a string`, async t => {
+    const { input, sample } = await setup(t);
+    await assert.rejects(prepareMigratedRepositorySource({ ...input,
+      receipt: { ...sample.receipt, originMode } }), /migration_original_metadata_invalid/);
+  });
+}
+
+for (const originMode of ["100644", "100755"]) {
+  test(`MIG02 accepts the exact string mode ${originMode}`, async t => {
+    const { input, sample } = await setup(t);
+    const prepared = await prepareMigratedRepositorySource({ ...input, receipt: { ...sample.receipt, originMode } });
+    assert.equal(prepared.migration.originalSha256, `sha256:${sample.receipt.originSha256}`);
+  });
+}
+
 test("source updates retain record identity but require a new export pin and reject old evidence/cursors", async t => {
   const { f, input, sample, publish } = await setup(t, 1);
   const first = await prepareMigratedRepositorySource(input); const beforeRevision = await publish(first);

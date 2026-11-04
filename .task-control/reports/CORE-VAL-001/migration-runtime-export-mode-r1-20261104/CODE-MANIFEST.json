@@ -1,0 +1,10 @@
+{
+  "src/canghai/repository-source.ts": {
+    "sha256": "f464579f204a02fa915a1b0c1cab9e32ac95d5e850d31d97577135984da30a15",
+    "bytes": 10091
+  },
+  "tests/migration-source-export.test.ts": {
+    "sha256": "c8efbd8029c18b806042bcc858fb1178f702be12f685945f31ad87978f130eab",
+    "bytes": 11379
+  }
+}
