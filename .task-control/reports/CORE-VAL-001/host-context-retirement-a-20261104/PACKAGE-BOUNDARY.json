@@ -1,0 +1,17 @@
+{
+  "members": 145,
+  "compiledSourceFiles": 126,
+  "unchangedVsBase": true,
+  "changedCompiledFiles": [],
+  "artifactSha256": "b4da6c0df9e738d14b0279c93bfd39a6f4dd31cbfde08d14986c1279a625a496",
+  "stagingExit": 0,
+  "packageTestsThisStage": "not_rerun_current126compiled_files_unchanged",
+  "latestExactBaseCI": "fb552e13 CI41765893593 SDK10.8 passes143/143; separate from local118",
+  "localSdk": "2026.10.9",
+  "workflowAnd12SuiteListChanged": false,
+  "preparedHash": {
+    "sha256": "9eb94fd23bb64217b57fe559c551e6e937f0b3eec869c0a1e97ecdfe6fd74e9d",
+    "bytes": 26382
+  },
+  "liveHost": false
+}

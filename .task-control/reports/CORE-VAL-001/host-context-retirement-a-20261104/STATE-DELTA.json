@@ -1,0 +1,7 @@
+{
+  "baseRevision": 216,
+  "baseSha256": "f986eed11eccd63c09dc857f42c68f85b911a696118ca139bd22f42842f61326",
+  "revision": 217,
+  "sha256": "053540d9ae1a9f6bfa8e2ced749fe610aa3606653b5442c9cd07a8f027bfc084",
+  "scope": "thisApackage/previousR3CI only plus removal of stale whole-migration non-goal; old dirty state not staged"
+}

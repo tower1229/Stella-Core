@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, mkdtemp, rm, writeFile, realpath } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { personalMemoryFixture } from "./personal-memory-fixture.js";
@@ -326,40 +326,8 @@ test("Host correction archives exact owner input before inference and restores a
   assert.equal(binding.generationId, approved.generationId);
   assert.ok(binding.configurationInputs.some(item => item.path === "correction-grant.json"));
   assert.ok(binding.dependencies.some(item => item.ref.id === approved.changeRef.id));
-  const { createFixture, prepareInitializationFixture } = await import("./consciousness-fixture.js");
-  const { compileInitializationSource } = await import("../src/openclaw/initialization-source.js");
-  const { bindProcessingAuthority } = await import("../src/openclaw/processing-authority.js");
-  const { HostContextAuthority } = await import("../src/openclaw/host-context-authority.js");
-  const { generateKeyPairSync } = await import("node:crypto");
-  const { persistContextHistory, loadContextHistory } = await import("../src/openclaw/host-context-history.js");
-  const initializationRoot = await realpath(await createFixture());
-  t.after(() => rm(initializationRoot, { recursive: true, force: true }));
-  const compilation = await compileInitializationSource(initializationRoot, await prepareInitializationFixture(initializationRoot, "main"),
-    { agentId: "main", hostVersion: "2026.8.2" });
-  const keys = generateKeyPairSync("ed25519"), configurationHash = bytesVersion("Synthetic correction configuration");
-  const createGate = (request = approvalRequest) => {
-    const current = { request, purpose: input.processingAuthority.purpose, modelRef: input.modelRef,
-      deployment: bytesVersion("Synthetic correction deployment"), generationId: approved.generationId };
-    return new HostContextAuthority(afterApproval, request, { authority: bindProcessingAuthority({ ...current, ownerId: "owner" }),
-      compilation, configurationHash, historyVerificationKey: keys.publicKey,
-      captureCurrent: async () => ({ ...current, compilation, configurationHash,
-        generationId: (await CatalogReader.load(f.root, "catalog.json")).catalog.generationId }) });
-  };
-  const gate = createGate();
-  await assert.rejects(createGate(snapshotTurnRequest({ ...approvalRequest, sessionId: "another-session" }, "other-run")).correction(approved),
-    /host_context_correction_scope_mismatch/);
-  await gate.bindArchivedInput(binding.ingressRefs[0]!);
-  const fragment = await gate.correction(approved);
-  assert.equal(await gate.renderContext([fragment]), binding.context);
-  const summary = await gate.summarize([fragment], async () => ({ text: '{"summary":"The owner approved the process but not the ending"}', modelRef: input.modelRef }));
-  const sealed = await gate.seal({ system: gate.publicRules(), messages: [{ role: "user", fragment: summary }] });
-  const retained = await persistContextHistory(gate, sealed.consumption, { archiveRoot: "retained-context", signingKey: keys.privateKey, durability });
-  const archive = await loadContextHistory(f.root, { archiveRoot: "retained-context", digest: retained.locator.sha256 }, keys.publicKey);
-  await createGate().restoreHistory(archive);
   await writeFile(path.join(f.root, "correction-grant.json"), canonicalJson({ ...grantConfig, requesterIds: ["different-owner"] }));
   await assert.rejects(readAppliedCorrectionContext(approved), /personal_context_access_changed/);
-  await assert.rejects(gate.assertConsumption(sealed.consumption, sealed.input), /host_context_configuration_input_changed/);
-  await assert.rejects(createGate().restoreHistory(archive), /host_context_configuration_input_changed/);
 });
 
 

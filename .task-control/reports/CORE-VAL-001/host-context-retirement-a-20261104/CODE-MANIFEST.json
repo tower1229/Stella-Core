@@ -1,0 +1,170 @@
+{
+  "README.md": {
+    "status": "present",
+    "sha256": "3f707447c50a8e9ddba10031afc123d4881b57798a6cb0d6848070939cef0d00"
+  },
+  "scripts/probe-host-agent-admission.mjs": {
+    "status": "deleted",
+    "baseSha256": "cbbde672bca5f8ff2285fd12113c2cf5d66c977d592acde6a91f44babb4c0a12"
+  },
+  "src/openclaw/capability-admission.ts": {
+    "status": "deleted",
+    "baseSha256": "9742d05291e369b773ff2a873d3458f732d2b1306a5e384a356cb743186e763e"
+  },
+  "src/openclaw/completion-adapter.ts": {
+    "status": "deleted",
+    "baseSha256": "499aa89f72ea9bec91063c5972f152d879c389571060e6ebc0f85675622f996c"
+  },
+  "src/openclaw/fragment-read-tool.ts": {
+    "status": "deleted",
+    "baseSha256": "88d124a4fb92102af94bdf7e1b7ed7fee7186e7812224ea33997a9279a0f596f"
+  },
+  "src/openclaw/host-context-authority.ts": {
+    "status": "deleted",
+    "baseSha256": "3d82d2e74a790ac245efd0abf4555e284cfd1073ba9dbda63e3796081f3c5a25"
+  },
+  "src/openclaw/host-context-engine.ts": {
+    "status": "deleted",
+    "baseSha256": "1d164fcc5ed4b24a3c0e27d577969ed6a93859724a6ed55ac387a978f65fc94c"
+  },
+  "src/openclaw/host-context-graph.ts": {
+    "status": "deleted",
+    "baseSha256": "265b2830e49d18f9921490a5bd9ee847bb0a7ef252e5edbdb19e38d28cacf172"
+  },
+  "src/openclaw/host-context-head.ts": {
+    "status": "deleted",
+    "baseSha256": "c5e3838b7c3e30e876fadf050e5aa8d90d93a6c166bb511b5cf373be3c96a40c"
+  },
+  "src/openclaw/host-context-history.ts": {
+    "status": "deleted",
+    "baseSha256": "475e49ee5847098b990d9bfa4a5864a7dbf964b8305055acb9f42a0c1980b108"
+  },
+  "src/openclaw/host-context-keys.ts": {
+    "status": "deleted",
+    "baseSha256": "58a48fe3db4e6dcf2eda0c966bfd08bc2eafd1a3628969231d30bea997e071e7"
+  },
+  "src/openclaw/host-context-prompt.ts": {
+    "status": "deleted",
+    "baseSha256": "edce4ad5934c03737c32363b82caa2ac33160e5ff1e785af9200df7085f68056"
+  },
+  "src/openclaw/host-context-replay.ts": {
+    "status": "deleted",
+    "baseSha256": "1898a120491ff7c1647d64d5519e924ff2c17eb7d446f32a78ed2b7d2bca1fba"
+  },
+  "src/openclaw/host-context-turn-store.ts": {
+    "status": "deleted",
+    "baseSha256": "53a422d852f471123a5cc8f0792f43098b74afa73efcb29e971db437cad51597"
+  },
+  "src/openclaw/host-context-view.ts": {
+    "status": "deleted",
+    "baseSha256": "ed6e0d96048cc0aa72a5e5940feaf2b03b698634e7a5f37f31bf9ab91c6d8073"
+  },
+  "src/openclaw/host-history-compaction.ts": {
+    "status": "deleted",
+    "baseSha256": "74544a492abff978f3347f473bd34df777bef3416aaa2ed0802a06462c22b621"
+  },
+  "src/openclaw/host-memory-inventory.ts": {
+    "status": "deleted",
+    "baseSha256": "e636de2e3817b309a0564b1a33a60fcc90c98a6597a1d8d8e9e2bca7d5ae3119"
+  },
+  "src/openclaw/host-memory-provider.ts": {
+    "status": "deleted",
+    "baseSha256": "1665954f9323206fc1f86799ee988b0b37b6a383a9f7cf5f49934f5646dc6860"
+  },
+  "src/openclaw/host-transcript.ts": {
+    "status": "deleted",
+    "baseSha256": "fa27f47eea19e27e24159087d1c90f2e1c3f1443c0e295a58787a126e193c61e"
+  },
+  "src/openclaw/memory-consolidation.ts": {
+    "status": "deleted",
+    "baseSha256": "19a2bdcc01aff3d45f4824cabad6c172946559ffeb623360bcdb9bb7b43fd058"
+  },
+  "src/openclaw/native-active-memory.ts": {
+    "status": "deleted",
+    "baseSha256": "b9f0e040e14959e38c915c9f71a3403f9f929f1a0c7945c8cd3197b8d0ee1699"
+  },
+  "src/praxis/outcome-recovery.ts": {
+    "status": "deleted",
+    "baseSha256": "e20185791b9d6cb1150a1f92087da7e812c1f9d958fceaa52b24e45880ffb092"
+  },
+  "src/praxis/outcome-transaction.ts": {
+    "status": "deleted",
+    "baseSha256": "07bf4022eb3c78075489e505197d94c073bb302b952c6c28d2929939ef71c099"
+  },
+  "tests/README.md": {
+    "status": "present",
+    "sha256": "527da1f99a6e93ff8e1ff6af8e7e07a6c8c66470cbb9a2a00a5b9079690ab4a1"
+  },
+  "tests/capability-admission.test.ts": {
+    "status": "deleted",
+    "baseSha256": "82f54684ca8a862db01d956b212630380d5185abdfb929920114881255fa8fcf"
+  },
+  "tests/completion-adapter.test.ts": {
+    "status": "deleted",
+    "baseSha256": "ef9e0f222b90bb3d0692dffc7e672aa0c84728be61e02ea2a537899099fa9d63"
+  },
+  "tests/correction.test.ts": {
+    "status": "present",
+    "sha256": "810ef966e99d5da642e00f3517a50ed5bbecc70ff08c494a64bc78b03cd7870b"
+  },
+  "tests/episode-evidence.test.ts": {
+    "status": "present",
+    "sha256": "44559f22b5a6c9ee6a967b48d95c9792c61b101a6f9242c27e94ea225e51561d"
+  },
+  "tests/host-context-authority.test.ts": {
+    "status": "deleted",
+    "baseSha256": "ad9ca064e152e14db52dc2b256bdaac0b2249c7426514a8f56cce9b5b37b99b1"
+  },
+  "tests/host-context-configuration.test.ts": {
+    "status": "deleted",
+    "baseSha256": "a209892841f1f441b6a9a2a657e980ba063afc7a77730ccedb05bee2cdd7264f"
+  },
+  "tests/host-context-keys.test.ts": {
+    "status": "deleted",
+    "baseSha256": "487fb1432b179cf75f39bbfbd07d90142ea1e87c7fdf0038b258531b4479adec"
+  },
+  "tests/host-context-turn-store.test.ts": {
+    "status": "deleted",
+    "baseSha256": "aee4880a05b16f80027a0d919129c11814e86c6d55ed2a4779f3db7b01d1b373"
+  },
+  "tests/host-history-compaction.test.ts": {
+    "status": "deleted",
+    "baseSha256": "e04eea48a15905b326190035ce6039c562238b1cc3d3f9616532d91563a210cb"
+  },
+  "tests/host-memory-inventory.test.ts": {
+    "status": "deleted",
+    "baseSha256": "ac6727d5a91eeb1352c5eda2c992f3c14e4dceac93ce6505fddbae1883577748"
+  },
+  "tests/host-memory-provider.test.ts": {
+    "status": "deleted",
+    "baseSha256": "5fbfd3bc3d4600ecfdc99bc6992519664ad10d3c70dd2fa3335204ff38033059"
+  },
+  "tests/host-silent-draft.test.ts": {
+    "status": "deleted",
+    "baseSha256": "e16b7169ef2ecb6989cdbe7d5a4a1fa12b32bdfbe3c2e53e9e340ce6c85c184e"
+  },
+  "tests/memory-consolidation.test.ts": {
+    "status": "deleted",
+    "baseSha256": "fbd9819a878ba79a0268d99dea092af5ebcb29bedef72ea3c099b1d7dbe40ce2"
+  },
+  "tests/recovery-read-binding.test.ts": {
+    "status": "present",
+    "sha256": "a4d8f6b71c873376ddff00791fd6c1d4a48e8d5a1a23c2b9ae46ef521b7dc1de"
+  },
+  "tests/routing-context.test.ts": {
+    "status": "present",
+    "sha256": "ba87866d5f9caabfd5d2f3c909e4891a68a36782c2a4571b1a0ce1ff18df7af4"
+  },
+  "tests/source-segments.test.ts": {
+    "status": "present",
+    "sha256": "b2dfd76838fae8084bc58b358c3147985f40feade09e65b537542c2296a7b012"
+  },
+  "tests/synchronize.test.ts": {
+    "status": "present",
+    "sha256": "108426aa5f4726bd5b5d0af05931eb982d7f306f19ef2703f4f1b05e7d68f470"
+  },
+  "tests/transcript-archive.test.ts": {
+    "status": "present",
+    "sha256": "418464ed6a05df2dd5f1f75f08f8eb61366958ff250b928441708812d705d382"
+  }
+}

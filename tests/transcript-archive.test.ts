@@ -20,7 +20,6 @@ import {
   type TranscriptMessageExport,
 } from "../src/canghai/transcript-archive.js";
 import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
-import { captureHostTranscript } from "../src/openclaw/host-transcript.js";
 import { isRecord } from "../src/shared/type-guards.js";
 import { CatalogError } from "../src/canghai/catalog-reader.js";
 
@@ -603,48 +602,6 @@ test("oversized attachment batch fails with attachment_batch_too_large", async (
     }),
     (error: unknown) => error instanceof IngestError && error.category === "attachment_batch_too_large",
   );
-});
-
-test("captureHostTranscript exports message tree from injected Host events", () => {
-  const events = [
-    {
-      type: "message",
-      id: "host-msg-1",
-      parentId: null,
-      timestamp: now,
-      message: { role: "user", content: [{ type: "text", text: "Host 导出。" }] },
-    },
-    {
-      type: "message",
-      id: "host-msg-2",
-      parentId: "host-msg-1",
-      timestamp: "2026-09-11T12:00:01Z",
-      appendMode: "side",
-      message: { role: "assistant", content: [{ type: "text", text: "Host 侧分支。" }] },
-    },
-    { type: "compaction", id: "ignore-me" },
-  ];
-  const exported = captureHostTranscript({
-    hostVersion: "2026.8.2",
-    agentId: "synthetic",
-    sessionId: "session-host",
-    sessionKey: "agent:synthetic:host",
-    storePath: "/tmp/stella-synthetic-store.sqlite",
-    ownerSpeaker: { id: "owner-transcript", role: "owner" },
-  }, () => events as never);
-  assert.equal(exported.length, 2);
-  assert.equal(exported[0]!.upstreamId, "host-msg-1");
-  assert.equal(exported[0]!.speaker?.role, "owner");
-  assert.equal(exported[1]!.appendMode, "side");
-  const prepared = prepareTranscriptItems({
-    hostVersion: "2026.8.2",
-    agentId: "synthetic",
-    sessionId: "session-host",
-    sessionKey: "agent:synthetic:host",
-    messages: exported,
-  });
-  assert.equal(prepared[0]!.role, "owner");
-  assert.equal(prepared[1]!.envelope?.appendMode, "side");
 });
 
 test("entry ingest and transcript share upstream identity; rebuild reports missing attachments", async (t) => {

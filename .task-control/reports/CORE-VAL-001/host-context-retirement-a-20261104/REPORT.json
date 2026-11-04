@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-04T03:23:59.247237+00:00",
+  "status": "author_validated_pending_independent_review",
+  "baseCommit": "fb552e134533e133d818504f84631ed7b3635129",
+  "codePaths": 42,
+  "deletedSources": 21,
+  "deletedDedicatedSuites": 11,
+  "deletedOldLauncher": 1,
+  "mixedSuites": 7,
+  "retainedNamedTestBodiesByteIdentical": 89,
+  "changedOrRenamedNamedBodies": 9,
+  "retiredNamedMixedCases": 8,
+  "retiredDynamicMixedCases": 2,
+  "counts": {
+    "tests": 118,
+    "pass": 118,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "package": {
+    "members": 145,
+    "compiledSourceFiles": 126,
+    "unchangedVsBase": true,
+    "changedCompiledFiles": [],
+    "artifactSha256": "b4da6c0df9e738d14b0279c93bfd39a6f4dd31cbfde08d14986c1279a625a496",
+    "stagingExit": 0,
+    "packageTestsThisStage": "not_rerun_current126compiled_files_unchanged",
+    "latestExactBaseCI": "fb552e13 CI41765893593 SDK10.8 passes143/143; separate from local118",
+    "localSdk": "2026.10.9",
+    "workflowAnd12SuiteListChanged": false,
+    "preparedHash": {
+      "sha256": "9eb94fd23bb64217b57fe559c551e6e937f0b3eec869c0a1e97ecdfe6fd74e9d",
+      "bytes": 26382
+    },
+    "liveHost": false
+  },
+  "archive": {
+    "originalPath": "tests/recovery-pointer-barriers.test.ts",
+    "archivePath": ".artifacts/host-context-retirement-a-20261104/historical/tests/recovery-pointer-barriers.test.ts",
+    "sha256": "8eeeea1cfd69ed5bd8b05701a9c9f09fe39ecf6c4bf609f4ab5d488b025161ce",
+    "bytes": 14245,
+    "status": "archived_byte_identical_original_removed_from_active_test_tree",
+    "sourceRecoveryCommit": "fb552e134533e133d818504f84631ed7b3635129",
+    "reason": "untracked historical private-Host runtime pointer probe; not current package suite; original bytes retained locally, no execution or silent exclusion",
+    "archivePublished": false
+  },
+  "currentProductionSourceChanged": false,
+  "assertionMeaning": {
+    "retained": "exact bytes/BOM/role/time/version/selector; metadata-only listing and policy-before-payload in unchanged ordinary-source tests; segment scope; current dependency/source edits; historical records; CAS/fencing/journal/one-commit+pointer retry",
+    "removed": "old signed Host context graph/compaction/native SQL-era callback/provider/completion projection and outcome-specific writer/recovery glue",
+    "notEquivalent": "repository-level tests do not prove Host/model consumption, native callback integration or retained old signed-context behavior",
+    "transactionCoverage": "unchanged memory-transaction8 and journal10 passed here and remain in12suite package CI; no guarantee all old outcome choreography invariants are equivalent"
+  },
+  "unchanged": [
+    "42module current ordinary build closure",
+    "native OpenClaw memory/context/loop",
+    "source grant/data bindings",
+    "checkpoint/test-owner supervision",
+    "CangHai files and fixed worktree",
+    "shared repository and transaction source"
+  ],
+  "remaining": [
+    "B checkpoint14 modules and owned-suite hardcoding",
+    "C remainingPraxis15 modules and6scripts",
+    "other legacy groups are not declared fully retired",
+    "full CangHai branch conversion/sync contract handoff and actual forward semantic consumption remain separate"
+  ],
+  "boundaries": {
+    "oldUnknownLoad": "not_replayed",
+    "mainHost": false,
+    "paidModel": false,
+    "privateOriginals": false,
+    "permissions": false,
+    "pushThisCandidate": false,
+    "historicalFailures": "retired or retained, not relabelled_pass"
+  },
+  "previousStage": {
+    "commit": "fb552e134533e133d818504f84631ed7b3635129",
+    "review": "parent independent114/114 accepted",
+    "remoteVerified": true,
+    "ci": 41765893593,
+    "ciConclusion": "success",
+    "ciCounts": {
+      "tests": 143,
+      "pass": 143,
+      "fail": 0
+    },
+    "ciSdk": "2026.10.8"
+  }
+}

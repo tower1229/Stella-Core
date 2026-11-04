@@ -3,7 +3,6 @@ import test from "node:test";
 import { canonicalJson } from "../src/canghai/content-version.js";
 import { RecoveryAuthorityError, type RecoveryAuthorityResolver, type RecoveryAuthoritySnapshot } from "../src/canghai/recovery-authority-contract.js";
 import { captureRecoveryReadBinding, assertRecoveryReadBinding, createRecoveryReadScope } from "../src/canghai/recovery-read-binding.js";
-import { hostContextExecutionHash } from "../src/openclaw/host-memory-inventory.js";
 import { loadOutcomeRecoveryBinding } from "../src/praxis/outcome-recovery-binding.js";
 
 const revisionA = "a".repeat(40), revisionB = "b".repeat(40);
@@ -53,18 +52,6 @@ test("missing/corrupt authority and wrong scope reject without fallback", async 
     await assert.rejects(captureRecoveryReadBinding(changed, f.resolver), category("recovery_read_binding_mismatch"));
 });
 function hostConfig() { return { plugins: { entries: { "stella-core": { enabled: true, config: { ...scope, dataMode: "managed_durable_write", recoveryRevision: revisionA } } } } }; }
-test("execution hash explicitly binds Core snapshot while legacy pointer gate remains", () => {
-  const config = hostConfig(), expected = { ...scope, recoveryRevision: revisionB }, authorityB = snapshot(revisionB, "token-B");
-  assert.throws(() => hostContextExecutionHash(config, expected), category("host_context_recovery_binding_changed"));
-  const hash = hostContextExecutionHash(config, expected, authorityB);
-  assert.notEqual(hash, hostContextExecutionHash(config, expected, snapshot(revisionB, "token-C")));
-  const changed = structuredClone(config); changed.plugins.entries["stella-core"].config.dataMode = "read_only";
-  assert.throws(() => hostContextExecutionHash(changed, expected, authorityB), category("host_context_configuration_scope_mismatch"));
-  for (const binding of [{ ...authorityB.binding, agentId: "other" }, { ...authorityB.binding, repositoryRoot: "/synthetic/other" }, { ...authorityB.binding, manifestPath: "other.json" }])
-    assert.throws(() => hostContextExecutionHash(config, expected, { ...authorityB, binding }), category("host_context_recovery_binding_changed"));
-  const legacy = { ...scope, recoveryRevision: revisionA };
-  assert.equal(hostContextExecutionHash(config, legacy), hostContextExecutionHash(structuredClone(config), legacy));
-});
 test("outcome recovery cannot replace frozen revision or use a different repository scope", async () => {
   const f = authority(), binding = await captureRecoveryReadBinding(scope, f.resolver);
   await assert.rejects(loadOutcomeRecoveryBinding(scope.canghaiRoot, scope.manifestPath, revisionB, binding), category("recovery_binding_changed"));

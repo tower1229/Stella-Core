@@ -1,0 +1,16 @@
+{
+  "scope": "tracked and untracked source/scripts/tests existing files; literal basename references plus successful full test compile",
+  "remainingMatches": [
+    {
+      "path": "scripts/prepare-ordinary-package-tests.mjs",
+      "line": 29,
+      "references": [
+        "src/openclaw/host-context-engine.ts",
+        "src/openclaw/host-memory-provider.ts"
+      ],
+      "kind": "negative_package_membership_assertion"
+    }
+  ],
+  "additionalCaller": "scripts/probe-host-agent-admission.mjs template-generated import discovered by full text search; retired in this batch",
+  "limitations": "not a proof of Host runtime/dynamic arbitrary paths; archived historical files not executable targets"
+}

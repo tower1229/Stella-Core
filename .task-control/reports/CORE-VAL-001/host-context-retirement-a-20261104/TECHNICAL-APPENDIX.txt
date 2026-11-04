@@ -1,0 +1,14 @@
+
+host_context_retirement_a_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/host-context-retirement-a-20261104/REPORT.json
+  retired_sources: 21
+  retired_dedicated_tests: 11
+  retired_template_launcher: 1
+  mixed_suites_retained: 7
+  unchanged_named_test_bodies: 89
+  local_tests: 118_pass_0_fail_sdk10_9
+  current_compiled_files_unchanged: 126
+  npm_tarball_members: 145
+  historical_untracked_probe: byte_identical_recoverable_local_archive
+  checkpoint_praxis_and_supervision: not_retired_this_batch
+  live_host_model_semantics: not_run

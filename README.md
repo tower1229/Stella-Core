@@ -23,8 +23,11 @@ source-access, initialization-file and recovery tests keep their applicable
 assertions. The old full/experimental package runners, their 152-case shard
 aggregation and dedicated probes/tests have also been removed. Version checks,
 standalone command-capture regressions and process supervision remain; their
-applicable assertions are retained. Host context/checkpoint/Praxis runtime sources are the
-next dependency group. Retiring an obsolete test does not turn its historical
+applicable assertions are retained. The custom Host context/provider chain and its
+completion/fragment adapters have now been removed. Mixed tests exercise source
+bytes, roles, versions, permissions and transactions directly, without recreating
+that Host projection. Checkpoint and the remaining Praxis runtime are later
+dependency groups. Retiring an obsolete test does not turn its historical
 failure into a passing result or prove semantic recall.
 
 The current priority is **understanding existing data**: select relevant sources,

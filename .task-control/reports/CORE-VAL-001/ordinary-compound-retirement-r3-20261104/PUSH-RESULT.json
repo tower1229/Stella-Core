@@ -1,0 +1,10 @@
+{
+  "commit": "fb552e134533e133d818504f84631ed7b3635129",
+  "remoteSha": "fb552e134533e133d818504f84631ed7b3635129",
+  "target": "tower1229/Stella-Core:codex/issue23-integrated-regression",
+  "exitCode": 0,
+  "status": "pushed_verified",
+  "observedAt": "2026-11-04T03:15:20.411778+00:00",
+  "review": "parent independent114/114 accepted",
+  "ci": "pending_query"
+}

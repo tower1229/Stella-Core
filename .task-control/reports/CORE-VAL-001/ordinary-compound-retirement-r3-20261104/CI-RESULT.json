@@ -1,0 +1,46 @@
+{
+  "observedAt": "2026-11-04T03:21:59.748610+00:00",
+  "id": 41765893593,
+  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41765893593",
+  "headSha": "fb552e134533e133d818504f84631ed7b3635129",
+  "status": "completed",
+  "conclusion": "success",
+  "completedAt": "2026-11-04T03:15:59Z",
+  "sdkVersion": "2026.10.8",
+  "lockedSdkVersion": "2026.10.8",
+  "counts": {
+    "tests": 143,
+    "pass": 143,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "packageMembers": 145,
+  "artifactSha256": "566031c057731ffd24c73e87ae500dfe469e834faebfe0b303703b6dfbdbe243",
+  "receipts": {
+    "pack.json": {
+      "sha256": "25acafa5ef8ea198c1c6850aa8f4855ab21d400522d29e7b195d08432bd8c4d0",
+      "bytes": 17404
+    },
+    "tower1229-stella-core-0.1.0-alpha.0.tgz": {
+      "sha256": "566031c057731ffd24c73e87ae500dfe469e834faebfe0b303703b6dfbdbe243",
+      "bytes": 189626
+    },
+    "PREPARED.json": {
+      "sha256": "d561c5e9b5929d0b829f8e2f90adf05cc823e5b0189da39481cbde47328596c4",
+      "bytes": 26357
+    },
+    "run/test.stdout": {
+      "sha256": "15da73faebc0d434479aabd20a39d0b7c9513e4fec0f96fd915040e5f32bc5d6",
+      "bytes": 15548
+    },
+    "run/test.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  },
+  "liveHost": false,
+  "realModel": false,
+  "scope": "current12suite extracted package contracts, not whole legacy workspace or semantic acceptance"
+}

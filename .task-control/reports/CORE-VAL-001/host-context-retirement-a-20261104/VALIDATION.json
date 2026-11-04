@@ -1,0 +1,83 @@
+{
+  "buildExit": 0,
+  "testCompileInitialExit": 1,
+  "initialCompileFailure": "source-segments retained stale tool identifier after adapter removal; corrected to real resolver.readEvidence",
+  "testCompileFinalExit": 0,
+  "testExit": 0,
+  "counts": {
+    "tests": 118,
+    "pass": 118,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "suites": [
+    "correction",
+    "episode-evidence",
+    "recovery-read-binding",
+    "routing-context",
+    "source-segments",
+    "synchronize",
+    "transcript-archive",
+    "memory-transaction",
+    "memory-transaction-journal"
+  ],
+  "sdkVersion": "2026.10.9",
+  "commands": {
+    "build": [
+      "node",
+      "scripts/compile.mjs",
+      "build"
+    ],
+    "compile": [
+      "node",
+      "scripts/compile.mjs",
+      "test"
+    ],
+    "tests": [
+      "node",
+      "--test",
+      "--test-timeout=60000",
+      ".test-dist/tests/correction.test.js",
+      ".test-dist/tests/episode-evidence.test.js",
+      ".test-dist/tests/recovery-read-binding.test.js",
+      ".test-dist/tests/routing-context.test.js",
+      ".test-dist/tests/source-segments.test.js",
+      ".test-dist/tests/synchronize.test.js",
+      ".test-dist/tests/transcript-archive.test.js",
+      ".test-dist/tests/memory-transaction.test.js",
+      ".test-dist/tests/memory-transaction-journal.test.js"
+    ]
+  },
+  "testEnvironment": "isolated synthetic HOME/state/tmp, empty inherited environment except PATH; Git global/system config disabled and protocol=file; no Gateway/provider/network calls",
+  "receipts": {
+    ".task-control/reports/CORE-VAL-001/host-context-retirement-a-20261104/BUILD.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".task-control/reports/CORE-VAL-001/host-context-retirement-a-20261104/COMPILE-TEST.txt": {
+      "sha256": "b0bad9ae35df7a89380ae891b3f1df113d55a7cf40784e8251ae6dd909213a04",
+      "bytes": 653
+    },
+    ".task-control/reports/CORE-VAL-001/host-context-retirement-a-20261104/COMPILE-TEST-R1.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/host-context-retirement-a-20261104/test-r0.stdout": {
+      "sha256": "f9b56cf49b121c0d8b52fa046adb6c7536134601d5993a5fc79dea1122bfc751",
+      "bytes": 12365
+    },
+    ".artifacts/host-context-retirement-a-20261104/test-r0.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/host-context-retirement-a-20261104/test-r0-result.json": {
+      "sha256": "6b6826789c1ca3c4b494cc29c51eb1914346ef6b046ebbfa62e8d2a35e29a182",
+      "bytes": 831
+    }
+  },
+  "realHost": false,
+  "realModel": false,
+  "fullMemory": false
+}

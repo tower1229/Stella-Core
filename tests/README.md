@@ -11,3 +11,5 @@ Framework IR 测试验证来源 pin、编译元数据及精确激活快照；不
 praxis-episode-v2-contract.test.ts 检查新目标格式；已有 v1 runtime 测试不表示 v2 写入、迁移和 Exact Host 已实现。新增行为必须同时补充真实接口层的成功与故障测试。
 
 旧 full/experimental 复合runner、152项分片聚合和专用probe断言已退役，可从Git历史恢复。版本事实、命令捕获的13种结果、artifact身份函数检查和SDK测试监督仍保留；混合测试只拆除已删除runner及8.2专用gate部分。现行12套解包测试的CI覆盖保持，旧runner历史报告不改写为通过。
+
+Host context/provider退役批次将旧completion/fragment adapter及其专用测试一起移除。七套混合测试仍验证来源原文字节、角色、版本/定位、授权先于payload、派生对象依赖、同步及事务恢复；不再通过已退役的签名Host上下文投影验证这些数据契约。旧outcome专用事务编排测试退出，通用memory-transaction及journal断言保留在现行包CI中。未跟踪的历史recovery-pointer探针按原字节归档，位置和hash见`.task-control/reports/CORE-VAL-001/host-context-retirement-a-20261104/HISTORICAL-ARCHIVE.json`，不作为当前可执行测试。Checkpoint监督入口和剩余Praxis链本批未改，真实Host/模型消费仍不是这些离线结果的结论。

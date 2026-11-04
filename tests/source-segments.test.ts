@@ -8,12 +8,11 @@ import { sourceSegments, assertEvidenceSegment } from "../src/canghai/source-seg
 import { bytesVersion, objectVersion, canonicalJson } from "../src/canghai/content-version.js";
 import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { loadPersonalContextAccess, validatePersonalContextCatalog, type PersonalContextAccess } from "../src/canghai/personal-context-access.js";
-import { createFragmentReadTool } from "../src/openclaw/fragment-read-tool.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
 import { ownerDirectAuthority } from "./processing-authority-fixture.js";
 import type { NativeMemoryOrigin } from "../src/canghai/native-memory-origin.js";
 
-test("native-bound fragments require native reads and revalidate retained bytes after asynchronous consumption", async t => {
+test("native provenance remains part of source identity and retained bytes must still match", async t => {
   const { personalMemoryFixture } = await import("./personal-memory-fixture.js");
   const f = await personalMemoryFixture(t, true);
   const policyRef = { id: f.catalog.policies[0]!.id, version: f.catalog.policies[0]!.version };
@@ -32,27 +31,13 @@ test("native-bound fragments require native reads and revalidate retained bytes 
   }
   await f.save();
   const resolver = await f.resolver(), original = await resolver.readEvidence(imported.evidenceRefs[0]!);
-  const input = { resolver, originals: [original], descriptors: [{ sourceRef: imported.sourceRef, policyRef, description: "Native original",
-    segment: { payloadSha256: args.expectedSha256, start: 0, end: Buffer.byteLength(text) } }], assertCurrent: async () => {},
-    processingAuthority: ownerDirectAuthority({ purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "synthetic/model" } }) };
-  await assert.rejects(createFragmentReadTool(input).execute("read", { action: "read", handle: "F1" }), /native_memory_reader_required/);
-  let reads = 0, receipts = 0;
-  const tool = createFragmentReadTool({ ...input, observeResult: async () => { receipts++; },
-    readNative: async (origin, admitted, current) => {
-      reads++; assert.deepEqual(origin, nativeMemory); assert.deepEqual(admitted, original); await current(); return text;
-    } });
-  await tool.execute("list", { action: "list" }); assert.equal(reads, 0);
-  await assert.rejects(tool.execute("denied", { action: "read", handle: "F2" }), /fragment_handle_not_available/);
-  assert.equal(reads, 0);
-  assert.equal((await tool.execute("read", { action: "read", handle: "F1" })).details.original?.text, text);
-  assert.equal(reads, 1); assert.equal(receipts, 2);
-  await assert.rejects(createFragmentReadTool({ ...input, readNative: async () => "Changed bytes" }).execute("read", { action: "read", handle: "F1" }),
-    /native_memory_payload_changed/);
-  const stale = createFragmentReadTool({ ...input, observeResult: async () => { receipts++; }, readNative: async () => {
-    await rm(path.join(f.root, "native.md")); return text;
-  } });
-  await assert.rejects(stale.execute("read", { action: "read", handle: "F1" }));
-  assert.equal(receipts, 2, "No sealed result is emitted after native read invalidates the retained source");
+  assert.equal(original.text, text);
+  assert.deepEqual((await resolver.reader.read(imported.sourceRef, "sources")).nativeMemory, nativeMemory);
+  await writeFile(path.join(f.root, "native.md"), "Changed bytes");
+  await assert.rejects(resolver.readEvidence(imported.evidenceRefs[0]!), /payload_digest_mismatch/);
+  await writeFile(path.join(f.root, "native.md"), text);
+  await rm(path.join(f.root, "native.md"));
+  await assert.rejects(resolver.readEvidence(imported.evidenceRefs[0]!), /source_unavailable/);
 });
 
 test("reviewed segments preserve originals and independent origin while enforcing narrower fragment policy before payload access", async t => {
@@ -115,19 +100,6 @@ test("reviewed segments preserve originals and independent origin while enforcin
   await assert.rejects(noContext.readEvidence(imported.evidenceRefs[0]!), /source_access_context_required/);
   const ordinary = await resolver.readEvidence(imported.evidenceRefs[0]!);
   assert.equal(ordinary.text, "一般观察。\n"); assert.equal(ordinary.role, "unknown");
-  const tool = createFragmentReadTool({ resolver, descriptors: processing.descriptors, originals: [ordinary],
-    processingAuthority: ownerDirectAuthority({
-      purpose: { readPurpose: "retrieve", derivePurpose: "answer", deliveryScope: "owner-direct" },
-    }),
-    assertCurrent: async () => {} });
-  const listed = await tool.execute("list", { action: "list" });
-  assert.equal(JSON.stringify(listed).includes("医疗记录"), false);
-  assert.equal(JSON.stringify(listed).includes("source.txt"), false);
-  const read = await tool.execute("read", { action: "read", handle: "F1" });
-  assert.equal(read.details.original?.text, "一般观察。\n");
-  await assert.rejects(tool.execute("read", { action: "read", handle: "F2" }), /fragment_handle_not_available/);
-  await assert.rejects(tool.execute("read", { action: "read", handle: "F1", path: "source.txt" }), /invalid_fragment_request/);
-
   const beforeDenied = payloadReads;
   await assert.rejects(resolver.readEvidence(imported.evidenceRefs[1]!), /source_trigger_forbidden/);
   assert.equal(payloadReads, beforeDenied);
@@ -176,7 +148,7 @@ test("reviewed segments preserve originals and independent origin while enforcin
     assertProcessingCurrent: async () => {}, complete: noModel }), /evidence_segment_policy_mismatch/);
   await assert.rejects(prepareSourceOutputCheck({ question: "Quote this", originals: [{ ...ordinary, ref: wholeRef }], resolver: forgedResolver,
     modelRef: "synthetic/model", assertCurrent: async () => {}, complete: noModel }), /evidence_segment_policy_mismatch/);
-  await assert.rejects(tool.execute("read", { action: "read", handle: "F1" }), /stale_generation/);
+  await assert.rejects(resolver.readEvidence(imported.evidenceRefs[0]!), /stale_generation/);
 
 });
 

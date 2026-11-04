@@ -1,0 +1,10 @@
+{
+  "originalPath": "tests/recovery-pointer-barriers.test.ts",
+  "archivePath": ".artifacts/host-context-retirement-a-20261104/historical/tests/recovery-pointer-barriers.test.ts",
+  "sha256": "8eeeea1cfd69ed5bd8b05701a9c9f09fe39ecf6c4bf609f4ab5d488b025161ce",
+  "bytes": 14245,
+  "status": "archived_byte_identical_original_removed_from_active_test_tree",
+  "sourceRecoveryCommit": "fb552e134533e133d818504f84631ed7b3635129",
+  "reason": "untracked historical private-Host runtime pointer probe; not current package suite; original bytes retained locally, no execution or silent exclusion",
+  "archivePublished": false
+}
