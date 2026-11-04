@@ -22,7 +22,7 @@ import { HOST_INPUT_ARCHIVE_ADAPTER, prepareHostInputArchive } from "../src/cang
 import { persistHostInputArchive } from "../src/canghai/archive-writer.js";
 import { CatalogError } from "../src/canghai/catalog-reader.js";
 import { isRecord } from "../src/shared/type-guards.js";
-import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
 import { ingestMaterials, synchronizeRepositoryImports, type MaterialImport } from "../src/canghai/material-ingest.js";
 import { type ArchiveManifest } from "../src/canghai/archive-integrity.js";
 import { resumeIngestCursor } from "../src/canghai/ingest-progress.js";

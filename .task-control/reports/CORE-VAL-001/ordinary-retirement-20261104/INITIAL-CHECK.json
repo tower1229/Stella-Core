@@ -1,0 +1,11 @@
+{
+  "initialBuildExit": 1,
+  "reason": "narrow build omitted existing file-lock-sdk.d.ts ambient declaration; added exact required declaration",
+  "testCompileNotExecuted": true,
+  "staleTestRun": {
+    "exit": 0,
+    "countedForCandidate": false,
+    "reason": "source-read test started against pre-existing .test-dist after preceding build failed; kept as stale, no new test claim"
+  },
+  "fix": "include existing src/openclaw/file-lock-sdk.d.ts; no new shim, runtime permission or dependency"
+}

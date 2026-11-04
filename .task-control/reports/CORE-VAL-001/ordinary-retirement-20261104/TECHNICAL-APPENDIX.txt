@@ -1,0 +1,13 @@
+
+ordinary_distribution_retirement_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/ordinary-retirement-20261104/REPORT.json
+  scope: current_package_dependency_boundary_and_new_branch_consumer_contract
+  package_members: 145
+  compiled_source_modules: 42
+  packaged_contract_tests: 141_pass_0_fail_local_sdk_2026_10_9
+  shared_metadata_function_body: moved_unchanged
+  legacy_runtime_distributed: false
+  entire_legacy_source_tree_removed: false
+  remaining_historical_failures: not_rerun_not_passed
+  real_host_and_semantics: not_run
+  canghai_full_migration_and_new_format_sync: handoff_and_implementation_remaining

@@ -8,8 +8,12 @@ memory, context and Agent loop. Its default entry provides candidate work tools,
 status and a controlled selected-source read port. Confirmed publication remains
 disabled. See the
 [main debug installation and rollback guide](docs/MAIN-DEBUG-INSTALL.md).
-The older runtime and its acceptance records remain historical; the old
-activation scripts do not configure this new entry.
+The older runtime and its acceptance records remain historical. The default build
+now starts from the ordinary entry plus the selected-source preparation and Git
+durability utilities; its installable package excludes the old plugin, private
+Host bridges, context replacement, SQL reader and activation guides. Retired
+activation/acceptance npm aliases have been removed. Historical source and tests
+are being removed by dependency group; Git retains their recovery point.
 
 The current priority is **understanding existing data**: select relevant sources,
 check originals, and answer with evidence and uncertainty. The
@@ -77,7 +81,11 @@ separate requirement. The Stella 1.0 backup is CangHai dev; local/stella-alpha i
 Both the inspected legacy commit and the distinction are recorded in the requirements document.
 Runtime operations always use an explicitly selected revision.
 
-[Core–CangHai coordination](docs/CORE-CANGHAI-COORDINATION.md) defines the parallel-development handoff and compatibility gates. CangHai `dev` currently serves legacy production; additive development must preserve its paths and source pointer, with separate writer/version coordination.
+The current data target is **full-repository conversion on a new CangHai branch**,
+with this plugin consuming a fixed local revision and synchronization updated for
+the new format. The existing 97-source trial is not that completed migration.
+[Core–CangHai coordination](docs/CORE-CANGHAI-COORDINATION.md) defines the current
+consumer interface, producer handoff and synchronization gaps. CangHai `dev` currently serves legacy production; additive development must preserve its paths and source pointer, with separate writer/version coordination.
 
 ## Contracts and schemas
 
@@ -135,8 +143,9 @@ activation check/apply and candidate receipt tooling. Those mechanisms do not ye
 with all revised contracts. [Known implementation differences](docs/10-DESIGN-BASELINE.md#6-设计与源码的差异)
 are explicit, including Episode v2, response semantics, completion gating and the four-part memory flow.
 
-Use [the local runbook](docs/08-LOCAL-DEV-INTEGRATION.md) for exact activation and private-runner
-commands. Private write-loop, recovery, evaluation and candidate evidence must bind the same clean
+The [old local runbook](docs/08-LOCAL-DEV-INTEGRATION.md) and its activation/private-runner
+commands are historical and are not part of the current installable plugin. Use
+[Main debug installation](docs/MAIN-DEBUG-INSTALL.md) for the ordinary entry. Private write-loop, recovery, evaluation and candidate evidence must bind the same clean
 Core/artifact/Host and the resulting synchronized CangHai revision. Old receipts cannot prove newly
 added acceptance assertions. This documentation does not itself authorize migration, activation or publication.
 

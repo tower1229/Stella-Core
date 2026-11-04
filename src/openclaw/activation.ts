@@ -1,7 +1,7 @@
 import path from "node:path";
 import { PREPARATION_HOOK_TIMEOUT_MS } from "./completion.js";
 import { isDeepStrictEqual } from "node:util";
-import type { StellaDataMode } from "../praxis/episode-store.js";
+import type { StellaDataMode } from "../shared/data-mode.js";
 import { isRecord } from "../shared/type-guards.js";
 import { ALPHA_HOST_VERSION } from "../acceptance/exact-host-evidence.js";
 

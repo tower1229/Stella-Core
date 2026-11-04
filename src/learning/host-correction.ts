@@ -17,7 +17,7 @@ import {
   type HostRetentionGuarantees,
 } from "../canghai/ingest.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
-import type { HostInputSnapshot } from "../openclaw/host-input.js";
+import type { HostInputSnapshot } from "../canghai/host-input-snapshot.js";
 import { assertPrivateContextAudience, resolveTurnAudience } from "../openclaw/turn-audience.js";
 import type { BoundTurnRequest } from "../openclaw/turn-request.js";
 import type { ProcessingAuthority } from "../openclaw/processing-authority.js";

@@ -10,7 +10,7 @@ import { readPreparedPersonalContext } from "../praxis/personal-views.js";
 import { readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
 import { readPreparedSemanticRoute } from "../routing/semantic-router.js";
 import { applyQuestionResponse, renderSelectedCortexContext, renderResponseContract, applyOutcomeResponse, renderOutcomeContext } from "../praxis/cortex-context.js";
-import { STELLA_DATA_MODES, type StellaDataMode } from "../praxis/episode-store.js";
+import { STELLA_DATA_MODES, type StellaDataMode } from "../shared/data-mode.js";
 import { SOURCE_ACCESS_EXCLUSION_CATEGORIES, parseEvidenceBundle } from "../praxis/evidence-bundle.js";
 import type { CortexRoute } from "../routing/router.js";
 import { readPreparedQuestionContext } from "../praxis/question-evidence.js";

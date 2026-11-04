@@ -8,7 +8,7 @@ import { parse as parseYaml } from "yaml";
 import { parseCangHaiRef, resolveCangHaiRef } from "./ref.js";
 import { parseTwinHypothesisRecord, validateSchema } from "./schema.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { StellaDataMode } from "../praxis/episode-store.js";
+import type { StellaDataMode } from "../shared/data-mode.js";
 
 export const DEFAULT_MANIFEST_PATH = "50_PersonalAgent/stella/manifest.yaml";
 export const MAX_CANGHAI_DOCUMENT_BYTES = 256_000;

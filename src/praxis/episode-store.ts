@@ -18,12 +18,7 @@ import { isRecord } from "../shared/type-guards.js";
 
 const execFileAsync = promisify(execFile);
 
-export const STELLA_DATA_MODES = [
-  "read_only",
-  "local_write",
-  "managed_durable_write",
-] as const;
-export type StellaDataMode = (typeof STELLA_DATA_MODES)[number];
+import type { StellaDataMode } from "../shared/data-mode.js";
 
 export const PRAXIS_LEARNING_ALGORITHM_VERSION = "stella.praxis-learning/v1";
 const LOCAL_WRITE_BRANCH = "local/stella-alpha";

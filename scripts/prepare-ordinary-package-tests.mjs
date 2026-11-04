@@ -9,9 +9,11 @@ import { fileManifest, sha256 } from "./lib/package-evidence.mjs";
 
 // Stage existing contract tests against bytes extracted from npm pack. This
 // neither installs/starts OpenClaw nor creates a new Host execution harness.
-assert.equal(process.argv.length, 2, "prepare-ordinary-package-tests takes no arguments");
+assert.ok(process.argv.length <= 3, "prepare-ordinary-package-tests takes an optional artifact directory name");
+const artifactDirectory = process.argv[2] ?? "ordinary-package";
+assert.match(artifactDirectory, /^ordinary-package(?:-[a-zA-Z0-9_-]+)?$/);
 const root = await realpath(fileURLToPath(new URL("../", import.meta.url)));
-const out = path.join(root, ".artifacts/ordinary-package");
+const out = path.join(root, ".artifacts", artifactDirectory);
 assert.equal(await realpath(out), out, "artifact directory must not be a symlink");
 const packed = JSON.parse(await readFile(path.join(out, "pack.json"), "utf8"));
 assert.equal(packed.length, 1);
@@ -21,6 +23,16 @@ const artifact = await readFile(path.join(out, pack.filename));
 assert.equal(pack.integrity, `sha512-${createHash("sha512").update(artifact).digest("base64")}`);
 const files = pack.files.map(item => item.path);
 assert.equal(new Set(files).size, files.length);
+// A current plugin tarball must not offer the retired runtime as another entry.
+// Check actual packed bytes, not just package.json's default export.
+for (const retired of ["dist/src/plugin.js", "dist/src/openclaw/native-memory-reader.js",
+  "dist/src/openclaw/host-context-engine.js", "dist/src/openclaw/host-memory-provider.js",
+  "dist/src/openclaw/completion.js", "dist/src/openclaw/host-input.js",
+  "dist/src/praxis/episode-store.js", "legacy/openclaw.plugin.json",
+  "docs/EXPERIMENTAL-OWNER-CHAT.md", "docs/EXPLICIT-SNAPSHOT-IMPORT.md",
+  "docs/CHECKPOINT-WORK-SUPPLY.md", "docs/CHECKPOINT-CORRECTION-WRITER.md"]) {
+  assert.ok(!files.includes(retired), `retired runtime member was packed: ${retired}`);
+}
 for (const file of files) {
   assert.equal(typeof file, "string");
   assert.ok(file && !file.includes("\\") && !path.posix.isAbsolute(file) &&
@@ -42,6 +54,7 @@ const metadata = JSON.parse(await readFile(path.join(pkg, "package.json"), "utf8
 assert.equal(metadata.main, "./dist/src/ordinary-plugin.js");
 assert.deepEqual(metadata.openclaw.extensions, [metadata.main]);
 for (const required of [metadata.main.slice(2), "openclaw.plugin.json",
+  "dist/src/canghai/repository-source.js", "dist/src/canghai/durability.js",
   "skills/stella-understand-sources/SKILL.md", "skills/stella-continue/SKILL.md"]) {
   assert.ok(files.includes(required), `required ordinary package file missing: ${required}`);
 }
@@ -72,6 +85,6 @@ await writeFile(path.join(out, "PREPARED.json"), JSON.stringify({
   scope: "extracted npm package; existing synthetic source, draft, repository, transaction/journal contracts and public skill discovery using workspace dependencies",
   freshInstall: false, liveHost: false, realModel: false, privateSources: false, fullMemory: false,
   testCommand: "node --test --test-timeout=30000 ../harness/tests/*.test.js",
-  testCwd: ".artifacts/ordinary-package/run/package",
+  testCwd: `.artifacts/${artifactDirectory}/run/package`,
 }, null, 2) + "\n");
 console.log("Ordinary package prepared; test exit status is still required.");

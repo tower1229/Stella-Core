@@ -1,4 +1,4 @@
-import type { ResponseKind } from "../openclaw/completion.js";
+import type { ResponseKind } from "../shared/response-kind.js";
 
 export const CORTEX_MODES = [
   "ordinary",

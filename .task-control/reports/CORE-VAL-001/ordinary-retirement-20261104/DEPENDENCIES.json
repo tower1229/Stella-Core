@@ -1,0 +1,766 @@
+{
+  "scope": "local static imports; not a Host or dynamic SDK proof",
+  "root": "src/ordinary-plugin.ts",
+  "runtimeCount": 32,
+  "runtime": [
+    "src/canghai/author-intent-asset.ts",
+    "src/canghai/author-intent-repository.ts",
+    "src/canghai/catalog-reader.ts",
+    "src/canghai/checkpoint-committed-document.ts",
+    "src/canghai/content-version.ts",
+    "src/canghai/exclusive-file-lock.ts",
+    "src/canghai/manifest.ts",
+    "src/canghai/memory-transaction-journal.ts",
+    "src/canghai/memory-transaction.ts",
+    "src/canghai/personal-context-access.ts",
+    "src/canghai/ref.ts",
+    "src/canghai/runtime-profile.ts",
+    "src/canghai/schema.ts",
+    "src/canghai/source-access.ts",
+    "src/canghai/source-metadata.ts",
+    "src/canghai/source-policy.ts",
+    "src/canghai/source-segments.ts",
+    "src/canghai/synchronization-state.ts",
+    "src/canghai/view-migration.ts",
+    "src/canghai/view-recipe.ts",
+    "src/openclaw/candidate-work-brief.ts",
+    "src/openclaw/current-input-metadata.ts",
+    "src/openclaw/ordinary-source-admission.ts",
+    "src/openclaw/ordinary-source-read.ts",
+    "src/openclaw/processing-authority.ts",
+    "src/openclaw/tool-request-binding.ts",
+    "src/openclaw/turn-audience.ts",
+    "src/openclaw/turn-request.ts",
+    "src/openclaw/work-brief-proposal.ts",
+    "src/ordinary-plugin.ts",
+    "src/praxis/episode-evidence.ts",
+    "src/shared/type-guards.ts"
+  ],
+  "withTypesCount": 37,
+  "withTypes": [
+    "src/canghai/author-intent-asset.ts",
+    "src/canghai/author-intent-repository.ts",
+    "src/canghai/catalog-reader.ts",
+    "src/canghai/checkpoint-committed-document.ts",
+    "src/canghai/content-version.ts",
+    "src/canghai/exclusive-file-lock.ts",
+    "src/canghai/manifest.ts",
+    "src/canghai/memory-transaction-journal.ts",
+    "src/canghai/memory-transaction-plan.ts",
+    "src/canghai/memory-transaction.ts",
+    "src/canghai/personal-context-access.ts",
+    "src/canghai/recovery-authority-contract.ts",
+    "src/canghai/recovery-checkpoint-contract.ts",
+    "src/canghai/ref.ts",
+    "src/canghai/runtime-profile.ts",
+    "src/canghai/schema.ts",
+    "src/canghai/source-access.ts",
+    "src/canghai/source-metadata.ts",
+    "src/canghai/source-policy.ts",
+    "src/canghai/source-segments.ts",
+    "src/canghai/synchronization-state.ts",
+    "src/canghai/view-migration.ts",
+    "src/canghai/view-recipe.ts",
+    "src/openclaw/candidate-work-brief.ts",
+    "src/openclaw/current-input-metadata.ts",
+    "src/openclaw/ordinary-source-admission.ts",
+    "src/openclaw/ordinary-source-read.ts",
+    "src/openclaw/processing-authority.ts",
+    "src/openclaw/tool-request-binding.ts",
+    "src/openclaw/turn-audience.ts",
+    "src/openclaw/turn-request.ts",
+    "src/openclaw/work-brief-proposal.ts",
+    "src/ordinary-plugin.ts",
+    "src/praxis/episode-evidence.ts",
+    "src/praxis/episode-v2.ts",
+    "src/shared/data-mode.ts",
+    "src/shared/type-guards.ts"
+  ],
+  "edges": [
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/tool-request-binding.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/current-input-metadata.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/current-input-metadata.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/content-version.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/current-input-metadata.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/ordinary-source-admission.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/catalog-reader.ts",
+      "to": "src/canghai/view-recipe.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-recipe.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-recipe.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-recipe.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-recipe.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/praxis/episode-v2.ts",
+      "to": "src/canghai/schema.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/praxis/episode-v2.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/catalog-reader.ts",
+      "to": "src/canghai/view-migration.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-migration.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-migration.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-migration.ts",
+      "to": "src/canghai/memory-transaction.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/canghai/synchronization-state.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/synchronization-state.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/synchronization-state.ts",
+      "to": "src/canghai/schema.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/canghai/exclusive-file-lock.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/canghai/recovery-authority-contract.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/recovery-authority-contract.ts",
+      "to": "src/canghai/recovery-checkpoint-contract.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/canghai/memory-transaction-plan.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/memory-transaction-plan.ts",
+      "to": "src/canghai/recovery-checkpoint-contract.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/canghai/memory-transaction-journal.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/memory-transaction-journal.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/memory-transaction-journal.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/memory-transaction-journal.ts",
+      "to": "src/canghai/memory-transaction-plan.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/memory-transaction.ts",
+      "to": "src/canghai/memory-transaction-plan.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/view-migration.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/view-migration.ts",
+      "to": "src/canghai/view-recipe.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/catalog-reader.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/catalog-reader.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/catalog-reader.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/catalog-reader.ts",
+      "to": "src/canghai/memory-transaction.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/catalog-reader.ts",
+      "to": "src/canghai/synchronization-state.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/manifest.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/manifest.ts",
+      "to": "src/canghai/memory-transaction.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/manifest.ts",
+      "to": "src/canghai/ref.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/manifest.ts",
+      "to": "src/canghai/schema.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/manifest.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/manifest.ts",
+      "to": "src/shared/data-mode.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/runtime-profile.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/runtime-profile.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/runtime-profile.ts",
+      "to": "src/canghai/ref.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/ref.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/personal-context-access.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/canghai/source-access.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-access.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-access.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-access.ts",
+      "to": "src/canghai/source-policy.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-policy.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-policy.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-policy.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-access.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-access.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/source-access.ts",
+      "to": "src/openclaw/processing-authority.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/processing-authority.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/processing-authority.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/processing-authority.ts",
+      "to": "src/canghai/source-policy.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/processing-authority.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/processing-authority.ts",
+      "to": "src/openclaw/turn-request.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/openclaw/turn-request.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/turn-request.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/processing-authority.ts",
+      "to": "src/openclaw/turn-audience.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/turn-audience.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/turn-audience.ts",
+      "to": "src/openclaw/turn-request.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/source-access.ts",
+      "to": "src/canghai/source-segments.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-segments.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-segments.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-segments.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/canghai/source-policy.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/canghai/source-segments.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/openclaw/turn-request.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/openclaw/processing-authority.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/canghai/personal-context-access.ts",
+      "to": "src/openclaw/turn-audience.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/source-access.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/source-segments.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/canghai/source-metadata.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-metadata.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-metadata.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-metadata.ts",
+      "to": "src/openclaw/processing-authority.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/source-metadata.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/openclaw/processing-authority.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/openclaw/turn-request.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/openclaw/current-input-metadata.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/openclaw/ordinary-source-admission.ts",
+      "to": "src/openclaw/ordinary-source-read.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/canghai/source-access.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/canghai/source-segments.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/canghai/manifest.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/canghai/runtime-profile.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/canghai/ref.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/praxis/episode-evidence.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/praxis/episode-evidence.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/praxis/episode-evidence.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/praxis/episode-evidence.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/praxis/episode-evidence.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/praxis/episode-evidence.ts",
+      "to": "src/canghai/source-policy.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/praxis/episode-evidence.ts",
+      "to": "src/canghai/source-access.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/praxis/episode-evidence.ts",
+      "to": "src/canghai/source-segments.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/praxis/episode-v2.ts",
+      "typeOnly": true
+    },
+    {
+      "from": "src/openclaw/ordinary-source-read.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/ordinary-source-read.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/ordinary-source-read.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/work-brief-proposal.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/work-brief-proposal.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/candidate-work-brief.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/candidate-work-brief.ts",
+      "to": "src/canghai/author-intent-asset.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-asset.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-asset.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/candidate-work-brief.ts",
+      "to": "src/canghai/author-intent-repository.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-repository.ts",
+      "to": "src/canghai/author-intent-asset.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-repository.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-repository.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-repository.ts",
+      "to": "src/canghai/checkpoint-committed-document.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/checkpoint-committed-document.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-repository.ts",
+      "to": "src/canghai/memory-transaction.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/canghai/author-intent-repository.ts",
+      "to": "src/canghai/memory-transaction-journal.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/candidate-work-brief.ts",
+      "to": "src/canghai/catalog-reader.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/candidate-work-brief.ts",
+      "to": "src/canghai/content-version.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/candidate-work-brief.ts",
+      "to": "src/shared/type-guards.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/openclaw/candidate-work-brief.ts",
+      "to": "src/openclaw/work-brief-proposal.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/candidate-work-brief.ts",
+      "typeOnly": false
+    },
+    {
+      "from": "src/ordinary-plugin.ts",
+      "to": "src/openclaw/work-brief-proposal.ts",
+      "typeOnly": false
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-04T02:03:22.240623+00:00",
+  "status": "self_reviewed_candidate_for_independent_review",
+  "baseCommit": "24551ff6a9350b9912cf43d013cf2c48c9e100a8",
+  "baseRevision": 198,
+  "worktreeInputs": [
+    "README.md",
+    "docs/CORE-CANGHAI-COORDINATION.md",
+    "package.json",
+    "scripts/prepare-ordinary-package-tests.mjs",
+    "src/canghai/host-input-archive.ts",
+    "src/canghai/ingest.ts",
+    "src/canghai/manifest.ts",
+    "src/learning/host-correction.ts",
+    "src/openclaw/activation.ts",
+    "src/openclaw/checkpoint-source-access.ts",
+    "src/openclaw/completion-adapter.ts",
+    "src/openclaw/completion.ts",
+    "src/openclaw/consciousness-loader.ts",
+    "src/openclaw/host-context-authority.ts",
+    "src/openclaw/host-input.ts",
+    "src/openclaw/host-memory-acceptance.ts",
+    "src/openclaw/memory-consolidation.ts",
+    "src/openclaw/ordinary-source-admission.ts",
+    "src/plugin.ts",
+    "src/praxis/cortex-context.ts",
+    "src/praxis/episode-store.ts",
+    "src/praxis/evidence-bundle.ts",
+    "src/praxis/packet.ts",
+    "src/praxis/personal-views.ts",
+    "src/praxis/runtime-binding.ts",
+    "src/routing/router.ts",
+    "tests/checkpoint-plugin-runtime.test.ts",
+    "tests/host-input-archive.test.ts",
+    "tests/ingest.test.ts",
+    "tests/ordinary-source-read.test.ts",
+    "tests/recovery-drill.test.ts",
+    "tests/runtime-binding.test.ts",
+    "tests/transcript-archive.test.ts",
+    "tsconfig.build.json",
+    "src/shared/data-mode.ts",
+    "src/shared/response-kind.ts",
+    "src/canghai/host-input-snapshot.ts",
+    "src/canghai/source-metadata.ts"
+  ],
+  "codeManifestSha256": "ee7ba1e9523fdd350b943d8d9c2ffb68476739110944971a8c02d53fc404e859",
+  "patchSha256": "27b27ba9823894166bedcee6b67525b15bc2d0f37768fcca51fb126b51fbef27",
+  "changes": [
+    "Move data mode, response kind and historical archive snapshot types to neutral modules; update all imports without compatibility re-exports.",
+    "Move assertPersonalSourceMetadata unchanged to a data module so current admission no longer loads the old personal-view/evidence-bundle processing.",
+    "Build current ordinary entry and retained repository-source/durability utilities only; retain the existing required file-lock declaration.",
+    "Remove10 obsolete npm activation/acceptance aliases and7 historical materials from the distribution. Original scripts/source/history are retained for the next dependency-group removal.",
+    "Assert retired runtime files are absent from the actual tarball; retain all10 existing packaged contract suites. Optional bounded artifact directory name preserves old test artifacts.",
+    "Add2 synthetic branch/generation tests; document full-CangHai conversion and new-format synchronization interface and actual implementation gaps."
+  ],
+  "distribution": {
+    "preparedOldMembers": 2753,
+    "newMembers": 145,
+    "preparedOldSourceJS": 175,
+    "newSourceJS": 42,
+    "currentRuntimeClosure": 32,
+    "currentClosureIncludingTypes": 37,
+    "notShipped": [
+      "old plugin entry",
+      "native SQL reader",
+      "private provider",
+      "replacement ContextEngine",
+      "old completion runtime",
+      "8.2 input recorder",
+      "old episode store"
+    ],
+    "remaining": "Shared modules still contain reusable validators and some old routines; source/test tree is not fully retired."
+  },
+  "validation": {
+    "ref": "VALIDATION.json",
+    "pass": 141,
+    "fail": 0,
+    "sdk": "2026.10.9",
+    "compileBuildExit": 0,
+    "compileTestsExit": 0,
+    "schemas": 9,
+    "oldFailuresRetiredAsPassed": 0,
+    "fullWorkspaceSuiteRun": false,
+    "ci10_8ForThisCandidate": "not_run"
+  },
+  "preservedFailures": [
+    "Initial narrowed build missed existing file-lock-sdk.d.ts; fixed exact inclusion without changing declaration.",
+    "One stale .test-dist run is excluded from candidate counts.",
+    "First packaged invocation used wrong HOME/TMPDIR expansion;101 fixture ENOENT failures retained. Correct synthetic absolute paths produced141/141.",
+    "Precommit whitespace check stopped before commit; removed only one terminal LF in source-metadata.ts. Existing packaged test results cover identical executable content; no test rerun."
+  ],
+  "readChain": {
+    "current": "explicit root+manifestPath+commit -> profile -> catalog -> allowed descriptions -> native semantic selection -> policy judgment -> pinned original -> native answer",
+    "newBranchContract": "docs/CORE-CANGHAI-COORDINATION.md first section",
+    "verifiedOffline": [
+      "manifest/profile/catalog relocation on a synthetic new branch",
+      "old revision rejected instead of auto-following HEAD",
+      "new generation rejects old cursor and removed source",
+      "source/evidence/policy bytes and existing guards unchanged"
+    ],
+    "missing": [
+      "Actual full-repository conversion branch/SHA and completeness handoff from CangHai writer.",
+      "New-format producer-to-consumer synchronization including changed/deleted source versions and derived dependencies.",
+      "Controlled actual activation after unresolved prior load receipt is resolved.",
+      "Successful source selection/read/semantic consumption in real native Agent loop."
+    ]
+  },
+  "coordination": {
+    "canghaiProductionDev": "d423d9e85ae3b2a9a120b7cdc52b3746b592b189",
+    "existingLimitedConsumer": "90f61d9c9ef019c5a06a419dbcb630fe598cb996; original97sources/362descriptors",
+    "oldWarehouseBranch": "7d0538873998397c56a1e8902010a1e7d1742e61 is a2026-10-24 synthetic branch, not the new full migration",
+    "newFullBranch": "not handed off to Core this turn; migration writer owns it",
+    "coreWritesToCangHai": 0,
+    "newSourceGrants": 0
+  },
+  "nextRetirementGroups": [
+    "Shared manifest/profile/data validators stay; isolate their current interfaces before removing old full-runtime helpers.",
+    "Remove legacy plugin/checkpoint/private Host context/provider/SQL entry graph with sole-use scripts and tests; preserve effective current assertions.",
+    "Reduce mixed workspace test/compile roots after dependency mapping; remaining16 historical failures are unresolved, not passed."
+  ],
+  "recovery": {
+    "code": "Git parent24551ff6; ordinary artifact and candidate47a521a4 kept byte intact; no data deletion",
+    "oldHostLoading": "platform receipt unavailable; no replay or new Host operation"
+  },
+  "boundaries": {
+    "host": false,
+    "paidModel": false,
+    "privateSourceBodyRead": false,
+    "sourceConfigChanged": false,
+    "permissionChanged": false,
+    "canghaiMutated": false,
+    "independentReview": "pending",
+    "pushed": false
+  }
+}

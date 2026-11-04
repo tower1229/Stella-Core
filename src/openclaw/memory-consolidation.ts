@@ -20,7 +20,7 @@ import { hostContextExecutionHash } from "./host-memory-inventory.js";
 import { HOST_MEMORY_PROVIDER, readHostModelOutput, withHostModelConsumption } from "./host-memory-provider.js";
 import { assertMemoryConsolidation, withMemoryConsolidation } from "./memory-consolidation-scope.js";
 import { isRecord } from "../shared/type-guards.js";
-import type { StellaDataMode } from "../praxis/episode-store.js";
+import type { StellaDataMode } from "../shared/data-mode.js";
 
 type Config = { canghaiRoot: string; manifestPath: string; recoveryRevision: string; agentId: string; dataMode?: StellaDataMode };
 function check(value: unknown, category: string): asserts value { if (!value) throw new CatalogError(category); }

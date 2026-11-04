@@ -7,7 +7,7 @@ import { prepareHostInputArchive, HOST_INPUT_ARCHIVE_ADAPTER } from "../src/cang
 import { CatalogReader, type MemoryCatalog } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { EpisodeEvidenceResolver } from "../src/praxis/episode-evidence.js";
-import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
 import { persistHostInputArchive } from "../src/canghai/archive-writer.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import { execFile } from "node:child_process";

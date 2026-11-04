@@ -10,7 +10,8 @@ import {
 } from "./completion.js";
 import { publishCompletionDraft } from "./completion-delivery.js";
 import { isRecord } from "../shared/type-guards.js";
-import { captureHostInput, type HostInputSnapshot } from "./host-input.js";
+import { captureHostInput } from "./host-input.js";
+import type { HostInputSnapshot } from "../canghai/host-input-snapshot.js";
 import { admitCompletionOnce, openCompletionAdmissionJournal } from "./completion-admission.js";
 import { resolveCommandAuthorization } from "openclaw/plugin-sdk/command-auth-native";
 import { CatalogError } from "../canghai/catalog-reader.js";

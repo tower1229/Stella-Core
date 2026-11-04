@@ -9,7 +9,7 @@ import { CatalogReader } from "../src/canghai/catalog-reader.js";
 import { bytesVersion, canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 import { prepareHostInputArchive } from "../src/canghai/host-input-archive.js";
 import { createBoundPraxisRuntime, loadPraxisRuntimeBinding } from "../src/praxis/runtime-binding.js";
-import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
 import type { VersionedRef } from "../src/praxis/episode-v2.js";
 import test from "node:test";
 import { runRecoveryDrill } from "../src/acceptance/recovery-drill.js";

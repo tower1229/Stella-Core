@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { HostInputSnapshot } from "../openclaw/host-input.js";
+import type { HostInputSnapshot } from "../canghai/host-input-snapshot.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { isRecord } from "../shared/type-guards.js";
 import { bytesVersion, canonicalJson, objectVersion } from "./content-version.js";

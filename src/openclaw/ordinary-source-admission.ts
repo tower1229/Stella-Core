@@ -14,7 +14,7 @@ import { parseCangHaiRef } from "../canghai/ref.js";
 import { createPersonalContextAccess, loadPersonalContextAccess, readPersonalContextAccessBinding } from "../canghai/personal-context-access.js";
 import { sourceAccessKey } from "../canghai/source-access.js";
 import { sourceSegments, assertEvidenceSegment, segmentLocator } from "../canghai/source-segments.js";
-import { assertPersonalSourceMetadata } from "../praxis/personal-views.js";
+import { assertPersonalSourceMetadata } from "../canghai/source-metadata.js";
 import { bindProcessingAuthority, assertProcessingStage } from "./processing-authority.js";
 import { snapshotTurnRequest } from "./turn-request.js";
 import type { createCurrentInputMetadata } from "./current-input-metadata.js";

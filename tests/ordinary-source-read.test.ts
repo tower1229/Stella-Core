@@ -15,6 +15,44 @@ import type { VersionedRef } from "../src/praxis/episode-v2.js";
 
 import { fixture, prefix, manifestPath, profilePath, catalogPath, hostVersion } from "./fixtures/ordinary-source-read.js";
 
+test("a new data branch supplies explicit manifest/profile/catalog paths without legacy directory discovery", async t => {
+  const f = await fixture(t, 1), oldRevision = f.binding.revision;
+  await f.git("switch", "-c", "synthetic-new-data");
+  const manifest = "new-data/instance.json", profile = "new-data/runtime.json", catalog = "new-data/catalog.json";
+  f.manifest.identity.runtimeProfileRef = `path:${profile}`;
+  f.manifest.runtimeState.runtimeProfileRef = `path:${profile}`;
+  f.profile.memory.catalog_ref = `path:${catalog}`;
+  await f.put(manifest, canonicalJson(f.manifest)); await f.put(profile, canonicalJson(f.profile));
+  await f.put(catalog, canonicalJson(f.catalog));
+  for (const old of [manifestPath, profilePath, catalogPath]) await rm(path.join(f.root, old));
+  const nextRevision = await f.commit(); assert.notEqual(nextRevision, oldRevision);
+  await assert.rejects(f.execute({ action: "list" }), /source_revision_mismatch/);
+  f.binding.manifestPath = manifest; f.binding.revision = nextRevision;
+  const listed = await f.execute({ action: "list" });
+  if (listed.status !== "listed") assert.fail();
+  assert.equal(listed.revision, nextRevision); assert.deepEqual(listed.items.map(i => i.ref), f.refs);
+  const read = await f.execute({ action: "read", ref: listed.items[0].ref });
+  if (read.status !== "read") assert.fail();
+  assert.equal(read.original.text, f.texts[0]); assert.equal(read.revision, nextRevision);
+  assert.deepEqual(f.sourcePolicies.sort(), ["synthetic-base", "synthetic-leaf"]);
+});
+
+test("a newly selected synchronized generation cannot reuse an old cursor or removed source", async t => {
+  const f = await fixture(t, 1), previous = await f.execute({ action: "list" });
+  if (previous.status !== "listed") assert.fail();
+  f.catalog.parentGenerationId = f.catalog.generationId; f.catalog.generationId = "synthetic-next-generation";
+  f.catalog.sources[0].status = "removed"; f.catalog.evidence[0].status = "removed";
+  await f.put(catalogPath, canonicalJson(f.catalog)); const revision = await f.commit();
+  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }), /source_revision_mismatch/);
+  f.binding.revision = revision;
+  await assert.rejects(f.execute({ action: "list", cursor: { catalogHash: previous.catalogHash, offset: 0 } }), /source_cursor_stale/);
+  const current = await f.execute({ action: "list" });
+  if (current.status !== "listed") assert.fail();
+  assert.deepEqual(current.items, []); assert.equal(current.generationId, "synthetic-next-generation");
+  await assert.rejects(f.execute({ action: "read", ref: f.refs[0] }), /source_removed/);
+  assert.equal(f.sourcePolicies.length, 0);
+});
+
 test("selected real-contract manifest/profile/catalog lists roles and times without reading original payloads", async t => {
   const f = await fixture(t), result = await f.execute({ action: "list" });
   assert.equal(result.status, "listed"); if (result.status !== "listed") assert.fail();

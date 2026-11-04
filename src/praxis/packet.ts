@@ -8,7 +8,8 @@ import type {
 } from "../routing/router.js";
 import { isRecord } from "../shared/type-guards.js";
 import { buildSituationFrame, type SituationFrame } from "../situation/frame.js";
-import type { OpenEpisodeCandidate, StellaDataMode } from "./episode-store.js";
+import type { OpenEpisodeCandidate } from "./episode-store.js";
+import type { StellaDataMode } from "../shared/data-mode.js";
 
 export const DEFAULT_MAX_PRAXIS_PACKET_CHARS = 12_000;
 const MAX_SITUATION_TEXT_CHARS = 250;

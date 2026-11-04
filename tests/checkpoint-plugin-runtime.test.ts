@@ -15,7 +15,7 @@ import { openLocalCheckpointRecovery } from "../src/canghai/local-checkpoint-rec
 import { StellaInitializer } from "../src/openclaw/initialization.js";
 import { withExclusiveFileLock } from "../src/canghai/exclusive-file-lock.js";
 import { bytesVersion, canonicalJson } from "../src/canghai/content-version.js";
-import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type { HostIdentity } from "../src/openclaw/initialization-templates.js";
 

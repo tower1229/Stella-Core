@@ -11,13 +11,6 @@
     "schemas",
     "skills",
     "README.md",
-    "evaluation/praxis-social.synthetic.json",
-    "docs/EXPERIMENTAL-OWNER-CHAT.md",
-    "docs/WEBCHAT-DEVICE-OWNER.md",
-    "docs/EXPLICIT-SNAPSHOT-IMPORT.md",
-    "docs/CHECKPOINT-WORK-SUPPLY.md",
-    "docs/CHECKPOINT-UNDERSTANDING-SUPPLY.md",
-    "docs/CHECKPOINT-CORRECTION-WRITER.md",
     "docs/MAIN-DEBUG-INSTALL.md",
     "docs/CANDIDATE-WORK-BRIEF.md",
     "docs/ORDINARY-SOURCE-READ.md"
@@ -27,17 +20,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "check:schemas": "node scripts/check-schemas.mjs",
     "test": "node scripts/run-workspace-tests.mjs",
-    "test:host-archive": "node scripts/compile.mjs build && node scripts/compile.mjs test && node scripts/probe-archive-retention.mjs",
-    "test:legacy-package": "node scripts/package-smoke.mjs --dreaming-disabled",
-    "recover:private": "npm run build --silent && node scripts/run-private-recovery.mjs",
-    "praxis:private": "npm run build --silent && node scripts/run-private-praxis-loop.mjs",
-    "evaluate:praxis": "npm run build --silent && node scripts/run-praxis-evaluation.mjs",
-    "prepare:evaluation-source": "node scripts/compile.mjs build && node scripts/compile.mjs test && node scripts/prepare-public-evaluation-source.mjs",
-    "candidate": "npm run build --silent && node scripts/create-alpha-candidate.mjs",
-    "stella:activate": "npm run build --silent && node scripts/stella-activate.mjs",
-    "verify": "npm run check && npm run check:schemas && npm test",
-    "verify:dreaming-boundary": "node scripts/verify-dreaming-boundary.mjs",
-    "verify:legacy-owner-chat": "node scripts/package-experimental-owner-chat.mjs"
+    "verify": "npm run check && npm run check:schemas && npm test"
   },
   "dependencies": {
     "ajv": "8.20.0",

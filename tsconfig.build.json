@@ -1,5 +1,10 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/ordinary-plugin.ts",
+    "src/canghai/repository-source.ts",
+    "src/canghai/durability.ts",
+    "src/openclaw/file-lock-sdk.d.ts"
+  ],
   "exclude": ["tests/**/*.ts"]
 }

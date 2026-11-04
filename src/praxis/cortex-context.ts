@@ -7,7 +7,8 @@ import { renderConsciousnessContext } from "../canghai/context.js";
 import type { LoadedConsciousness } from "../canghai/manifest.js";
 import type { CortexRoute } from "../routing/router.js";
 import type { EvidenceBundle } from "./evidence-bundle.js";
-import type { OpenEpisodeCandidate, StellaDataMode } from "./episode-store.js";
+import type { OpenEpisodeCandidate } from "./episode-store.js";
+import type { StellaDataMode } from "../shared/data-mode.js";
 import { buildPraxisContextPacket, DEFAULT_MAX_PRAXIS_PACKET_CHARS, renderPraxisContextPacket } from "./packet.js";
 
 export const STELLA_CORE_SYSTEM_CONTEXT =

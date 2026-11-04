@@ -26,7 +26,7 @@ import { assertPrivateContextAudience, resolveTurnAudience } from "./turn-audien
 import { HOST_MEMORY_PROVIDER, readHostModelOutput, withHostModelConsumption, type HostModelOutputReceipt } from "./host-memory-provider.js";
 import { assertHostMemoryVerification, hostMemoryVerification, withHostMemoryVerification } from "./host-memory-verification.js";
 import { hostMemoryConfigurationHash } from "./host-memory-inventory.js";
-import type { StellaDataMode } from "../praxis/episode-store.js";
+import type { StellaDataMode } from "../shared/data-mode.js";
 
 export const HOST_MEMORY_ACCEPTANCE_CASES = "host-memory-access:explicit-operator-grant,source-verdict-output,native-fragment,memory-core,session-memory,wiki-claim-cache,vector-cache-binding,query-processing-consumption,guarded-direct-consumption:v4";
 type Config = { canghaiRoot: string; manifestPath: string; recoveryRevision: string; agentId: string; dataMode?: StellaDataMode };

@@ -1,0 +1,86 @@
+{
+  "observedAt": "2026-11-04T02:01:26.806394+00:00",
+  "compileBuildExit": 0,
+  "compileTestsExit": 0,
+  "schemas": {
+    "validated": 9,
+    "exit": 0
+  },
+  "packagePreparationExit": 0,
+  "packageTestExit": 0,
+  "tests": 141,
+  "pass": 141,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "sdkActual": "2026.10.9",
+  "sdkLock": "2026.10.8",
+  "artifactDirectory": ".artifacts/ordinary-package-20261104",
+  "packageSha256": "0e48ff85e394c8b6efe9f8bdb92038d6bba1be4d30e5619f2bb516c90768578e",
+  "packageMembers": 145,
+  "sourceModulesCompiled": 42,
+  "testReceiptSha256": "292ac4294484f8d072e198e435e70b97bd5e8b0ee3ece0f889aef9f7f6ab19e0",
+  "syntheticBranchCases": [
+    "explicit relocated manifest/profile/catalog list/read; exact revision required",
+    "next generation rejects stale revision/cursor and removed Source"
+  ],
+  "retainedSuites": {
+    "digest": "7cd446a02e861d426e5945d4b3a8deb70303900241ca646325ddadf387b6a4f1",
+    "entries": [
+      {
+        "path": "author-intent-repository.test.js",
+        "sha256": "9eff0a8eb81cc251e96ef717465e240f17b8b8dada6cb54270ec72949d0eda6a"
+      },
+      {
+        "path": "candidate-work-brief.test.js",
+        "sha256": "e57b2852ff789131e59b77623373dd330e5b774c5dbe771eb7f8b16c54ec3755"
+      },
+      {
+        "path": "current-input-metadata.test.js",
+        "sha256": "27b55863b12e9e7abf01584b7e586435cf0c202b0f33ee5a06214a9ca66d1e89"
+      },
+      {
+        "path": "fixtures/ordinary-source-read.js",
+        "sha256": "6ad35f181bc5a6d93dd0a1b33226c111173b9e37dd40f3b513e48a8a1c4c0a44"
+      },
+      {
+        "path": "memory-transaction-journal.test.js",
+        "sha256": "d5d4f1a3de4968921b5ef62d8a8485861e827c1e2a58faaf5138eb65448ca86a"
+      },
+      {
+        "path": "memory-transaction.test.js",
+        "sha256": "19e34bab915f9aef781db35d89af10bbd8ad0da0222cc1edbe1df62c2924983c"
+      },
+      {
+        "path": "ordinary-plugin.test.js",
+        "sha256": "760adab9e086eb5d2d0270ba5a8ed816ed79ff2632b3674bb6b8ecf421b0e69b"
+      },
+      {
+        "path": "ordinary-source-admission.test.js",
+        "sha256": "a2eed7694f60c9a61558b42aa09dda13ee260998ff627242a7c3fa87a02b054d"
+      },
+      {
+        "path": "ordinary-source-read.test.js",
+        "sha256": "5e27e75728cb61bbd4d2fa101ee64ff922e060c1e9d333c87529a8760f5e978f"
+      },
+      {
+        "path": "source-understanding-skill.test.js",
+        "sha256": "cc66e6134724b045982500a47ed23c202f55af7b72fc9e5eec32ecc90bac0c03"
+      },
+      {
+        "path": "tool-request-binding.test.js",
+        "sha256": "b5cb89493952f4e17c3e8ff0cf9fba3787bbb751e30a5d5804e341a7fc6117a2"
+      }
+    ]
+  },
+  "initialFailuresRetained": [
+    "INITIAL-CHECK.json",
+    "PACKAGED-INITIAL-ENVIRONMENT.json"
+  ],
+  "fullHistoricalSuiteRerun": false,
+  "liveHost": false,
+  "model": false,
+  "privateOriginals": false,
+  "sourceClean": false,
+  "sourceCleanNote": "Old user/task documentation dirty retained; source code candidate is pinned separately; package is not a clean-release claim."
+}

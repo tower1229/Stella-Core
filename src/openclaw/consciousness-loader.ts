@@ -1,7 +1,7 @@
 import { loadConsciousness, type LoadedConsciousness } from "../canghai/manifest.js";
 import { createLegacyRecoveryAuthority, RecoveryBoundLoader } from "../canghai/recovery-bound-loader.js";
 import { RecoveryAuthorityError, type RecoveryAuthorityResolver } from "../canghai/recovery-authority-contract.js";
-import type { StellaDataMode } from "../praxis/episode-store.js";
+import type { StellaDataMode } from "../shared/data-mode.js";
 
 type Config = { canghaiRoot: string; manifestPath: string; agentId: string; recoveryRevision: string; dataMode: StellaDataMode };
 /** Shared real loader; the default plugin still uses legacy mode until every reader migrates. */

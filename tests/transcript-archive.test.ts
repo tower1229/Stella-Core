@@ -19,7 +19,7 @@ import {
   rebuildConversationFromArchive,
   type TranscriptMessageExport,
 } from "../src/canghai/transcript-archive.js";
-import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
 import { captureHostTranscript } from "../src/openclaw/host-transcript.js";
 import { isRecord } from "../src/shared/type-guards.js";
 import { CatalogError } from "../src/canghai/catalog-reader.js";

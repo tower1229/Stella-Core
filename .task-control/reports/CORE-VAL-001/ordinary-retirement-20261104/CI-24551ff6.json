@@ -1,0 +1,10 @@
+{
+  "headSha": "24551ff6a9350b9912cf43d013cf2c48c9e100a8",
+  "run": 41634748045,
+  "workflow": "Ordinary plugin package contract",
+  "status": "completed",
+  "conclusion": "success",
+  "completedAt": "2026-11-03T12:21:01Z",
+  "url": "https://github.com/tower1229/Stella-Core/actions/runs/41634748045",
+  "scope": "previous BOM commit only; not this uncommitted retirement/data handoff candidate, not live Host/model/full-memory"
+}

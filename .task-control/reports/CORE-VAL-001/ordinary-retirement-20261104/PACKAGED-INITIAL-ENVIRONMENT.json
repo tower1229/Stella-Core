@@ -1,0 +1,9 @@
+{
+  "exitCode": 1,
+  "tests": 141,
+  "pass": 40,
+  "fail": 101,
+  "countedForCandidate": false,
+  "reason": "invocation expanded PWD after changing into extracted package, so HOME/TMPDIR pointed into a nonexistent nested artifact path; source fixtures failed ENOENT; original receipt preserved",
+  "correction": "absolute synthetic HOME/TMPDIR/state/config paths under the existing owned run directory; no policy/Host change"
+}

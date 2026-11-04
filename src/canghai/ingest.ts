@@ -1,7 +1,7 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
 import type { VersionedRef } from "../praxis/episode-v2.js";
-import type { HostInputSnapshot } from "../openclaw/host-input.js";
+import type { HostInputSnapshot } from "../canghai/host-input-snapshot.js";
 import { isRecord } from "../shared/type-guards.js";
 import {
   CatalogError,

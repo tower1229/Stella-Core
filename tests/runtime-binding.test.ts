@@ -11,7 +11,7 @@ import { listSemanticRoutingCandidates } from "../src/praxis/packet.js";
 import { loadConsciousness } from "../src/canghai/manifest.js";
 import { GitCangHaiDurability } from "../src/canghai/durability.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, persistBoundAdvice, resolveBoundInputRefs } from "../src/praxis/runtime-binding.js";
-import type { HostInputSnapshot } from "../src/openclaw/host-input.js";
+import type { HostInputSnapshot } from "../src/canghai/host-input-snapshot.js";
 import type { EpisodeV2 } from "../src/praxis/episode-v2.js";
 import { loadOutcomeRecoveryBinding } from "../src/praxis/outcome-recovery-binding.js";
 

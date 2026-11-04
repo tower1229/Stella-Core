@@ -1,3 +1,4 @@
+import { STELLA_DATA_MODES, type StellaDataMode } from "./shared/data-mode.js";
 import { registerCheckpointPlugin } from "./openclaw/checkpoint-plugin-registration.js";
 import { ConsciousnessLoader } from "./openclaw/consciousness-loader.js";
 import { createHostContextTurnStore, type CommitHostContextTurn } from "./openclaw/host-context-turn-store.js";
@@ -63,8 +64,6 @@ import {
   listSemanticRoutingCandidates,
 } from "./praxis/packet.js";
 import {
-  STELLA_DATA_MODES,
-  type StellaDataMode,
 } from "./praxis/episode-store.js";
 import { createOpenClawRecoveryPointerWriter } from "./openclaw/recovery-pointer.js";
 import { recoveryFailureDiagnostic, type RecoveryStage } from "./openclaw/recovery-diagnostics.js";
@@ -77,7 +76,7 @@ import { CompletionError, readActiveCompletionRequest, readCompletionRequest, re
 import { canonicalJson, bytesVersion } from "./canghai/content-version.js";
 import { loadPraxisRuntimeBinding, createBoundPraxisRuntime, resolveBoundInputRefs, persistBoundAdvice } from "./praxis/runtime-binding.js";
 import { EpisodeV2Error } from "./praxis/episode-v2.js";
-import type { HostInputSnapshot } from "./openclaw/host-input.js";
+import type { HostInputSnapshot } from "./canghai/host-input-snapshot.js";
 import { prepareEvidenceBoundOutcome, readPreparedOutcomeContext } from "./praxis/outcome-preparation.js";
 import { prepareOutcomeTransaction, readPreparedOutcomeProjection } from "./praxis/outcome-transaction.js";
 import { MemoryTransactionError, withMemoryMutationLock } from "./canghai/memory-transaction.js";

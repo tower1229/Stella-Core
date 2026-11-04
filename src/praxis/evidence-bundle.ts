@@ -1,6 +1,6 @@
 import { CatalogError, validMemoryRef } from "../canghai/catalog-reader.js";
 import { canonicalJson, objectVersion } from "../canghai/content-version.js";
-import type { ResponseKind } from "../openclaw/completion.js";
+import type { ResponseKind } from "../shared/response-kind.js";
 import { isRecord } from "../shared/type-guards.js";
 import type { EpisodeEvidenceResolver } from "./episode-evidence.js";
 import type { VersionedRef } from "./episode-v2.js";

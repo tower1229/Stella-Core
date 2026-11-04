@@ -1,0 +1,856 @@
+TAP version 13
+# Subtest: one complete intent publication is committed locally and controlled reads preserve candidates and unresolved questions
+ok 1 - one complete intent publication is committed locally and controlled reads preserve candidates and unresolved questions
+  ---
+  duration_ms: 7542.861542
+  type: 'test'
+  ...
+# Subtest: durable retries retain their original result after a later publication and reject operation ID reuse
+ok 2 - durable retries retain their original result after a later publication and reject operation ID reuse
+  ---
+  duration_ms: 3151.579959
+  type: 'test'
+  ...
+# Subtest: stale asset or source expectations do not write or silently rebase
+ok 3 - stale asset or source expectations do not write or silently rebase
+  ---
+  duration_ms: 792.4315
+  type: 'test'
+  ...
+# Subtest: current qualification is required before a new publication, durable replay, or controlled read
+ok 4 - current qualification is required before a new publication, durable replay, or controlled read
+  ---
+  duration_ms: 714.463042
+  type: 'test'
+  ...
+# Subtest: without trusted author evidence only an explicit candidate can be published
+ok 5 - without trusted author evidence only an explicit candidate can be published
+  ---
+  duration_ms: 1494.52625
+  type: 'test'
+  ...
+# Subtest: a model-supplied excerpt cannot borrow a genuine author's identity and source version
+ok 6 - a model-supplied excerpt cannot borrow a genuine author's identity and source version
+  ---
+  duration_ms: 105.671542
+  type: 'test'
+  ...
+# Subtest: a source version change at the precommit boundary never becomes a successful publication
+ok 7 - a source version change at the precommit boundary never becomes a successful publication
+  ---
+  duration_ms: 259.924333
+  type: 'test'
+  ...
+# Subtest: source permission is independently required for replay and reads even when request qualification remains valid
+ok 8 - source permission is independently required for replay and reads even when request qualification remains valid
+  ---
+  duration_ms: 1026.554
+  type: 'test'
+  ...
+# Subtest: a failure at replaced reconstructs from disk without duplicate publication
+ok 9 - a failure at replaced reconstructs from disk without duplicate publication
+  ---
+  duration_ms: 1328.6255
+  type: 'test'
+  ...
+# Subtest: a failure at committed reconstructs from disk without duplicate publication
+ok 10 - a failure at committed reconstructs from disk without duplicate publication
+  ---
+  duration_ms: 1718.769625
+  type: 'test'
+  ...
+# Subtest: a failure at before_return reconstructs from disk without duplicate publication
+ok 11 - a failure at before_return reconstructs from disk without duplicate publication
+  ---
+  duration_ms: 1709.990083
+  type: 'test'
+  ...
+# Subtest: an interrupted file replacement remains fenced until the exact persisted intent is completed
+ok 12 - an interrupted file replacement remains fenced until the exact persisted intent is completed
+  ---
+  duration_ms: 922.452042
+  type: 'test'
+  ...
+# Subtest: the local commit cannot absorb unrelated staged or untracked files
+ok 13 - the local commit cannot absorb unrelated staged or untracked files
+  ---
+  duration_ms: 211.732042
+  type: 'test'
+  ...
+# Subtest: malformed versions, source references and injected fields cannot write
+ok 14 - malformed versions, source references and injected fields cannot write
+  ---
+  duration_ms: 80.443208
+  type: 'test'
+  ...
+# Subtest: a canceled request cannot publish or use a retained repository to read
+ok 15 - a canceled request cannot publish or use a retained repository to read
+  ---
+  duration_ms: 73.943792
+  type: 'test'
+  ...
+# Subtest: changed or removed current statements must be named in the revision relation
+ok 16 - changed or removed current statements must be named in the revision relation
+  ---
+  duration_ms: 869.149042
+  type: 'test'
+  ...
+# Subtest: a candidate cannot erase previously confirmed intent without author evidence
+ok 17 - a candidate cannot erase previously confirmed intent without author evidence
+  ---
+  duration_ms: 791.135583
+  type: 'test'
+  ...
+# Subtest: a new request cannot supply changed-source intent as current, while authorized history stays explicitly historical
+ok 18 - a new request cannot supply changed-source intent as current, while authorized history stays explicitly historical
+  ---
+  duration_ms: 730.484209
+  type: 'test'
+  ...
+# Subtest: missing retained material is unavailable instead of falling back to a different version
+ok 19 - missing retained material is unavailable instead of falling back to a different version
+  ---
+  duration_ms: 875.561416
+  type: 'test'
+  ...
+# Subtest: a separate Node process recovers a committed-but-unacknowledged publication using only the synthetic repository
+ok 20 - a separate Node process recovers a committed-but-unacknowledged publication using only the synthetic repository
+  ---
+  duration_ms: 1260.770834
+  type: 'test'
+  ...
+# Subtest: a source-B revision validates source-A only as its qualified historical base and preserves current freshness
+ok 21 - a source-B revision validates source-A only as its qualified historical base and preserves current freshness
+  ---
+  duration_ms: 2192.921125
+  type: 'test'
+  ...
+# Subtest: source refresh retains the stale_A refusal boundary
+ok 22 - source refresh retains the stale_A refusal boundary
+  ---
+  duration_ms: 658.322
+  type: 'test'
+  ...
+# Subtest: source refresh retains the B_permission refusal boundary
+ok 23 - source refresh retains the B_permission refusal boundary
+  ---
+  duration_ms: 648.056667
+  type: 'test'
+  ...
+# Subtest: source refresh retains the B_author refusal boundary
+ok 24 - source refresh retains the B_author refusal boundary
+  ---
+  duration_ms: 680.70725
+  type: 'test'
+  ...
+# Subtest: source refresh retains the base_permission refusal boundary
+ok 25 - source refresh retains the base_permission refusal boundary
+  ---
+  duration_ms: 666.998708
+  type: 'test'
+  ...
+# Subtest: source refresh retains the missing_history refusal boundary
+ok 26 - source refresh retains the missing_history refusal boundary
+  ---
+  duration_ms: 640.4705
+  type: 'test'
+  ...
+# Subtest: source refresh retains the uncommitted_current refusal boundary
+ok 27 - source refresh retains the uncommitted_current refusal boundary
+  ---
+  duration_ms: 1747.194083
+  type: 'test'
+  ...
+# Subtest: a concurrent complete publication cannot be overwritten while the old source-A base is being checked
+ok 28 - a concurrent complete publication cannot be overwritten while the old source-A base is being checked
+  ---
+  duration_ms: 1989.18325
+  type: 'test'
+  ...
+# Subtest: an independent process retries an unacknowledged source-B revision without rewriting it
+ok 29 - an independent process retries an unacknowledged source-B revision without rewriting it
+  ---
+  duration_ms: 2119.517708
+  type: 'test'
+  ...
+# Subtest: save, restore in a new request, and versioned modification preserve candidate meaning
+ok 30 - save, restore in a new request, and versioned modification preserve candidate meaning
+  ---
+  duration_ms: 5016.032667
+  type: 'test'
+  ...
+# Subtest: stale CAS and operation identity conflicts fail without changing the committed draft
+ok 31 - stale CAS and operation identity conflicts fail without changing the committed draft
+  ---
+  duration_ms: 2215.773375
+  type: 'test'
+  ...
+# Subtest: exact retry is idempotent and an older operation never rolls back the new version
+ok 32 - exact retry is idempotent and an older operation never rolls back the new version
+  ---
+  duration_ms: 3755.94925
+  type: 'test'
+  ...
+# Subtest: input cannot add author confirmation, source lookup, paths or an implicit expected version
+ok 33 - input cannot add author confirmation, source lookup, paths or an implicit expected version
+  ---
+  duration_ms: 116.255208
+  type: 'test'
+  ...
+# Subtest: unverified evidence is retained opaquely, with no file or URL resolution
+ok 34 - unverified evidence is retained opaquely, with no file or URL resolution
+  ---
+  duration_ms: 1192.683625
+  type: 'test'
+  ...
+# Subtest: missing marker, oversized proposal, dirty store and closed invocation fail explicitly
+ok 35 - missing marker, oversized proposal, dirty store and closed invocation fail explicitly
+  ---
+  duration_ms: 127.123208
+  type: 'test'
+  ...
+# Subtest: actual plugin tool restores across fresh factories and keeps publisher off
+ok 36 - actual plugin tool restores across fresh factories and keeps publisher off
+  ---
+  duration_ms: 1141.264208
+  type: 'test'
+  ...
+# Subtest: new draft tool restricts existing owner context without using it as author proof
+ok 37 - new draft tool restricts existing owner context without using it as author proof
+  ---
+  duration_ms: 92.161708
+  type: 'test'
+  ...
+# Subtest: configured drafts cannot escape a workspace-only or sandboxed Host context
+ok 38 - configured drafts cannot escape a workspace-only or sandboxed Host context
+  ---
+  duration_ms: 712.444125
+  type: 'test'
+  ...
+# Subtest: plugin skill is discovered as an explicit model-routed command by the public Host SDK
+ok 39 - plugin skill is discovered as an explicit model-routed command by the public Host SDK
+  ---
+  duration_ms: 1606.874333
+  type: 'test'
+  ...
+# Subtest: continuation reads current, saves a candidate revision, then re-reads in a fresh request
+ok 40 - continuation reads current, saves a candidate revision, then re-reads in a fresh request
+  ---
+  duration_ms: 2471.112917
+  type: 'test'
+  ...
+# Subtest: dispatch is passive; first call reads only committed native metadata and returns no transcript path or text
+ok 41 - dispatch is passive; first call reads only committed native metadata and returns no transcript path or text
+  ---
+  duration_ms: 4.40175
+  type: 'test'
+  ...
+# Subtest: missing ingress, signal, session or agent fields never fall back to prompt, history or another run
+ok 42 - missing ingress, signal, session or agent fields never fall back to prompt, history or another run
+  ---
+  duration_ms: 0.325584
+  type: 'test'
+  ...
+# Subtest: committed receipt and factory must match exact agent, session and incarnation
+ok 43 - committed receipt and factory must match exact agent, session and incarnation
+  ---
+  duration_ms: 0.512209
+  type: 'test'
+  ...
+# Subtest: receipt identity and numeric fields are required; receipt exceptions stay explicit
+ok 44 - receipt identity and numeric fields are required; receipt exceptions stay explicit
+  ---
+  duration_ms: 0.21875
+  type: 'test'
+  ...
+# Subtest: receipt getter snapshot rejects invalid first rawSeq without accepting a later value
+ok 45 - receipt getter snapshot rejects invalid first rawSeq without accepting a later value
+  ---
+  duration_ms: 0.114792
+  type: 'test'
+  ...
+# Subtest: receipt getter snapshot rejects invalid first activeMessagePosition without accepting a later value
+ok 46 - receipt getter snapshot rejects invalid first activeMessagePosition without accepting a later value
+  ---
+  duration_ms: 0.125333
+  type: 'test'
+  ...
+# Subtest: receipt getter snapshot rejects invalid first effectiveParentId without accepting a later value
+ok 47 - receipt getter snapshot rejects invalid first effectiveParentId without accepting a later value
+  ---
+  duration_ms: 0.102416
+  type: 'test'
+  ...
+# Subtest: receipt getter snapshot rejects invalid first sessionId without accepting a later value
+ok 48 - receipt getter snapshot rejects invalid first sessionId without accepting a later value
+  ---
+  duration_ms: 0.153125
+  type: 'test'
+  ...
+# Subtest: receipt scalar snapshot is read once and the same validated values determine its hash
+ok 49 - receipt scalar snapshot is read once and the same validated values determine its hash
+  ---
+  duration_ms: 0.243333
+  type: 'test'
+  ...
+# Subtest: one run cannot switch recorders or native admissions; restoring old metadata cannot revive it
+ok 50 - one run cannot switch recorders or native admissions; restoring old metadata cannot revive it
+  ---
+  duration_ms: 0.23225
+  type: 'test'
+  ...
+# Subtest: blocked/vanished admission never becomes observed; independent new requests read their own receipt
+ok 51 - blocked/vanished admission never becomes observed; independent new requests read their own receipt
+  ---
+  duration_ms: 0.174833
+  type: 'test'
+  ...
+# Subtest: original read methods are captured; cancellation and exact agent-end release bounded references
+ok 52 - original read methods are captured; cancellation and exact agent-end release bounded references
+  ---
+  duration_ms: 0.5235
+  type: 'test'
+  ...
+# Subtest: cancellation or agent-end during a recorder read cannot return an observation
+ok 53 - cancellation or agent-end during a recorder read cannot return an observation
+  ---
+  duration_ms: 0.116792
+  type: 'test'
+  ...
+# Subtest: ordinary plugin callbacks carry native metadata to only the exact candidate; candidate and publisher limits stay intact
+ok 54 - ordinary plugin callbacks carry native metadata to only the exact candidate; candidate and publisher limits stay intact
+  ---
+  duration_ms: 1.438334
+  type: 'test'
+  ...
+# Subtest: v1 canonical golden bytes preserve the existing journal contract, archive and base64
+ok 55 - v1 canonical golden bytes preserve the existing journal contract, archive and base64
+  ---
+  duration_ms: 3.083333
+  type: 'test'
+  ...
+# Subtest: v2 canonical golden bytes preserve the original expected revision and opaque token
+ok 56 - v2 canonical golden bytes preserve the original expected revision and opaque token
+  ---
+  duration_ms: 1.293708
+  type: 'test'
+  ...
+# Subtest: unknown top-level and file fields fail even with a correctly recomputed planHash
+ok 57 - unknown top-level and file fields fail even with a correctly recomputed planHash
+  ---
+  duration_ms: 1.462583
+  type: 'test'
+  ...
+# Subtest: v1/v2 envelopes cannot silently add, remove or change checkpoint mode
+ok 58 - v1/v2 envelopes cannot silently add, remove or change checkpoint mode
+  ---
+  duration_ms: 0.249541
+  type: 'test'
+  ...
+# Subtest: missing or invalid original expected tokens are rejected without filling an observed value
+ok 59 - missing or invalid original expected tokens are rejected without filling an observed value
+  ---
+  duration_ms: 1.05275
+  type: 'test'
+  ...
+# Subtest: v2 rejects invalid binding locations and identities
+ok 60 - v2 rejects invalid binding locations and identities
+  ---
+  duration_ms: 1.033958
+  type: 'test'
+  ...
+# Subtest: planHash binds business writes and the original expected tuple, never the newly observed tuple
+ok 61 - planHash binds business writes and the original expected tuple, never the newly observed tuple
+  ---
+  duration_ms: 1.360375
+  type: 'test'
+  ...
+# Subtest: wrong operation, hash, noncanonical bytes and malformed JSON are rejected
+ok 62 - wrong operation, hash, noncanonical bytes and malformed JSON are rejected
+  ---
+  duration_ms: 0.921292
+  type: 'test'
+  ...
+# Subtest: schema versions must be strings, never coercible arrays
+ok 63 - schema versions must be strings, never coercible arrays
+  ---
+  duration_ms: 0.659042
+  type: 'test'
+  ...
+# Subtest: explicit legacy utf8 encoding remains accepted and retains journal identity
+ok 64 - explicit legacy utf8 encoding remains accepted and retains journal identity
+  ---
+  duration_ms: 0.602375
+  type: 'test'
+  ...
+# Subtest: failed multi-file publication stays unreadable until exact retry synchronizes it
+ok 65 - failed multi-file publication stays unreadable until exact retry synchronizes it
+  ---
+  duration_ms: 224.995625
+  type: 'test'
+  ...
+# Subtest: a validation failure before publication releases the fence and preserves all original bytes
+ok 66 - a validation failure before publication releases the fence and preserves all original bytes
+  ---
+  duration_ms: 61.381166
+  type: 'test'
+  ...
+# Subtest: concurrent publications and ordinary mutations cannot cross the transaction fence
+ok 67 - concurrent publications and ordinary mutations cannot cross the transaction fence
+  ---
+  duration_ms: 181.084959
+  type: 'test'
+  ...
+# Subtest: file CAS and reserved transaction paths fail without publishing
+ok 68 - file CAS and reserved transaction paths fail without publishing
+  ---
+  duration_ms: 14.956625
+  type: 'test'
+  ...
+# Subtest: one Git commit contains the full transaction and pointer failure retries without another commit
+ok 69 - one Git commit contains the full transaction and pointer failure retries without another commit
+  ---
+  duration_ms: 6594.821792
+  type: 'test'
+  ...
+# Subtest: applyMemoryTransaction publishes live lock ownership for concurrent initialization admission
+ok 70 - applyMemoryTransaction publishes live lock ownership for concurrent initialization admission
+  ---
+  duration_ms: 63.974542
+  type: 'test'
+  ...
+# Subtest: a killed process leaves its transaction fenced but the exact intent can reclaim the dead owner's lock
+ok 71 - a killed process leaves its transaction fenced but the exact intent can reclaim the dead owner's lock
+  ---
+  duration_ms: 263.527792
+  type: 'test'
+  ...
+# Subtest: expired timestamps never authorize stealing a live or unknown owner's lock
+ok 72 - expired timestamps never authorize stealing a live or unknown owner's lock
+  ---
+  duration_ms: 8.829375
+  type: 'test'
+  ...
+# Subtest: default package is ordinary and historical config is rejected without importing old runtime
+ok 73 - default package is ordinary and historical config is rejected without importing old runtime
+  ---
+  duration_ms: 40.824458
+  type: 'test'
+  ...
+# Subtest: registration contributes guarded tools, passive metadata hooks and a no-model command
+ok 74 - registration contributes guarded tools, passive metadata hooks and a no-model command
+  ---
+  duration_ms: 2.015833
+  type: 'test'
+  ...
+# Subtest: real tool contract returns an unsaved candidate, retaining open questions and unverified evidence
+ok 75 - real tool contract returns an unsaved candidate, retaining open questions and unverified evidence
+  ---
+  duration_ms: 0.393459
+  type: 'test'
+  ...
+# Subtest: spoofed confirmation, missing fields and oversized input are rejected
+ok 76 - spoofed confirmation, missing fields and oversized input are rejected
+  ---
+  duration_ms: 0.24275
+  type: 'test'
+  ...
+# Subtest: closed invocation, replaced guard and cancellation cannot return a candidate
+ok 77 - closed invocation, replaced guard and cancellation cannot return a candidate
+  ---
+  duration_ms: 0.39675
+  type: 'test'
+  ...
+# Subtest: public terminal events release source turns and pending calls without abort or conversation access
+ok 78 - public terminal events release source turns and pending calls without abort or conversation access
+  ---
+  duration_ms: 2469.768958
+  type: 'test'
+  ...
+# Subtest: actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel
+ok 79 - actual ordinary hooks and factory read only reviewed descriptors, then exact original with existing dual-policy kernel
+  ---
+  duration_ms: 1161.716125
+  type: 'test'
+  ...
+# Subtest: missing real hook/request fields never use owner flags, model parameters or session latest
+ok 80 - missing real hook/request fields never use owner flags, model parameters or session latest
+  ---
+  duration_ms: 156.869833
+  type: 'test'
+  ...
+# Subtest: Host owner/requester/audience/model must match existing grant without granting new identities
+ok 81 - Host owner/requester/audience/model must match existing grant without granting new identities
+  ---
+  duration_ms: 251.8705
+  type: 'test'
+  ...
+# Subtest: exact call/run/incarnation rejects ambiguity, mismatch, replay and expired original guard
+ok 82 - exact call/run/incarnation rejects ambiguity, mismatch, replay and expired original guard
+  ---
+  duration_ms: 405.764125
+  type: 'test'
+  ...
+# Subtest: uncommitted or blocked native turn cannot read; commitment before a later first valid call is supported
+ok 83 - uncommitted or blocked native turn cannot read; commitment before a later first valid call is supported
+  ---
+  duration_ms: 516.486125
+  type: 'test'
+  ...
+# Subtest: new user request in same session requalifies its own input and rereads selected version; old qualification is not reused
+ok 84 - new user request in same session requalifies its own input and rereads selected version; old qualification is not reused
+  ---
+  duration_ms: 834.353834
+  type: 'test'
+  ...
+# Subtest: native admission conflict, cancellation and end do not revive an old binding
+ok 85 - native admission conflict, cancellation and end do not revive an old binding
+  ---
+  duration_ms: 421.524334
+  type: 'test'
+  ...
+# Subtest: semantic policy denial remains an explicit read failure; metadata access does not grant body access
+ok 86 - semantic policy denial remains an explicit read failure; metadata access does not grant body access
+  ---
+  duration_ms: 412.566708
+  type: 'test'
+  ...
+# Subtest: reviewed descriptor membership cannot override the segment's metadata-processing purpose
+ok 87 - reviewed descriptor membership cannot override the segment's metadata-processing purpose
+  ---
+  duration_ms: 315.386625
+  type: 'test'
+  ...
+# Subtest: authenticated public WebChat profile binds the same native run/call and existing grant without fabricating SenderId
+ok 88 - authenticated public WebChat profile binds the same native run/call and existing grant without fabricating SenderId
+  ---
+  duration_ms: 720.0225
+  type: 'test'
+  ...
+# Subtest: missing or unqualified WebChat scope cannot be replaced with wire-looking owner/profile fields
+ok 89 - missing or unqualified WebChat scope cannot be replaced with wire-looking owner/profile fields
+  ---
+  duration_ms: 193.277292
+  type: 'test'
+  ...
+# Subtest: synthetic and delegated Gateway clients cannot fall back to matching transport sender or owner flags
+ok 90 - synthetic and delegated Gateway clients cannot fall back to matching transport sender or owner flags
+  ---
+  duration_ms: 159.218833
+  type: 'test'
+  ...
+# Subtest: WebChat profile cannot alias the selected grant or disagree with Host sender, owner or audience
+ok 91 - WebChat profile cannot alias the selected grant or disagree with Host sender, owner or audience
+  ---
+  duration_ms: 268.415625
+  type: 'test'
+  ...
+# Subtest: WebChat keeps native request lifetime after RPC completion; each new request needs fresh live admission
+ok 92 - WebChat keeps native request lifetime after RPC completion; each new request needs fresh live admission
+  ---
+  duration_ms: 800.792916
+  type: 'test'
+  ...
+# Subtest: WebChat identity mutation, cross-run call, incarnation mismatch and cancellation remain closed
+ok 93 - WebChat identity mutation, cross-run call, incarnation mismatch and cancellation remain closed
+  ---
+  duration_ms: 163.006208
+  type: 'test'
+  ...
+# Subtest: each WebChat hook and protected read requires the same public scope; parallel principals never merge
+ok 94 - each WebChat hook and protected read requires the same public scope; parallel principals never merge
+  ---
+  duration_ms: 367.395125
+  type: 'test'
+  ...
+# Subtest: official memory-core without native audience can use only the same device's existing source grant
+ok 95 - official memory-core without native audience can use only the same device's existing source grant
+  ---
+  duration_ms: 922.807667
+  type: 'test'
+  ...
+# Subtest: absent audience never admits unknown memory providers, native providers or a profile-only grant
+ok 96 - absent audience never admits unknown memory providers, native providers or a profile-only grant
+  ---
+  duration_ms: 508.717
+  type: 'test'
+  ...
+# Subtest: ordinary memory retains direct owner, authenticated device, grant and non-delegation boundaries before payload access
+ok 97 - ordinary memory retains direct owner, authenticated device, grant and non-delegation boundaries before payload access
+  ---
+  duration_ms: 315.303708
+  type: 'test'
+  ...
+# Subtest: ordinary memory does not replace a conflicting audience or accept a changed memory owner
+ok 98 - ordinary memory does not replace a conflicting audience or accept a changed memory owner
+  ---
+  duration_ms: 190.550042
+  type: 'test'
+  ...
+# Subtest: ordinary memory requires committed current input, call incarnation and fresh admission after terminal cleanup
+ok 99 - ordinary memory requires committed current input, call incarnation and fresh admission after terminal cleanup
+  ---
+  duration_ms: 453.93325
+  type: 'test'
+  ...
+# Subtest: Host-attested same device satisfies the existing device grant without changing profile, grant or tool identity
+ok 100 - Host-attested same device satisfies the existing device grant without changing profile, grant or tool identity
+  ---
+  duration_ms: 837.885834
+  type: 'test'
+  ...
+# Subtest: profile-only, wire device IDs, unknown devices and malformed attestations cannot satisfy a device grant
+ok 101 - profile-only, wire device IDs, unknown devices and malformed attestations cannot satisfy a device grant
+  ---
+  duration_ms: 703.561833
+  type: 'test'
+  ...
+# Subtest: device attestation never grants synthetic or delegated Gateway ingress
+ok 102 - device attestation never grants synthetic or delegated Gateway ingress
+  ---
+  duration_ms: 211.67375
+  type: 'test'
+  ...
+# Subtest: device mutation or cross-connection reuse invalidates the original run even after restoration
+ok 103 - device mutation or cross-connection reuse invalidates the original run even after restoration
+  ---
+  duration_ms: 147.873125
+  type: 'test'
+  ...
+# Subtest: device grants retain native request lifetime but require new admission, exact incarnation and cancellation
+ok 104 - device grants retain native request lifetime but require new admission, exact incarnation and cancellation
+  ---
+  duration_ms: 376.144792
+  type: 'test'
+  ...
+# Subtest: an explicit profile grant keeps its original semantics when another valid device fact is present
+ok 105 - an explicit profile grant keeps its original semantics when another valid device fact is present
+  ---
+  duration_ms: 337.225958
+  type: 'test'
+  ...
+# Subtest: device grant rejects missing-gateway transport SenderId before model or payload access
+ok 106 - device grant rejects missing-gateway transport SenderId before model or payload access
+  ---
+  duration_ms: 299.422583
+  type: 'test'
+  ...
+# Subtest: device grant rejects non-WebChat-gateway transport SenderId before model or payload access
+ok 107 - device grant rejects non-WebChat-gateway transport SenderId before model or payload access
+  ---
+  duration_ms: 295.282292
+  type: 'test'
+  ...
+# Subtest: a new data branch supplies explicit manifest/profile/catalog paths without legacy directory discovery
+ok 108 - a new data branch supplies explicit manifest/profile/catalog paths without legacy directory discovery
+  ---
+  duration_ms: 2607.124042
+  type: 'test'
+  ...
+# Subtest: a newly selected synchronized generation cannot reuse an old cursor or removed source
+ok 109 - a newly selected synchronized generation cannot reuse an old cursor or removed source
+  ---
+  duration_ms: 748.63475
+  type: 'test'
+  ...
+# Subtest: selected real-contract manifest/profile/catalog lists roles and times without reading original payloads
+ok 110 - selected real-contract manifest/profile/catalog lists roles and times without reading original payloads
+  ---
+  duration_ms: 399.797083
+  type: 'test'
+  ...
+# Subtest: descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence
+ok 111 - descriptor list projects only reviewed fields, never touches payloads, and keeps description separate from evidence
+  ---
+  duration_ms: 229.603958
+  type: 'test'
+  ...
+# Subtest: list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies
+ok 112 - list rejects missing, invalid or mismatched descriptors instead of inventing descriptions or reading bodies
+  ---
+  duration_ms: 964.133208
+  type: 'test'
+  ...
+# Subtest: descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate
+ok 113 - descriptive pages obey serialized UTF-8 capacity and resume without dropping or truncating a candidate
+  ---
+  duration_ms: 746.216292
+  type: 'test'
+  ...
+# Subtest: an expired metadata await cannot release descriptors after replacing the original guard
+ok 114 - an expired metadata await cannot release descriptors after replacing the original guard
+  ---
+  duration_ms: 150.824
+  type: 'test'
+  ...
+# Subtest: exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies
+ok 115 - exact Evidence read preserves original UTF-8, role/kind/time, selector, versions and both source/segment policies
+  ---
+  duration_ms: 291.102625
+  type: 'test'
+  ...
+# Subtest: two originals with the same role preserve different recorded speakers and source records without inferring identity
+ok 116 - two originals with the same role preserve different recorded speakers and source records without inferring identity
+  ---
+  duration_ms: 519.965541
+  type: 'test'
+  ...
+# Subtest: read provenance projects only selected recorded labels; list never releases the new attribution fields
+ok 117 - read provenance projects only selected recorded labels; list never releases the new attribution fields
+  ---
+  duration_ms: 418.969
+  type: 'test'
+  ...
+# Subtest: oversized provenance fails before policy completion or payload reads without truncating identifiers
+ok 118 - oversized provenance fails before policy completion or payload reads without truncating identifiers
+  ---
+  duration_ms: 211.186333
+  type: 'test'
+  ...
+# Subtest: missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access
+ok 119 - missing issuer/config and owner/tool parameters cannot supply source permission or cause filesystem access
+  ---
+  duration_ms: 2.272375
+  type: 'test'
+  ...
+# Subtest: ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced
+ok 120 - ordinary v2 tool executes the same read port with server-supplied existing admission; sandbox/workspace and original guard remain enforced
+  ---
+  duration_ms: 300.904959
+  type: 'test'
+  ...
+# Subtest: metadata processing denial and semantic source-policy denial are explicit failures, never empty success
+ok 121 - metadata processing denial and semantic source-policy denial are explicit failures, never empty success
+  ---
+  duration_ms: 315.890042
+  type: 'test'
+  ...
+# Subtest: explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits
+ok 122 - explicit revision/clean checkout and exact evidence version cannot silently follow HEAD or working edits
+  ---
+  duration_ms: 223.935167
+  type: 'test'
+  ...
+# Subtest: manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML
+ok 123 - manifest profile disagreement, wrong agent and missing explicit manifest fail without falling back to root YAML
+  ---
+  duration_ms: 730.919208
+  type: 'test'
+  ...
+# Subtest: catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking
+ok 124 - catalog pages bind cursors to exact generation and return all eligible page metadata without semantic ranking
+  ---
+  duration_ms: 2627.296625
+  type: 'test'
+  ...
+# Subtest: original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence
+ok 125 - original read enforces temporal cutoff and explicit output capacity; no truncation or fabricated absence
+  ---
+  duration_ms: 810.309833
+  type: 'test'
+  ...
+# Subtest: UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check
+ok 126 - UTF-8 original reads preserve BOM, line endings and combining characters through the pinned byte check
+  ---
+  duration_ms: 570.644708
+  type: 'test'
+  ...
+# Subtest: cancelled or expired original admission cannot be replaced during awaits
+ok 127 - cancelled or expired original admission cannot be replaced during awaits
+  ---
+  duration_ms: 184.746167
+  type: 'test'
+  ...
+# Subtest: request expiry during source judgment stops before any protected payload load
+ok 128 - request expiry during source judgment stops before any protected payload load
+  ---
+  duration_ms: 220.844875
+  type: 'test'
+  ...
+# Subtest: request expiry while reading coverage is checked immediately before the first payload load
+ok 129 - request expiry while reading coverage is checked immediately before the first payload load
+  ---
+  duration_ms: 345.927959
+  type: 'test'
+  ...
+# Subtest: source references and selectors expose documented fields only
+ok 130 - source references and selectors expose documented fields only
+  ---
+  duration_ms: 519.702833
+  type: 'test'
+  ...
+# Subtest: source understanding is model-visible through existing plugin skills and respects Host selection
+ok 131 - source understanding is model-visible through existing plugin skills and respects Host selection
+  ---
+  duration_ms: 2113.272167
+  type: 'test'
+  ...
+# Subtest: exact public run/call and factory session bind without reading tool params or author facts
+ok 132 - exact public run/call and factory session bind without reading tool params or author facts
+  ---
+  duration_ms: 1.734042
+  type: 'test'
+  ...
+# Subtest: direct invocation keeps missing run explicit and never upgrades it to user admission
+ok 133 - direct invocation keeps missing run explicit and never upgrades it to user admission
+  ---
+  duration_ms: 0.19175
+  type: 'test'
+  ...
+# Subtest: different calls and same-session runs stay distinct; identity conflicts and ambiguity reject
+ok 134 - different calls and same-session runs stay distinct; identity conflicts and ambiguity reject
+  ---
+  duration_ms: 0.319167
+  type: 'test'
+  ...
+# Subtest: malformed event/context pairs reject; unrelated agents/tools never enter the pending map
+ok 135 - malformed event/context pairs reject; unrelated agents/tools never enter the pending map
+  ---
+  duration_ms: 0.118333
+  type: 'test'
+  ...
+# Subtest: incarnation rejects empty sessionId from hook and factory
+ok 136 - incarnation rejects empty sessionId from hook and factory
+  ---
+  duration_ms: 0.105667
+  type: 'test'
+  ...
+# Subtest: incarnation rejects null sessionId from hook and factory
+ok 137 - incarnation rejects null sessionId from hook and factory
+  ---
+  duration_ms: 0.061708
+  type: 'test'
+  ...
+# Subtest: incarnation rejects number sessionId from hook and factory
+ok 138 - incarnation rejects number sessionId from hook and factory
+  ---
+  duration_ms: 0.051792
+  type: 'test'
+  ...
+# Subtest: incarnation rejects same object sessionId from hook and factory
+ok 139 - incarnation rejects same object sessionId from hook and factory
+  ---
+  duration_ms: 0.056
+  type: 'test'
+  ...
+# Subtest: cancellation removes pending metadata; capacity is explicit and consumption frees a slot
+ok 140 - cancellation removes pending metadata; capacity is explicit and consumption frees a slot
+  ---
+  duration_ms: 0.28275
+  type: 'test'
+  ...
+# Subtest: plugin hook metadata reaches only the exact candidate execution and retains unsaved/source-off contract
+ok 141 - plugin hook metadata reaches only the exact candidate execution and retains unsaved/source-off contract
+  ---
+  duration_ms: 1.65025
+  type: 'test'
+  ...
+1..141
+# tests 141
+# suites 0
+# pass 141
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 37248.941917

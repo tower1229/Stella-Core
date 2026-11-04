@@ -18,7 +18,7 @@ import {
   type HostRetentionGuarantees,
 } from "../canghai/ingest.js";
 import type { GitCangHaiDurability } from "../canghai/durability.js";
-import type { HostInputSnapshot } from "../openclaw/host-input.js";
+import type { HostInputSnapshot } from "../canghai/host-input-snapshot.js";
 import { isRecord } from "../shared/type-guards.js";
 import { resolveTemporalPurpose, type TemporalScope } from "../canghai/retrieve.js";
 import { EpisodeEvidenceResolver } from "./episode-evidence.js";

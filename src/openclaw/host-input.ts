@@ -4,12 +4,7 @@ import { isRecord } from "../shared/type-guards.js";
 import { CompletionError } from "./completion.js";
 
 type Recorder = { hasPersisted(): boolean; getAdmissionReceipt(): unknown; getPersistedMessage?: () => unknown };
-export type HostInputSnapshot = {
-  schemaVersion: "stella.host-input-snapshot/v1";
-  hostVersion: string; agentId: string; sessionId: string; sessionKey: string;
-  entryId: string; logicalTurnId: string; generation: string; rawSeq: number;
-  parentId: string | null; text: string; event: Record<string, unknown>;
-};
+import type { HostInputSnapshot } from "../canghai/host-input-snapshot.js";
 
 export function captureHostInput(input: {
   hostVersion: string; agentId: string; sessionId: string; sessionKey: string; recorder: Recorder;

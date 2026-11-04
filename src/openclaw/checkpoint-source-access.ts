@@ -7,7 +7,8 @@ import { readCheckpointCommittedDocument } from "../canghai/checkpoint-committed
 import type { SourceAccessProvider } from "../canghai/source-access.js";
 import type { PolicyPurpose } from "../canghai/source-policy.js";
 import type { EpisodeEvidenceResolver } from "../praxis/episode-evidence.js";
-import { assertPersonalSourceMetadata, preparePersonalViews } from "../praxis/personal-views.js";
+import { preparePersonalViews } from "../praxis/personal-views.js";
+import { assertPersonalSourceMetadata } from "../canghai/source-metadata.js";
 import type { VersionedRef } from "../praxis/episode-v2.js";
 import { bindProcessingAuthority, resolveDeploymentDigest } from "./processing-authority.js";
 import type { BoundTurnRequest } from "./turn-request.js";

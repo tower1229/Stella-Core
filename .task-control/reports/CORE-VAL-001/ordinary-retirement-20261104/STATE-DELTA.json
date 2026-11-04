@@ -1,0 +1,9 @@
+{
+  "baseRevision": 199,
+  "baseSha256": "c8347889c78d6d33f5fe8488e632019c3bf2642dc551cf434c8172c07ec1c6a0",
+  "revision": 200,
+  "sha256": "6f7a18799ce99e48f4e73851d440d286ff68b2018eb35259d16c43f8f619ae93",
+  "evidence": "C-VAL-ORDINARY-RETIREMENT-20261104",
+  "ref": ".task-control/reports/CORE-VAL-001/ordinary-retirement-20261104/REPORT.json",
+  "priorDirtyStateNotCommitted": true
+}

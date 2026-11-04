@@ -2,7 +2,7 @@ import { snapshotTurnRequest, type HostTurnRequest, type BoundTurnRequest } from
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 
-export type ResponseKind = "answer" | "clarification" | "collaboration" | "action_advice" | "outcome_ack";
+import type { ResponseKind } from "../shared/response-kind.js";
 export type PersistenceStatus = "not_required" | "local_committed" | "remote_pending" | "synchronized";
 export type CompletionDraft = {
   draftId: string; text: string; evidenceRef: string;
