@@ -854,3 +854,16 @@ ordinary_runtime_retirement_stage2_20261104:
   initial_mixed_failure: 37_pass_1_fixture_failure_preserved
   independent_review_and_stage2_CI: pending_not_run
   real_host_model_private_data: not_run
+
+ordinary_compound_retirement_stage3_20261104:
+  evidence: .task-control/reports/CORE-VAL-001/ordinary-compound-retirement-r3-20261104/REPORT.json
+  retired_compound_scripts: 26
+  retired_dedicated_test_suites: 5
+  mixed_suites_with_retained_assertions: 3
+  targeted_tests: 114_pass_0_fail_local_sdk_10_9
+  build_and_test_compilation: passed
+  current_compiled_files_unchanged: 126
+  npm_package_members: 145
+  current_12_suite_CI_coverage: unchanged_not_rerun_locally
+  host_context_checkpoint_praxis_retirement: incomplete
+  real_host_and_model_semantics: not_run

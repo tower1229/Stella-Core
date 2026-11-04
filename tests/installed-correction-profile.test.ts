@@ -3,9 +3,6 @@ import test from "node:test";
 import { canonicalJson, objectVersion } from "../src/canghai/content-version.js";
 
 const profile = await import(new URL("../../scripts/lib/installed-correction-profile.mjs", import.meta.url).href);
-const legacy = await import(new URL("../../scripts/lib/acceptance-versions.mjs", import.meta.url).href);
-const { collectPackageShards } = await import(new URL("../../scripts/lib/package-shards.mjs", import.meta.url).href);
-const { assertExperimentalReports } = await import(new URL("../../scripts/lib/experimental-owner-chat-evidence.mjs", import.meta.url).href);
 const sha = (digit: string) => digit.repeat(64), rev = (digit: string) => digit.repeat(40);
 const identity = { canonicalJson, objectVersion };
 function fixture(): { report: any; expected: any } {
@@ -167,10 +164,7 @@ test("receipt, exact readback, failure payload and retry invariants reject super
   for (const [name, mutate] of cases) await t.test(name, () => { const f = fixture(); mutate(f); assert.throws(() => validate(f)); });
 });
 
-test("new consistency output cannot satisfy either legacy gate and the old 8.2 barrier still rejects 10.8", () => {
-  const f = fixture(), result = validate(f);
-  assert.throws(() => legacy.assertLegacyProbesMigrated(f.expected.versions), /legacy_probes_not_migrated/);
-  assert.throws(() => collectPackageShards(result, [], {}));
-  assert.throws(() => assertExperimentalReports(result, {}));
+test("report validation requires explicit artifact identity functions", () => {
+  const f = fixture();
   assert.throws(() => profile.validateInstalledCorrectionReport(f.report, f.expected), /artifact_identity_functions_required/);
 });

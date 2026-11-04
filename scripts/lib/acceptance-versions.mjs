@@ -80,13 +80,3 @@ export function verifyConsumerCliVersion(versions, output) {
   assert.equal(versions.consumer.cliHostVersion, versions.targetHostVersion, "acceptance_consumer_cli_version_mismatch");
   versions.consumer.cliVerified = true;
 }
-
-export function assertLegacyProbesMigrated(versions) {
-  assertWorkspaceVersionFacts(versions);
-  assert.equal(versions.consumer?.cliVerified, true, "acceptance_consumer_cli_required");
-  assert.equal(versions.consumer.hostVersion, versions.targetHostVersion, "acceptance_consumer_host_version_mismatch");
-  assert.equal(versions.consumer.cliHostVersion, versions.targetHostVersion, "acceptance_consumer_cli_version_mismatch");
-  // This existing probe family remains 8.2-only. Metadata alignment must not
-  // convert it into a claim that its Host behaviors were ported to 10.8.
-  assert.equal(versions.consumer.hostVersion, "2026.8.2", "acceptance_legacy_probes_not_migrated: supported Host is 2026.8.2");
-}

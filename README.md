@@ -20,10 +20,12 @@ query-embedding bridges, their acceptance/initialization registration, and four
 standalone launchers. The former startup and source-locator assertions now run
 against the ordinary entry and the retained repository-data parser. Mixed
 source-access, initialization-file and recovery tests keep their applicable
-assertions. Older compound probe runners remain historical and are not invoked
-by the current npm entry points or CI; their dependency graph is a later cleanup
-group, not an alternative installation route. Retiring an obsolete test does not
-turn its historical failure into a passing result or prove semantic recall.
+assertions. The old full/experimental package runners, their 152-case shard
+aggregation and dedicated probes/tests have also been removed. Version checks,
+standalone command-capture regressions and process supervision remain; their
+applicable assertions are retained. Host context/checkpoint/Praxis runtime sources are the
+next dependency group. Retiring an obsolete test does not turn its historical
+failure into a passing result or prove semantic recall.
 
 The current priority is **understanding existing data**: select relevant sources,
 check originals, and answer with evidence and uncertainty. The

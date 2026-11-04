@@ -1,0 +1,13 @@
+{
+  "artifactSha256": "4cef9c5805cb53c07bcfa6a43b5c6cd74015e45c618f5c6aa755245724087b7a",
+  "members": 145,
+  "currentCompiledFilesComparedToStage2": 126,
+  "currentCompiledFilesChanged": [],
+  "packageOnlyValidation": true,
+  "currentReadmeMatches": true,
+  "packageContractTestsThisStage": "not_rerun",
+  "stage2CI": "41763307023 passed143/143 SDK10.8",
+  "localSdk": "2026.10.9",
+  "host": false,
+  "model": false
+}

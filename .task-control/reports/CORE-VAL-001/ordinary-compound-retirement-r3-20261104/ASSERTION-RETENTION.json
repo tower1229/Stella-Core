@@ -1,0 +1,50 @@
+[
+  {
+    "path": "tests/acceptance-versions.test.ts",
+    "before": 7,
+    "after": 6,
+    "identical": [
+      "workspace observations name the actual SDK and Core package without inventing a consumer",
+      "missing, ranged or inconsistent workspace metadata fails closed",
+      "consumer mismatch observations survive while verification stays false",
+      "prepared versions bind the target, actual workspace SDK and Core without a prior consumer"
+    ],
+    "changedOrRenamed": [
+      "consumer versions require observed manifest, lock, SDK resolution and exact CLI agreement",
+      "missing target facts cannot pass via matching null observations or asserted success flags"
+    ],
+    "removed": [
+      "both real runners preserve truthful failed receipts before any consumer install or Host invocation"
+    ]
+  },
+  {
+    "path": "tests/captured-command.test.ts",
+    "before": 2,
+    "after": 1,
+    "identical": [
+      "captured command settles normal, failure, timeout, cancellation and log-error paths without exit13"
+    ],
+    "changedOrRenamed": [],
+    "removed": [
+      "actual Experimental runner saves failed/cancelled terminal receipts with original child facts"
+    ]
+  },
+  {
+    "path": "tests/installed-correction-profile.test.ts",
+    "before": 6,
+    "after": 6,
+    "identical": [
+      "10.8 profile validates the current committed/verified shape without accepting any Host or complete gate",
+      "committed read failure is valid failure evidence; recovery and retry keep the exact committed receipt",
+      "uninstalled, inconsistent or cancelled observations fail closed",
+      "owner or session alone never substitutes for matching request, hook, executor and archive evidence",
+      "receipt, exact readback, failure payload and retry invariants reject superficially green reports"
+    ],
+    "changedOrRenamed": [
+      "report validation requires explicit artifact identity functions"
+    ],
+    "removed": [
+      "new consistency output cannot satisfy either legacy gate and the old 8.2 barrier still rejects 10.8"
+    ]
+  }
+]

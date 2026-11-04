@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-04T03:01:22.925171+00:00",
+  "status": "author_validated_pending_independent_review",
+  "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d",
+  "codePaths": 37,
+  "codeManifestSha256": "1ffbabd19845ee16d9118acf8ffe47a694a9c5af7c09ebeb0e58e42bbf2b48ed",
+  "deletedScripts": 26,
+  "deletedDedicatedSuites": 5,
+  "mixedSuitesSplit": 3,
+  "oldVersionGate": "assertLegacyProbesMigrated removed with its retired8.2runner callers; actual version metadata checks retained",
+  "currentProductionSourceChanged": false,
+  "testCounts": {
+    "tests": 114,
+    "pass": 114,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "package": {
+    "artifactSha256": "4cef9c5805cb53c07bcfa6a43b5c6cd74015e45c618f5c6aa755245724087b7a",
+    "members": 145,
+    "currentCompiledFilesComparedToStage2": 126,
+    "currentCompiledFilesChanged": [],
+    "packageOnlyValidation": true,
+    "currentReadmeMatches": true,
+    "packageContractTestsThisStage": "not_rerun",
+    "stage2CI": "41763307023 passed143/143 SDK10.8",
+    "localSdk": "2026.10.9",
+    "host": false,
+    "model": false
+  },
+  "referencesToRemovedFilesInRetainedScriptsTests": "none_tracked_or_untracked",
+  "assertionRetention": "ASSERTION-RETENTION.json;10top-level bodies byte-identical,2only lose old gate calls,1keeps identity-function refusal while dropping obsolete aggregate gates",
+  "unchanged": "current12suite packaged CI,42compiled source modules,source/grant/transaction code and shared SDK supervision",
+  "remaining": {
+    "hostContextCheckpointPraxis": "next source graph, not removed here",
+    "compoundCaptureHelper": "now referenced only by its13mode regression; explicitly retained in this batch, further orphan cleanup remains",
+    "workspaceOwnerCoupling": "compiledOwnerSuite still requires checkpoint-agent-supply.test; must be addressed when that old source/test group retires",
+    "canghai": "new full-branch conversion, version handoff and synchronization remain separate work; no CangHai files changed"
+  },
+  "recovery": "all31deletions are exact base Git objects; REMOVALS.json records hashes and sizes; no private files or installed artifacts removed",
+  "boundaries": {
+    "liveHost": false,
+    "oldUnknownLoad": "not_replayed",
+    "paidModel": false,
+    "privateOriginals": false,
+    "grantConfigOrPermissionsChanged": false,
+    "push": false,
+    "wholeLegacySuite": "not_run_not_green"
+  },
+  "previousStageCI": {
+    "headSha": "2da58f6da4f1771c89660eb27b5787f6205c5e7d",
+    "run": 41763307023,
+    "conclusion": "success",
+    "counts": {
+      "tests": 143,
+      "pass": 143,
+      "fail": 0
+    },
+    "sdk": "2026.10.8"
+  }
+}

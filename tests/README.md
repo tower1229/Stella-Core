@@ -9,3 +9,5 @@
 Framework IR 测试验证来源 pin、编译元数据及精确激活快照；不要求 LLM 重新编译产生相同字节。公开 fixtures 和日志不得包含私人资料。
 
 praxis-episode-v2-contract.test.ts 检查新目标格式；已有 v1 runtime 测试不表示 v2 写入、迁移和 Exact Host 已实现。新增行为必须同时补充真实接口层的成功与故障测试。
+
+旧 full/experimental 复合runner、152项分片聚合和专用probe断言已退役，可从Git历史恢复。版本事实、命令捕获的13种结果、artifact身份函数检查和SDK测试监督仍保留；混合测试只拆除已删除runner及8.2专用gate部分。现行12套解包测试的CI覆盖保持，旧runner历史报告不改写为通过。

@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 import test, { type TestContext } from "node:test";
 
 const versionsApi = await import(new URL("../../scripts/lib/acceptance-versions.mjs", import.meta.url).href);
-const packageEvidence = await import(new URL("../../scripts/lib/package-evidence.mjs", import.meta.url).href);
-const { PACKAGE_PLAN_VERSION } = await import(new URL("../../scripts/lib/package-shards.mjs", import.meta.url).href);
-const exec = promisify(execFile), target = "2026.10.8", coreName = "@tower1229/stella-core", coreVersion = "0.1.0-alpha.0";
+const target = "2026.10.8", coreName = "@tower1229/stella-core", coreVersion = "0.1.0-alpha.0";
 const json = async (file: string) => JSON.parse(await readFile(file, "utf8"));
 const put = async (file: string, value: unknown) => writeFile(file, JSON.stringify(value));
 async function change(file: string, mutate: (value: any) => void) { const value = await json(file); mutate(value); await put(file, value); }
@@ -74,7 +70,6 @@ test("consumer versions require observed manifest, lock, SDK resolution and exac
     assert.equal(f.versions.consumer.cliVerified, false);
   }
   versionsApi.verifyConsumerCliVersion(f.versions, target); assert.equal(f.versions.consumer.cliVerified, true);
-  assert.throws(() => versionsApi.assertLegacyProbesMigrated(f.versions), /legacy_probes_not_migrated/);
 });
 
 test("consumer mismatch observations survive while verification stays false", async t => {
@@ -113,54 +108,4 @@ test("missing target facts cannot pass via matching null observations or asserte
   assert.throws(() => versionsApi.assertPreparedVersions({ hostVersion: null, versions: structuredClone(empty) }, empty), /target_not_exact/);
   empty.consumer = { metadataVerified: true, cliVerified: true, hostVersion: null, cliHostVersion: null };
   assert.throws(() => versionsApi.verifyConsumerCliVersion(empty, "unknown"), /target_not_exact/);
-  assert.throws(() => versionsApi.assertLegacyProbesMigrated(empty), /target_not_exact/);
-});
-
-test("both real runners preserve truthful failed receipts before any consumer install or Host invocation", async t => {
-  for (const runner of ["package-smoke.mjs", "package-experimental-owner-chat.mjs"])
-    for (const scenario of runner === "package-smoke.mjs" ? ["pre-install check failure", "SDK mismatch", "old prepared"] : ["pre-install check failure", "SDK mismatch"])
-    await t.test(`${runner}: ${scenario}`, async t => {
-      const badSdk = scenario === "SDK mismatch";
-      const f = await fixture(t);
-      await mkdir(path.join(f.root, "scripts"));
-      await cp(new URL(`../../scripts/${runner}`, import.meta.url), path.join(f.root, "scripts", runner));
-      await cp(new URL("../../scripts/lib", import.meta.url), path.join(f.root, "scripts/lib"), { recursive: true });
-      await writeFile(path.join(f.root, ".gitignore"), "node_modules/\n.artifacts/\ndist/\n.test-dist/\n");
-      if (badSdk) await change(path.join(f.host, "package.json"), x => { x.version = "2026.10.7"; });
-      const gitEnv = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
-      for (const args of [["init", "--quiet"], ["add", "."], ["-c", "user.name=Synthetic", "-c", "user.email=synthetic@example.invalid", "commit", "--quiet", "-m", "metadata fixture"]])
-        await exec("git", args, { cwd: f.root, env: gitEnv });
-      const outside = await mkdtemp(path.join(os.tmpdir(), "stella-version-runner-")); t.after(() => rm(outside, { recursive: true, force: true }));
-      const calls = path.join(outside, "calls.jsonl"), fakeNpm = path.join(outside, "npm.cjs"), receipt = path.join(outside, "receipt.json");
-      await writeFile(fakeNpm, `require('node:fs').appendFileSync(${JSON.stringify(calls)},JSON.stringify(process.argv.slice(2))+'\\n');process.exit(17);`);
-      const preparedDirectory = path.join(outside, "prepared");
-      if (scenario === "old prepared") {
-        const source = await packageEvidence.sourceIdentity(f.root), trees: Record<string, any> = {};
-        for (const name of ["compiled-fixtures", "compiled-build"]) {
-          await mkdir(path.join(preparedDirectory, name), { recursive: true });
-          await put(path.join(preparedDirectory, name, "build-identity.json"), { coreRevision: source.coreRevision, sourceClean: true });
-          trees[name] = await packageEvidence.treeManifest(path.join(preparedDirectory, name));
-        }
-        await writeFile(path.join(preparedDirectory, "package.tgz"), "synthetic frozen bytes; never installed");
-        await put(path.join(preparedDirectory, "prepared.json"), { schemaVersion: "stella.prepared-package/v1", planVersion: PACKAGE_PLAN_VERSION,
-          status: "prepared", source, coreRevision: source.coreRevision, sourceManifestSha256: source.digest, hostVersion: "2026.8.2",
-          packed: { filename: "package.tgz", files: [] }, artifactSha256: packageEvidence.sha256(await readFile(path.join(preparedDirectory, "package.tgz"))),
-          fixtures: trees["compiled-fixtures"], build: trees["compiled-build"], compiledFixtureSha256: trees["compiled-fixtures"].digest,
-          compiledBuildSha256: trees["compiled-build"].digest, extracted: { entries: [] } });
-      }
-      const args = [path.join(f.root, "scripts", runner), ...runner === "package-smoke.mjs"
-        ? ["--dreaming-disabled", ...scenario === "old prepared" ? ["--shard", "memory-access", "--prepared", preparedDirectory] : ["--prepare", preparedDirectory]] : []];
-      await assert.rejects(exec(process.execPath, args, { cwd: f.root, env: { ...gitEnv, npm_execpath: fakeNpm, STELLA_ACCEPTANCE_RECEIPT_PATH: receipt }, timeout: 30_000 }));
-      const result = runner === "package-smoke.mjs" ? await json(receipt)
-        : await json(path.join(f.root, ".artifacts/experimental-owner-chat", (await readdir(path.join(f.root, ".artifacts/experimental-owner-chat")))[0]!, "receipt.json"));
-      assert.equal(result.status, "failed"); assert.equal(result.versions.targetHostVersion, target);
-      assert.equal(result.versions.workspaceSdkVersion, badSdk ? "2026.10.7" : target);
-      assert.equal(result.versions.corePackageVersion, coreVersion); assert.equal(result.versions.consumer, null);
-      assert.equal(result.hostVersion, badSdk ? null : target); assert.equal(result.fullMemoryAccepted, false);
-      if (badSdk) { await assert.rejects(readFile(calls), /ENOENT/); assert.match(result.error, /workspace_sdk_version_mismatch/); }
-      else if (scenario === "old prepared") { await assert.rejects(readFile(calls), /ENOENT/); assert.match(result.error, /prepared_versions_mismatch/); }
-      else assert.deepEqual((await readFile(calls, "utf8")).trim().split("\n").map(line => JSON.parse(line)), [["run", "check", "--silent"]]);
-      if (runner === "package-smoke.mjs") assert.equal(result.installedArtifactTested, false);
-      else assert.equal(result.experimentalOwnerChatAccepted, false);
-    });
 });

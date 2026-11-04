@@ -1,0 +1,188 @@
+[
+  {
+    "path": "scripts/focused-correction-consumer.mjs",
+    "sha256": "75f8e6998c8593407a2ab912e1d5ba98ae6c0f7489fe513936def1619a453672",
+    "bytes": 15612,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/lib/dreaming-evidence.mjs",
+    "sha256": "f80878d64c0aca7188bbf6dbf693faf3616e77d41e8cb3ebf8593a19e9dfd772",
+    "bytes": 3971,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/lib/experimental-owner-chat-evidence.mjs",
+    "sha256": "063a370a541d2caaf05fe3d60495387b8ffe2cc4e73085e2031facfa872f49c6",
+    "bytes": 57585,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/lib/focused-correction-consumer-probe.mjs",
+    "sha256": "7b127739c574af2a9fe015844cae5e8f58612272031dda29c69adb6d0a204438",
+    "bytes": 26657,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/lib/host-memory-evidence.mjs",
+    "sha256": "b96e20e5b760acb12a66e5c525515ee70619b8f2c2fbbfe878ed50c90cddfb99",
+    "bytes": 19027,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/lib/isolated-probe-host.mjs",
+    "sha256": "d3c46fa23678c6f9b62034fd71241d69820155f8e1c36910c79bc8f01fe51391",
+    "bytes": 3387,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/lib/package-shards.mjs",
+    "sha256": "aab3535e80da5554c4264bc0b3f8e6a004933111ca7f5a9d276d725cd34c4bbd",
+    "bytes": 7961,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/lib/prepared-package.mjs",
+    "sha256": "b06f3bd0d7221e740e8bc867b0deed002329e92d549a8696e41f13342ea5a563",
+    "bytes": 3274,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/package-ci-aggregate.mjs",
+    "sha256": "8b12399b124224934e96b196225c7cc78989731b5d0b26bce7cf7ea827c24783",
+    "bytes": 3008,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/package-experimental-owner-chat.mjs",
+    "sha256": "af8d93d50cbdad148909ed768c3a3fc5e2aeb52fb3c8dff69032948de2161850",
+    "bytes": 17101,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/package-smoke.mjs",
+    "sha256": "a2f42db52c4cdd981b14a683d8cc401b44285c582a29330119dac21c2a1fa2ca",
+    "bytes": 30951,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-archive-retention.mjs",
+    "sha256": "839686ed3f0a5112853cf99d478484a4cdf627c1ea8d13623ebacce9bc7d0c72",
+    "bytes": 16617,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-capability-acceptance.mjs",
+    "sha256": "b375bd2cfadc5971bac92ecc5e35c7e3731aa27def3bca408e58ff5386ba5fea",
+    "bytes": 14744,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-checkpoint-agent-supply.mjs",
+    "sha256": "69659f7b18bb8bbbcf0179af7d49aee20ebfedabb6868f24a265a71b3b8be696",
+    "bytes": 66248,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-checkpoint-correction-installed.mjs",
+    "sha256": "50b0d66b888729bd6d74b74de616cdcab9fa44cdb246efb26bbd1d190b0b379b",
+    "bytes": 44438,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-checkpoint-understanding-installed.mjs",
+    "sha256": "4931bee007a2afe4a0af6fb9bd7733a0e05b96633976526a7c68caa1a07afacb",
+    "bytes": 46433,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-checkpoint-v3-installed.mjs",
+    "sha256": "bf789f5456533189c700ba3e2276f59f7cfe858584a9c3952d89ee72db8dddd2",
+    "bytes": 23786,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-checkpoint-work-installed.mjs",
+    "sha256": "3df3a3ce6e4abb8ec7f246694a9e3cc2cb7b29fb93ff87ccf59a0aa121625757",
+    "bytes": 36412,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-host-memory-acceptance.mjs",
+    "sha256": "25c60f49478ac1aa21509a367a79338e5061149730b1a8cddf6133ec83ceecaa",
+    "bytes": 45488,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-main-plugin.mjs",
+    "sha256": "d72c5ad2602c916701130cc14b33f9a4c87d02bcb67889595b0ddb0b692c6502",
+    "bytes": 228999,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-managed-host-context.mjs",
+    "sha256": "0aeb12b4effdfc886202d8da53b6d3e4cb9133d0966a2f5f5afefda2615e8bfa",
+    "bytes": 39112,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-native-active-memory.mjs",
+    "sha256": "db26fd5b046af850317c18562485eddc0d037688c34f16d6cc0eeb0104982d55",
+    "bytes": 11919,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-native-dreaming.mjs",
+    "sha256": "9e424800ebfc3dd6ca3b414321cb6448c34ab7ed1bce06a854316f5f0d789da9",
+    "bytes": 17439,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/probe-native-memory-producers.mjs",
+    "sha256": "fc440367550b33d154e8d92896b79a6187db6eaca394bcc0447f5de64d7100c9",
+    "bytes": 9802,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/verify-dreaming-boundary.mjs",
+    "sha256": "57ea3efca2bc7113293e22fd32575f2fa06c8574526d7ea471af362afd0ffa10",
+    "bytes": 9269,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "scripts/verify-host-memory.mjs",
+    "sha256": "43ac732531a81165d82ce11767ea840c49fde84ead817931a9cccdf0538a12c7",
+    "bytes": 9983,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "tests/acceptance-npm-cancel.test.ts",
+    "sha256": "10741766567550f43c5418db20b0ff18291eed9c72236c7444531c2c31815a4c",
+    "bytes": 8938,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "tests/dreaming-evidence.test.ts",
+    "sha256": "86a278e846110bdb9e5848f6ee3c24d377f3d4c4aca57014399a08e21fc1940e",
+    "bytes": 4335,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "tests/experimental-owner-chat-ci.test.ts",
+    "sha256": "5b99e5f9bbd1d740498b9831b34942ad1a2fa856b585857f13f2285655ea653c",
+    "bytes": 67792,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "tests/host-memory-evidence.test.ts",
+    "sha256": "0e3ac4aa6b9372effae8c549abac28b94477154b22a467b97afb802d7378664c",
+    "bytes": 12954,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  },
+  {
+    "path": "tests/package-shards.test.ts",
+    "sha256": "4577a5656a68b50f80c4bafc2fea0e1e02a0c3c35697e6425e64d3d4d77f8ea2",
+    "bytes": 14046,
+    "baseCommit": "2da58f6da4f1771c89660eb27b5787f6205c5e7d"
+  }
+]

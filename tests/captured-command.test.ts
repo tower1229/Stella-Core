@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -91,101 +91,4 @@ partialStdoutPreserved:error.stdout?.includes(${JSON.stringify(marker)}),childre
       assert.equal(result.capture.logsDrained, !mode.includes("log-error") && mode !== "drain-timeout" && mode !== "open-error");
     });
   }
-});
-
-async function runnerFixture(t: TestContext, mode: string) {
-  const parent = await temporary(t), root = path.join(parent, "checkout"), host = path.join(root, "node_modules/openclaw");
-  await mkdir(path.join(root, "scripts"), { recursive: true }); await mkdir(path.join(host, "dist/plugin-sdk"), { recursive: true });
-  await cp(new URL("../../scripts/package-experimental-owner-chat.mjs", import.meta.url), path.join(root, "scripts/package-experimental-owner-chat.mjs"));
-  await cp(new URL("../../scripts/lib", import.meta.url), path.join(root, "scripts/lib"), { recursive: true });
-  // Only the copied test dependency shortens execution limits or injects I/O
-  // faults. The unmodified runner must still supply its production defaults.
-  await writeFile(path.join(root, "scripts/lib/captured-command.mjs"), `import assert from 'node:assert/strict';
-import {Writable} from 'node:stream';import {appendFileSync,createWriteStream} from 'node:fs';
-import {captureCommand as real} from ${JSON.stringify(helper)};
-export function captureCommand(command,args,options,capture){
-assert.equal(options.timeout,capture.stdoutPath.endsWith('test.stdout')?900000:600000);assert.equal(options.maxBuffer,32*1024*1024);
-const mode=${JSON.stringify(mode)},createLog=file=>mode==='log-error'&&file===capture.stdoutPath?new Writable({
-write(chunk,encoding,done){appendFileSync(file,chunk);done();},
-final(done){setTimeout(()=>done(Object.assign(new Error('synthetic runner log error'),{code:'ELOGTEST'})),30);}
-}):createWriteStream(file);
-return real(command,args,{...options,timeout:mode==='timeout'||mode==='timeout-exit0'&&capture.stdoutPath.endsWith('test.stdout')?1000:options.timeout,maxBuffer:mode==='maxBuffer'?1024:options.maxBuffer},{...capture,createLog});}`);
-  await writeFile(path.join(root, ".gitignore"), "node_modules/\n.artifacts/\n");
-  await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "@tower1229/stella-core", version: "0.1.0-alpha.0",
-    devDependencies: { openclaw: "2026.10.8" }, openclaw: { build: { openclawVersion: "2026.10.8", pluginSdkVersion: "2026.10.8" } } }));
-  await writeFile(path.join(root, "package-lock.json"), JSON.stringify({ packages: {
-    "": { name: "@tower1229/stella-core", version: "0.1.0-alpha.0", devDependencies: { openclaw: "2026.10.8" } }, "node_modules/openclaw": { version: "2026.10.8" },
-  } }));
-  await writeFile(path.join(host, "package.json"), JSON.stringify({ name: "openclaw", version: "2026.10.8", exports: { "./plugin-sdk/plugin-entry": "./dist/plugin-sdk/plugin-entry.js" } }));
-  await writeFile(path.join(host, "dist/plugin-sdk/plugin-entry.js"), "throw Error('Metadata fixture must not execute SDK');");
-  const env = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
-  const fakeNpm = path.join(parent, "npm.cjs"), calls = path.join(parent, "npm-calls.jsonl");
-  const writes = mode === "cancel-exit0"
-    ? `process.stderr.write(${JSON.stringify(stderrMarker + "\n")},()=>process.stdout.write(${JSON.stringify(marker + "\n")}));`
-    : mode === "cancel" ? `process.stdout.write(${JSON.stringify(marker + "\n")},()=>process.stderr.write(${JSON.stringify(stderrMarker + "\n")}));`
-    : `process.stdout.write(${JSON.stringify(marker + "\n")});process.stderr.write(${JSON.stringify(stderrMarker + "\n")});`;
-  await writeFile(fakeNpm, `const args=process.argv.slice(2);require('node:fs').appendFileSync(${JSON.stringify(calls)},JSON.stringify(args)+'\\n');
-if(${JSON.stringify(mode)}==='timeout-exit0'){
-if(args.length!==3||args[0]!=='run'||args[2]!=='--silent'||!['check','check:schemas','test'].includes(args[1]))throw Error('Unexpected command');
-if(args[1]!=='test')process.exit(0);
-}else if(JSON.stringify(args)!==JSON.stringify(['run','check','--silent']))throw Error('Unexpected command');
-${mode.endsWith("-exit0") ? "process.on('SIGTERM',()=>process.exit(0));" : ""}
-${writes}
-${mode.startsWith("cancel") || mode.startsWith("timeout") ? "setInterval(()=>{},1000);" : mode === "maxBuffer"
-    ? "setTimeout(()=>process.stdout.write('x'.repeat(131072)),30);" : mode === "log-error" ? "process.exitCode=0;" : "process.exitCode=13;"}`);
-  // Exercise the actual runner's direct test step, without compilation or SDK
-  // work in this capture-only fault fixture. Run in the same owned child PID.
-  await writeFile(path.join(root, "scripts/run-workspace-tests.mjs"),
-    `import {createRequire} from 'node:module';const require=createRequire(import.meta.url);process.argv=[process.execPath,process.argv[1],'run','test','--silent'];\n` + await readFile(fakeNpm, "utf8"));
-  for (const args of [["init", "--quiet"], ["add", "."], ["-c", "user.name=Synthetic", "-c", "user.email=synthetic@example.invalid", "commit", "--quiet", "-m", "runner fixture"]])
-    await exec("git", args, { cwd: root, env });
-  return { parent, root, calls, env: { ...env, npm_execpath: fakeNpm } };
-}
-
-test("actual Experimental runner saves failed/cancelled terminal receipts with original child facts", async t => {
-  for (const mode of ["exit13", "timeout", "timeout-exit0", "cancel", "cancel-exit0", "log-error", "maxBuffer"]) await t.test(mode, async t => {
-    const f = await runnerFixture(t, mode), base = path.join(f.root, ".artifacts/experimental-owner-chat");
-    const pending = exec(process.execPath, [path.join(f.root, "scripts/package-experimental-owner-chat.mjs")], { cwd: f.root, env: f.env, timeout: 10_000 });
-    const outcome = pending.then(result => ({ code: 0, ...result }), (error: any) => ({ code: error.code, stdout: error.stdout, stderr: error.stderr }));
-    try {
-      if (mode.startsWith("cancel")) {
-        let ready = false;
-        for (let attempt = 0; attempt < 500 && pending.child.exitCode === null; attempt++) {
-          try {
-            const [directory] = await readdir(base), [stdout, stderr] = await Promise.all([
-              readFile(path.join(base, directory!, "check.stdout"), "utf8"), readFile(path.join(base, directory!, "check.stderr"), "utf8"),
-            ]);
-            ready = stdout.includes(marker) && stderr.includes(stderrMarker);
-          } catch { /* Child has not opened both logs yet. */ }
-          if (ready) break; await new Promise(resolve => setTimeout(resolve, 10));
-        }
-        assert.equal(ready, true); pending.child.kill("SIGTERM");
-      }
-      const ended = await outcome; assert.equal(ended.code, 1, ended.stderr);
-      assert.doesNotMatch(ended.stderr, /unsettled top-level await|UNHANDLED_REJECTION|UnhandledPromiseRejection/);
-      const [directory] = await readdir(base), out = path.join(base, directory!), receipt = JSON.parse(await readFile(path.join(out, "receipt.json"), "utf8"));
-      assert.equal(receipt.status, mode.startsWith("cancel") ? "cancelled" : "failed"); assert.ok(Date.parse(receipt.endedAt));
-      assert.equal(receipt.steps.length, mode === "timeout-exit0" ? 3 : 1); const step = receipt.steps.at(-1);
-      assert.equal(step.status, receipt.status); assert.ok(Date.parse(step.endedAt)); assert.equal(step.capture.logsDrained, mode !== "log-error");
-      if (mode === "exit13") { assert.equal(step.exitCode, 13); assert.equal(step.errorCode, 13); }
-      if (mode === "cancel" || mode === "timeout") { assert.equal(step.exitCode, null); assert.equal(step.signal, "SIGTERM"); assert.equal(step.killed, true); }
-      if (mode === "timeout") assert.equal(step.capture.stdioComplete, false);
-      if (mode.endsWith("-exit0")) {
-        assert.equal(step.exitCode, 0); assert.equal(step.signal, null); assert.equal(step.killed, true);
-        assert.equal(step.errorCode, "ERR_CAPTURE_COMMAND_INTERRUPTED"); assert.equal(step.capture.stdioComplete, mode === "cancel-exit0");
-      }
-      if (mode === "log-error") { assert.equal(step.exitCode, 0); assert.equal(step.errorCode, "ERR_CAPTURE_LOG_FAILURE"); assert.ok(step.capture.logErrors.some((error: any) => error.code === "ELOGTEST")); }
-      if (mode === "maxBuffer") assert.equal(step.errorCode, "ERR_CHILD_PROCESS_STDIO_MAXBUFFER");
-      assert.equal(receipt.experimentalOwnerChatAccepted, false); assert.equal(receipt.fullMemoryAccepted, false); assert.equal(receipt.versions.consumer, null);
-      assert.deepEqual(receipt.checks, mode === "timeout-exit0" ? [{ script: "check", passed: true }, { script: "check:schemas", passed: true }] : []);
-      assert.equal(receipt.tests, undefined); assert.equal(receipt.testTotals, undefined);
-      assert.deepEqual((await readFile(f.calls, "utf8")).trim().split("\n").map(line => JSON.parse(line)),
-        (mode === "timeout-exit0" ? ["check", "check:schemas", "test"] : ["check"]).map(script => ["run", script, "--silent"]));
-      assert.ok((await readFile(path.join(out, `${step.name}.stdout`), "utf8")).includes(marker));
-      assert.ok((await readFile(path.join(out, `${step.name}.stderr`), "utf8")).includes(stderrMarker));
-    } finally {
-      if (pending.child.exitCode === null && pending.child.signalCode === null) pending.child.kill("SIGTERM");
-      await outcome;
-    }
-  });
 });
